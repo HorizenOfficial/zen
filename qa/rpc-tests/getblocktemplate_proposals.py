@@ -4,6 +4,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_false, assert_equal, mark_logs
 from test_framework.mininode import COIN, hash256, ser_string
@@ -143,7 +144,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         self.doTest(sc_fork_reached)
 
         # reach the fork where certificates are supported
-        self.nodes[0].generate(20) 
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT-200) 
         self.sync_all()
 
         mark_logs(("active chain height = %d: testing after sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)

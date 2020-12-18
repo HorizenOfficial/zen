@@ -9,6 +9,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
     get_epoch_data, \
     assert_false, assert_true
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
@@ -67,8 +68,8 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
 
-        mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(220)
+        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
         self.sync_all()
 
         # SC creation
@@ -121,7 +122,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Fee paid for fwd tx: {}".format(fee_fwt), self.nodes, DEBUG_MODE)
         bal_after_fwd_tx = self.nodes[0].getbalance("", 0)
         mark_logs("Node0 balance after fwd: {}".format(bal_after_fwd_tx), self.nodes, DEBUG_MODE)
-        assert_equal(bal_before_fwd_tx, bal_after_fwd_tx + fwt_amount - fee_fwt - Decimal(8.75))  # 8.75 is matured coinbase
+        assert_equal(bal_before_fwd_tx, bal_after_fwd_tx + fwt_amount - fee_fwt - Decimal(MINER_REWARD_POST_H200))
 
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], Decimal(0))
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][0]['amount'], creation_amount)
@@ -435,7 +436,7 @@ class sc_cert_base(BitcoinTestFramework):
         coinbase = self.nodes[0].getblock(mined, True)['tx'][0]
         decoded_coinbase = self.nodes[2].getrawtransaction(coinbase, 1)
         miner_quota = decoded_coinbase['vout'][0]['value']
-        assert_equal(miner_quota, (Decimal('7.5') + CERT_FEE))
+        assert_equal(miner_quota, (Decimal(MINER_REWARD_POST_H200) + CERT_FEE))
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount- amount_cert_1[0]["amount"])
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 

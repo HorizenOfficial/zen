@@ -4,6 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_true, initialize_chain_clean, \
     mark_logs, start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
@@ -88,8 +89,8 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         txs_node1 = []
 
         # network topology: (0)--(1)--(2)
-        mark_logs("\nNode 0 generates 220 blocks", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(220)
+        mark_logs("\nNode 0 generates {} blocks".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
         self.sync_all()
 
         taddr_1 = self.nodes[1].getnewaddress()

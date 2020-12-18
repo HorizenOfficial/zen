@@ -4,6 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, get_epoch_data, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs
@@ -62,8 +63,8 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
 
-        mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(220)
+        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
         self.sync_all()
 
         #generate wCertVk and constant
@@ -138,7 +139,7 @@ class sc_cert_base(BitcoinTestFramework):
         coinbase = self.nodes[0].getblock(mined, True)['tx'][0]
         decoded_coinbase = self.nodes[2].getrawtransaction(coinbase, 1)
         miner_quota = decoded_coinbase['vout'][0]['value']
-        assert_equal(miner_quota, (Decimal('7.5') + CERT_FEE))
+        assert_equal(miner_quota, (Decimal(MINER_REWARD_POST_H200) + CERT_FEE))
 
         mark_logs("Checking that amount transferred by certificate reaches Node2 wallet and it is immature", self.nodes, DEBUG_MODE)
         res = self.nodes[2].gettransaction(cert_good)

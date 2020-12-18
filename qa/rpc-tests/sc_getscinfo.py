@@ -4,6 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, get_epoch_data, \
@@ -56,11 +57,11 @@ class sc_getscinfo(BitcoinTestFramework):
 
         creation_amount = Decimal("1.0")
 
-        mark_logs("Node 0 generates 110 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(110)
+        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT/2), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT/2)
         self.sync_all()
-        mark_logs("Node 1 generates 110 block", self.nodes, DEBUG_MODE)
-        self.nodes[1].generate(110)
+        mark_logs("Node 1 generates {} block".format(MINIMAL_SC_HEIGHT/2), self.nodes, DEBUG_MODE)
+        self.nodes[1].generate(MINIMAL_SC_HEIGHT/2)
         self.sync_all()
         prev_epoch_hash = self.nodes[0].getbestblockhash()
 

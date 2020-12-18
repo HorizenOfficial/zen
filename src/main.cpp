@@ -2203,7 +2203,8 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", txBase.GetHash().ToString()));
 
     CAmount nValueIn = 0;
-    for (unsigned int i = 0; i < txBase.GetVin().size(); i++) {
+    for (unsigned int i = 0; i < txBase.GetVin().size(); i++)
+    {
         const CTxIn& in = txBase.GetVin().at(i);
         const COutPoint &prevout = in.prevout;
         const CCoins *coins = inputs.AccessCoins(prevout.hash);
@@ -2246,31 +2247,23 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                 }
             }
-            else
+        } else {
+            ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nSpendHeight);
+
+            if (rpLevel >= RPLEVEL_FIXED_2)
             {
-                ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nSpendHeight);
+                // check for invalid OP_CHECKBLOCKATHEIGHT in order to catch it before signature verifications are performed
+                std::string reason;
+                CScript scriptPubKey(coins->vout[prevout.n].scriptPubKey);
 
-                if (rpLevel >= RPLEVEL_FIXED_2)
+                if (!CheckReplayProtectionAttributes(scriptPubKey, reason) )
                 {
-                    // check for invalid OP_CHECKBLOCKATHEIGHT in order to catch it before signature verifications are performed
-                    std::string reason;
-                    CScript scriptPubKey(coins->vout[prevout.n].scriptPubKey);
-
-                    if (!CheckReplayProtectionAttributes(scriptPubKey, reason) )                      
-                    {
-                        return state.Invalid(
-                            error("%s(): input %d has an invalid scriptPubKey %s (reason=%s)",
-                                __func__, i, scriptPubKey.ToString(), reason),
-                            REJECT_INVALID, "bad-txns-output-scriptpubkey");
-                    }
+                    return state.Invalid(
+                        error("%s(): input %d has an invalid scriptPubKey %s (reason=%s)",
+                            __func__, i, scriptPubKey.ToString(), reason),
+                        REJECT_INVALID, "bad-txns-output-scriptpubkey");
                 }
             }
-
-            // Check for negative or overflow input values
-            nValueIn += coins->vout[prevout.n].nValue;
-            if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
-                return state.DoS(100, error("CheckInputs(): txin values out of range"),
-                                 REJECT_INVALID, "bad-txns-inputvalues-outofrange");
         }
 
         // Check for negative or overflow input values
@@ -2508,7 +2501,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         const CTxUndo &certUndo = blockUndo.vtxundo[certOffset + i];
         if (isBlockTopQualityCert)
         {
-        	const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
+            const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
 
             // cancels scEvents only if cert is first in its epoch, i.e. if it won't restore any other cert
             if (prevBlockTopQualityCertHash.IsNull())

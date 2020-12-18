@@ -9,6 +9,7 @@
 #
 
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true
@@ -160,9 +161,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         #########################
         print("Testing the SC creation with createrawtransaction function")
 
-        print("Node 1 generate "+str(220-self.nodes[0].getblockcount()+1)+" blocks to reach height 221...")
-        #reach block height 221 needed to create a SC
-        self.nodes[1].generate(220-self.nodes[0].getblockcount()+1)
+        print("Node 1 generate "+str(MINIMAL_SC_HEIGHT-self.nodes[0].getblockcount())+" blocks to reach minimal sidechain height...")
+        self.nodes[1].generate(MINIMAL_SC_HEIGHT-self.nodes[0].getblockcount())
         self.sync_all()
 
         print("Node 1 sends 10 coins to node 0 to have a UTXO...")

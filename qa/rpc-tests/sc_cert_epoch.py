@@ -4,6 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import initialize_chain_clean, assert_equal, \
     start_nodes, stop_nodes, get_epoch_data, \
@@ -65,8 +66,8 @@ class sc_cert_epoch(BitcoinTestFramework):
         blocks.extend(self.nodes[1].generate(1))
         self.sync_all()
 
-        mark_logs("Node 0 generates 220 block to reach sidechain height", self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(220))
+        mark_logs("Node 0 generates {} block to reach sidechain height".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(MINIMAL_SC_HEIGHT))
         self.sync_all()
 
         bal_before_sc_creation = self.nodes[1].getbalance("", 0)
