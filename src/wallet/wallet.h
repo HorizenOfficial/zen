@@ -344,13 +344,12 @@ public:
 
 protected:
     const CWallet* pwallet;
-    const CTransactionBase* pTxBase;
 public:
-    explicit CWalletTransactionBase(const CWallet* pwalletIn, const CTransactionBase* pWrappedTxBase): pwallet(pwalletIn), pTxBase(pWrappedTxBase) { Reset(pwalletIn); }
+    explicit CWalletTransactionBase(const CWallet* pwalletIn): pwallet(pwalletIn) { Reset(pwalletIn); }
     CWalletTransactionBase& operator=(const CWalletTransactionBase& o) = default;
     CWalletTransactionBase(const CWalletTransactionBase&) = default;
     virtual ~CWalletTransactionBase() = default;
-    const CTransactionBase* const getTxBase() const {return pTxBase;}
+    virtual const CTransactionBase* const getTxBase() const = 0;
 
     mapValue_t mapValue;
     std::vector<std::pair<std::string, std::string> > vOrderForm; // ???
@@ -365,15 +364,15 @@ public:
 
     // useful in gtest
     friend bool operator==(const CWalletTransactionBase& a, const CWalletTransactionBase& b) {
-        if (a.pTxBase->IsCertificate() && !b.pTxBase->IsCertificate())
+        if (a.getTxBase()->IsCertificate() && !b.getTxBase()->IsCertificate())
             return false;
-        if (!a.pTxBase->IsCertificate() && b.pTxBase->IsCertificate())
+        if (!a.getTxBase()->IsCertificate() && b.getTxBase()->IsCertificate())
             return false;
 
-        if (a.pTxBase->IsCertificate())
-            return (*dynamic_cast<const CScCertificate*>(a.pTxBase) == *dynamic_cast<const CScCertificate*>(b.pTxBase));
+        if (a.getTxBase()->IsCertificate())
+            return (*dynamic_cast<const CScCertificate*>(a.getTxBase()) == *dynamic_cast<const CScCertificate*>(b.getTxBase()));
         else
-            return (*dynamic_cast<const CTransaction*>(a.pTxBase) == *dynamic_cast<const CTransaction*>(b.pTxBase));
+            return (*dynamic_cast<const CTransaction*>(a.getTxBase()) == *dynamic_cast<const CTransaction*>(b.getTxBase()));
     }
 
     void BindWallet(CWallet *pwalletIn)
@@ -447,6 +446,7 @@ private:
 public:
     const CTransaction& getWrappedTx() const { return wrappedTx; }
     void ResetWrappedTx(const CTransaction& newTx) { *const_cast<CTransaction*>(&wrappedTx) = newTx; }
+    const CTransactionBase* const getTxBase() const override {return &wrappedTx;};
 
 protected:
     int GetIndexInBlock(const CBlock& block) override final;
@@ -536,6 +536,7 @@ private:
     const CScCertificate wrappedCertificate;
 public:
     const CScCertificate& getWrappedCert() { return wrappedCertificate; }
+    const CTransactionBase* const getTxBase() const override {return &wrappedCertificate;};
 
 protected:
     int GetIndexInBlock(const CBlock& block) override final;
