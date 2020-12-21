@@ -155,4 +155,31 @@ namespace Sidechain {
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 }; // end of namespace
 
+
+struct CMinimalSidechain //Sidechain with minimal info, to be included in wallet
+{
+    int32_t prevBlockTopQualityCertReferencedEpoch;
+    int64_t prevBlockTopQualityCertQuality;
+
+    CMinimalSidechain():
+        prevBlockTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
+        prevBlockTopQualityCertQuality(CScCertificate::QUALITY_NOT_INITIALIZED) {};
+
+    CMinimalSidechain(const CSidechain& sidechain):
+        prevBlockTopQualityCertReferencedEpoch(sidechain.prevBlockTopQualityCertReferencedEpoch),
+        prevBlockTopQualityCertQuality(sidechain.prevBlockTopQualityCertQuality) {};
+
+    bool IsNull() const {
+        return (prevBlockTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NOT_INITIALIZED) &&
+               (prevBlockTopQualityCertQuality == CScCertificate::QUALITY_NOT_INITIALIZED);
+    }
+
+    template<typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
+        ::Serialize(s, prevBlockTopQualityCertReferencedEpoch, nType, nVersion);
+        ::Serialize(s, prevBlockTopQualityCertQuality, nType, nVersion);
+    }
+};
+
 #endif // _SIDECHAIN_CORE_H

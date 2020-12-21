@@ -18,6 +18,7 @@ class CScCertificate;
 class CValidationInterface;
 class CValidationState;
 class uint256;
+struct CMinimalSidechain;
 
 // These functions dispatch to one or all registered wallets
 
@@ -31,9 +32,10 @@ void UnregisterAllValidationInterfaces();
 void SyncWithWallets(const CTransaction& tx, const CBlock* pblock = NULL);
 /** Push an updated certificate to all registered wallets */
 void SyncWithWallets(const CScCertificate& cert, const CBlock* pblock = NULL, int bwtMaturityDepth = -1);
+/** Push updates about sidechains to wallet */
+void SyncWithWallets(const uint256& scId, const CMinimalSidechain& walletSidechainData);
 /** Push to wallets that bwt have been stripped */
 void SyncVoidedCert(const uint256& certHash, bool bwtAreStripped);
-
 
 class CValidationInterface {
 protected:
@@ -41,6 +43,7 @@ protected:
     virtual void UpdatedBlockTip(const CBlockIndex *pindex) {}
     virtual void SyncTransaction(const CTransaction &tx, const CBlock *pblock) {}
     virtual void SyncCertificate(const CScCertificate &tx, const CBlock *pblock, int bwtMaturityDepth) {}
+    virtual void SyncSidechain(const uint256& scId, const CMinimalSidechain& walletSidechainData) {}
     virtual void SyncVoidedCert(const uint256& certHash, bool bwtAreStripped) {}
     virtual void EraseFromWallet(const uint256 &hash) {}
     virtual void ChainTip(const CBlockIndex *pindex, const CBlock *pblock, ZCIncrementalMerkleTree tree, bool added) {}
@@ -77,6 +80,9 @@ struct CMainSignals {
     boost::signals2::signal<void (const CScCertificate &, const CBlock *, int bwtMaturityDepth)> SyncCertificate;
     /** Notifies listeners of updated bwts for given certificate.*/
     boost::signals2::signal<void (const uint256& certHash, bool bwtAreStripped)> SyncBwtCeasing;
+    /** Notifies listeners of updated sidechain data.*/
+    boost::signals2::signal<void (const uint256& scId, const CMinimalSidechain& walletSidechainData)> SyncSidechain;
+
 };
 
 CMainSignals& GetMainSignals();

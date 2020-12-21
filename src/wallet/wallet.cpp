@@ -1330,7 +1330,22 @@ void CWallet::SyncVoidedCert(const uint256& certHash, bool bwtAreStripped)
     CWalletDB walletdb(strWalletFile, "r+", false);
     if (!itCert->second->WriteToDisk(&walletdb))
         LogPrintf("%s():%d - ERROR in writing to db\n", __func__, __LINE__);
+}
 
+void CWallet::SyncSidechain(const uint256& scId, const CMinimalSidechain& walletSidechainData)
+{
+    CWalletDB walletdb(strWalletFile, "r+", false);
+
+    if (!walletSidechainData.IsNull())
+    {
+    	mapSidechains[scId] = walletSidechainData;
+        walletdb.WriteSidechain(scId, walletSidechainData);
+    } else {
+    	mapSidechains.erase(scId);
+        walletdb.EraseSidechain(scId);
+    }
+
+    return;
 }
 
 void CWallet::MarkAffectedTransactionsDirty(const CTransactionBase& tx)

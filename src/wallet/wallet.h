@@ -958,6 +958,7 @@ public:
 
 private:
     std::map<uint256, std::shared_ptr<CWalletTransactionBase> > mapWallet;
+    std::map<uint256, CMinimalSidechain> mapSidechains;
 public:
     const std::map<uint256, std::shared_ptr<CWalletTransactionBase> > & getMapWallet() const  {return mapWallet;}
     //No need for mapWallet setter, meaning that mapWallet is only read outside CWallet class
@@ -1074,6 +1075,7 @@ public:
     void SyncTransaction(const CTransaction& tx, const CBlock* pblock) override;
     void SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityDepth = -1) override;
     void SyncVoidedCert(const uint256& certHash, bool bwtAreStripped) override;
+    void SyncSidechain(const uint256& scId, const CMinimalSidechain& walletSidechainData) override;
     bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, int bwtMaturityDepth, bool fUpdate);
     void EraseFromWallet(const uint256 &hash) override;
     void WitnessNoteCommitment(
@@ -1258,7 +1260,7 @@ public:
         pwallet = pwalletIn;
     }
 
-    ~CReserveKey()
+    virtual ~CReserveKey()
     {
         ReturnKey();
     }

@@ -3293,11 +3293,16 @@ bool static DisconnectTip(CValidationState &state) {
     // 0-confirmed or conflicted:
     for(const CTransaction &tx: block.vtx) {
         SyncWithWallets(tx, nullptr);
+        for(unsigned int pos = 0; pos < tx.GetVscCcOut().size(); ++pos)
+            SyncWithWallets(tx.GetScIdFromScCcOut(pos), CMinimalSidechain());
     }
 
     for(const CScCertificate &cert: block.vcert) {
         LogPrint("cert", "%s():%d - sync with wallet from block to unconfirmed cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString());
+        CSidechain sidechain;
+        assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
         SyncWithWallets(cert, nullptr);
+        SyncWithWallets(cert.GetScId(), CMinimalSidechain(sidechain));
     }
 
     for(const auto& x : voidedCertsMap)
@@ -3387,7 +3392,15 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     for(const CTransaction &tx: pblock->vtx) {
         LogPrint("cert", "%s():%d - sync with wallet tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
         SyncWithWallets(tx, pblock);
+
+        for(unsigned int pos = 0; pos < tx.GetVscCcOut().size(); ++pos)
+        {
+            CSidechain sidechain;
+            assert(pcoinsTip->GetSidechain(tx.GetScIdFromScCcOut(pos), sidechain));
+            SyncWithWallets(tx.GetScIdFromScCcOut(pos), CMinimalSidechain(sidechain));
+        }
     }
+
     for(const CScCertificate &cert: pblock->vcert) {
         CSidechain sidechain;
         assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
@@ -3396,10 +3409,10 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         LogPrint("cert", "%s():%d - sync with wallet confirmed cert[%s], bwtMaturityDepth[%d]\n",
             __func__, __LINE__, cert.GetHash().ToString(), bwtMaturityDepth);
         SyncWithWallets(cert, pblock, bwtMaturityDepth);
+        SyncWithWallets(cert.GetScId(), CMinimalSidechain(sidechain));
     }
 
-    for(const auto& x: voidedCertsMap)
-    {
+    for(const auto& x: voidedCertsMap) {
         LogPrint("cert", "%s():%d - sync voiding [%s] cert %s\n", __func__, __LINE__, x.second?"Y":"F", x.first.ToString() ); 
         SyncVoidedCert(x.first, x.second);
     }

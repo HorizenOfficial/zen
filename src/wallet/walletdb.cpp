@@ -15,6 +15,7 @@
 #include "utiltime.h"
 #include "wallet/wallet.h"
 #include "zcash/Proof.hpp"
+#include <sc/sidechain.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/foreach.hpp>
@@ -55,7 +56,7 @@ bool CWalletDB::ErasePurpose(const string& strPurpose)
     return Erase(make_pair(string("purpose"), strPurpose));
 }
 
-bool CWalletDB::WriteWalletTxBase(uint256 hash, const CWalletTransactionBase& obj)
+bool CWalletDB::WriteWalletTxBase(const uint256& hash, const CWalletTransactionBase& obj)
 {
     LogPrint("cert", "%s():%d - called for %s[%s], writing to db\n", __func__, __LINE__,
             obj.getTxBase()->IsCertificate()?"cert":"tx", obj.getTxBase()->GetHash().ToString());
@@ -87,15 +88,24 @@ bool CWalletDB::WriteWalletTxBase(uint256 hash, const CWalletTransactionBase& ob
     return false;
 }
 
-bool CWalletDB::EraseWalletTxBase(uint256 hash)
+bool CWalletDB::EraseWalletTxBase(const uint256& hash)
 {
     nWalletDBUpdated++;
     LogPrint("cert", "%s():%d - called for obj[%s]\n", __func__, __LINE__, hash.ToString());
     // Erase returns: (ok || not_found)
     // in this way we can lump tx/cert together
-    return (
-        Erase(std::make_pair(std::string("tx"), hash)) &&
-        Erase(std::make_pair(std::string("cert"), hash)) );
+    return (Erase(std::make_pair(std::string("tx"), hash)) &&
+            Erase(std::make_pair(std::string("cert"), hash)));
+}
+
+bool CWalletDB::WriteSidechain(const uint256& scId, const CMinimalSidechain& sidechain)
+{
+    return Write(std::make_pair(std::string("sc"), scId), sidechain);
+}
+
+bool CWalletDB::EraseSidechain(const uint256& scId)
+{
+    return Erase(std::make_pair(std::string("sc"), scId));
 }
 
 bool CWalletDB::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta)
@@ -896,7 +906,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
     if ((wss.nKeys + wss.nCKeys) != wss.nKeyMeta)
         pwallet->nTimeFirstKey = 1; // 0 would be considered 'no value'
 
-    for(uint256 hash: wss.vWalletUpgrade)
+    for(const uint256& hash: wss.vWalletUpgrade)
         WriteWalletTxBase(hash, *(pwallet->getMapWallet().at(hash)));
 
 

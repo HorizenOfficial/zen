@@ -29,6 +29,7 @@ class CWalletTx;
 class CWalletTransactionBase;
 class uint160;
 class uint256;
+class CMinimalSidechain;
 
 /** Error statuses for the wallet database */
 enum DBErrors
@@ -88,8 +89,11 @@ public:
     bool WritePurpose(const std::string& strAddress, const std::string& purpose);
     bool ErasePurpose(const std::string& strAddress);
 
-    bool WriteWalletTxBase(uint256 hash, const CWalletTransactionBase& wtx);
-    bool EraseWalletTxBase(uint256 hash);
+    bool WriteWalletTxBase(const uint256& hash, const CWalletTransactionBase& wtx);
+    bool EraseWalletTxBase(const uint256& hash);
+
+    bool WriteSidechain(const uint256& scId, const CMinimalSidechain& sidechain);
+    bool EraseSidechain(const uint256& scId);
 
     bool WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata &keyMeta);
     bool WriteCryptedKey(const CPubKey& vchPubKey, const std::vector<unsigned char>& vchCryptedSecret, const CKeyMetadata &keyMeta);
