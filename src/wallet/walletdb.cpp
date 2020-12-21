@@ -864,14 +864,12 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
                     if (strType == "tx")
                         // Rescan if there is a bad transaction record:
                         SoftSetBoolArg("-rescan", true);
-#if 1
                     if (strType == "cert")
                     {
                         LogPrint("cert", "%s():%d - cert error: rescan set to true\n", __func__, __LINE__);
                         // Rescan if there is a bad transaction record:
                         SoftSetBoolArg("-rescan", true);
                     }
-#endif
                 }
             }
             if (!strErr.empty())

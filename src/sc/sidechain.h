@@ -169,6 +169,10 @@ struct CMinimalSidechain //Sidechain with minimal info, to be included in wallet
         prevBlockTopQualityCertReferencedEpoch(sidechain.prevBlockTopQualityCertReferencedEpoch),
         prevBlockTopQualityCertQuality(sidechain.prevBlockTopQualityCertQuality) {};
 
+    CMinimalSidechain(int32_t certEpoch, int64_t certQuality):
+        prevBlockTopQualityCertReferencedEpoch(certEpoch),
+        prevBlockTopQualityCertQuality(certQuality) {};
+
     bool IsNull() const {
         return (prevBlockTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NOT_INITIALIZED) &&
                (prevBlockTopQualityCertQuality == CScCertificate::QUALITY_NOT_INITIALIZED);

@@ -1338,10 +1338,10 @@ void CWallet::SyncSidechain(const uint256& scId, const CMinimalSidechain& wallet
 
     if (!walletSidechainData.IsNull())
     {
-    	mapSidechains[scId] = walletSidechainData;
+        mapSidechains[scId] = walletSidechainData;
         walletdb.WriteSidechain(scId, walletSidechainData);
     } else {
-    	mapSidechains.erase(scId);
+        mapSidechains.erase(scId);
         walletdb.EraseSidechain(scId);
     }
 
@@ -2016,44 +2016,34 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
 
             CBlock block;
             ReadBlockFromDisk(block, pindex);
-            std::vector<const CTransactionBase*> vTxBase;
-            block.GetTxAndCertsVector(vTxBase);
   
-            for (const CTransactionBase* obj: vTxBase)
+            for(const CTransaction& tx: block.vtx)
             {
-                int bwtMaxDepth = -1;
-                bool areBwtStripped = false;
+                for(unsigned int pos = 0; pos < tx.GetVscCcOut().size(); ++pos)
+                    SyncSidechain(tx.GetScIdFromScCcOut(pos), CMinimalSidechain(CScCertificate::EPOCH_NULL, CScCertificate::QUALITY_NULL));
 
-                if (obj->IsCertificate())
-                {
-                    int nHeight = pindex->nHeight;
-                    const CScCertificate& cert = dynamic_cast<const CScCertificate&>(*obj);
-                    CSidechain sidechain;
-                    assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
-                    int currentEpoch = sidechain.EpochFor(nHeight);
-                    bwtMaxDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
-                        sidechain.SafeguardMargin() - nHeight;
+                if (AddToWalletIfInvolvingMe(tx, &block, -1, fUpdate))
+                    ret++;
+            }
 
-                    // Certs can have their bwts cleared for different reasons
-                    // ( being spent, voided due to sidechain ceasing, voided since cert has low quality)
-                    // which we are not able to reconstruct here.
-                    // Currently we just void all the bwts here
-                    if (pcoinsTip->IsBwtStripped(cert.GetHash()) )
-                    {
-                        LogPrint("cert", "%s():%d - cert[%s] has bwt stripped\n",
-                            __func__, __LINE__, cert.GetHash().ToString());
-                        areBwtStripped = true;
-                    }
-                }
+            std::set<uint256> visitedScIds;
+            for(auto itCert = block.vcert.rbegin(); itCert != block.vcert.rend(); ++itCert)
+            {
+                bool bStripBwt = visitedScIds.count(itCert->GetScId()) != 0;
+                visitedScIds.insert(itCert->GetScId());
+                int nHeight = pindex->nHeight;
+                CSidechain sidechain;
+                assert(pcoinsTip->GetSidechain(itCert->GetScId(), sidechain));
+                int currentEpoch = sidechain.EpochFor(nHeight);
+                int bwtMaxDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
+                                  sidechain.SafeguardMargin() - nHeight;
 
-                if (AddToWalletIfInvolvingMe(*obj, &block, bwtMaxDepth, fUpdate))
+                SyncWithWallets(itCert->GetScId(), CMinimalSidechain(itCert->epochNumber, itCert->quality));
+
+                if (AddToWalletIfInvolvingMe(*itCert, &block, bwtMaxDepth, fUpdate))
                 {
                     ret++;
-
-                    if (fUpdate && obj->IsCertificate())
-                    {
-                        SyncVoidedCert(obj->GetHash(), areBwtStripped);
-                    }
+                    if (fUpdate) SyncVoidedCert(itCert->GetHash(), bStripBwt);
                 }
             }
 
@@ -2070,6 +2060,20 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 LogPrintf("Still rescanning. At block %d. Progress=%f\n", pindex->nHeight, Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), pindex));
             }
         }
+
+        // Once processed all blocks till chainActive.Tip(), void last cert of ceased sidechains
+        std::set<uint256> allScIds;
+        pcoinsTip->GetScIds(allScIds);
+        for(const auto& scId: allScIds)
+        {
+            if (pcoinsTip->isCeasedAtHeight(scId, chainActive.Height())!= CSidechain::State::ALIVE)
+            {
+                CSidechain sidechain;
+                assert(pcoinsTip->GetSidechain(scId, sidechain));
+                if (fUpdate) SyncVoidedCert(sidechain.prevBlockTopQualityCertHash, true);
+            }
+        }
+
         ShowProgress(_("Rescanning..."), 100); // hide progress dialog in GUI
     }
     return ret;
@@ -3080,10 +3084,10 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTra
     }
 
     // remove preset inputs from vCoins
-    if((coinControl != nullptr)	&& coinControl->HasSelected())
+    if((coinControl != nullptr) && coinControl->HasSelected())
     {
-    	auto isPresent = [&](const COutput& out) {return setPresetCoins.count(make_pair(out.tx, out.pos));};
-    	std::vector<COutput>::const_iterator it = std::remove_if(vCoins.begin(), vCoins.end(), isPresent);
+        auto isPresent = [&](const COutput& out) {return setPresetCoins.count(make_pair(out.tx, out.pos));};
+        std::vector<COutput>::const_iterator it = std::remove_if(vCoins.begin(), vCoins.end(), isPresent);
         vCoins.erase(it, vCoins.end());
     }
 

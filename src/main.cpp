@@ -3305,8 +3305,7 @@ bool static DisconnectTip(CValidationState &state) {
         SyncWithWallets(cert.GetScId(), CMinimalSidechain(sidechain));
     }
 
-    for(const auto& x : voidedCertsMap)
-    {
+    for(const auto& x : voidedCertsMap) {
         LogPrint("cert", "%s():%d - sync voiding [%s] cert %s\n", __func__, __LINE__, x.second?"Y":"F", x.first.ToString() ); 
         SyncVoidedCert(x.first, x.second);
     }
