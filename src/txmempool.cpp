@@ -113,7 +113,8 @@ void CSidechainMemPoolEntry::EraseCert(const uint256& hash)
 
 const std::map<int64_t, uint256>::const_iterator CSidechainMemPoolEntry::GetCert(const uint256& hash) const
 {
-    return std::find_if(mBackwardCertificates.begin(), mBackwardCertificates.end(),
+    // Find certificate with given hash in mapSidechains
+    return std::find_if(mBackwardCertificates.begin( ), mBackwardCertificates.end(),
         [&hash](const std::map<int64_t, uint256>::value_type& item) { return hash == item.second; });
 }
 
@@ -969,7 +970,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             CValidationState state;
             assert(::ContextualCheckInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(cert, mempoolDuplicateCert, dummyUndo, 1000000, /*isBlockTopQualityCert*/true);
+            bool isTopQualityCert = mempool.mapSidechains.at(cert.GetScId()).GetTopQualityCert()->second == cert.GetHash();
+            UpdateCoins(cert, mempoolDuplicateCert, dummyUndo, 1000000, isTopQualityCert);
         }
     }
 
@@ -983,9 +985,11 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             stepsSinceLastRemoveCert++;
             assert(stepsSinceLastRemoveCert < waitingOnDependantsCert.size());
         } else {
-            assert(::ContextualCheckInputs(entry->GetCertificate(), state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            const CScCertificate& cert = entry->GetCertificate();
+            assert(::ContextualCheckInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
-            UpdateCoins(entry->GetCertificate(), mempoolDuplicateCert, dummyUndo, 1000000, /*fVoidBwts*/false);
+            bool isTopQualityCert = mempool.mapSidechains.at(cert.GetScId()).GetTopQualityCert()->second == cert.GetHash();
+            UpdateCoins(entry->GetCertificate(), mempoolDuplicateCert, dummyUndo, 1000000, isTopQualityCert);
             stepsSinceLastRemoveCert = 0;
         }
     }
@@ -1216,7 +1220,8 @@ bool CCoinsViewMemPool::GetCoins(const uint256 &txid, CCoins &coins) const {
     CScCertificate cert;
     if (mempool.lookup(txid, cert)) {
         LogPrint("mempool", "%s():%d - making coins for cert [%s]\n", __func__, __LINE__, txid.ToString() );
-        coins = CCoins(cert, MEMPOOL_HEIGHT, MEMPOOL_HEIGHT, /*isBlockTopQualityCert*/true);
+        bool isTopQuality = mempool.mapSidechains.at(cert.GetScId()).GetTopQualityCert()->second == cert.GetHash();
+        coins = CCoins(cert, MEMPOOL_HEIGHT, MEMPOOL_HEIGHT, isTopQuality);
         return true;
     }
     return (base->GetCoins(txid, coins) && !coins.IsPruned());

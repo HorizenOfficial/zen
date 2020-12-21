@@ -2444,7 +2444,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             int currentEpoch = sidechain.EpochFor(pindex->nHeight);
             int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
             CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight, isBlockTopQualityCert);
-            outsBlock.ClearUnspendable();
 
             // The CCoins serialization does not serialize negative numbers.
             // No network rules currently depend on the version here, so an inconsistency is harmless
