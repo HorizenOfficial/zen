@@ -99,6 +99,7 @@ public:
 
     enum class State : uint8_t {
         NOT_APPLICABLE = 0,
+        MEMPOOL,
         ALIVE,
         CEASED
     };

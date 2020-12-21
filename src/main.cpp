@@ -1496,7 +1496,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             // are the sidechains dependencies available?
             if (!view.HaveScRequirements(tx, nextBlockHeight))
             {
-                return state.Invalid(error("%s(): sidechain is redeclared or coins are forwarded to unknown sidechain", __func__),
+                return state.Invalid(error("%s(): sidechain is redeclared or coins are forwarded to unknown/ceased sidechain", __func__),
                                     REJECT_INVALID, "bad-sc-tx");
             }
  

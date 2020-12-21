@@ -917,7 +917,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    if (isCeasedAtHeight(cert.GetScId(), nHeight)!= CSidechain::State::ALIVE) {
+    if (GetSidechainState(cert.GetScId())!= CSidechain::State::ALIVE) {
         LogPrintf("ERROR: certificate[%s] cannot be accepted, sidechain [%s] already ceased at height = %d (chain.h = %d)\n",
             certHash.ToString(), cert.GetScId().ToString(), nHeight, chainActive.Height());
         return state.Invalid(error("received a delayed cert"),
@@ -1051,11 +1051,13 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
         const uint256& scId = ft.scId;
         if (HaveSidechain(scId))
         {
-            if (isCeasedAtHeight(scId, height)!= CSidechain::State::ALIVE) {
-                LogPrintf("ERROR: tx[%s] tries to send funds to scId[%s] already ceased at height = %d\n",
-                            txHash.ToString(), scId.ToString(), height);
+            auto s = GetSidechainState(scId);
+            if (s != CSidechain::State::ALIVE && s != CSidechain::State::MEMPOOL)
+            {
+                LogPrintf("ERROR: tx[%s] tries to send funds to scId[%s] with state(%s) at height = %d\n",
+                            txHash.ToString(), scId.ToString(), CSidechain::stateToString(s), height);
                 return false;
-                }
+            }
         } else {
             if (!Sidechain::hasScCreationOutput(tx, scId)) {
                 LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",

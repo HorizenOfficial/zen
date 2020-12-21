@@ -48,9 +48,10 @@ std::string CSidechain::stateToString(State s)
 {
     switch(s)
     {
-        case State::ALIVE:  return "ALIVE";          break;
-        case State::CEASED: return "CEASED";         break;
-        default:            return "NOT_APPLICABLE"; break;
+        case State::MEMPOOL:  return "MEMPOOL";        break;
+        case State::ALIVE:    return "ALIVE";          break;
+        case State::CEASED:   return "CEASED";         break;
+        default:              return "NOT_APPLICABLE"; break;
     }
 }
 

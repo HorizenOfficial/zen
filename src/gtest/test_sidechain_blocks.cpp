@@ -137,6 +137,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     initialScState.prevBlockTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
     initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.currentState = (uint8_t)CSidechain::State::ALIVE;
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
@@ -207,6 +208,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpo
     initialScState.prevBlockTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
     initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.currentState = (uint8_t)CSidechain::State::ALIVE;
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
@@ -277,6 +279,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
     initialScState.prevBlockTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
     initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.currentState = (uint8_t)CSidechain::State::ALIVE;
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
@@ -360,6 +363,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
     initialScState.prevBlockTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
     initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.currentState = (uint8_t)CSidechain::State::ALIVE;
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
