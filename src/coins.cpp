@@ -1052,7 +1052,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
         if (HaveSidechain(scId))
         {
             auto s = GetSidechainState(scId);
-            if (s != CSidechain::State::ALIVE && s != CSidechain::State::MEMPOOL)
+            if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
             {
                 LogPrintf("ERROR: tx[%s] tries to send funds to scId[%s] with state(%s) at height = %d\n",
                             txHash.ToString(), scId.ToString(), CSidechain::stateToString(s), height);

@@ -21,7 +21,7 @@ EPOCH_LENGTH = 5
 CERT_FEE = Decimal('0.00015')
 
 
-class sc_cert_base(BitcoinTestFramework):
+class sc_cert_quality_wallet(BitcoinTestFramework):
 
     alert_filename = None
 
@@ -340,4 +340,4 @@ class sc_cert_base(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    sc_cert_base().main()
+    sc_cert_quality_wallet().main()
