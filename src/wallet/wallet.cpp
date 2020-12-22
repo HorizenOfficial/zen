@@ -1348,6 +1348,20 @@ void CWallet::SyncSidechain(const uint256& scId, const CMinimalSidechain& wallet
     return;
 }
 
+bool CWallet::ReadSidechain(const uint256& scId, CMinimalSidechain& sidechain)
+{
+    bool res = false;
+    if (mapSidechains.count(scId) != 0) {
+        sidechain = mapSidechains.at(scId);
+        res = true;
+    } else {
+        CWalletDB walletdb(strWalletFile, "r+", false);
+        res = walletdb.ReadSidechain(scId, sidechain);
+        mapSidechains[scId] = sidechain;
+    }
+    return res;
+}
+
 void CWallet::MarkAffectedTransactionsDirty(const CTransactionBase& tx)
 {
     // If a transaction changes 'conflicted' state, that changes the balance
@@ -2020,7 +2034,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             for(const CTransaction& tx: block.vtx)
             {
                 for(unsigned int pos = 0; pos < tx.GetVscCcOut().size(); ++pos)
-                    SyncSidechain(tx.GetScIdFromScCcOut(pos), CMinimalSidechain(CScCertificate::EPOCH_NULL, CScCertificate::QUALITY_NULL));
+                    SyncSidechain(tx.GetScIdFromScCcOut(pos), CMinimalSidechain(CScCertificate::EPOCH_NULL, uint256()));
 
                 if (AddToWalletIfInvolvingMe(tx, &block, -1, fUpdate))
                     ret++;
@@ -2029,8 +2043,13 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             std::set<uint256> visitedScIds;
             for(auto itCert = block.vcert.rbegin(); itCert != block.vcert.rend(); ++itCert)
             {
+                CMinimalSidechain prevSidechain;
+                assert(ReadSidechain(itCert->GetScId(), prevSidechain));
+
                 bool bStripBwt = visitedScIds.count(itCert->GetScId()) != 0;
                 visitedScIds.insert(itCert->GetScId());
+                SyncSidechain(itCert->GetScId(), CMinimalSidechain(itCert->epochNumber, itCert->GetHash()));
+
                 int nHeight = pindex->nHeight;
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(itCert->GetScId(), sidechain));
@@ -2038,12 +2057,14 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 int bwtMaxDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
                                   sidechain.SafeguardMargin() - nHeight;
 
-                SyncWithWallets(itCert->GetScId(), CMinimalSidechain(itCert->epochNumber, itCert->quality));
-
                 if (AddToWalletIfInvolvingMe(*itCert, &block, bwtMaxDepth, fUpdate))
                 {
                     ret++;
-                    if (fUpdate) SyncVoidedCert(itCert->GetHash(), bStripBwt);
+                    if (fUpdate) {
+                        SyncVoidedCert(itCert->GetHash(), bStripBwt);
+                        if (prevSidechain.prevBlockTopQualityCertReferencedEpoch == itCert->epochNumber)
+                            SyncVoidedCert(prevSidechain.prevBlockTopQualityCertHash, true);
+                    }
                 }
             }
 
@@ -2066,8 +2087,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
         pcoinsTip->GetScIds(allScIds);
         for(const auto& scId: allScIds)
         {
-            if (pcoinsTip->isCeasedAtHeight(scId, chainActive.Height())!= CSidechain::State::ALIVE)
-            {
+            if (pcoinsTip->isCeasedAtHeight(scId, chainActive.Height()) != CSidechain::State::ALIVE) {
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(scId, sidechain));
                 if (fUpdate) SyncVoidedCert(sidechain.prevBlockTopQualityCertHash, true);

@@ -159,31 +159,43 @@ namespace Sidechain {
 struct CMinimalSidechain //Sidechain with minimal info, to be included in wallet
 {
     int32_t prevBlockTopQualityCertReferencedEpoch;
-    int64_t prevBlockTopQualityCertQuality;
+    uint256 prevBlockTopQualityCertHash;
 
     CMinimalSidechain():
         prevBlockTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
-        prevBlockTopQualityCertQuality(CScCertificate::QUALITY_NOT_INITIALIZED) {};
+		prevBlockTopQualityCertHash() {};
 
     CMinimalSidechain(const CSidechain& sidechain):
         prevBlockTopQualityCertReferencedEpoch(sidechain.prevBlockTopQualityCertReferencedEpoch),
-        prevBlockTopQualityCertQuality(sidechain.prevBlockTopQualityCertQuality) {};
+        prevBlockTopQualityCertHash(sidechain.prevBlockTopQualityCertHash) {};
 
-    CMinimalSidechain(int32_t certEpoch, int64_t certQuality):
+    CMinimalSidechain(int32_t certEpoch, uint256 certHash):
         prevBlockTopQualityCertReferencedEpoch(certEpoch),
-        prevBlockTopQualityCertQuality(certQuality) {};
+        prevBlockTopQualityCertHash(certHash) {};
 
     bool IsNull() const {
         return (prevBlockTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NOT_INITIALIZED) &&
-               (prevBlockTopQualityCertQuality == CScCertificate::QUALITY_NOT_INITIALIZED);
+               (prevBlockTopQualityCertHash.IsNull());
+    }
+
+    size_t GetSerializeSize(int nType, int nVersion) const {
+        unsigned int totalSize = ::GetSerializeSize(prevBlockTopQualityCertReferencedEpoch, nType, nVersion);
+        totalSize += ::GetSerializeSize(prevBlockTopQualityCertHash, nType, nVersion);
+        return totalSize;
     }
 
     template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const
-    {
+    void Serialize(Stream& s, int nType, int nVersion) const {
         ::Serialize(s, prevBlockTopQualityCertReferencedEpoch, nType, nVersion);
-        ::Serialize(s, prevBlockTopQualityCertQuality, nType, nVersion);
+        ::Serialize(s, prevBlockTopQualityCertHash, nType, nVersion);
     }
+
+    template<typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion) {
+        ::Unserialize(s, prevBlockTopQualityCertReferencedEpoch, nType, nVersion);
+        ::Unserialize(s, prevBlockTopQualityCertHash, nType, nVersion);
+    }
+
 };
 
 #endif // _SIDECHAIN_CORE_H

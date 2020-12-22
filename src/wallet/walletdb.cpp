@@ -98,6 +98,11 @@ bool CWalletDB::EraseWalletTxBase(const uint256& hash)
             Erase(std::make_pair(std::string("cert"), hash)));
 }
 
+bool CWalletDB::ReadSidechain(const uint256& scId, CMinimalSidechain& sidechain)
+{
+    return Read(std::make_pair(std::string("sc"), scId), sidechain);
+}
+
 bool CWalletDB::WriteSidechain(const uint256& scId, const CMinimalSidechain& sidechain)
 {
     return Write(std::make_pair(std::string("sc"), scId), sidechain);

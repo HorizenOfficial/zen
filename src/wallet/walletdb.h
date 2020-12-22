@@ -92,6 +92,7 @@ public:
     bool WriteWalletTxBase(const uint256& hash, const CWalletTransactionBase& wtx);
     bool EraseWalletTxBase(const uint256& hash);
 
+    bool ReadSidechain(const uint256& scId, CMinimalSidechain& sidechain);
     bool WriteSidechain(const uint256& scId, const CMinimalSidechain& sidechain);
     bool EraseSidechain(const uint256& scId);
 

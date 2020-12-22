@@ -1076,6 +1076,7 @@ public:
     void SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityDepth = -1) override;
     void SyncVoidedCert(const uint256& certHash, bool bwtAreStripped) override;
     void SyncSidechain(const uint256& scId, const CMinimalSidechain& walletSidechainData) override;
+    bool ReadSidechain(const uint256& scId, CMinimalSidechain& sidechain);
     bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, int bwtMaturityDepth, bool fUpdate);
     void EraseFromWallet(const uint256 &hash) override;
     void WitnessNoteCommitment(
