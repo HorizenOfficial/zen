@@ -138,6 +138,10 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         vin.push_back(in);
     }
     entry.push_back(Pair("vin", vin));
+
+    // add to entry obj the ceased sidechain withdrawal inputs
+    Sidechain::AddCeasedSidechainWithdrawalInputsToJSON(tx, entry);
+
     UniValue vout(UniValue::VARR);
     for (unsigned int i = 0; i < tx.GetVout().size(); i++) {
         const CTxOut& txout = tx.GetVout()[i];
@@ -286,6 +290,30 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "     }\n"
             "     ,...\n"
             "  ],\n"
+            "  \"vcsw_ccin\" : [         (array of json objects) Ceased sidechain withdrawal inputs\n"
+            "     {\n"
+            "       \"value\": x.xxx,             (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"scId\": \"hex\",            (string) The sidechain id\n"
+            "       \"epoch\": n,                 (numeric) Withdrawal epoch number to be referenced to\n"
+            "       \"nullifier\": \"hex\",       (string) Withdrawal nullifier\n"
+            "       \"scriptPubKey\" : {          (json object)\n"
+            "         \"asm\" : \"asm\",          (string) the asm\n"
+            "         \"hex\" : \"hex\",          (string) the hex\n"
+            "         \"reqSigs\" : n,            (numeric) The required sigs\n"
+            "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
+            "         \"addresses\" : [           (json array of string)\n"
+            "           \"horizenaddress\"        (string) Horizen address\n"
+            "           ,...\n"
+            "         ]\n"
+            "       },\n"
+            "       \"scProof\": \"hex\",         (string) the zero-knowledge proof\n"
+            "       \"redeemScript\": {           (json object) The script\n"
+            "         \"asm\": \"asm\",           (string) asm\n"
+            "         \"hex\": \"hex\"            (string) hex\n"
+            "       }\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
             "  \"vout\" : [              (array of json objects)\n"
             "     {\n"
             "       \"value\" : x.xxx,            (numeric) The value in " + CURRENCY_UNIT + "\n"
@@ -300,6 +328,28 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "           ,...\n"
             "         ]\n"
             "       }\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vsc_ccout\" : [           (array of json objects) Sidechain creation crosschain outputs\n"
+            "     {\n"
+            "       \"scid\" : \"hex\",                 (string) The sidechain id\n"
+            "       \"n\" : n,                          (numeric) crosschain output index\n"
+            "       \"withdrawal epoch length\" : n,    (numeric) Sidechain withdrawal epoch length\n"
+            "       \"value\" : x.xxx,                  (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"address\" : \"hex\",              (string) The sidechain receiver address\n"
+            "       \"wCertVk\" : \"hex\",              (string) The sidechain certificate snark proof verification key\n"
+            "       \"customData\" : \"hex\",           (string) The sidechain declaration custom data\n"
+            "       \"constant\" : \"hex\"              (string) The sidechain certificate snark proof constant data\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vft_ccout\" : [           (array of json objects) Sidechain forward transfer crosschain outputs\n"
+            "     {\n"
+            "       \"scid\" : \"hex\",           (string) The sidechain id\n"
+            "       \"value\" : x.xxx,            (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"n\" : n,                    (numeric) crosschain output index\n"
+            "       \"address\" : \"hex\"         (string) The sidechain receiver address\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
@@ -632,7 +682,19 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "      \"address\": x.xxx   (numeric, required) The key is the Horizen address, the value is the " + CURRENCY_UNIT + " amount\n"
             "      ,...\n"
             "    }\n"
-            "3. \"sc creations\"        (string, optional but required if 4 is also given) A json array of json objects\n"
+            "3. \"ceased sidechain withdrawal inputs\"      (string, optional but required if 4 and 5 are also given) A json array of json objects\n"
+            "     [\n"
+            "       {\n"
+            "         \"amount\": x.xxx,              (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "         \"senderAddress\": \"address\", (string, required) The sender Horizen address\n"
+            "         \"scId\": \"hex\",              (string, required) The ceased sidechain id\n"
+            "         \"epoch\": n,                   (numeric, required) Withdrawal epoch number to be referenced to\n"
+            "         \"nullifier\": \"hex\",         (string, required) Withdrawal nullifier\n"
+            "         \"scProof\": \"hex\"            (string, required) SNARK proof whose verification key was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + "bytes \n"
+            "       }\n"
+            "       ,...\n"
+            "     ]\n"
+            "4. \"sc creations\"        (string, optional but required if 5 is also given) A json array of json objects\n"
             "     [\n"
             "       {\n"
             "         \"epoch_length\":n (numeric, required) length of the withdrawal epochs\n"
@@ -646,7 +708,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"            "       }\n"
             "       ,...\n"
             "     ]\n"
-            "4. \"forward transfers\"   (string, optional) A json array of json objects\n"
+            "5. \"forward transfers\"   (string, optional) A json array of json objects\n"
             "     [\n"
             "       {\n"
             "         \"address\":\"address\",  (string, required) The receiver PublicKey25519Proposition in the SC\n"
@@ -662,6 +724,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "\nExamples\n"
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"address\\\":0.01}\"")
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":0.01}\"")
+            + HelpExampleRpc("createrawtransaction", "\"[]\", \"{\\\"address\\\":0.01}\" \"[{\\\"amount\\\": 0.02, \\\"scId\\\": \\\"myscid\\\", \\\"epoch\\\": 25, \\\"nullifier\\\": \\\"mynullifier\\\", \\\"scProof\\\": \\\"proof\\\"}]\"")
             + HelpExampleRpc("createrawtransaction", "\"[]\" \"{}\" \"[{\\\"epoch_length\\\" :300}]\" \"{\\\"address\\\": \\\"myaddress\\\", \\\"amount\\\": 4.0, \\\"scid\\\": \\\"myscid\\\"}]\"")
         );
 
@@ -677,10 +740,25 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
     AddInputsToRawObject(rawTx, inputs);
     AddOutputsToRawObject(rawTx, sendTo);
 
-    // crosschain creation
+    // ceased sidechain withdrawal inputs
     if (params.size() > 2 && !params[2].isNull())
     {
-        UniValue sc_crs = params[2].get_array();
+        UniValue csws = params[2].get_array();
+
+        if (csws.size())
+        {
+            std::string errString;
+            if (!Sidechain::AddCeasedSidechainWithdrawalInputs(csws, rawTx, errString) )
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, errString);
+            }
+        }
+    }
+
+    // crosschain creation
+    if (params.size() > 3 && !params[3].isNull())
+    {
+        UniValue sc_crs = params[3].get_array();
 
         if (sc_crs.size())
         {
@@ -693,9 +771,9 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
     }
 
     // crosschain forward transfers
-    if (params.size() > 3 && !params[3].isNull())
+    if (params.size() > 4 && !params[4].isNull())
     {
-        UniValue fwdtr = params[3].get_array();
+        UniValue fwdtr = params[4].get_array();
 
         if (fwdtr.size())
         {
@@ -737,6 +815,30 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "     }\n"
             "     ,...\n"
             "  ],\n"
+            "  \"vcsw_ccin\" : [         (array of json objects) Ceased sidechain withdrawal inputs\n"
+            "     {\n"
+            "       \"value\": x.xxx,             (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"scId\": \"hex\",            (string) The sidechain id\n"
+            "       \"epoch\": n,                 (numeric) Withdrawal epoch number to be referenced to\n"
+            "       \"nullifier\": \"hex\",       (string) Withdrawal nullifier\n"
+            "       \"scriptPubKey\" : {          (json object)\n"
+            "         \"asm\" : \"asm\",          (string) the asm\n"
+            "         \"hex\" : \"hex\",          (string) the hex\n"
+            "         \"reqSigs\" : n,            (numeric) The required sigs\n"
+            "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
+            "         \"addresses\" : [           (json array of string)\n"
+            "           \"horizenaddress\"        (string) Horizen address\n"
+            "           ,...\n"
+            "         ]\n"
+            "       },\n"
+            "       \"scProof\": \"hex\",         (string) the zero-knowledge proof\n"
+            "       \"redeemScript\": {           (json object) The script\n"
+            "         \"asm\": \"asm\",           (string) asm\n"
+            "         \"hex\": \"hex\"            (string) hex\n"
+            "       }\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
             "  \"vout\" : [             (array of json objects)\n"
             "     {\n"
             "       \"value\" : x.xxx,            (numeric) The value in " + CURRENCY_UNIT + "\n"
@@ -751,6 +853,28 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "           ,...\n"
             "         ]\n"
             "       }\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vsc_ccout\" : [           (array of json objects) Sidechain creation crosschain outputs\n"
+            "     {\n"
+            "       \"scid\" : \"hex\",                 (string) The sidechain id\n"
+            "       \"n\" : n,                          (numeric) crosschain output index\n"
+            "       \"withdrawal epoch length\" : n,    (numeric) Sidechain withdrawal epoch length\n"
+            "       \"value\" : x.xxx,                  (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"address\" : \"hex\",              (string) The sidechain receiver address\n"
+            "       \"wCertVk\" : \"hex\",              (string) The sidechain certificate snark proof verification key\n"
+            "       \"customData\" : \"hex\",           (string) The sidechain declaration custom data\n"
+            "       \"constant\" : \"hex\"              (string) The sidechain certificate snark proof constant data\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vft_ccout\" : [           (array of json objects) Sidechain forward transfer crosschain outputs\n"
+            "     {\n"
+            "       \"scid\" : \"hex\",           (string) The sidechain id\n"
+            "       \"value\" : x.xxx,            (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"n\" : n,                    (numeric) crosschain output index\n"
+            "       \"address\" : \"hex\"         (string) The sidechain receiver address\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
@@ -1218,7 +1342,7 @@ UniValue signrawcertificate(const UniValue& params, bool fHelp)
 
     return result;
 }
-
+// TODO:
 UniValue signrawtransaction(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 4)

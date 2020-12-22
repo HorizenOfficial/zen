@@ -199,6 +199,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     }
     entry.push_back(Pair("vout", vout));
 
+    tx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
     tx.getTxBase()->AddSidechainOutsToJSON(entry);
     tx.getTxBase()->AddJoinSplitToJSON(entry);
 
@@ -249,13 +250,9 @@ void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefi
         entry.push_back(Pair(item.first, item.second));
 
     // add the cross chain outputs if any
-#if 0
-    Sidechain::AddSidechainOutsToJSON(wtx, entry);
-    entry.push_back(Pair("vjoinsplit", TxJoinSplitToJSON(wtx)));
-#else
+    wtx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
     wtx.getTxBase()->AddSidechainOutsToJSON(entry);
     wtx.getTxBase()->AddJoinSplitToJSON(entry);
-#endif
 }
 
 static void FillScCreationReturnObj(const CTransaction& tx, UniValue& ret)

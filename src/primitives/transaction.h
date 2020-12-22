@@ -349,6 +349,61 @@ public:
     std::string ToString() const;
 };
 
+/** An input of a transaction.  It contains the location of the previous
+ * transaction's output that it claims and a signature that matches the
+ * output's public key.
+ */
+class CTxCeasedSidechainWithdrawalInput
+{
+public:
+    CAmount nValue;
+    uint256 scId;
+    int64_t nEpoch;
+    libzendoomc::ScFieldElement nullifier;
+    uint160 pubKeyHash;
+    libzendoomc::ScProof scProof;
+    CScript redeemScript;
+
+    CTxCeasedSidechainWithdrawalInput(): nValue(-1), scId(), nEpoch(-1), nullifier(), pubKeyHash(), scProof(), redeemScript() {}
+
+    explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn, int64_t nEpochIn,
+                                               const libzendoomc::ScFieldElement& nullifierIn, const uint160& pubKeyHashIn,
+                                               const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn);
+
+    ADD_SERIALIZE_METHODS
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nValue);
+        READWRITE(scId);
+        READWRITE(nEpoch);
+        READWRITE(nullifier);
+        READWRITE(pubKeyHash);
+        READWRITE(scProof);
+        READWRITE(redeemScript);
+    }
+
+    friend bool operator==(const CTxCeasedSidechainWithdrawalInput& a, const CTxCeasedSidechainWithdrawalInput& b)
+    {
+        return (a.nValue        == b.nValue &&
+                a.scId          == b.scId &&
+                a.nEpoch        == b.nEpoch &&
+                a.nullifier     == b.nullifier &&
+                a.pubKeyHash    == b.pubKeyHash &&
+                a.scProof       == b.scProof &&
+                a.redeemScript  == b.redeemScript);
+    }
+
+    friend bool operator!=(const CTxCeasedSidechainWithdrawalInput& a, const CTxCeasedSidechainWithdrawalInput& b)
+    {
+        return !(a == b);
+    }
+
+    std::string ToString() const;
+
+    CScript scriptPubKey() const;
+};
+
 class CBackwardTransferOut;
 
 /** An output of a transaction.  It contains the public key that the next input
@@ -631,12 +686,12 @@ public:
 
     bool CheckSerializedSize (CValidationState &state) const;
     virtual bool CheckAmounts(CValidationState &state) const = 0;
-    bool CheckInputsDuplication(CValidationState &state) const;
+    virtual bool CheckInputsDuplication(CValidationState &state) const;
     virtual bool CheckInputsInteraction(CValidationState &state) const = 0;
 
     bool CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const;
 
-    bool CheckInputsLimit() const;
+    virtual bool CheckInputsLimit() const;
     //END OF CHECK FUNCTIONS
 
     // Return sum of txouts.
@@ -687,7 +742,8 @@ public:
     virtual bool IsCertificate() const = 0;
 
     virtual void AddJoinSplitToJSON(UniValue& entry) const { return; }
-    virtual void AddSidechainOutsToJSON(UniValue& entry) const {return; }
+    virtual void AddCeasedSidechainWithdrawalInputsToJSON(UniValue& entry) const { return; }
+    virtual void AddSidechainOutsToJSON(UniValue& entry) const { return; }
 
     virtual bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
         const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
@@ -732,6 +788,7 @@ public:
 private:
     const std::vector<JSDescription> vjoinsplit;
     const uint32_t nLockTime;
+    const std::vector<CTxCeasedSidechainWithdrawalInput> vcsw_ccin;
     const std::vector<CTxScCreationOut> vsc_ccout;
     const std::vector<CTxForwardTransferOut> vft_ccout;
 public:
@@ -769,6 +826,7 @@ public:
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
         if (this->IsScVersion())
         {
+            READWRITE(*const_cast<std::vector<CTxCeasedSidechainWithdrawalInput>*>(&vcsw_ccin));
             READWRITE(*const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout));
             READWRITE(*const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout));
         }
@@ -811,6 +869,13 @@ public:
 
     bool ccIsNull() const {
         return (
+            vcsw_ccin.empty() &&
+            ccoutIsNull()
+        );
+    }
+
+    bool ccoutIsNull() const {
+        return (
             vsc_ccout.empty() &&
             vft_ccout.empty()
         );
@@ -823,11 +888,12 @@ public:
     }
 
     //GETTERS
-    const std::vector<CTxScCreationOut>&      GetVscCcOut()   const { return vsc_ccout; }
-    const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const { return vft_ccout; }
-    const std::vector<JSDescription>&         GetVjoinsplit() const override { return vjoinsplit;};
-    const uint32_t&                           GetLockTime()   const override { return nLockTime;};
-    const uint256&                            GetScIdFromScCcOut(int pos) const;
+    const std::vector<CTxCeasedSidechainWithdrawalInput>&   GetVcswCcIn()   const { return vcsw_ccin; }
+    const std::vector<CTxScCreationOut>&                    GetVscCcOut()   const { return vsc_ccout; }
+    const std::vector<CTxForwardTransferOut>&               GetVftCcOut()   const { return vft_ccout; }
+    const std::vector<JSDescription>&                       GetVjoinsplit() const override { return vjoinsplit; }
+    const uint32_t&                                         GetLockTime()   const override { return nLockTime; }
+    const uint256&                                          GetScIdFromScCcOut(int pos) const;
     //END OF GETTERS
 
     bool IsBackwardTransfer(int pos) const override final { return false; };
@@ -838,7 +904,9 @@ public:
     bool CheckAmounts     (CValidationState &state) const override;
     bool CheckNonEmpty    (CValidationState &state) const;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
+    bool CheckInputsDuplication(CValidationState &state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
+    bool CheckInputsLimit() const override;
     //END OF CHECK FUNCTIONS
 
     void Relay() const override;
@@ -939,6 +1007,7 @@ public:
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;
+    void AddCeasedSidechainWithdrawalInputsToJSON(UniValue& entry) const override;
     void AddSidechainOutsToJSON(UniValue& entry) const override;
     bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
@@ -982,6 +1051,7 @@ public:
 
 struct CMutableTransaction : public CMutableTransactionBase
 {
+    std::vector<CTxCeasedSidechainWithdrawalInput> vcsw_ccin;
     std::vector<CTxScCreationOut> vsc_ccout;
     std::vector<CTxForwardTransferOut> vft_ccout;
     uint32_t nLockTime;
@@ -1003,6 +1073,7 @@ struct CMutableTransaction : public CMutableTransactionBase
         READWRITE(vout);
         if (this->IsScVersion())
         {
+            READWRITE(vcsw_ccin);
             READWRITE(vsc_ccout);
             READWRITE(vft_ccout);
         }

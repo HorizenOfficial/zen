@@ -17,11 +17,40 @@
 extern UniValue ValueFromAmount(const CAmount& amount);
 extern CAmount AmountFromValue(const UniValue& value);
 extern CFeeRate minRelayTxFee;
+extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 
 namespace Sidechain
 {
 
-void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
+void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& parentObj)
+{
+    UniValue vcsws(UniValue::VARR);
+    for (const CTxCeasedSidechainWithdrawalInput csw: tx.GetVcswCcIn())
+    {
+        UniValue o(UniValue::VOBJ);
+        o.push_back(Pair("value", ValueFromAmount(csw.nValue)));
+        o.push_back(Pair("scId", csw.scId.GetHex()));
+        o.push_back(Pair("epoch", csw.nEpoch));
+        o.push_back(Pair("nullifier", HexStr(csw.nullifier)));
+
+        UniValue spk(UniValue::VOBJ);
+        ScriptPubKeyToJSON(csw.scriptPubKey(), spk, true);
+        o.push_back(Pair("scriptPubKey", spk));
+
+        o.push_back(Pair("scProof", HexStr(csw.scProof)));
+
+        UniValue rs(UniValue::VOBJ);
+        rs.push_back(Pair("asm", csw.redeemScript.ToString()));
+        rs.push_back(Pair("hex", HexStr(csw.redeemScript)));
+        o.push_back(Pair("redeemScript", rs));
+
+        vcsws.push_back(o);
+    }
+
+    parentObj.push_back(Pair("vcsw_ccin", vcsws));
+}
+// TODO: naming style is different. Use CamelCase
+void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
 {
     UniValue vscs(UniValue::VARR);
     // global idx
@@ -91,6 +120,140 @@ bool AddScData(const std::string& inputString, std::vector<unsigned char>& vByte
 
     vBytes = ParseHex(inputString);
     assert(vBytes.size() == scDataLen);
+
+    return true;
+}
+
+bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &rawTx, std::string &error)
+{
+    rawTx.nVersion = SC_TX_VERSION;
+
+    for (size_t i = 0; i < csws.size(); i++)
+    {
+        const UniValue& input = csws[i];
+        const UniValue& o = input.get_obj();
+
+        // parse amount
+        const UniValue& amount_v = find_value(o, "amount");
+        if (amount_v.isNull())
+        {
+            error = "Missing mandatory parameter \"amount\" for the ceased sidechain withdrawal input";
+            return false;
+        }
+        CAmount amount = AmountFromValue(amount_v);
+        if (amount < 0)
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter: \"amount\" must be positive";
+            return false;
+        }
+
+        // parse sender address and get public key hash
+        const UniValue& sender_v = find_value(o, "senderAddress");
+        if (sender_v.isNull())
+        {
+            error = "Missing mandatory parameter \"senderAddress\" for the ceased sidechain withdrawal input";
+            return false;
+        }
+        CBitcoinAddress senderAddress(sender_v.get_str());
+        if (!senderAddress.IsValid())
+        {
+            error = "Invalid ceased sidechain withdrawal input \"senderAddress\" parameter";
+            return false;
+        }
+
+        CKeyID pubKeyHash;
+        if(!senderAddress.GetKeyID(pubKeyHash))
+        {
+            error = "Invalid ceased sidechain withdrawal input \"senderAddress\": Horizen pubKey address expected.";
+            return false;
+        }
+
+        // parse sidechain id
+        const UniValue& scid_v = find_value(o, "scId");
+        if (scid_v.isNull())
+        {
+            error = "Missing mandatory parameter \"scId\" for the ceased sidechain withdrawal input";
+            return false;
+        }
+        std::string scIdString = scid_v.get_str();
+        if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        {
+            error = "Invalid ceased sidechain withdrawal input \"scId\" format: not an hex";
+            return false;
+        }
+
+        uint256 scId;
+        scId.SetHex(scIdString);
+
+        // parse epoch number
+        const UniValue& epoch_v = find_value(o, "epoch");
+        if (epoch_v.isNull())
+        {
+            error = "Missing mandatory parameter \"epoch\" for the ceased sidechain withdrawal input";
+            return false;
+        }
+        if (!epoch_v.isNum())
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"epoch\": integer value expected";
+            return false;
+        }
+        int epoch = epoch_v.get_int();
+        if (epoch < 0)
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"epoch\": value must be positive";
+            return false;
+        }
+
+        // parse nullifier
+        const UniValue& nullifier_v = find_value(o, "nullifier");
+        if (nullifier_v.isNull())
+        {
+            error = "Missing mandatory parameter \"nullifier\" for the ceased sidechain withdrawal input";
+            return false;
+        }
+
+        std::string nullifierError;
+        std::vector<unsigned char> nullifierVec;
+        if (!AddScData(nullifier_v.get_str(), nullifierVec, SC_FIELD_SIZE, true, nullifierError))
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": " + nullifierError;
+            return false;
+        }
+
+        /* TODO: fix the linker issue
+        libzendoomc::ScFieldElement nullifier(nullifierVec);
+        if (!libzendoomc::IsValidScFieldElement(nullifier))
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": invalid nullifier data";
+            return false;
+        }*/
+
+        // parse snark proof
+        const UniValue& proof_v = find_value(o, "scProof");
+        if (proof_v.isNull())
+        {
+            error = "Missing mandatory parameter \"scProof\" for the ceased sidechain withdrawal input";
+            return false;
+        }
+
+        std::string proofError;
+        std::vector<unsigned char> scProofVec;
+        if (!AddScData(proof_v.get_str(), scProofVec, SC_PROOF_SIZE, true, proofError))
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"scProof\": " + proofError;
+            return false;
+        }
+
+        libzendoomc::ScProof scProof(scProofVec);
+        if (!libzendoomc::IsValidScProof(scProof))
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"scProof\": invalid snark proof data";
+            return false;
+        }
+
+        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, epoch, libzendoomc::ScFieldElement()/*nullifier*/, pubKeyHash, scProof, CScript());
+        rawTx.vcsw_ccin.push_back(csw_input);
+    }
 
     return true;
 }

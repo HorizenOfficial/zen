@@ -11,6 +11,15 @@
 
 namespace libzendoomc{
 
+    bool IsValidScFieldElement(const ScFieldElement& scFieldElement)
+    {
+        auto scFieldElementDeserialized = zendoo_deserialize_field(scFieldElement.begin());
+        if (scFieldElementDeserialized == nullptr)
+            return false;
+        zendoo_field_free(scFieldElementDeserialized);
+        return true;
+    }
+
     bool IsValidScProof(const ScProof& scProof)
     {
         auto scProofDeserialized = zendoo_deserialize_sc_proof(scProof.begin());

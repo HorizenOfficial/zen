@@ -15,6 +15,11 @@ class CScCertificate;
 
 namespace libzendoomc{
 
+    typedef base_blob<SC_FIELD_SIZE * 8> ScFieldElement;
+
+    /* Check if scFieldElement is a valid zendoo-mc-cryptolib's field */
+    bool IsValidScFieldElement(const ScFieldElement& scFieldElement);
+
     typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
 
     /* Check if scProof is a valid zendoo-mc-cryptolib's sc_proof */
