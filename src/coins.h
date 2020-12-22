@@ -592,7 +592,6 @@ public:
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::map<uint256, bool>* pVoidedCertsMap);
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
-    bool IsBwtStripped(const uint256& certHash) const;
 
     bool Flush();
 

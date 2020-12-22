@@ -178,22 +178,12 @@ struct CMinimalSidechain //Sidechain with minimal info, to be included in wallet
                (prevBlockTopQualityCertHash.IsNull());
     }
 
-    size_t GetSerializeSize(int nType, int nVersion) const {
-        unsigned int totalSize = ::GetSerializeSize(prevBlockTopQualityCertReferencedEpoch, nType, nVersion);
-        totalSize += ::GetSerializeSize(prevBlockTopQualityCertHash, nType, nVersion);
-        return totalSize;
-    }
-
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const {
-        ::Serialize(s, prevBlockTopQualityCertReferencedEpoch, nType, nVersion);
-        ::Serialize(s, prevBlockTopQualityCertHash, nType, nVersion);
-    }
-
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion) {
-        ::Unserialize(s, prevBlockTopQualityCertReferencedEpoch, nType, nVersion);
-        ::Unserialize(s, prevBlockTopQualityCertHash, nType, nVersion);
+    ADD_SERIALIZE_METHODS
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(prevBlockTopQualityCertReferencedEpoch);
+        READWRITE(prevBlockTopQualityCertHash);
     }
 
 };

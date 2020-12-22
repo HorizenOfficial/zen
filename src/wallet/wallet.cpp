@@ -1357,7 +1357,7 @@ bool CWallet::ReadSidechain(const uint256& scId, CMinimalSidechain& sidechain)
     } else {
         CWalletDB walletdb(strWalletFile, "r+", false);
         res = walletdb.ReadSidechain(scId, sidechain);
-        mapSidechains[scId] = sidechain;
+        if (res) mapSidechains[scId] = sidechain;
     }
     return res;
 }

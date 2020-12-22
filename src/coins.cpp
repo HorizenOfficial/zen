@@ -1734,37 +1734,6 @@ CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int hei
     return  CSidechain::State::ALIVE;
 }
 
-bool CCoinsViewCache::IsBwtStripped(const uint256& certHash) const
-{
-    const CCoins* c = AccessCoins(certHash);
-
-    if(!c)
-    {
-        // this coin is not even available, if all of its ouputs have been spent, also its bwt are
-        LogPrint("cert", "%s.%s():%d cert %s has no coins\n", __FILE__, __func__, __LINE__, certHash.ToString());
-    }
-    else
-    if (c->nFirstBwtPos != BWT_POS_UNSET)
-    {
-        for(int pos = c->nFirstBwtPos; pos < c->vout.size(); ++pos)
-        {
-            if (!c->vout.at(pos).IsNull())
-            {
-                LogPrint("cert", "%s.%s():%d cert %s NOT STRIPPED\n", __FILE__, __func__, __LINE__, certHash.ToString());
-                return false;
-            }
-        }
-    }
-    else
-    {
-        // should not happen
-        LogPrint("cert", "%s.%s():%d cert %s has invalid nFirstBwtPos!!\n", __FILE__, __func__, __LINE__, certHash.ToString());
-    }
-
-    LogPrint("cert", "%s.%s():%d cert %s STRIPPED\n", __FILE__, __func__, __LINE__, certHash.ToString());
-    return true;
-}
-
 bool CCoinsViewCache::Flush() {
     bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheSidechainEvents);
     cacheCoins.clear();
