@@ -2041,6 +2041,8 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             }
 
             std::set<uint256> visitedScIds;
+            // It's safe to process certs backward despite possible spending dependencies of certs in block
+            // since at this stage no transaction creation is allowed
             for(auto itCert = block.vcert.rbegin(); itCert != block.vcert.rend(); ++itCert)
             {
                 CMinimalSidechain prevSidechain;

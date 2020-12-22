@@ -3302,7 +3302,9 @@ bool static DisconnectTip(CValidationState &state) {
         CSidechain sidechain;
         assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
         SyncWithWallets(cert, nullptr);
-        SyncWithWallets(cert.GetScId(), CMinimalSidechain(sidechain));
+        if ((voidedCertsMap.count(cert.GetHash()) != 0) &&
+            !voidedCertsMap.at(cert.GetHash())) //update wallet sc state only for top quality certs
+            SyncWithWallets(cert.GetScId(), CMinimalSidechain(sidechain));
     }
 
     for(const auto& x : voidedCertsMap) {
@@ -3408,7 +3410,8 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         LogPrint("cert", "%s():%d - sync with wallet confirmed cert[%s], bwtMaturityDepth[%d]\n",
             __func__, __LINE__, cert.GetHash().ToString(), bwtMaturityDepth);
         SyncWithWallets(cert, pblock, bwtMaturityDepth);
-        SyncWithWallets(cert.GetScId(), CMinimalSidechain(sidechain));
+        if (!voidedCertsMap.at(cert.GetHash())) //update wallet sc state only for top quality certs
+            SyncWithWallets(cert.GetScId(), CMinimalSidechain(sidechain));
     }
 
     for(const auto& x: voidedCertsMap) {
