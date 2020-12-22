@@ -332,7 +332,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     }
                     catch(...)
                     {
-                        LogPrint("%s: %s():%d - unexpected exception\n", __FILE__, __func__, __LINE__);
+                        LogPrintf("%s: %s():%d - unexpected exception\n", __FILE__, __func__, __LINE__);
                         break;
                     }
 

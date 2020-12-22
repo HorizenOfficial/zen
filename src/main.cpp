@@ -823,7 +823,8 @@ bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& ma
 
     for (unsigned int i = 0; i < txBase.GetVin().size(); i++)
     {
-        const CTxOut& prev = mapInputs.GetOutputFor(txBase.GetVin().at(i));
+        const CTxIn&  in   = txBase.GetVin().at(i);
+        const CTxOut& prev = mapInputs.GetOutputFor(in);
 
         vector<vector<unsigned char> > vSolutions;
         txnouttype whichType;
@@ -846,7 +847,7 @@ bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& ma
         // IsStandardTx() will have already returned false
         // and this method isn't called.
         vector<vector<unsigned char> > stack;
-        if (!EvalScript(stack, txBase.GetVin().at(i).scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
+        if (!EvalScript(stack, in.scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker()))
             return false;
 
         if (whichType == TX_SCRIPTHASH || whichType == TX_SCRIPTHASH_REPLAY)

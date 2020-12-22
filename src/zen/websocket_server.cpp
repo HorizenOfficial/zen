@@ -111,7 +111,7 @@ public:
 
     explicit WsEvent(WsMsgType xn): type(xn), payload(UniValue::VOBJ)
     {
-        payload.push_back(Pair("msgType", type));
+        payload.pushKV("msgType", type);
     }
     WsEvent & operator=(const WsEvent& ws) = delete;
     WsEvent(const WsEvent& ws) = delete;
@@ -140,13 +140,13 @@ private:
         WsEvent* wse = new WsEvent(WsEvent::MSG_EVENT);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        rspPayload.push_back(Pair("height", height));
-        rspPayload.push_back(Pair("hash", strHash));
-        rspPayload.push_back(Pair("block", blockHex));
+        rspPayload.pushKV("height", height);
+        rspPayload.pushKV("hash", strHash);
+        rspPayload.pushKV("block", blockHex);
 
         UniValue* rv = wse->getPayload();
-        rv->push_back(Pair("eventType", eventType));
-        rv->push_back(Pair("eventPayload", rspPayload));
+        rv->pushKV("eventType", eventType);
+        rv->pushKV("eventPayload", rspPayload);
         wsq.push(wse);
     }
 
@@ -157,14 +157,14 @@ private:
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        rspPayload.push_back(Pair("height", height));
-        rspPayload.push_back(Pair("hash", strHash));
-        rspPayload.push_back(Pair("block", blockHex));
+        rspPayload.pushKV("height", height);
+        rspPayload.pushKV("hash", strHash);
+        rspPayload.pushKV("block", blockHex);
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
-        rv->push_back(Pair("responsePayload", rspPayload));
+            rv->pushKV("requestId", clientRequestId);
+        rv->pushKV("responsePayload", rspPayload);
         wsq.push(wse);
     }
 
@@ -175,7 +175,7 @@ private:
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        rspPayload.push_back(Pair("height", height));
+        rspPayload.pushKV("height", height);
 
         UniValue hashes(UniValue::VARR);
         std::list<CBlockIndex*>::iterator it = listBlock.begin();
@@ -184,12 +184,12 @@ private:
             hashes.push_back(blockIndexIterator->GetBlockHash().GetHex());
             ++it;
         }
-        rspPayload.push_back(Pair("hashes", hashes));
+        rspPayload.pushKV("hashes", hashes);
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
-        rv->push_back(Pair("responsePayload", rspPayload));
+            rv->pushKV("requestId", clientRequestId);
+        rv->pushKV("responsePayload", rspPayload);
         wsq.push(wse);
     }
 
@@ -200,12 +200,12 @@ private:
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
 
-        rspPayload.push_back(Pair("certificateHash", retCert));
+        rspPayload.pushKV("certificateHash", retCert);
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
-        rv->push_back(Pair("responsePayload", rspPayload));
+            rv->pushKV("requestId", clientRequestId);
+        rv->pushKV("responsePayload", rspPayload);
         wsq.push(wse);
     }
 
@@ -428,7 +428,7 @@ private:
         LogPrint("ws", "ping received... %s\n", payload);
         WsEvent* wse = new WsEvent(WsEvent::PONG);
         UniValue* rv = wse->getPayload();
-        rv->push_back(Pair("pingPayload", payload));
+        rv->pushKV("pingPayload", payload);
         wsq->push(wse);
     }*/
 
@@ -798,9 +798,9 @@ private:
                 LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
                 UniValue* rv = wse->getPayload();
                 if (!clientRequestId.empty())
-                    rv->push_back(Pair("requestId", clientRequestId));
-                rv->push_back(Pair("errorCode", res));
-                rv->push_back(Pair("message", msgError));
+                    rv->pushKV("requestId", clientRequestId);
+                rv->pushKV("errorCode", res);
+                rv->pushKV("message", msgError);
                 wsq.push(wse);
             }
         }

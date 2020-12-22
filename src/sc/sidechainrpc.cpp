@@ -30,31 +30,31 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
     for (unsigned int i = 0; i < tx.GetVscCcOut().size(); i++) {
         const CTxScCreationOut& out = tx.GetVscCcOut()[i];
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.GetScId().GetHex()));
-        o.push_back(Pair("n", (int64_t)nIdx));
-        o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
-        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
-        o.push_back(Pair("address", out.address.GetHex()));
-        o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
-        o.push_back(Pair("customData", HexStr(out.customData)));
-        o.push_back(Pair("constant", HexStr(out.constant)));
+        o.pushKV("scid", out.GetScId().GetHex());
+        o.pushKV("n", (int64_t)nIdx);
+        o.pushKV("withdrawal epoch length", (int)out.withdrawalEpochLength);
+        o.pushKV("value", ValueFromAmount(out.nValue));
+        o.pushKV("address", out.address.GetHex());
+        o.pushKV("wCertVk", HexStr(out.wCertVk));
+        o.pushKV("customData", HexStr(out.customData));
+        o.pushKV("constant", HexStr(out.constant));
         vscs.push_back(o);
         nIdx++;
     }
-    parentObj.push_back(Pair("vsc_ccout", vscs));
+    parentObj.pushKV("vsc_ccout", vscs);
 
     UniValue vfts(UniValue::VARR);
     for (unsigned int i = 0; i < tx.GetVftCcOut().size(); i++) {
         const CTxForwardTransferOut& out = tx.GetVftCcOut()[i];
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.scId.GetHex()));
-        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
-        o.push_back(Pair("n", (int64_t)nIdx));
-        o.push_back(Pair("address", out.address.GetHex()));
+        o.pushKV("scid", out.scId.GetHex());
+        o.pushKV("value", ValueFromAmount(out.nValue));
+        o.pushKV("n", (int64_t)nIdx);
+        o.pushKV("address", out.address.GetHex());
         vfts.push_back(o);
         nIdx++;
     }
-    parentObj.push_back(Pair("vft_ccout", vfts));
+    parentObj.pushKV("vft_ccout", vfts);
 }
 
 
