@@ -2046,9 +2046,10 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 CMinimalSidechain prevSidechain;
                 assert(ReadSidechain(itCert->GetScId(), prevSidechain));
 
-                bool bStripBwt = visitedScIds.count(itCert->GetScId()) != 0;
+                bool bTopQualityCert = visitedScIds.count(itCert->GetScId()) == 0;
                 visitedScIds.insert(itCert->GetScId());
-                SyncSidechain(itCert->GetScId(), CMinimalSidechain(itCert->epochNumber, itCert->GetHash()));
+                if (bTopQualityCert)
+                    SyncSidechain(itCert->GetScId(), CMinimalSidechain(itCert->epochNumber, itCert->GetHash()));
 
                 int nHeight = pindex->nHeight;
                 CSidechain sidechain;
@@ -2061,8 +2062,8 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 {
                     ret++;
                     if (fUpdate) {
-                        SyncVoidedCert(itCert->GetHash(), bStripBwt);
-                        if (prevSidechain.prevBlockTopQualityCertReferencedEpoch == itCert->epochNumber)
+                        SyncVoidedCert(itCert->GetHash(), !bTopQualityCert);
+                        if (bTopQualityCert && prevSidechain.prevBlockTopQualityCertReferencedEpoch == itCert->epochNumber)
                             SyncVoidedCert(prevSidechain.prevBlockTopQualityCertHash, true);
                     }
                 }
