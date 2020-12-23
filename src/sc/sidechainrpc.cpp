@@ -220,13 +220,12 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 
-        /* TODO: fix the linker issue
         libzendoomc::ScFieldElement nullifier(nullifierVec);
         if (!libzendoomc::IsValidScFieldElement(nullifier))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": invalid nullifier data";
             return false;
-        }*/
+        }
 
         // parse snark proof
         const UniValue& proof_v = find_value(o, "scProof");
@@ -251,7 +250,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 
-        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, epoch, libzendoomc::ScFieldElement()/*nullifier*/, pubKeyHash, scProof, CScript());
+        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, epoch, nullifier, pubKeyHash, scProof, CScript());
         rawTx.vcsw_ccin.push_back(csw_input);
     }
 

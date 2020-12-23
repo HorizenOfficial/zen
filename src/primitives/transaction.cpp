@@ -558,11 +558,11 @@ bool CTransaction::CheckInputsDuplication(CValidationState &state) const
     std::set<libzendoomc::ScFieldElement> vNullifiers;
     for(const CTxCeasedSidechainWithdrawalInput cswIn: GetVcswCcIn())
     {
-        if(vNullifiers.count(cswIn.nullifier))
+        if(!vNullifiers.insert(cswIn.nullifier).second)
             return state.DoS(100, error("CheckInputsDuplications(): duplicate ceased sidechain withdrawal inputs"),
                              REJECT_INVALID, "bad-txns-csw-inputs-duplicate");
 
-        vNullifiers.insert(cswIn.nullifier);
+        ;
     }
 
     return true;

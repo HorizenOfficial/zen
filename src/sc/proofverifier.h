@@ -14,7 +14,6 @@ class CSidechain;
 class CScCertificate;
 
 namespace libzendoomc{
-
     typedef base_blob<SC_FIELD_SIZE * 8> ScFieldElement;
 
     /* Check if scFieldElement is a valid zendoo-mc-cryptolib's field */
