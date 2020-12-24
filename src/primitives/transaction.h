@@ -726,9 +726,9 @@ public:
     virtual void AddToBlock(CBlock* pblock) const = 0;
     virtual void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const = 0;
 
-    bool VerifyScript(
+    virtual bool VerifyScript(
         const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
-        bool cacheStore, ScriptError* serror) const;
+        bool cacheStore, ScriptError* serror) const = 0;
 
     virtual std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const = 0;
@@ -1013,6 +1013,9 @@ public:
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL) const override;
 
+    bool VerifyScript(
+            const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
+            bool cacheStore, ScriptError* serror) const override;
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;
 };

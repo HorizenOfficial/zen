@@ -2271,6 +2271,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
 }
 }// namespace Consensus
 
+// TODO: Implement 2 different methods for Tx and Cert. For Tx add checks for ScSupport Txs CSW inputs. Same for CheckTxInputs/CheckCertInputs
 bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsCoinBase())

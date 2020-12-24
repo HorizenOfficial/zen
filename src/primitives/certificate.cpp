@@ -220,6 +220,9 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
+bool CScCertificate::VerifyScript(
+        const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+        bool cacheStore, ScriptError* serror) const { return true; }
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
     return std::shared_ptr<BaseSignatureChecker>(NULL);
@@ -231,6 +234,27 @@ std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
     return std::shared_ptr<const CTransactionBase>();
 }
 #else
+
+bool CScCertificate::VerifyScript(
+        const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+        bool cacheStore, ScriptError* serror) const
+{
+    if (nIn >= GetVin().size() )
+        return ::error("%s:%d can not verify Signature: nIn too large for vin size %d",
+                                       GetHash().ToString(), nIn, GetVin().size());
+
+    const CScript &scriptSig = GetVin()[nIn].scriptSig;
+
+    if (!::VerifyScript(scriptSig, scriptPubKey, nFlags,
+                      //CachingTransactionSignatureChecker(this, nIn, chain, cacheStore),
+                      *MakeSignatureChecker(nIn, chain, cacheStore),
+                      serror))
+    {
+        return ::error("%s:%d VerifySignature failed: %s", GetHash().ToString(), nIn, ScriptErrorString(*serror));
+    }
+
+    return true;
+}
 
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {

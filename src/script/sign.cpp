@@ -161,13 +161,17 @@ bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& fromPu
 
 bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, int nHashType)
 {
-    assert(nIn < txTo.vin.size());
-    CTxIn& txin = txTo.vin[nIn];
+    // Note: in case of sc support transaction version nIn may belong to regular inputs or CSW inputs
+    unsigned int nTotalInputs = txTo.IsScVersion() ? txTo.vin.size() + txTo.vcsw_ccin.size() : txTo.vin.size();
+    assert(nIn < nTotalInputs);
+
+    bool isRegularInput = nIn < txTo.vin.size();
+    CScript& scriptSig = isRegularInput ? txTo.vin[nIn].scriptSig : txTo.vcsw_ccin[nIn - txTo.vin.size()].redeemScript;
 
     CTransaction txToConst(txTo);
     TransactionSignatureCreator creator(&keystore, &txToConst, nIn, nHashType);
 
-    return ProduceSignature(creator, fromPubKey, txin.scriptSig);
+    return ProduceSignature(creator, fromPubKey, scriptSig);
 }
 
 // used in test_bitcoin

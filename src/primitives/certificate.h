@@ -191,6 +191,9 @@ public:
 
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
 
+    bool VerifyScript(
+            const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+            bool cacheStore, ScriptError* serror) const override;
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;
 };
