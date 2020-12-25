@@ -61,7 +61,7 @@ size_t CSidechain::DynamicMemoryUsage() const {
 size_t CSidechainEvents::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(maturingScs) + memusage::DynamicUsage(ceasingScs);
 }
-
+// TODO: add CSW verification rules
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency
