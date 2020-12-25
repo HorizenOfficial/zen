@@ -1859,7 +1859,7 @@ CAmount CCoinsViewCache::GetValueIn(const CTransactionBase& txBase) const
     for (const CTxIn& in : txBase.GetVin())
         nResult += GetOutputFor(in).nValue;
 
-    nResult += txBase.GetJoinSplitValueIn();
+    nResult += txBase.GetJoinSplitValueIn() + txBase.GetCSWValueIn();
 
     return nResult;
 }

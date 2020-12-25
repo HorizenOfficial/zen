@@ -190,6 +190,9 @@ public:
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
 
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
+    bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+                           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
+                           std::vector<CScriptCheck> *pvChecks = NULL) const override;
 
     bool VerifyScript(
             const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,

@@ -774,6 +774,19 @@ CAmount CTransaction::GetValueOut() const
     return nValueOut;
 }
 
+CAmount CTransaction::GetCSWValueIn() const
+{
+    CAmount nValueIn = 0;
+    for(const CTxCeasedSidechainWithdrawalInput& csw : GetVcswCcIn())
+    {
+        nValueIn += csw.nValue;
+
+        if (!MoneyRange(csw.nValue) || !MoneyRange(nValueIn))
+            throw std::runtime_error("CTransaction::GetCSWValueIn(): value out of range");
+    }
+    return nValueIn;
+}
+
 std::string CTransaction::ToString() const
 {
     std::string str;
@@ -1073,7 +1086,7 @@ bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsVi
           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
           std::vector<CScriptCheck> *pvChecks) const
 {
-    return ::ContextualCheckInputs(*this, state, view, fScriptChecks, chain, flags, cacheStore, consensusParams, pvChecks);
+    return ::ContextualCheckTxInputs(*this, state, view, fScriptChecks, chain, flags, cacheStore, consensusParams, pvChecks);
 }
 
 std::string CTransaction::EncodeHex() const

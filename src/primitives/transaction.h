@@ -708,6 +708,8 @@ public:
     // Return sum of JoinSplit vpub_new if supported
     virtual CAmount GetJoinSplitValueIn() const;
 
+    virtual CAmount GetCSWValueIn() const { return 0; }
+
     //-----------------
     // pure virtual interfaces 
     virtual void Relay() const = 0;
@@ -747,7 +749,7 @@ public:
 
     virtual bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
         const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-        std::vector<CScriptCheck> *pvChecks = NULL) const { return true; }
+        std::vector<CScriptCheck> *pvChecks = NULL) const = 0;
 
     virtual const uint256& GetJoinSplitPubKey() const = 0;
 
@@ -914,6 +916,9 @@ public:
 
     // Return sum of txouts.
     CAmount GetValueOut() const override;
+
+    // Return sum of CSW inputs
+    CAmount GetCSWValueIn() const override;
 
     // value in should be computed via the method above using a proper coin view
     CAmount GetFeeAmount(const CAmount& valueIn) const override { return (valueIn - GetValueOut() ); }

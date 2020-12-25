@@ -214,12 +214,14 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
 
     return true;
 }
-
 //--------------------------------------------------------------------------------------------
 // binaries other than zend that are produced in the build, do not call these members and therefore do not
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
+bool CScCertificate::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+          const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
+          std::vector<CScriptCheck> *pvChecks) const { return true; }
 bool CScCertificate::VerifyScript(
         const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
         bool cacheStore, ScriptError* serror) const { return true; }
@@ -234,6 +236,13 @@ std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
     return std::shared_ptr<const CTransactionBase>();
 }
 #else
+
+bool CScCertificate::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+          const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
+          std::vector<CScriptCheck> *pvChecks) const
+{
+    return ::ContextualCheckCertInputs(*this, state, view, fScriptChecks, chain, flags, cacheStore, consensusParams, pvChecks);
+}
 
 bool CScCertificate::VerifyScript(
         const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
