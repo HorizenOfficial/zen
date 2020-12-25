@@ -1122,7 +1122,7 @@ public:
                 // * otherwise skip CSW inputs
                 // Otherwise - serialize all CSW inputs
                 unsigned int nCswInputs = fAnyoneCanPay ?
-                            (txTo.IsScVersion() && nIn < txTo.GetVin().size() ? 0 : 1) :
+                            (nIn < txTo.GetVin().size() ? 0 : 1) :
                             txTo.GetVcswCcIn().size();
                 ::WriteCompactSize(s, nCswInputs);
                 for (unsigned int nCswInput = 0; nCswInput < nCswInputs; nCswInput++)
@@ -1131,6 +1131,8 @@ public:
                 // Serialize vccouts
                 unsigned int nCcOutputs = 0;
  
+                // Q: In case of fHashSingle we also serialize all CC outputs. Is it correct?
+                // Seems or we need to ingore all CC outputs, or consider them in a unique joined index of(vouts + cc_outs)
                 nCcOutputs = fHashNone ? 0 : (txTo.GetVscCcOut().size());
                 ::WriteCompactSize(s, nCcOutputs);
                 for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
