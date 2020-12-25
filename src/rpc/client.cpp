@@ -83,6 +83,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createrawtransaction", 1 },
     { "createrawtransaction", 2 },
     { "createrawtransaction", 3 },
+    { "createrawtransaction", 4 },
     { "createrawcertificate", 0 },
     { "createrawcertificate", 1 },
     { "createrawcertificate", 2 },

@@ -129,7 +129,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         inputs = [{'txid': txid, 'vout': vout['n']}]
         sc_ft = []
 
-        rawtx = self.nodes[2].createrawtransaction(inputs, {}, sc, sc_ft)
+        rawtx = self.nodes[2].createrawtransaction(inputs, {}, [], sc, sc_ft)
         sigRawtx = self.nodes[2].signrawtransaction(rawtx)
 
         # Node 2 create rawtransaction with same UTXO

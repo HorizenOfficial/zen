@@ -659,9 +659,9 @@ void AddOutputsToRawObject(CMutableTransactionBase& rawTxObj, const UniValue& se
 
 UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {   
-    if (fHelp || params.size() > 4)
+    if (fHelp || params.size() > 5)
         throw runtime_error(
-            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) )\n"
+            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{\"amount\": value, \"senderAddress\":\"address\", ...}, ...] ( [{\"epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) ) )\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
             "Note that the transaction's inputs are not signed, and\n"
@@ -730,7 +730,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of 
-        (UniValue::VARR)(UniValue::VOBJ)(UniValue::VARR) (UniValue::VARR));
+        (UniValue::VARR)(UniValue::VOBJ)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR));
 
     UniValue inputs = params[0].get_array();
     UniValue sendTo = params[1].get_obj();

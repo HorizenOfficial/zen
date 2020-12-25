@@ -186,7 +186,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         #Try create a SC with no inputs
         print("Try create a SC with no inputs...")
 
-        rawtx=self.nodes[0].createrawtransaction([],{},sc_cr)
+        rawtx=self.nodes[0].createrawtransaction([],{},[],sc_cr)
         sigRawtx = self.nodes[0].signrawtransaction(rawtx)
         try:
             finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
@@ -206,7 +206,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         inputs = [{'txid': txid, 'vout': vout['n']}]
         sc_ft = []
-        rawtx=self.nodes[0].createrawtransaction(inputs,{},sc_cr,sc_ft)
+        rawtx=self.nodes[0].createrawtransaction(inputs,{},[],sc_cr,sc_ft)
         sigRawtx = self.nodes[0].signrawtransaction(rawtx)
         finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
 
@@ -247,7 +247,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         inputs = []
         sc_ft_amount = Decimal('7.00000000')
         sc_ft = [{"address": sc_address, "amount":sc_ft_amount, "scid": scid}]
-        rawtx=self.nodes[0].createrawtransaction(inputs,{},[],sc_ft)
+        rawtx=self.nodes[0].createrawtransaction(inputs,{},[],[],sc_ft)
         funded_tx = self.nodes[0].fundrawtransaction(rawtx)
         sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
         finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])

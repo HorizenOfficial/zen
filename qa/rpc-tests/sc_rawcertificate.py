@@ -93,7 +93,7 @@ class sc_rawcert(BitcoinTestFramework):
         
         sc_cr = [{"epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "wCertVk": vk, "constant": constant}]
         sc_ft = []
-        raw_tx = self.nodes[1].createrawtransaction([], {}, sc_cr, sc_ft)
+        raw_tx = self.nodes[1].createrawtransaction([], {}, [], sc_cr, sc_ft)
         funded_tx = self.nodes[1].fundrawtransaction(raw_tx)
         signed_tx = self.nodes[1].signrawtransaction(funded_tx['hex'])
         creating_tx = self.nodes[1].sendrawtransaction(signed_tx['hex'])

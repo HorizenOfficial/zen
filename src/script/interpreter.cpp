@@ -1330,7 +1330,7 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     // inputs, but testing just this input minimizes the data
     // required to prove correct CHECKLOCKTIMEVERIFY execution.
     // Check only regular inputs, skip CSW inputs
-    if(txTo->GetVin().size() < nIn) {
+    if(nIn < txTo->GetVin().size()) {
         if (txTo->GetVin()[nIn].IsFinal())
             return false;
     }
