@@ -864,7 +864,6 @@ int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_
 int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
-void CSidechain::SetVoidedCert(const uint256& certHash, bool flag, std::map<uint256, bool>* pVoidedCertsMap) {}
 bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
 bool libzendoomc::CScProofVerifier::verifyCScCertificate(              
@@ -1565,7 +1564,7 @@ bool CCoinsViewCache::CancelSidechainEvent(const CScCertificate& cert)
     return true;
 }
 
-bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::map<uint256, bool>* pVoidedCertsMap)
+bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
     if (!HaveSidechainEvents(height))
         return true;
@@ -1618,7 +1617,11 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         }
 
         NullifyBackwardTransfers(scInfo.prevBlockTopQualityCertHash, blockUndo.scUndoDatabyScId[ceasingScId].ceasedBwts);
-        CSidechain::SetVoidedCert(scInfo.prevBlockTopQualityCertHash, true, pVoidedCertsMap);
+        if (pCertsStateInfo != nullptr)
+            pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(ceasingScId, scInfo.prevBlockTopQualityCertHash,
+                                       scInfo.prevBlockTopQualityCertReferencedEpoch,
+                                       scInfo.prevBlockTopQualityCertQuality,
+                                       CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
     }
 
     CSidechainEventsMap::iterator scCeasingIt = ModifySidechainEvents(height);
@@ -1626,7 +1629,7 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
     return true;
 }
 
-bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::map<uint256, bool>* pVoidedCertsMap)
+bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
     if (HaveSidechainEvents(height)) {
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT:: attempt to recreate sidechain event at height [%d], but there is one already\n",
@@ -1692,7 +1695,11 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
             if (!RestoreBackwardTransfers(pSidechain->prevBlockTopQualityCertHash, blockUndo.scUndoDatabyScId.at(scId).ceasedBwts))
                 return false;
  
-            CSidechain::SetVoidedCert(pSidechain->prevBlockTopQualityCertHash, false, pVoidedCertsMap);
+            if (pCertsStateInfo != nullptr)
+                pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(scId, pSidechain->prevBlockTopQualityCertHash,
+                                           pSidechain->prevBlockTopQualityCertReferencedEpoch,
+                                           pSidechain->prevBlockTopQualityCertQuality,
+                                           CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
         }
 
         recreatedScEvent.ceasingScs.insert(scId);

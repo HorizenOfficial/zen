@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "validationinterface.h"
+#include <primitives/certificate.h>
 
 static CMainSignals g_signals;
 
@@ -23,13 +24,11 @@ void RegisterValidationInterface(CValidationInterface* pwalletIn) {
     g_signals.Broadcast.connect(boost::bind(&CValidationInterface::ResendWalletTransactions, pwalletIn, _1));
     g_signals.BlockChecked.connect(boost::bind(&CValidationInterface::BlockChecked, pwalletIn, _1, _2));
     g_signals.SyncCertificate.connect(boost::bind(&CValidationInterface::SyncCertificate, pwalletIn, _1, _2, _3));
-    g_signals.SyncSidechain.connect(boost::bind(&CValidationInterface::SyncSidechain, pwalletIn, _1, _2));
-    g_signals.SyncBwtCeasing.connect(boost::bind(&CValidationInterface::SyncVoidedCert, pwalletIn, _1, _2));
+    g_signals.SyncCertStatus.connect(boost::bind(&CValidationInterface::SyncCertStatusInfo, pwalletIn, _1));
 }
 
 void UnregisterValidationInterface(CValidationInterface* pwalletIn) {
-    g_signals.SyncBwtCeasing.disconnect(boost::bind(&CValidationInterface::SyncVoidedCert, pwalletIn, _1, _2));
-    g_signals.SyncSidechain.disconnect(boost::bind(&CValidationInterface::SyncSidechain, pwalletIn, _1, _2));
+    g_signals.SyncCertStatus.disconnect(boost::bind(&CValidationInterface::SyncCertStatusInfo, pwalletIn, _1));
     g_signals.SyncCertificate.disconnect(boost::bind(&CValidationInterface::SyncCertificate, pwalletIn, _1, _2, _3));
     g_signals.BlockChecked.disconnect(boost::bind(&CValidationInterface::BlockChecked, pwalletIn, _1, _2));
     g_signals.Broadcast.disconnect(boost::bind(&CValidationInterface::ResendWalletTransactions, pwalletIn, _1));
@@ -43,9 +42,8 @@ void UnregisterValidationInterface(CValidationInterface* pwalletIn) {
 }
 
 void UnregisterAllValidationInterfaces() {
-    g_signals.SyncSidechain.disconnect_all_slots();
     g_signals.SyncCertificate.disconnect_all_slots();
-    g_signals.SyncBwtCeasing.disconnect_all_slots();
+    g_signals.SyncCertStatus.disconnect_all_slots();
     g_signals.BlockChecked.disconnect_all_slots();
     g_signals.Broadcast.disconnect_all_slots();
     g_signals.Inventory.disconnect_all_slots();
@@ -65,10 +63,6 @@ void SyncWithWallets(const CScCertificate &cert, const CBlock *pblock, int bwtMa
     g_signals.SyncCertificate(cert, pblock, bwtMaturityDepth);
 }
 
-void SyncWithWallets(const uint256& scId, const CMinimalSidechain& walletSidechainData) {
-    g_signals.SyncSidechain(scId, walletSidechainData);
-}
-
-void SyncVoidedCert(const uint256& certHash, bool bwtAreStripped) {
-    g_signals.SyncBwtCeasing(certHash, bwtAreStripped);
+void SyncCertStatusUpdate(const CScCertificateStatusUpdateInfo& certStatusInfo) {
+    g_signals.SyncCertStatus(certStatusInfo);
 }

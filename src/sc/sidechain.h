@@ -24,7 +24,7 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-    	READWRITE(sidechainEventsVersion);
+        READWRITE(sidechainEventsVersion);
         READWRITE(ceasingScs);
         READWRITE(maturingScs);
     }
@@ -102,7 +102,6 @@ public:
         CEASED
     };
     static std::string stateToString(State s);
-    static void SetVoidedCert(const uint256& certHash, bool flag, std::map<uint256, bool>* pVoidedCertsMap);
 
     std::string ToString() const;
 
@@ -154,38 +153,5 @@ namespace Sidechain {
     bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 }; // end of namespace
-
-
-struct CMinimalSidechain //Sidechain with minimal info, to be included in wallet
-{
-    int32_t prevBlockTopQualityCertReferencedEpoch;
-    uint256 prevBlockTopQualityCertHash;
-
-    CMinimalSidechain():
-        prevBlockTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
-		prevBlockTopQualityCertHash() {};
-
-    CMinimalSidechain(const CSidechain& sidechain):
-        prevBlockTopQualityCertReferencedEpoch(sidechain.prevBlockTopQualityCertReferencedEpoch),
-        prevBlockTopQualityCertHash(sidechain.prevBlockTopQualityCertHash) {};
-
-    CMinimalSidechain(int32_t certEpoch, uint256 certHash):
-        prevBlockTopQualityCertReferencedEpoch(certEpoch),
-        prevBlockTopQualityCertHash(certHash) {};
-
-    bool IsNull() const {
-        return (prevBlockTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NOT_INITIALIZED) &&
-               (prevBlockTopQualityCertHash.IsNull());
-    }
-
-    ADD_SERIALIZE_METHODS
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
-        READWRITE(prevBlockTopQualityCertReferencedEpoch);
-        READWRITE(prevBlockTopQualityCertHash);
-    }
-
-};
 
 #endif // _SIDECHAIN_CORE_H

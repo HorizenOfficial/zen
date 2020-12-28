@@ -1301,20 +1301,28 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, 
     MarkAffectedTransactionsDirty(cert);
 }
 
-void CWallet::SyncVoidedCert(const uint256& certHash, bool bwtAreStripped)
+void CWallet::SyncCertStatusInfo(const CScCertificateStatusUpdateInfo& certStatusInfo)
 {
     LOCK(cs_wallet);
 
     LogPrint("cert", "%s():%d - Called for cert[%s], bwtAreStripped[%d]\n",
-        __func__, __LINE__, certHash.ToString(), bwtAreStripped);
+        __func__, __LINE__, certStatusInfo.certHash.ToString(), certStatusInfo.bwtState == CScCertificateStatusUpdateInfo::BwtState::BWT_OFF);
 
-    std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(certHash);
+    CWalletDB walletdb(strWalletFile, "r+", false);
+
+    // Update sidechain state with top quality certs only, i.e. cert whose bwts are not voided
+    if (certStatusInfo.bwtState == CScCertificateStatusUpdateInfo::BwtState::BWT_ON)
+    {
+        mapSidechains[certStatusInfo.scId] = certStatusInfo;
+        walletdb.WriteSidechain(certStatusInfo);
+    }
+
+    std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(certStatusInfo.certHash);
     if (itCert == mapWallet.end())
     {
         LogPrint("cert", "%s():%d - nothing to do, cert not in wallet\n", __func__, __LINE__);
         return;
     }
-
 
     assert(itCert->second.get()->getTxBase()->IsCertificate());
 
@@ -1324,31 +1332,14 @@ void CWallet::SyncVoidedCert(const uint256& certHash, bool bwtAreStripped)
         return;
     }
    
-    itCert->second.get()->bwtAreStripped = bwtAreStripped;
+    itCert->second.get()->bwtAreStripped = (certStatusInfo.bwtState == CScCertificateStatusUpdateInfo::BwtState::BWT_OFF);
 
     // Write to disk
-    CWalletDB walletdb(strWalletFile, "r+", false);
     if (!itCert->second->WriteToDisk(&walletdb))
         LogPrintf("%s():%d - ERROR in writing to db\n", __func__, __LINE__);
 }
 
-void CWallet::SyncSidechain(const uint256& scId, const CMinimalSidechain& walletSidechainData)
-{
-    CWalletDB walletdb(strWalletFile, "r+", false);
-
-    if (!walletSidechainData.IsNull())
-    {
-        mapSidechains[scId] = walletSidechainData;
-        walletdb.WriteSidechain(scId, walletSidechainData);
-    } else {
-        mapSidechains.erase(scId);
-        walletdb.EraseSidechain(scId);
-    }
-
-    return;
-}
-
-bool CWallet::ReadSidechain(const uint256& scId, CMinimalSidechain& sidechain)
+bool CWallet::ReadSidechain(const uint256& scId, CScCertificateStatusUpdateInfo& sidechain)
 {
     bool res = false;
     if (mapSidechains.count(scId) != 0) {
@@ -2033,9 +2024,6 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
   
             for(const CTransaction& tx: block.vtx)
             {
-                for(unsigned int pos = 0; pos < tx.GetVscCcOut().size(); ++pos)
-                    SyncSidechain(tx.GetScIdFromScCcOut(pos), CMinimalSidechain(CScCertificate::EPOCH_NULL, uint256()));
-
                 if (AddToWalletIfInvolvingMe(tx, &block, -1, fUpdate))
                     ret++;
             }
@@ -2045,13 +2033,17 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             // since at this stage no transaction creation is allowed
             for(auto itCert = block.vcert.rbegin(); itCert != block.vcert.rend(); ++itCert)
             {
-                CMinimalSidechain prevSidechain;
-                assert(ReadSidechain(itCert->GetScId(), prevSidechain));
+                CScCertificateStatusUpdateInfo prevScData;
+                assert(ReadSidechain(itCert->GetScId(), prevScData));
 
                 bool bTopQualityCert = visitedScIds.count(itCert->GetScId()) == 0;
                 visitedScIds.insert(itCert->GetScId());
                 if (bTopQualityCert)
-                    SyncSidechain(itCert->GetScId(), CMinimalSidechain(itCert->epochNumber, itCert->GetHash()));
+                {
+                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(itCert->GetScId(), itCert->GetHash(),
+                                                                      itCert->epochNumber, itCert->quality,
+                                                                      CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
+                }
 
                 int nHeight = pindex->nHeight;
                 CSidechain sidechain;
@@ -2064,9 +2056,15 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 {
                     ret++;
                     if (fUpdate) {
-                        SyncVoidedCert(itCert->GetHash(), !bTopQualityCert);
-                        if (bTopQualityCert && prevSidechain.prevBlockTopQualityCertReferencedEpoch == itCert->epochNumber)
-                            SyncVoidedCert(prevSidechain.prevBlockTopQualityCertHash, true);
+                        SyncCertStatusInfo(CScCertificateStatusUpdateInfo(itCert->GetScId(), itCert->GetHash(),
+                                                                          itCert->epochNumber, itCert->quality,
+                                                                          bTopQualityCert? CScCertificateStatusUpdateInfo::BwtState::BWT_ON:
+                                                                                           CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
+
+                        if (bTopQualityCert && (prevScData.certEpoch == itCert->epochNumber) && (prevScData.certQuality < itCert->quality))
+                            SyncCertStatusInfo(CScCertificateStatusUpdateInfo(prevScData.scId, prevScData.certHash,
+                                                                              prevScData.certEpoch, prevScData.certQuality,
+                                                                              CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
                     }
                 }
             }
@@ -2093,7 +2091,11 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             if (pcoinsTip->isCeasedAtHeight(scId, chainActive.Height()) != CSidechain::State::ALIVE) {
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(scId, sidechain));
-                if (fUpdate) SyncVoidedCert(sidechain.prevBlockTopQualityCertHash, true);
+                if (fUpdate)
+                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.prevBlockTopQualityCertHash,
+                                                                      sidechain.prevBlockTopQualityCertReferencedEpoch,
+                                                                      sidechain.prevBlockTopQualityCertQuality,
+                                                                      CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
             }
         }
 
