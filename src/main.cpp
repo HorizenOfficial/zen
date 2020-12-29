@@ -2491,7 +2491,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 }
             }
 
-            //Refresh previous certificate in wallet, whether it has been just restored or it from previous epoch
+            //Refresh previous certificate in wallet, whether it has been just restored or it is from previous epoch
             if (pCertsStateInfo!= nullptr)
             {
                 pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(),
@@ -2907,7 +2907,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
     {
         const CScCertificate &cert = block.vcert[certIdx];
-        LogPrint("cert", "%s():%d - Connecting certificate [%s]\n", __func__, __LINE__, cert.GetHash().ToString());
         nSigOps += GetLegacySigOpCount(cert);
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("ConnectBlock(): too many sigops"),

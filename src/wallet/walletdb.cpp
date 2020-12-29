@@ -101,7 +101,7 @@ bool CWalletDB::EraseWalletTxBase(const uint256& hash)
 bool CWalletDB::ReadSidechain(const uint256& scId, CScCertificateStatusUpdateInfo& sidechain)
 {
     bool res = Read(std::make_pair(std::string("sc"), scId), sidechain);
-    sidechain.scId = scId;
+    sidechain.scId = scId; //Note that scId is not currenrtly serialized in CScCertificateStatusUpdateInfo
     return res;
 }
 
