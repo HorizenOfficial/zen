@@ -1256,6 +1256,9 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock
                 std::shared_ptr<CWalletTransactionBase> sobj = CWalletTransactionBase::MakeWalletObjectBase(obj, this);
                 sobj->bwtMaturityDepth = bwtMaturityDepth;
 
+                // Off chain certificates have their bwt ceased by choice
+                sobj->bwtAreStripped = (pblock == nullptr)? true: false;
+
                 if (noteData.size() > 0) {
                     sobj->SetNoteData(noteData);
                 }
@@ -1332,7 +1335,7 @@ void CWallet::SyncCertStatusInfo(const CScCertificateStatusUpdateInfo& certStatu
         return;
     }
    
-    itCert->second.get()->bwtAreStripped = (certStatusInfo.bwtState == CScCertificateStatusUpdateInfo::BwtState::BWT_OFF);
+    itCert->second.get()->bwtAreStripped = (certStatusInfo.bwtState != CScCertificateStatusUpdateInfo::BwtState::BWT_ON);
 
     // Write to disk
     if (!itCert->second->WriteToDisk(&walletdb))
@@ -2265,12 +2268,7 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
         if (!getTxBase()->IsBackwardTransfer(vOutPos))
            return CCoins::outputMaturity::MATURE;
         else
-        {
-           if (bwtAreStripped)
-               return CCoins::outputMaturity::NOT_APPLICABLE;
-           else
-               return CCoins::outputMaturity::IMMATURE;
-        }
+           return CCoins::outputMaturity::NOT_APPLICABLE;
     }
 
     //Hereinafter tx in getTxBase() in mainchain
@@ -2745,7 +2743,7 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
                 numbOfUnconfirmedTx++;
             }
 
-            // only for certificates, look for immature amounts of bwts, not depending on number of confirmations
+            // only for certificates, look for immature amounts of bwts, regardless on number of confirmations
             if (cert != nullptr)
             {
                 for (unsigned int i = 0; i < cert->GetVout().size(); i++) {

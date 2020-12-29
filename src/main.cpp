@@ -2481,17 +2481,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 }
             } else
             {
-                // certificate must resurrect its bwts
+                // resurrect prevBlockTopQualityCertHash bwts
                 assert(blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA);
                 view.RestoreBackwardTransfers(prevBlockTopQualityCertHash, blockUndo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
-
-                if (pCertsStateInfo != nullptr) {
-                    pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), cert.GetHash(),
-                                               cert.epochNumber, cert.quality, CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
-                }
             }
 
-            //Refresh previous certificate in wallet, whether it has been just restored or it is from previous epoch
+            // Refresh previous certificate in wallet, whether it has been just restored or it is from previous epoch
+            // On the contrary, cert will have BWT_OFF status since it will end up off blockchain anyhow.
             if (pCertsStateInfo!= nullptr)
             {
                 pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(),

@@ -219,7 +219,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
         mapNextTx[cert.GetVin()[i].prevout] = CInPoint(&cert, i);
 
     LogPrint("mempool", "%s():%d - adding cert [%s] q=%d in mapSidechain\n", __func__, __LINE__,
-        cert.GetScId().ToString(), cert.quality);
+        cert.GetHash().ToString(), cert.quality);
 
     if (mapSidechains.count(cert.GetScId())!= 0)
         assert(mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(cert.quality) == 0);
