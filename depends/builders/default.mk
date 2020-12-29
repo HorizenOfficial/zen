@@ -1,7 +1,7 @@
-default_build_CC = clang
-default_build_CXX = clang++
-default_build_AR = llvm-ar-6.0
-default_build_RANLIB = llvm-ranlib-6.0
+default_build_CC = gcc
+default_build_CXX = g++
+default_build_AR = ar
+default_build_RANLIB = ranlib
 default_build_STRIP = strip
 default_build_NM = nm
 default_build_OTOOL = otool

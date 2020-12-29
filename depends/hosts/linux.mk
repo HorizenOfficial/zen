@@ -10,17 +10,17 @@ linux_debug_CXXFLAGS=$(linux_debug_CFLAGS)
 linux_debug_CPPFLAGS=-D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC
 
 ifeq (86,$(findstring 86,$(build_arch)))
-i686_linux_CC=clang -m32
-i686_linux_CXX=clang++ -m32
-i686_linux_AR=llvm-ar-6.0
-i686_linux_RANLIB=llvm-ranlib-6.0
+i686_linux_CC=gcc -m32
+i686_linux_CXX=g++ -m32
+i686_linux_AR=ar
+i686_linux_RANLIB=ranlib
 i686_linux_NM=nm
 i686_linux_STRIP=strip
 
-x86_64_linux_CC=clang -m64
-x86_64_linux_CXX=clang++ -m64
-x86_64_linux_AR=llvm-ar-6.0
-x86_64_linux_RANLIB=llvm-ranlib-6.0
+x86_64_linux_CC=gcc -m64
+x86_64_linux_CXX=g++ -m64
+x86_64_linux_AR=ar
+x86_64_linux_RANLIB=ranlib
 x86_64_linux_NM=nm
 x86_64_linux_STRIP=strip
 else
