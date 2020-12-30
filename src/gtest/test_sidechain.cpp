@@ -296,20 +296,20 @@ TEST(SidechainAmounts, ScFeesLargerThanInputAreRejected)
     EXPECT_FALSE(CTransaction(mutTx).CheckFeeAmount(totalVinAmount, dummyState));
 }
 ///////////////////////////////////////////////////////////////////////////////
-////////////////////////////// HaveScRequirements /////////////////////////////
+/////////////////////////// IsScTxApplicableToState ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-TEST_F(SidechainTestSuite, NewScCreationsHaveTheRightDependencies) {
+TEST_F(SidechainTestSuite, NewScCreationsIsApplicableToState) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction, int(1789));
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, int(1789));
 
     //checks
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies) {
+TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
     int creationHeight = 1789;
     chainSettingUtils::ExtendChainActiveToHeight(creationHeight);
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
@@ -320,26 +320,26 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction, creationHeight);
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, creationHeight);
 
     //checks
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDependencies) {
+TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreApplicableToState) {
     int fwdHeight = 1789;
     chainSettingUtils::ExtendChainActiveToHeight(fwdHeight);
 
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(uint256S("1492"), CAmount(1815));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction, fwdHeight);
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, fwdHeight);
 
     //checks
     EXPECT_FALSE(res);
 }
 
-TEST_F(SidechainTestSuite, McBwtRequestToUnknownSidechainAreNotAllowed) {
+TEST_F(SidechainTestSuite, McBwtRequestToUnknownSidechainAreNotApplicableToState) {
 	uint256 scId = uint256S("aaa");
     ASSERT_FALSE(sidechainsView->HaveSidechain(scId));
 
@@ -351,13 +351,13 @@ TEST_F(SidechainTestSuite, McBwtRequestToUnknownSidechainAreNotAllowed) {
 
     //test
     int dummyHeight {1987};
-    bool res = sidechainsView->HaveScRequirements(CTransaction(mutTx), dummyHeight);
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyHeight);
 
     //checks
     EXPECT_FALSE(res);
 }
 
-TEST_F(SidechainTestSuite, McBwtRequestToAliveSidechainAreNotAllowed) {
+TEST_F(SidechainTestSuite, McBwtRequestToAliveSidechainIsApplicableToState) {
 	// create sidechain
 	CBlock dummyBlock;
     int scCreationHeight = 1789;
@@ -375,13 +375,13 @@ TEST_F(SidechainTestSuite, McBwtRequestToAliveSidechainAreNotAllowed) {
     ASSERT_TRUE(sidechainsView->isCeasedAtHeight(mcBwtReq.scId, mcBwtReqHeight) == CSidechain::State::ALIVE);
 
     //test
-    bool res = sidechainsView->HaveScRequirements(CTransaction(mutTx), mcBwtReqHeight);
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), mcBwtReqHeight);
 
     //checks
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, McBwtRequestToCeasedSidechainAreNotAllowed) {
+TEST_F(SidechainTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState) {
 	// create sidechain
 	CBlock dummyBlock;
     int scCreationHeight = 1789;
@@ -400,7 +400,7 @@ TEST_F(SidechainTestSuite, McBwtRequestToCeasedSidechainAreNotAllowed) {
     ASSERT_TRUE(sidechainsView->isCeasedAtHeight(mcBwtReq.scId, mcBwtReqHeight) == CSidechain::State::CEASED);
 
     //test
-    bool res = sidechainsView->HaveScRequirements(CTransaction(mutTx), mcBwtReqHeight);
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), mcBwtReqHeight);
 
     //checks
     EXPECT_FALSE(res);

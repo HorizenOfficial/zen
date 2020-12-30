@@ -872,7 +872,7 @@ bool libzendoomc::CScProofVerifier::verifyCScCertificate(
     const uint256& prev_end_epoch_block_hash,
     const CScCertificate& scCert
 ) const { return true; }
-bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
+bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height) { return true;}
 size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
 #else
@@ -1020,7 +1020,7 @@ bool CCoinsViewCache::isEpochDataValid(const CSidechain& scInfo, int epochNumber
     return true;
 }
 
-bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
+bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height)
 {
     if (tx.IsCoinBase())
         return true;

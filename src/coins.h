@@ -563,7 +563,7 @@ public:
     bool HaveSidechain(const uint256& scId)                           const override;
     bool GetSidechain(const uint256 & scId, CSidechain& targetScInfo) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
-    bool HaveScRequirements(const CTransaction& tx, int height);
+    bool IsScTxApplicableToState(const CTransaction& tx, int height);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
 

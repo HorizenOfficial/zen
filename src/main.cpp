@@ -1472,14 +1472,11 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
             // and only helps with filling in pfMissingInputs (to determine missing vs spent).
-            BOOST_FOREACH(const CTxIn txin, tx.GetVin())
+            for(const CTxIn txin: tx.GetVin())
             {
                 if (!view.HaveCoins(txin.prevout.hash))
                 {
-                    if (pfMissingInputs)
-                    {
-                        *pfMissingInputs = true;
-                    }
+                    if (pfMissingInputs)  *pfMissingInputs = true;
                     LogPrint("mempool", "Dropping txid %s : no coins for vin\n", hash.ToString());
                     return false;
                 }
@@ -1493,8 +1490,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                                      REJECT_DUPLICATE, "bad-txns-inputs-spent");
             }
 
-            // are the sidechains dependencies available?
-            if (!view.HaveScRequirements(tx, nextBlockHeight))
+            if (!view.IsScTxApplicableToState(tx, nextBlockHeight))
             {
                 return state.Invalid(error("%s(): sidechain is redeclared or coins are forwarded to unknown sidechain", __func__),
                                     REJECT_INVALID, "bad-sc-tx");
@@ -2821,7 +2817,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): tx inputs missing/spent"),
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
  
-            if (!view.HaveScRequirements(tx, pindex->nHeight))
+            if (!view.IsScTxApplicableToState(tx, pindex->nHeight))
                 return state.Invalid(error("ConnectBlock: sidechain is redeclared or coins are forwarded to unknown sidechain"),
                                             REJECT_INVALID, "bad-sc-tx");
 
