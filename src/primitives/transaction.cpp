@@ -459,6 +459,20 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
+    for(const CBwtRequestOut& mbwtr: vmbtr_out)
+    {
+        if (mbwtr.scFees < 0)
+            return state.DoS(100, error("CheckAmounts(): mbwtr.scFees negative"),
+                             REJECT_INVALID, "bad-txns-vout-negative");
+        if (mbwtr.scFees > MAX_MONEY)
+            return state.DoS(100, error("CheckAmounts(): mbwtr.scFees too high"),
+                             REJECT_INVALID, "bad-txns-vout-toolarge");
+        nCumulatedValueOut += mbwtr.scFees;
+        if (!MoneyRange(nCumulatedValueOut))
+            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
+                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+    }
+
     // Ensure input values do not exceed MAX_MONEY
     // We have not resolved the txin values at this stage, but we do know what the joinsplits claim to add
     // to the value pool.
@@ -705,7 +719,16 @@ CAmount CTransaction::GetValueOut() const
             throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
     }
 
-    nValueOut += (GetValueCcOut(vsc_ccout) + GetValueCcOut(vft_ccout));
+    nValueOut += GetValueCcOut(vsc_ccout) + GetValueCcOut(vft_ccout);
+
+    for(const auto& mbtrOut: vmbtr_out)
+    {
+        if (!MoneyRange(mbtrOut.scFees))
+            throw std::runtime_error("CTransaction::GetValueOut(): mbtr value out of range");
+        else
+            nValueOut += mbtrOut.scFees;
+    }
+
     if (!MoneyRange(nValueOut))
         throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
 

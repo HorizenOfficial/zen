@@ -242,6 +242,60 @@ TEST_F(SidechainTestSuite, FwdTransferCumulatedAmountDoesNotOverFlow) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+//////////////////////////// checkCcOutputAmounts /////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+TEST(SidechainAmounts, NegativeScFeesAreRejected)
+{
+    CBwtRequestOut bwtReqOut;
+    bwtReqOut.scFees = CAmount(-10);
+
+    CMutableTransaction mutTx;
+    mutTx.add(bwtReqOut);
+
+    CValidationState dummyState;
+    EXPECT_FALSE(CTransaction(mutTx).CheckAmounts(dummyState));
+}
+
+TEST(SidechainAmounts, ExcessiveScFeesAreRejected)
+{
+    CBwtRequestOut bwtReqOut;
+    bwtReqOut.scFees = MAX_MONEY +1;
+
+    CMutableTransaction mutTx;
+    mutTx.add(bwtReqOut);
+
+    CValidationState dummyState;
+    EXPECT_FALSE(CTransaction(mutTx).CheckAmounts(dummyState));
+}
+
+TEST(SidechainAmounts, CumulativeExcessiveScFeesAreRejected)
+{
+    CBwtRequestOut bwtReqOut;
+    bwtReqOut.scFees = MAX_MONEY/2 + 1;
+
+    CMutableTransaction mutTx;
+    mutTx.add(bwtReqOut);
+    mutTx.add(bwtReqOut);
+
+    CValidationState dummyState;
+    EXPECT_FALSE(CTransaction(mutTx).CheckAmounts(dummyState));
+}
+
+TEST(SidechainAmounts, ScFeesLargerThanInputAreRejected)
+{
+    CBwtRequestOut bwtReqOut;
+    bwtReqOut.scFees = CAmount(10);
+
+    CMutableTransaction mutTx;
+    mutTx.add(bwtReqOut);
+
+    CAmount totalVinAmount = bwtReqOut.scFees / 2;
+    ASSERT_TRUE(totalVinAmount < bwtReqOut.scFees);
+
+    CValidationState dummyState;
+    EXPECT_FALSE(CTransaction(mutTx).CheckFeeAmount(totalVinAmount, dummyState));
+}
+///////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// HaveScRequirements /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
