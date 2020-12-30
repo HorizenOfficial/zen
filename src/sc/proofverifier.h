@@ -14,6 +14,7 @@ class CSidechain;
 class CScCertificate;
 
 namespace libzendoomc{
+    typedef base_blob<SC_FIELD_SIZE * 8> ScFieldElement;
 
     typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
 

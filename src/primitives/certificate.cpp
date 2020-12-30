@@ -337,8 +337,9 @@ bool CMutableScCertificate::addBwt(const CTxOut& out) {
     return true;
 }
 
-bool CMutableScCertificate::add(const CTxScCreationOut& out) {return false;}
+bool CMutableScCertificate::add(const CTxScCreationOut& out)      {return false;}
 bool CMutableScCertificate::add(const CTxForwardTransferOut& out) {return false;}
+bool CMutableScCertificate::add(const CBwtRequestOut& out)        {return false;}
 
 std::string CMutableScCertificate::ToString() const
 {

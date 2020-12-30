@@ -27,15 +27,15 @@
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 
 JSDescription JSDescription::getNewInstance(bool useGroth) {
-	JSDescription js;
+    JSDescription js;
 
-	if(useGroth) {
-		js.proof = libzcash::GrothProof();
-	} else {
-		js.proof = libzcash::PHGRProof();
-	}
+    if(useGroth) {
+        js.proof = libzcash::GrothProof();
+    } else {
+        js.proof = libzcash::PHGRProof();
+    }
 
-	return js;
+    return js;
 }
 
 JSDescription::JSDescription(
@@ -307,10 +307,10 @@ CMutableTransactionBase::CMutableTransactionBase():
     nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
 
 CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(),
-    vsc_ccout(), vft_ccout(), nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() {}
+    vsc_ccout(), vft_ccout(), vmbtr_out(),  nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() {}
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx): CMutableTransactionBase(),
-    vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()), nLockTime(tx.GetLockTime()),
+    vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()), vmbtr_out(tx.GetVBwtRequestOut()), nLockTime(tx.GetLockTime()),
     vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
@@ -327,10 +327,11 @@ void CMutableTransaction::insertAtPos(unsigned int pos, const CTxOut& out) { vou
 void CMutableTransaction::eraseAtPos(unsigned int pos) { vout.erase(vout.begin() + pos); }
 void CMutableTransaction::resizeOut(unsigned int newSize) { vout.resize(newSize); }
 void CMutableTransaction::resizeBwt(unsigned int newSize) { return; }
-bool CMutableTransaction::addOut(const CTxOut& out) { vout.push_back(out); return true;}
-bool CMutableTransaction::addBwt(const CTxOut& out) { return false; }
-bool CMutableTransaction::add(const CTxScCreationOut& out)  { vsc_ccout.push_back(out); return true; }
+bool CMutableTransaction::addOut(const CTxOut& out)             { vout.push_back(out); return true;}
+bool CMutableTransaction::addBwt(const CTxOut& out)             { return false; }
+bool CMutableTransaction::add(const CTxScCreationOut& out)      { vsc_ccout.push_back(out); return true; }
 bool CMutableTransaction::add(const CTxForwardTransferOut& out) { vft_ccout.push_back(out); return true; }
+bool CMutableTransaction::add(const CBwtRequestOut& out)        { vmbtr_out.push_back(out); return true; }
 
 //--------------------------------------------------------------------------------------------------------
 CTransactionBase::CTransactionBase(int nVersionIn):
@@ -533,12 +534,12 @@ bool CTransaction::CheckInputsInteraction(CValidationState &state) const
 }
 
 CTransaction::CTransaction(int nVersionIn): CTransactionBase(nVersionIn),
-    vjoinsplit(), nLockTime(0), vsc_ccout(), vft_ccout(),
+    vjoinsplit(), nLockTime(0), vsc_ccout(), vft_ccout(), vmbtr_out(),
     joinSplitPubKey(), joinSplitSig() {}
 
 CTransaction::CTransaction(const CTransaction &tx) : CTransactionBase(tx),
     vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
-    vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout),
+    vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
     joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig) {}
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
@@ -547,6 +548,7 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<uint32_t*>(&nLockTime)                           = tx.nLockTime;
     *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout)      = tx.vsc_ccout;
     *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
+    *const_cast<std::vector<CBwtRequestOut>*>(&vmbtr_out)        = tx.vmbtr_out;
     *const_cast<uint256*>(&joinSplitPubKey)                      = tx.joinSplitPubKey;
     *const_cast<joinsplit_sig_t*>(&joinSplitSig)                 = tx.joinSplitSig;
     return *this;
@@ -654,8 +656,8 @@ bool CTransactionBase::CheckSerializedSize(CValidationState &state) const
     BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
     uint32_t size = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     if (size > MAX_TX_SIZE) {
-    	LogPrintf("CheckSerializedSize: Tx id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_TX_SIZE, ToString());
-	return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
+        LogPrintf("CheckSerializedSize: Tx id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_TX_SIZE, ToString());
+        return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
                          REJECT_INVALID, "bad-txns-oversize");
     }
 

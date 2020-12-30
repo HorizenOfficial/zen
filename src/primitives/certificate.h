@@ -33,7 +33,7 @@ public:
     bool IsNull() const { return (nValue == -1);  }
 };
 
-class CScCertificate : virtual public CTransactionBase
+class CScCertificate : public CTransactionBase
 {
     /** Memory only. */
     void UpdateHash() const override;
@@ -271,6 +271,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     bool addBwt(const CTxOut& out)                        override final;
     bool add(const CTxScCreationOut& out)                 override final;
     bool add(const CTxForwardTransferOut& out)            override final;
+    bool add(const CBwtRequestOut& out)                   override final;
 
     std::string ToString() const;
 };

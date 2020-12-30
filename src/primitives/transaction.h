@@ -193,33 +193,33 @@ public:
     uint256 h_sig(ZCJoinSplit& params, const uint256& joinSplitPubKey) const;
 
     size_t GetSerializeSize(int nType, int nVersion, int nTxVersion) const {
-		CSizeComputer s(nType, nVersion);
-		auto os = WithTxVersion(&s, nTxVersion);
-		NCONST_PTR(this)->SerializationOp(os, CSerActionSerialize(), nType, nVersion);
-		return s.size();
-	}
+        CSizeComputer s(nType, nVersion);
+        auto os = WithTxVersion(&s, nTxVersion);
+        NCONST_PTR(this)->SerializationOp(os, CSerActionSerialize(), nType, nVersion);
+        return s.size();
+    }
 
-	template<typename OverrideStreamTx>
-	void Serialize(OverrideStreamTx& s, int nType, int nVersion) const {
-		NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize(), nType, nVersion);
-	}
+    template<typename OverrideStreamTx>
+    void Serialize(OverrideStreamTx& s, int nType, int nVersion) const {
+        NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize(), nType, nVersion);
+    }
 
-	template<typename OverrideStreamTx>
-	void Unserialize(OverrideStreamTx& s, int nType, int nVersion) {
-		SerializationOp(s, CSerActionUnserialize(), nType, nVersion);
-	}
+    template<typename OverrideStreamTx>
+    void Unserialize(OverrideStreamTx& s, int nType, int nVersion) {
+        SerializationOp(s, CSerActionUnserialize(), nType, nVersion);
+    }
 
     template <typename OverrideStreamTx, typename Operation>
     inline void SerializationOp(OverrideStreamTx& s, Operation ser_action, int nType, int nVersion) {
-    	// Stream version (that is transaction version) is set by CTransaction and CMutableTransaction to
-    	//  tx.nVersion
-    	const int txVersion = s.GetTxVersion();
+        // Stream version (that is transaction version) is set by CTransaction and CMutableTransaction to
+        //  tx.nVersion
+        const int txVersion = s.GetTxVersion();
 
-    	if( !(txVersion >= TRANSPARENT_TX_VERSION) && txVersion != GROTH_TX_VERSION) {
-	    	LogPrintf("============== JsDescription GetTxVersion: Invalid shielded tx version %d \n", txVersion);
-    		throw std::ios_base::failure("Invalid shielded tx version (expected >=1 for PHGRProof or -3 for GrothProof)");
-    	}
-    	bool useGroth = (txVersion == GROTH_TX_VERSION);
+        if( !(txVersion >= TRANSPARENT_TX_VERSION) && txVersion != GROTH_TX_VERSION) {
+            LogPrintf("============== JsDescription GetTxVersion: Invalid shielded tx version %d \n", txVersion);
+            throw std::ios_base::failure("Invalid shielded tx version (expected >=1 for PHGRProof or -3 for GrothProof)");
+        }
+        bool useGroth = (txVersion == GROTH_TX_VERSION);
         READWRITE(vpub_old);
         READWRITE(vpub_new);
         READWRITE(anchor);
@@ -555,6 +555,26 @@ public:
     }
 };
 
+struct CBwtRequestOut
+{
+    uint256 scId;
+    libzendoomc::ScFieldElement scUtxoId;
+    uint160 mcDestinationAddress;
+    CAmount scFees;
+    libzendoomc::ScProof scProof;
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(scId);
+        READWRITE(scUtxoId);
+        READWRITE(mcDestinationAddress);
+        READWRITE(scFees);
+        READWRITE(scProof);
+    }
+};
+
 // forward declarations
 class CValidationState;
 class CTxMemPool;
@@ -709,7 +729,7 @@ struct CMutableTransaction;
 /** The basic transaction that is broadcasted on the network and contained in
  * blocks.  A transaction can contain multiple inputs and outputs.
  */
-class CTransaction : virtual public CTransactionBase
+class CTransaction : public CTransactionBase
 {
 protected:
     void UpdateHash() const override;
@@ -730,10 +750,11 @@ public:
     // and bypass the constness. This is safe, as they update the entire
     // structure, including the hash.
 private:
-    const std::vector<JSDescription> vjoinsplit;
-    const uint32_t nLockTime;
-    const std::vector<CTxScCreationOut> vsc_ccout;
+    const std::vector<JSDescription>         vjoinsplit;
+    const uint32_t                           nLockTime;
+    const std::vector<CTxScCreationOut>      vsc_ccout;
     const std::vector<CTxForwardTransferOut> vft_ccout;
+    const std::vector<CBwtRequestOut>        vmbtr_out;
 public:
     const uint256 joinSplitPubKey;
     const joinsplit_sig_t joinSplitSig = {{0}};
@@ -771,6 +792,7 @@ public:
         {
             READWRITE(*const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout));
             READWRITE(*const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout));
+            READWRITE(*const_cast<std::vector<CBwtRequestOut>*>(&vmbtr_out));
         }
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
@@ -802,18 +824,13 @@ public:
     bool IsNull() const override
     {
         bool ret = vin.empty() && vout.empty();
-        if (IsScVersion() )
-        {
-            ret = ret && ccIsNull();
-        }
+        if (IsScVersion()) ret &= ccIsNull() && vmbtr_out.empty();
+
         return ret;
     }
 
     bool ccIsNull() const {
-        return (
-            vsc_ccout.empty() &&
-            vft_ccout.empty()
-        );
+        return vsc_ccout.empty() && vft_ccout.empty();
     }
     
     bool IsScVersion() const 
@@ -823,8 +840,9 @@ public:
     }
 
     //GETTERS
-    const std::vector<CTxScCreationOut>&      GetVscCcOut()   const { return vsc_ccout; }
-    const std::vector<CTxForwardTransferOut>& GetVftCcOut()   const { return vft_ccout; }
+    const std::vector<CTxScCreationOut>&      GetVscCcOut()       const { return vsc_ccout; }
+    const std::vector<CTxForwardTransferOut>& GetVftCcOut()       const { return vft_ccout; }
+    const std::vector<CBwtRequestOut>         GetVBwtRequestOut() const {return vmbtr_out; }
     const std::vector<JSDescription>&         GetVjoinsplit() const override { return vjoinsplit;};
     const uint32_t&                           GetLockTime()   const override { return nLockTime;};
     const uint256&                            GetScIdFromScCcOut(int pos) const;
@@ -977,13 +995,15 @@ public:
     virtual bool addBwt(const CTxOut& out)                        = 0;
     virtual bool add(const CTxScCreationOut& out)                 = 0;
     virtual bool add(const CTxForwardTransferOut& out)            = 0;
+    virtual bool add(const CBwtRequestOut& out)                   = 0;
 };
 
 
 struct CMutableTransaction : public CMutableTransactionBase
 {
-    std::vector<CTxScCreationOut> vsc_ccout;
+    std::vector<CTxScCreationOut>      vsc_ccout;
     std::vector<CTxForwardTransferOut> vft_ccout;
+    std::vector<CBwtRequestOut>        vmbtr_out;
     uint32_t nLockTime;
     std::vector<JSDescription> vjoinsplit;
     uint256 joinSplitPubKey;
@@ -1005,6 +1025,7 @@ struct CMutableTransaction : public CMutableTransactionBase
         {
             READWRITE(vsc_ccout);
             READWRITE(vft_ccout);
+            READWRITE(vmbtr_out);
         }
         READWRITE(nLockTime);
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
@@ -1041,6 +1062,7 @@ struct CMutableTransaction : public CMutableTransactionBase
     bool addBwt(const CTxOut& out)                        override final;
     bool add(const CTxScCreationOut& out)                 override final;
     bool add(const CTxForwardTransferOut& out)            override final;
+    bool add(const CBwtRequestOut& out)                   override final;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H
