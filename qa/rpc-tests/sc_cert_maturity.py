@@ -143,12 +143,19 @@ class sc_cert_maturity(BitcoinTestFramework):
 
         mark_logs("Check the there are immature outputs in the unconfirmed tx data when cert is unconfirmed", self.nodes, DEBUG_MODE)
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
-        assert_equal(ud['bwtImmatureOutput'], bwt_amount1+bwt_amount2)
+        assert_equal(ud['bwtImmatureOutput'], Decimal("0.0")) #not bwt_amount1+bwt_amount2 because bwts in mempool are considered voided
         # unconf bwt do not contribute to unconfOutput
         assert_equal(ud['unconfirmedOutput'], Decimal("0.0"))
 
-        mark_logs("Node0 generates 5 more blocks to achieve end of withdrawal epochs", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(5)
+        mark_logs("Node0 mines cert and cert immature outputs appear the unconfirmed tx data", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+        ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
+        assert_equal(ud['bwtImmatureOutput'], bwt_amount1+bwt_amount2)
+        assert_equal(ud['unconfirmedOutput'], Decimal("0.0"))
+
+        mark_logs("Node0 generates 4 more blocks to achieve end of withdrawal epochs", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(4)
         self.sync_all()
 
         current_height = self.nodes[0].getblockcount()
@@ -195,9 +202,9 @@ class sc_cert_maturity(BitcoinTestFramework):
             if entry['txid'] == cert_2:
                 assert_equal(entry['vout'][1]['maturityHeight'], bwtMaturityHeight+EPOCH_LENGTH)
 
-        mark_logs("Check the there are immature outputs in the unconfirmed tx data", self.nodes, DEBUG_MODE)
+        mark_logs("Check that unconfirmed certs bwts are not in the unconfirmed tx data", self.nodes, DEBUG_MODE)
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
-        assert_equal(ud['bwtImmatureOutput'], bwt_amount1+bwt_amount2+bwt_amount3)
+        assert_equal(ud['bwtImmatureOutput'], bwt_amount1+bwt_amount2)
 
         mark_logs("Check Node1 has not bwt in its balance yet", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[1].getbalance(), bal_without_bwt) 

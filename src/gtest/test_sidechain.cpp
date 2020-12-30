@@ -384,7 +384,7 @@ TEST_F(SidechainTestSuite, RestoreScInfoRestoresLastCertHash) {
     for(const CTxScCreationOut& scCreationOut: aTransaction.GetVscCcOut())
         ASSERT_TRUE(sidechainsView->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
 
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
 
 
@@ -488,7 +488,7 @@ TEST_F(SidechainTestSuite, CertificateUpdatesTopCommittedCertHash) {
         ASSERT_TRUE(sidechainsView->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
     int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     CBlockUndo dummyBlockUndo;
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
 
     CBlockUndo blockUndo;
@@ -893,7 +893,7 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
         ASSERT_TRUE(sidechainsView->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
     int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     CBlockUndo dummyBlockUndo;
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
 
     //a fwd is accepted in mempool

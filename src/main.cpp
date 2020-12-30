@@ -2395,7 +2395,7 @@ bool AbortNode(CValidationState& state, const std::string& strMessage, const std
 } // anon namespace
 
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    bool* pfClean, std::map<uint256, bool>* pVoidedCertsMap)
+    bool* pfClean, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
     assert(pindex->GetBlockHash() == view.GetBestBlock());
 
@@ -2414,7 +2414,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (blockUndo.vtxundo.size() != (block.vtx.size() - 1 + block.vcert.size()))
         return error("DisconnectBlock(): block and undo data inconsistent");
 
-    if (!view.RevertSidechainEvents(blockUndo, pindex->nHeight, pVoidedCertsMap))
+    if (!view.RevertSidechainEvents(blockUndo, pindex->nHeight, pCertsStateInfo))
     {
         LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed reverting scheduled event\n", __func__, __LINE__);
         return error("DisconnectBlock(): cannot revert sidechains scheduled events");
@@ -2469,7 +2469,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         const CTxUndo &certUndo = blockUndo.vtxundo[certOffset + i];
         if (isBlockTopQualityCert)
         {
-        	const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
+            const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
 
             // cancels scEvents only if cert is first in its epoch, i.e. if it won't restore any other cert
             if (prevBlockTopQualityCertHash.IsNull())
@@ -2481,12 +2481,20 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 }
             } else
             {
-                // certificate must resurrect its bwts
+                // resurrect prevBlockTopQualityCertHash bwts
                 assert(blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA);
                 view.RestoreBackwardTransfers(prevBlockTopQualityCertHash, blockUndo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
+            }
 
-                CSidechain::SetVoidedCert(cert.GetHash(), true, pVoidedCertsMap);
-                CSidechain::SetVoidedCert(prevBlockTopQualityCertHash, false, pVoidedCertsMap);
+            // Refresh previous certificate in wallet, whether it has been just restored or it is from previous epoch
+            // On the contrary, cert will have BWT_OFF status since it will end up off blockchain anyhow.
+            if (pCertsStateInfo!= nullptr)
+            {
+                pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(),
+                                           blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertHash,
+                                           blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertReferencedEpoch,
+                                           blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertQuality,
+                                           CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
             }
 
             if (!view.RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
@@ -2698,7 +2706,7 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    const CChain& chain, bool fJustCheck, bool fCheckScTxesCommitment, std::map<uint256, bool>* pVoidedCertsMap)
+    const CChain& chain, bool fJustCheck, bool fCheckScTxesCommitment, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
@@ -2944,7 +2952,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             {
                 view.NullifyBackwardTransfers(prevBlockTopQualityCertHash, blockundo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
                 blockundo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask |= CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA;
-                CSidechain::SetVoidedCert(prevBlockTopQualityCertHash, true, pVoidedCertsMap);
+                if (pCertsStateInfo != nullptr)
+                    pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), prevBlockTopQualityCertHash,
+                                            cert.epochNumber,
+                                            blockundo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertQuality,
+                                            CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
+                // if prevBlockTopQualityCertHash has to be voided, it has same scId/epochNumber as cert
             }
 
             if (!view.ScheduleSidechainEvent(cert))
@@ -2954,9 +2967,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
 
-            CSidechain::SetVoidedCert(cert.GetHash(), false, pVoidedCertsMap);
-        } else
-            CSidechain::SetVoidedCert(cert.GetHash(), true, pVoidedCertsMap);
+            if (pCertsStateInfo != nullptr)
+                pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), cert.GetHash(),
+                                        cert.epochNumber, cert.quality, CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
+        } else {
+            if (pCertsStateInfo != nullptr)
+                pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), cert.GetHash(),
+                                        cert.epochNumber, cert.quality, CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
+        }
+
 
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset
@@ -2976,7 +2995,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
 
-    if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pVoidedCertsMap))
+    if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pCertsStateInfo))
     {
         LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed handling scheduled event\n", __func__, __LINE__);
         return state.DoS(100, error("ConnectBlock(): could not handle scheduled event"),
@@ -3228,10 +3247,10 @@ bool static DisconnectTip(CValidationState &state) {
     // Apply the block atomically to the chain state.
     uint256 anchorBeforeDisconnect = pcoinsTip->GetBestAnchor();
     int64_t nStart = GetTimeMicros();
-    std::map<uint256, bool> voidedCertsMap;
+    std::vector<CScCertificateStatusUpdateInfo> certsStateInfo;
     {
         CCoinsViewCache view(pcoinsTip);
-        if (!DisconnectBlock(block, state, pindexDelete, view, NULL, &voidedCertsMap))
+        if (!DisconnectBlock(block, state, pindexDelete, view, NULL, &certsStateInfo))
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         assert(view.Flush());
     }
@@ -3300,10 +3319,9 @@ bool static DisconnectTip(CValidationState &state) {
         SyncWithWallets(cert, nullptr);
     }
 
-    for(const auto& x : voidedCertsMap)
-    {
-        LogPrint("cert", "%s():%d - sync voiding [%s] cert %s\n", __func__, __LINE__, x.second?"Y":"F", x.first.ToString() ); 
-        SyncVoidedCert(x.first, x.second);
+    for(const auto& item : certsStateInfo) {
+        LogPrint("cert", "%s():%d - updating cert state in wallet:\n[%s]\n", __func__, __LINE__, item.ToString());
+        SyncCertStatusUpdate(item);
     }
 
     // Update cached incremental witnesses
@@ -3339,12 +3357,12 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     int64_t nTime2 = GetTimeMicros(); nTimeReadFromDisk += nTime2 - nTime1;
     int64_t nTime3;
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
-    std::map<uint256, bool> voidedCertsMap;
+    std::vector<CScCertificateStatusUpdateInfo> certsStateInfo;
     {
         CCoinsViewCache view(pcoinsTip);
         static const bool JUST_CHECK_FALSE = false;
         static const bool CHECK_SC_TXES_COMMITMENT = true;
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE, CHECK_SC_TXES_COMMITMENT, &voidedCertsMap);
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE, CHECK_SC_TXES_COMMITMENT, &certsStateInfo);
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -3388,6 +3406,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         LogPrint("cert", "%s():%d - sync with wallet tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
         SyncWithWallets(tx, pblock);
     }
+
     for(const CScCertificate &cert: pblock->vcert) {
         CSidechain sidechain;
         assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
@@ -3398,10 +3417,9 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         SyncWithWallets(cert, pblock, bwtMaturityDepth);
     }
 
-    for(const auto& x: voidedCertsMap)
-    {
-        LogPrint("cert", "%s():%d - sync voiding [%s] cert %s\n", __func__, __LINE__, x.second?"Y":"F", x.first.ToString() ); 
-        SyncVoidedCert(x.first, x.second);
+    for(const auto& item : certsStateInfo) {
+        LogPrint("cert", "%s():%d - updating cert state in wallet:\n[%s]\n", __func__, __LINE__, item.ToString());
+        SyncCertStatusUpdate(item);
     }
 
     // Update cached incremental witnesses

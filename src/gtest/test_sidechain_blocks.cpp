@@ -61,7 +61,7 @@ class SidechainConnectCertsBlockTestSuite : public ::testing::Test {
 public:
     SidechainConnectCertsBlockTestSuite():
         fakeChainStateDb(nullptr), sidechainsView(nullptr),
-        dummyBlock(), dummyHash(), dummyVoidedCertMap(), dummyScriptPubKey(),
+        dummyBlock(), dummyHash(), dummyCertStatusUpdateInfo(), dummyScriptPubKey(),
         dummyState(), dummyChain(), dummyScEvents(), dummyFeeAmount(), dummyCoinbaseScript()
     {
         dummyScriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
@@ -97,10 +97,10 @@ protected:
     CCoinsViewCache      *sidechainsView;
 
     //helpers
-    CBlock                  dummyBlock;
-    uint256                 dummyHash;
-    std::map<uint256, bool> dummyVoidedCertMap;
-    CScript                 dummyScriptPubKey;
+    CBlock                                    dummyBlock;
+    uint256                                   dummyHash;
+    std::vector<CScCertificateStatusUpdateInfo>  dummyCertStatusUpdateInfo;
+    CScript                                   dummyScriptPubKey;
 
     CValidationState    dummyState;
     CChain              dummyChain;
@@ -174,7 +174,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     bool fCheckScTxesCommitment = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyVoidedCertMap);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -243,7 +243,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpo
     bool fCheckScTxesCommitment = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyVoidedCertMap);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -324,7 +324,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
     bool fCheckScTxesCommitment = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyVoidedCertMap);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -407,7 +407,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
     bool fCheckScTxesCommitment = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyVoidedCertMap);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);

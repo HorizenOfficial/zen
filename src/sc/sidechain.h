@@ -24,7 +24,7 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-    	READWRITE(sidechainEventsVersion);
+        READWRITE(sidechainEventsVersion);
         READWRITE(ceasingScs);
         READWRITE(maturingScs);
     }
@@ -102,7 +102,6 @@ public:
         CEASED
     };
     static std::string stateToString(State s);
-    static void SetVoidedCert(const uint256& certHash, bool flag, std::map<uint256, bool>* pVoidedCertsMap);
 
     std::string ToString() const;
 
