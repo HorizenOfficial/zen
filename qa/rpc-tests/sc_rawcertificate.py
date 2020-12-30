@@ -117,7 +117,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         # -------------------------- end epoch
 
-        sc_funds_pre = self.nodes[3].getscinfo(scid)['balance']
+        sc_funds_pre = self.nodes[3].getscinfo(scid)['items'][0]['balance']
 
         pkh_node2 = self.nodes[2].getnewaddress("", True)
 
@@ -195,7 +195,7 @@ class sc_rawcert(BitcoinTestFramework):
             errorString = e.error['message']
             print "\n======> ", errorString
 
-        sc_funds_post = self.nodes[3].getscinfo(scid)['balance']
+        sc_funds_post = self.nodes[3].getscinfo(scid)['items'][0]['balance']
         assert_equal(sc_funds_post, sc_funds_pre - bt_amount)
 
         decoded_cert_post = self.nodes[2].getrawcertificate(cert, 1)
@@ -214,7 +214,7 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(decoded_cert_pre_list, decoded_cert_post_list)
 
         mark_logs("check that SC balance has been decreased by the cert amount", self.nodes, DEBUG_MODE)
-        assert_equal(self.nodes[2].getscinfo(scid)['balance'], (sc_amount - bt_amount))
+        assert_equal(self.nodes[2].getscinfo(scid)['items'][0]['balance'], (sc_amount - bt_amount))
 
         node0_bal_before = self.nodes[0].getbalance()
 
@@ -551,7 +551,7 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(len(ret['vout']), 0)
 
         mark_logs("Check the certificate is the last received for this scid", self.nodes, DEBUG_MODE)
-        ret = self.nodes[2].getscinfo(scid)
+        ret = self.nodes[2].getscinfo(scid)['items'][0]
         assert_equal(ret['last certificate hash'], cert)
 
 

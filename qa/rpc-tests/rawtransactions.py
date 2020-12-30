@@ -219,9 +219,9 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
 
         print("Verify all nodes see the new SC...")
-        scinfo0=self.nodes[0].getscinfo(scid)
-        scinfo1=self.nodes[1].getscinfo(scid)
-        scinfo2=self.nodes[2].getscinfo(scid)
+        scinfo0=self.nodes[0].getscinfo(scid)['items'][0]
+        scinfo1=self.nodes[1].getscinfo(scid)['items'][0]
+        scinfo2=self.nodes[2].getscinfo(scid)['items'][0]
         assert_equal(scinfo0,scinfo1)
         assert_equal(scinfo0,scinfo2)
         print(scinfo0)
@@ -257,9 +257,9 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
 
         print("Verify all nodes see the new FT...")
-        scinfo0=self.nodes[0].getscinfo(scid)
-        scinfo1=self.nodes[1].getscinfo(scid)
-        scinfo2=self.nodes[2].getscinfo(scid)
+        scinfo0=self.nodes[0].getscinfo(scid)['items'][0]
+        scinfo1=self.nodes[1].getscinfo(scid)['items'][0]
+        scinfo2=self.nodes[2].getscinfo(scid)['items'][0]
         assert_equal(scinfo0,scinfo1)
         assert_equal(scinfo0,scinfo2)
         print(scinfo0)

@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
+from test_framework.util import assert_true, assert_false, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
     mark_logs, disconnect_nodes
 from test_framework.mc_test.mc_test import *
@@ -147,21 +147,16 @@ class ScSplitTest(BitcoinTestFramework):
 
         # Check the sc info
         mark_logs("\nChecking sc info on 'honest' portion of network...", self.nodes, DEBUG_MODE)
-        scinfoNode0 = self.nodes[0].getscinfo(scid)
-        scinfoNode1 = self.nodes[1].getscinfo(scid)
+        scinfoNode0 = self.nodes[0].getscinfo(scid)['items'][0]
+        scinfoNode1 = self.nodes[1].getscinfo(scid)['items'][0]
         assert_equal(scinfoNode0, scinfoNode1)
         mark_logs("Node 0: " + str(scinfoNode0), self.nodes, DEBUG_MODE)
         mark_logs("Node 1: " + str(scinfoNode1), self.nodes, DEBUG_MODE)
-        try:
-            mark_logs("Node 2: ", self.nodes[2].getscinfo(scid), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
 
-        assert_equal(self.nodes[1].getscinfo(scid)["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
-        assert_equal(self.nodes[1].getscinfo(scid)["created in block"], ownerBlock)
-        assert_equal(self.nodes[1].getscinfo(scid)["creating tx hash"], creating_tx)
-        assert_equal("scid not yet created" in errorString, True)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["created in block"], ownerBlock)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["creating tx hash"], creating_tx)
+        assert_equal(0, self.nodes[2].getscinfo(scid)['totalItems'])
 
         # ---------------------------------------------------------------------------------------
         # Nodes 2 start to work on malicious chain
@@ -174,13 +169,10 @@ class ScSplitTest(BitcoinTestFramework):
         self.join_network()
         mark_logs("Network joined", self.nodes, DEBUG_MODE)
 
-        mark_logs("\nChecking that sc info on Node1 are not available anymore since tx has been reverted...", self.nodes, DEBUG_MODE)
-        try:
-            mark_logs(self.nodes[1].getscinfo(scid), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("scid not yet created" in errorString, True)
+        mark_logs("\nChecking that sc info on Node1 are not available anymore in blockchain since tx has been reverted...", self.nodes, DEBUG_MODE)
+        ret = self.nodes[1].getscinfo(scid)['items'][0]
+        assert_false('creating tx hash' in ret)
+        assert_true(ret['unconf creating tx hash'], creating_tx)
 
         # Check the mempools of every nodes
         mark_logs("\nChecking mempools...", self.nodes, DEBUG_MODE)
@@ -213,9 +205,9 @@ class ScSplitTest(BitcoinTestFramework):
             assert_equal(len(txmem), 0)
 
         mark_logs("\nChecking sc info on the whole network...", self.nodes, DEBUG_MODE)
-        scinfoNode0 = self.nodes[0].getscinfo(scid)
-        scinfoNode1 = self.nodes[1].getscinfo(scid)
-        scinfoNode2 = self.nodes[2].getscinfo(scid)
+        scinfoNode0 = self.nodes[0].getscinfo(scid)['items'][0]
+        scinfoNode1 = self.nodes[1].getscinfo(scid)['items'][0]
+        scinfoNode2 = self.nodes[2].getscinfo(scid)['items'][0]
 
         mark_logs("Node 0: " + str(scinfoNode0), self.nodes, DEBUG_MODE)
         mark_logs("Node 1: " + str(scinfoNode1), self.nodes, DEBUG_MODE)
@@ -223,9 +215,9 @@ class ScSplitTest(BitcoinTestFramework):
 
         assert_equal(scinfoNode0, scinfoNode1)
         assert_equal(scinfoNode0, scinfoNode2)
-        assert_equal(self.nodes[2].getscinfo(scid)["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
-        assert_equal(self.nodes[2].getscinfo(scid)["created in block"], secondOwnerBlock)
-        assert_equal(self.nodes[1].getscinfo(scid)["creating tx hash"], creating_tx)
+        assert_equal(self.nodes[2].getscinfo(scid)['items'][0]["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
+        assert_equal(self.nodes[2].getscinfo(scid)['items'][0]["created in block"], secondOwnerBlock)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["creating tx hash"], creating_tx)
 
 
 if __name__ == '__main__':

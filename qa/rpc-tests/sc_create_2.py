@@ -469,7 +469,7 @@ class SCCreateTest(BitcoinTestFramework):
         self.sync_all()
 
         dump_sc_info(self.nodes, NUMB_OF_NODES, sc_id, DEBUG_MODE)
-        assert_equal(self.nodes[0].getscinfo(sc_id)['scid'], sc_id)
+        assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['scid'], sc_id)
 
         amount2 = 5.0
         mark_logs(("\nNode 0 sends %s to Node 1" % amount2), self.nodes, DEBUG_MODE)
@@ -532,7 +532,7 @@ class SCCreateTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        scinfo0 = self.nodes[0].getscinfo(scid)
+        scinfo0 = self.nodes[0].getscinfo(scid)['items'][0]
         mark_logs("...verify that scid and custom data are set as expected...", self.nodes, DEBUG_MODE)
         assert_equal(scinfo0['scid'], scid)
         assert_equal(scinfo0['wCertVk'], wCertVk)
@@ -567,7 +567,7 @@ class SCCreateTest(BitcoinTestFramework):
         self.nodes[0].generate(2)
         self.sync_all()
 
-        scinfo0 = self.nodes[0].getscinfo(scid)
+        scinfo0 = self.nodes[0].getscinfo(scid)['items'][0]
         if DEBUG_MODE:
             pprint.pprint(scinfo0)
 

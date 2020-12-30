@@ -795,7 +795,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "\nCreate a Side chain with the given id staring from the given block. A fixed amount is charged to the creator\n"
             "\nIt also sends cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
             "\nArguments:\n"
-            "1. withdrawalEpochLength:   (numeric, required) Length of the withdrawal epochs\n"
+            "1. withdrawalEpochLength:   (numeric, required) Length of the withdrawal epochs. The minimum valid value for " +
+                                          Params().NetworkIDString() + " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
             "2. \"address\"                (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "3. amount:                  (numeric, required) The numeric amount in ZEN is the value\n"
             "4. \"wCertVk\"                (string, required) It is an arbitrary byte string of even length expressed in\n"
@@ -852,7 +853,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         }
     }
 
-    if ((params.size() > 4) && (!params[4].get_str().size() == 0))
+    if ((params.size() > 4) && (params[4].get_str().size() != 0))
     {
         const std::string& inputString = params[4].get_str();
         if(!Sidechain::AddScData(inputString, sc.creationData.customData, MAX_SC_DATA_LEN, false, error))
@@ -901,7 +902,9 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             "{\n"                     
-            "   \"withdrawalEpochLength\": epoch  (numeric, optional, default=100) length of the withdrawal epochs\n"
+            "   \"withdrawalEpochLength\": epoch  (numeric, optional, default=" + strprintf("%d", SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH) +
+                                                  ") length of the withdrawal epochs. The minimum valid value in " + Params().NetworkIDString() +
+                                                  " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
             "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
             "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
             "   \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
@@ -4842,7 +4845,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     scId.SetHex(scIdString);
 
     // sanity check of the side chain ID
-    CCoinsViewCache scView(pcoinsTip);
+    CCoinsView dummy;
+    CCoinsViewCache scView(&dummy);
+    CCoinsViewMemPool vm(pcoinsTip, mempool);
+    scView.SetBackend(vm);
     CSidechain scInfo;
     if (!scView.GetSidechain(scId,scInfo))
     {
@@ -4889,17 +4895,6 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
     }
 
-    // there must not be another certificate for the same scId in mempool (multiple certificates are not allowed)
-    {
-        LOCK(mempool.cs);
-        if ((mempool.mapSidechains.count(scId) != 0) && (!mempool.mapSidechains.at(scId).backwardCertificate.IsNull()))
-        {
-            const uint256& conflictingCertHash = mempool.mapSidechains.at(scId).backwardCertificate;
-            LogPrintf("%s():%d - ERROR: a certificate %s for scid %s is already in the mempool\n",
-                __func__, __LINE__, conflictingCertHash.ToString(), scId.ToString());
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("conflicting cert"));
-        }
-    }
     cert.endEpochBlockHash = endEpochBlockHash;
 
     //scProof
@@ -4989,10 +4984,16 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     // allow use of unconfirmed coins
     int nMinDepth = 0; //1; 
 
-    if (nTotalOut > scInfo.balance)
+    CAmount delta = 0;
+    if (epochNumber == scInfo.prevBlockTopQualityCertReferencedEpoch)
+    {
+        delta = scInfo.prevBlockTopQualityCertBwtAmount;
+    }
+
+    if (nTotalOut > scInfo.balance+delta)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance), FormatMoney(nTotalOut) );
+            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance+delta), FormatMoney(nTotalOut) );
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
 

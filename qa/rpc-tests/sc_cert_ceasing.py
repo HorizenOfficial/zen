@@ -37,7 +37,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1', '-rescan']] * NUMB_OF_NODES)
 
         for k in range(0, NUMB_OF_NODES-1):
             connect_nodes_bi(self.nodes, k, k+1)
@@ -130,6 +130,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
+        self.sync_all()
+
         # node0 create an empty cert_2 
         mark_logs("Node 0 sends an empty cert for scid_2 {}".format(scids[1]), self.nodes, DEBUG_MODE)
         try:
@@ -157,7 +159,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         for k in range(len(scids)):
             for idx, node in enumerate(self.nodes):
                 print "idx = {}, k = {}".format(idx, k)
-                sc_info = node.getscinfo(scids[k])
+                sc_info = node.getscinfo(scids[k])['items'][0]
                 if (k == 2):
                     assert_equal(sc_info["state"], "CEASED")
                 else:
@@ -197,7 +199,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         for k in range(len(scids)):
             for idx, node in enumerate(self.nodes):
                 print "idx = {}, k = {}".format(idx, k)
-                sc_info = node.getscinfo(scids[k])
+                sc_info = node.getscinfo(scids[k])['items'][0]
                 assert_equal(sc_info["state"], "CEASED")
                 assert_equal(sc_info["last certificate epoch"], last_cert_epochs[k])
                 assert_equal(sc_info["balance"], creation_amount[k] - bwt_amount[k])
@@ -210,7 +212,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         for k in range(len(scids)):
             for idx, node in enumerate(self.nodes):
                 mark_logs("Checking Node{} after restart".format(idx), self.nodes, DEBUG_MODE)
-                sc_post_regeneration = node.getscinfo(scids[k])
+                sc_post_regeneration = node.getscinfo(scids[k])['items'][0]
                 assert_equal(sc_post_regeneration["state"], "CEASED")
                 assert_equal(sc_post_regeneration["last certificate epoch"], last_cert_epochs[k])
                 assert_equal(sc_post_regeneration["balance"], creation_amount[k] - bwt_amount[k])
@@ -229,7 +231,6 @@ class sc_cert_ceasing(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-
 
 
 if __name__ == '__main__':

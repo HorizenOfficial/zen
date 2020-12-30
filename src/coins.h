@@ -21,7 +21,8 @@
 #include <sc/proofverifier.h>
 
 class CBlockUndo;
-class CVoidedCertUndo;
+class CTxInUndo;
+class CSidechainUndoData;
 
 static const int BWT_POS_UNSET = -1;
 
@@ -115,10 +116,10 @@ public:
 
     //! construct a CCoins from a CTransaction, at a given height
     CCoins(const CTransaction &tx, int nHeightIn);
-    CCoins(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight);
+    CCoins(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight, bool isBlockTopQualityCert);
 
     void From(const CTransaction &tx, int nHeightIn);
-    void From(const CScCertificate &tx, int nHeightIn, int bwtMaturityHeight);
+    void From(const CScCertificate &tx, int nHeightIn, int bwtMaturityHeight, bool isBlockTopQualityCert);
 
     void Clear();
 
@@ -402,6 +403,9 @@ public:
     //! Retrieve all the known sidechain ids
     virtual void GetScIds(std::set<uint256>& scIdsList) const;
 
+    //! Check if cert has enough quality to be accepted
+    virtual bool CheckQuality(const CScCertificate& cert) const;
+
     //! Retrieve the block hash whose state this CCoinsView currently represents
     virtual uint256 GetBestBlock() const;
 
@@ -443,6 +447,7 @@ public:
     bool HaveSidechainEvents(int height)                               const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents)    const override;
     void GetScIds(std::set<uint256>& scIdsList)                        const override;
+    bool CheckQuality(const CScCertificate& cert)                      const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
     void SetBackend(CCoinsView &viewIn);
@@ -563,10 +568,13 @@ public:
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier);
-    bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash);
-    bool UpdateScInfo(const CScCertificate& cert, CTxUndo& certUndoEntry);
-    bool RevertCertOutputs(const CScCertificate& cert, const CTxUndo &certUndoEntry);
+    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
+    bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash) const;
+    bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockUndo);
+    bool RestoreScInfo(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
+    bool CheckQuality(const CScCertificate& cert)  const override;
+    void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
+    bool RestoreBackwardTransfers(const uint256& certHash, const std::vector<CTxInUndo>& outsToRestore);
 
     //SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;
@@ -580,8 +588,8 @@ public:
     bool CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
     bool CancelSidechainEvent(const CScCertificate& cert);
 
-    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<uint256>* pVoidedCertsList);
-    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<uint256>* pVoidedCertsList);
+    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
+    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
 

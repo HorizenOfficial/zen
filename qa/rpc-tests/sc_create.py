@@ -298,9 +298,9 @@ class SCCreateTest(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("Verify all nodes see the new SC...", self.nodes, DEBUG_MODE)
-        scinfo0 = self.nodes[0].getscinfo(scid)
-        scinfo1 = self.nodes[1].getscinfo(scid)
-        scinfo2 = self.nodes[2].getscinfo(scid)
+        scinfo0 = self.nodes[0].getscinfo(scid)['items'][0]
+        scinfo1 = self.nodes[1].getscinfo(scid)['items'][0]
+        scinfo2 = self.nodes[2].getscinfo(scid)['items'][0]
         assert_equal(scinfo0, scinfo1)
         assert_equal(scinfo0, scinfo2)
 
@@ -317,9 +317,9 @@ class SCCreateTest(BitcoinTestFramework):
         curh = self.nodes[2].getblockcount()
         mark_logs("\nCheck maturiy of the coins", self.nodes, DEBUG_MODE)
 
-        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2, DEBUG_MODE)
+        dump_sc_info_record(self.nodes[2].getscinfo(scid)['items'][0], 2, DEBUG_MODE)
         mark_logs("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 2), self.nodes, DEBUG_MODE)
-        ia = self.nodes[2].getscinfo(scid)["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid)['items'][0]["immature amounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + SC_COINS_MAT:
                 assert_equal(entry["amount"], creation_amount)
@@ -347,11 +347,11 @@ class SCCreateTest(BitcoinTestFramework):
         # Check maturity of the coins at actual height
         curh = self.nodes[2].getblockcount()
 
-        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2, DEBUG_MODE)
+        dump_sc_info_record(self.nodes[2].getscinfo(scid)['items'][0], 2, DEBUG_MODE)
         count = 0
         mark_logs("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 1), self.nodes, DEBUG_MODE)
         mark_logs("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 2), self.nodes, DEBUG_MODE)
-        ia = self.nodes[2].getscinfo(scid)["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid)['items'][0]["immature amounts"]
         for entry in ia:
             count += 1
             if entry["maturityHeight"] == curh + SC_COINS_MAT:
@@ -368,10 +368,10 @@ class SCCreateTest(BitcoinTestFramework):
         self.sync_all()
         curh = self.nodes[2].getblockcount()
 
-        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2, DEBUG_MODE)
+        dump_sc_info_record(self.nodes[2].getscinfo(scid)['items'][0], 2, DEBUG_MODE)
         count = 0
         mark_logs("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 1), self.nodes, DEBUG_MODE)
-        ia = self.nodes[2].getscinfo(scid)["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid)['items'][0]["immature amounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + SC_COINS_MAT - 1:
                 assert_equal(entry["amount"], fwt_amount_many + fwt_amount_1)
@@ -385,9 +385,9 @@ class SCCreateTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        dump_sc_info_record(self.nodes[2].getscinfo(scid), 2, DEBUG_MODE)
+        dump_sc_info_record(self.nodes[2].getscinfo(scid)['items'][0], 2, DEBUG_MODE)
         mark_logs("Check that there are no immature coins", self.nodes, DEBUG_MODE)
-        ia = self.nodes[2].getscinfo(scid)["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid)['items'][0]["immature amounts"]
         assert_equal(len(ia), 0)
 
 
