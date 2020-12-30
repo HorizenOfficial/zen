@@ -1052,7 +1052,8 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
                             txHash.ToString(), scId.ToString(), height);
                 return false;
                 }
-        } else {
+        } else
+        {
             if (!Sidechain::hasScCreationOutput(tx, scId)) {
                 LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
                         __func__, __LINE__, txHash.ToString(), scId.ToString() );
@@ -1062,6 +1063,29 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
 
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
+    }
+
+    for (const auto& mbtr: tx.GetVBwtRequestOut())
+    {
+        const uint256& scId = mbtr.scId;
+        if (HaveSidechain(scId))
+        {
+            if (isCeasedAtHeight(scId, height)!= CSidechain::State::ALIVE) {
+                LogPrintf("ERROR: tx[%s] contains mainchain bwt request for scId[%s] already ceased at height = %d\n",
+                            txHash.ToString(), scId.ToString(), height);
+                return false;
+                }
+        } else
+        {
+            if (!Sidechain::hasScCreationOutput(tx, scId)) {
+                LogPrint("sc", "%s():%d - ERROR: tx [%s] contains mainchain bwt request for scId[%s] not yet created\n",
+                        __func__, __LINE__, txHash.ToString(), scId.ToString() );
+                return false;
+            }
+        }
+
+        LogPrint("sc", "%s():%d - OK: tx[%s] contains bwt transfer request for scId[%s]\n",
+            __func__, __LINE__, txHash.ToString(), scId.ToString());
     }
 
     return true;

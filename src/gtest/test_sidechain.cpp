@@ -285,6 +285,72 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDepend
     EXPECT_FALSE(res);
 }
 
+TEST_F(SidechainTestSuite, McBwtRequestToUnknownSidechainAreNotAllowed) {
+	uint256 scId = uint256S("aaa");
+    ASSERT_FALSE(sidechainsView->HaveSidechain(scId));
+
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = scId;
+    CMutableTransaction mutTx;
+    mutTx.nVersion = SC_TX_VERSION;
+    mutTx.vmbtr_out.push_back(mcBwtReq);
+
+    //test
+    int dummyHeight {1987};
+    bool res = sidechainsView->HaveScRequirements(CTransaction(mutTx), dummyHeight);
+
+    //checks
+    EXPECT_FALSE(res);
+}
+
+TEST_F(SidechainTestSuite, McBwtRequestToAliveSidechainAreNotAllowed) {
+	// create sidechain
+	CBlock dummyBlock;
+    int scCreationHeight = 1789;
+    chainSettingUtils::ExtendChainActiveToHeight(scCreationHeight);
+	CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
+	ASSERT_TRUE(sidechainsView->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+
+	// create mc Bwt request
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = scCreationTx.GetScIdFromScCcOut(0);
+    CMutableTransaction mutTx;
+    mutTx.nVersion = SC_TX_VERSION;
+    mutTx.vmbtr_out.push_back(mcBwtReq);
+    int mcBwtReqHeight = scCreationHeight +2;
+    ASSERT_TRUE(sidechainsView->isCeasedAtHeight(mcBwtReq.scId, mcBwtReqHeight) == CSidechain::State::ALIVE);
+
+    //test
+    bool res = sidechainsView->HaveScRequirements(CTransaction(mutTx), mcBwtReqHeight);
+
+    //checks
+    EXPECT_TRUE(res);
+}
+
+TEST_F(SidechainTestSuite, McBwtRequestToCeasedSidechainAreNotAllowed) {
+	// create sidechain
+	CBlock dummyBlock;
+    int scCreationHeight = 1789;
+    int epochLength = 10;
+    chainSettingUtils::ExtendChainActiveToHeight(scCreationHeight);
+	CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), epochLength);
+	ASSERT_TRUE(sidechainsView->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+
+	// create mc Bwt request
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = scCreationTx.GetScIdFromScCcOut(0);
+    CMutableTransaction mutTx;
+    mutTx.nVersion = SC_TX_VERSION;
+    mutTx.vmbtr_out.push_back(mcBwtReq);
+    int mcBwtReqHeight = scCreationHeight +2*epochLength;
+    ASSERT_TRUE(sidechainsView->isCeasedAtHeight(mcBwtReq.scId, mcBwtReqHeight) == CSidechain::State::CEASED);
+
+    //test
+    bool res = sidechainsView->HaveScRequirements(CTransaction(mutTx), mcBwtReqHeight);
+
+    //checks
+    EXPECT_FALSE(res);
+}
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// RevertTxOutputs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////

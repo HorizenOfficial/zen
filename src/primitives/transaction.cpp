@@ -564,7 +564,8 @@ void CTransaction::UpdateHash() const
 
 CTransaction::CTransaction(const CMutableTransaction &tx): CTransactionBase(tx),
     vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime), vsc_ccout(tx.vsc_ccout),
-    vft_ccout(tx.vft_ccout), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+    vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
+    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     UpdateHash();
 }
