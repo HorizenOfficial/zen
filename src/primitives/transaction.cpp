@@ -532,8 +532,8 @@ bool CTransaction::CheckInputsInteraction(CValidationState &state) const
             return state.DoS(100, error("CheckInputsInteraction(): coinbase script size"),
                              REJECT_INVALID, "bad-cb-length");
 
-        if (vsc_ccout.size() != 0 || vft_ccout.size() != 0)
-            return state.DoS(100, error("CheckInputsInteraction(): coinbase destined to sidechains"),
+        if (vsc_ccout.size() != 0 || vft_ccout.size() != 0 || vmbtr_out.size() != 0)
+            return state.DoS(100, error("CheckInputsInteraction(): coinbase contains sidechains related outputs"),
                                          REJECT_INVALID, "bad-cb-destination");
     }
     else
