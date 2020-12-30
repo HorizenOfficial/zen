@@ -1180,6 +1180,11 @@ bool CWallet::AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWal
                 wtx.fFromMe = wtxIn.fFromMe;
                 fUpdated = true;
             }
+            if (wtxIn.bwtAreStripped != wtx.bwtAreStripped)
+            {
+                wtx.bwtAreStripped = wtxIn.bwtAreStripped;
+                fUpdated = true;
+            }
 
             wtx.bwtMaturityDepth = wtxIn.bwtMaturityDepth;
         }
@@ -2041,12 +2046,6 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
 
                 bool bTopQualityCert = visitedScIds.count(itCert->GetScId()) == 0;
                 visitedScIds.insert(itCert->GetScId());
-                if (bTopQualityCert)
-                {
-                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(itCert->GetScId(), itCert->GetHash(),
-                                                                      itCert->epochNumber, itCert->quality,
-                                                                      CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
-                }
 
                 int nHeight = pindex->nHeight;
                 CSidechain sidechain;
@@ -2268,7 +2267,11 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
         if (!getTxBase()->IsBackwardTransfer(vOutPos))
            return CCoins::outputMaturity::MATURE;
         else
-           return CCoins::outputMaturity::NOT_APPLICABLE;
+        {
+            assert(bwtAreStripped);
+            return CCoins::outputMaturity::NOT_APPLICABLE;
+        }
+
     }
 
     //Hereinafter tx in getTxBase() in mainchain
