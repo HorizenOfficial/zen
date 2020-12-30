@@ -1359,7 +1359,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
 
 bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee, bool disconnecting)
+                        bool* pfMissingInputs, bool fRejectAbsurdFee, bool disconnecting, bool fVerifyBwtRequests)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
@@ -1490,10 +1490,12 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                                      REJECT_DUPLICATE, "bad-txns-inputs-spent");
             }
 
-            if (!view.IsScTxApplicableToState(tx, nextBlockHeight))
+            auto scVerifier = fVerifyBwtRequests? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+            if (!view.IsScTxApplicableToState(tx, nextBlockHeight, state, scVerifier))
             {
-                return state.Invalid(error("%s(): sidechain is redeclared or coins are forwarded to unknown sidechain", __func__),
-                                    REJECT_INVALID, "bad-sc-tx");
+                LogPrint("sc", "%s():%d - sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString());
+                return state.DoS(0, error("%s(): certificate not applicable", __func__),
+                                 REJECT_INVALID, "bad-sc-tx");
             }
  
             // are the joinsplit's requirements met?
@@ -2817,9 +2819,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): tx inputs missing/spent"),
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
  
-            if (!view.IsScTxApplicableToState(tx, pindex->nHeight))
-                return state.Invalid(error("ConnectBlock: sidechain is redeclared or coins are forwarded to unknown sidechain"),
-                                            REJECT_INVALID, "bad-sc-tx");
+            auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+            if (!view.IsScTxApplicableToState(tx, pindex->nHeight, state, scVerifier)) {
+                LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString());
+                return state.DoS(100, error("ConnectBlock(): invalid sc-related tx [%s]", tx.GetHash().ToString()),
+                                 REJECT_INVALID, "bad-sc-tx");
+            }
 
             // are the JoinSplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))

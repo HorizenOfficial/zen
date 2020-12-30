@@ -6,9 +6,9 @@
 #include "uint256.h"
 
 #include <string>
-#include <boost/foreach.hpp>
 #include <boost/variant.hpp>
 #include <boost/filesystem.hpp>
+#include <amount.h>
 
 class CSidechain;
 class CScCertificate;
@@ -40,7 +40,8 @@ namespace libzendoomc{
     /* Support class for WCert SNARK proof verification. */
     class CScWCertProofVerification {
         public:
-            CScWCertProofVerification(){ };
+            CScWCertProofVerification() = default;
+            virtual ~CScWCertProofVerification() = default;
 
             // Returns false if proof verification has failed or deserialization of certificate's elements
             // into libzendoomc's elements has failed.
@@ -116,6 +117,14 @@ namespace libzendoomc{
                 const ScVk& wCertVk,
                 const uint256& prev_end_epoch_block_hash,
                 const CScCertificate& scCert
+            ) const;
+
+            bool verifyCBwtRequest(
+                const uint256& scId,
+                const libzendoomc::ScFieldElement& scUtxoId,
+                const uint160& mcDestinationAddress,
+                CAmount scFees,
+                const libzendoomc::ScProof& scProof
             ) const;
     };
 }

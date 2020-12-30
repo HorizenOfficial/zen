@@ -291,7 +291,7 @@ bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const C
                         bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false);
 
 bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false);
+                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false, bool fVerifyBwtRequests = true);
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
                         bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false, bool verifyCert = true);

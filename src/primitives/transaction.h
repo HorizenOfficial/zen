@@ -842,7 +842,7 @@ public:
     //GETTERS
     const std::vector<CTxScCreationOut>&      GetVscCcOut()       const { return vsc_ccout; }
     const std::vector<CTxForwardTransferOut>& GetVftCcOut()       const { return vft_ccout; }
-    const std::vector<CBwtRequestOut>         GetVBwtRequestOut() const {return vmbtr_out; }
+    const std::vector<CBwtRequestOut>&        GetVBwtRequestOut() const { return vmbtr_out; }
     const std::vector<JSDescription>&         GetVjoinsplit() const override { return vjoinsplit;};
     const uint32_t&                           GetLockTime()   const override { return nLockTime;};
     const uint256&                            GetScIdFromScCcOut(int pos) const;

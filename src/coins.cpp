@@ -865,14 +865,10 @@ int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
 bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
-bool libzendoomc::CScProofVerifier::verifyCScCertificate(              
-    const libzendoomc::ScConstant& constant,
-    const libzendoomc::ScVk& wCertVk,
-    const uint256& prev_end_epoch_block_hash,
-    const CScCertificate& scCert
-) const { return true; }
-bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height) { return true;}
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight,
+                                              CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
+bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height,
+                                              CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const { return true;}
 size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
 #else
@@ -1020,7 +1016,7 @@ bool CCoinsViewCache::isEpochDataValid(const CSidechain& scInfo, int epochNumber
     return true;
 }
 
-bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height)
+bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const
 {
     if (tx.IsCoinBase())
         return true;
@@ -1035,7 +1031,8 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
         {
             LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
                 __func__, __LINE__, txHash.ToString(), scId.ToString());
-            return false;
+            return state.Invalid(error("scid exists already"),
+                 REJECT_INVALID, "sidechain-tx-scid-redeclaration");
         }
         LogPrint("sc", "%s():%d - OK: tx[%s] is creating scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), scId.ToString());
@@ -1050,14 +1047,16 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
             if (isCeasedAtHeight(scId, height)!= CSidechain::State::ALIVE) {
                 LogPrintf("ERROR: tx[%s] tries to send funds to scId[%s] already ceased at height = %d\n",
                             txHash.ToString(), scId.ToString(), height);
-                return false;
+                return state.Invalid(error("received fwt for ceased sidechain"),
+                             REJECT_INVALID, "sidechain-fwt-ceased-sidechain");
                 }
         } else
         {
             if (!Sidechain::hasScCreationOutput(tx, scId)) {
                 LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
                         __func__, __LINE__, txHash.ToString(), scId.ToString() );
-                return false;
+                return state.Invalid(error("scid does not exists"),
+                     REJECT_INVALID, "sidechain-tx-scid");
             }
         }
 
@@ -1065,22 +1064,35 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
     }
 
-    for (const auto& mbtr: tx.GetVBwtRequestOut())
+    for(size_t idx = 0; idx < tx.GetVBwtRequestOut().size(); ++idx)
     {
+        const CBwtRequestOut& mbtr = tx.GetVBwtRequestOut().at(idx);
         const uint256& scId = mbtr.scId;
         if (HaveSidechain(scId))
         {
-            if (isCeasedAtHeight(scId, height)!= CSidechain::State::ALIVE) {
+            if (isCeasedAtHeight(scId, height)!= CSidechain::State::ALIVE)
+            {
                 LogPrintf("ERROR: tx[%s] contains mainchain bwt request for scId[%s] already ceased at height = %d\n",
                             txHash.ToString(), scId.ToString(), height);
-                return false;
-                }
+                return state.Invalid(error("received mainchain bwt request for ceased sidechain"),
+                             REJECT_INVALID, "sidechain-btr-ceased-sidechain");
+            }
+
+            // Verify mainchain bwt request proof
+            if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scUtxoId, mbtr.mcDestinationAddress, mbtr.scFees, mbtr.scProof))
+            {
+                LogPrintf("ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
+                          mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
+                return state.Invalid(error("proof not verified"),
+                             REJECT_INVALID, "sidechain-mbtr-proof-not-verified");
+            }
         } else
         {
             if (!Sidechain::hasScCreationOutput(tx, scId)) {
                 LogPrint("sc", "%s():%d - ERROR: tx [%s] contains mainchain bwt request for scId[%s] not yet created\n",
                         __func__, __LINE__, txHash.ToString(), scId.ToString() );
-                return false;
+                return state.Invalid(error("scid does not exists"),
+                     REJECT_INVALID, "sidechain-tx-scid");
             }
         }
 
