@@ -108,15 +108,23 @@ public:
 struct CSidechainMemPoolEntry
 {
     uint256 scCreationTxHash;
-    std::set<uint256> fwdTransfersSet;
-    uint256 backwardCertificate;
+    std::set<uint256> fwdTransfersSet; 
+    // certificates are ordered by quality
+    std::map<int64_t, uint256> mBackwardCertificates;
+
     // Note: in fwdTransfersSet, a tx is registered only once, even if sends multiple fwd founds to a sidechain
     // Upon removal we will need to guard against potential double deletes.
     bool IsNull() const {
-        return (fwdTransfersSet.size() == 0 &&
+        return (fwdTransfersSet.empty()     &&
                 scCreationTxHash.IsNull()   &&
-                backwardCertificate.IsNull());
+                mBackwardCertificates.empty());
     }
+
+    const std::map<int64_t, uint256>::const_reverse_iterator GetTopQualityCert() const;
+    const std::map<int64_t, uint256>::const_iterator GetCert(const uint256& hash) const;
+
+    void EraseCert(const uint256& hash);
+    bool HasCert(const uint256& hash) const;
 };
 
 /**
@@ -147,6 +155,9 @@ private:
     bool checkCertImmatureExpenditures(
         const CScCertificate& cert, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
 
+    std::vector<uint256> mempoolDirectDependenciesFrom(const CTransactionBase& root) const;
+    std::vector<uint256> mempoolDirectDependenciesOf(const CTransactionBase& root) const;
+
     std::map<uint256, std::shared_ptr<CTransactionBase> > mapRecentlyAddedTxBase;
     uint64_t nRecentlyAddedSequence = 0;
     uint64_t nNotifiedSequence = 0;
@@ -176,9 +187,14 @@ public:
     void check(const CCoinsViewCache *pcoins) const;
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
+    std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality);
+    bool RemoveCertAndSync(const uint256& certToRmHash);
+
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
+    std::vector<uint256> mempoolDependenciesFrom(const CTransactionBase& origTx) const;
+    std::vector<uint256> mempoolDependenciesOf(const CTransactionBase& origTx) const;
     void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);
 
     void removeWithAnchor(const uint256 &invalidRoot);
@@ -300,11 +316,11 @@ protected:
 
 public:
     CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn);
-    bool GetNullifier(const uint256 &txid)                        const override;
-    bool GetCoins(const uint256 &txid, CCoins &coins)             const override;
-    bool HaveCoins(const uint256 &txid)                           const override;
-    bool GetSidechain(const uint256& scId, CSidechain& info)      const override;
-    bool HaveSidechain(const uint256& scId)                       const override;
+    bool GetNullifier(const uint256 &txid)                         const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)              const override;
+    bool HaveCoins(const uint256 &txid)                            const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)       const override;
+    bool HaveSidechain(const uint256& scId)                        const override;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

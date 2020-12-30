@@ -66,7 +66,6 @@ class sc_getscinfo(BitcoinTestFramework):
 
         #generate wCertVk and constant
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
-
         constant = generate_random_field_element_hex()
 
         # number of sidechains to create
@@ -95,12 +94,18 @@ class sc_getscinfo(BitcoinTestFramework):
             creating_tx = ret['txid']
             scid = self.nodes[idx].getrawtransaction(creating_tx, 1)['vsc_ccout'][0]['scid']
             mark_logs("Node {} created SC {}".format(idx, scid), self.nodes, DEBUG_MODE)
+            if i == NUM_OF_SIDECHAINS-SUBSET_ALIVE:
+                scid_0 = scid
+                tag_0 = tag
 
         self.sync_all()
+
         # add created scs to the mainchain
         cr_block_hash = self.nodes[0].generate(1)[-1]
+        sc_creating_height = self.nodes[0].getblockcount()
         self.sync_all()
         
+
         mark_logs("Node0 generates {} more blocks to achieve end of some withdrawal epochs".format(NUM_GEN), self.nodes, DEBUG_MODE)
         self.nodes[0].generate(NUM_GEN)
         self.sync_all()
@@ -159,8 +164,6 @@ class sc_getscinfo(BitcoinTestFramework):
 
             assert_equal(scids_all[count], item['scid'])
             count += 1
-
-        #pprint.pprint(sc_info)
 
         #------------------------------------------------------------------------------------------
         sz_subset = 3
@@ -250,89 +253,46 @@ class sc_getscinfo(BitcoinTestFramework):
             print e.error['message']
             assert_true(False)
 
-        try:
-            # this is not OK because the interval is outside of filtered alive sc set
-            self.nodes[1].getscinfo("*", True, True, NUM_ALIVE, 100)
-            assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
-            pass
-
         # get a ceased sc info filtering on active state
         null_result = self.nodes[0].getscinfo(a_ceased_scid, True)
         pprint.pprint(null_result)
         assert_equal(null_result['totalItems'], 0)
         assert_equal(len(null_result['items']), int(0))
 
-        return
+        CERT_FEE = Decimal('0.00015')
+        bwt_amount = Decimal("0.20")
 
-        '''
-        bal1 = self.nodes[1].getbalance()
-        print "Balance Node1 = {}\n".format(bal1)
-        #assert_equal(bal1, bwt_amount[0])
+        item = self.nodes[0].getscinfo(scid_0)['items'][0]
+        epoch_n = item['withdrawalEpochLength']
+        epoch_block_hash_1, epoch_number_1 = get_epoch_data(scid_0, self.nodes[0], epoch_n)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number_1, epoch_block_hash_1), self.nodes, DEBUG_MODE)
 
-        mark_logs("Node0 generates 2 more blocks to achieve certs maturity and scs ceasing", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(2)
-        self.sync_all()
+        prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number_1) * epoch_n))
 
-        bal1 = self.nodes[1].getbalance()
-        print "Balance Node1 = {}\n".format(bal1)
-        #assert_equal(bal1, bwt_amount[0])
+        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        amount_cert = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
-        mark_logs("Node0 generates 3 block to restore Node1 balance ", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(3)
-        self.sync_all()
+        # Create Cert1 with quality 100 and place it in mempool
+        mark_logs("Create Cert1 with quality 100 and place it in mempool", self.nodes, DEBUG_MODE)
+        quality = 100
+        proof = mcTest.create_test_proof(
+            tag_0, epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
+            quality, constant, [pkh_node1], [bwt_amount])
 
-        bal1 = self.nodes[1].getbalance()
-        print "Balance Node1 = {}\n".format(bal1)
-        #------> TODO fix this in walletassert_equal(bal1, Decimal("0.0"))
-
-        mark_logs("Node 1 tries to send coins to node0...", self.nodes, DEBUG_MODE)
         try:
-            tx = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1.0)
+            cert_1_epoch_0 = self.nodes[0].send_certificate(scid_0, epoch_number_1, quality, epoch_block_hash_1, proof, amount_cert, CERT_FEE)
+            assert(len(cert_1_epoch_0) > 0)
+            mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
 
-
-        mark_logs("Verifying scs state for all nodes", self.nodes, DEBUG_MODE)
-        for k in range(len(scids)):
-            for idx, node in enumerate(self.nodes):
-                print "idx = {}, k = {}".format(idx, k)
-                sc_info = node.getscinfo(scids[k])['items'][0]
-                assert_equal(sc_info["state"], "CEASED")
-                assert_equal(sc_info["last certificate epoch"], last_cert_epochs[k])
-                assert_equal(sc_info["balance"], creation_amount[k] - bwt_amount[k])
-
-        mark_logs("Checking certificates persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
-        stop_nodes(self.nodes)
-        wait_bitcoinds()
-        self.setup_network(False)
-
-        for k in range(len(scids)):
-            for idx, node in enumerate(self.nodes):
-                mark_logs("Checking Node{} after restart".format(idx), self.nodes, DEBUG_MODE)
-                sc_post_regeneration = node.getscinfo(scids[k])['items'][0]
-                assert_equal(sc_post_regeneration["state"], "CEASED")
-                assert_equal(sc_post_regeneration["last certificate epoch"], last_cert_epochs[k])
-                assert_equal(sc_post_regeneration["balance"], creation_amount[k] - bwt_amount[k])
-
-        bal1 = self.nodes[1].getbalance()
-        print "Balance Node1 = {}\n".format(bal1)
-        #------> TODO fix this in walletassert_equal(bal1, Decimal("0.0"))
-
-        mark_logs("Node0 generates 3 block to restore Node1 balance ", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(3)
         self.sync_all()
 
-        mark_logs("Node 1 tries to send coins to node0...", self.nodes, DEBUG_MODE)
-        try:
-            tx = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1.0)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        '''
-
+        result = self.nodes[0].getscinfo(scid_0)
+        assert_equal(cert_1_epoch_0, result['items'][0]['unconf top quality certificate hash'])
+        assert_equal(quality, result['items'][0]['unconf top quality certificate quality'])
 
 
 if __name__ == '__main__':

@@ -73,7 +73,7 @@ namespace libzendoomc{
                 const unsigned char* prev_end_epoch_mc_b_hash,
                 const backward_transfer_t* bt_list,
                 size_t bt_list_len,
-                uint64_t quality,
+                int64_t quality,
                 const field_t* constant,
                 const field_t* proofdata,
                 const sc_proof_t* sc_proof,

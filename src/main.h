@@ -240,6 +240,7 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL);
 /** Find an alternative chain tip and propagate to the network */
 bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sForkTips);
 
+CBlockIndex* AddToBlockIndex(const CBlockHeader& block);
 bool addToGlobalForkTips(const CBlockIndex* pindex);
 int getMostRecentGlobalForkTips(std::vector<uint256>& output);
 bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips);
@@ -293,7 +294,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                         bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false);
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false);
+                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false, bool verifyCert = true);
 
 struct CNodeStateStats {
     int nMisbehavior;
@@ -382,12 +383,16 @@ bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, 
 /** Apply the effects of this transaction on the UTXO set represented by view */
 bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint& out);
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight);
-void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight);
+void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight, bool isBlockTopQualityCert);
+
+std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToConnect, const CCoinsViewCache& view);
+std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToDisconnect, const CBlockUndo& blockUndo);
 
 /** Context-independent validity checks */
 bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier);
 bool CheckCertificate(const CScCertificate& cert, CValidationState& state);
 bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidationState &state);
+bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CValidationState& state);
 
 /** Check for standard transaction types
  * @return True if all outputs (scriptPubKeys) use only standard transaction forms
@@ -446,11 +451,12 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
  *  will be true if no problems were found. Otherwise, the return value will be false in case
  *  of problems. Note that in any case, coins may be modified. */
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins,
-    bool* pfClean = NULL, std::vector<uint256>* pVoidedCertList = nullptr);
+    bool* pfClean = NULL, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false, bool fCheckScTxesCommitment = true, std::vector<uint256>* pVoidedCertList = nullptr);
+    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false, bool fCheckScTxesCommitment = true,
+    std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Context-independent validity checks */
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
@@ -475,7 +481,6 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
  */
 bool AcceptBlock(CBlock& block, CValidationState& state, CBlockIndex **pindex, bool fRequested, CDiskBlockPos* dbp, BlockSet* sForkTips = NULL);
 bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex **ppindex= NULL, bool lookForwardTips = false);
-
 
 
 class CBlockFileInfo

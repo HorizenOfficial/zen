@@ -4845,7 +4845,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     scId.SetHex(scIdString);
 
     // sanity check of the side chain ID
-    CCoinsViewCache scView(pcoinsTip);
+    CCoinsView dummy;
+    CCoinsViewCache scView(&dummy);
+    CCoinsViewMemPool vm(pcoinsTip, mempool);
+    scView.SetBackend(vm);
     CSidechain scInfo;
     if (!scView.GetSidechain(scId,scInfo))
     {
@@ -4892,17 +4895,6 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
     }
 
-    // there must not be another certificate for the same scId in mempool (multiple certificates are not allowed)
-    {
-        LOCK(mempool.cs);
-        if ((mempool.mapSidechains.count(scId) != 0) && (!mempool.mapSidechains.at(scId).backwardCertificate.IsNull()))
-        {
-            const uint256& conflictingCertHash = mempool.mapSidechains.at(scId).backwardCertificate;
-            LogPrintf("%s():%d - ERROR: a certificate %s for scid %s is already in the mempool\n",
-                __func__, __LINE__, conflictingCertHash.ToString(), scId.ToString());
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("conflicting cert"));
-        }
-    }
     cert.endEpochBlockHash = endEpochBlockHash;
 
     //scProof
@@ -4992,10 +4984,16 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     // allow use of unconfirmed coins
     int nMinDepth = 0; //1; 
 
-    if (nTotalOut > scInfo.balance)
+    CAmount delta = 0;
+    if (epochNumber == scInfo.prevBlockTopQualityCertReferencedEpoch)
+    {
+        delta = scInfo.prevBlockTopQualityCertBwtAmount;
+    }
+
+    if (nTotalOut > scInfo.balance+delta)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance), FormatMoney(nTotalOut) );
+            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance+delta), FormatMoney(nTotalOut) );
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
 

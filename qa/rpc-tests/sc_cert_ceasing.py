@@ -37,7 +37,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1', '-rescan']] * NUMB_OF_NODES)
 
         for k in range(0, NUMB_OF_NODES-1):
             connect_nodes_bi(self.nodes, k, k+1)
@@ -129,6 +129,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
+
+        self.sync_all()
 
         # node0 create an empty cert_2 
         mark_logs("Node 0 sends an empty cert for scid_2 {}".format(scids[1]), self.nodes, DEBUG_MODE)
@@ -229,7 +231,6 @@ class sc_cert_ceasing(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-
 
 
 if __name__ == '__main__':

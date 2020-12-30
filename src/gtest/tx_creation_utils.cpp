@@ -2,6 +2,8 @@
 #include <main.h>
 #include <pubkey.h>
 #include "tx_creation_utils.h"
+#include <miner.h>
+#include <undo.h>
 
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, const CAmount & fwdTxAmount, int epochLength)
 {
@@ -162,6 +164,19 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
         res.addBwt(CTxOut(bwtTotalAmount/numBwt, dummyScriptPubKey));
 
     return res;
+}
+
+uint256 txCreationUtils::CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight)
+{
+	CAmount dummyFeeAmount;
+	CScript dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
+            << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    CTransaction inputTx = createCoinbase(dummyCoinbaseScript, dummyFeeAmount, coinHeight);
+    CTxUndo dummyUndo;
+    UpdateCoins(inputTx, targetView, dummyUndo, coinHeight);
+    assert(targetView.HaveCoins(inputTx.GetHash()));
+    return inputTx.GetHash();
 }
 
 void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)

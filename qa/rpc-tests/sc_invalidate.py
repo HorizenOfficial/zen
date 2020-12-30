@@ -173,12 +173,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         scinfoNode1 = self.nodes[1].getscinfo(scid)['items'][0]
         mark_logs("Node 0: " + str(scinfoNode0), self.nodes, DEBUG_MODE)
         mark_logs("Node 1: " + str(scinfoNode1), self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[2].getscinfo(scid)['items'][0]
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("scid not yet created" in errorString, True)
+        assert_equal(0, self.nodes[2].getscinfo(scid)['totalItems'])
 
         # Node 2 generate 4 blocks including the rawtx2 and now it has the longest fork
         mark_logs("\nNode 2 generate 4 blocks including the rawtx2 and now it has the longest fork...", self.nodes, DEBUG_MODE)
@@ -201,12 +196,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         # Checking SC info on network
         mark_logs("\nChecking SC info on network, none see the SC...", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
-            try:
-                self.nodes[i].getscinfo(scid)['items'][0]
-            except JSONRPCException, e:
-                errorString = e.error['message']
-                mark_logs(errorString, self.nodes, DEBUG_MODE)
-                assert_equal("scid not yet created" in errorString, True)
+            assert_equal(0, self.nodes[i].getscinfo(scid)['totalItems'])
 
         # The FT transaction should not be in mempool
         mark_logs("\nThe FT transaction should not be in mempool...", self.nodes, DEBUG_MODE)
