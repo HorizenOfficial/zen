@@ -830,7 +830,7 @@ public:
     }
 
     bool ccIsNull() const {
-        return vsc_ccout.empty() && vft_ccout.empty();
+        return vsc_ccout.empty() && vft_ccout.empty() && vmbtr_out.empty();
     }
     
     bool IsScVersion() const 
