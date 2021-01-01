@@ -143,15 +143,22 @@ bool VerifyCertificatesDependencies(const CScCertificate& cert)
     return true;
 }
 
-bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsViewCache& view, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers, COrphan*& porphan)
+bool VerifySidechainTxDependencies(const CTransaction& tx, const CCoinsViewCache& view, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers, COrphan*& porphan)
 {
     // detect dependencies from the sidechain point of view
+    std::set<uint256> targetScIds;
     for (const auto& ft: tx.GetVftCcOut())
+        targetScIds.insert(ft.scId);
+
+    for (const auto& btr: tx.GetVBwtRequestOut())
+        targetScIds.insert(btr.scId);
+
+    for (const uint256& scId: targetScIds)
     {
-        if (view.HaveSidechain(ft.scId) )
+        if (view.HaveSidechain(scId) )
             continue;
-        else if (mempool.hasSidechainCreationTx(ft.scId)) {
-            const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash; 
+        else if (mempool.hasSidechainCreationTx(scId)) {
+            const uint256& scCreationHash = mempool.mapSidechains.at(scId).scCreationTxHash;
             assert(!scCreationHash.IsNull());
             assert(mempool.exists(scCreationHash));
 
@@ -159,11 +166,11 @@ bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsView
             if (scCreationHash == tx.GetHash())
                 continue;
 
-            if (!porphan)
-            {
+            if (!porphan) {
                 vOrphan.push_back(COrphan(&tx));
                 porphan = &vOrphan.back();
             }
+
             mapDependers[scCreationHash].push_back(porphan);
             porphan->setDependsOn.insert(scCreationHash);
             LogPrint("sc", "%s():%d - tx[%s] depends on tx[%s] for sc creation\n",
@@ -177,6 +184,7 @@ bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsView
             return false;
         }
     }
+
     return true;
 }
 
@@ -355,7 +363,7 @@ void GetBlockTxPriorityData(const CCoinsViewCache& view, int nHeight, int64_t nL
             continue;
         }
 
-        if (!VerifyForwardTransfersDependencies(tx, view, vOrphan, mapDependers, porphan) )
+        if (!VerifySidechainTxDependencies(tx, view, vOrphan, mapDependers, porphan) )
         {
             if (porphan)
                 vOrphan.pop_back();
@@ -433,7 +441,7 @@ void GetBlockTxPriorityDataOld(const CCoinsViewCache& view, int nHeight, int64_t
 
         if (fMissingInputs) continue;
 
-        if (!VerifyForwardTransfersDependencies(tx, view, vOrphan, mapDependers, porphan))
+        if (!VerifySidechainTxDependencies(tx, view, vOrphan, mapDependers, porphan))
         {
             // should never happen because that means inconsistency in mempool, but this tx must not be
             // added to vecPriority nor in the vOrphan
