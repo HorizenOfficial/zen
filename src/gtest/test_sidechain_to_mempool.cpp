@@ -490,6 +490,38 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
     EXPECT_FALSE(mempool.existsCert(cert1.GetHash()));
 }
 
+TEST_F(SidechainsInMempoolTestSuite, CertConnectionDropAllBtrForReferencedScId) {
+    //Create and persist sidechain
+    CTransaction scTx = GenerateScTx(CAmount(10));
+    const uint256& scId = scTx.GetScIdFromScCcOut(0);
+    CBlock aBlock;
+    CCoinsViewCache sidechainsView(pcoinsTip);
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.Flush();
+
+    // place btrs in mempool
+    CTransaction btrTx1 = GenerateBtrTx(scId);
+    CTxMemPoolEntry btrTx1Entry(btrTx1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+	mempool.addUnchecked(btrTx1.GetHash(), btrTx1Entry);
+	ASSERT_TRUE(mempool.existsTx(btrTx1.GetHash()));
+
+    CTransaction btrTx2 = GenerateBtrTx(scId);
+    CTxMemPoolEntry btrTx2Entry(btrTx2, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+	mempool.addUnchecked(btrTx2.GetHash(), btrTx2Entry);
+	ASSERT_TRUE(mempool.existsTx(btrTx2.GetHash()));
+
+    //Remove the certificate
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    CMutableScCertificate certToRm;
+    certToRm.scId = scId;
+    mempool.removeConflicts(CScCertificate(certToRm), removedTxs, removedCerts);
+
+    EXPECT_TRUE(removedCerts.size() == 0);
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), btrTx1));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), btrTx2));
+}
+
 TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffectFwt) {
     //Create and persist sidechain
     CTransaction scTx = GenerateScTx(CAmount(10));

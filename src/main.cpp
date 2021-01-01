@@ -3300,7 +3300,7 @@ bool static DisconnectTip(CValidationState &state) {
     mempool.removeImmatureExpenditures(pcoinsTip, pindexDelete->nHeight);
 
     // remove any certificate, and possible dependancies, that refers to this block as end epoch
-    mempool.removeOutOfEpochCertificates(pindexDelete);
+    mempool.removeOutOfEpochCertificates(pindexDelete->GetBlockHash());
 
     mempool.check(pcoinsTip);
     // Update chainActive and related variables.

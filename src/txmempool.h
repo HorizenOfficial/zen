@@ -206,7 +206,7 @@ public:
                         std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
 
     void removeConflicts(const CScCertificate &cert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
-    void removeOutOfEpochCertificates(const CBlockIndex* pindexDelete);
+    void removeOutOfEpochCertificates(const uint256& disconnectedBlockHash);
     void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight,
                         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
 

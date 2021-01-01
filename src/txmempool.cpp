@@ -250,7 +250,7 @@ std::vector<uint256> CTxMemPool::mempoolDirectDependenciesFrom(const CTransactio
             res.push_back(input.prevout.hash);
     }
 
-    //... and scCreations of all possible fwt
+    //... and scCreations of all possible fwt/btr
     if (!root.IsCertificate() )
     {
         const CTransaction* tx = dynamic_cast<const CTransaction*>(&root);
@@ -409,7 +409,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 
             for(const auto& btr: tx.GetVBwtRequestOut()) {
                 if (mapSidechains.count(btr.scId)) { //Guard against double-delete on multiple btrs toward the same sc in same tx
-                    mapSidechains.at(btr.scId).fwdTransfersSet.erase(tx.GetHash());
+                    mapSidechains.at(btr.scId).mcBtrSet.erase(tx.GetHash());
 
                     if (mapSidechains.at(btr.scId).IsNull())
                     {
@@ -618,10 +618,9 @@ void CTxMemPool::removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsig
     }
 }
 
-void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
+void CTxMemPool::removeOutOfEpochCertificates(const uint256& disconnectedBlockHash)
 {
     LOCK(cs);
-    assert(pindexDelete);
 
     std::set<uint256> certsToRemove;
 
@@ -630,10 +629,10 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
     {
         const CScCertificate& cert = itCert->second.GetCertificate();
 
-        if (cert.endEpochBlockHash == pindexDelete->GetBlockHash() )
+        if (cert.endEpochBlockHash == disconnectedBlockHash)
         {
             LogPrint("mempool", "%s():%d - adding cert [%s] to list for removing (endEpochBlockHash %s)\n",
-                __func__, __LINE__, cert.GetHash().ToString(), pindexDelete->GetBlockHash().ToString());
+                __func__, __LINE__, cert.GetHash().ToString(), disconnectedBlockHash.ToString());
             certsToRemove.insert(cert.GetHash());
         }
     }
@@ -744,7 +743,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
 
 void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts) {
     LOCK(cs);
-    BOOST_FOREACH(const CTxIn &txin, cert.GetVin()) {
+    for(const CTxIn &txin: cert.GetVin()) {
         std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(txin.prevout);
         if (it != mapNextTx.end()) {
             const CTransactionBase &txConflict = *it->second.ptx;
@@ -757,13 +756,14 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
         }
     }
 
-    if (!mapSidechains.count(cert.GetScId()) || (mapSidechains.at(cert.GetScId()).mBackwardCertificates.empty()) )
+    const uint256& scId = cert.GetScId();
+    if (mapSidechains.count(scId) == 0)
         return;
 
     // cert has been confirmed in a block, therefore any other cert in mempool for this scid
     // with equal or lower quality is deemed conflicting and must be removed
     std::list<CScCertificate> vLowerQualCerts;
-    for (auto entry :  mapSidechains.at(cert.GetScId()).mBackwardCertificates)
+    for (auto entry :  mapSidechains.at(scId).mBackwardCertificates)
     {
         const uint256& memPoolCertHash = entry.second;
         const CScCertificate& memPoolCert = mapCertificate.at(memPoolCertHash).GetCertificate();
@@ -776,9 +776,15 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
         }
     }
 
-    for (auto& conflictingCert : vLowerQualCerts)
-    {
+    for (const auto& conflictingCert : vLowerQualCerts)
         remove(conflictingCert, removedTxs, removedCerts, true);
+
+    //remove all btrs for scIds mentioned by the certificate. These btrs would target outdated scFees
+    while ((mapSidechains.count(scId) != 0) && !mapSidechains.at(scId).mcBtrSet.empty())
+    {
+    	auto entryToRm = mapSidechains.at(scId).mcBtrSet.begin();
+        const CTransaction& outdatedBtr = mapTx.at(*entryToRm).GetTx();
+        remove(outdatedBtr, removedTxs, removedCerts, true);
     }
 }
 
