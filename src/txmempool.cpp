@@ -891,6 +891,19 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
                 assert(pcoins->HaveSidechain(fwd.scId));
         }
 
+        for(const auto& btr: tx.GetVBwtRequestOut()) {
+            //btrs must be duly recorded in mapSidechain
+            assert(mapSidechains.count(btr.scId) != 0);
+            const auto& fwdPos = mapSidechains.at(btr.scId).mcBtrSet.find(tx.GetHash());
+            assert(fwdPos != mapSidechains.at(btr.scId).mcBtrSet.end());
+
+            //there must be no dangling btrs, i.e. sc creation is either in mempool or in blockchain
+            if (!mapSidechains.at(btr.scId).scCreationTxHash.IsNull())
+                assert(mapTx.count(mapSidechains.at(btr.scId).scCreationTxHash));
+            else
+                assert(pcoins->HaveSidechain(btr.scId));
+        }
+
         boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
 
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {

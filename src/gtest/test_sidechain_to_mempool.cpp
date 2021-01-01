@@ -992,9 +992,9 @@ CTransaction SidechainsInMempoolTestSuite::GenerateFwdTransferTx(const uint256 &
     scTx.vft_ccout[0].scId   = newScId;
     scTx.vft_ccout[0].nValue = fwdTxAmount;
 
-    //scTx.vft_ccout.resize(2); //testing double deletes 
-    //scTx.vft_ccout[1].scId   = newScId;
-    //scTx.vft_ccout[1].nValue = fwdTxAmount;
+    scTx.vft_ccout.resize(2); //testing double deletes
+    scTx.vft_ccout[1].scId   = newScId;
+    scTx.vft_ccout[1].nValue = fwdTxAmount;
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 
