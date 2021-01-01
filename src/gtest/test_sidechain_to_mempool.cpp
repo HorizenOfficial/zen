@@ -84,6 +84,7 @@ public:
 protected:
     CTransaction GenerateScTx(const CAmount & creationTxAmount, int epochLenght = -1);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
+    CTransaction GenerateBtrTx(const uint256 & scId);
     CScCertificate GenerateCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
                                  CAmount inputAmount, CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,
                                  CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/, int64_t quality,
@@ -105,7 +106,7 @@ private:
     bool StoreCoins(const std::pair<uint256, CCoinsCacheEntry>& entryToStore);
 };
 
-TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
+TEST_F(SidechainsInMempoolTestSuite, NewSidechainIsAcceptedToMempool) {
     CTransaction scTx = GenerateScTx(CAmount(1));
     CValidationState txState;
     bool missingInputs = false;
@@ -113,7 +114,30 @@ TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
     EXPECT_TRUE(AcceptTxToMemoryPool(mempool, txState, scTx, false, &missingInputs));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed) {
+TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSidechainAreNotAllowed) {
+    uint256 scId = uint256S("dddd");
+    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
+    CValidationState fwdTxState;
+    bool missingInputs = false;
+
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+}
+
+//A proof that https://github.com/HorizenOfficial/zen/issues/215 is solved
+TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnconfirmedSidechainsAreAllowed) {
+    CTransaction scTx = GenerateScTx(CAmount(1));
+    const uint256& scId = scTx.GetScIdFromScCcOut(0);
+    CValidationState scTxState;
+    bool missingInputs = false;
+    AcceptTxToMemoryPool(mempool, scTxState, scTx, false, &missingInputs);
+    ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
+
+    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
+    CValidationState fwdTxState;
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed) {
     int creationHeight = 1789;
     chainSettingUtils::ExtendChainActiveToHeight(creationHeight);
 
@@ -133,8 +157,16 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSideChainsAreAllowed
     EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
 }
 
-//A proof that https://github.com/HorizenOfficial/zen/issues/215 is solved
-TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed) {
+TEST_F(SidechainsInMempoolTestSuite, BtrToUnknownSidechainAreNotAllowed) {
+    uint256 scId = uint256S("dddd");
+    CTransaction btrTx = GenerateBtrTx(scId);
+    CValidationState btrTxState;
+    bool missingInputs = false;
+
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, false, &missingInputs));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, BtrToUnconfirmedSidechainsAreAllowed) {
     CTransaction scTx = GenerateScTx(CAmount(1));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
@@ -142,18 +174,29 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToSideChainsInMempoolAreAllowed
     AcceptTxToMemoryPool(mempool, scTxState, scTx, false, &missingInputs);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
-    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
-    CValidationState fwdTxState;
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+    CTransaction btrTx = GenerateBtrTx(scId);
+    CValidationState btrTxState;
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, false, &missingInputs));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed) {
-    uint256 scId = uint256S("dddd");
-    CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
-    CValidationState fwdTxState;
+TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
+    int creationHeight = 1789;
+    chainSettingUtils::ExtendChainActiveToHeight(creationHeight);
+
+    CTransaction scTx = GenerateScTx(CAmount(10));
+    const uint256& scId = scTx.GetScIdFromScCcOut(0);
+
+    CBlock aBlock;
+    CCoinsViewCache sidechainsView(pcoinsTip);
+    sidechainsView.UpdateScInfo(scTx, aBlock, creationHeight);
+    sidechainsView.SetBestBlock(pcoinsTip->GetBestBlock()); //do not alter BestBlock, as set in test fixture
+    sidechainsView.Flush();
+
+    CTransaction btrTx = GenerateBtrTx(scId);
+    CValidationState btrTxState;
     bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, false, &missingInputs));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
@@ -164,15 +207,6 @@ TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
     bool res = aMempool.hasSidechainCreationTx(scId);
     EXPECT_FALSE(res);
 
-    bool loopRes = false;
-    for(const auto& tx : aMempool.mapTx)
-        for(const auto& sc: tx.second.GetTx().GetVscCcOut())
-            if(sc.GetScId() == scId) {
-                loopRes = true;
-                break;
-        }
-    EXPECT_TRUE(loopRes == res);
-
     //Case 2: fwd transfer tx only in mempool
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwdPoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -180,35 +214,24 @@ TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
     res = aMempool.hasSidechainCreationTx(scId);
     EXPECT_FALSE(res);
 
-    loopRes = false;
-    for(const auto& tx : aMempool.mapTx)
-        for(const auto& sc: tx.second.GetTx().GetVscCcOut())
-            if(sc.GetScId() == scId) {
-                loopRes = true;
-                break;
-        }
-    EXPECT_TRUE(loopRes == res);
+    //Case 3: btr tx only in mempool
+    CTransaction btrTx = GenerateBtrTx(scId);
+    CTxMemPoolEntry btrTxEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(btrTxEntry.GetTx().GetHash(), btrTxEntry);
+    res = aMempool.hasSidechainCreationTx(scId);
+    EXPECT_FALSE(res);
 
-    //Case 3: sc creation tx in mempool
+    //Case 4: sc creation tx in mempool
     CTransaction scTx  = GenerateScTx(CAmount(10));
     const uint256& scIdOk = scTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scPoolEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(scPoolEntry.GetTx().GetHash(), scPoolEntry);
     res = aMempool.hasSidechainCreationTx(scIdOk);
     EXPECT_TRUE(res);
-
-    loopRes = false;
-    for(const auto& tx : aMempool.mapTx)
-        for(const auto& sc: tx.second.GetTx().GetVscCcOut())
-            if(sc.GetScId() == scIdOk) {
-                loopRes = true;
-                break;
-        }
-    EXPECT_TRUE(loopRes == res);
 }
 
-TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval) {
-    // Associated scenario: Sidechain creation and some fwds are in mempool.
+TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScNonRecursiveRemoval) {
+    // Associated scenario: Sidechain creation and some fwds and btr are in mempool.
     // Sc Creation is confirmed, hence it has to be removed from mempool, while fwds stay.
 
     CTxMemPool aMempool(::minRelayTxFee);
@@ -226,6 +249,10 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval) {
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
+    CTransaction btrTx = GenerateBtrTx(scId);
+    CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
     aMempool.remove(scTx, removedTxs, removedCerts, /*fRecursive*/false);
@@ -233,10 +260,11 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval) {
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), btrTx));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_FwdNonRecursiveRemoval) {
-    // Associated scenario: fws are in mempool, hence scCreation must be already confirmed
+TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrsOnlyInMempool_FwdNonRecursiveRemoval) {
+    // Associated scenario: fwts and btr are in mempool, hence scCreation must be already confirmed
     // A fwd is confirmed hence it, and only it, is removed from mempool
 
     CTxMemPool aMempool(::minRelayTxFee);
@@ -250,16 +278,49 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_FwdNonRecursiveRemoval) {
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
+    CTransaction btrTx = GenerateBtrTx(scId);
+    CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
     aMempool.remove(fwdTx1, removedTxs, removedCerts, /*fRecursive*/false);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), btrTx));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScRecursiveRemoval) {
-    // Associated scenario: Sidechain creation and some fwds are in mempool, e.g. as a result of previous blocks disconnections
+TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrsOnlyInMempool_BtrNonRecursiveRemoval) {
+    // Associated scenario: fws and btr are in mempool, hence scCreation must be already confirmed
+    // A fwd is confirmed hence it, and only it, is removed from mempool
+
+    CTxMemPool aMempool(::minRelayTxFee);
+    uint256 scId = uint256S("ababab");
+
+    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+
+    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+
+    CTransaction btrTx = GenerateBtrTx(scId);
+    CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    aMempool.remove(btrTx, removedTxs, removedCerts, /*fRecursive*/false);
+
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), btrTx));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScRecursiveRemoval) {
+    // Associated scenario: Sidechain creation and some fwds/btr are in mempool, e.g. as a result of previous blocks disconnections
     // One of the new blocks about to me mounted double spends the original scTx, hence scCreation is marked for recursive removal by removeForConflicts
     // both scCreation and fwds must be cleared from mempool
 
@@ -278,6 +339,10 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScRecursiveRemoval) {
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
+    CTransaction btrTx = GenerateBtrTx(scId);
+    CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
     aMempool.remove(scTx, removedTxs, removedCerts, /*fRecursive*/true);
@@ -285,11 +350,12 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScRecursiveRemoval) {
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), scTx));
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), btrTx));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_ScRecursiveRemoval) {
-    // Associated scenario: upon block disconnections fwds have entered into mempool.
-    // While unmounting block containing scCreation, scCreation cannot make to mempool. fwds must me purged
+TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrOnlyInMempool_ScRecursiveRemoval) {
+    // Associated scenario: upon block disconnections fwds and btr have entered into mempool.
+    // While unmounting block containing scCreation, scCreation cannot make to mempool. fwds and btr must me purged
 
     CTxMemPool aMempool(::minRelayTxFee);
     CTransaction scTx = GenerateScTx(CAmount(10));
@@ -303,15 +369,20 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_ScRecursiveRemoval) {
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
+    CTransaction btrTx = GenerateBtrTx(scId);
+    CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
     aMempool.remove(scTx, removedTxs, removedCerts, /*fRecursive*/true);
 
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), btrTx));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_FwdRecursiveRemoval) {
+TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_FwdRecursiveRemoval) {
     // Associated scenario: upon block disconnections a fwd cannot make to mempool.
     // Recursive removal for refused fwd is called, but other fwds are unaffected
 
@@ -326,12 +397,45 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_FwdRecursiveRemoval) {
     CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
 
+    CTransaction btrTx = GenerateBtrTx(scId);
+    CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
     aMempool.remove(fwdTx2, removedTxs, removedCerts, /*fRecursive*/true);
 
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
     EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), btrTx));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_BtrRecursiveRemoval) {
+    // Associated scenario: upon block disconnections a btr cannot make to mempool.
+    // Recursive removal for refused btr is called, but other fwds are unaffected
+
+    CTxMemPool aMempool(::minRelayTxFee);
+    uint256 scId = uint256S("1492");
+
+    CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwdEntry1(fwdTx1, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx1.GetHash(), fwdEntry1);
+
+    CTransaction fwdTx2 = GenerateFwdTransferTx(scId, CAmount(20));
+    CTxMemPoolEntry fwdEntry2(fwdTx2, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdTx2.GetHash(), fwdEntry2);
+
+    CTransaction btrTx = GenerateBtrTx(scId);
+    CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    aMempool.remove(btrTx, removedTxs, removedCerts, /*fRecursive*/true);
+
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx1));
+    EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx2));
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), btrTx));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, SimpleCertRemovalFromMempool) {
@@ -897,6 +1001,28 @@ CTransaction SidechainsInMempoolTestSuite::GenerateFwdTransferTx(const uint256 &
     return scTx;
 }
 
+CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId) {
+    std::pair<uint256, CCoinsCacheEntry> coinData = GenerateCoinsAmount(1000);
+    StoreCoins(coinData);
+
+    CMutableTransaction scTx;
+    scTx.nVersion = SC_TX_VERSION;
+    scTx.vin.resize(1);
+    scTx.vin[0].prevout = COutPoint(coinData.first, 0);
+
+    scTx.vmbtr_out.resize(1);
+    scTx.vmbtr_out[0].scId   = scId;
+    scTx.vmbtr_out[0].scFees = CAmount(1); //dummy amount
+
+    scTx.vmbtr_out.resize(2); //testing double deletes
+    scTx.vmbtr_out[1].scId   = scId;
+    scTx.vmbtr_out[1].scFees = CAmount(2); //dummy amount
+
+    SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
+
+    return scTx;
+}
+
 CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
                  CAmount inputAmount, CAmount changeTotalAmount, unsigned int numChangeOut,
                  CAmount bwtTotalAmount, unsigned int numBwt, int64_t quality, const CTransactionBase* inputTxBase)
@@ -933,4 +1059,3 @@ CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(const uint256 &
 
     return res;
 }
-

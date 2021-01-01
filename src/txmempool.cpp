@@ -180,28 +180,33 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     for (unsigned int i = 0; i < tx.GetVin().size(); i++)
         mapNextTx[tx.GetVin()[i].prevout] = CInPoint(&tx, i);
 
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
-        BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
+    for(const JSDescription &joinsplit: tx.GetVjoinsplit()) {
+        for(const uint256 &nf: joinsplit.nullifiers) {
             mapNullifiers[nf] = &tx;
         }
     }
 
     for(const auto& sc: tx.GetVscCcOut()) {
-        LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, sc.GetScId().ToString() );
+        LogPrint("mempool", "%s():%d - adding tx [%s] in mapSidechain [%s], scCreationTxHash\n", __func__, __LINE__, hash.ToString(), sc.GetScId().ToString());
         mapSidechains[sc.GetScId()].scCreationTxHash = hash;
     }
 
     for(const auto& fwd: tx.GetVftCcOut()) {
         if (mapSidechains.count(fwd.scId) == 0)
-            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
+            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain [%s], fwdTransfersSet\n", __func__, __LINE__, hash.ToString(), fwd.scId.ToString());
         mapSidechains[fwd.scId].fwdTransfersSet.insert(hash);
+    }
+
+    for(const auto& btr: tx.GetVBwtRequestOut()) {
+        if (mapSidechains.count(btr.scId) == 0)
+            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain [%s], mbBtrSet\n", __func__, __LINE__, hash.ToString(), btr.scId.ToString());
+        mapSidechains[btr.scId].mcBtrSet.insert(hash);
     }
 
     nTransactionsUpdated++;
     totalTxSize += entry.GetTxSize();
     cachedInnerUsage += entry.DynamicMemoryUsage();
     minerPolicyEstimator->processTransaction(entry, fCurrentEstimate);
-    LogPrint("sc", "%s():%d - tx [%s] added in mempool\n", __func__, __LINE__, hash.ToString() );
 
     return true;
 }
@@ -258,6 +263,11 @@ std::vector<uint256> CTxMemPool::mempoolDirectDependenciesFrom(const CTransactio
             if (mapSidechains.count(fwt.scId) && !mapSidechains.at(fwt.scId).scCreationTxHash.IsNull())
                 res.push_back(mapSidechains.at(fwt.scId).scCreationTxHash);
         }
+
+        for(const auto& btr: tx->GetVBwtRequestOut()) {
+            if (mapSidechains.count(btr.scId) && !mapSidechains.at(btr.scId).scCreationTxHash.IsNull())
+                res.push_back(mapSidechains.at(btr.scId).scCreationTxHash);
+        }
     }
 
     return res;
@@ -313,7 +323,7 @@ std::vector<uint256> CTxMemPool::mempoolDirectDependenciesOf(const CTransactionB
         res.push_back(it->second.ptx->GetHash());
     }
 
-    // ... and, should root be a scCreationTx, also all fwds in mempool directed to sc created by root
+    // ... and, should root be a scCreationTx, also all fwds and btrs in mempool directed to sc created by root
     if (!root.IsCertificate() )
     {
         const CTransaction* tx = dynamic_cast<const CTransaction*>(&root);
@@ -330,6 +340,8 @@ std::vector<uint256> CTxMemPool::mempoolDirectDependenciesOf(const CTransactionB
                 continue;
             for(const auto& fwdTxHash : mapSidechains.at(sc.GetScId()).fwdTransfersSet)
                 res.push_back(fwdTxHash);
+            for(const auto& mcBtrTxHash : mapSidechains.at(sc.GetScId()).mcBtrSet)
+                res.push_back(mcBtrTxHash);
         }
     }
     return res;
@@ -395,13 +407,25 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 }
             }
 
+            for(const auto& btr: tx.GetVBwtRequestOut()) {
+                if (mapSidechains.count(btr.scId)) { //Guard against double-delete on multiple btrs toward the same sc in same tx
+                    mapSidechains.at(btr.scId).fwdTransfersSet.erase(tx.GetHash());
+
+                    if (mapSidechains.at(btr.scId).IsNull())
+                    {
+                        LogPrint("mempool", "%s():%d - erasing btr from mapSidechain [%s]\n", __func__, __LINE__, btr.scId.ToString() );
+                        mapSidechains.erase(btr.scId);
+                    }
+                }
+            }
+
             for(const auto& fwd: tx.GetVftCcOut()) {
                 if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
                     mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
 
                     if (mapSidechains.at(fwd.GetScId()).IsNull())
                     {
-                        LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
+                        LogPrint("mempool", "%s():%d - erasing fwt from mapSidechain [%s]\n", __func__, __LINE__, fwd.scId.ToString() );
                         mapSidechains.erase(fwd.scId);
                     }
                 }
@@ -413,7 +437,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 
                 if (mapSidechains.at(sc.GetScId()).IsNull())
                 {
-                    LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, sc.GetScId().ToString() );
+                    LogPrint("mempool", "%s():%d - erasing scCreation from mapSidechain [%s]\n", __func__, __LINE__, sc.GetScId().ToString() );
                     mapSidechains.erase(sc.GetScId());
                 }
             }
@@ -455,7 +479,6 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             nCertificatesUpdated++;
         }
     }
- 
 }
 
 inline bool CTxMemPool::checkTxImmatureExpenditures(

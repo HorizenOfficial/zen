@@ -109,15 +109,15 @@ struct CSidechainMemPoolEntry
 {
     uint256 scCreationTxHash;
     std::set<uint256> fwdTransfersSet; 
-    // certificates are ordered by quality
-    std::map<int64_t, uint256> mBackwardCertificates;
+    std::map<int64_t, uint256> mBackwardCertificates; //quality -> certHash
+    std::set<uint256> mcBtrSet;
 
-    // Note: in fwdTransfersSet, a tx is registered only once, even if sends multiple fwd founds to a sidechain
+    // Note: in fwdTransfersSet and mcBtrSet, a tx is registered only once,
+    // even if sends multiple fwts/btrs founds to a sidechain.
     // Upon removal we will need to guard against potential double deletes.
     bool IsNull() const {
-        return (fwdTransfersSet.empty()     &&
-                scCreationTxHash.IsNull()   &&
-                mBackwardCertificates.empty());
+        return  scCreationTxHash.IsNull() && fwdTransfersSet.empty() &&
+                mBackwardCertificates.empty() && mcBtrSet.empty();
     }
 
     const std::map<int64_t, uint256>::const_reverse_iterator GetTopQualityCert() const;
