@@ -288,13 +288,13 @@ void PruneAndFlush();
 
 /** (try to) add transaction to memory pool **/
 bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false);
+                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee=false);
 
 bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false, bool fVerifyBwtRequests = true);
+                        bool* pfMissingInputs, bool disconnecting, bool fRejectAbsurdFee=false, bool fVerifyBwtRequests = true);
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false, bool verifyCert = true);
+                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee=false, bool verifyCert = true);
 
 struct CNodeStateStats {
     int nMisbehavior;

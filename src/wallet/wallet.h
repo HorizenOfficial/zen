@@ -1103,17 +1103,14 @@ public:
     CAmount GetImmatureWatchOnlyBalance() const;
     bool FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosRet, std::string& strFailReason);
     bool CreateTransaction(
-        const std::vector<CRecipient>& vecSend, const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
+        const std::vector<CRecipient>& vecSend,
+        const std::vector<Sidechain::CRecipientScCreation>& vecScSend,
+        const std::vector<Sidechain::CRecipientForwardTransfer>& vecFtSend,
         CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
         std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
 
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 
-    bool CreateCertificate(
-        const uint256& scId,
-        const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
-        CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
-        std::string& strFailReason, bool sign = true);
     bool AddAccountingEntry(const CAccountingEntry&, CWalletDB & pwalletdb);
 
     static CFeeRate minTxFee;

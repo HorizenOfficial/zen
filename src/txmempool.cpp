@@ -499,8 +499,9 @@ inline bool CTxMemPool::checkTxImmatureExpenditures(
             // check this is the cert change
             assert(!it3->second.GetCertificate().IsBackwardTransfer(txin.prevout.n));
 
-                LogPrint("mempool", "%s():%d - adding tx[%s] to list for removing since spends output %d of cert[%s] in mempool\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
+            LogPrint("mempool", "%s():%d - adding tx[%s] to list for removing since spends output %d of cert[%s] in mempool\n",
+                __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
+
             return false;
         }
  
@@ -553,7 +554,7 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(
             // check this is the cert change
             assert(!it3->second.GetCertificate().IsBackwardTransfer(txin.prevout.n));
             continue;
-        }       
+        }
  
         // the cert input has not been found in the mempool, therefore must be in blockchain
         const CCoins *coins = pcoins->AccessCoins(txin.prevout.hash);
@@ -1290,6 +1291,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationData.customData = scCreation.customData;
                 info.creationData.constant = scCreation.constant;
                 info.creationData.wCertVk = scCreation.wCertVk;
+                info.mImmatureAmounts[-1] += scCreation.nValue;
                 break;
             }
         }

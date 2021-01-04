@@ -225,10 +225,9 @@ TEST_F(SidechainTestSuite, SidechainCreationsWithNegativeForwardTransferNotAreSe
 }
 
 TEST_F(SidechainTestSuite, FwdTransferCumulatedAmountDoesNotOverFlow) {
-    uint256 scId = uint256S("1492");
     CAmount initialFwdTrasfer(1);
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(initialFwdTrasfer);
-    txCreationUtils::extendTransaction(aTransaction, scId, MAX_MONEY);
+    txCreationUtils::addNewScCreationToTx(aTransaction, MAX_MONEY);
     CValidationState txState;
 
     //test
@@ -563,22 +562,6 @@ TEST_F(SidechainTestSuite, NewSCsAreRegistered) {
     //check
     EXPECT_TRUE(res);
     EXPECT_TRUE(sidechainsView->HaveSidechain(scId));
-}
-
-TEST_F(SidechainTestSuite, NoRollbackIsPerformedOnceInvalidTransactionIsEncountered) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    uint256 secondScId = uint256S("1912");
-    CBlock aBlock;
-    txCreationUtils::extendTransaction(aTransaction, secondScId, CAmount(30));
-    const uint256& firstScId = aTransaction.GetScIdFromScCcOut(0);
-
-    //test
-    bool res = sidechainsView->UpdateScInfo(aTransaction, aBlock, /*height*/int(1789));
-
-    //check
-    EXPECT_FALSE(res);
-    EXPECT_TRUE(sidechainsView->HaveSidechain(firstScId));
-    EXPECT_FALSE(sidechainsView->HaveSidechain(secondScId));
 }
 
 TEST_F(SidechainTestSuite, ForwardTransfersToNonExistentSCsAreRejected) {
@@ -1013,7 +996,7 @@ TEST_F(SidechainTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// GetSidechain /////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation) {
+TEST_F(SidechainTestSuite, GetScInfoForFwdTransfersInMempool) {
     CTxMemPool aMempool(CFeeRate(1));
 
     //Confirm a Sidechain
@@ -1060,6 +1043,38 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
     EXPECT_TRUE(retrievedInfo.creationBlockHeight == scCreationHeight);
     EXPECT_TRUE(retrievedInfo.balance == creationAmount);             //certs in mempool do not affect balance
     EXPECT_TRUE(retrievedInfo.prevBlockTopQualityCertReferencedEpoch == -1); //certs in mempool do not affect topCommittedCertReferencedEpoch
+}
+
+TEST_F(SidechainTestSuite, GetScInfoForScCreationInMempool) {
+    CTxMemPool aMempool(CFeeRate(1));
+
+    //Confirm a Sidechain
+    CAmount creationAmount = 10;
+    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(creationAmount);
+    txCreationUtils::addNewScCreationToTx(scTx, creationAmount);
+    txCreationUtils::addNewScCreationToTx(scTx, creationAmount);
+    const uint256& scId = scTx.GetScIdFromScCcOut(2);
+    CTxMemPoolEntry scPoolEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(scTx.GetHash(), scPoolEntry);
+
+
+    //a fwd is accepted in mempool
+    CAmount fwdAmount = 20;
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
+    CTxMemPoolEntry fwdPoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(fwdPoolEntry.GetTx().GetHash(), fwdPoolEntry);
+
+    //test
+    CCoinsViewMemPool viewMemPool(sidechainsView, aMempool);
+    CSidechain retrievedInfo;
+    viewMemPool.GetSidechain(scId, retrievedInfo);
+
+    //check
+    EXPECT_TRUE(retrievedInfo.creationBlockHeight == -1);
+    EXPECT_TRUE(retrievedInfo.balance == 0);
+    EXPECT_TRUE(retrievedInfo.lastEpochReferencedByCertificate == -1);
+    EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(-1) == creationAmount + fwdAmount)
+        <<"retrievedInfo.mImmatureAmounts.at(-1) "<<retrievedInfo.mImmatureAmounts.at(-1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

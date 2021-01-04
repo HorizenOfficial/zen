@@ -10,7 +10,6 @@
 #include "amount.h"
 #include "serialize.h"
 #include <boost/unordered_map.hpp>
-#include <boost/variant.hpp>
 
 #include<sc/proofverifier.h>
 
@@ -99,20 +98,6 @@ struct CRecipientForwardTransfer : public CRecipientCrossChainBase
     uint256 scId;
 };
 
-
-struct CRecipientBackwardTransfer
-{
-    CScript scriptPubKey;
-    CAmount nValue;
-
-    CRecipientBackwardTransfer(): nValue(0) {};
-};
-
-typedef boost::variant<
-        CRecipientScCreation,
-        CRecipientForwardTransfer,
-        CRecipientBackwardTransfer
-    > CcRecipientVariant;
 
 static const int MAX_SC_DATA_LEN = 1024;
 

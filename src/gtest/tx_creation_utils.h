@@ -19,7 +19,7 @@ CTransaction createCoinBase(const CAmount& amount);
 CTransaction createTransparentTx(bool ccIsNull = true); //ccIsNull = false allows generation of faulty tx with non-empty cross chain output
 CTransaction createSproutTx(bool ccIsNull = true); //ccIsNull = false allows generation of faulty tx with non-empty cross chain output
 
-void extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount);
+void addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount);
 
 CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
                                  CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,

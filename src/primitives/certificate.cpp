@@ -81,9 +81,6 @@ bool CScCertificate::IsValidVersion(CValidationState &state) const
 
 bool CScCertificate::IsVersionStandard(int nHeight) const
 {
-    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
-        return false;
-
     return true;
 }
 
@@ -336,10 +333,6 @@ bool CMutableScCertificate::addBwt(const CTxOut& out) {
     vout.push_back(out);
     return true;
 }
-
-bool CMutableScCertificate::add(const CTxScCreationOut& out)      {return false;}
-bool CMutableScCertificate::add(const CTxForwardTransferOut& out) {return false;}
-bool CMutableScCertificate::add(const CBwtRequestOut& out)        {return false;}
 
 std::string CMutableScCertificate::ToString() const
 {
