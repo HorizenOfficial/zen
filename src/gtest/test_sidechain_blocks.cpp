@@ -422,6 +422,124 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
     EXPECT_TRUE(highQualityCertCoin.IsAvailable(0));
 }
 
+TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_InSameBlock)
+{
+    // create coinbase to finance certificate submission (just in view)
+    int certBlockHeight {201};
+    uint256 inputScCreationHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
+    uint256 inputMbtrHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY-1);
+
+    // extend blockchain to right height
+    chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
+
+    // setup sidechain initial state
+    CSidechain dummyScState;
+    uint256 dummyScId = uint256();
+    CSidechainEventsMap dummyCeasingMap;
+    storeSidechain(dummyScId, dummyScState, dummyCeasingMap); //Setup bestBlock
+
+    // create block with scCreation and mbtr ...
+    CBlock block;
+    fillBlockHeader(block, uint256S("aaa"));
+    block.vtx.push_back(createCoinbase(dummyCoinbaseScript, dummyFeeAmount, certBlockHeight));
+
+    CMutableTransaction scCreation;
+    scCreation.vin.push_back(CTxIn(inputScCreationHash, 0, CScript(), 0));
+    scCreation.nVersion    = SC_TX_VERSION;
+    scCreation.vsc_ccout.resize(1);
+    scCreation.vsc_ccout[0].nValue = CAmount(1);
+    scCreation.vsc_ccout[0].withdrawalEpochLength = 15;
+
+    CMutableTransaction mbtrTx;
+    mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = CTransaction(scCreation).GetScIdFromScCcOut(0);
+    mcBwtReq.scFees = CAmount(0);
+    mbtrTx.nVersion = SC_TX_VERSION;
+    mbtrTx.vmbtr_out.push_back(mcBwtReq);
+
+    block.vtx.push_back(scCreation);
+    block.vtx.push_back(mbtrTx);
+
+    // ... and corresponding block index
+    CBlockIndex* blockIndex = AddToBlockIndex(block);
+    blockIndex->nHeight = certBlockHeight;
+    blockIndex->pprev = chainActive.Tip();
+    blockIndex->pprev->phashBlock = &dummyHash;
+    blockIndex->nHeight = certBlockHeight;
+
+    // add checkpoint to skip expensive checks
+    CreateCheckpointAfter(blockIndex);
+
+    bool fJustCheck = true;
+    bool fCheckScTxesCommitment = false;
+
+    // test
+    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+
+    //checks
+    ASSERT_TRUE(res);
+    ASSERT_TRUE(sidechainsView->HaveSidechain(CTransaction(scCreation).GetScIdFromScCcOut(0)));
+}
+
+TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_InSameBlock)
+{
+    // create coinbase to finance certificate submission (just in view)
+    int certBlockHeight {201};
+    uint256 inputScCreationHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
+    uint256 inputMbtrHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY-1);
+
+    // extend blockchain to right height
+    chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
+
+    // setup sidechain initial state
+    CSidechain dummyScState;
+    uint256 dummyScId = uint256();
+    CSidechainEventsMap dummyCeasingMap;
+    storeSidechain(dummyScId, dummyScState, dummyCeasingMap); //Setup bestBlock
+
+    // create faulty block with mbtr before scCreation ...
+    CBlock block;
+    fillBlockHeader(block, uint256S("aaa"));
+    block.vtx.push_back(createCoinbase(dummyCoinbaseScript, dummyFeeAmount, certBlockHeight));
+
+    CMutableTransaction scCreation;
+    scCreation.vin.push_back(CTxIn(inputScCreationHash, 0, CScript(), 0));
+    scCreation.nVersion    = SC_TX_VERSION;
+    scCreation.vsc_ccout.resize(1);
+    scCreation.vsc_ccout[0].nValue = CAmount(1);
+    scCreation.vsc_ccout[0].withdrawalEpochLength = 15;
+
+    CMutableTransaction mbtrTx;
+    mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = CTransaction(scCreation).GetScIdFromScCcOut(0);
+    mcBwtReq.scFees = CAmount(0);
+    mbtrTx.nVersion = SC_TX_VERSION;
+    mbtrTx.vmbtr_out.push_back(mcBwtReq);
+
+    block.vtx.push_back(mbtrTx);
+    block.vtx.push_back(scCreation);
+
+    // ... and corresponding block index
+    CBlockIndex* blockIndex = AddToBlockIndex(block);
+    blockIndex->nHeight = certBlockHeight;
+    blockIndex->pprev = chainActive.Tip();
+    blockIndex->pprev->phashBlock = &dummyHash;
+    blockIndex->nHeight = certBlockHeight;
+
+    // add checkpoint to skip expensive checks
+    CreateCheckpointAfter(blockIndex);
+
+    bool fJustCheck = true;
+    bool fCheckScTxesCommitment = false;
+
+    // test
+    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+
+    //checks
+    EXPECT_FALSE(res);
+}
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// HELPERS ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
