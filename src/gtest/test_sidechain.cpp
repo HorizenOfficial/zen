@@ -1072,7 +1072,7 @@ TEST_F(SidechainTestSuite, GetScInfoForScCreationInMempool) {
     //check
     EXPECT_TRUE(retrievedInfo.creationBlockHeight == -1);
     EXPECT_TRUE(retrievedInfo.balance == 0);
-    EXPECT_TRUE(retrievedInfo.lastEpochReferencedByCertificate == -1);
+    EXPECT_TRUE(retrievedInfo.prevBlockTopQualityCertReferencedEpoch == -1);
     EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(-1) == creationAmount + fwdAmount)
         <<"retrievedInfo.mImmatureAmounts.at(-1) "<<retrievedInfo.mImmatureAmounts.at(-1);
 }

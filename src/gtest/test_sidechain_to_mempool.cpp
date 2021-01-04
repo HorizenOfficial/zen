@@ -120,7 +120,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSidechainAreNotAllowed
     CValidationState fwdTxState;
     bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs, /*disconnecting*/false));
 }
 
 //A proof that https://github.com/HorizenOfficial/zen/issues/215 is solved
@@ -129,12 +129,12 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnconfirmedSidechainsAreAllow
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
     bool missingInputs = false;
-    AcceptTxToMemoryPool(mempool, scTxState, scTx, false, &missingInputs);
+    AcceptTxToMemoryPool(mempool, scTxState, scTx, false, &missingInputs, /*disconnecting*/false);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, false, &missingInputs, /*disconnecting*/false));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed) {
@@ -163,7 +163,7 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToUnknownSidechainAreNotAllowed) {
     CValidationState btrTxState;
     bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, false, &missingInputs, /*disconnecting*/false));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, BtrToUnconfirmedSidechainsAreAllowed) {
