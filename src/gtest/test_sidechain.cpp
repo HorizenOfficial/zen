@@ -1057,7 +1057,6 @@ TEST_F(SidechainTestSuite, GetScInfoForScCreationInMempool) {
     CTxMemPoolEntry scPoolEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     aMempool.addUnchecked(scTx.GetHash(), scPoolEntry);
 
-
     //a fwd is accepted in mempool
     CAmount fwdAmount = 20;
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
@@ -1073,8 +1072,7 @@ TEST_F(SidechainTestSuite, GetScInfoForScCreationInMempool) {
     EXPECT_TRUE(retrievedInfo.creationBlockHeight == -1);
     EXPECT_TRUE(retrievedInfo.balance == 0);
     EXPECT_TRUE(retrievedInfo.prevBlockTopQualityCertReferencedEpoch == -1);
-    EXPECT_TRUE(retrievedInfo.mImmatureAmounts.at(-1) == creationAmount + fwdAmount)
-        <<"retrievedInfo.mImmatureAmounts.at(-1) "<<retrievedInfo.mImmatureAmounts.at(-1);
+    EXPECT_TRUE(retrievedInfo.mImmatureAmounts.size() == 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

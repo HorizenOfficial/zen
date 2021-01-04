@@ -36,9 +36,6 @@ using namespace std;
 using namespace libzcash;
 using namespace Sidechain;
 
-extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
-extern UniValue ValueFromAmount(const CAmount& amount);
-
 /**
  * Settings
  */
