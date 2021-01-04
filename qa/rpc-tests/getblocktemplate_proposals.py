@@ -318,7 +318,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             assert_true(len(certlist) != 0)
             # cert only specific tests
 
-            # Test 14: Bad cert count
+            # Test 13: Bad cert count
             certlist.append(b'')
             try:
                 assert_template(node, tmpl, txlist, certlist, 'n/a')
@@ -326,7 +326,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
                 pass  # Expected
                 certlist.pop()
 
-            # Test 15: Truncated final cert
+            # Test 14: Truncated final cert
             lastbyte = certlist[-1].pop()
             try:
                 assert_template(node, tmpl, txlist, certlist, 'n/a')
@@ -334,7 +334,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
                 pass  # Expected
             certlist[-1].append(lastbyte)
 
-            # Test 17: wrong commitment
+            # Test 15: wrong commitment
             # compute commitment for the only contribution of certificate (no tx/btr)
             fake_commitment = dblsha(b'\w'*32)
             assert_template(node, tmpl, txlist, certlist, 'bad-sc-txs-committment', fake_commitment)
