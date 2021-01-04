@@ -502,13 +502,13 @@ TEST_F(SidechainsInMempoolTestSuite, CertConnectionDropAllBtrForReferencedScId) 
     // place btrs in mempool
     CTransaction btrTx1 = GenerateBtrTx(scId);
     CTxMemPoolEntry btrTx1Entry(btrTx1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-	mempool.addUnchecked(btrTx1.GetHash(), btrTx1Entry);
-	ASSERT_TRUE(mempool.existsTx(btrTx1.GetHash()));
+    mempool.addUnchecked(btrTx1.GetHash(), btrTx1Entry);
+    ASSERT_TRUE(mempool.existsTx(btrTx1.GetHash()));
 
     CTransaction btrTx2 = GenerateBtrTx(scId);
     CTxMemPoolEntry btrTx2Entry(btrTx2, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-	mempool.addUnchecked(btrTx2.GetHash(), btrTx2Entry);
-	ASSERT_TRUE(mempool.existsTx(btrTx2.GetHash()));
+    mempool.addUnchecked(btrTx2.GetHash(), btrTx2Entry);
+    ASSERT_TRUE(mempool.existsTx(btrTx2.GetHash()));
 
     //Remove the certificate
     std::list<CTransaction> removedTxs;

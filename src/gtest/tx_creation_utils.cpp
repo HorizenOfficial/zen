@@ -168,8 +168,8 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
 
 uint256 txCreationUtils::CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight)
 {
-	CAmount dummyFeeAmount;
-	CScript dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
+    CAmount dummyFeeAmount{0};
+    CScript dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
             << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
 
     CTransaction inputTx = createCoinbase(dummyCoinbaseScript, dummyFeeAmount, coinHeight);
