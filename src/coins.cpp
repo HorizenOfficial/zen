@@ -1077,15 +1077,6 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
                 return state.Invalid(error("received mainchain bwt request for ceased sidechain"),
                              REJECT_INVALID, "sidechain-btr-ceased-sidechain");
             }
-
-            // Verify mainchain bwt request proof
-            if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scUtxoId, mbtr.mcDestinationAddress, mbtr.scFees, mbtr.scProof))
-            {
-                LogPrintf("ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
-                          mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
-                return state.Invalid(error("proof not verified"),
-                             REJECT_INVALID, "sidechain-mbtr-proof-not-verified");
-            }
         } else
         {
             if (!Sidechain::hasScCreationOutput(tx, scId)) {
@@ -1094,6 +1085,15 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
                 return state.Invalid(error("scid does not exists"),
                      REJECT_INVALID, "sidechain-tx-scid");
             }
+        }
+
+        // Verify mainchain bwt request proof
+        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scUtxoId, mbtr.mcDestinationAddress, mbtr.scFees, mbtr.scProof))
+        {
+            LogPrintf("ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
+                      mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
+            return state.Invalid(error("proof not verified"),
+                         REJECT_INVALID, "sidechain-mbtr-proof-not-verified");
         }
 
         LogPrint("sc", "%s():%d - OK: tx[%s] contains bwt transfer request for scId[%s]\n",
