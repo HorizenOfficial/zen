@@ -571,6 +571,7 @@ public:
     std::vector<unsigned char> customData;
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
+    boost::optional<libzendoomc::ScVk> wCeasedVk;
 
     CTxScCreationOut():withdrawalEpochLength(-1) { }
 
@@ -587,6 +588,7 @@ public:
         READWRITE(customData);
         READWRITE(constant);
         READWRITE(wCertVk);
+        READWRITE(wCeasedVk);
     }
 
     virtual const uint256& GetScId() const override { return generatedScId;}; 
@@ -601,7 +603,8 @@ public:
                  a.withdrawalEpochLength == b.withdrawalEpochLength &&
                  a.customData == b.customData &&
                  a.constant == b.constant &&
-                 a.wCertVk == b.wCertVk );
+                 a.wCertVk == b.wCertVk &&
+                 a.wCeasedVk == b.wCeasedVk);
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)

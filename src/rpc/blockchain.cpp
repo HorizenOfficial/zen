@@ -1089,6 +1089,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
             sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
             sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
+            if(info.creationData.wCeasedVk.is_initialized())
+                sc.push_back(Pair("wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
  
             UniValue ia(UniValue::VARR);
             for(const auto& entry: info.mImmatureAmounts)
@@ -1152,6 +1154,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.customData = scCreation.customData;
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
+                    info.creationData.wCeasedVk = scCreation.wCeasedVk;
                     break;
                 }
             }
@@ -1164,6 +1167,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
                 sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
                 sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
+                if(info.creationData.wCeasedVk.is_initialized())
+                    sc.push_back(Pair("wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
 
                 CAmount fwd_am = 0;
                 for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
@@ -1306,6 +1311,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
             "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
             "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
+            "     \"wCeasedVk\":               xxxxx,   (string, optional)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
             "     \"immature amounts\": [\n"
             "       {\n"
             "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"

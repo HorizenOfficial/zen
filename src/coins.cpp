@@ -752,6 +752,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         scIt->second.scInfo.creationData.customData = cr.customData;
         scIt->second.scInfo.creationData.constant = cr.constant;
         scIt->second.scInfo.creationData.wCertVk = cr.wCertVk;
+        scIt->second.scInfo.creationData.wCeasedVk = cr.wCeasedVk;
         scIt->second.scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
         scIt->second.flag = CSidechainsCacheEntry::Flags::FRESH;
 
@@ -1833,6 +1834,7 @@ void CCoinsViewCache::Dump_info() const
         LogPrint("sc", "      customData[%s]\n", HexStr(info.creationData.customData));
         LogPrint("sc", "      constant[%s]\n", HexStr(info.creationData.constant));
         LogPrint("sc", "      wCertVk[%s]\n", HexStr(info.creationData.wCertVk));
+        LogPrint("sc", "      wCeasedVk[%s]\n", info.creationData.wCeasedVk.is_initialized() ? HexStr(info.creationData.wCeasedVk.get()) : "none");
         LogPrint("sc", "  immature amounts size[%d]\n", info.mImmatureAmounts.size());
     }
 

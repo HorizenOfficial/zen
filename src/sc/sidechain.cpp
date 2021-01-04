@@ -132,6 +132,14 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     __func__), REJECT_INVALID, "sidechain-sc-creation-invalid-constant");
             }
         }
+
+        if (sc.wCeasedVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : invalid wCeasedVk verification key\n",
+                __func__, __LINE__, txHash.ToString());
+            return state.DoS(100, error("%s: wCeasedVk is invalid",
+                __func__), REJECT_INVALID, "sidechain-sc-creation-invalid-wceased-vk");
+        }
     }
 
     for (const auto& ft : tx.GetVftCcOut())

@@ -342,6 +342,9 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             RandomData(sc_out.customData);
             RandomData(sc_out.constant);
             RandomScVk(sc_out.wCertVk);
+            libzendoomc::ScVk wCeasedVk;
+            RandomScVk(wCeasedVk);
+            sc_out.wCeasedVk = wCeasedVk;
         }
 
         for (int ft = 0; ft < fts; ft++) {

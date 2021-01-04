@@ -296,7 +296,8 @@ CTxScCreationOut::CTxScCreationOut(
     const CAmount& nValueIn, const uint256& addressIn,
     const Sidechain::ScCreationParameters& paramsIn)
     :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
-     withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant), wCertVk(paramsIn.wCertVk) {}
+     withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant),
+     wCertVk(paramsIn.wCertVk), wCeasedVk(paramsIn.wCeasedVk) {}
 
 uint256 CTxScCreationOut::GetHash() const
 {
@@ -305,8 +306,9 @@ uint256 CTxScCreationOut::GetHash() const
 
 std::string CTxScCreationOut::ToString() const
 {
-    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s], constant=[%s], wCertVk=[%s]",
-        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData), HexStr(constant), HexStr(wCertVk) );
+    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s], constant=[%s], wCertVk=[%s], wCeasedVk=[%s]",
+        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData), HexStr(constant),
+                     HexStr(wCertVk), wCeasedVk ? HexStr(wCeasedVk.get()) : "");
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
@@ -328,6 +330,7 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     customData = ccout.customData;
     constant = ccout.constant;
     wCertVk = ccout.wCertVk;
+    wCeasedVk = ccout.wCeasedVk;
     return *this;
 }
 
