@@ -668,3 +668,33 @@ TEST_F(SidechainBlockFormationTestSuite, SameScIdCerts_LowQualityCertsSpedingHig
     EXPECT_TRUE(vecPriority.back().get<2>()->GetHash() == cert_highQuality.GetHash());
     EXPECT_TRUE(orphanList.size() == 0) << "cert_lowQuality should not be counted since it's wrong dependency";
 }
+
+TEST_F(SidechainBlockFormationTestSuite, Unconfirmed_Mbtr_scCreation_DulyOrdered)
+{
+    uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
+
+    CMutableTransaction mutScCreation = txCreationUtils::createNewSidechainTxWith(dummyAmount, dummyHeight);
+    mutScCreation.vin.at(0) = CTxIn(inputCoinHash_1, 0, dummyScript);
+    CTransaction scCreation(mutScCreation);
+    const uint256& scId = scCreation.GetScIdFromScCcOut(0);
+    CTxMemPoolEntry scCreation_entry(scCreation, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/dummyHeight);
+    ASSERT_TRUE(mempool.addUnchecked(scCreation.GetHash(), scCreation_entry));
+
+    CMutableTransaction mbtrTx;
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = scId;
+    mbtrTx.nVersion = SC_TX_VERSION;
+    mbtrTx.vmbtr_out.push_back(mcBwtReq);
+    CTxMemPoolEntry mbtr_entry(mbtrTx, /*fee*/CAmount(1000),   /*time*/ 1000, /*priority*/1000.0, /*height*/dummyHeight);
+    ASSERT_TRUE(mempool.addUnchecked(mbtrTx.GetHash(), mbtr_entry));
+
+    //test
+    int64_t dummyLockTimeCutoff{0};
+    GetBlockTxPriorityData(*blockchainView, dummyHeight, dummyLockTimeCutoff, vecPriority, orphanList, mapDependers);
+
+    //checks
+    EXPECT_TRUE(vecPriority.size() == 1);
+    EXPECT_TRUE(vecPriority.back().get<2>()->GetHash() == scCreation.GetHash());
+    EXPECT_TRUE(orphanList.size() == 1);
+    EXPECT_TRUE(orphanList.front().ptx->GetHash() == CTransaction(mbtrTx).GetHash());
+}

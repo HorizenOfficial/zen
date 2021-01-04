@@ -1,7 +1,7 @@
-default_host_CC = $(host_toolchain)clang
-default_host_CXX = $(host_toolchain)clang++
-default_host_AR = $(host_toolchain)llvm-ar.6.0
-default_host_RANLIB = $(host_toolchain)llvm-ranlib-6.0
+default_host_CC = $(host_toolchain)gcc
+default_host_CXX = $(host_toolchain)g++
+default_host_AR = $(host_toolchain)ar
+default_host_RANLIB = $(host_toolchain)ranlib
 default_host_STRIP = $(host_toolchain)strip
 default_host_LIBTOOL = $(host_toolchain)libtool
 default_host_INSTALL_NAME_TOOL = $(host_toolchain)install_name_tool
