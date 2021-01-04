@@ -1230,8 +1230,8 @@ TEST_F(SidechainsEventsTestSuite, TransparentTx_CoinReconstructionFromBlockUndo_
 {
     //Generate transparent transaction and the associated coin to be spent
     CMutableTransaction txToBeSpent;
-    txToBeSpent.addOut(CTxOut(CAmount(10),CScript()));
-    txToBeSpent.addOut(CTxOut(CAmount(20),CScript()));
+    txToBeSpent.addOut(CTxOut(CAmount(10),CScript(OP_TRUE))); //a dummy code to ensures the correct serialization
+    txToBeSpent.addOut(CTxOut(CAmount(20),CScript(OP_TRUE))); //a dummy code to ensures the correct serialization
 
     CTxUndo dummyTxUndo;
     int coinHeight = 1987;
@@ -1278,7 +1278,7 @@ TEST_F(SidechainsEventsTestSuite, TransparentTx_CoinReconstructionFromBlockUndo_
 {
     //Generate transparent transaction and the associated coin to be spent
     CMutableTransaction txToBeSpent;
-    txToBeSpent.addOut(CTxOut(CAmount(10),CScript()));
+    txToBeSpent.addOut(CTxOut(CAmount(10),CScript(OP_TRUE)));  //a dummy code to ensures the correct serialization
 
     CTxUndo dummyTxUndo;
     int coinHeight = 1987;
