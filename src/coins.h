@@ -592,6 +592,7 @@ public:
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
+    CSidechain::State GetSidechainState(const uint256& scId) const;
 
     bool Flush();
 

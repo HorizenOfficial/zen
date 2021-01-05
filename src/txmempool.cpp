@@ -1249,6 +1249,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationData.constant = scCreation.constant;
                 info.creationData.wCertVk = scCreation.wCertVk;
                 info.creationData.wCeasedVk = scCreation.wCeasedVk;
+                info.currentState = (uint8_t)CSidechain::State::UNCONFIRMED;
                 break;
             }
         }

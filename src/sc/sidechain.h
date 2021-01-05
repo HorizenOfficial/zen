@@ -46,7 +46,7 @@ public:
     CSidechain() : sidechainVersion(0), creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
                    prevBlockTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
                    prevBlockTopQualityCertHash(), prevBlockTopQualityCertQuality(CScCertificate::QUALITY_NULL),
-                   prevBlockTopQualityCertBwtAmount(0), balance(0) {}
+                   prevBlockTopQualityCertBwtAmount(0), balance(0), currentState((uint8_t)State::NOT_APPLICABLE) {}
 
     bool IsNull() const
     {
@@ -59,7 +59,8 @@ public:
              prevBlockTopQualityCertQuality == CScCertificate::QUALITY_NULL       &&
              prevBlockTopQualityCertBwtAmount == 0 && balance == 0                &&
              creationData.IsNull()                                                &&
-             mImmatureAmounts.empty());
+             mImmatureAmounts.empty()                                             &&
+             currentState == (uint8_t)State::NOT_APPLICABLE);
     }
 
     int32_t sidechainVersion;
@@ -96,11 +97,14 @@ public:
     // value = the immature amount
     std::map<int, CAmount> mImmatureAmounts;
 
-    enum class State {
+    enum class State : uint8_t {
         NOT_APPLICABLE = 0,
+        UNCONFIRMED,
         ALIVE,
         CEASED
     };
+    uint8_t currentState;
+
     static std::string stateToString(State s);
 
     std::string ToString() const;
@@ -121,6 +125,7 @@ public:
         READWRITE(balance);
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
+        READWRITE(currentState);
     }
 
     inline bool operator==(const CSidechain& rhs) const
@@ -135,7 +140,8 @@ public:
                (this->prevBlockTopQualityCertBwtAmount        == rhs.prevBlockTopQualityCertBwtAmount)       &&
                (this->balance                                 == rhs.balance)                                &&
                (this->creationData                            == rhs.creationData)                           &&
-               (this->mImmatureAmounts                        == rhs.mImmatureAmounts);
+               (this->mImmatureAmounts                        == rhs.mImmatureAmounts)                       &&
+               (this->currentState                            == rhs.currentState);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
