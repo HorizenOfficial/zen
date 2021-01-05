@@ -244,15 +244,15 @@ std::string CTxForwardTransferOut::ToString() const
 }
 
 //----------------------------------------------------------------------------
-bool CTxCrosschainOut::CheckAmountRange(CAmount& cumulatedAmount) const
+bool CTxCrosschainOutBase::CheckAmountRange(CAmount& cumulatedAmount) const
 {
-    if (nValue == CAmount(0) || !MoneyRange(nValue))
+    if (GetScValue() == CAmount(0) || !MoneyRange(GetScValue()))
     {
-        LogPrint("sc", "%s():%d - ERROR: invalid nValue %lld\n", __func__, __LINE__, nValue);
+        LogPrint("sc", "%s():%d - ERROR: invalid nValue %lld\n", __func__, __LINE__, GetScValue());
         return false;
     }
 
-    cumulatedAmount += nValue;
+    cumulatedAmount += GetScValue();
 
     if (!MoneyRange(cumulatedAmount))
     {
@@ -262,6 +262,7 @@ bool CTxCrosschainOut::CheckAmountRange(CAmount& cumulatedAmount) const
 
     return true;
 }
+
 
 CTxScCreationOut::CTxScCreationOut(
     const CAmount& nValueIn, const uint256& addressIn,
@@ -299,6 +300,33 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     customData = ccout.customData;
     constant = ccout.constant;
     wCertVk = ccout.wCertVk;
+    return *this;
+}
+
+CBwtRequestOut::CBwtRequestOut(
+    const uint256& scIdIn, const uint160& pkhIn, const Sidechain::ScBwtRequestParameters& paramsIn):
+    scId(scIdIn), scUtxoId(paramsIn.scUtxoId), mcDestinationAddress(pkhIn),
+    scFee(paramsIn.scFee), scProof(paramsIn.scProof) {}
+
+//----------------------------------------------------------------------------
+uint256 CBwtRequestOut::GetHash() const
+{
+    return SerializeHash(*this);
+}
+
+std::string CBwtRequestOut::ToString() const
+{
+    return strprintf("CBwtRequestOut(scId=%s, scUtxoId=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
+        scId.ToString(), HexStr(scUtxoId).substr(0, 30), mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
+        HexStr(scProof).substr(0, 30));
+}
+
+CBwtRequestOut& CBwtRequestOut::operator=(const CBwtRequestOut &out) {
+    scId     = out.scId;
+    scUtxoId = out.scUtxoId;
+    mcDestinationAddress = out.mcDestinationAddress;
+    scFee   = out.scFee;
+    scProof  = out.scProof;
     return *this;
 }
 
@@ -461,13 +489,13 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
 
     for(const CBwtRequestOut& mbwtr: vmbtr_out)
     {
-        if (mbwtr.scFees < 0)
-            return state.DoS(100, error("CheckAmounts(): mbwtr.scFees negative"),
+        if (mbwtr.scFee < 0)
+            return state.DoS(100, error("CheckAmounts(): mbwtr.scFee negative"),
                              REJECT_INVALID, "bad-txns-vout-negative");
-        if (mbwtr.scFees > MAX_MONEY)
-            return state.DoS(100, error("CheckAmounts(): mbwtr.scFees too high"),
+        if (mbwtr.scFee > MAX_MONEY)
+            return state.DoS(100, error("CheckAmounts(): mbwtr.scFee too high"),
                              REJECT_INVALID, "bad-txns-vout-toolarge");
-        nCumulatedValueOut += mbwtr.scFees;
+        nCumulatedValueOut += mbwtr.scFee;
         if (!MoneyRange(nCumulatedValueOut))
             return state.DoS(100, error("CheckAmounts(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
@@ -681,25 +709,25 @@ bool CTransactionBase::CheckSerializedSize(CValidationState &state) const
 
 bool CTransaction::CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const {
     if (!MoneyRange(totalVinAmount))
-        return state.DoS(100, error("CheckFeeAmount(): total input amount out of range"),
+        return state.DoS(100, error("%s(): total input amount out of range", __func__),
                          REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
     if (!CheckAmounts(state))
         return false;
 
     if (totalVinAmount < GetValueOut() )
-        return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
+        return state.DoS(100, error("%s(): %s value in (%s) < value out (%s)", __func__,
                                     GetHash().ToString(),
                                     FormatMoney(totalVinAmount), FormatMoney(GetValueOut()) ),
                          REJECT_INVALID, "bad-txns-in-belowout");
 
     CAmount nTxFee = totalVinAmount - GetValueOut();
     if (nTxFee < 0)
-        return state.DoS(100, error("CheckFeeAmount(): %s nTxFee < 0", GetHash().ToString()),
+        return state.DoS(100, error("%s(): %s nTxFee < 0", __func__, GetHash().ToString()),
                          REJECT_INVALID, "bad-txns-fee-negative");
 
     if (!MoneyRange(nTxFee))
-        return state.DoS(100, error("CheckFeeAmount(): nTxFee out of range"),
+        return state.DoS(100, error("%s(): nTxFee out of range", __func__),
                          REJECT_INVALID, "bad-txns-fee-outofrange");
 
     return true;
@@ -719,15 +747,7 @@ CAmount CTransaction::GetValueOut() const
             throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
     }
 
-    nValueOut += GetValueCcOut(vsc_ccout) + GetValueCcOut(vft_ccout);
-
-    for(const auto& mbtrOut: vmbtr_out)
-    {
-        if (!MoneyRange(mbtrOut.scFees))
-            throw std::runtime_error("CTransaction::GetValueOut(): mbtr value out of range");
-        else
-            nValueOut += mbtrOut.scFees;
-    }
+    nValueOut += GetValueCcOut(vsc_ccout) + GetValueCcOut(vft_ccout) + GetValueCcOut(vmbtr_out);
 
     if (!MoneyRange(nValueOut))
         throw std::runtime_error("CTransaction::GetValueOut(): value out of range");

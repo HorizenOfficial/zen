@@ -424,23 +424,13 @@ public:
 
 /** An output of a transaction related to SideChain only.
  */
-class CTxCrosschainOut
+class CTxCrosschainOutBase
 {
 public:
-    CAmount nValue;
-    uint256 address;
+    virtual ~CTxCrosschainOutBase() {};
 
-    CTxCrosschainOut(const CAmount& nValueIn, const uint256& addressIn)
-        : nValue(nValueIn), address(addressIn) { }
-
-    virtual ~CTxCrosschainOut() {};
-
-    CTxCrosschainOut():nValue(-1), address() {}
-
-    bool IsNull() const
-    {
-        return (nValue == -1);
-    }
+    virtual bool IsNull() const = 0;
+    virtual CAmount GetScValue() const = 0;
 
     bool CheckAmountRange(CAmount& cumulatedAmount) const;
 
@@ -452,13 +442,33 @@ public:
 
     bool IsDust(const CFeeRate &minRelayTxFee) const
     {
-        return (nValue < GetDustThreshold(minRelayTxFee));
+        return (GetScValue() < GetDustThreshold(minRelayTxFee));
     }
 
     virtual const uint256& GetScId() const = 0; 
     virtual uint256 GetHash() const = 0;
 
     virtual std::string ToString() const = 0;
+};
+
+class CTxCrosschainOut : public CTxCrosschainOutBase
+{
+public:
+    CAmount nValue;
+    uint256 address;
+
+    CTxCrosschainOut(const CAmount& nValueIn, const uint256& addressIn)
+        : nValue(nValueIn), address(addressIn) { }
+
+    ~CTxCrosschainOut() {};
+
+    CTxCrosschainOut():nValue(-1), address() {}
+
+    bool IsNull() const override
+    {
+        return (nValue == -1);
+    }
+    CAmount GetScValue() const override { return nValue; };
 
 protected:
     static bool isBaseEqual(const CTxCrosschainOut& a, const CTxCrosschainOut& b)
@@ -558,13 +568,19 @@ public:
     }
 };
 
-struct CBwtRequestOut
+class CBwtRequestOut : public CTxCrosschainOutBase
 {
+  public:
     uint256 scId;
     libzendoomc::ScFieldElement scUtxoId;
     uint160 mcDestinationAddress;
-    CAmount scFees;
+    CAmount scFee;
     libzendoomc::ScProof scProof;
+
+    CBwtRequestOut():scFee(0) {}
+
+    CBwtRequestOut(const uint256& scIdIn, const uint160& pkhIn, const Sidechain::ScBwtRequestParameters& params);
+    CBwtRequestOut& operator=(const CBwtRequestOut &ccout);
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -573,9 +589,36 @@ struct CBwtRequestOut
         READWRITE(scId);
         READWRITE(scUtxoId);
         READWRITE(mcDestinationAddress);
-        READWRITE(scFees);
+        READWRITE(scFee);
         READWRITE(scProof);
     }
+
+    bool IsNull() const override
+    {
+        // TODO
+        return (scFee == -1);
+    }
+
+    CAmount GetScValue() const override { return scFee; };
+
+    friend bool operator==(const CBwtRequestOut& a, const CBwtRequestOut& b)
+    {
+        return ( a.scId == b.scId &&
+                 a.scUtxoId == b.scUtxoId &&
+                 a.mcDestinationAddress == b.mcDestinationAddress &&
+                 a.scFee == b.scFee &&
+                 a.scProof == b.scProof );
+    }
+
+    friend bool operator!=(const CBwtRequestOut& a, const CBwtRequestOut& b)
+    {
+        return !(a == b);
+    }
+
+    const uint256& GetScId() const override { return scId;}; 
+
+    uint256 GetHash() const override;
+    std::string ToString() const override;
 };
 
 // forward declarations
@@ -882,8 +925,8 @@ public:
         CAmount nValueOut = 0;
         for (const auto& it : ccout)
         {
-            nValueOut += it.nValue;
-            if (!MoneyRange(it.nValue) || !MoneyRange(nValueOut))
+            nValueOut += it.GetScValue();
+            if (!MoneyRange(it.GetScValue()) || !MoneyRange(nValueOut))
                 throw std::runtime_error("CTransaction::GetValueCcOut(): value out of range");
         }
         return nValueOut;

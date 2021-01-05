@@ -527,6 +527,15 @@ public:
             listScSent.push_back(output);
         }
     }
+    template <typename T>
+    inline void fillScFees(const T& vOuts, std::list<CScOutputEntry>& listScSent) const
+    {
+        for(const auto& txccout : vOuts)
+        {
+            CScOutputEntry output = {uint256(), txccout.scFee};
+            listScSent.push_back(output);
+        }
+    }
     std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const override;
 };
 
@@ -1106,6 +1115,7 @@ public:
         const std::vector<CRecipient>& vecSend,
         const std::vector<Sidechain::CRecipientScCreation>& vecScSend,
         const std::vector<Sidechain::CRecipientForwardTransfer>& vecFtSend,
+        const std::vector<Sidechain::CRecipientBwtRequest>& vecBwtRequest,
         CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
         std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
 

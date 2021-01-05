@@ -321,6 +321,7 @@ public:
     bool HaveCoins(const uint256 &txid)                            const override;
     bool GetSidechain(const uint256& scId, CSidechain& info)       const override;
     bool HaveSidechain(const uint256& scId)                        const override;
+    void GetScIds(std::set<uint256>& scIdsList)                    const override;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

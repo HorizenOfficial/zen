@@ -707,6 +707,22 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         }
     }
 
+    // bwt requests 
+    if (params.size() > 4 && !params[4].isNull())
+    {
+        UniValue bwtreq = params[4].get_array();
+
+        if (bwtreq.size())
+        {
+            std::string errString;
+            if (!Sidechain::AddSidechainBwtRequestOutputs(bwtreq, rawTx, errString) )
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, errString);
+            }
+        }
+    }
+
+
     return EncodeHexTx(rawTx);
 }
 

@@ -463,7 +463,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_In
     mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = CTransaction(scCreation).GetScIdFromScCcOut(0);
-    mcBwtReq.scFees = CAmount(0);
+    mcBwtReq.scFee = CAmount(0);
     mbtrTx.nVersion = SC_TX_VERSION;
     mbtrTx.vmbtr_out.push_back(mcBwtReq);
 
@@ -523,7 +523,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_In
     mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = CTransaction(scCreation).GetScIdFromScCcOut(0);
-    mcBwtReq.scFees = CAmount(0);
+    mcBwtReq.scFee = CAmount(0);
     mbtrTx.nVersion = SC_TX_VERSION;
     mbtrTx.vmbtr_out.push_back(mcBwtReq);
 

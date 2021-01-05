@@ -2550,6 +2550,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
+        // a bwt request carries no events to revert, nothing to be done for tx.GetVBwtRequestOut() 
+
         for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
             if (!view.CancelSidechainEvent(fwdTransfer, pindex->nHeight)) {
                 LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
@@ -2879,6 +2881,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                      REJECT_INVALID, "bad-fwd-not-recorded");
                 }
             }
+
+            // a bwt request carries no events to schedule, nothing to be done for tx.GetVBwtRequestOut() 
         }
 
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {

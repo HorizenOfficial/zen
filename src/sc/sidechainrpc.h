@@ -31,10 +31,12 @@ bool AddScData(const std::string& inputString, std::vector<unsigned char>& vByte
 // used when creating a raw transaction with cc outputs
 bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error);
 bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std::string& error);
+bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx, std::string& error);
 
 // used when funding a raw tx
 void fundCcRecipients(const CTransaction& tx,
-    std::vector<CRecipientScCreation >& vecScSend, std::vector<CRecipientForwardTransfer >& vecFtSend);
+    std::vector<CRecipientScCreation >& vecScSend, std::vector<CRecipientForwardTransfer >& vecFtSend,
+    std::vector<CRecipientBwtRequest>& vecBwtRequest);
 
 class ScRpcCmd
 {
@@ -189,6 +191,33 @@ class ScRpcSendCmdTx : public ScRpcCmdTx
 
     ScRpcSendCmdTx(
         CMutableTransaction& tx, const std::vector<sFtOutParams>& outParams,
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee);
+};
+
+class ScRpcRetrieveCmdTx : public ScRpcCmdTx
+{
+  protected:
+    void addCcOutputs() override;
+
+  public:
+    struct sBtOutParams
+    {
+        uint256 _scid;
+        uint160 _pkh;
+        ScBwtRequestParameters _params;
+        sBtOutParams(): _scid(), _pkh(), _params() {}
+
+        sBtOutParams(
+            const uint256& scId, const uint160& pkh, const ScBwtRequestParameters& params):
+            _scid(scId), _pkh(pkh), _params(params) {}
+    };
+
+    // cmd params
+    std::vector<sBtOutParams> _outParams;
+
+    ScRpcRetrieveCmdTx(
+        CMutableTransaction& tx, const std::vector<sBtOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee);
 };
