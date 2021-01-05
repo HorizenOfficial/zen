@@ -24,7 +24,7 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-    	READWRITE(sidechainEventsVersion);
+        READWRITE(sidechainEventsVersion);
         READWRITE(ceasingScs);
         READWRITE(maturingScs);
     }
@@ -44,21 +44,21 @@ public:
 class CSidechain {
 public:
     CSidechain() : sidechainVersion(0), creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
-                   topCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
-                   topCommittedCertHash(), topCommittedCertQuality(CScCertificate::QUALITY_NULL),
-                   topCommittedCertBwtAmount(0), balance(0) {}
+                   prevBlockTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
+                   prevBlockTopQualityCertHash(), prevBlockTopQualityCertQuality(CScCertificate::QUALITY_NULL),
+                   prevBlockTopQualityCertBwtAmount(0), balance(0) {}
 
     bool IsNull() const
     {
         return (
-             creationBlockHash.IsNull()                                    &&
-             creationBlockHeight == -1                                     &&
-             creationTxHash.IsNull()                                       &&
-             topCommittedCertReferencedEpoch == CScCertificate::EPOCH_NULL &&
-             topCommittedCertHash.IsNull()                                 &&
-             topCommittedCertQuality == CScCertificate::QUALITY_NULL       &&
-             topCommittedCertBwtAmount == 0 && balance == 0                &&
-             creationData.IsNull()                                         &&
+             creationBlockHash.IsNull()                                           &&
+             creationBlockHeight == -1                                            &&
+             creationTxHash.IsNull()                                              &&
+             prevBlockTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL &&
+             prevBlockTopQualityCertHash.IsNull()                                 &&
+             prevBlockTopQualityCertQuality == CScCertificate::QUALITY_NULL       &&
+             prevBlockTopQualityCertBwtAmount == 0 && balance == 0                &&
+             creationData.IsNull()                                                &&
              mImmatureAmounts.empty());
     }
 
@@ -74,16 +74,16 @@ public:
     uint256 creationTxHash;
 
     // last epoch for which a certificate have been received
-    int topCommittedCertReferencedEpoch;
+    int prevBlockTopQualityCertReferencedEpoch;
 
     // hash of the best quality certificate received for this sidechain
-    uint256 topCommittedCertHash;
+    uint256 prevBlockTopQualityCertHash;
 
     // quality of the certificate
-    int64_t topCommittedCertQuality;
+    int64_t prevBlockTopQualityCertQuality;
 
     // total bwt amount of the certificate
-    CAmount topCommittedCertBwtAmount;
+    CAmount prevBlockTopQualityCertBwtAmount;
 
     // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
@@ -102,7 +102,6 @@ public:
         CEASED
     };
     static std::string stateToString(State s);
-    static void SetVoidedCert(const uint256& certHash, bool flag, std::map<uint256, bool>* pVoidedCertsMap);
 
     std::string ToString() const;
 
@@ -115,10 +114,10 @@ public:
         READWRITE(creationBlockHash);
         READWRITE(creationBlockHeight);
         READWRITE(creationTxHash);
-        READWRITE(topCommittedCertReferencedEpoch);
-        READWRITE(topCommittedCertHash);
-        READWRITE(topCommittedCertQuality);
-        READWRITE(topCommittedCertBwtAmount);
+        READWRITE(prevBlockTopQualityCertReferencedEpoch);
+        READWRITE(prevBlockTopQualityCertHash);
+        READWRITE(prevBlockTopQualityCertQuality);
+        READWRITE(prevBlockTopQualityCertBwtAmount);
         READWRITE(balance);
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
@@ -126,17 +125,17 @@ public:
 
     inline bool operator==(const CSidechain& rhs) const
     {
-        return (this->sidechainVersion                 == rhs.sidechainVersion)                &&
-               (this->creationBlockHash                == rhs.creationBlockHash)               &&
-               (this->creationBlockHeight              == rhs.creationBlockHeight)             &&
-               (this->creationTxHash                   == rhs.creationTxHash)                  &&
-               (this->topCommittedCertReferencedEpoch  == rhs.topCommittedCertReferencedEpoch) &&
-               (this->topCommittedCertHash             == rhs.topCommittedCertHash)            &&
-               (this->topCommittedCertQuality          == rhs.topCommittedCertQuality)         &&
-               (this->topCommittedCertBwtAmount        == rhs.topCommittedCertBwtAmount)       &&
-               (this->balance                          == rhs.balance)                         &&
-               (this->creationData                     == rhs.creationData)                    &&
-               (this->mImmatureAmounts                 == rhs.mImmatureAmounts);
+        return (this->sidechainVersion                        == rhs.sidechainVersion)                       &&
+               (this->creationBlockHash                       == rhs.creationBlockHash)                      &&
+               (this->creationBlockHeight                     == rhs.creationBlockHeight)                    &&
+               (this->creationTxHash                          == rhs.creationTxHash)                         &&
+               (this->prevBlockTopQualityCertReferencedEpoch  == rhs.prevBlockTopQualityCertReferencedEpoch) &&
+               (this->prevBlockTopQualityCertHash             == rhs.prevBlockTopQualityCertHash)            &&
+               (this->prevBlockTopQualityCertQuality          == rhs.prevBlockTopQualityCertQuality)         &&
+               (this->prevBlockTopQualityCertBwtAmount        == rhs.prevBlockTopQualityCertBwtAmount)       &&
+               (this->balance                                 == rhs.balance)                                &&
+               (this->creationData                            == rhs.creationData)                           &&
+               (this->mImmatureAmounts                        == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 

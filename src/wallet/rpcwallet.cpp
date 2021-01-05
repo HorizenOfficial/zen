@@ -5021,9 +5021,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     int nMinDepth = 0; //1; 
 
     CAmount delta = 0;
-    if (epochNumber == scInfo.topCommittedCertReferencedEpoch)
+    if (epochNumber == scInfo.prevBlockTopQualityCertReferencedEpoch)
     {
-        delta = scInfo.topCommittedCertBwtAmount;
+        delta = scInfo.prevBlockTopQualityCertBwtAmount;
     }
 
     if (nTotalOut > scInfo.balance+delta)

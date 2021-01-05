@@ -136,7 +136,7 @@ struct CSidechainUndoData
         UNDEFINED               = 0,
         SIDECHAIN_STATE         = 1,
         MATURED_AMOUNTS         = 2,
-        LOW_QUALITY_CERT_DATA   = 4,
+        SUPERSEDED_CERT_DATA    = 4,
         CEASED_CERTIFICATE_DATA = 8
     };
     uint8_t contentBitMask;
@@ -176,7 +176,7 @@ struct CSidechainUndoData
         {
             totalSize += ::GetSerializeSize(appliedMaturedAmount, nType, nVersion);
         }
-        if (contentBitMask & AvailableSections::LOW_QUALITY_CERT_DATA)
+        if (contentBitMask & AvailableSections::SUPERSEDED_CERT_DATA)
         {
             totalSize += ::GetSerializeSize(lowQualityBwts, nType, nVersion);
         }
@@ -203,7 +203,7 @@ struct CSidechainUndoData
         {
             ::Serialize(s, appliedMaturedAmount, nType, nVersion);
         }
-        if (contentBitMask & AvailableSections::LOW_QUALITY_CERT_DATA)
+        if (contentBitMask & AvailableSections::SUPERSEDED_CERT_DATA)
         {
             ::Serialize(s, lowQualityBwts, nType, nVersion);
         }
@@ -230,7 +230,7 @@ struct CSidechainUndoData
         {
             ::Unserialize(s, appliedMaturedAmount, nType, nVersion);
         }
-        if (contentBitMask & AvailableSections::LOW_QUALITY_CERT_DATA)
+        if (contentBitMask & AvailableSections::SUPERSEDED_CERT_DATA)
         {
             ::Unserialize(s, lowQualityBwts, nType, nVersion);
         }

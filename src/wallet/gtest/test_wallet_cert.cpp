@@ -386,6 +386,7 @@ TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_Certificate_InMemoryPool) 
     CWalletCert walletCert(pWallet, cert);
     walletCert.hashBlock.SetNull();
     walletCert.nIndex = -1;
+    walletCert.bwtAreStripped = true; //offchain cert bwts are always stripped
 
     CCoins::outputMaturity changeOutputMaturity = CCoins::outputMaturity::NOT_APPLICABLE;
     CCoins::outputMaturity bwtOutputMaturity    = CCoins::outputMaturity::NOT_APPLICABLE;
@@ -393,11 +394,11 @@ TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_Certificate_InMemoryPool) 
     //Test
     changeOutputMaturity = walletCert.IsOutputMature(0);
     EXPECT_TRUE(changeOutputMaturity == CCoins::outputMaturity::MATURE)
-        <<"txMaturity is "<<int(changeOutputMaturity);
+        <<"certMaturity is "<<int(changeOutputMaturity);
 
     bwtOutputMaturity = walletCert.IsOutputMature(cert.GetVout().size()-1);
-    EXPECT_TRUE(bwtOutputMaturity == CCoins::outputMaturity::IMMATURE)
-        <<"txMaturity is "<<int(bwtOutputMaturity);
+    EXPECT_TRUE(bwtOutputMaturity == CCoins::outputMaturity::NOT_APPLICABLE)
+        <<"certMaturity is "<<int(bwtOutputMaturity);
 }
 
 TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_TransparentTx_Conflicted) {
@@ -1205,7 +1206,7 @@ TEST_F(SidechainCertInWalletTestSuite, SyncCertificate)
     EXPECT_TRUE(postRestartWalletCert.bwtMaturityDepth == bwtMaturityDepth);
 }
 
-TEST_F(SidechainCertInWalletTestSuite, SyncVoidedCert)
+TEST_F(SidechainCertInWalletTestSuite, SyncCertStatusInfo)
 {
     //Create certificate
     CAmount changeAmount = 20;
@@ -1220,7 +1221,8 @@ TEST_F(SidechainCertInWalletTestSuite, SyncVoidedCert)
     pWallet->SyncCertificate(cert, &certBlock, bwtMaturityDepth);
 
     // test
-    pWallet->SyncVoidedCert(cert.GetHash(), /*bwtAreStripped*/true);
+    CScCertificateStatusUpdateInfo certUpdateInfo(cert.GetScId(), cert.GetHash(), cert.epochNumber, cert.quality, CScCertificateStatusUpdateInfo::BwtState::BWT_OFF);
+    pWallet->SyncCertStatusInfo(certUpdateInfo);
 
     // checks
     EXPECT_TRUE(pWallet->getMapWallet().count(cert.GetHash()));

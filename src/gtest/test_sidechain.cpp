@@ -370,7 +370,7 @@ TEST_F(SidechainTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
         <<"instead of "<<fwdAmount;
 }
 
-TEST_F(SidechainTestSuite, RevertCertOutputsRestoresLastCertHash) {
+TEST_F(SidechainTestSuite, RestoreScInfoRestoresLastCertHash) {
     //Create sidechain and mature it to generate first block undo
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(34));
     const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
@@ -384,7 +384,7 @@ TEST_F(SidechainTestSuite, RevertCertOutputsRestoresLastCertHash) {
     for(const CTxScCreationOut& scCreationOut: aTransaction.GetVscCcOut())
         ASSERT_TRUE(sidechainsView->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
 
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
 
 
@@ -396,18 +396,18 @@ TEST_F(SidechainTestSuite, RevertCertOutputsRestoresLastCertHash) {
     sidechainsView->UpdateScInfo(cert, blockUndo);
     CSidechain scInfoPostCert;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCert));
-    EXPECT_TRUE(scInfoPostCert.topCommittedCertReferencedEpoch == certEpoch);
-    EXPECT_TRUE(scInfoPostCert.topCommittedCertHash == cert.GetHash());
+    EXPECT_TRUE(scInfoPostCert.prevBlockTopQualityCertReferencedEpoch == certEpoch);
+    EXPECT_TRUE(scInfoPostCert.prevBlockTopQualityCertHash == cert.GetHash());
 
     //test
-    bool res = sidechainsView->RevertCertOutputs(cert, blockUndo.scUndoDatabyScId.at(scId));
+    bool res = sidechainsView->RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(scId));
 
     //checks
     EXPECT_TRUE(res);
     CSidechain scInfoPostCertUndo;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCertUndo));
-    EXPECT_TRUE(scInfoPostCertUndo.topCommittedCertHash == scInfoAtCreation.topCommittedCertHash);
-    EXPECT_TRUE(scInfoPostCertUndo.topCommittedCertReferencedEpoch == scInfoAtCreation.topCommittedCertReferencedEpoch);
+    EXPECT_TRUE(scInfoPostCertUndo.prevBlockTopQualityCertHash == scInfoAtCreation.prevBlockTopQualityCertHash);
+    EXPECT_TRUE(scInfoPostCertUndo.prevBlockTopQualityCertReferencedEpoch == scInfoAtCreation.prevBlockTopQualityCertReferencedEpoch);
 }
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// UpdateScInfo ////////////////////////////////
@@ -481,14 +481,14 @@ TEST_F(SidechainTestSuite, CertificateUpdatesTopCommittedCertHash) {
 
     CSidechain scInfo;
     EXPECT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
-    EXPECT_TRUE(scInfo.topCommittedCertHash.IsNull());
+    EXPECT_TRUE(scInfo.prevBlockTopQualityCertHash.IsNull());
 
     //Fully mature initial Sc balance
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
         ASSERT_TRUE(sidechainsView->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
     int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     CBlockUndo dummyBlockUndo;
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
 
     CBlockUndo blockUndo;
@@ -498,7 +498,7 @@ TEST_F(SidechainTestSuite, CertificateUpdatesTopCommittedCertHash) {
 
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
-    EXPECT_TRUE(scInfo.topCommittedCertHash == aCertificate.GetHash());
+    EXPECT_TRUE(scInfo.prevBlockTopQualityCertHash == aCertificate.GetHash());
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertReferencedEpoch == -1);
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertHash.IsNull());
 }
@@ -893,7 +893,7 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
         ASSERT_TRUE(sidechainsView->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
     int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     CBlockUndo dummyBlockUndo;
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
 
     //a fwd is accepted in mempool
@@ -921,7 +921,7 @@ TEST_F(SidechainTestSuite, CSidechainFromMempoolRetrievesUnconfirmedInformation)
     //check
     EXPECT_TRUE(retrievedInfo.creationBlockHeight == scCreationHeight);
     EXPECT_TRUE(retrievedInfo.balance == creationAmount);             //certs in mempool do not affect balance
-    EXPECT_TRUE(retrievedInfo.topCommittedCertReferencedEpoch == -1); //certs in mempool do not affect topCommittedCertReferencedEpoch
+    EXPECT_TRUE(retrievedInfo.prevBlockTopQualityCertReferencedEpoch == -1); //certs in mempool do not affect topCommittedCertReferencedEpoch
 }
 
 ///////////////////////////////////////////////////////////////////////////////

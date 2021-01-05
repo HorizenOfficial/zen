@@ -61,7 +61,7 @@ class SidechainConnectCertsBlockTestSuite : public ::testing::Test {
 public:
     SidechainConnectCertsBlockTestSuite():
         fakeChainStateDb(nullptr), sidechainsView(nullptr),
-        dummyBlock(), dummyHash(), dummyVoidedCertMap(), dummyScriptPubKey(),
+        dummyBlock(), dummyHash(), dummyCertStatusUpdateInfo(), dummyScriptPubKey(),
         dummyState(), dummyChain(), dummyScEvents(), dummyFeeAmount(), dummyCoinbaseScript()
     {
         dummyScriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
@@ -97,10 +97,10 @@ protected:
     CCoinsViewCache      *sidechainsView;
 
     //helpers
-    CBlock                  dummyBlock;
-    uint256                 dummyHash;
-    std::map<uint256, bool> dummyVoidedCertMap;
-    CScript                 dummyScriptPubKey;
+    CBlock                                    dummyBlock;
+    uint256                                   dummyHash;
+    std::vector<CScCertificateStatusUpdateInfo>  dummyCertStatusUpdateInfo;
+    CScript                                   dummyScriptPubKey;
 
     CValidationState    dummyState;
     CChain              dummyChain;
@@ -132,10 +132,10 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
     initialScState.creationData.withdrawalEpochLength = 20;
-    initialScState.topCommittedCertHash = uint256S("cccc");
-    initialScState.topCommittedCertQuality = 100;
-    initialScState.topCommittedCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
-    initialScState.topCommittedCertBwtAmount = 50;
+    initialScState.prevBlockTopQualityCertHash = uint256S("cccc");
+    initialScState.prevBlockTopQualityCertQuality = 100;
+    initialScState.prevBlockTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
+    initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
 
     CSidechainEvents event;
@@ -150,8 +150,8 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     singleCert.nVersion    = SC_CERT_VERSION;
     singleCert.scProof     = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     singleCert.scId        = scId;
-    singleCert.epochNumber = initialScState.topCommittedCertReferencedEpoch;
-    singleCert.quality     = initialScState.topCommittedCertQuality * 2;
+    singleCert.epochNumber = initialScState.prevBlockTopQualityCertReferencedEpoch;
+    singleCert.quality     = initialScState.prevBlockTopQualityCertQuality * 2;
     singleCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     singleCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
 
@@ -174,7 +174,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     bool fCheckScTxesCommitment = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyVoidedCertMap);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -201,10 +201,10 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpo
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
     initialScState.creationData.withdrawalEpochLength = 20;
-    initialScState.topCommittedCertHash = uint256S("cccc");
-    initialScState.topCommittedCertQuality = 100;
-    initialScState.topCommittedCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
-    initialScState.topCommittedCertBwtAmount = 50;
+    initialScState.prevBlockTopQualityCertHash = uint256S("cccc");
+    initialScState.prevBlockTopQualityCertQuality = 100;
+    initialScState.prevBlockTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
+    initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
 
     CSidechainEvents event;
@@ -219,7 +219,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpo
     singleCert.nVersion    = SC_CERT_VERSION;
     singleCert.scProof     = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     singleCert.scId        = scId;
-    singleCert.epochNumber = initialScState.topCommittedCertReferencedEpoch + 1;
+    singleCert.epochNumber = initialScState.prevBlockTopQualityCertReferencedEpoch + 1;
     singleCert.quality     = 1;
     singleCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     singleCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
@@ -243,7 +243,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpo
     bool fCheckScTxesCommitment = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyVoidedCertMap);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -271,10 +271,10 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
     initialScState.creationData.withdrawalEpochLength = 20;
-    initialScState.topCommittedCertHash = uint256S("cccc");
-    initialScState.topCommittedCertQuality = 100;
-    initialScState.topCommittedCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
-    initialScState.topCommittedCertBwtAmount = 50;
+    initialScState.prevBlockTopQualityCertHash = uint256S("cccc");
+    initialScState.prevBlockTopQualityCertQuality = 100;
+    initialScState.prevBlockTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
+    initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
 
     CSidechainEvents event;
@@ -289,8 +289,8 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
     lowQualityCert.nVersion    = SC_CERT_VERSION;
     lowQualityCert.scProof     = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     lowQualityCert.scId        = scId;
-    lowQualityCert.epochNumber = initialScState.topCommittedCertReferencedEpoch;
-    lowQualityCert.quality     = initialScState.topCommittedCertQuality * 2;
+    lowQualityCert.epochNumber = initialScState.prevBlockTopQualityCertReferencedEpoch;
+    lowQualityCert.quality     = initialScState.prevBlockTopQualityCertQuality * 2;
     lowQualityCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     lowQualityCert.addBwt(CTxOut(CAmount(40), dummyScriptPubKey));
 
@@ -324,7 +324,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
     bool fCheckScTxesCommitment = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyVoidedCertMap);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -354,10 +354,10 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
     initialScState.creationData.withdrawalEpochLength = 20;
-    initialScState.topCommittedCertHash = uint256S("cccc");
-    initialScState.topCommittedCertQuality = 100;
-    initialScState.topCommittedCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
-    initialScState.topCommittedCertBwtAmount = 50;
+    initialScState.prevBlockTopQualityCertHash = uint256S("cccc");
+    initialScState.prevBlockTopQualityCertQuality = 100;
+    initialScState.prevBlockTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
+    initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
 
     CSidechainEvents event;
@@ -372,7 +372,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
     lowQualityCert.nVersion    = SC_CERT_VERSION;
     lowQualityCert.scProof     = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     lowQualityCert.scId        = scId;
-    lowQualityCert.epochNumber = initialScState.topCommittedCertReferencedEpoch +1;
+    lowQualityCert.epochNumber = initialScState.prevBlockTopQualityCertReferencedEpoch +1;
     lowQualityCert.quality     = 1;
     lowQualityCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     lowQualityCert.addBwt(CTxOut(CAmount(40), dummyScriptPubKey));
@@ -407,7 +407,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
     bool fCheckScTxesCommitment = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyVoidedCertMap);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
