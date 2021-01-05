@@ -10,6 +10,7 @@
 #include "amount.h"
 #include "serialize.h"
 #include <boost/unordered_map.hpp>
+#include <boost/optional.hpp>
 
 #include<sc/proofverifier.h>
 
@@ -41,6 +42,7 @@ struct ScCreationParameters
     std::vector<unsigned char> customData;
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
+    boost::optional<libzendoomc::ScVk> wMbtrVk;
 
     bool IsNull() const
     {
@@ -48,7 +50,8 @@ struct ScCreationParameters
             withdrawalEpochLength == -1 &&
             customData.empty()          &&
             constant.empty( )           &&
-            wCertVk.IsNull() );
+            wCertVk.IsNull()            &&
+            wMbtrVk == boost::none);
     }
 
     ADD_SERIALIZE_METHODS;
@@ -58,6 +61,7 @@ struct ScCreationParameters
         READWRITE(customData);
         READWRITE(constant);
         READWRITE(wCertVk);
+        READWRITE(wMbtrVk);
     }
     ScCreationParameters() :withdrawalEpochLength(-1) {}
 
@@ -66,7 +70,8 @@ struct ScCreationParameters
         return (withdrawalEpochLength == rhs.withdrawalEpochLength) &&
                (customData == rhs.customData) &&
                (constant == rhs.constant) &&
-               (wCertVk == rhs.wCertVk) ;
+               (wCertVk == rhs.wCertVk) &&
+               (wMbtrVk == rhs.wMbtrVk);
     }
     inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
     inline ScCreationParameters& operator=(const ScCreationParameters& cp)
@@ -75,6 +80,7 @@ struct ScCreationParameters
         customData = cp.customData;
         constant = cp.constant;
         wCertVk = cp.wCertVk;
+        wMbtrVk = cp.wMbtrVk;
         return *this;
     }
 };

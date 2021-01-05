@@ -629,7 +629,7 @@ private:
     CCoinsMap::iterator            FetchCoins(const uint256 &txid);
     CSidechainsMap::const_iterator FetchSidechains(const uint256& scId)  const;
     CSidechainsMap::iterator       ModifySidechain(const uint256& scId);
-    const CSidechain* const        AccessSidechain(const uint256& scId);
+    const CSidechain* const        AccessSidechain(const uint256& scId)  const;
     CSidechainEventsMap::const_iterator FetchSidechainEvents(int height) const;
     CSidechainEventsMap::iterator  ModifySidechainEvents(int height);
 

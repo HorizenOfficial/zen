@@ -300,7 +300,7 @@ CSidechainsMap::iterator CCoinsViewCache::ModifySidechain(const uint256& scId) {
     return ret;
 }
 
-const CSidechain* const CCoinsViewCache::AccessSidechain(const uint256& scId) {
+const CSidechain* const CCoinsViewCache::AccessSidechain(const uint256& scId) const {
     CSidechainsMap::const_iterator it = FetchSidechains(scId);
     if (it == cacheSidechains.end())
         return nullptr;
@@ -1068,6 +1068,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
     {
         const CBwtRequestOut& mbtr = tx.GetVBwtRequestOut().at(idx);
         const uint256& scId = mbtr.scId;
+        const boost::optional<libzendoomc::ScVk>* pWMbtrVk = nullptr;
         if (HaveSidechain(scId))
         {
             if (isCeasedAtHeight(scId, height)!= CSidechain::State::ALIVE)
@@ -1077,6 +1078,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
                 return state.Invalid(error("received mainchain bwt request for ceased sidechain"),
                              REJECT_INVALID, "sidechain-btr-ceased-sidechain");
             }
+            pWMbtrVk = &(this->AccessSidechain(scId)->creationData.wMbtrVk);
         } else
         {
             if (!Sidechain::hasScCreationOutput(tx, scId)) {
@@ -1085,10 +1087,16 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
                 return state.Invalid(error("scid does not exists"),
                      REJECT_INVALID, "sidechain-tx-scid");
             }
+            for(const auto& scCreationOut: tx.GetVscCcOut())
+            	if (scId == scCreationOut.GetScId())
+            	{
+            		pWMbtrVk = &(scCreationOut.wMbtrVk);
+            		break;
+            	}
         }
 
         // Verify mainchain bwt request proof
-        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scUtxoId, mbtr.mcDestinationAddress, mbtr.scFees, mbtr.scProof))
+        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scUtxoId, mbtr.mcDestinationAddress, mbtr.scFees, mbtr.scProof, *pWMbtrVk))
         {
             LogPrintf("ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
                       mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
