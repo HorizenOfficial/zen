@@ -10,7 +10,12 @@
 
 class SidechainCertInWalletTestSuite : public ::testing::Test {
 public:
-    SidechainCertInWalletTestSuite(): walletName("wallet.dat"), walletDbLocation(), pWallet(nullptr), pWalletDb(nullptr) {}
+    SidechainCertInWalletTestSuite():
+        walletName("wallet.dat"), walletDbLocation(),
+        pWallet(nullptr), pWalletDb(nullptr),
+        pCsWalletLock(nullptr),
+        csMainLock(cs_main, "cs_main", __FILE__, __LINE__) {}
+
     ~SidechainCertInWalletTestSuite() = default;
 
     void SetUp() override {
@@ -27,7 +32,9 @@ public:
             ASSERT_TRUE(false)<<"Could not create tmp wallet db for reason "<<e.what();
         }
 
-        UnloadBlockIndex();
+        pCsWalletLock = new CCriticalBlock(pWallet->cs_wallet, "cs_wallet", __FILE__, __LINE__);
+
+        UnloadBlockIndex(); // clear globals
     };
 
     void TearDown() override {
@@ -37,13 +44,16 @@ public:
             <<"Failed cleaning-up the wallet with return code" << nZapWalletRet
             <<". Isolation and independence of subsequent UTs cannot be guaranteed";
 
-        delete pWalletDb;
-        pWalletDb = nullptr;
+        delete pCsWalletLock;
+        pCsWalletLock = nullptr;
 
         delete pWallet;
         pWallet = nullptr;
 
-        UnloadBlockIndex();
+        delete pWalletDb;
+        pWalletDb = nullptr;
+
+        UnloadBlockIndex(); // clear globals
         ClearDatadirCache();
     };
 
@@ -52,6 +62,7 @@ protected:
     boost::filesystem::path walletDbLocation;
     CWallet* pWallet;
     CWalletDB* pWalletDb;
+    CCriticalBlock* pCsWalletLock;
 
     //helpers
     void SetLockingScriptFor(CTransaction& tx)
@@ -83,6 +94,10 @@ protected:
         cert = mutCert;
         return;
     }
+
+private:
+    //Critical sections below needed when compiled with --enable-debug, which activates ASSERT_HELD
+    CCriticalBlock csMainLock;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1177,6 +1192,8 @@ TEST_F(SidechainCertInWalletTestSuite, SyncCertificate)
     int bwtMaturityDepth = 10;
 
     // test
+    delete pCsWalletLock; //Do not hold lock here, it'll be taken by SyncCert
+    pCsWalletLock = nullptr;
     pWallet->SyncCertificate(cert, &certBlock, bwtMaturityDepth);
 
     // checks
@@ -1185,11 +1202,11 @@ TEST_F(SidechainCertInWalletTestSuite, SyncCertificate)
     EXPECT_TRUE(preRestartWalletCert.bwtMaturityDepth == bwtMaturityDepth);
 
     //Close and reopen wallet
-    delete pWalletDb;
-    pWalletDb = nullptr;
-
     delete pWallet;
     pWallet = nullptr;
+
+    delete pWalletDb;
+    pWalletDb = nullptr;
 
     pWallet = new CWallet("wallet.dat");
     try {  pWalletDb = new CWalletDB(pWallet->strWalletFile, "cr+"); }
@@ -1222,6 +1239,8 @@ TEST_F(SidechainCertInWalletTestSuite, SyncCertStatusInfo)
 
     // test
     CScCertificateStatusUpdateInfo certUpdateInfo(cert.GetScId(), cert.GetHash(), cert.epochNumber, cert.quality, CScCertificateStatusUpdateInfo::BwtState::BWT_OFF);
+    delete pCsWalletLock; //Do not hold lock here, it'll be taken by SyncCert
+    pCsWalletLock = nullptr;
     pWallet->SyncCertStatusInfo(certUpdateInfo);
 
     // checks
@@ -1230,11 +1249,11 @@ TEST_F(SidechainCertInWalletTestSuite, SyncCertStatusInfo)
     EXPECT_TRUE(preRestartWalletCert.bwtAreStripped == true);
 
     //Close and reopen wallet
-    delete pWalletDb;
-    pWalletDb = nullptr;
-
     delete pWallet;
     pWallet = nullptr;
+
+    delete pWalletDb;
+    pWalletDb = nullptr;
 
     pWallet = new CWallet("wallet.dat");
     try {  pWalletDb = new CWalletDB(pWallet->strWalletFile, "cr+"); }

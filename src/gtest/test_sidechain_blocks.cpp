@@ -62,7 +62,8 @@ public:
     SidechainConnectCertsBlockTestSuite():
         fakeChainStateDb(nullptr), sidechainsView(nullptr),
         dummyBlock(), dummyHash(), dummyCertStatusUpdateInfo(), dummyScriptPubKey(),
-        dummyState(), dummyChain(), dummyScEvents(), dummyFeeAmount(), dummyCoinbaseScript()
+        dummyState(), dummyChain(), dummyScEvents(), dummyFeeAmount(), dummyCoinbaseScript(),
+        csMainLock(cs_main, "cs_main", __FILE__, __LINE__)
     {
         dummyScriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     }
@@ -72,7 +73,9 @@ public:
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
 
+        // clear globals
         UnloadBlockIndex();
+        mGlobalForkTips.clear();
 
         fakeChainStateDb   = new CInMemorySidechainDb();
         sidechainsView     = new CCoinsViewCache(fakeChainStateDb);
@@ -89,7 +92,9 @@ public:
         delete fakeChainStateDb;
         fakeChainStateDb = nullptr;
 
+        // clear globals
         UnloadBlockIndex();
+        mGlobalForkTips.clear();
     };
 
 protected:
@@ -113,6 +118,10 @@ protected:
     CAmount dummyFeeAmount;
     CScript dummyCoinbaseScript;
     void    CreateCheckpointAfter(CBlockIndex* blkIdx);
+
+private:
+    //Critical sections below needed when compiled with --enable-debug, which activates ASSERT_HELD
+    CCriticalBlock csMainLock;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -693,6 +702,7 @@ TEST_F(SidechainBlockFormationTestSuite, SingleTxes_MempoolOrdering)
 
 TEST_F(SidechainBlockFormationTestSuite, DifferentScIdCerts_FeesAndPriorityOnlyContributeToMempoolOrdering)
 {
+    LOCK(mempool.cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
     uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
     uint256 inputCoinHash_2 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight-1);
 
@@ -730,6 +740,7 @@ TEST_F(SidechainBlockFormationTestSuite, DifferentScIdCerts_FeesAndPriorityOnlyC
 
 TEST_F(SidechainBlockFormationTestSuite, SameScIdCerts_HighwQualityCertsSpedingLowQualityOnesAreAccepted)
 {
+    LOCK(mempool.cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
     uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
 
     CMutableScCertificate cert_lowQuality;
@@ -760,6 +771,7 @@ TEST_F(SidechainBlockFormationTestSuite, SameScIdCerts_HighwQualityCertsSpedingL
 
 TEST_F(SidechainBlockFormationTestSuite, SameScIdCerts_LowQualityCertsSpedingHighQualityOnesAreRejected)
 {
+    LOCK(mempool.cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
     uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
 
     CMutableScCertificate cert_highQuality;

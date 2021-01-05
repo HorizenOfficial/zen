@@ -41,10 +41,13 @@ public:
 class SidechainsInMempoolTestSuite: public ::testing::Test {
 public:
     SidechainsInMempoolTestSuite():
+        aMempool(::minRelayTxFee),
         pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()),
         chainStateDbSize(2 * 1024 * 1024),
         pChainStateDb(nullptr),
-        minimalHeightForSidechains(SidechainFork().getHeight(CBaseChainParams::REGTEST))
+        minimalHeightForSidechains(SidechainFork().getHeight(CBaseChainParams::REGTEST)),
+        csMainLock(cs_main, "cs_main", __FILE__, __LINE__),
+        csAMempool(aMempool.cs, "cs_AMempool", __FILE__, __LINE__)
     {
         SelectParams(CBaseChainParams::REGTEST);
 
@@ -82,6 +85,7 @@ public:
     }
 
 protected:
+    CTxMemPool aMempool;
     CTransaction GenerateScTx(const CAmount & creationTxAmount, int epochLenght = -1);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
     CTransaction GenerateBtrTx(const uint256 & scId);
@@ -104,6 +108,10 @@ private:
     void InitCoinGeneration();
     std::pair<uint256, CCoinsCacheEntry> GenerateCoinsAmount(const CAmount & amountToGenerate);
     bool StoreCoins(const std::pair<uint256, CCoinsCacheEntry>& entryToStore);
+
+    //Critical sections below needed when compiled with --enable-debug, which activates ASSERT_HELD
+    CCriticalBlock csMainLock;
+    CCriticalBlock csAMempool;
 };
 
 TEST_F(SidechainsInMempoolTestSuite, NewSidechainIsAcceptedToMempool) {
@@ -200,7 +208,6 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
 }
 
 TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
-    CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("1492");
 
     //Case 1: no sidechain related tx in mempool
@@ -234,7 +241,6 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScNonRecursiveRemo
     // Associated scenario: Sidechain creation and some fwds and btr are in mempool.
     // Sc Creation is confirmed, hence it has to be removed from mempool, while fwds stay.
 
-    CTxMemPool aMempool(::minRelayTxFee);
     CTransaction scTx = GenerateScTx(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -266,8 +272,6 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScNonRecursiveRemo
 TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrsOnlyInMempool_FwdNonRecursiveRemoval) {
     // Associated scenario: fwts and btr are in mempool, hence scCreation must be already confirmed
     // A fwd is confirmed hence it, and only it, is removed from mempool
-
-    CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("ababab");
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
@@ -295,7 +299,6 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrsOnlyInMempool_BtrNonRecursiveRem
     // Associated scenario: fws and btr are in mempool, hence scCreation must be already confirmed
     // A fwd is confirmed hence it, and only it, is removed from mempool
 
-    CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("ababab");
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
@@ -324,7 +327,6 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScRecursiveRemoval
     // One of the new blocks about to me mounted double spends the original scTx, hence scCreation is marked for recursive removal by removeForConflicts
     // both scCreation and fwds must be cleared from mempool
 
-    CTxMemPool aMempool(::minRelayTxFee);
     CTransaction scTx = GenerateScTx(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -356,8 +358,6 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScRecursiveRemoval
 TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrOnlyInMempool_ScRecursiveRemoval) {
     // Associated scenario: upon block disconnections fwds and btr have entered into mempool.
     // While unmounting block containing scCreation, scCreation cannot make to mempool. fwds and btr must me purged
-
-    CTxMemPool aMempool(::minRelayTxFee);
     CTransaction scTx = GenerateScTx(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
 
@@ -386,7 +386,6 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_FwdRecursiveRemova
     // Associated scenario: upon block disconnections a fwd cannot make to mempool.
     // Recursive removal for refused fwd is called, but other fwds are unaffected
 
-    CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("1492");
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
@@ -414,7 +413,6 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_BtrRecursiveRemova
     // Associated scenario: upon block disconnections a btr cannot make to mempool.
     // Recursive removal for refused btr is called, but other fwds are unaffected
 
-    CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("1492");
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
@@ -776,8 +774,6 @@ TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
 
 TEST_F(SidechainsInMempoolTestSuite, DependenciesInEmptyMempool) {
     // prerequisites
-    CTxMemPool aMempool(::minRelayTxFee);
-
     CAmount dummyAmount(10);
     CScript dummyScript;
     CTxOut dummyOut(dummyAmount, dummyScript);
@@ -793,8 +789,6 @@ TEST_F(SidechainsInMempoolTestSuite, DependenciesInEmptyMempool) {
 
 TEST_F(SidechainsInMempoolTestSuite, DependenciesOfSingleTransaction) {
     // prerequisites
-    CTxMemPool aMempool(::minRelayTxFee);
-
     CAmount dummyAmount(10);
     CScript dummyScript;
     CTxOut dummyOut(dummyAmount, dummyScript);
@@ -815,7 +809,6 @@ TEST_F(SidechainsInMempoolTestSuite, DependenciesOfSingleTransaction) {
 
 TEST_F(SidechainsInMempoolTestSuite, DependenciesOfSimpleChain) {
     // prerequisites
-    CTxMemPool aMempool(::minRelayTxFee);
     CAmount dummyAmount(10);
     CScript dummyScript;
     CTxOut dummyOut(dummyAmount, dummyScript);
@@ -850,7 +843,6 @@ TEST_F(SidechainsInMempoolTestSuite, DependenciesOfSimpleChain) {
 
 TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTree) {
     // prerequisites
-    CTxMemPool aMempool(::minRelayTxFee);
     CAmount dummyAmount(10);
     CScript dummyScript;
     CTxOut dummyOut_1(dummyAmount, dummyScript);
@@ -912,7 +904,6 @@ TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTree) {
 
 TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTDAG) {
     // prerequisites
-    CTxMemPool aMempool(::minRelayTxFee);
     CAmount dummyAmount(10);
     CScript dummyScript;
     CTxOut dummyOut_1(dummyAmount, dummyScript);
