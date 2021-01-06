@@ -2498,6 +2498,9 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
                     return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
                 }
+                // Remove previously stored DataHash
+                if (!pblocktree->removeCertData(cert.GetScId(), cert.epochNumber))
+                    return error("DisconnectBlock(): Failed to write CertData");
             } else
             {
                 // certificate must resurrect its bwts
@@ -2506,6 +2509,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
                 CSidechain::SetVoidedCert(cert.GetHash(), true, pVoidedCertsMap);
                 CSidechain::SetVoidedCert(highQualityCertData.at(cert.GetHash()), false, pVoidedCertsMap);
+
+                // Update CertDataHash
+                libzendoomc::ScFieldElement dataHash = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevCertDataHash;
+                if (!pblocktree->addCertData(cert.GetScId(), cert.epochNumber, dataHash))
+                    return error("DisconnectBlock(): Failed to write CertDataHash");
             }
 
             if (!view.RevertCertOutputs(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
@@ -2968,6 +2976,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
+
+            libzendoomc::ScFieldElement dataHash = blockundo.scUndoDatabyScId.at(cert.GetScId()).prevCertDataHash;
+            if (!pblocktree->addCertData(cert.GetScId(), cert.epochNumber, dataHash))
+                return AbortNode(state, "Failed to write transaction index");
 
             CSidechain::SetVoidedCert(cert.GetHash(), false, pVoidedCertsMap);
         } else

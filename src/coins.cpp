@@ -1083,6 +1083,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertQuality         = scIt->second.scInfo.topCommittedCertQuality;
     blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertBwtAmount       = scIt->second.scInfo.topCommittedCertBwtAmount;
     blockUndo.scUndoDatabyScId[scId].contentBitMask |= CSidechainUndoData::AvailableSections::SIDECHAIN_STATE;
+    blockUndo.scUndoDatabyScId[scId].prevCertDataHash = calculateCertDataHash(cert);
 
     if (scIt->second.scInfo.topCommittedCertReferencedEpoch != cert.epochNumber)
     {

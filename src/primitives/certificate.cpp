@@ -262,6 +262,31 @@ CAmount CScCertificate::GetValueOfChange() const
     return nValueOut;
 }
 
+libzendoomc::ScFieldElement calculateCertDataHash(const CScCertificate& cert) {
+    // TODO Replace with hash of merkel tree supplied by SC.
+    libzendoomc::ScFieldElement certDataHash;
+    certDataHash.SetHex(cert.GetHash().GetHex());
+    return certDataHash;
+}
+
+libzendoomc::ScFieldElement calculateCumulativeCertDataHash(const libzendoomc::ScFieldElement& prevCumulativeHash, const libzendoomc::ScFieldElement& prevCertHash) {
+    auto prevCumulativeHashInput = zendoo_deserialize_field(prevCumulativeHash.begin());
+    auto prevCertHashInput = zendoo_deserialize_field(prevCertHash.begin());
+
+    const field_t* hashInput[] = {prevCumulativeHashInput, prevCertHashInput};
+
+    auto cumulativeHash = zendoo_compute_poseidon_hash(hashInput, 2);
+
+    libzendoomc::ScFieldElement hash;
+    zendoo_serialize_field(cumulativeHash, hash.begin());
+
+    zendoo_field_free(prevCumulativeHashInput);
+    zendoo_field_free(prevCertHashInput);
+    zendoo_field_free(cumulativeHash);
+
+    return hash;
+}
+
 // Mutable Certificate
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate(): CMutableTransactionBase(),

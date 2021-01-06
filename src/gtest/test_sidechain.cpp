@@ -503,6 +503,46 @@ TEST_F(SidechainTestSuite, CertificateUpdatesTopCommittedCertHash) {
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertHash.IsNull());
 }
 
+TEST_F(SidechainTestSuite, CertificateUpdatesCertHashData) {
+    //Create Sc
+    int scCreationHeight = 1987;
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(5));
+    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
+    CBlock dummyBlock;
+    ASSERT_TRUE(sidechainsView->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+
+    CSidechain scInfo;
+    EXPECT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
+    EXPECT_TRUE(scInfo.topCommittedCertHash.IsNull());
+
+    //Fully mature initial Sc balance
+    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
+        ASSERT_TRUE(sidechainsView->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
+    int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+    CBlockUndo dummyBlockUndo;
+    std::map<uint256, bool> dummy;
+    ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
+
+    CBlockUndo blockUndo;
+    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
+    EXPECT_TRUE(sidechainsView->UpdateScInfo(aCertificate, blockUndo));
+
+    //check
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
+    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevCertDataHash == calculateCertDataHash(aCertificate));
+    EXPECT_FALSE(blockUndo.scUndoDatabyScId.at(scId).prevCertDataHash.IsNull());
+
+    CScCertificate bCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2, /*quality*/5);
+    EXPECT_TRUE(sidechainsView->UpdateScInfo(bCertificate, blockUndo));
+
+    //check
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
+    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevCertDataHash == calculateCertDataHash(bCertificate));
+    EXPECT_FALSE(blockUndo.scUndoDatabyScId.at(scId).prevCertDataHash.IsNull());
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// BatchWrite ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
