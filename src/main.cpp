@@ -871,17 +871,29 @@ bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& ma
     return true;
 }
 
-unsigned int GetLegacySigOpCount(const CTransactionBase& tx)
+unsigned int GetLegacySigOpCount(const CTransactionBase& txBase)
 {
     unsigned int nSigOps = 0;
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
+    for(const CTxIn& txin: txBase.GetVin())
     {
         nSigOps += txin.scriptSig.GetSigOpCount(false);
     }
-    BOOST_FOREACH(const CTxOut& txout, tx.GetVout())
+    for(const CTxOut& txout: txBase.GetVout())
     {
         nSigOps += txout.scriptPubKey.GetSigOpCount(false);
     }
+
+    if(!txBase.IsCertificate())
+    {
+        const CTransaction& tx = dynamic_cast<const CTransaction&>(txBase);
+
+        for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+        {
+            nSigOps += csw.scriptPubKey().GetSigOpCount(false);
+            nSigOps += csw.redeemScript.GetSigOpCount(false);
+        }
+    }
+
     return nSigOps;
 }
 
@@ -1450,6 +1462,15 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             }
         }
 
+        // Check if this tx does CSW with the nullifier already present in the mempool
+        for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+        {
+            if (pool.mapSidechains.count(csw.scId) != 0 && pool.mapSidechains.at(csw.scId).cswNullifiers.count(csw.nullifier) != 0) {
+                LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another CSW input nullifier in mempool\n",
+                        __func__, __LINE__, hash.ToString());
+                return false;
+            }
+        }
     }
 
     {
@@ -1467,6 +1488,13 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             {
                 LogPrint("mempool", "Dropping txid %s : already have coins\n", hash.ToString());
                 return false;
+            }
+
+            auto scVerifier = disconnecting ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+            if (!view.IsTxCswApplicableToState(tx, nextBlockHeight, state, scVerifier) ) {
+                LogPrint("sc", "%s():%d - ERROR: csw input for Tx [%s] is not applicable\n", __func__, __LINE__, tx.GetHash().ToString() );
+                return state.DoS(100, error("%s(): invalid csw input for Tx [%s]", __func__, tx.GetHash().ToString()),
+                                 REJECT_INVALID, "bad-txns-csw-input-not-applicable");
             }
 
             // do all inputs exist?
@@ -2133,6 +2161,12 @@ CScriptCheck::CScriptCheck(const CCoins& txFromIn, const CTransactionBase& txToI
                             ptxTo(&txToIn), nIn(nInIn), chain(chainIn), nFlags(nFlagsIn),
                             cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR) { }
 
+CScriptCheck::CScriptCheck(const CScript& scriptPubKeyIn, const CTransactionBase& txToIn,
+                           unsigned int nInIn, const CChain* chainIn,
+                           unsigned int nFlagsIn, bool cacheIn):
+                            scriptPubKey(scriptPubKeyIn), ptxTo(&txToIn), nIn(nInIn), chain(chainIn),
+                            nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR) { }
+
 bool CScriptCheck::operator()() {
     return ptxTo->VerifyScript(scriptPubKey, nFlags, nIn, chain, cacheStore, &error); 
 }
@@ -2267,10 +2301,6 @@ bool CheckCertInputs(const CScCertificate& cert, CValidationState& state, const 
     if (!inputs.HaveInputs(cert))
         return state.Invalid(error("CheckInputs(): %s inputs unavailable", cert.GetHash().ToString()));
 
-    // are the JoinSplit's requirements met?
-    if (!inputs.HaveJoinSplitRequirements(cert))
-        return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", cert.GetHash().ToString()));
-
     CAmount nValueIn = 0;
     for(const CTxIn& in: cert.GetVin()) {
         const COutPoint &prevout = in.prevout;
@@ -2323,11 +2353,6 @@ bool CheckCertInputs(const CScCertificate& cert, CValidationState& state, const 
                 REJECT_INVALID, "bad-txns-inputvalues-outofrange");
     }
 
-    nValueIn += cert.GetJoinSplitValueIn();
-    if (!MoneyRange(nValueIn))
-        return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
-                         REJECT_INVALID, "bad-txns-inputvalues-outofrange");
-
     if (!cert.CheckFeeAmount(nValueIn, state))
         return false;
 
@@ -2336,7 +2361,6 @@ bool CheckCertInputs(const CScCertificate& cert, CValidationState& state, const 
 }// namespace Consensus
 
 
-// TODO: check CSW inputs scripts
 bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsCoinBase())
@@ -2346,7 +2370,7 @@ bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, co
         }
 
         if (pvChecks)
-            pvChecks->reserve(tx.GetVin().size());
+            pvChecks->reserve(tx.GetVin().size() + tx.GetVcswCcIn().size());
 
         // The first loop above does all the inexpensive checks.
         // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
@@ -2378,6 +2402,41 @@ bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, co
                         // avoid splitting the network between upgraded and
                         // non-upgraded nodes.
                         CScriptCheck check(*coins, tx, i, &chain,
+                                flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
+                        if (check())
+                            return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
+                    }
+                    // Failures of other flags indicate a transaction that is
+                    // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
+                    // such nodes as they are not following the protocol. That
+                    // said during an upgrade careful thought should be taken
+                    // as to the correct behavior - we may want to continue
+                    // peering with non-upgraded nodes even after a soft-fork
+                    // super-majority vote has passed.
+                    return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+                }
+            }
+
+            unsigned int vinSize = tx.GetVin().size();
+            for (unsigned int i = 0; i < tx.GetVcswCcIn().size(); i++) {
+                const CScript& scriptPubKey = tx.GetVcswCcIn()[i].scriptPubKey();
+                // Verify signature
+                CScriptCheck check(scriptPubKey, tx, i + vinSize, &chain, flags, cacheStore);
+                if (pvChecks) {
+                    pvChecks->push_back(CScriptCheck());
+                    check.swap(pvChecks->back());
+                } else if (!check()) {
+                    if (check.GetScriptError() == SCRIPT_ERR_NOT_FINAL) {
+                        return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
+                    }
+                    if (flags & STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS) {
+                        // Check whether the failure was caused by a
+                        // non-mandatory script verification check, such as
+                        // non-standard DER encodings or non-null dummy
+                        // arguments; if so, don't trigger DoS protection to
+                        // avoid splitting the network between upgraded and
+                        // non-upgraded nodes.
+                        CScriptCheck check(scriptPubKey, tx, i + vinSize, &chain,
                                 flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
                         if (check())
                             return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
@@ -2950,7 +3009,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     {
         const CTransaction &tx = block.vtx[txIdx];
 
-        nInputs += tx.GetVin().size();
+        nInputs += tx.GetVin().size() + tx.GetVcswCcIn().size();
         nSigOps += GetLegacySigOpCount(tx);
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
@@ -2986,6 +3045,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return false;
 
             control.Add(vChecks);
+        }
+
+        auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+        if (!view.IsTxCswApplicableToState(tx, pindex->nHeight, state, scVerifier) ) {
+            LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
+            return state.DoS(100, error("ConnectBlock(): invalid csw input for Tx [%s]", tx.GetHash().ToString()),
+                             REJECT_INVALID, "bad-txns-csw-input-not-applicable");
         }
 
         CTxUndo undoDummy;

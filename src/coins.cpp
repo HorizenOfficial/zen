@@ -868,6 +868,14 @@ int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
 std::string CSidechain::stateToString(State s) { return "";}
 bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
+bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
+bool libzendoomc::CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput(
+        const ScFieldElement& prevCumulativeCertDataHash,
+        const ScFieldElement& currentCertDataHash,
+        const ScFieldElement& lastCumulativeCertDataHash,
+        const ScVk& wCeasedVk,
+        const CTxCeasedSidechainWithdrawalInput& csw
+    ) const { return true; }
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
 bool libzendoomc::CScProofVerifier::verifyCScCertificate(              
     const libzendoomc::ScConstant& constant,
@@ -882,6 +890,56 @@ size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
 #include "consensus/validation.h"
 #include "main.h"
+
+bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const
+{
+    for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+    {
+        CSidechain scInfo;
+        if (!GetSidechain(csw.scId, scInfo))
+        {
+            LogPrint("sc", "%s():%d - tx[%s] CSW input [%s] refers to scId not yet created\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString() );
+            return state.Invalid(error("scid does not exist"),
+                 REJECT_INVALID, "tx-csw-input-scid-missed");
+        }
+
+        if (isCeasedAtHeight(csw.scId, nHeight) != CSidechain::State::CEASED) {
+            LogPrintf("sc", "ERROR: Tx[%s] CSW input [%s] cannot be accepted, sidechain not ceased at height = %d (chain.h = %d)\n",
+                tx.ToString(), csw.ToString(), nHeight, chainActive.Height());
+            return state.Invalid(error("received a csw for not ceased sidechain"),
+                         REJECT_INVALID, "tx-csw-input-scid-not-ceased");
+        }
+
+        if(!scInfo.creationData.wCeasedVk.is_initialized())
+        {
+            LogPrint("sc", "%s():%d - tx[%s] CSW input [%s] refers to SC without CSW support\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString() );
+            return state.Invalid(error("received a csw for sc without CSW support"),
+                 REJECT_INVALID, "tx-csw-input-sc-without-csw-support");
+        }
+
+        // TODO: check that csw.nullifier is unique
+
+
+        const libzendoomc::ScFieldElement& prevCumulativeCertDataHash = libzendoomc::ScFieldElement(); // GetCumulativeCertDataHash(csw.scId, csw.nEpoch - 1);
+        const libzendoomc::ScFieldElement& currentCertDataHash = libzendoomc::ScFieldElement(); // GetCertDataHash(csw.scId, csw.nEpoch);
+        const libzendoomc::ScFieldElement& lastCumulativeCertDataHash = libzendoomc::ScFieldElement(); // GetLastCumulativeCertDataHash(csw.scId);
+        //TODO: check that field elements are not null/empty.
+
+        // Verify CSW proof
+        if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(prevCumulativeCertDataHash, currentCertDataHash,
+                                                                lastCumulativeCertDataHash, scInfo.creationData.wCeasedVk.get(), csw)) {
+            LogPrintf("ERROR: tx[%s] CSW input [%s] cannot be accepted: proof verification failed\n",
+                tx.ToString(), csw.ToString());
+            return state.Invalid(error("proof not verified"),
+                         REJECT_INVALID, "tx-csw-input-proof-not-verified");
+        }
+    }
+
+    return true;
+}
+
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const
 {
     const uint256& certHash = cert.GetHash();
@@ -1051,6 +1109,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
         const uint256& scId = ft.scId;
         if (HaveSidechain(scId))
         {
+            // Q: whe do we not consider the height anymore? Previously we were not able to add FT Tx just before ceasing.
             auto s = GetSidechainState(scId);
             if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
             {
@@ -1068,6 +1127,19 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
 
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
+    }
+
+    // check CSW inputs
+    for (const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+    {
+        auto s = isCeasedAtHeight(csw.scId, height);
+        if (s != CSidechain::State::CEASED)
+        {
+            LogPrintf("ERROR: tx[%s] tries to send make ceased sidechain withdrawal to not yet ceased sidechain scId[%s] with state(%s) at height = %d\n",
+                        txHash.ToString(), csw.scId.ToString(), CSidechain::stateToString(s), height);
+            return false;
+        }
+        // to do: check that CSW nullifier is unique
     }
 
     return true;
@@ -1950,7 +2022,7 @@ double CCoinsViewCache::GetPriority(const CTransactionBase &tx, int nHeight) con
             dResult += coins->vout[txin.prevout.n].nValue * (nHeight-coins->nHeight);
         }
     }
-
+    // Q: do we need to consider CSW inputs? set the coin height = 1?
     return tx.ComputePriority(dResult);
 }
 

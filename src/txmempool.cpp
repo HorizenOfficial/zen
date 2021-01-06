@@ -180,10 +180,16 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     for (unsigned int i = 0; i < tx.GetVin().size(); i++)
         mapNextTx[tx.GetVin()[i].prevout] = CInPoint(&tx, i);
 
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
-        BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
+    for(const JSDescription &joinsplit: tx.GetVjoinsplit()) {
+        for(const uint256 &nf: joinsplit.nullifiers) {
             mapNullifiers[nf] = &tx;
         }
+    }
+
+    for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
+        if (mapSidechains.count(csw.scId) == 0)
+            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, csw.scId.ToString() );
+        mapSidechains[csw.scId].cswNullifiers[csw.nullifier] = tx.GetHash();
     }
 
     for(const auto& sc: tx.GetVscCcOut()) {
@@ -392,6 +398,16 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             for(const JSDescription& joinsplit: tx.GetVjoinsplit()) {
                 for(const uint256& nf: joinsplit.nullifiers) {
                     mapNullifiers.erase(nf);
+                }
+            }
+
+            for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
+                mapSidechains.at(csw.scId).cswNullifiers.erase(csw.nullifier);
+
+                if (mapSidechains.at(csw.scId).IsNull())
+                {
+                    LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, csw.scId.ToString() );
+                    mapSidechains.erase(csw.scId);
                 }
             }
 
@@ -665,7 +681,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
     // not used
     // list<CTransaction> result;
     LOCK(cs);
-    BOOST_FOREACH(const CTxIn &txin, tx.GetVin()) {
+    for(const CTxIn &txin: tx.GetVin()) {
         std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(txin.prevout);
         if (it != mapNextTx.end()) {
             const CTransactionBase &txConflict = *it->second.ptx;
@@ -676,14 +692,31 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
         }
     }
 
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
-        BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
+    for(const JSDescription &joinsplit: tx.GetVjoinsplit()) {
+        for(const uint256 &nf: joinsplit.nullifiers) {
             std::map<uint256, const CTransaction*>::iterator it = mapNullifiers.find(nf);
             if (it != mapNullifiers.end()) {
                 const CTransactionBase &txConflict = *it->second;
                 if (txConflict != tx)
                 {
                     remove(txConflict, removedTxs, removedCerts, true);
+                }
+            }
+        }
+    }
+
+    for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
+        if (mapSidechains.count(csw.scId)) {
+            const auto& cswNullifierPos = mapSidechains.at(csw.scId).cswNullifiers.find(csw.nullifier);
+            if(cswNullifierPos != mapSidechains.at(csw.scId).cswNullifiers.end()) {
+                const uint256& txHash = cswNullifierPos->second;
+                const auto& it = mapTx.find(txHash);
+                if (it != mapTx.end()) {
+                    const CTransaction &txConflict = it->second.GetTx();
+                    if (txConflict != tx)
+                    {
+                        remove(txConflict, removedTxs, removedCerts, true);
+                    }
                 }
             }
         }
@@ -853,6 +886,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
             //there cannot be no certificates for unconfirmed sidechains
             assert(mapSidechains.at(scCreation.GetScId()).mBackwardCertificates.empty());
+
+            //there cannot be no csw nullifiers for unconfirmed sidechains
+            assert(mapSidechains.at(scCreation.GetScId()).cswNullifiers.empty());
         }
 
         for(const auto& fwd: tx.GetVftCcOut()) {
@@ -861,11 +897,21 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             const auto& fwdPos = mapSidechains.at(fwd.scId).fwdTransfersSet.find(tx.GetHash());
             assert(fwdPos != mapSidechains.at(fwd.scId).fwdTransfersSet.end());
 
-            //there must be no dangling fwds, i.e. sc creation is either in mempool or in blockchain
+            //there must be no dangling fwds, i.e. sc creation is either in mempool or in blockchain (and not ceased)
             if (!mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
                 assert(mapTx.count(mapSidechains.at(fwd.scId).scCreationTxHash));
             else
-                assert(pcoins->HaveSidechain(fwd.scId));
+                assert(pcoins->GetSidechainState(fwd.scId) == CSidechain::State::ALIVE);
+        }
+
+        for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
+            //CSW must be duly recorded in mapSidechain
+            assert(mapSidechains.count(csw.scId) != 0);
+            const auto& cswNullifierPos = mapSidechains.at(csw.scId).cswNullifiers.find(csw.nullifier);
+            assert(cswNullifierPos != mapSidechains.at(csw.scId).cswNullifiers.end());
+
+            //there must be no dangling CSWs, i.e. sidechain is ceased
+            assert(pcoins->GetSidechainState(csw.scId) == CSidechain::State::CEASED);
         }
 
         boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;

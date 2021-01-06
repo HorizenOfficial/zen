@@ -587,6 +587,9 @@ bool CTransaction::CheckInputsInteraction(CValidationState &state) const
         if (vsc_ccout.size() != 0 || vft_ccout.size() != 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase destined to sidechains"),
                                          REJECT_INVALID, "bad-cb-destination");
+        if (vcsw_ccin.size() != 0)
+            return state.DoS(100, error("CheckInputsInteraction(): coinbase has CSW inputs"),
+                                         REJECT_INVALID, "bad-cb-has-cswinputs");
     }
     else
     {
@@ -595,7 +598,6 @@ bool CTransaction::CheckInputsInteraction(CValidationState &state) const
                 return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
                                  REJECT_INVALID, "bad-txns-prevout-null");
     }
-    // Q: do we need to have specific checks for CSW inputs?
     return true;
 }
 

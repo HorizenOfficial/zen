@@ -567,6 +567,8 @@ public:
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
 
+    //CSW INPURS RELATED PUBLIC MEMBERS
+    bool IsTxCswApplicableToState(const CTransaction& tx, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
     //CERTIFICATES RELATED PUBLIC MEMBERS
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
     bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash) const;
