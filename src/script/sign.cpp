@@ -18,18 +18,19 @@ using namespace std;
 
 typedef vector<unsigned char> valtype;
 
-TransactionSignatureCreator::TransactionSignatureCreator(const CKeyStore* keystoreIn, const CTransaction* txToIn, unsigned int nInIn, int nHashTypeIn) : BaseSignatureCreator(keystoreIn), txTo(txToIn), nIn(nInIn), nHashType(nHashTypeIn), checker(txTo, nIn, nullptr) {}
+TransactionSignatureCreator::TransactionSignatureCreator(const CKeyStore& keystoreIn, const CTransaction& txToIn, unsigned int nInIn, int nHashTypeIn):
+    BaseSignatureCreator(keystoreIn), txTo(txToIn), nIn(nInIn), nHashType(nHashTypeIn), checker(&txTo, nIn, nullptr) {}
 
 bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, const CKeyID& address, const CScript& scriptCode) const
 {
     CKey key;
-    if (!keystore->GetKey(address, key))
+    if (!keystore.GetKey(address, key))
         return false;
 
     uint256 hash;
     try {
-        hash = SignatureHash(scriptCode, *txTo, nIn, nHashType);
-    } catch (logic_error ex) {
+        hash = SignatureHash(scriptCode, txTo, nIn, nHashType);
+    } catch (const logic_error& ex) {
         return false;
     }
 
@@ -39,18 +40,19 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, 
     return true;
 }
 
-CertificateSignatureCreator::CertificateSignatureCreator(const CKeyStore* keystoreIn, const CScCertificate* certToIn, unsigned int nInIn, int nHashTypeIn) : BaseSignatureCreator(keystoreIn), certTo(certToIn), nIn(nInIn), nHashType(nHashTypeIn), checker(certTo, nIn, nullptr) {}
+CertificateSignatureCreator::CertificateSignatureCreator(const CKeyStore& keystoreIn, const CScCertificate& certToIn, unsigned int nInIn, int nHashTypeIn):
+    BaseSignatureCreator(keystoreIn), certTo(certToIn), nIn(nInIn), nHashType(nHashTypeIn), checker(&certTo, nIn, nullptr) {}
 
 bool CertificateSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, const CKeyID& address, const CScript& scriptCode) const
 {
     CKey key;
-    if (!keystore->GetKey(address, key))
+    if (!keystore.GetKey(address, key))
         return false;
 
     uint256 hash;
     try {
-        hash = SignatureHash(scriptCode, *certTo, nIn, nHashType);
-    } catch (logic_error ex) {
+        hash = SignatureHash(scriptCode, certTo, nIn, nHashType);
+    } catch (const logic_error& ex) {
         return false;
     }
 
@@ -169,7 +171,7 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutabl
     CScript& scriptSig = isRegularInput ? txTo.vin[nIn].scriptSig : txTo.vcsw_ccin[nIn - txTo.vin.size()].redeemScript;
 
     CTransaction txToConst(txTo);
-    TransactionSignatureCreator creator(&keystore, &txToConst, nIn, nHashType);
+    TransactionSignatureCreator creator(keystore, txToConst, nIn, nHashType);
 
     return ProduceSignature(creator, fromPubKey, scriptSig);
 }
@@ -201,7 +203,7 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutabl
     CTxIn& txin = certTo.vin[nIn];
 
     CScCertificate certToConst(certTo);
-    CertificateSignatureCreator creator(&keystore, &certToConst, nIn, nHashType);
+    CertificateSignatureCreator creator(keystore, certToConst, nIn, nHashType);
 
     return ProduceSignature(creator, fromPubKey, txin.scriptSig);
 }

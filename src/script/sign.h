@@ -20,11 +20,11 @@ struct CMutableScCertificate;
 /** Virtual base class for signature creators. */
 class BaseSignatureCreator {
 protected:
-    const CKeyStore* keystore;
+    const CKeyStore& keystore;
 
 public:
-    BaseSignatureCreator(const CKeyStore* keystoreIn) : keystore(keystoreIn) {}
-    const CKeyStore& KeyStore() const { return *keystore; };
+    BaseSignatureCreator(const CKeyStore& keystoreIn) : keystore(keystoreIn) {}
+    const CKeyStore& KeyStore() const { return keystore; };
     virtual ~BaseSignatureCreator() {}
     virtual const BaseSignatureChecker& Checker() const =0;
 
@@ -34,26 +34,26 @@ public:
 
 /** A signature creator for transactions. */
 class TransactionSignatureCreator : public BaseSignatureCreator {
-    const CTransaction* txTo;
+    const CTransaction& txTo;
     unsigned int nIn;
     int nHashType;
     const TransactionSignatureChecker checker;
 
 public:
-    TransactionSignatureCreator(const CKeyStore* keystoreIn, const CTransaction* txToIn, unsigned int nInIn, int nHashTypeIn=SIGHASH_ALL);
+    TransactionSignatureCreator(const CKeyStore& keystoreIn, const CTransaction& txToIn, unsigned int nInIn, int nHashTypeIn=SIGHASH_ALL);
     const BaseSignatureChecker& Checker() const { return checker; }
     bool CreateSig(std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode) const;
 };
 
 /** A signature creator for certificates. */
 class CertificateSignatureCreator : public BaseSignatureCreator {
-    const CScCertificate* certTo;
+    const CScCertificate& certTo;
     unsigned int nIn;
     int nHashType;
     const CertificateSignatureChecker checker;
 
 public:
-    CertificateSignatureCreator(const CKeyStore* keystoreIn, const CScCertificate* certToIn, unsigned int nInIn, int nHashTypeIn=SIGHASH_ALL);
+    CertificateSignatureCreator(const CKeyStore& keystoreIn, const CScCertificate& certToIn, unsigned int nInIn, int nHashTypeIn=SIGHASH_ALL);
     const BaseSignatureChecker& Checker() const { return checker; }
     bool CreateSig(std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode) const;
 };
@@ -61,7 +61,7 @@ public:
 /** A signature creator that just produces 72-byte empty signatyres. */
 class DummySignatureCreator : public BaseSignatureCreator {
 public:
-    DummySignatureCreator(const CKeyStore* keystoreIn) : BaseSignatureCreator(keystoreIn) {}
+    DummySignatureCreator(const CKeyStore& keystoreIn) : BaseSignatureCreator(keystoreIn) {}
     const BaseSignatureChecker& Checker() const;
     bool CreateSig(std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode) const;
 };
@@ -77,7 +77,7 @@ bool SignSignature(const CKeyStore& keystore, const CScCertificate& certFrom, CM
 
 /** Produce a script signature for a certificate. */
 bool SignSignature(const CKeyStore& keystore, const CScript& fromPubKey, CMutableScCertificate& certTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
-bool SignSignature(const CKeyStore& keystore, const CScCertificate& txFrom, CMutableScCertificate& certTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
+bool SignSignature(const CKeyStore& keystore, const CScCertificate& certFrom, CMutableScCertificate& certTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
 
 /** Combine two script signatures using a generic signature checker, intelligently, possibly with OP_0 placeholders. */
 CScript CombineSignatures(const CScript& scriptPubKey, const BaseSignatureChecker& checker, const CScript& scriptSig1, const CScript& scriptSig2);
