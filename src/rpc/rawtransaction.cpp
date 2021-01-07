@@ -608,10 +608,14 @@ void AddOutputsToRawObject(CMutableTransactionBase& rawTxObj, const UniValue& se
 }
 
 UniValue createrawtransaction(const UniValue& params, bool fHelp)
-{   
-    if (fHelp || params.size() > 4)
+{
+    if (fHelp || params.size() > 5)
         throw runtime_error(
-            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) )\n"
+            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} (\n"
+            "    [{epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr},...]\n"
+            "    ( [{\"address\":\"address\", \"amount\":amount, \"scid\":\"scid\"},...]\n"
+            "    ( [{\"scid\":\"scid\", \"scUtxoId\":\"scUtxoId\", \"pubkeyhash\":\"pubkeyhash\", \"scFee\":\"scFee\", \"scProof\":\"scProof\"},...]\n"
+            ") ) )\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
             "Note that the transaction's inputs are not signed, and\n"
@@ -650,8 +654,20 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "     [\n"
             "       {\n"
             "         \"address\":\"address\",  (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value to transfer to SC\n"
             "         \"scid\":side chain ID    (string, required) The uint256 side chain ID\n"
+            "       }\n"
+            "       ,...\n"
+            "     ]\n"
+            "5. \"backward transfer requests\"   (string, optional) A json array of json objects\n"
+            "     [\n"
+            "       {\n"
+            "         \"scid\":side chain ID       (string, required) The uint256 side chain ID\n"
+            "         \"scUtxoId\":hexstr          (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "         \"pubkeyhash\":pkh           (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
+            "         \"scFee\":amount,            (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
+            "         \"scProof\":hexstr,          (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"
@@ -667,7 +683,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of 
-        (UniValue::VARR)(UniValue::VOBJ)(UniValue::VARR) (UniValue::VARR));
+        (UniValue::VARR)(UniValue::VOBJ)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR));
 
     UniValue inputs = params[0].get_array();
     UniValue sendTo = params[1].get_obj();

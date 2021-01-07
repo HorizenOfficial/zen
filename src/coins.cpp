@@ -1095,6 +1095,8 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
             	}
         }
 
+        // TODO shall we check if sc balance is not null?
+
         // Verify mainchain bwt request proof
         if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scUtxoId, mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, *pWMbtrVk))
         {

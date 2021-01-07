@@ -59,7 +59,7 @@ class ScRpcCmd
     // Input UTXO is a tuple (triple) of txid, vout, amount)
     typedef std::tuple<uint256, int, CAmount> SelectedUTXO;
 
-    void addInputs();
+    virtual void addInputs();
     void addChange();
 
     virtual void sign() = 0;
@@ -111,6 +111,8 @@ class ScRpcCmdCert : public ScRpcCmd
     void addOutput(const CTxOut& out) override {_cert.addOut(out); }
     void addInput(const CTxIn& in) override    {_cert.vin.push_back(in); }
   
+    void addInputs() override;
+
     void sign() override;
     void send() override;    
 

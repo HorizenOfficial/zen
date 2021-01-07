@@ -246,7 +246,7 @@ std::string CTxForwardTransferOut::ToString() const
 //----------------------------------------------------------------------------
 bool CTxCrosschainOutBase::CheckAmountRange(CAmount& cumulatedAmount) const
 {
-    if (GetScValue() == CAmount(0) || !MoneyRange(GetScValue()))
+    if ( (GetScValue() == CAmount(0) && !AllowedZeroScValue()) || !MoneyRange(GetScValue()))
     {
         LogPrint("sc", "%s():%d - ERROR: invalid nValue %lld\n", __func__, __LINE__, GetScValue());
         return false;

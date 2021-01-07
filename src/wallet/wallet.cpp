@@ -3190,7 +3190,7 @@ static bool checkAndAddCcOut(const std::vector<T>&  vccout, CAmount& nValue, std
         CAmount amount = entry.GetScValue();
         if (nValue < 0 || amount < 0)
         {
-            strFailReason = _("Transaction amounts must be positive");
+            strFailReason = _("Transaction cc out amounts must be positive");
             return false;
         }
         nValue += amount;
@@ -3212,7 +3212,7 @@ bool CWallet::CreateTransaction(
     {
         if (nValue < 0 || recipient.nAmount < 0)
         {
-            strFailReason = _("Transaction amounts must be positive");
+            strFailReason = _("Transaction out amounts must be positive");
             return false;
         }
         nValue += recipient.nAmount;
@@ -3276,6 +3276,7 @@ bool CWallet::CreateTransaction(
                 txNew.resizeOut(0);
                 txNew.vsc_ccout.clear();
                 txNew.vft_ccout.clear();
+                txNew.vmbtr_out.clear();
                 wtxNew.fFromMe = true;
                 nChangePosRet = -1;
                 bool fFirst = true;
@@ -3338,9 +3339,7 @@ bool CWallet::CreateTransaction(
                 for (const auto& entry : vecBwtRequest)
                 {
                     CBwtRequestOut txccout(entry.scId, entry.mcDestinationAddress, entry.bwtRequestData);
-                    if (txccout.IsDust(::minRelayTxFee)) {
-                        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
-                    }
+                    // we allow even 0 scFee, therefore no check for dust
                     txNew.add(txccout);
                 }
 
@@ -3502,6 +3501,8 @@ bool CWallet::CreateTransaction(
                 // Limit size
                 if (nBytes >= MAX_TX_SIZE)
                 {
+                    LogPrintf("%s():%d - ERROR: tx size %d too large (max allowed = %d)\n",
+                        __func__, __LINE__, nBytes, MAX_TX_SIZE);
                     strFailReason = _("Transaction too large");
                     return false;
                 }

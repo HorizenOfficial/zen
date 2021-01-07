@@ -61,11 +61,26 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         const CBwtRequestOut& out = tx.GetVBwtRequestOut()[i];
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("scid", out.GetScId().GetHex()));
-        o.push_back(Pair("scUtxoId", HexStr(out.scUtxoId)));
-        o.push_back(Pair("mcDestinationAddress", out.mcDestinationAddress.GetHex()));
-        o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
-        o.push_back(Pair("scProof", HexStr(out.scProof)));
         o.push_back(Pair("n", (int64_t)nIdx));
+
+        std::string taddrStr = "Invalid taddress";
+        uint160 pkeyValue;
+        pkeyValue.SetHex(out.mcDestinationAddress.GetHex());
+
+        CKeyID keyID(pkeyValue);
+        CBitcoinAddress taddr(keyID);
+        if (taddr.IsValid()) {
+            taddrStr = taddr.ToString();
+        }
+
+        UniValue mcAddr(UniValue::VOBJ);
+        mcAddr.push_back(Pair("pubkeyhash", out.mcDestinationAddress.GetHex()));
+        mcAddr.push_back(Pair("taddr", taddrStr));
+        
+        o.push_back(Pair("mcDestinationAddress", mcAddr));
+        o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
+        o.push_back(Pair("scUtxoId", HexStr(out.scUtxoId)));
+        o.push_back(Pair("scProof", HexStr(out.scProof)));
         vbts.push_back(o);
         nIdx++;
     }
@@ -445,12 +460,6 @@ ScRpcCmd::ScRpcCmd(
 
 void ScRpcCmd::addInputs()
 {
-    if (_fee == 0)
-    {
-        LogPrint("sc", "%s():%d - No fee therefore no inputs are added to cert, exiting\n", __func__, __LINE__);
-        return;
-    }
-
     std::vector<COutput> vAvailableCoins;
     std::vector<SelectedUTXO> vInputUtxo;
 
@@ -605,6 +614,16 @@ void ScRpcCmdCert::execute()
     addBackwardTransfers();
     sign();
     send();
+}
+
+void ScRpcCmdCert::addInputs()
+{
+    if (_fee == 0)
+    {
+        LogPrint("sc", "%s():%d - No fee therefore no inputs are added to cert, exiting\n", __func__, __LINE__);
+        return;
+    }
+    ScRpcCmd::addInputs();
 }
 
 void ScRpcCmdCert::sign()

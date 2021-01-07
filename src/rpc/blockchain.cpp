@@ -1061,8 +1061,11 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
-static void addScUnconfData(const uint256& scId, UniValue& sc)
+static void addScUnconfCcData(const uint256& scId, UniValue& sc)
 {
+    if (mempool.mapSidechains.count(scId) == 0)
+        return;
+
     UniValue ia(UniValue::VARR);
     for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
     {
@@ -1150,8 +1153,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         }
         sc.push_back(Pair("immature amounts", ia));
 
-        // get fwd / bwt unconfirmed data if any
-        if (!mempool.mapSidechains.at(scId).mBackwardCertificates.empty())
+        // get unconfirmed data if any
+        if (mempool.hasSidechainCertificate(scId))
         {
             const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
             const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
@@ -1162,7 +1165,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             sc.push_back(Pair("unconf top quality certificate amount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers())));
         }
 
-        addScUnconfData(scId, sc);
+        addScUnconfCcData(scId, sc);
     }
     else
     {
@@ -1197,7 +1200,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
             }
 
-            addScUnconfData(scId, sc);
+            addScUnconfCcData(scId, sc);
         }
         else
         {

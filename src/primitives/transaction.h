@@ -431,6 +431,7 @@ public:
 
     virtual bool IsNull() const = 0;
     virtual CAmount GetScValue() const = 0;
+    virtual bool AllowedZeroScValue() const = 0;
 
     bool CheckAmountRange(CAmount& cumulatedAmount) const;
 
@@ -468,7 +469,8 @@ public:
     {
         return (nValue == -1);
     }
-    CAmount GetScValue() const override { return nValue; };
+    CAmount GetScValue() const override { return nValue; }
+    bool AllowedZeroScValue() const override { return false; }
 
 protected:
     static bool isBaseEqual(const CTxCrosschainOut& a, const CTxCrosschainOut& b)
@@ -600,6 +602,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     }
 
     CAmount GetScValue() const override { return scFee; };
+    bool AllowedZeroScValue() const override { return true; }
 
     friend bool operator==(const CBwtRequestOut& a, const CBwtRequestOut& b)
     {

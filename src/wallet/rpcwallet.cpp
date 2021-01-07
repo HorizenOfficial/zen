@@ -1354,10 +1354,21 @@ UniValue retrieve_from_sidechain(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
             "[{\n"
-            "   \"scid\": id                      (string, required) The uint256 side chain ID\n"
-            "   \"scFee\":fee                    (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
-            "    TODO add others" // TODO
+            "   \"scid\":side chain ID             (string, required) The uint256 side chain ID\n"
+            "   \"scUtxoId\":hexstr                (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "   \"pubkeyhash\":pkh                 (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
+            "   \"scFee\":amount,                  (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
+            "   \"scProof\":hexstr,                (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
             "},...,]\n"
+            "2. \"params\"                        (string, optional) A json object with the command parameters\n"
+            "{\n"                     
+            "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
+            "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
+            "   \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
+            "   \"fee\":fee                       (numeric, optional, default=" +
+                                                      strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
+                                                      ") The fee amount to attach to this transaction.\n"
             "}\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The resulting transaction id.\n"
@@ -1454,10 +1465,9 @@ UniValue retrieve_from_sidechain(const UniValue& params, bool fHelp)
         {
             UniValue av = find_value(o, "scFee");
             scFee = AmountFromValue( av );
+            // we allow also 0 scFee, check only the amount range
             if (!MoneyRange(scFee))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount out of range");
-            if (scFee == 0)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount can not be null");
         }
         else
         {
@@ -4957,6 +4967,114 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         throw runtime_error(
             "sc_sendmany [{\"address\":... ,\"amount\":...,\"scid\":,...},...]\n"
             "\nSend cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
+            "\nArguments:\n"
+            "\"amounts\"                (array, required) An array of json objects representing the amounts to send.\n"
+            "    [{\n"                     
+            "      \"address\":address     (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "      \"amount\":amount       (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "      \"scid\":side chain ID  (string, required) The uint256 side chain ID\n"
+            "    }, ... ]\n"
+            "\nResult:\n"
+            "\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
+            "                                    the number of addresses.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sc_sendmany", " '[{\"address\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0 ,\"scid\": \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\"}]'")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    UniValue outputs = params[0].get_array();
+
+    if (outputs.size()==0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output array is empty.");
+
+    // Recipients
+    CAmount nTotalOut = 0;
+    vector<CRecipientForwardTransfer> vecFtSend;
+
+    for (const UniValue& o : outputs.getValues())
+    {
+        if (!o.isObject())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+
+        // sanity check, report error if unknown key-value pairs
+        for (const string& s : o.getKeys())
+        {
+            if (s != "address" && s != "amount" && s != "scid")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
+        }
+
+        uint256 address;
+        address.SetHex(find_value(o, "address").get_str() );
+
+        UniValue av = find_value(o, "amount");
+        CAmount nAmount = AmountFromValue( av );
+        if (nAmount <= 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
+
+        string inputString = find_value(o, "scid").get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+
+        uint256 scId;
+        scId.SetHex(inputString);
+
+        {
+            LOCK(mempool.cs);
+            CCoinsViewMemPool scView(pcoinsTip, mempool);
+            if (!scView.HaveSidechain(scId))
+            {
+                LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+            }
+        }
+
+        CRecipientForwardTransfer ft;
+        ft.address = address;
+        ft.nValue = nAmount;
+        ft.scId = scId;
+
+        vecFtSend.push_back(ft);
+
+        nTotalOut += nAmount;
+    }
+
+    // As a sanity check, estimate and verify that the size of the transaction will be valid.
+    // Depending on the input notes, the actual tx size may turn out to be larger and perhaps invalid.
+    size_t txsize = 0;
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    CTransaction tx(mtx);
+    txsize += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    txsize += CTXIN_SPEND_DUST_SIZE;
+    txsize += CTXOUT_REGULAR_SIZE;      // There will probably be taddr change
+    txsize += CTXOUT_REGULAR_SIZE * vecFtSend.size();
+    if (txsize > MAX_TX_SIZE) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Too many outputs, size of raw transaction would be larger than limit of %d bytes", MAX_TX_SIZE ));
+    }
+
+    EnsureWalletIsUnlocked();
+
+    // Send
+    CWalletTx wtx;
+
+    vector<CRecipientScCreation> dumVecScSend;
+    vector<CRecipientBwtRequest> dumVecBwtRequest;
+
+    ScHandleTransaction(wtx, dumVecScSend, vecFtSend, dumVecBwtRequest, nTotalOut);
+
+    return wtx.getWrappedTx().GetHash().GetHex();
+}
+
+UniValue sc_retrievemany(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error(
+            "sc_retrievemany [{\"address\":... ,\"amount\":...,\"scid\":,...},...]\n"
+            "\nRequest cross chain backward transfer of coins multiple times. Amounts are double-precision floating point numbers."
             "\nArguments:\n"
             "\"amounts\"                (array, required) An array of json objects representing the amounts to send.\n"
             "    [{\n"                     
