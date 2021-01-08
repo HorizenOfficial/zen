@@ -83,6 +83,7 @@ template void base_blob<256>::SetHex(const char*);
 template void base_blob<256>::SetHex(const std::string&);
 
 // Other explicit instantiations
+template base_blob<SC_FIELD_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
 template base_blob<SC_PROOF_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
 template base_blob<SC_VK_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
 

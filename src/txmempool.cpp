@@ -1300,6 +1300,15 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
     return true;
 }
 
+void CCoinsViewMemPool::GetScIds(std::set<uint256>& scIds) const {
+    base->GetScIds(scIds);
+    for (const auto& entry : mempool.mapSidechains)
+    {
+        if (!entry.second.scCreationTxHash.IsNull())
+            scIds.insert(entry.first);
+    }
+}
+
 bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
     return mempool.hasSidechainCreationTx(scId) || base->HaveSidechain(scId);
 }

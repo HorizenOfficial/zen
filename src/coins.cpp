@@ -1095,8 +1095,10 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
             	}
         }
 
+        // TODO shall we check if sc balance is not null?
+
         // Verify mainchain bwt request proof
-        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scUtxoId, mbtr.mcDestinationAddress, mbtr.scFees, mbtr.scProof, *pWMbtrVk))
+        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scUtxoId, mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, *pWMbtrVk))
         {
             LogPrintf("ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
                       mbtr.scId.ToString(), tx.GetHash().ToString(), idx);

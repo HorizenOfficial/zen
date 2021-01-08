@@ -303,6 +303,7 @@ extern UniValue sc_sendmany(const UniValue& params, bool fHelp); // in rpcwallet
 extern UniValue sc_create(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue create_sidechain(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue send_to_sidechain(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+extern UniValue retrieve_from_sidechain(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue getscinfo(const UniValue& params, bool fHelp); 
 extern UniValue getscgenesisinfo(const UniValue& params, bool fHelp); 
 extern UniValue z_shieldcoinbase(const UniValue& params, bool fHelp); // in rpcwallet.cpp

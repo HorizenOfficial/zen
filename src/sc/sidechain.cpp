@@ -146,10 +146,37 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
     {
         if (!ft.CheckAmountRange(cumulatedAmount) )
         {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : sc creation amount is non-positive or larger than %s\n",
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : sc fwd amount is non-positive or larger than %s\n",
                 __func__, __LINE__, txHash.ToString(), FormatMoney(MAX_MONEY) );
-            return state.DoS(100, error("%s: sc creation amount is outside range",
-                __func__), REJECT_INVALID, "sidechain-sc-creation-amount-outside-range");
+            return state.DoS(100, error("%s: sc fwd amount is outside range",
+                __func__), REJECT_INVALID, "sidechain-sc-fwd-amount-outside-range");
+        }
+    }
+
+    for (const auto& bt : tx.GetVBwtRequestOut())
+    {
+        if (!bt.CheckAmountRange(cumulatedAmount) )
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : sc fee amount is non-positive or larger than %s\n",
+                __func__, __LINE__, txHash.ToString(), FormatMoney(MAX_MONEY) );
+            return state.DoS(100, error("%s: sc fee amount is outside range",
+                __func__), REJECT_INVALID, "sidechain-sc-fee-amount-outside-range");
+        }
+
+        if (!libzendoomc::IsValidScProof(bt.scProof))
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : invalid bwt scProof\n",
+                __func__, __LINE__, txHash.ToString());
+            return state.DoS(100, error("%s: bwt scProof is invalid",
+                __func__), REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-proof");
+        }
+
+        if (!libzendoomc::IsValidScFieldElement(bt.scUtxoId))
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : invalid bwt scUtxoId\n",
+                __func__, __LINE__, txHash.ToString());
+            return state.DoS(100, error("%s: bwt scUtxoId is invalid",
+                __func__), REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-utxo-id");
         }
     }
 

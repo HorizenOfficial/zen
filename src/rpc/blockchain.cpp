@@ -269,6 +269,17 @@ void AddDependancy(const CTransaction& tx, UniValue& info)
                 setDepends.insert(scCreationHash.ToString());
         }
     }
+    for (const auto& bt: tx.GetVBwtRequestOut())
+    {
+        if (mempool.hasSidechainCreationTx(bt.scId))
+        {
+            const uint256& scCreationHash = mempool.mapSidechains.at(bt.scId).scCreationTxHash;
+
+            // check if tx is also creating the sc
+            if (scCreationHash != tx.GetHash())
+                setDepends.insert(scCreationHash.ToString());
+        }
+    }
 
     UniValue depends(UniValue::VARR);
     BOOST_FOREACH(const string& dep, setDepends)
@@ -1050,6 +1061,48 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
+static void addScUnconfCcData(const uint256& scId, UniValue& sc)
+{
+    if (mempool.mapSidechains.count(scId) == 0)
+        return;
+
+    UniValue ia(UniValue::VARR);
+    for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
+    {
+        const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
+        for (const auto& fwdAmount : fwdTx.GetVftCcOut())
+        {
+            if (scId == fwdAmount.scId)
+            {
+                 UniValue o(UniValue::VOBJ);
+                 o.push_back(Pair("unconf amount", ValueFromAmount(fwdAmount.nValue)));
+                 ia.push_back(o);
+             }
+        }
+    }
+    if (ia.size() > 0)
+        sc.push_back(Pair("unconf immature amounts", ia));
+
+    // TODO there are no info about bwt requests in sc db, shall we include them anyway when they are in mempool?
+    UniValue btra(UniValue::VARR);
+    for (const auto& bwtReqHash: mempool.mapSidechains.at(scId).mcBtrSet)
+    {
+        const CTransaction & bwtrTx = mempool.mapTx.at(bwtReqHash).GetTx();
+        for (const auto& out : bwtrTx.GetVBwtRequestOut())
+        {
+            if (scId == out.scId)
+            {
+                 UniValue o(UniValue::VOBJ);
+                 o.push_back(Pair("unconf bwt req sc fee", ValueFromAmount(out.scFee)));
+                 o.push_back(Pair("unconf bwt req dest addr", out.mcDestinationAddress.GetHex()));
+                 btra.push_back(o);
+             }
+        }
+    }
+    if (btra.size() > 0)
+        sc.push_back(Pair("unconf bwt req", btra));
+}
+
 bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechain::State scState,
     UniValue& sc, bool bOnlyAlive, bool bVerbose)
 {
@@ -1089,51 +1142,31 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
             sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
             sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
- 
-            UniValue ia(UniValue::VARR);
-            for(const auto& entry: info.mImmatureAmounts)
-            {
-                UniValue o(UniValue::VOBJ);
-                o.push_back(Pair("maturityHeight", entry.first));
-                o.push_back(Pair("amount", ValueFromAmount(entry.second)));
-                ia.push_back(o);
-            }
-            sc.push_back(Pair("immature amounts", ia));
         }
-
-        // get fwd / bwt unconfirmed data if any
-        if (mempool.mapSidechains.count(scId)!= 0)
+ 
+        UniValue ia(UniValue::VARR);
+        for(const auto& entry: info.mImmatureAmounts)
         {
-            if (!mempool.mapSidechains.at(scId).mBackwardCertificates.empty())
-            {
-                const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
-                const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
- 
-                sc.push_back(Pair("unconf top quality certificate epoch",   topQualCert.epochNumber));
-                sc.push_back(Pair("unconf top quality certificate hash",    topQualCertHash.GetHex()));
-                sc.push_back(Pair("unconf top quality certificate quality", topQualCert.quality));
-                sc.push_back(Pair("unconf top quality certificate amount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers())));
-            }
-
-            if (bVerbose)
-            {
-                UniValue ia(UniValue::VARR);
-                for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
-                {
-                    const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-                    for (const auto& fwdAmount : fwdTx.GetVftCcOut())
-                    {
-                        if (scId == fwdAmount.scId)
-                        {
-                             UniValue o(UniValue::VOBJ);
-                             o.push_back(Pair("unconf maturityHeight", -1));
-                             o.push_back(Pair("unconf amount", ValueFromAmount(fwdAmount.nValue)));
-                             ia.push_back(o);
-                         }
-                    }
-                }
-            }
+            UniValue o(UniValue::VOBJ);
+            o.push_back(Pair("maturityHeight", entry.first));
+            o.push_back(Pair("amount", ValueFromAmount(entry.second)));
+            ia.push_back(o);
         }
+        sc.push_back(Pair("immature amounts", ia));
+
+        // get unconfirmed data if any
+        if (mempool.hasSidechainCertificate(scId))
+        {
+            const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
+            const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
+ 
+            sc.push_back(Pair("unconf top quality certificate epoch",   topQualCert.epochNumber));
+            sc.push_back(Pair("unconf top quality certificate hash",    topQualCertHash.GetHex()));
+            sc.push_back(Pair("unconf top quality certificate quality", topQualCert.quality));
+            sc.push_back(Pair("unconf top quality certificate amount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers())));
+        }
+
+        addScUnconfCcData(scId, sc);
     }
     else
     {
@@ -1152,11 +1185,13 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.customData = scCreation.customData;
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
+                    info.mImmatureAmounts[-1] = scCreation.GetScValue();
                     break;
                 }
             }
 
             sc.push_back(Pair("unconf creating tx hash", info.creationTxHash.GetHex()));
+            sc.push_back(Pair("unconf creation amount", ValueFromAmount(info.mImmatureAmounts[-1])));
             sc.push_back(Pair("unconf withdrawalEpochLength", info.creationData.withdrawalEpochLength));
 
             if (bVerbose)
@@ -1164,29 +1199,9 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
                 sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
                 sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
-
-                CAmount fwd_am = 0;
-                for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
-                {
-                    const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-                    for (const auto& fwdAmount : fwdTx.GetVftCcOut())
-                    {
-                        if (scId == fwdAmount.scId)
-                        {
-                            fwd_am += fwdAmount.nValue;
-                        }
-                    }
-                }
-                if (fwd_am > 0)
-                {
-                    UniValue ia(UniValue::VARR);
-                    UniValue o(UniValue::VOBJ);
-                    o.push_back(Pair("unconf maturityHeight", -1));
-                    o.push_back(Pair("unconf amount", ValueFromAmount(fwd_am)));
-                    ia.push_back(o);
-                    sc.push_back(Pair("unconf immature amounts", ia));
-                }
             }
+
+            addScUnconfCcData(scId, sc);
         }
         else
         {
@@ -1212,9 +1227,13 @@ bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool
 
 int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, int to=-1)
 {
-    CCoinsViewCache scView(pcoinsTip);
     std::set<uint256> sScIds;
-    scView.GetScIds(sScIds);
+    {
+        LOCK(mempool.cs);
+        CCoinsViewMemPool scView(pcoinsTip, mempool);
+
+        scView.GetScIds(sScIds);
+    }
 
     if (sScIds.size() == 0)
         return 0;

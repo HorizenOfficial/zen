@@ -1494,7 +1494,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             if (!view.IsScTxApplicableToState(tx, nextBlockHeight, state, scVerifier))
             {
                 LogPrint("sc", "%s():%d - sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString());
-                return state.DoS(0, error("%s(): certificate not applicable", __func__),
+                return state.DoS(0, error("%s(): tx not applicable", __func__),
                                  REJECT_INVALID, "bad-sc-tx");
             }
  
@@ -2550,6 +2550,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
+        // a bwt request carries no events to revert, nothing to be done for tx.GetVBwtRequestOut() 
+
         for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
             if (!view.CancelSidechainEvent(fwdTransfer, pindex->nHeight)) {
                 LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
@@ -2879,6 +2881,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                      REJECT_INVALID, "bad-fwd-not-recorded");
                 }
             }
+
+            // a bwt request carries no events to schedule, nothing to be done for tx.GetVBwtRequestOut() 
         }
 
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {

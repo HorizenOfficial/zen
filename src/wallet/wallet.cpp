@@ -1892,8 +1892,11 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
     {
         if (nDebit > 0)
         {
+            // these has a valid sc address and an amount sent to that addr
             fillScSent(wrappedTx.GetVscCcOut(), listScSent);
             fillScSent(wrappedTx.GetVftCcOut(), listScSent);
+            // this has a null sc address and an amount which is a fee for a sc forger
+            fillScFees(wrappedTx.GetVBwtRequestOut(), listScSent);
         }
     }
 }
@@ -3143,7 +3146,8 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
     // Turn the ccout set into a CcRecipientVariant vector
     vector<CRecipientScCreation> vecScSend;
     vector<CRecipientForwardTransfer> vecFtSend;
-    Sidechain::fundCcRecipients(tx, vecScSend, vecFtSend);
+    vector<CRecipientBwtRequest> vecBwtRequest;
+    Sidechain::fundCcRecipients(tx, vecScSend, vecFtSend, vecBwtRequest);
     
     CCoinControl coinControl;
     coinControl.fAllowOtherInputs = true;
@@ -3152,7 +3156,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 
     CReserveKey reservekey(this);
     CWalletTx wtx;
-    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false))
+    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false))
         return false;
 
     if (nChangePosRet != -1)
@@ -3178,10 +3182,27 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 }
 
 
+template <typename T>
+static bool checkAndAddCcOut(const std::vector<T>&  vccout, CAmount& nValue, std::string& strFailReason)
+{
+    for (const auto& entry : vccout)
+    {
+        CAmount amount = entry.GetScValue();
+        if (nValue < 0 || amount < 0)
+        {
+            strFailReason = _("Transaction cc out amounts must be positive");
+            return false;
+        }
+        nValue += amount;
+    }
+    return true;
+}
+
 bool CWallet::CreateTransaction(
     const std::vector<CRecipient>& vecSend,
     const std::vector<CRecipientScCreation>& vecScSend,
     const std::vector<CRecipientForwardTransfer>& vecFtSend,
+    const std::vector<CRecipientBwtRequest>& vecBwtRequest,
     CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
     int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign)
 {
@@ -3191,7 +3212,7 @@ bool CWallet::CreateTransaction(
     {
         if (nValue < 0 || recipient.nAmount < 0)
         {
-            strFailReason = _("Transaction amounts must be positive");
+            strFailReason = _("Transaction out amounts must be positive");
             return false;
         }
         nValue += recipient.nAmount;
@@ -3200,29 +3221,14 @@ bool CWallet::CreateTransaction(
             nSubtractFeeFromAmount++;
     }
 
-    for (const auto& entry : vecScSend)
-    {
-        CAmount amount = entry.nValue;
-        if (nValue < 0 || amount < 0)
-        {
-            strFailReason = _("Transaction amounts must be positive");
-            return false;
-        }
-        nValue += amount;
-    }
+    if (!checkAndAddCcOut(vecScSend, nValue, strFailReason))
+        return false;
+    if (!checkAndAddCcOut(vecFtSend, nValue, strFailReason))
+        return false;
+    if (!checkAndAddCcOut(vecBwtRequest, nValue, strFailReason))
+        return false;
 
-    for (const auto& entry : vecFtSend)
-    {
-        CAmount amount = entry.nValue;
-        if (nValue < 0 || amount < 0)
-        {
-            strFailReason = _("Transaction amounts must be positive");
-            return false;
-        }
-        nValue += amount;
-    }
-
-    if ( (vecSend.empty() && vecScSend.empty() && vecFtSend.empty() ) || nValue < 0)
+    if ( (vecSend.empty() && vecScSend.empty() && vecFtSend.empty() && vecBwtRequest.empty() ) || nValue < 0)
     {
         strFailReason = _("Transaction amounts must be positive");
         return false;
@@ -3232,7 +3238,7 @@ bool CWallet::CreateTransaction(
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
 
-    if (!vecScSend.empty() || !vecFtSend.empty() )
+    if (!vecScSend.empty() || !vecFtSend.empty() || !vecBwtRequest.empty() )
     {
         // set proper version
         txNew.nVersion = SC_TX_VERSION;
@@ -3270,6 +3276,7 @@ bool CWallet::CreateTransaction(
                 txNew.resizeOut(0);
                 txNew.vsc_ccout.clear();
                 txNew.vft_ccout.clear();
+                txNew.vmbtr_out.clear();
                 wtxNew.fFromMe = true;
                 nChangePosRet = -1;
                 bool fFirst = true;
@@ -3328,6 +3335,14 @@ bool CWallet::CreateTransaction(
                     }
                     txNew.add(txccout);
                 }
+
+                for (const auto& entry : vecBwtRequest)
+                {
+                    CBwtRequestOut txccout(entry.scId, entry.mcDestinationAddress, entry.bwtRequestData);
+                    // we allow even 0 scFee, therefore no check for dust
+                    txNew.add(txccout);
+                }
+
 
                 // Choose coins to use
                 set<pair<const CWalletTransactionBase*,unsigned int> > setCoins;
@@ -3486,6 +3501,8 @@ bool CWallet::CreateTransaction(
                 // Limit size
                 if (nBytes >= MAX_TX_SIZE)
                 {
+                    LogPrintf("%s():%d - ERROR: tx size %d too large (max allowed = %d)\n",
+                        __func__, __LINE__, nBytes, MAX_TX_SIZE);
                     strFailReason = _("Transaction too large");
                     return false;
                 }

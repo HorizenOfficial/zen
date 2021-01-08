@@ -283,10 +283,28 @@ public:
         return (mapCertificate.count(hash) != 0 || mapTx.count(hash) != 0);
     }
 
+    bool hasSidechainCertificate(uint256 scId) const
+    {
+        LOCK(cs);
+        return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).mBackwardCertificates.empty());
+    }
+
     bool hasSidechainCreationTx(uint256 scId) const
     {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).scCreationTxHash.IsNull());
+    }
+
+    bool hasSidechainBwtRequest(uint256 scId) const
+    {
+        LOCK(cs);
+        return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).mcBtrSet.empty());
+    }
+
+    bool hasSidechainFwtRequest(uint256 scId) const
+    {
+        LOCK(cs);
+        return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).fwdTransfersSet.empty());
     }
 
     bool lookup(uint256 hash, CTransaction& result) const;
@@ -321,6 +339,7 @@ public:
     bool HaveCoins(const uint256 &txid)                            const override;
     bool GetSidechain(const uint256& scId, CSidechain& info)       const override;
     bool HaveSidechain(const uint256& scId)                        const override;
+    void GetScIds(std::set<uint256>& scIdsList)                    const override;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H
