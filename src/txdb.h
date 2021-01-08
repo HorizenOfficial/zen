@@ -77,12 +77,6 @@ public:
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts();
-    /*bool addCertDataHash(const uint256& scId, const int height, const libzendoomc::ScFieldElement &certHash);
-    bool getCertDataHash(const uint256& scId, const int height, libzendoomc::ScFieldElement &certHash);
-    bool removeCertDataHash(const uint256& scId, const int height);
-    bool addCumulativeCertDataHash(const uint256& scId, const int height, const libzendoomc::ScFieldElement &certHash);
-    bool getCumulativeCertDataHash(const uint256& scId, const int height, libzendoomc::ScFieldElement &certHash);
-    bool removeCumulativeCertDataHash(const uint256& scId, const int height);*/
     bool addCertData(const uint256& scId, const int height, const libzendoomc::ScFieldElement &certHash);
     bool getCertData(const uint256& scId, const int height, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data);
     bool removeCertData(const uint256& scId, const int height);
