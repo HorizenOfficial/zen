@@ -12,6 +12,7 @@
 
 class CSidechain;
 class CScCertificate;
+class CTxCeasedSidechainWithdrawalInput;
 
 namespace libzendoomc{
     typedef base_blob<SC_FIELD_SIZE * 8> ScFieldElement;
@@ -120,7 +121,18 @@ namespace libzendoomc{
                 const uint256& prev_end_epoch_block_hash,
                 const CScCertificate& scCert
             ) const;
+
+            // Returns false if proof verification has failed or deserialization of CSW's elements
+            // into libzendoomc's elements has failed.
+            bool verifyCTxCeasedSidechainWithdrawalInput(
+                const ScFieldElement& prevCumulativeCertDataHash,
+                const ScFieldElement& currentCertDataHash,
+                const ScFieldElement& lastCumulativeCertDataHash,
+                const ScVk& wCeasedVk,
+                const CTxCeasedSidechainWithdrawalInput& csw
+            ) const;
     };
+
 }
 
 #endif // _SC_PROOF_VERIFIER_H

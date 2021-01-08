@@ -214,4 +214,18 @@ namespace libzendoomc{
         else
             return CScWCertProofVerification().verifyScCert(constant, wCertVk, prev_end_epoch_block_hash, cert);
     }
+
+    bool CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput(
+        const ScFieldElement& prevCumulativeCertDataHash,
+        const ScFieldElement& currentCertDataHash,
+        const ScFieldElement& lastCumulativeCertDataHash,
+        const ScVk& wCeasedVk,
+        const CTxCeasedSidechainWithdrawalInput& csw
+    ) const
+    {
+        if(!perform_verification)
+            return true;
+        else // TODO: emit rust implementation.
+            return true;// CswProofVerification().verifyCsw(prevCumulativeCertDataHash, currentCertDataHash, lastCumulativeCertDataHash, wCeasedVk, csw);
+    }
 }

@@ -354,7 +354,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
  */
 bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& mapInputs);
 
-/** 
+/**
  * Count ECDSA signature operations the old-fashioned (pre-0.6) way
  * @return number of sigops this transaction's outputs will produce when spent
  * @see CTransaction::FetchInputs
@@ -440,6 +440,7 @@ private:
 public:
     CScriptCheck();
     CScriptCheck(const CCoins& txFromIn, const CTransactionBase& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn);
+    CScriptCheck(const CScript& scriptPubKeyIn, const CTransactionBase& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn);
     bool operator()();
     void swap(CScriptCheck &check);
     ScriptError GetScriptError() const;
