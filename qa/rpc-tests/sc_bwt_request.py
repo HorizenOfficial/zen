@@ -49,9 +49,10 @@ class sc_bwt_request(BitcoinTestFramework):
     def run_test(self):
 
         '''
-        Node1 creates a sc1 and, after a few negative tests, some bwt request is sent for that sc1.
+        Node1 creates a sc1 and, after a few negative tests, some bwt requests are sent for that sc1.
         All the relevant txes (creation included) are accepted in the mempool and then mined in a block.
-
+        A second sc is created and bwt request are sent for a zero balance sc (accepted) and a ceased sc (rejected)
+        Both high level and raw versions of the command are tested.
         '''
 
         # cross-chain transfer amount
