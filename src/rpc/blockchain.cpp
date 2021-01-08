@@ -1083,6 +1083,7 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
     if (ia.size() > 0)
         sc.push_back(Pair("unconf immature amounts", ia));
 
+    // TODO there are no info about bwt requests in sc db, shall we include them anyway when they are in mempool?
     UniValue btra(UniValue::VARR);
     for (const auto& bwtReqHash: mempool.mapSidechains.at(scId).mcBtrSet)
     {

@@ -1494,7 +1494,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             if (!view.IsScTxApplicableToState(tx, nextBlockHeight, state, scVerifier))
             {
                 LogPrint("sc", "%s():%d - sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString());
-                return state.DoS(0, error("%s(): certificate not applicable", __func__),
+                return state.DoS(0, error("%s(): tx not applicable", __func__),
                                  REJECT_INVALID, "bad-sc-tx");
             }
  

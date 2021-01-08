@@ -221,11 +221,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     }
 }
 
-#if 0
-void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry, isminefilter filter)
-#else
 void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefilter filter)
-#endif
 {
     int confirms = wtx.GetDepthInMainChain();
     entry.push_back(Pair("confirmations", confirms));
@@ -249,13 +245,8 @@ void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefi
         entry.push_back(Pair(item.first, item.second));
 
     // add the cross chain outputs if any
-#if 0
-    Sidechain::AddSidechainOutsToJSON(wtx, entry);
-    entry.push_back(Pair("vjoinsplit", TxJoinSplitToJSON(wtx)));
-#else
     wtx.getTxBase()->AddSidechainOutsToJSON(entry);
     wtx.getTxBase()->AddJoinSplitToJSON(entry);
-#endif
 }
 
 static void FillScCreationReturnObj(const CTransaction& tx, UniValue& ret)
@@ -1489,7 +1480,7 @@ UniValue retrieve_from_sidechain(const UniValue& params, bool fHelp)
         }
         libzendoomc::ScProof scProof = libzendoomc::ScProof(scProofVec);
 
-#if 0 // TODO 
+#if 1 // TODO 
         if(!libzendoomc::IsValidScProof(scProof))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scProof"));
 #endif
