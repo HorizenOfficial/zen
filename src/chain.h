@@ -461,7 +461,17 @@ public:
     }
 
     /** Set/initialize a chain with a given tip. */
-    virtual void SetTip(CBlockIndex *pindex);
+    virtual void SetTip(CBlockIndex *pindex) {
+        if (pindex == NULL) {
+            vChain.clear();
+            return;
+        }
+        vChain.resize(pindex->nHeight + 1);
+        while (pindex && vChain[pindex->nHeight] != pindex) {
+            vChain[pindex->nHeight] = pindex;
+            pindex = pindex->pprev;
+        }
+    }
 
     /** Return a CBlockLocator that refers to a block in this chain (by default the tip). */
     CBlockLocator GetLocator(const CBlockIndex *pindex = NULL) const;

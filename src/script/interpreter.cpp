@@ -1011,7 +1011,7 @@ class CTransactionSignatureSerializer {
 private:
     const CTransactionBase &txBaseTo;  //! reference to the spending transaction (the one being serialized)
     const CScript &scriptCode; //! output script being consumed
-    const unsigned int nIn;    //! input index of txBaseTo being signed
+    const unsigned int nIn;    //! input index (both regular and CSW) of txBaseTo being signed
     const bool fAnyoneCanPay;  //! whether the hashtype has the SIGHASH_ANYONECANPAY flag set
     const bool fHashSingle;    //! whether the hashtype is SIGHASH_SINGLE
     const bool fHashNone;      //! whether the hashtype is SIGHASH_NONE
@@ -1045,7 +1045,7 @@ public:
             // Blank out other inputs' signatures
             ::Serialize(s, CScript(), nType, nVersion);
         else
-            SerializeScriptCode(s, nType, nVersion);
+            SerializeScriptCode(s, nType, nVersion); // Q: during signrawtransaction we always make `scriptCodeIn` empty, what is the sence of having the special case for nIn?
         // Serialize the nSequence
         if (nInput != nIn && (fHashSingle || fHashNone))
             // let the others update at will
@@ -1064,6 +1064,29 @@ public:
             ::Serialize(s, txBaseTo.GetVout()[nOutput], nType, nVersion);
     }
  
+    /** Serialize a CSW input of txTo */
+    template<typename S>
+    void SerializeCswInput(S &s, unsigned int nCswInput, const CTransaction& txTo, int nType, int nVersion) const {
+        // In case of SIGHASH_ANYONECANPAY, only the CSW input being signed is serialized
+        if (fAnyoneCanPay)
+            nCswInput = nIn - txTo.GetVin().size();
+        // Serialize all CSW input fields except redeemScript
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nValue, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scId, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nEpoch, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nullifier, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].pubKeyHash, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scProof, nType, nVersion);
+
+        // Serialize the script
+        assert(nCswInput != NOT_AN_INPUT);
+        if (nCswInput + txTo.GetVin().size() != nIn)
+            // Blank out other inputs' signatures
+            ::Serialize(s, CScript(), nType, nVersion);
+        else
+            SerializeScriptCode(s, nType, nVersion);
+    }
+
     /** Serialize txTo */
     template<typename S>
     void Serialize(S &s, int nType, int nVersion) const {
@@ -1075,10 +1098,16 @@ public:
             const CTransaction& txTo = dynamic_cast<const CTransaction&>(txBaseTo);
 
             // Serialize vin
-            unsigned int nInputs = fAnyoneCanPay ? 1 : txTo.GetVin().size();
+            // In case of SIGHASH_ANYONECANPAY:
+            // * if Tx has Sc support version and nIn belongs to the CSW inputs - skip inputs serialization
+            // * otherwise only the input being signed is serialized
+            // Otherwise - serialize all inputs
+            unsigned int nInputs = fAnyoneCanPay ?
+                        (txTo.IsScVersion() && nIn >= txTo.GetVin().size() ? 0 : 1) :
+                        txTo.GetVin().size();
             ::WriteCompactSize(s, nInputs);
             for (unsigned int nInput = 0; nInput < nInputs; nInput++)
-             SerializeInput(s, nInput, nType, nVersion);
+                SerializeInput(s, nInput, nType, nVersion);
             // Serialize vout
             unsigned int nOutputs = fHashNone ? 0 : (fHashSingle ? nIn+1 : txTo.GetVout().size());
             ::WriteCompactSize(s, nOutputs);
@@ -1087,9 +1116,23 @@ public:
  
             if (txTo.IsScVersion() )
             {
+                // Serialize CSW inputs
+                // In case of SIGHASH_ANYONECANPAY:
+                // * if Tx has Sc support version and nIn belongs to the CSW inputs - only the CSW input being signed is serialized
+                // * otherwise skip CSW inputs
+                // Otherwise - serialize all CSW inputs
+                unsigned int nCswInputs = fAnyoneCanPay ?
+                            (nIn < txTo.GetVin().size() ? 0 : 1) :
+                            txTo.GetVcswCcIn().size();
+                ::WriteCompactSize(s, nCswInputs);
+                for (unsigned int nCswInput = 0; nCswInput < nCswInputs; nCswInput++)
+                    SerializeCswInput(s, nCswInput, txTo, nType, nVersion);
+
                 // Serialize vccouts
                 unsigned int nCcOutputs = 0;
  
+                // Q: In case of fHashSingle we also serialize all CC outputs. Is it correct?
+                // Seems or we need to ingore all CC outputs, or consider them in a unique joined index of(vouts + cc_outs)
                 nCcOutputs = fHashNone ? 0 : (txTo.GetVscCcOut().size());
                 ::WriteCompactSize(s, nCcOutputs);
                 for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
@@ -1171,7 +1214,8 @@ public:
 
 uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType)
 {
-    if (nIn >= txTo.GetVin().size() && nIn != NOT_AN_INPUT) {
+    unsigned int nTotalInputs = txTo.IsScVersion() ? txTo.GetVin().size() + txTo.GetVcswCcIn().size() : txTo.GetVin().size();
+    if (nIn >= nTotalInputs && nIn != NOT_AN_INPUT) {
         //  nIn out of range
         throw logic_error("input index is out of range");
     }
@@ -1287,8 +1331,12 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     // prevent this condition. Alternatively we could test all
     // inputs, but testing just this input minimizes the data
     // required to prove correct CHECKLOCKTIMEVERIFY execution.
-    if (txTo->GetVin()[nIn].IsFinal())
-        return false;
+    // Check only regular inputs, skip CSW inputs
+    if(nIn < txTo->GetVin().size()) {
+        if (txTo->GetVin()[nIn].IsFinal())
+            return false;
+    }
+
 
     return true;
 }

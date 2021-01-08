@@ -224,7 +224,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         ud1 = self.nodes[1].getunconfirmedtxdata(bwt_address, True)
         ud2 = self.nodes[1].getunconfirmedtxdata(bwt_address, False)
         assert_equal(ud1, ud2) 
-        assert_equal(ud1['bwtImmatureOutput'], bwt_amount1) 
+        assert_equal(ud1['bwtImmatureOutput'], Decimal("0.0")) # Certs in mempool have bwts voided
         assert_equal(ud1['unconfirmedInput'], Decimal("0.0")) 
         assert_equal(ud1['unconfirmedOutput'], Decimal("0.0")) 
         assert_equal(ud1['unconfirmedTxApperances'], 0) 
@@ -235,7 +235,10 @@ class sbh_rpc_cmds(BitcoinTestFramework):
 
         mark_logs("\nChecking Node1 unconfirmed data for addr {}".format(bwt_address), self.nodes, DEBUG_MODE)
         ud3 = self.nodes[1].getunconfirmedtxdata(bwt_address, True)
-        assert_equal(ud1, ud3) 
+        assert_equal(ud3['bwtImmatureOutput'], bwt_amount1) # Once confirmed, certs in mempool have bwts available
+        assert_equal(ud3['unconfirmedInput'], Decimal("0.0")) 
+        assert_equal(ud3['unconfirmedOutput'], Decimal("0.0")) 
+        assert_equal(ud3['unconfirmedTxApperances'], 0)
 
         mark_logs("\nNode0 generates 1 more block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)

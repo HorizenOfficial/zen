@@ -296,7 +296,8 @@ CTxScCreationOut::CTxScCreationOut(
     const CAmount& nValueIn, const uint256& addressIn,
     const Sidechain::ScCreationParameters& paramsIn)
     :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
-     withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant), wCertVk(paramsIn.wCertVk) {}
+     withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant),
+     wCertVk(paramsIn.wCertVk), wCeasedVk(paramsIn.wCeasedVk) {}
 
 uint256 CTxScCreationOut::GetHash() const
 {
@@ -305,8 +306,9 @@ uint256 CTxScCreationOut::GetHash() const
 
 std::string CTxScCreationOut::ToString() const
 {
-    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s], constant=[%s], wCertVk=[%s]",
-        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData), HexStr(constant), HexStr(wCertVk) );
+    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s], constant=[%s], wCertVk=[%s], wCeasedVk=[%s]",
+        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData), HexStr(constant),
+                     HexStr(wCertVk), wCeasedVk ? HexStr(wCeasedVk.get()) : "");
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
@@ -328,6 +330,7 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     customData = ccout.customData;
     constant = ccout.constant;
     wCertVk = ccout.wCertVk;
+    wCeasedVk = ccout.wCeasedVk;
     return *this;
 }
 
@@ -774,6 +777,19 @@ CAmount CTransaction::GetValueOut() const
     return nValueOut;
 }
 
+CAmount CTransaction::GetCSWValueIn() const
+{
+    CAmount nValueIn = 0;
+    for(const CTxCeasedSidechainWithdrawalInput& csw : GetVcswCcIn())
+    {
+        nValueIn += csw.nValue;
+
+        if (!MoneyRange(csw.nValue) || !MoneyRange(nValueIn))
+            throw std::runtime_error("CTransaction::GetCSWValueIn(): value out of range");
+    }
+    return nValueIn;
+}
+
 std::string CTransaction::ToString() const
 {
     std::string str;
@@ -863,7 +879,10 @@ void CTransaction::AddCeasedSidechainWithdrawalInputsToJSON(UniValue& entry) con
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-          std::vector<CScriptCheck> *pvChecks) const { return true;}
+          std::vector<CScriptCheck> *pvChecks) const { return true; }
+bool CTransaction::VerifyScript(
+        const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+        bool cacheStore, ScriptError* serror) const { return true; }
 std::string CTransaction::EncodeHex() const { return ""; }
 std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
 {
@@ -1038,19 +1057,21 @@ void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const
     Sidechain::AddSidechainOutsToJSON(*this, entry);
 }
 
-bool CTransactionBase::VerifyScript(
+bool CTransaction::VerifyScript(
         const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
         bool cacheStore, ScriptError* serror) const
 {
-    if (nIn >= GetVin().size() )
-        return ::error("%s:%d can not verify Signature: nIn too large for vin size %d",
-                                       GetHash().ToString(), nIn, GetVin().size());
+    // For CTransaction we should consider both regular inputs and CSW inputs
+    unsigned int nTotalInputs = IsScVersion() ? GetVin().size() + GetVcswCcIn().size() : GetVin().size();
+    if (nIn >= nTotalInputs )
+        return ::error("%s:%d can not verify Signature: nIn too large for the total vin and vcsw_ccin size %d",
+                                       GetHash().ToString(), nIn, nTotalInputs);
 
-    const CScript &scriptSig = GetVin()[nIn].scriptSig;
+    bool isRegularInput = nIn < GetVin().size();
+    const CScript& scriptSig = isRegularInput ? GetVin()[nIn].scriptSig : GetVcswCcIn()[nIn - GetVin().size()].redeemScript;
 
     if (!::VerifyScript(scriptSig, scriptPubKey, nFlags,
-                      //CachingTransactionSignatureChecker(this, nIn, chain, cacheStore),
-                      *MakeSignatureChecker(nIn, chain, cacheStore),
+                      CachingTransactionSignatureChecker(this, nIn, chain, cacheStore),
                       serror))
     {
         return ::error("%s:%d VerifySignature failed: %s", GetHash().ToString(), nIn, ScriptErrorString(*serror));
@@ -1068,7 +1089,7 @@ bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsVi
           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
           std::vector<CScriptCheck> *pvChecks) const
 {
-    return ::ContextualCheckInputs(*this, state, view, fScriptChecks, chain, flags, cacheStore, consensusParams, pvChecks);
+    return ::ContextualCheckTxInputs(*this, state, view, fScriptChecks, chain, flags, cacheStore, consensusParams, pvChecks);
 }
 
 std::string CTransaction::EncodeHex() const

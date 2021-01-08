@@ -124,16 +124,16 @@ bool VerifyCertificatesDependencies(const CScCertificate& cert)
         return false;
     }
 
-    std::vector<uint256> certAncestorHashes = mempool.mempoolFullAncestorsOf(cert);
-    for(const uint256& ancestor: certAncestorHashes)
+    std::vector<uint256> txesHashesSpentByCert = mempool.mempoolDependenciesFrom(cert);
+    for(const uint256& dep: txesHashesSpentByCert)
     {
-        if (mempool.mapCertificate.count(ancestor)==0)
+        if (mempool.mapCertificate.count(dep)==0)
             continue; //tx won't conflict with cert on quality
 
-        const CScCertificate& ancestorCert = mempool.mapCertificate.at(ancestor).GetCertificate();
-        if (ancestorCert.GetScId() != cert.GetScId())
+        const CScCertificate& depCert = mempool.mapCertificate.at(dep).GetCertificate();
+        if (depCert.GetScId() != cert.GetScId())
             continue;
-        if (ancestorCert.quality >= cert.quality)
+        if (depCert.quality >= cert.quality)
         {
             if (fDebug) assert("cert spends outputs of an higher quality cert of same scId" == 0);
             return false;
@@ -657,13 +657,14 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.
             CValidationState state;
+            // Q: why contextualCheckInputs for Certificates just "return true;"? Why we don't check Cert inputs signatures?
             if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
                 continue;
 
             CTxUndo dummyUndo;
             try {
                 if (tx.IsCertificate())
-                    UpdateCoins(dynamic_cast<const CScCertificate&>(tx), view, dummyUndo, nHeight, /*fVoidBwts*/false);
+                    UpdateCoins(dynamic_cast<const CScCertificate&>(tx), view, dummyUndo, nHeight, /*isBlockTopQualityCert*/true);
                 else
                     UpdateCoins(dynamic_cast<const CTransaction&>(tx), view, dummyUndo, nHeight);
             } catch (...) {

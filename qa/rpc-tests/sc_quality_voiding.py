@@ -33,7 +33,7 @@ class quality_voiding(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1', '-rescan']] * NUMB_OF_NODES)
 
         connect_nodes_bi(self.nodes, 0, 1)
         sync_blocks(self.nodes[1:NUMB_OF_NODES])
@@ -141,7 +141,7 @@ class quality_voiding(BitcoinTestFramework):
         mark_logs("Node balance: {}".format(self.nodes[0].getbalance()), self.nodes, DEBUG_MODE)
         mark_logs("Node balance: {}".format(self.nodes[1].getbalance()), self.nodes, DEBUG_MODE)
 
-        # Create Cert1 with quality 100 and place it in mempool
+        # Create Cert1 with quality 80 and place it in mempool
         quality = 80
         mark_logs("Create Cert1 with quality {}, bwt transfer {} and place it in mempool".format(quality, bwt_amount), self.nodes, DEBUG_MODE)
         proof = mcTest.create_test_proof(
@@ -150,7 +150,7 @@ class quality_voiding(BitcoinTestFramework):
         try:
             cert_1_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
-            mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
+            mark_logs("Certificate of quality {} is {}".format(quality, cert_1_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
@@ -176,7 +176,7 @@ class quality_voiding(BitcoinTestFramework):
             cert_2_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_2, CERT_FEE)
             assert_equal(True, cert_1_epoch_0 in self.nodes[0].getrawmempool())
             assert(len(cert_2_epoch_0) > 0)
-            mark_logs("Certificate is {}".format(cert_2_epoch_0), self.nodes, DEBUG_MODE)
+            mark_logs("Certificate of quality {} is {}".format(quality, cert_2_epoch_0), self.nodes, DEBUG_MODE)
             assert_equal(True, cert_2_epoch_0 in self.nodes[1].getrawmempool())
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -219,7 +219,7 @@ class quality_voiding(BitcoinTestFramework):
             cert_3_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof,
                                                             amount_cert_3, CERT_FEE)
             assert (len(cert_3_epoch_0) > 0)
-            mark_logs("Certificate is {}".format(cert_3_epoch_0), self.nodes, DEBUG_MODE)
+            mark_logs("Certificate of quality {} is {}".format(quality, cert_3_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)

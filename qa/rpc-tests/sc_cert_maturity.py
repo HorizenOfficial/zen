@@ -6,7 +6,7 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, stop_nodes, \
+    start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
     assert_false, assert_true
 from test_framework.mc_test.mc_test import *
@@ -71,6 +71,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(220)
         self.sync_all()
+        prev_epoch_hash = self.nodes[0].getbestblockhash()
 
         #generate wCertVk and constant
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
@@ -97,13 +98,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         self.nodes[0].generate(4)
         self.sync_all()
 
-        current_height = self.nodes[0].getblockcount()
-        epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH - 1
-        mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
-                  .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
-        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
-
-        prev_epoch_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number) * EPOCH_LENGTH))
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         bal_without_bwt = self.nodes[1].getbalance() 
 
@@ -143,20 +138,25 @@ class sc_cert_maturity(BitcoinTestFramework):
 
         mark_logs("Check the there are immature outputs in the unconfirmed tx data when cert is unconfirmed", self.nodes, DEBUG_MODE)
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
-        assert_equal(ud['bwtImmatureOutput'], bwt_amount1+bwt_amount2)
+        assert_equal(ud['bwtImmatureOutput'], Decimal("0.0")) #not bwt_amount1+bwt_amount2 because bwts in mempool are considered voided
         # unconf bwt do not contribute to unconfOutput
         assert_equal(ud['unconfirmedOutput'], Decimal("0.0"))
 
-        mark_logs("Node0 generates 5 more blocks to achieve end of withdrawal epochs", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(5)
+        mark_logs("Node0 mines cert and cert immature outputs appear the unconfirmed tx data", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+        ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
+        assert_equal(ud['bwtImmatureOutput'], bwt_amount1+bwt_amount2)
+        assert_equal(ud['unconfirmedOutput'], Decimal("0.0"))
+
+        mark_logs("Node0 generates 4 more blocks to achieve end of withdrawal epochs", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(4)
         self.sync_all()
 
-        current_height = self.nodes[0].getblockcount()
-        epoch_number = (current_height - sc_creating_height + 1) // EPOCH_LENGTH - 1
-        mark_logs("Current height {}, Sc creation height {}, epoch length {} --> current epoch number {}"
-                  .format(current_height, sc_creating_height, EPOCH_LENGTH, epoch_number), self.nodes, DEBUG_MODE)
-        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
-        prev_epoch_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number) * EPOCH_LENGTH))
+        prev_epoch_hash = epoch_block_hash
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+
 
         # node0 create a cert_2 for funding node1 
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount3}]
@@ -195,9 +195,9 @@ class sc_cert_maturity(BitcoinTestFramework):
             if entry['txid'] == cert_2:
                 assert_equal(entry['vout'][1]['maturityHeight'], bwtMaturityHeight+EPOCH_LENGTH)
 
-        mark_logs("Check the there are immature outputs in the unconfirmed tx data", self.nodes, DEBUG_MODE)
+        mark_logs("Check that unconfirmed certs bwts are not in the unconfirmed tx data", self.nodes, DEBUG_MODE)
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
-        assert_equal(ud['bwtImmatureOutput'], bwt_amount1+bwt_amount2+bwt_amount3)
+        assert_equal(ud['bwtImmatureOutput'], bwt_amount1+bwt_amount2)
 
         mark_logs("Check Node1 has not bwt in its balance yet", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[1].getbalance(), bal_without_bwt) 
@@ -245,10 +245,38 @@ class sc_cert_maturity(BitcoinTestFramework):
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
         assert_equal(ud['bwtImmatureOutput'], bwt_amount3 )
 
-        mark_logs("Node0 generates 5 more block attaining the maturity of the last bwt", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(5)
+        mark_logs("Node0 generates 4 more blocks approaching the ceasing limit height", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(4)
+        self.sync_all()
+        print "Height=", self.nodes[0].getblockcount()
+        print "Ceasing at h =", self.nodes[0].getscinfo("*")['items'][0]['ceasing height']
+        print "State =", self.nodes[0].getscinfo("*")['items'][0]['state']
+        assert_equal(self.nodes[0].getscinfo("*")['items'][0]['state'], "ALIVE")
+
+        prev_epoch_hash = epoch_block_hash
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+
+        mark_logs("Node 0 sends an empty cert for scid {} just for keeping the sc alive".format(scid), self.nodes, DEBUG_MODE)
+        try:
+            #Create proof for WCert
+            quality = 22
+            proof = mcTest.create_test_proof(
+                "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
+                quality, constant, [], [])
+
+            cert_3 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, [], CERT_FEE)
+            mark_logs("==> certificate is {}".format(cert_3), self.nodes, DEBUG_MODE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+
         self.sync_all()
 
+        mark_logs("Node0 generates 1 more block attaining the maturity of the last bwt", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+        
         assert_equal(self.nodes[1].z_getbalance(bwt_address), bwt_amount1+bwt_amount2+bwt_amount3)
         assert_equal(self.nodes[1].getbalance(), bwt_amount1+bwt_amount2+bwt_amount3)
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)

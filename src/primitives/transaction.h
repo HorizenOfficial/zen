@@ -571,6 +571,7 @@ public:
     std::vector<unsigned char> customData;
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
+    boost::optional<libzendoomc::ScVk> wCeasedVk;
 
     CTxScCreationOut():withdrawalEpochLength(-1) { }
 
@@ -587,6 +588,7 @@ public:
         READWRITE(customData);
         READWRITE(constant);
         READWRITE(wCertVk);
+        READWRITE(wCeasedVk);
     }
 
     virtual const uint256& GetScId() const override { return generatedScId;}; 
@@ -601,7 +603,8 @@ public:
                  a.withdrawalEpochLength == b.withdrawalEpochLength &&
                  a.customData == b.customData &&
                  a.constant == b.constant &&
-                 a.wCertVk == b.wCertVk );
+                 a.wCertVk == b.wCertVk &&
+                 a.wCeasedVk == b.wCeasedVk);
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)
@@ -708,6 +711,8 @@ public:
     // Return sum of JoinSplit vpub_new if supported
     virtual CAmount GetJoinSplitValueIn() const;
 
+    virtual CAmount GetCSWValueIn() const { return 0; }
+
     //-----------------
     // pure virtual interfaces 
     virtual void Relay() const = 0;
@@ -726,9 +731,9 @@ public:
     virtual void AddToBlock(CBlock* pblock) const = 0;
     virtual void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const = 0;
 
-    bool VerifyScript(
+    virtual bool VerifyScript(
         const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
-        bool cacheStore, ScriptError* serror) const;
+        bool cacheStore, ScriptError* serror) const = 0;
 
     virtual std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const = 0;
@@ -747,7 +752,7 @@ public:
 
     virtual bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
         const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-        std::vector<CScriptCheck> *pvChecks = NULL) const { return true; }
+        std::vector<CScriptCheck> *pvChecks = NULL) const = 0;
 
     virtual const uint256& GetJoinSplitPubKey() const = 0;
 
@@ -915,6 +920,9 @@ public:
     // Return sum of txouts.
     CAmount GetValueOut() const override;
 
+    // Return sum of CSW inputs
+    CAmount GetCSWValueIn() const override;
+
     // value in should be computed via the method above using a proper coin view
     CAmount GetFeeAmount(const CAmount& valueIn) const override { return (valueIn - GetValueOut() ); }
 
@@ -1013,6 +1021,9 @@ public:
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL) const override;
 
+    bool VerifyScript(
+            const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
+            bool cacheStore, ScriptError* serror) const override;
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;
 };

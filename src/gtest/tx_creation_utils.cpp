@@ -5,6 +5,7 @@
 #include <miner.h>
 #include <undo.h>
 
+// TODO: fwdTxAmount never used. Check test cases.
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, const CAmount & fwdTxAmount, int epochLength)
 {
     CMutableTransaction mtx;
@@ -101,6 +102,7 @@ CTransaction txCreationUtils::createTransparentTx(bool ccIsNull)
 
     if (ccIsNull)
     {
+        mtx.vcsw_ccin.resize(0);
         mtx.vsc_ccout.resize(0);
         mtx.vft_ccout.resize(0);
     }
@@ -116,6 +118,7 @@ CTransaction txCreationUtils::createSproutTx(bool ccIsNull)
     if (ccIsNull)
     {
         mtx = populateTx(PHGR_TX_VERSION);
+        mtx.vcsw_ccin.resize(0);
         mtx.vsc_ccout.resize(0);
         mtx.vft_ccout.resize(0);
     } else

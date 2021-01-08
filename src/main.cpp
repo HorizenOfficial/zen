@@ -940,8 +940,8 @@ std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToConnect, cons
         if(!view.GetSidechain(itCert->GetScId(), sidechain))
             continue;
 
-        if (itCert->epochNumber == sidechain.topCommittedCertReferencedEpoch)
-            res[itCert->GetHash()] = sidechain.topCommittedCertHash;
+        if (itCert->epochNumber == sidechain.prevBlockTopQualityCertReferencedEpoch)
+            res[itCert->GetHash()] = sidechain.prevBlockTopQualityCertHash;
         else
             res[itCert->GetHash()] = uint256();
 
@@ -1178,19 +1178,19 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         }
 
         // No lower quality certs should spend (directly or indirectly) outputs of higher or equal quality certs
-        std::vector<uint256> certAncestors = pool.mempoolFullAncestorsOf(cert);
-        for(const uint256& ancestor: certAncestors)
+        std::vector<uint256> txesHashesSpentByCert = pool.mempoolDependenciesFrom(cert);
+        for(const uint256& dep: txesHashesSpentByCert)
         {
-            if (pool.mapCertificate.count(ancestor)==0)
+            if (pool.mapCertificate.count(dep)==0)
                 continue; //tx won't conflict with cert on quality
 
-            const CScCertificate& ancestorCert = pool.mapCertificate.at(ancestor).GetCertificate();
-            if (ancestorCert.GetScId() != cert.GetScId())
+            const CScCertificate& certDep = pool.mapCertificate.at(dep).GetCertificate();
+            if (certDep.GetScId() != cert.GetScId())
                 continue; //no certs conflicts with certs of other sidechains
-            if (ancestorCert.quality >= cert.quality)
+            if (certDep.quality >= cert.quality)
             {
                 LogPrint("mempool", "%s():%d - cert %s depends on worse-quality ancestorCert %s\n", __func__, __LINE__,
-                    cert.GetHash().ToString(), ancestorCert.GetHash().ToString());
+                    cert.GetHash().ToString(), certDep.GetHash().ToString());
                 return false;
             }
         }
@@ -1328,7 +1328,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
-        if (!ContextualCheckInputs(cert, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        if (!ContextualCheckCertInputs(cert, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
             return error("%s(): ConnectInputs failed %s", __func__, certHash.ToString());
         }
@@ -1342,7 +1342,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
-        if (!ContextualCheckInputs(cert, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        if (!ContextualCheckCertInputs(cert, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
             return error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__, certHash.ToString());
         }
@@ -1496,7 +1496,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             // are the sidechains dependencies available?
             if (!view.HaveScRequirements(tx, nextBlockHeight))
             {
-                return state.Invalid(error("%s(): sidechain is redeclared or coins are forwarded to unknown sidechain", __func__),
+                return state.Invalid(error("%s(): sidechain is redeclared or coins are forwarded to unknown/ceased sidechain", __func__),
                                     REJECT_INVALID, "bad-sc-tx");
             }
  
@@ -1592,7 +1592,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
-        if (!ContextualCheckInputs(tx, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        if (!ContextualCheckTxInputs(tx, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
             return error("%s(): ConnectInputs failed %s", __func__, hash.ToString());
         }
@@ -1606,7 +1606,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
-        if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        if (!ContextualCheckTxInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
             return error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__,  hash.ToString());
         }
@@ -2090,7 +2090,7 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo &txund
     inputs.ModifyCoins(tx.GetHash())->From(tx, nHeight);
 }
 
-void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight, bool fVoidBwts)
+void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight, bool isBlockTopQualityCert)
 {
     // mark inputs spent
     txundo.vprevout.reserve(cert.GetVin().size());
@@ -2119,25 +2119,8 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     assert(inputs.GetSidechain(cert.GetScId(), sidechain));
     int currentEpoch = sidechain.EpochFor(nHeight);
     int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
-
-    if (!fVoidBwts)
-    {
-        inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight);
-        return;
-    } else
-    {
-        if (cert.nFirstBwtPos == 0) //no change
-            return; // no coin once all bwts are dropped
-        else
-        {
-            CCoinsModifier certCoinModified = inputs.ModifyCoins(cert.GetHash());
-            certCoinModified->From(cert, nHeight, bwtMaturityHeight);
-            for(unsigned int bwtPos = certCoinModified->nFirstBwtPos; bwtPos < certCoinModified->vout.size(); ++bwtPos)
-                certCoinModified->Spend(bwtPos);
-
-            return;
-        }
-    }
+    inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight, isBlockTopQualityCert);
+    return;
 }
 
 CScriptCheck::CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr),
@@ -2196,19 +2179,19 @@ bool IsCommunityFund(const CCoins *coins, int nIn)
 }
 
 namespace Consensus {
-bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
 {
     // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
     // for an attacker to attempt to split the network.
-    if (!inputs.HaveInputs(txBase))
-        return state.Invalid(error("CheckInputs(): %s inputs unavailable", txBase.GetHash().ToString()));
+    if (!inputs.HaveInputs(tx))
+        return state.Invalid(error("CheckInputs(): %s inputs unavailable", tx.GetHash().ToString()));
 
     // are the JoinSplit's requirements met?
-    if (!inputs.HaveJoinSplitRequirements(txBase))
-        return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", txBase.GetHash().ToString()));
+    if (!inputs.HaveJoinSplitRequirements(tx))
+        return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", tx.GetHash().ToString()));
 
     CAmount nValueIn = 0;
-    for(const CTxIn& in: txBase.GetVin()) {
+    for(const CTxIn& in: tx.GetVin()) {
         const COutPoint &prevout = in.prevout;
         const CCoins *coins = inputs.AccessCoins(prevout.hash);
         assert(coins);
@@ -2218,8 +2201,8 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         {
             if (!coins->isOutputMature(in.prevout.n, nSpendHeight) )
             {
-                LogPrintf("%s():%d - Error: txBase [%s] attempts to spend immature output [%d] of tx [%s]\n",
-                        __func__, __LINE__, txBase.GetHash().ToString(), in.prevout.n, in.prevout.hash.ToString());
+                LogPrintf("%s():%d - Error: tx [%s] attempts to spend immature output [%d] of tx [%s]\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), in.prevout.n, in.prevout.hash.ToString());
                 LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
                         __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nSpendHeight);
                 if (coins->IsCoinBase())
@@ -2239,7 +2222,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
             // Disabled on regtest
             if (fCoinbaseEnforcedProtectionEnabled &&
                 consensusParams.fCoinbaseMustBeProtected &&
-                !txBase.GetVout().empty()) {
+                !tx.GetVout().empty()) {
 
             // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
             // to send them to the transparent addr.
@@ -2259,19 +2242,102 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                 REJECT_INVALID, "bad-txns-inputvalues-outofrange");
     }
 
-    nValueIn += txBase.GetJoinSplitValueIn();
+    for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
+        nValueIn += csw.nValue;
+        if (!MoneyRange(csw.nValue) || !MoneyRange(nValueIn))
+            return state.DoS(100, error("CheckInputs(): tx csw input values out of range"),
+                REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+    }
+
+    nValueIn += tx.GetJoinSplitValueIn();
     if (!MoneyRange(nValueIn))
         return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
                          REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-    if (!txBase.CheckFeeAmount(nValueIn, state))
+    if (!tx.CheckFeeAmount(nValueIn, state))
+        return false;
+
+    return true;
+}
+
+bool CheckCertInputs(const CScCertificate& cert, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
+{
+    // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
+    // for an attacker to attempt to split the network.
+    if (!inputs.HaveInputs(cert))
+        return state.Invalid(error("CheckInputs(): %s inputs unavailable", cert.GetHash().ToString()));
+
+    // are the JoinSplit's requirements met?
+    if (!inputs.HaveJoinSplitRequirements(cert))
+        return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", cert.GetHash().ToString()));
+
+    CAmount nValueIn = 0;
+    for(const CTxIn& in: cert.GetVin()) {
+        const COutPoint &prevout = in.prevout;
+        const CCoins *coins = inputs.AccessCoins(prevout.hash);
+        assert(coins);
+
+        // Ensure that coinbases and certificates outputs are matured
+        if (coins->IsCoinBase() || coins->IsFromCert() )
+        {
+            if (!coins->isOutputMature(in.prevout.n, nSpendHeight) )
+            {
+                LogPrintf("%s():%d - Error: cert [%s] attempts to spend immature output [%d] of tx [%s]\n",
+                        __func__, __LINE__, cert.GetHash().ToString(), in.prevout.n, in.prevout.hash.ToString());
+                LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
+                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nSpendHeight);
+                if (coins->IsCoinBase())
+                    return state.Invalid(
+                        error("CheckInputs(): tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight),
+                        REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
+                if (coins->IsFromCert())
+                    return state.Invalid(
+                        error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
+                        REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
+            }
+        }
+
+        if (coins->IsCoinBase())
+        {
+            // Ensure that coinbases cannot be spent to transparent outputs
+            // Disabled on regtest
+            if (fCoinbaseEnforcedProtectionEnabled &&
+                consensusParams.fCoinbaseMustBeProtected &&
+                !cert.GetVout().empty()) {
+
+            // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
+            // to send them to the transparent addr.
+            bool fDisableProtectionForFR = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(nSpendHeight);
+            if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
+                return state.Invalid(
+                    error("CheckInputs(): tried to spend coinbase with transparent outputs"),
+                    REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+                }
+            }
+        }
+
+        // Check for negative or overflow input values
+        nValueIn += coins->vout[prevout.n].nValue;
+        if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
+            return state.DoS(100, error("CheckInputs(): txin values out of range"),
+                REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+    }
+
+    nValueIn += cert.GetJoinSplitValueIn();
+    if (!MoneyRange(nValueIn))
+        return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
+                         REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+
+    if (!cert.CheckFeeAmount(nValueIn, state))
         return false;
 
     return true;
 }
 }// namespace Consensus
 
-bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
+
+// TODO: check CSW inputs scripts
+bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsCoinBase())
     {
@@ -2325,6 +2391,64 @@ bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, 
                     // super-majority vote has passed.
                     return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
                 }
+            }
+        }
+    }
+
+    return true;
+}
+
+bool ContextualCheckCertInputs(const CScCertificate& cert, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
+{
+    if (!Consensus::CheckCertInputs(cert, state, inputs, GetSpendHeight(inputs), consensusParams)) {
+        return false;
+    }
+
+    if (pvChecks)
+        pvChecks->reserve(cert.GetVin().size());
+
+    // The first loop above does all the inexpensive checks.
+    // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
+    // Helps prevent CPU exhaustion attacks.
+
+    // Skip ECDSA signature verification when connecting blocks
+    // before the last block chain checkpoint. This is safe because block merkle hashes are
+    // still computed and checked, and any change will be caught at the next checkpoint.
+    if (fScriptChecks) {
+        for (unsigned int i = 0; i < cert.GetVin().size(); i++) {
+            const COutPoint &prevout = cert.GetVin()[i].prevout;
+            const CCoins* coins = inputs.AccessCoins(prevout.hash);
+            assert(coins);
+
+            // Verify signature
+            CScriptCheck check(*coins, cert, i, &chain, flags, cacheStore);
+            if (pvChecks) {
+                pvChecks->push_back(CScriptCheck());
+                check.swap(pvChecks->back());
+            } else if (!check()) {
+                if (check.GetScriptError() == SCRIPT_ERR_NOT_FINAL) {
+                    return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
+                }
+                if (flags & STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS) {
+                    // Check whether the failure was caused by a
+                    // non-mandatory script verification check, such as
+                    // non-standard DER encodings or non-null dummy
+                    // arguments; if so, don't trigger DoS protection to
+                    // avoid splitting the network between upgraded and
+                    // non-upgraded nodes.
+                    CScriptCheck check(*coins, cert, i, &chain,
+                            flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
+                    if (check())
+                        return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
+                }
+                // Failures of other flags indicate a transaction that is
+                // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
+                // such nodes as they are not following the protocol. That
+                // said during an upgrade careful thought should be taken
+                // as to the correct behavior - we may want to continue
+                // peering with non-upgraded nodes even after a soft-fork
+                // super-majority vote has passed.
+                return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
             }
         }
     }
@@ -2412,7 +2536,7 @@ bool AbortNode(CValidationState& state, const std::string& strMessage, const std
 } // anon namespace
 
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    bool* pfClean, std::map<uint256, bool>* pVoidedCertsMap)
+    bool* pfClean, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
     assert(pindex->GetBlockHash() == view.GetBestBlock());
 
@@ -2431,7 +2555,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     if (blockUndo.vtxundo.size() != (block.vtx.size() - 1 + block.vcert.size()))
         return error("DisconnectBlock(): block and undo data inconsistent");
 
-    if (!view.RevertSidechainEvents(blockUndo, pindex->nHeight, pVoidedCertsMap))
+    if (!view.RevertSidechainEvents(blockUndo, pindex->nHeight, pCertsStateInfo))
     {
         LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed reverting scheduled event\n", __func__, __LINE__);
         return error("DisconnectBlock(): cannot revert sidechains scheduled events");
@@ -2440,11 +2564,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     // not including coinbase
     const int certOffset = block.vtx.size() - 1;
     std::map<uint256,uint256> highQualityCertData = HighQualityCertData(block, blockUndo);
+    // key: current block top quality cert for given sc --> value: prev block superseeded cert hash (possibly null)
 
     // undo certificates in reverse order
     for (int i = block.vcert.size() - 1; i >= 0; i--) {
         const CScCertificate& cert = block.vcert[i];
         uint256 hash = cert.GetHash();
+        bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
 
         LogPrint("cert", "%s():%d - reverting outs of cert[%s]\n", __func__, __LINE__, hash.ToString());
 
@@ -2458,13 +2584,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             assert(view.GetSidechain(cert.GetScId(), sidechain));
             int currentEpoch = sidechain.EpochFor(pindex->nHeight);
             int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
-            CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight);
-            if (highQualityCertData.count(cert.GetHash()) == 0) //drop bwts of low q certs
-            {
-                for(unsigned int bwtPos = outsBlock.nFirstBwtPos; bwtPos < outsBlock.vout.size(); ++bwtPos)
-                    outsBlock.Spend(bwtPos);
-            }
-            outsBlock.ClearUnspendable();
+            CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight, isBlockTopQualityCert);
 
             // The CCoins serialization does not serialize negative numbers.
             // No network rules currently depend on the version here, so an inconsistency is harmless
@@ -2488,10 +2608,12 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         const CTxUndo &certUndo = blockUndo.vtxundo[certOffset + i];
-        if (highQualityCertData.count(cert.GetHash()) != 0)
+        if (isBlockTopQualityCert)
         {
+            const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
+
             // cancels scEvents only if cert is first in its epoch, i.e. if it won't restore any other cert
-            if (highQualityCertData.at(cert.GetHash()).IsNull())
+            if (prevBlockTopQualityCertHash.IsNull())
             {
                 if (!view.CancelSidechainEvent(cert))
                 {
@@ -2503,20 +2625,27 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     return error("DisconnectBlock(): Failed to write CertData");
             } else
             {
-                // certificate must resurrect its bwts
-                assert(blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::LOW_QUALITY_CERT_DATA);
-                view.RestoreBackwardTransfers(highQualityCertData.at(cert.GetHash()), blockUndo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
-
-                CSidechain::SetVoidedCert(cert.GetHash(), true, pVoidedCertsMap);
-                CSidechain::SetVoidedCert(highQualityCertData.at(cert.GetHash()), false, pVoidedCertsMap);
-
+                // resurrect prevBlockTopQualityCertHash bwts
+                assert(blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA);
+                view.RestoreBackwardTransfers(prevBlockTopQualityCertHash, blockUndo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
                 // Update CertDataHash
                 libzendoomc::ScFieldElement dataHash = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevCertDataHash;
                 if (!pblocktree->addCertData(cert.GetScId(), cert.epochNumber, dataHash))
                     return error("DisconnectBlock(): Failed to write CertDataHash");
             }
 
-            if (!view.RevertCertOutputs(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
+            // Refresh previous certificate in wallet, whether it has been just restored or it is from previous epoch
+            // On the contrary, cert will have BWT_OFF status since it will end up off blockchain anyhow.
+            if (pCertsStateInfo!= nullptr)
+            {
+                pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(),
+                                           blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertHash,
+                                           blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertReferencedEpoch,
+                                           blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertQuality,
+                                           CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
+            }
+
+            if (!view.RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
             {
                 LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
                 return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
@@ -2725,7 +2854,7 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    const CChain& chain, bool fJustCheck, bool fCheckScTxesCommitment, std::map<uint256, bool>* pVoidedCertsMap)
+    const CChain& chain, bool fJustCheck, bool fCheckScTxesCommitment, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
@@ -2860,7 +2989,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             nFees += tx.GetFeeAmount(view.GetValueIn(tx));
 
             std::vector<CScriptCheck> vChecks;
-            if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
+            if (!ContextualCheckTxInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
                 return false;
 
             control.Add(vChecks);
@@ -2915,7 +3044,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
     }  //end of Processing transactions loop
 
+
     std::map<uint256,uint256> highQualityCertData = HighQualityCertData(block, view);
+    // key: current block top quality cert for given sc --> value: prev block superseeded cert hash (possibly null)
 
     for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
     {
@@ -2940,7 +3071,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         nFees += cert.GetFeeAmount(view.GetValueIn(cert));
 
         std::vector<CScriptCheck> vChecks;
-        if (!ContextualCheckInputs(cert, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
+        if (!ContextualCheckCertInputs(cert, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
             return false;
 
         control.Add(vChecks);
@@ -2953,9 +3084,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         blockundo.vtxundo.push_back(CTxUndo());
-        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight, /*fVoidBwts*/highQualityCertData.count(cert.GetHash()) == 0);
+        bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
+        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight, isBlockTopQualityCert);
 
-        if (highQualityCertData.count(cert.GetHash()) != 0)
+        if (isBlockTopQualityCert)
         {
             if (!view.UpdateScInfo(cert, blockundo) )
             {
@@ -2963,11 +3095,17 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-cert-not-updated");
             }
 
-            if (!highQualityCertData.at(cert.GetHash()).IsNull())
+            const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
+            if (!prevBlockTopQualityCertHash.IsNull())
             {
-                view.NullifyBackwardTransfers(highQualityCertData.at(cert.GetHash()), blockundo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
-                blockundo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask |= CSidechainUndoData::AvailableSections::LOW_QUALITY_CERT_DATA;
-                CSidechain::SetVoidedCert(highQualityCertData.at(cert.GetHash()), true, pVoidedCertsMap);
+                view.NullifyBackwardTransfers(prevBlockTopQualityCertHash, blockundo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
+                blockundo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask |= CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA;
+                if (pCertsStateInfo != nullptr)
+                    pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), prevBlockTopQualityCertHash,
+                                            cert.epochNumber,
+                                            blockundo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertQuality,
+                                            CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
+                // if prevBlockTopQualityCertHash has to be voided, it has same scId/epochNumber as cert
             }
 
             if (!view.ScheduleSidechainEvent(cert))
@@ -2981,9 +3119,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (!pblocktree->addCertData(cert.GetScId(), cert.epochNumber, dataHash))
                 return AbortNode(state, "Failed to write transaction index");
 
-            CSidechain::SetVoidedCert(cert.GetHash(), false, pVoidedCertsMap);
-        } else
-            CSidechain::SetVoidedCert(cert.GetHash(), true, pVoidedCertsMap);
+            if (pCertsStateInfo != nullptr)
+                pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), cert.GetHash(),
+                                        cert.epochNumber, cert.quality, CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
+        } else {
+            if (pCertsStateInfo != nullptr)
+                pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), cert.GetHash(),
+                                        cert.epochNumber, cert.quality, CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
+        }
 
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset
@@ -3003,7 +3146,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
 
-    if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pVoidedCertsMap))
+    if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pCertsStateInfo))
     {
         LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed handling scheduled event\n", __func__, __LINE__);
         return state.DoS(100, error("ConnectBlock(): could not handle scheduled event"),
@@ -3255,10 +3398,10 @@ bool static DisconnectTip(CValidationState &state) {
     // Apply the block atomically to the chain state.
     uint256 anchorBeforeDisconnect = pcoinsTip->GetBestAnchor();
     int64_t nStart = GetTimeMicros();
-    std::map<uint256, bool> voidedCertsMap;
+    std::vector<CScCertificateStatusUpdateInfo> certsStateInfo;
     {
         CCoinsViewCache view(pcoinsTip);
-        if (!DisconnectBlock(block, state, pindexDelete, view, NULL, &voidedCertsMap))
+        if (!DisconnectBlock(block, state, pindexDelete, view, NULL, &certsStateInfo))
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         assert(view.Flush());
     }
@@ -3327,10 +3470,9 @@ bool static DisconnectTip(CValidationState &state) {
         SyncWithWallets(cert, nullptr);
     }
 
-    for(const auto& x : voidedCertsMap)
-    {
-        LogPrint("cert", "%s():%d - sync voiding [%s] cert %s\n", __func__, __LINE__, x.second?"Y":"F", x.first.ToString() ); 
-        SyncVoidedCert(x.first, x.second);
+    for(const auto& item : certsStateInfo) {
+        LogPrint("cert", "%s():%d - updating cert state in wallet:\n[%s]\n", __func__, __LINE__, item.ToString());
+        SyncCertStatusUpdate(item);
     }
 
     // Update cached incremental witnesses
@@ -3366,12 +3508,12 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     int64_t nTime2 = GetTimeMicros(); nTimeReadFromDisk += nTime2 - nTime1;
     int64_t nTime3;
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
-    std::map<uint256, bool> voidedCertsMap;
+    std::vector<CScCertificateStatusUpdateInfo> certsStateInfo;
     {
         CCoinsViewCache view(pcoinsTip);
         static const bool JUST_CHECK_FALSE = false;
         static const bool CHECK_SC_TXES_COMMITMENT = true;
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE, CHECK_SC_TXES_COMMITMENT, &voidedCertsMap);
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE, CHECK_SC_TXES_COMMITMENT, &certsStateInfo);
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -3415,6 +3557,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         LogPrint("cert", "%s():%d - sync with wallet tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString());
         SyncWithWallets(tx, pblock);
     }
+
     for(const CScCertificate &cert: pblock->vcert) {
         CSidechain sidechain;
         assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
@@ -3425,10 +3568,9 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         SyncWithWallets(cert, pblock, bwtMaturityDepth);
     }
 
-    for(const auto& x: voidedCertsMap)
-    {
-        LogPrint("cert", "%s():%d - sync voiding [%s] cert %s\n", __func__, __LINE__, x.second?"Y":"F", x.first.ToString() ); 
-        SyncVoidedCert(x.first, x.second);
+    for(const auto& item : certsStateInfo) {
+        LogPrint("cert", "%s():%d - updating cert state in wallet:\n[%s]\n", __func__, __LINE__, item.ToString());
+        SyncCertStatusUpdate(item);
     }
 
     // Update cached incremental witnesses

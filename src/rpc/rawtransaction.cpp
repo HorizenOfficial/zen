@@ -340,7 +340,8 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "       \"address\" : \"hex\",              (string) The sidechain receiver address\n"
             "       \"wCertVk\" : \"hex\",              (string) The sidechain certificate snark proof verification key\n"
             "       \"customData\" : \"hex\",           (string) The sidechain declaration custom data\n"
-            "       \"constant\" : \"hex\"              (string) The sidechain certificate snark proof constant data\n"
+            "       \"constant\" : \"hex\",             (string) The sidechain certificate snark proof constant data\n"
+            "       \"wCeasedVk\" : \"hex\"               (string, optional) The ceased sidechain withdrawal input snark proof verification key\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
@@ -659,9 +660,9 @@ void AddOutputsToRawObject(CMutableTransactionBase& rawTxObj, const UniValue& se
 
 UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {   
-    if (fHelp || params.size() > 4)
+    if (fHelp || params.size() > 5)
         throw runtime_error(
-            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) )\n"
+            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{\"amount\": value, \"senderAddress\":\"address\", ...}, ...] ( [{\"epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) ) )\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
             "Note that the transaction's inputs are not signed, and\n"
@@ -705,7 +706,10 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "         \"customData\":hexstr       (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                       hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "         \"constant\":hexstr         (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"            "       }\n"
+            "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "         \"wCeasedVk\":hexstr        (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                       hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "       }\n"
             "       ,...\n"
             "     ]\n"
             "5. \"forward transfers\"   (string, optional) A json array of json objects\n"
@@ -730,7 +734,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of 
-        (UniValue::VARR)(UniValue::VOBJ)(UniValue::VARR) (UniValue::VARR));
+        (UniValue::VARR)(UniValue::VOBJ)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR));
 
     UniValue inputs = params[0].get_array();
     UniValue sendTo = params[1].get_obj();
@@ -865,7 +869,8 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "       \"address\" : \"hex\",              (string) The sidechain receiver address\n"
             "       \"wCertVk\" : \"hex\",              (string) The sidechain certificate snark proof verification key\n"
             "       \"customData\" : \"hex\",           (string) The sidechain declaration custom data\n"
-            "       \"constant\" : \"hex\"              (string) The sidechain certificate snark proof constant data\n"
+            "       \"constant\" : \"hex\",             (string) The sidechain certificate snark proof constant data\n"
+            "       \"wCeasedVk\" : \"hex\"             (string, optional) The ceased sidechain withdrawal input snark proof verification key\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
@@ -1188,6 +1193,13 @@ static void TxInErrorToJSON(const CTxIn& txin, UniValue& vErrorsRet, const std::
     vErrorsRet.push_back(entry);
 }
 
+/** Pushes a JSON object for script verification or signing errors to vErrorsRet. */
+// TODO:
+static void TxCswInErrorToJSON(const CTxCeasedSidechainWithdrawalInput& txcswin, UniValue& vErrorsRet, const std::string& strMessage)
+{
+
+}
+
 UniValue signrawcertificate(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
@@ -1342,7 +1354,7 @@ UniValue signrawcertificate(const UniValue& params, bool fHelp)
 
     return result;
 }
-// TODO:
+
 UniValue signrawtransaction(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 4)
@@ -1573,6 +1585,45 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             TxInErrorToJSON(txin, vErrors, ScriptErrorString(serror));
         }
     }
+
+    if(mergedTx.IsScVersion())
+    {
+        // Try to sign CeasedSidechainWithdrawal inputs:
+        unsigned int nAllInputsIndex = mergedTx.vin.size();
+        for (unsigned int i = 0; i < mergedTx.vcsw_ccin.size(); i++, nAllInputsIndex++)
+        {
+            CTxCeasedSidechainWithdrawalInput& txCswIn = mergedTx.vcsw_ccin[i];
+
+            const CScript& prevPubKey = txCswIn.scriptPubKey();
+
+            txCswIn.redeemScript.clear();
+            // Only sign SIGHASH_SINGLE if there's a corresponding output:
+            // Note: we should consider the regular inputs as well.
+            if (!fHashSingle || (nAllInputsIndex < mergedTx.getVout().size()))
+                SignSignature(keystore, prevPubKey, mergedTx, nAllInputsIndex, nHashType);
+
+            // ... and merge in other signatures:
+            /* Note:
+             * For CTxCeasedSidechainWithdrawalInput currently only P2PKH is allowed.
+             * SignSignature can return true and set `txCswIn.redeemScript` value in case there is a proper private key in the keystore.
+             * It can return false and leave `txCswIn.redeemScript` empty in case of any error occurs.
+             * CombineSignatures will try to get the most recent signature:
+             * 1) if SignSignature operation was successful -> leave `txCswIn.redeemScript value as is.
+             * 2) if SignSignature operation was unsuccessful -> set `txCswIn.redeemScript value equal to the origin `txv` csw input script.
+             * Later the signature will be checked, so in case no origin signature and no new one exist -> verification will fail.
+             */
+            for(const CMutableTransaction& txv : txVariants)
+                txCswIn.redeemScript = CombineSignatures(prevPubKey, mergedTx, nAllInputsIndex, txCswIn.redeemScript, txv.vcsw_ccin[i].redeemScript);
+
+            ScriptError serror = SCRIPT_ERR_OK;
+            if (!VerifyScript(txCswIn.redeemScript, prevPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
+                              MutableTransactionSignatureChecker(&mergedTx, nAllInputsIndex), &serror))
+            {
+                TxCswInErrorToJSON(txCswIn, vErrors, ScriptErrorString(serror));
+            }
+        }
+    }
+
     bool fComplete = vErrors.empty();
 
     UniValue result(UniValue::VOBJ);

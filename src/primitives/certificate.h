@@ -190,7 +190,13 @@ public:
     void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
 
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
+    bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+                           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
+                           std::vector<CScriptCheck> *pvChecks = NULL) const override;
 
+    bool VerifyScript(
+            const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+            bool cacheStore, ScriptError* serror) const override;
     std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
         unsigned int nIn, const CChain* chain, bool cacheStore) const override;
 };
@@ -276,6 +282,45 @@ struct CMutableScCertificate : public CMutableTransactionBase
     bool add(const CTxForwardTransferOut& out)            override final;
 
     std::string ToString() const;
+};
+
+struct CScCertificateStatusUpdateInfo
+{
+    uint256  scId;
+    uint256  certHash;
+    uint32_t certEpoch;
+    int64_t  certQuality;
+    enum  BwtState : uint8_t {
+        BWT_UNKNOW,
+        BWT_ON,
+        BWT_OFF
+    };
+    uint8_t bwtState;
+
+    CScCertificateStatusUpdateInfo(): scId(), certHash(), certEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
+                                      certQuality(CScCertificate::QUALITY_NOT_INITIALIZED), bwtState(BwtState::BWT_UNKNOW) {};
+    CScCertificateStatusUpdateInfo(const uint256& _scId, const uint256& _certHash, uint32_t _certEpoch, int64_t _certQuality, BwtState _bwtState):
+        scId(_scId), certHash(_certHash), certEpoch(_certEpoch), certQuality(_certQuality), bwtState(_bwtState) {};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        //Note: ScId is not serialized here, as it is used as key in wallet where this object is stored
+        READWRITE(this->certHash);
+        READWRITE(this->certEpoch);
+        READWRITE(this->certQuality);
+        READWRITE(this->bwtState);
+    };
+
+    std::string ToString() const
+    {
+        std::string str;
+        str += strprintf("CScCertificateStatusUpdateInfo(scId=%s, certHash=%s, certEpoch=%d, bwtState=%d)",
+                         this->scId.ToString(), this->certHash.ToString(), this->certEpoch, this->bwtState);
+        return str;
+    }
 };
 
 #endif // _CERTIFICATE_H

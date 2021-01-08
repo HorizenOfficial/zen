@@ -21,7 +21,7 @@ EPOCH_LENGTH = 5
 CERT_FEE = Decimal('0.00015')
 
 
-class sc_cert_base(BitcoinTestFramework):
+class sc_cert_quality_wallet(BitcoinTestFramework):
 
     alert_filename = None
 
@@ -36,7 +36,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1' '-rescan']] * NUMB_OF_NODES)
 
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
@@ -340,4 +340,4 @@ class sc_cert_base(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    sc_cert_base().main()
+    sc_cert_quality_wallet().main()

@@ -37,7 +37,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-logtimemicros=1', '-rescan']] * NUMB_OF_NODES)
 
         for k in range(0, NUMB_OF_NODES-1):
             connect_nodes_bi(self.nodes, k, k+1)
@@ -203,6 +203,15 @@ class sc_cert_ceasing(BitcoinTestFramework):
                 assert_equal(sc_info["state"], "CEASED")
                 assert_equal(sc_info["last certificate epoch"], last_cert_epochs[k])
                 assert_equal(sc_info["balance"], creation_amount[k] - bwt_amount[k])
+
+        mark_logs("Node 0 tries to fwd coins to ceased sc {}...".format(scids[-1]), self.nodes, DEBUG_MODE)
+        fwt_amount = Decimal("0.5")
+        try:
+            fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scids[-1])
+            assert(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
 
         mark_logs("Checking certificates persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)

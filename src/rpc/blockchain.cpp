@@ -1076,10 +1076,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         }
  
         sc.push_back(Pair("created at block height", info.creationBlockHeight));
-        sc.push_back(Pair("last certificate epoch", info.topCommittedCertReferencedEpoch));
-        sc.push_back(Pair("last certificate hash", info.topCommittedCertHash.GetHex()));
-        sc.push_back(Pair("last certificate quality", info.topCommittedCertQuality));
-        sc.push_back(Pair("last certificate amount", ValueFromAmount(info.topCommittedCertBwtAmount)));
+        sc.push_back(Pair("last certificate epoch", info.prevBlockTopQualityCertReferencedEpoch));
+        sc.push_back(Pair("last certificate hash", info.prevBlockTopQualityCertHash.GetHex()));
+        sc.push_back(Pair("last certificate quality", info.prevBlockTopQualityCertQuality));
+        sc.push_back(Pair("last certificate amount", ValueFromAmount(info.prevBlockTopQualityCertBwtAmount)));
  
         // creation parameters
         sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
@@ -1089,6 +1089,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
             sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
             sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
+            if(info.creationData.wCeasedVk.is_initialized())
+                sc.push_back(Pair("wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
  
             UniValue ia(UniValue::VARR);
             for(const auto& entry: info.mImmatureAmounts)
@@ -1152,10 +1154,13 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.customData = scCreation.customData;
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
+                    info.creationData.wCeasedVk = scCreation.wCeasedVk;
+                    info.currentState = (uint8_t)CSidechain::State::UNCONFIRMED;
                     break;
                 }
             }
 
+            sc.push_back(Pair("state", CSidechain::stateToString((CSidechain::State)info.currentState)));
             sc.push_back(Pair("unconf creating tx hash", info.creationTxHash.GetHex()));
             sc.push_back(Pair("unconf withdrawalEpochLength", info.creationData.withdrawalEpochLength));
 
@@ -1164,6 +1169,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
                 sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
                 sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
+                if(info.creationData.wCeasedVk.is_initialized())
+                    sc.push_back(Pair("wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
 
                 CAmount fwd_am = 0;
                 for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
@@ -1205,7 +1212,7 @@ bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool
     if (!scView.GetSidechain(scId, scInfo)) {
         LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scId.ToString() );
     }
-    CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
+    CSidechain::State scState = scView.GetSidechainState(scId);
 
     return FillScRecordFromInfo(scId, scInfo, scState, scRecord, bOnlyAlive, bVerbose);
 }
@@ -1306,6 +1313,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
             "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
             "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
+            "     \"wCeasedVk\":               xxxxx,   (string, optional)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
             "     \"immature amounts\": [\n"
             "       {\n"
             "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"

@@ -116,10 +116,10 @@ public:
 
     //! construct a CCoins from a CTransaction, at a given height
     CCoins(const CTransaction &tx, int nHeightIn);
-    CCoins(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight);
+    CCoins(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight, bool isBlockTopQualityCert);
 
     void From(const CTransaction &tx, int nHeightIn);
-    void From(const CScCertificate &tx, int nHeightIn, int bwtMaturityHeight);
+    void From(const CScCertificate &tx, int nHeightIn, int bwtMaturityHeight, bool isBlockTopQualityCert);
 
     void Clear();
 
@@ -571,7 +571,7 @@ public:
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
     bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash) const;
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockUndo);
-    bool RevertCertOutputs(const CScCertificate& cert, const CSidechainUndoData& sidechainUndo);
+    bool RestoreScInfo(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
     bool CheckQuality(const CScCertificate& cert)  const override;
     void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
     bool RestoreBackwardTransfers(const uint256& certHash, const std::vector<CTxInUndo>& outsToRestore);
@@ -588,11 +588,11 @@ public:
     bool CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
     bool CancelSidechainEvent(const CScCertificate& cert);
 
-    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::map<uint256, bool>* pVoidedCertsMap);
-    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::map<uint256, bool>* pVoidedCertsMap);
+    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
+    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
-    bool IsBwtStripped(const uint256& certHash) const;
+    CSidechain::State GetSidechainState(const uint256& scId) const;
 
     bool Flush();
 

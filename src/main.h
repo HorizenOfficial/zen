@@ -372,18 +372,26 @@ unsigned int GetP2SHSigOpCount(const CTransactionBase& tx, const CCoinsViewCache
 
 
 /**
- * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
+ * Check whether all inputs (both regular and CSW) of this transaction are valid (no double spends, scripts & sigs, amounts)
  * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
  * instead of being performed inline.
  */
-bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+                           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
+                           std::vector<CScriptCheck> *pvChecks = NULL);
+/**
+ * Check whether all inputs of this certificates are valid (no double spends, scripts & sigs, amounts)
+ * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
+ * instead of being performed inline.
+ */
+bool ContextualCheckCertInputs(const CScCertificate& cert, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL);
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
 bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint& out);
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight);
-void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight, bool fVoidBwts);
+void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight, bool isBlockTopQualityCert);
 
 std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToConnect, const CCoinsViewCache& view);
 std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToDisconnect, const CBlockUndo& blockUndo);
@@ -451,11 +459,12 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
  *  will be true if no problems were found. Otherwise, the return value will be false in case
  *  of problems. Note that in any case, coins may be modified. */
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins,
-    bool* pfClean = NULL, std::map<uint256, bool>* pVoidedCertsMap = nullptr);
+    bool* pfClean = NULL, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false, bool fCheckScTxesCommitment = true, std::map<uint256, bool>* pVoidedCertsMap = nullptr);
+    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false, bool fCheckScTxesCommitment = true,
+    std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Context-independent validity checks */
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
@@ -575,7 +584,8 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
 bool IsCommunityFund(const CCoins *coins, int nIn);
 
 namespace Consensus {
-bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
+bool CheckCertInputs(const CScCertificate& cert, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
 }
 
 struct CTransactionNetworkObj

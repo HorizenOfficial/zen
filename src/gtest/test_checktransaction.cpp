@@ -59,13 +59,23 @@ CMutableTransaction GetValidTransaction(int txVersion) {
     {     
 	    mtx.vjoinsplit.clear();
 
+        CTxCeasedSidechainWithdrawalInput csw_ccin;
+        csw_ccin.nValue = 2.0 * COIN;
+        csw_ccin.scId = GetRandHash();
+        csw_ccin.nEpoch = 10;
+        GetRandBytes((unsigned char*)&csw_ccin.nullifier, csw_ccin.nullifier.size());
+        GetRandBytes((unsigned char*)&csw_ccin.pubKeyHash, csw_ccin.pubKeyHash.size());
+        GetRandBytes((unsigned char*)&csw_ccin.scProof, csw_ccin.scProof.size());
+        csw_ccin.redeemScript = CScript();
+        mtx.vcsw_ccin.push_back(csw_ccin);
+
         CTxScCreationOut cr_ccout;
-        cr_ccout.nValue = 1.0;
+        cr_ccout.nValue = 1.0 * COIN;
         cr_ccout.withdrawalEpochLength = 111;
         mtx.vsc_ccout.push_back(cr_ccout);
 
         CTxForwardTransferOut ft_ccout;
-        ft_ccout.nValue = 10.0;
+        ft_ccout.nValue = 10.0 * COIN;
         ft_ccout.scId = GetRandHash();
         mtx.vft_ccout.push_back(ft_ccout);
     }
@@ -79,30 +89,31 @@ CMutableTransaction GetValidTransaction(int txVersion) {
         mtx.vjoinsplit[0].nullifiers.at(1) = uint256S("0000000000000000000000000000000000000000000000000000000000000001");
         mtx.vjoinsplit[1].nullifiers.at(0) = uint256S("0000000000000000000000000000000000000000000000000000000000000002");
         mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("0000000000000000000000000000000000000000000000000000000000000003");
-    }
-    
-    // Generate an ephemeral keypair.
-    uint256 joinSplitPubKey;
-    unsigned char joinSplitPrivKey[crypto_sign_SECRETKEYBYTES];
-    crypto_sign_keypair(joinSplitPubKey.begin(), joinSplitPrivKey);
-    mtx.joinSplitPubKey = joinSplitPubKey;
 
-    // Compute the correct hSig.
-    // TODO: #966.
-    static const uint256 one(uint256S("0000000000000000000000000000000000000000000000000000000000000001"));
-    // Empty output script.
-    CScript scriptCode;
-    CTransaction signTx(mtx);
-    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
-    if (dataToBeSigned == one) {
-        throw std::runtime_error("SignatureHash failed");
+        // Generate an ephemeral keypair.
+        uint256 joinSplitPubKey;
+        unsigned char joinSplitPrivKey[crypto_sign_SECRETKEYBYTES];
+        crypto_sign_keypair(joinSplitPubKey.begin(), joinSplitPrivKey);
+        mtx.joinSplitPubKey = joinSplitPubKey;
+
+        // Compute the correct hSig.
+        // TODO: #966.
+        static const uint256 one(uint256S("0000000000000000000000000000000000000000000000000000000000000001"));
+        // Empty output script.
+        CScript scriptCode;
+        CTransaction signTx(mtx);
+        uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
+        if (dataToBeSigned == one) {
+            throw std::runtime_error("SignatureHash failed");
+        }
+
+        // Add the signature
+        assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL,
+                             dataToBeSigned.begin(), 32,
+                             joinSplitPrivKey
+                            ) == 0);
     }
 
-    // Add the signature
-    assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL,
-                         dataToBeSigned.begin(), 32,
-                         joinSplitPrivKey
-                        ) == 0);
     return mtx;
 }
 
@@ -499,6 +510,68 @@ TEST(checktransaction_tests, ScTxVersion) {
 	EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
 	EXPECT_FALSE(tx.ContextualCheck(state, 219, 100));
 }
+
+TEST(checktransaction_tests, ScTxVersionWithCrosschainDataOnly) {
+    SelectParams(CBaseChainParams::REGTEST);
+    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    mtx.vin.resize(0);
+    mtx.resizeOut(0);
+
+    CTransaction tx(mtx);
+    MockCValidationState state;
+    EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
+}
+
+TEST(checktransaction_tests, bad_txns_txcswin_toosmall) {
+    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    mtx.vcsw_ccin[0].nValue = -1;
+
+    CTransaction tx(mtx);
+
+    MockCValidationState state;
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txcswin-invalid", false)).Times(1);
+    CheckTransactionWithoutProofVerification(tx, state);
+}
+
+TEST(checktransaction_tests, bad_txns_txcswin_toolarge) {
+    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    mtx.vcsw_ccin[0].nValue = MAX_MONEY + 1;
+
+    CTransaction tx(mtx);
+
+    MockCValidationState state;
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txcswin-invalid", false)).Times(1);
+    CheckTransactionWithoutProofVerification(tx, state);
+}
+
+TEST(checktransaction_tests, bad_txns_txintotal_toolarge) {
+    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    mtx.vcsw_ccin[0].nValue = MAX_MONEY;
+    CTxCeasedSidechainWithdrawalInput csw_in;
+    csw_in.nValue = 1;
+    mtx.vcsw_ccin.push_back(csw_in);
+
+    CTransaction tx(mtx);
+
+    MockCValidationState state;
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txintotal-toolarge", false)).Times(1);
+    CheckTransactionWithoutProofVerification(tx, state);
+}
+
+TEST(checktransaction_tests, bad_txns_csw_inputs_duplicate) {
+    CMutableTransaction mtx = GetValidTransaction(SC_TX_VERSION);
+    CTxCeasedSidechainWithdrawalInput csw_in;
+    csw_in.nullifier = mtx.vcsw_ccin[0].nullifier;
+    csw_in.nValue = 1.0;
+    mtx.vcsw_ccin.push_back(csw_in);
+
+    CTransaction tx(mtx);
+
+    MockCValidationState state;
+    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-csw-inputs-duplicate", false)).Times(1);
+    CheckTransactionWithoutProofVerification(tx, state);
+}
+
 
 TEST(checktransaction_tests, ScCertVersion) {
 	SelectParams(CBaseChainParams::REGTEST);

@@ -81,14 +81,17 @@ template std::string base_blob<256>::GetHex() const;
 template std::string base_blob<256>::ToString() const;
 template void base_blob<256>::SetHex(const char*);
 template void base_blob<256>::SetHex(const std::string&);
-template std::string base_blob<SC_FIELD_SIZE * 8>::GetHex() const;
-template std::string base_blob<SC_FIELD_SIZE * 8>::ToString() const;
-template void base_blob<SC_FIELD_SIZE * 8>::SetHex(const std::string&);
 
 // Other explicit instantiations
 template base_blob<SC_FIELD_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
 template base_blob<SC_PROOF_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
 template base_blob<SC_VK_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
+
+template std::string base_blob<SC_FIELD_SIZE * 8>::GetHex() const;
+template std::string base_blob<SC_FIELD_SIZE * 8>::ToString() const;
+template void base_blob<SC_FIELD_SIZE * 8>::SetHex(const std::string&);
+template void base_blob<SC_PROOF_SIZE * 8>::SetHex(const std::string&);
+template void base_blob<SC_VK_SIZE * 8>::SetHex(const std::string&);
 
 static void inline HashMix(uint32_t& a, uint32_t& b, uint32_t& c)
 {

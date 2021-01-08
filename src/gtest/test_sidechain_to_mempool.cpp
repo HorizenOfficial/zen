@@ -41,10 +41,13 @@ public:
 class SidechainsInMempoolTestSuite: public ::testing::Test {
 public:
     SidechainsInMempoolTestSuite():
+        aMempool(::minRelayTxFee),
         pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()),
         chainStateDbSize(2 * 1024 * 1024),
         pChainStateDb(nullptr),
-        minimalHeightForSidechains(SidechainFork().getHeight(CBaseChainParams::REGTEST))
+        minimalHeightForSidechains(SidechainFork().getHeight(CBaseChainParams::REGTEST)),
+        csMainLock(cs_main, "cs_main", __FILE__, __LINE__),
+        csAMempool(aMempool.cs, "cs_AMempool", __FILE__, __LINE__)
     {
         SelectParams(CBaseChainParams::REGTEST);
 
@@ -82,6 +85,7 @@ public:
     }
 
 protected:
+    CTxMemPool aMempool;
     CTransaction GenerateScTx(const CAmount & creationTxAmount, int epochLenght = -1);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
     CScCertificate GenerateCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
@@ -103,6 +107,10 @@ private:
     void InitCoinGeneration();
     std::pair<uint256, CCoinsCacheEntry> GenerateCoinsAmount(const CAmount & amountToGenerate);
     bool StoreCoins(const std::pair<uint256, CCoinsCacheEntry>& entryToStore);
+
+    //Critical sections below needed when compiled with --enable-debug, which activates ASSERT_HELD
+    CCriticalBlock csMainLock;
+    CCriticalBlock csAMempool;
 };
 
 TEST_F(SidechainsInMempoolTestSuite, NewSidechainsAreAcceptedToMempool) {
@@ -157,7 +165,6 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSideChainAreNotAllowed
 }
 
 TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
-    CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("1492");
 
     //Case 1: no sidechain related tx in mempool
@@ -211,7 +218,6 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval) {
     // Associated scenario: Sidechain creation and some fwds are in mempool.
     // Sc Creation is confirmed, hence it has to be removed from mempool, while fwds stay.
 
-    CTxMemPool aMempool(::minRelayTxFee);
     CTransaction scTx = GenerateScTx(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -238,8 +244,6 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScNonRecursiveRemoval) {
 TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_FwdNonRecursiveRemoval) {
     // Associated scenario: fws are in mempool, hence scCreation must be already confirmed
     // A fwd is confirmed hence it, and only it, is removed from mempool
-
-    CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("ababab");
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
@@ -263,7 +267,6 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScRecursiveRemoval) {
     // One of the new blocks about to me mounted double spends the original scTx, hence scCreation is marked for recursive removal by removeForConflicts
     // both scCreation and fwds must be cleared from mempool
 
-    CTxMemPool aMempool(::minRelayTxFee);
     CTransaction scTx = GenerateScTx(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -290,8 +293,6 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_ScRecursiveRemoval) {
 TEST_F(SidechainsInMempoolTestSuite, FwdsOnlyInMempool_ScRecursiveRemoval) {
     // Associated scenario: upon block disconnections fwds have entered into mempool.
     // While unmounting block containing scCreation, scCreation cannot make to mempool. fwds must me purged
-
-    CTxMemPool aMempool(::minRelayTxFee);
     CTransaction scTx = GenerateScTx(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
 
@@ -315,7 +316,6 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsInMempool_FwdRecursiveRemoval) {
     // Associated scenario: upon block disconnections a fwd cannot make to mempool.
     // Recursive removal for refused fwd is called, but other fwds are unaffected
 
-    CTxMemPool aMempool(::minRelayTxFee);
     uint256 scId = uint256S("1492");
 
     CTransaction fwdTx1 = GenerateFwdTransferTx(scId, CAmount(10));
@@ -467,7 +467,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertsCannotSpendHigherQualityCerts) {
     for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
         ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, 401));
 
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView.HandleSidechainEvents(401 + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
     sidechainsView.Flush();
 
@@ -518,7 +518,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
     for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
         ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, 401));
 
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView.HandleSidechainEvents(401 + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
     sidechainsView.Flush();
 
@@ -638,10 +638,8 @@ TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
     EXPECT_FALSE(mempool.exists(mempoolTx2.GetHash()));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsInEmptyMempool) {
+TEST_F(SidechainsInMempoolTestSuite, DependenciesInEmptyMempool) {
     // prerequisites
-    CTxMemPool aMempool(::minRelayTxFee);
-
     CAmount dummyAmount(10);
     CScript dummyScript;
     CTxOut dummyOut(dummyAmount, dummyScript);
@@ -651,14 +649,12 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsInEmptyMempool) {
     tx_1.addOut(dummyOut);
 
     //test and checks
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_1).empty());
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_1).empty());
 }
 
-TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSingleTransaction) {
+TEST_F(SidechainsInMempoolTestSuite, DependenciesOfSingleTransaction) {
     // prerequisites
-    CTxMemPool aMempool(::minRelayTxFee);
-
     CAmount dummyAmount(10);
     CScript dummyScript;
     CTxOut dummyOut(dummyAmount, dummyScript);
@@ -672,14 +668,13 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSingleTransaction)
     aMempool.addUnchecked(tx_1.GetHash(), tx_1_entry);
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_1).empty());
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_1).empty());
 }
 
 
-TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSimpleChain) {
+TEST_F(SidechainsInMempoolTestSuite, DependenciesOfSimpleChain) {
     // prerequisites
-    CTxMemPool aMempool(::minRelayTxFee);
     CAmount dummyAmount(10);
     CScript dummyScript;
     CTxOut dummyOut(dummyAmount, dummyScript);
@@ -703,18 +698,17 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfSimpleChain) {
     ASSERT_TRUE(aMempool.addUnchecked(tx_3.GetHash(), tx_3_entry));
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_1).empty());
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_2) == std::vector<uint256>({tx_1.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_3) == std::vector<uint256>({tx_2.GetHash(),tx_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_2) == std::vector<uint256>({tx_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_3) == std::vector<uint256>({tx_2.GetHash(),tx_1.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_1) == std::vector<uint256>({tx_2.GetHash(),tx_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_2) == std::vector<uint256>({tx_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_3).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_1) == std::vector<uint256>({tx_2.GetHash(),tx_3.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_2) == std::vector<uint256>({tx_3.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_3).empty());
 }
 
-TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTree) {
+TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTree) {
     // prerequisites
-    CTxMemPool aMempool(::minRelayTxFee);
     CAmount dummyAmount(10);
     CScript dummyScript;
     CTxOut dummyOut_1(dummyAmount, dummyScript);
@@ -757,26 +751,25 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTree) {
     ASSERT_TRUE(aMempool.addUnchecked(tx_grandchild_3.GetHash(), tx_grandchild_3_entry));
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_root).empty());
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_2) == std::vector<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_2) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_3) == std::vector<uint256>({tx_child_2.GetHash(), tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_root).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_child_2) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_2) == std::vector<uint256>({tx_child_1.GetHash(), tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_3) == std::vector<uint256>({tx_child_2.GetHash(), tx_root.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_root)
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_root)
         == std::vector<uint256>({tx_child_1.GetHash(), tx_grandchild_2.GetHash(), tx_grandchild_1.GetHash(),
                                  tx_child_2.GetHash(), tx_grandchild_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash(), tx_grandchild_2.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_2) == std::vector<uint256>({tx_grandchild_3.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_1).empty());
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_2).empty());
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_3).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash(), tx_grandchild_2.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_child_2) == std::vector<uint256>({tx_grandchild_3.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_2).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_3).empty());
 }
 
-TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTDAG) {
+TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTDAG) {
     // prerequisites
-    CTxMemPool aMempool(::minRelayTxFee);
     CAmount dummyAmount(10);
     CScript dummyScript;
     CTxOut dummyOut_1(dummyAmount, dummyScript);
@@ -802,13 +795,13 @@ TEST_F(SidechainsInMempoolTestSuite, AncestorsAndDescendantsOfTDAG) {
     ASSERT_TRUE(aMempool.addUnchecked(tx_grandchild_1.GetHash(), tx_grandchild_1_entry));
 
     //checks
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_root).empty());
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullAncestorsOf(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(),tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_root).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_child_1) == std::vector<uint256>({tx_root.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesFrom(tx_grandchild_1) == std::vector<uint256>({tx_child_1.GetHash(),tx_root.GetHash()}));
 
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_root) == std::vector<uint256>({tx_child_1.GetHash(), tx_grandchild_1.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash()}));
-    EXPECT_TRUE(aMempool.mempoolFullDescendantsOf(tx_grandchild_1).empty());
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_root) == std::vector<uint256>({tx_child_1.GetHash(), tx_grandchild_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_child_1) == std::vector<uint256>({tx_grandchild_1.GetHash()}));
+    EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_1).empty());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

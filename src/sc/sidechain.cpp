@@ -41,16 +41,17 @@ int CSidechain::GetCeasingHeight() const
 {
     if ( creationData.withdrawalEpochLength == -1) //default value
         return -1;
-    return StartHeightForEpoch(topCommittedCertReferencedEpoch+2) + SafeguardMargin();
+    return StartHeightForEpoch(prevBlockTopQualityCertReferencedEpoch+2) + SafeguardMargin();
 }
 
 std::string CSidechain::stateToString(State s)
 {
     switch(s)
     {
-        case State::ALIVE:  return "ALIVE";          break;
-        case State::CEASED: return "CEASED";         break;
-        default:            return "NOT_APPLICABLE"; break;
+        case State::UNCONFIRMED: return "UNCONFIRMED";    break;
+        case State::ALIVE:       return "ALIVE";          break;
+        case State::CEASED:      return "CEASED";         break;
+        default:                 return "NOT_APPLICABLE"; break;
     }
 }
 
@@ -61,7 +62,7 @@ size_t CSidechain::DynamicMemoryUsage() const {
 size_t CSidechainEvents::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(maturingScs) + memusage::DynamicUsage(ceasingScs);
 }
-
+// TODO: add CSW verification rules
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency
@@ -132,6 +133,14 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     __func__), REJECT_INVALID, "sidechain-sc-creation-invalid-constant");
             }
         }
+
+        if (sc.wCeasedVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : invalid wCeasedVk verification key\n",
+                __func__, __LINE__, txHash.ToString());
+            return state.DoS(100, error("%s: wCeasedVk is invalid",
+                __func__), REJECT_INVALID, "sidechain-sc-creation-invalid-wceased-vk");
+        }
     }
 
     for (const auto& ft : tx.GetVftCcOut())
@@ -181,18 +190,4 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
     }
 
     return true;
-}
-
-void CSidechain::SetVoidedCert(const uint256& certHash, bool flag, std::map<uint256, bool>* pVoidedCertsMap)
-{
-    if(pVoidedCertsMap != nullptr)
-    {
-        if (pVoidedCertsMap->count(certHash))
-        {
-            LogPrint("cert", "%s():%d - cert %s already in map with flag %s\n", __func__, __LINE__, certHash.ToString(), flag?"voiding":"refilling"); 
-        }
-
-        LogPrint("cert", "%s():%d - setting flag=%s, cert %s\n", __func__, __LINE__, flag?"voiding":"refilling", certHash.ToString() ); 
-        (*pVoidedCertsMap)[certHash] = flag;
-    }
 }

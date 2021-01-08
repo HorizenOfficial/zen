@@ -67,6 +67,8 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
         o.push_back(Pair("customData", HexStr(out.customData)));
         o.push_back(Pair("constant", HexStr(out.constant)));
+        if(out.wCeasedVk.is_initialized())
+            o.push_back(Pair("wCeasedVk", HexStr(out.wCeasedVk.get())));
         vscs.push_back(o);
         nIdx++;
     }
@@ -365,6 +367,26 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
                 return false;
             }
         }
+        
+        const UniValue& wCeasedVk = find_value(o, "wCeasedVk");
+        if (!wCeasedVk.isNull())
+        {
+            const std::string& inputString = wCeasedVk.get_str();
+            std::vector<unsigned char> wCeasedVkVec;
+            if (!AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
+            {
+                error = "wCeasedVk: " + error;
+                return false;
+            }
+
+            sc.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
+
+            if (!libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
+            {
+                error = "invalid wCeasedVk";
+                return false;
+            }
+        }
 
         CTxScCreationOut txccout(nAmount, address, sc);
 
@@ -429,6 +451,7 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
         sc.creationData.wCertVk = entry.wCertVk;
         sc.creationData.customData = entry.customData;
         sc.creationData.constant = entry.constant;
+        sc.creationData.wCeasedVk = entry.wCeasedVk;
 
         vecCcSend.push_back(CcRecipientVariant(sc));
     }

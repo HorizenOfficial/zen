@@ -1180,6 +1180,11 @@ bool CWallet::AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWal
                 wtx.fFromMe = wtxIn.fFromMe;
                 fUpdated = true;
             }
+            if (wtxIn.bwtAreStripped != wtx.bwtAreStripped)
+            {
+                wtx.bwtAreStripped = wtxIn.bwtAreStripped;
+                fUpdated = true;
+            }
 
             wtx.bwtMaturityDepth = wtxIn.bwtMaturityDepth;
         }
@@ -1256,6 +1261,9 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock
                 std::shared_ptr<CWalletTransactionBase> sobj = CWalletTransactionBase::MakeWalletObjectBase(obj, this);
                 sobj->bwtMaturityDepth = bwtMaturityDepth;
 
+                // Off chain certificates have their bwt ceased by choice
+                sobj->bwtAreStripped = (pblock == nullptr)? true: false;
+
                 if (noteData.size() > 0) {
                     sobj->SetNoteData(noteData);
                 }
@@ -1301,20 +1309,28 @@ void CWallet::SyncCertificate(const CScCertificate& cert, const CBlock* pblock, 
     MarkAffectedTransactionsDirty(cert);
 }
 
-void CWallet::SyncVoidedCert(const uint256& certHash, bool bwtAreStripped)
+void CWallet::SyncCertStatusInfo(const CScCertificateStatusUpdateInfo& certStatusInfo)
 {
     LOCK(cs_wallet);
 
     LogPrint("cert", "%s():%d - Called for cert[%s], bwtAreStripped[%d]\n",
-        __func__, __LINE__, certHash.ToString(), bwtAreStripped);
+        __func__, __LINE__, certStatusInfo.certHash.ToString(), certStatusInfo.bwtState == CScCertificateStatusUpdateInfo::BwtState::BWT_OFF);
 
-    std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(certHash);
+    CWalletDB walletdb(strWalletFile, "r+", false);
+
+    // Update sidechain state with top quality certs only, i.e. cert whose bwts are not voided
+    if (certStatusInfo.bwtState == CScCertificateStatusUpdateInfo::BwtState::BWT_ON)
+    {
+        mapSidechains[certStatusInfo.scId] = certStatusInfo;
+        walletdb.WriteSidechain(certStatusInfo);
+    }
+
+    std::map<uint256, std::shared_ptr<CWalletTransactionBase>>::iterator itCert = mapWallet.find(certStatusInfo.certHash);
     if (itCert == mapWallet.end())
     {
         LogPrint("cert", "%s():%d - nothing to do, cert not in wallet\n", __func__, __LINE__);
         return;
     }
-
 
     assert(itCert->second.get()->getTxBase()->IsCertificate());
 
@@ -1324,13 +1340,25 @@ void CWallet::SyncVoidedCert(const uint256& certHash, bool bwtAreStripped)
         return;
     }
    
-    itCert->second.get()->bwtAreStripped = bwtAreStripped;
+    itCert->second.get()->bwtAreStripped = (certStatusInfo.bwtState != CScCertificateStatusUpdateInfo::BwtState::BWT_ON);
 
     // Write to disk
-    CWalletDB walletdb(strWalletFile, "r+", false);
     if (!itCert->second->WriteToDisk(&walletdb))
         LogPrintf("%s():%d - ERROR in writing to db\n", __func__, __LINE__);
+}
 
+bool CWallet::ReadSidechain(const uint256& scId, CScCertificateStatusUpdateInfo& sidechain)
+{
+    bool res = false;
+    if (mapSidechains.count(scId) != 0) {
+        sidechain = mapSidechains.at(scId);
+        res = true;
+    } else {
+        CWalletDB walletdb(strWalletFile, "r+", false);
+        res = walletdb.ReadSidechain(scId, sidechain);
+        if (res) mapSidechains[scId] = sidechain;
+    }
+    return res;
 }
 
 void CWallet::MarkAffectedTransactionsDirty(const CTransactionBase& tx)
@@ -1664,39 +1692,19 @@ int CWalletTx::GetIndexInBlock(const CBlock& block)
     return nIndex;
 }
 
-CWalletTx::CWalletTx():
-    CWalletTransactionBase(nullptr, nullptr), wrappedTx()
-{
-    // Note explitic call to CTransactionBase is needed since
-    // in multiple inheritance virtual classes are initialized first
-    // and CTransactionBase has not default ctor
-    CWalletTransactionBase::pTxBase = &wrappedTx;
-}
+CWalletTx::CWalletTx(): CWalletTransactionBase(nullptr), wrappedTx() {}
 
 CWalletTx::CWalletTx(const CWallet* pwalletIn, const CTransaction& txIn):
-    CWalletTransactionBase(pwalletIn, nullptr), wrappedTx(txIn)
-{
-    // Note explitic call to CTransactionBase is needed since
-    // in multiple inheritance virtual classes are initialized first
-    // and CTransactionBase has not default ctor
-    CWalletTransactionBase::pTxBase = &wrappedTx;
-}
+    CWalletTransactionBase(pwalletIn), wrappedTx(txIn) {}
 
 CWalletTx::CWalletTx(const CWalletTx& rhs):
-    CWalletTransactionBase(rhs), wrappedTx(rhs.wrappedTx)
-{
-    // Note explitic call to CTransactionBase is needed since
-    // in multiple inheritance virtual classes are initialized first
-    // and CTransactionBase has not default ctor
-    CWalletTransactionBase::pTxBase = &wrappedTx;
-}
+    CWalletTransactionBase(rhs), wrappedTx(rhs.wrappedTx) {}
 
 CWalletTx& CWalletTx::operator=(const CWalletTx& rhs)
 {
     CWalletTransactionBase::operator=(rhs);
     *const_cast<CTransaction*>(&wrappedTx) = rhs.wrappedTx;
     this->mapNoteData = rhs.mapNoteData;
-    CWalletTransactionBase::pTxBase = &wrappedTx;
     return *this;
 }
 
@@ -1729,7 +1737,7 @@ int CWalletTransactionBase::GetRequestCount() const
     int nRequests = -1;
     {
         LOCK(pwallet->cs_wallet);
-        if (pTxBase->IsCoinBase())
+        if (getTxBase()->IsCoinBase())
         {
             // Generated block
             if (!hashBlock.IsNull())
@@ -1742,7 +1750,7 @@ int CWalletTransactionBase::GetRequestCount() const
         else
         {
             // Did anyone request this transaction?
-            map<uint256, int>::const_iterator mi = pwallet->mapRequestCount.find(pTxBase->GetHash());
+            map<uint256, int>::const_iterator mi = pwallet->mapRequestCount.find(getTxBase()->GetHash());
             if (mi != pwallet->mapRequestCount.end())
             {
                 nRequests = (*mi).second;
@@ -1931,7 +1939,7 @@ void CWalletTransactionBase::GetMatureAmountsForAccount(const string& strAccount
 
 bool CWalletTransactionBase::WriteToDisk(CWalletDB *pwalletdb)
 {
-    return pwalletdb->WriteWalletTxBase(pTxBase->GetHash(), *this);
+    return pwalletdb->WriteWalletTxBase(getTxBase()->GetHash(), *this);
 }
 
 void CWallet::WitnessNoteCommitment(std::vector<uint256> commitments,
@@ -2021,43 +2029,44 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
 
             CBlock block;
             ReadBlockFromDisk(block, pindex);
-            std::vector<const CTransactionBase*> vTxBase;
-            block.GetTxAndCertsVector(vTxBase);
   
-            for (const CTransactionBase* obj: vTxBase)
+            for(const CTransaction& tx: block.vtx)
             {
-                int bwtMaxDepth = -1;
-                bool areBwtStripped = false;
+                if (AddToWalletIfInvolvingMe(tx, &block, -1, fUpdate))
+                    ret++;
+            }
 
-                if (obj->IsCertificate())
-                {
-                    int nHeight = pindex->nHeight;
-                    const CScCertificate& cert = dynamic_cast<const CScCertificate&>(*obj);
-                    CSidechain sidechain;
-                    assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
-                    int currentEpoch = sidechain.EpochFor(nHeight);
-                    bwtMaxDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
-                        sidechain.SafeguardMargin() - nHeight;
+            std::set<uint256> visitedScIds;
+            // It's safe to process certs backward despite possible spending dependencies of certs in block
+            // since at this stage no transaction creation is allowed
+            for(auto itCert = block.vcert.rbegin(); itCert != block.vcert.rend(); ++itCert)
+            {
+                CScCertificateStatusUpdateInfo prevScData;
+                assert(ReadSidechain(itCert->GetScId(), prevScData));
 
-                    // Certs can have their bwts cleared for different reasons
-                    // ( being spent, voided due to sidechain ceasing, voided since cert has low quality)
-                    // which we are not able to reconstruct here.
-                    // Currently we just void all the bwts here
-                    if (pcoinsTip->IsBwtStripped(cert.GetHash()) )
-                    {
-                        LogPrint("cert", "%s():%d - cert[%s] has bwt stripped\n",
-                            __func__, __LINE__, cert.GetHash().ToString());
-                        areBwtStripped = true;
-                    }
-                }
+                bool bTopQualityCert = visitedScIds.count(itCert->GetScId()) == 0;
+                visitedScIds.insert(itCert->GetScId());
 
-                if (AddToWalletIfInvolvingMe(*obj, &block, bwtMaxDepth, fUpdate))
+                int nHeight = pindex->nHeight;
+                CSidechain sidechain;
+                assert(pcoinsTip->GetSidechain(itCert->GetScId(), sidechain));
+                int currentEpoch = sidechain.EpochFor(nHeight);
+                int bwtMaxDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
+                                  sidechain.SafeguardMargin() - nHeight;
+
+                if (AddToWalletIfInvolvingMe(*itCert, &block, bwtMaxDepth, fUpdate))
                 {
                     ret++;
+                    if (fUpdate) {
+                        SyncCertStatusInfo(CScCertificateStatusUpdateInfo(itCert->GetScId(), itCert->GetHash(),
+                                                                          itCert->epochNumber, itCert->quality,
+                                                                          bTopQualityCert? CScCertificateStatusUpdateInfo::BwtState::BWT_ON:
+                                                                                           CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
 
-                    if (fUpdate && obj->IsCertificate())
-                    {
-                        SyncVoidedCert(obj->GetHash(), areBwtStripped);
+                        if (bTopQualityCert && (prevScData.certEpoch == itCert->epochNumber) && (prevScData.certQuality < itCert->quality))
+                            SyncCertStatusInfo(CScCertificateStatusUpdateInfo(prevScData.scId, prevScData.certHash,
+                                                                              prevScData.certEpoch, prevScData.certQuality,
+                                                                              CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
                     }
                 }
             }
@@ -2075,6 +2084,23 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 LogPrintf("Still rescanning. At block %d. Progress=%f\n", pindex->nHeight, Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), pindex));
             }
         }
+
+        // Once processed all blocks till chainActive.Tip(), void last cert of ceased sidechains
+        std::set<uint256> allScIds;
+        pcoinsTip->GetScIds(allScIds);
+        for(const auto& scId: allScIds)
+        {
+            if (pcoinsTip->isCeasedAtHeight(scId, chainActive.Height()) != CSidechain::State::ALIVE) {
+                CSidechain sidechain;
+                assert(pcoinsTip->GetSidechain(scId, sidechain));
+                if (fUpdate)
+                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.prevBlockTopQualityCertHash,
+                                                                      sidechain.prevBlockTopQualityCertReferencedEpoch,
+                                                                      sidechain.prevBlockTopQualityCertQuality,
+                                                                      CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
+            }
+        }
+
         ShowProgress(_("Rescanning..."), 100); // hide progress dialog in GUI
     }
     return ret;
@@ -2128,7 +2154,7 @@ bool CWalletTx::RelayWalletTransaction()
 
 void CWalletTransactionBase::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const
 {
-    for(const CTxIn& txin: pTxBase->GetVin())
+    for(const CTxIn& txin: getTxBase()->GetVin())
     {
         auto mi = pwallet->getMapWallet().find(txin.prevout.hash);
         if (mi == pwallet->getMapWallet().end()) {
@@ -2143,7 +2169,7 @@ void CWalletTransactionBase::addOrderedInputTx(TxItems& txOrdered, const CScript
 
         auto res = std::search(utxo.scriptPubKey.begin(), utxo.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
         if (res == utxo.scriptPubKey.begin()) {
-            auto meAsObj = pwallet->getMapWallet().at(pTxBase->GetHash());
+            auto meAsObj = pwallet->getMapWallet().at(getTxBase()->GetHash());
             txOrdered.insert(make_pair(nOrderPos, TxPair(meAsObj.get(), (CAccountingEntry*)0)));
             return;
         }
@@ -2152,7 +2178,7 @@ void CWalletTransactionBase::addOrderedInputTx(TxItems& txOrdered, const CScript
 
 CAmount CWalletTransactionBase::GetDebit(const isminefilter& filter) const
 {
-    if (pTxBase->GetVin().empty())
+    if (getTxBase()->GetVin().empty())
         return 0;
 
     CAmount debit = 0;
@@ -2162,7 +2188,7 @@ CAmount CWalletTransactionBase::GetDebit(const isminefilter& filter) const
             debit += nDebitCached;
         else
         {
-            nDebitCached = pwallet->GetDebit(*pTxBase, ISMINE_SPENDABLE);
+            nDebitCached = pwallet->GetDebit(*getTxBase(), ISMINE_SPENDABLE);
             fDebitCached = true;
             debit += nDebitCached;
         }
@@ -2173,7 +2199,7 @@ CAmount CWalletTransactionBase::GetDebit(const isminefilter& filter) const
             debit += nWatchDebitCached;
         else
         {
-            nWatchDebitCached = pwallet->GetDebit(*pTxBase, ISMINE_WATCH_ONLY);
+            nWatchDebitCached = pwallet->GetDebit(*getTxBase(), ISMINE_WATCH_ONLY);
             fWatchDebitCached = true;
             debit += nWatchDebitCached;
         }
@@ -2183,7 +2209,7 @@ CAmount CWalletTransactionBase::GetDebit(const isminefilter& filter) const
 
 bool CWalletTransactionBase::HasImmatureOutputs() const
 {
-    for(unsigned int pos = 0; pos < pTxBase->GetVout().size(); ++pos)
+    for(unsigned int pos = 0; pos < getTxBase()->GetVout().size(); ++pos)
     {
         switch(this->IsOutputMature(pos)) {
         case CCoins::outputMaturity::MATURE:
@@ -2206,7 +2232,7 @@ bool CWalletTransactionBase::HasImmatureOutputs() const
 
 bool CWalletTransactionBase::HasMatureOutputs() const
 {
-    for(unsigned int pos = 0; pos < pTxBase->GetVout().size(); ++pos)
+    for(unsigned int pos = 0; pos < getTxBase()->GetVout().size(); ++pos)
     {
         switch(this->IsOutputMature(pos)) {
         case CCoins::outputMaturity::MATURE:
@@ -2235,25 +2261,24 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
 
     if (nDepth == 0)
     {
-        if (!pTxBase->IsCoinBase() && !pTxBase->IsCertificate())
+        if (!getTxBase()->IsCoinBase() && !getTxBase()->IsCertificate())
             return CCoins::outputMaturity::MATURE;
 
-        if (!pTxBase->IsBackwardTransfer(vOutPos))
+        if (!getTxBase()->IsBackwardTransfer(vOutPos))
            return CCoins::outputMaturity::MATURE;
         else
         {
-           if (bwtAreStripped)
-               return CCoins::outputMaturity::NOT_APPLICABLE;
-           else
-               return CCoins::outputMaturity::IMMATURE;
+            assert(bwtAreStripped);
+            return CCoins::outputMaturity::NOT_APPLICABLE;
         }
+
     }
 
-    //Hereinafter tx in pTxBase in mainchain
-    if (!pTxBase->IsCoinBase() && !pTxBase->IsCertificate())
+    //Hereinafter tx in getTxBase() in mainchain
+    if (!getTxBase()->IsCoinBase() && !getTxBase()->IsCertificate())
         return CCoins::outputMaturity::MATURE;
 
-    if (pTxBase->IsCoinBase())
+    if (getTxBase()->IsCoinBase())
     {
         if (nDepth <= COINBASE_MATURITY)
             return CCoins::outputMaturity::IMMATURE;
@@ -2262,10 +2287,10 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
     }
 
     //Hereinafter cert in mainchain
-    if (!pTxBase->IsBackwardTransfer(vOutPos))
+    if (!getTxBase()->IsBackwardTransfer(vOutPos))
         return CCoins::outputMaturity::MATURE;
 
-    if (pTxBase->IsBackwardTransfer(vOutPos) && bwtAreStripped)
+    if (getTxBase()->IsBackwardTransfer(vOutPos) && bwtAreStripped)
         return CCoins::outputMaturity::NOT_APPLICABLE;
 
     if (nDepth <= bwtMaturityDepth)
@@ -2277,7 +2302,7 @@ CCoins::outputMaturity CWalletTransactionBase::IsOutputMature(unsigned int vOutP
 CAmount CWalletTransactionBase::GetCredit(const isminefilter& filter) const
 {
     int64_t credit = 0;
-    if ((this->pTxBase->IsCoinBase() || this->pTxBase->IsCertificate()) && this->HasImmatureOutputs())
+    if ((this->getTxBase()->IsCoinBase() || this->getTxBase()->IsCertificate()) && this->HasImmatureOutputs())
     {
         fCreditCached = false;
         fWatchCreditCached = false;
@@ -2307,7 +2332,7 @@ CAmount CWalletTransactionBase::GetCredit(const isminefilter& filter) const
 
 CAmount CWalletTransactionBase::GetImmatureCredit(bool fUseCache) const
 {
-    if ((this->pTxBase->IsCoinBase() || this->pTxBase->IsCertificate()) && this->HasImmatureOutputs())
+    if ((this->getTxBase()->IsCoinBase() || this->getTxBase()->IsCertificate()) && this->HasImmatureOutputs())
     {
         if (fUseCache && fImmatureCreditCached)
             return nImmatureCreditCached;
@@ -2321,7 +2346,7 @@ CAmount CWalletTransactionBase::GetImmatureCredit(bool fUseCache) const
 
 CAmount CWalletTransactionBase::GetImmatureWatchOnlyCredit(const bool& fUseCache) const
 {
-    if ((this->pTxBase->IsCoinBase() || this->pTxBase->IsCertificate()) && this->HasImmatureOutputs())
+    if ((this->getTxBase()->IsCoinBase() || this->getTxBase()->IsCertificate()) && this->HasImmatureOutputs())
     {
         if (fUseCache && fImmatureWatchCreditCached)
             return nImmatureWatchCreditCached;
@@ -2338,7 +2363,7 @@ CAmount CWalletTransactionBase::GetAvailableCredit(bool fUseCache) const
     if (pwallet == 0)
         return 0;
 
-    if ((this->pTxBase->IsCoinBase() || this->pTxBase->IsCertificate()) && this->HasImmatureOutputs())
+    if ((this->getTxBase()->IsCoinBase() || this->getTxBase()->IsCertificate()) && this->HasImmatureOutputs())
     {
         fAvailableCreditCached = false;
     }
@@ -2348,7 +2373,7 @@ CAmount CWalletTransactionBase::GetAvailableCredit(bool fUseCache) const
 
     CAmount nCredit = 0;
     fAvailableCreditCached = true;
-    for (unsigned int pos = 0; pos < pTxBase->GetVout().size(); pos++)
+    for (unsigned int pos = 0; pos < getTxBase()->GetVout().size(); pos++)
     {
         CCoins::outputMaturity outputMaturity = this->IsOutputMature(pos);
         if (outputMaturity == CCoins::outputMaturity::NOT_APPLICABLE) {
@@ -2360,8 +2385,8 @@ CAmount CWalletTransactionBase::GetAvailableCredit(bool fUseCache) const
             continue;
         }
 
-        if (!pwallet->IsSpent(pTxBase->GetHash(), pos)) {
-            nCredit += pwallet->GetCredit(pTxBase->GetVout()[pos], ISMINE_SPENDABLE);
+        if (!pwallet->IsSpent(getTxBase()->GetHash(), pos)) {
+            nCredit += pwallet->GetCredit(getTxBase()->GetVout()[pos], ISMINE_SPENDABLE);
             if (!MoneyRange(nCredit))
                 throw std::runtime_error("CWalletTx::GetAvailableCredit() : value out of range");
         }
@@ -2379,7 +2404,7 @@ CAmount CWalletTransactionBase::GetAvailableWatchOnlyCredit(const bool& fUseCach
     if (pwallet == 0)
         return 0;
 
-    if ((this->pTxBase->IsCoinBase() || this->pTxBase->IsCertificate()) && this->HasImmatureOutputs())
+    if ((this->getTxBase()->IsCoinBase() || this->getTxBase()->IsCertificate()) && this->HasImmatureOutputs())
     {
         fAvailableWatchCreditCached = false;
     }
@@ -2389,7 +2414,7 @@ CAmount CWalletTransactionBase::GetAvailableWatchOnlyCredit(const bool& fUseCach
 
     CAmount nCredit = 0;
     fAvailableWatchCreditCached = true;
-    for (unsigned int pos = 0; pos < pTxBase->GetVout().size(); pos++) {
+    for (unsigned int pos = 0; pos < getTxBase()->GetVout().size(); pos++) {
         CCoins::outputMaturity outputMaturity = this->IsOutputMature(pos);
         if (outputMaturity == CCoins::outputMaturity::NOT_APPLICABLE) {
             fAvailableWatchCreditCached = false;
@@ -2401,9 +2426,9 @@ CAmount CWalletTransactionBase::GetAvailableWatchOnlyCredit(const bool& fUseCach
             continue;
         }
 
-        if (!pwallet->IsSpent(pTxBase->GetHash(), pos))
+        if (!pwallet->IsSpent(getTxBase()->GetHash(), pos))
         {
-            const CTxOut &txout = pTxBase->GetVout()[pos];
+            const CTxOut &txout = getTxBase()->GetVout()[pos];
             nCredit += pwallet->GetCredit(txout, ISMINE_WATCH_ONLY);
             if (!MoneyRange(nCredit))
                 throw std::runtime_error("CWalletTx::GetAvailableWatchOnlyCredit() : value out of range");
@@ -2470,7 +2495,7 @@ std::set<uint256> CWalletTransactionBase::GetConflicts() const
 {
     set<uint256> result;
     if (pwallet != nullptr) {
-        uint256 myHash = pTxBase->GetHash();
+        uint256 myHash = getTxBase()->GetHash();
         result = pwallet->GetConflicts(myHash);
         result.erase(myHash);
     }
@@ -2481,7 +2506,7 @@ CAmount CWalletTransactionBase::GetChange() const
 {
     if (fChangeCached)
         return nChangeCached;
-    nChangeCached = pwallet->GetChange(*pTxBase);
+    nChangeCached = pwallet->GetChange(*getTxBase());
     fChangeCached = true;
     return nChangeCached;
 }
@@ -2489,7 +2514,7 @@ CAmount CWalletTransactionBase::GetChange() const
 bool CWalletTransactionBase::IsTrusted(bool canSpendZeroConfChange) const
 {
     // Quick answer in most cases
-    if (!CheckFinalTx(*pTxBase))
+    if (!CheckFinalTx(*getTxBase()))
         return false;
 
     int nDepth = GetDepthInMainChain();
@@ -2501,7 +2526,7 @@ bool CWalletTransactionBase::IsTrusted(bool canSpendZeroConfChange) const
         return false;
 
     // Trusted if all inputs are from us and are in the mempool:
-    BOOST_FOREACH(const CTxIn& txin, pTxBase->GetVin())
+    BOOST_FOREACH(const CTxIn& txin, getTxBase()->GetVin())
     {
         // Transactions not sent by us: not trusted
         const CWalletTransactionBase* parent = pwallet->GetWalletTx(txin.prevout.hash);
@@ -2721,7 +2746,7 @@ void CWallet::GetUnconfirmedData(const std::string& address, int& numbOfUnconfir
                 numbOfUnconfirmedTx++;
             }
 
-            // only for certificates, look for immature amounts of bwts, not depending on number of confirmations
+            // only for certificates, look for immature amounts of bwts, regardless on number of confirmations
             if (cert != nullptr)
             {
                 for (unsigned int i = 0; i < cert->GetVout().size(); i++) {
@@ -3085,10 +3110,10 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTra
     }
 
     // remove preset inputs from vCoins
-    if((coinControl != nullptr)	&& coinControl->HasSelected())
+    if((coinControl != nullptr) && coinControl->HasSelected())
     {
-    	auto isPresent = [&](const COutput& out) {return setPresetCoins.count(make_pair(out.tx, out.pos));};
-    	std::vector<COutput>::const_iterator it = std::remove_if(vCoins.begin(), vCoins.end(), isPresent);
+        auto isPresent = [&](const COutput& out) {return setPresetCoins.count(make_pair(out.tx, out.pos));};
+        std::vector<COutput>::const_iterator it = std::remove_if(vCoins.begin(), vCoins.end(), isPresent);
         vCoins.erase(it, vCoins.end());
     }
 
@@ -4225,7 +4250,7 @@ int CWalletTransactionBase::GetDepthInMainChainINTERNAL(const CBlockIndex* &pind
     // Make sure the merkle branch connects to this block
     if (!fMerkleVerified)
     {
-        if (CBlock::CheckMerkleBranch(pTxBase->GetHash(), vMerkleBranch, nIndex) != pindex->hashMerkleRoot)
+        if (CBlock::CheckMerkleBranch(getTxBase()->GetHash(), vMerkleBranch, nIndex) != pindex->hashMerkleRoot)
             return 0;
         fMerkleVerified = true;
     }
@@ -4238,7 +4263,7 @@ int CWalletTransactionBase::GetDepthInMainChain(const CBlockIndex* &pindexRet) c
 {
     AssertLockHeld(cs_main);
     int nResult = GetDepthInMainChainINTERNAL(pindexRet);
-    if (nResult == 0 && !mempool.exists(pTxBase->GetHash()))
+    if (nResult == 0 && !mempool.exists(getTxBase()->GetHash()))
         return -1; // Not in chain, not in mempool
 
     return nResult;
@@ -4325,7 +4350,7 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
 
 bool CWalletTransactionBase::HasInputFrom(const CScript& scriptPubKey) const 
 {
-    for(const auto& txin: pTxBase->GetVin())
+    for(const auto& txin: getTxBase()->GetVin())
     {
         const auto mi = pwallet->getMapWallet().find(txin.prevout.hash);
         if (mi == pwallet->getMapWallet().end()) {
@@ -4397,41 +4422,20 @@ int CWalletCert::GetIndexInBlock(const CBlock& block)
     return nIndex;
 }
 
-CWalletCert::CWalletCert():
-    CWalletTransactionBase(nullptr, nullptr), wrappedCertificate()
-{
-    // Note explitic call to CTransactionBase is needed since
-    // in multiple inheritance virtual classes are initialized first
-    // and CTransactionBase has not default ctor
-    CWalletTransactionBase::pTxBase = &wrappedCertificate;
-}
+CWalletCert::CWalletCert(): CWalletTransactionBase(nullptr), wrappedCertificate() {}
 
 CWalletCert::CWalletCert(const CWallet* pwalletIn, const CScCertificate& certIn):
-    CWalletTransactionBase(pwalletIn, nullptr), wrappedCertificate(certIn)
-{
-    // Note explitic call to CTransactionBase is needed since
-    // in multiple inheritance virtual classes are initialized first
-    // and CTransactionBase has not default ctor
-    CWalletTransactionBase::pTxBase = &wrappedCertificate;
-}
+    CWalletTransactionBase(pwalletIn), wrappedCertificate(certIn) {}
 
 CWalletCert::CWalletCert(const CWalletCert& rhs):
-    CWalletTransactionBase(rhs), wrappedCertificate(rhs.wrappedCertificate)
-{
-    // Note explitic call to CTransactionBase is needed since
-    // in multiple inheritance virtual classes are initialized first
-    // and CTransactionBase has not default ctor
-    CWalletTransactionBase::pTxBase = &wrappedCertificate;
-}
+    CWalletTransactionBase(rhs), wrappedCertificate(rhs.wrappedCertificate) {}
 
 CWalletCert& CWalletCert::operator=(const CWalletCert& rhs)
 {
     CWalletTransactionBase::operator=(rhs);
     *const_cast<CScCertificate*>(&wrappedCertificate) = rhs.wrappedCertificate;
-    CWalletTransactionBase::pTxBase = &wrappedCertificate;
     return *this;
 }
-
 
 void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
     CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const
