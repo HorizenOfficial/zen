@@ -33,6 +33,7 @@ static const char DB_BEST_ANCHOR = 'a';
 static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
 static const char DB_LAST_BLOCK = 'l';
+static const char DB_CERT_DATA_HASH = 'h';
 
 
 void static BatchWriteAnchor(CLevelDBBatch &batch,
@@ -460,4 +461,34 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
     }
 
     return true;
+}
+
+bool CBlockTreeDB::addCertData(const uint256& scId, const int height, const libzendoomc::ScFieldElement &certHash) {
+    std::pair<uint256, int> position = std::make_pair(scId, height);
+    libzendoomc::ScFieldElement cumulativeCertData;
+
+    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> prevData;
+    if (getCertData(scId, height - 1, prevData)) {
+        cumulativeCertData = calculateCumulativeCertDataHash(prevData.first, prevData.second);
+    }
+
+    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> data = std::make_pair(cumulativeCertData, certHash);
+
+    CLevelDBBatch batch;
+    batch.Write(make_pair(DB_CERT_DATA_HASH, position), certHash);
+    return WriteBatch(batch);
+}
+
+bool CBlockTreeDB::getCertData(const uint256& scId, const int height, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data) {
+    std::pair<uint256, int> position = std::make_pair(scId, height);
+
+    return Read(make_pair(DB_CERT_DATA_HASH, position), data);
+}
+
+bool CBlockTreeDB::removeCertData(const uint256& scId, const int height) {
+    std::pair<uint256, int> position = std::make_pair(scId, height);
+
+    CLevelDBBatch batch;
+    batch.Erase(make_pair(DB_CERT_DATA_HASH, position));
+    return WriteBatch(batch);
 }

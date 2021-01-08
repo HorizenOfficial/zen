@@ -8,6 +8,7 @@
 
 #include "coins.h"
 #include "leveldbwrapper.h"
+#include "sc/proofverifier.h"
 
 #include <map>
 #include <string>
@@ -76,6 +77,9 @@ public:
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts();
+    bool addCertData(const uint256& scId, const int height, const libzendoomc::ScFieldElement &certHash);
+    bool getCertData(const uint256& scId, const int height, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data);
+    bool removeCertData(const uint256& scId, const int height);
 };
 
 #endif // BITCOIN_TXDB_H

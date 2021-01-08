@@ -2679,11 +2679,18 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
                     return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
                 }
+                // Remove previously stored DataHash
+                if (!pblocktree->removeCertData(cert.GetScId(), cert.epochNumber))
+                    return error("DisconnectBlock(): Failed to write CertData");
             } else
             {
                 // resurrect prevBlockTopQualityCertHash bwts
                 assert(blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA);
                 view.RestoreBackwardTransfers(prevBlockTopQualityCertHash, blockUndo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
+                // Update CertDataHash
+                libzendoomc::ScFieldElement dataHash = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevCertDataHash;
+                if (!pblocktree->addCertData(cert.GetScId(), cert.epochNumber, dataHash))
+                    return error("DisconnectBlock(): Failed to write CertDataHash");
             }
 
             // Refresh previous certificate in wallet, whether it has been just restored or it is from previous epoch
@@ -3174,6 +3181,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
 
+            libzendoomc::ScFieldElement dataHash = blockundo.scUndoDatabyScId.at(cert.GetScId()).prevCertDataHash;
+            if (!pblocktree->addCertData(cert.GetScId(), cert.epochNumber, dataHash))
+                return AbortNode(state, "Failed to write transaction index");
+
             if (pCertsStateInfo != nullptr)
                 pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), cert.GetHash(),
                                         cert.epochNumber, cert.quality, CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
@@ -3182,7 +3193,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), cert.GetHash(),
                                         cert.epochNumber, cert.quality, CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
         }
-
 
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset
