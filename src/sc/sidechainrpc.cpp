@@ -853,18 +853,7 @@ void ScRpcRetrieveCmdTx::addCcOutputs()
 
     for (const auto& entry : _outParams)
     {
-#if 0
-        auto it = std::find(entry._scriptPubKey.begin(), entry._scriptPubKey.end(), OP_HASH160);
-        assert(it != entry._scriptPubKey.end());
-        ++it;
-        assert(*it == sizeof(uint160));
-        ++it;
-        std::vector<unsigned char>  pubKeyV(it, (it + sizeof(uint160)));
-        uint160 pubKeyHash = uint160(pubKeyV);
-        CBwtRequestOut txccout(entry._scid, pubKeyHash, entry._params);
-#else
         CBwtRequestOut txccout(entry._scid, entry._pkh, entry._params);
-#endif
         _tx.add(txccout);
     }
 }
