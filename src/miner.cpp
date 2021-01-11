@@ -657,7 +657,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.
             CValidationState state;
-            // Q: why contextualCheckInputs for Certificates just "return true;"? Why we don't check Cert inputs signatures?
             if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
                 continue;
 

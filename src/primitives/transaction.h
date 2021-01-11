@@ -358,7 +358,7 @@ class CTxCeasedSidechainWithdrawalInput
 public:
     CAmount nValue;
     uint256 scId;
-    int64_t nEpoch;
+    int32_t nEpoch;
     libzendoomc::ScFieldElement nullifier;
     uint160 pubKeyHash;
     libzendoomc::ScProof scProof;
@@ -366,7 +366,7 @@ public:
 
     CTxCeasedSidechainWithdrawalInput(): nValue(-1), scId(), nEpoch(-1), nullifier(), pubKeyHash(), scProof(), redeemScript() {}
 
-    explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn, int64_t nEpochIn,
+    explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn, int32_t nEpochIn,
                                                const libzendoomc::ScFieldElement& nullifierIn, const uint160& pubKeyHashIn,
                                                const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn);
 
@@ -627,7 +627,6 @@ class UniValue;
 
 namespace Sidechain { class ScCoinsViewCache; }
 
-class BaseSignatureChecker;
 class CMutableTransactionBase;
 
 // abstract interface for CTransaction and CScCertificate
@@ -694,7 +693,7 @@ public:
 
     bool CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const;
 
-    virtual bool CheckInputsLimit() const;
+    virtual bool CheckInputsLimit() const = 0;
     //END OF CHECK FUNCTIONS
 
     // Return sum of txouts.
@@ -734,9 +733,6 @@ public:
     virtual bool VerifyScript(
         const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
         bool cacheStore, ScriptError* serror) const = 0;
-
-    virtual std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
-        unsigned int nIn, const CChain* chain, bool cacheStore) const = 0;
 
     //-----------------
     // default values for derived classes which do not support specific data structures
@@ -875,11 +871,11 @@ public:
     bool ccIsNull() const {
         return (
             vcsw_ccin.empty() &&
-            ccoutIsNull()
+            ccOutIsNull()
         );
     }
 
-    bool ccoutIsNull() const {
+    bool ccOutIsNull() const {
         return (
             vsc_ccout.empty() &&
             vft_ccout.empty()
@@ -1024,8 +1020,6 @@ public:
     bool VerifyScript(
             const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
             bool cacheStore, ScriptError* serror) const override;
-    std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
-        unsigned int nIn, const CChain* chain, bool cacheStore) const override;
 };
 
 /** A mutable hierarchy version of CTransaction. */

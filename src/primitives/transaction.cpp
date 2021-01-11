@@ -211,7 +211,7 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn, int64_t nEpochIn,
+CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn, int32_t nEpochIn,
                                                                      const libzendoomc::ScFieldElement& nullifierIn, const uint160& pubKeyHashIn,
                                                                      const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn)
 {
@@ -561,11 +561,11 @@ bool CTransaction::CheckInputsDuplication(CValidationState &state) const
     std::set<libzendoomc::ScFieldElement> vNullifiers;
     for(const CTxCeasedSidechainWithdrawalInput cswIn: GetVcswCcIn())
     {
-        if(!vNullifiers.insert(cswIn.nullifier).second)
+        if(vNullifiers.count(cswIn.nullifier))
             return state.DoS(100, error("CheckInputsDuplications(): duplicate ceased sidechain withdrawal inputs"),
                              REJECT_INVALID, "bad-txns-csw-inputs-duplicate");
 
-        ;
+        vNullifiers.insert(cswIn.nullifier);
     }
 
     return true;
@@ -710,7 +710,7 @@ bool CTransaction::CheckNonEmpty(CValidationState &state) const
 
     // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
     // when utxo reminder is only dust, which is added to fee leaving no change for the sender
-    if (GetVout().empty() && GetVjoinsplit().empty() && ccoutIsNull())
+    if (GetVout().empty() && GetVjoinsplit().empty() && ccOutIsNull())
     {
         return state.DoS(10, error("CheckNonEmpty(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
@@ -835,21 +835,6 @@ std::string CTransaction::ToString() const
     return str;
 }
 
-bool CTransactionBase::CheckInputsLimit() const {
-    // Node operator can choose to reject tx by number of transparent inputs
-    static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
-    size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
-    if (limit > 0) {
-        size_t n = GetVin().size();
-        if (n > limit) {
-            LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n",
-                    GetHash().ToString(), n, limit );
-            return false;
-        }
-    }
-    return true;
-}
-
 bool CTransaction::CheckInputsLimit() const {
     // Node operator can choose to reject tx by number of transparent inputs and csw inputs
     static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
@@ -886,10 +871,6 @@ bool CTransaction::VerifyScript(
         const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
         bool cacheStore, ScriptError* serror) const { return true; }
 std::string CTransaction::EncodeHex() const { return ""; }
-std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
-{
-    return std::shared_ptr<BaseSignatureChecker>();
-}
 void CTransaction::Relay() const {}
 std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 {
@@ -1080,11 +1061,6 @@ bool CTransaction::VerifyScript(
     }
 
     return true;
-}
-
-std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
-{
-    return std::shared_ptr<BaseSignatureChecker>(new CachingTransactionSignatureChecker(this, nIn, chain, cacheStore));
 }
 
 bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,

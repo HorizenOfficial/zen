@@ -1448,7 +1448,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
 
         // If this tx creates a sc, no other tx must be doing the same in the mempool
         for(const CTxScCreationOut& sc: tx.GetVscCcOut()) {
-            if ((pool.mapSidechains.count(sc.GetScId()) != 0) && (!pool.mapSidechains.at(sc.GetScId()).scCreationTxHash.IsNull())) {
+            if (pool.hasSidechainCreationTx(sc.GetScId())) {
                 LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another sc in mempool\n",
                         __func__, __LINE__, hash.ToString());
                 return false;
@@ -1465,7 +1465,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         // Check if this tx does CSW with the nullifier already present in the mempool
         for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
         {
-            if (pool.mapSidechains.count(csw.scId) != 0 && pool.mapSidechains.at(csw.scId).cswNullifiers.count(csw.nullifier) != 0) {
+            if (pool.hasSidechainCswTx(csw.scId, csw.nullifier)) {
                 LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another CSW input nullifier in mempool\n",
                         __func__, __LINE__, hash.ToString());
                 return false;
@@ -1491,7 +1491,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             }
 
             auto scVerifier = disconnecting ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-            if (!view.IsTxCswApplicableToState(tx, nextBlockHeight, state, scVerifier) ) {
+            if (!view.IsTxCswApplicableToState(tx, state, scVerifier) ) {
                 LogPrint("sc", "%s():%d - ERROR: csw input for Tx [%s] is not applicable\n", __func__, __LINE__, tx.GetHash().ToString() );
                 return state.DoS(100, error("%s(): invalid csw input for Tx [%s]", __func__, tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-txns-csw-input-not-applicable");
@@ -1522,7 +1522,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             }
 
             // are the sidechains dependencies available?
-            if (!view.HaveScRequirements(tx, nextBlockHeight))
+            if (!view.HaveScRequirements(tx))
             {
                 return state.Invalid(error("%s(): sidechain is redeclared or coins are forwarded to unknown/ceased sidechain", __func__),
                                     REJECT_INVALID, "bad-sc-tx");
@@ -2213,19 +2213,19 @@ bool IsCommunityFund(const CCoins *coins, int nIn)
 }
 
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
+bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
 {
     // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
     // for an attacker to attempt to split the network.
-    if (!inputs.HaveInputs(tx))
-        return state.Invalid(error("CheckInputs(): %s inputs unavailable", tx.GetHash().ToString()));
+    if (!inputs.HaveInputs(txBase))
+        return state.Invalid(error("CheckInputs(): %s inputs unavailable", txBase.GetHash().ToString()));
 
     // are the JoinSplit's requirements met?
-    if (!inputs.HaveJoinSplitRequirements(tx))
-        return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", tx.GetHash().ToString()));
+    if (!inputs.HaveJoinSplitRequirements(txBase))
+        return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", txBase.GetHash().ToString()));
 
     CAmount nValueIn = 0;
-    for(const CTxIn& in: tx.GetVin()) {
+    for(const CTxIn& in: txBase.GetVin()) {
         const COutPoint &prevout = in.prevout;
         const CCoins *coins = inputs.AccessCoins(prevout.hash);
         assert(coins);
@@ -2235,8 +2235,8 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         {
             if (!coins->isOutputMature(in.prevout.n, nSpendHeight) )
             {
-                LogPrintf("%s():%d - Error: tx [%s] attempts to spend immature output [%d] of tx [%s]\n",
-                        __func__, __LINE__, tx.GetHash().ToString(), in.prevout.n, in.prevout.hash.ToString());
+                LogPrintf("%s():%d - Error: txBase [%s] attempts to spend immature output [%d] of tx [%s]\n",
+                        __func__, __LINE__, txBase.GetHash().ToString(), in.prevout.n, in.prevout.hash.ToString());
                 LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
                         __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nSpendHeight);
                 if (coins->IsCoinBase())
@@ -2256,7 +2256,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             // Disabled on regtest
             if (fCoinbaseEnforcedProtectionEnabled &&
                 consensusParams.fCoinbaseMustBeProtected &&
-                !tx.GetVout().empty()) {
+                !txBase.GetVout().empty()) {
 
             // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
             // to send them to the transparent addr.
@@ -2276,88 +2276,26 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                 REJECT_INVALID, "bad-txns-inputvalues-outofrange");
     }
 
-    for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
-        nValueIn += csw.nValue;
-        if (!MoneyRange(csw.nValue) || !MoneyRange(nValueIn))
-            return state.DoS(100, error("CheckInputs(): tx csw input values out of range"),
-                REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+    try {
+        nValueIn += txBase.GetCSWValueIn();
+        if (!MoneyRange(nValueIn))
+            throw std::runtime_error("Total inputs value out of range.");
+    } catch (const std::runtime_error& e) {
+        return state.DoS(100, error("CheckInputs(): tx csw input values out of range"),
+            REJECT_INVALID, "bad-txns-inputvalues-outofrange");
     }
 
-    nValueIn += tx.GetJoinSplitValueIn();
+    nValueIn += txBase.GetJoinSplitValueIn();
     if (!MoneyRange(nValueIn))
         return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
                          REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-    if (!tx.CheckFeeAmount(nValueIn, state))
+    if (!txBase.CheckFeeAmount(nValueIn, state))
         return false;
 
     return true;
 }
 
-bool CheckCertInputs(const CScCertificate& cert, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
-{
-    // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
-    // for an attacker to attempt to split the network.
-    if (!inputs.HaveInputs(cert))
-        return state.Invalid(error("CheckInputs(): %s inputs unavailable", cert.GetHash().ToString()));
-
-    CAmount nValueIn = 0;
-    for(const CTxIn& in: cert.GetVin()) {
-        const COutPoint &prevout = in.prevout;
-        const CCoins *coins = inputs.AccessCoins(prevout.hash);
-        assert(coins);
-
-        // Ensure that coinbases and certificates outputs are matured
-        if (coins->IsCoinBase() || coins->IsFromCert() )
-        {
-            if (!coins->isOutputMature(in.prevout.n, nSpendHeight) )
-            {
-                LogPrintf("%s():%d - Error: cert [%s] attempts to spend immature output [%d] of tx [%s]\n",
-                        __func__, __LINE__, cert.GetHash().ToString(), in.prevout.n, in.prevout.hash.ToString());
-                LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
-                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nSpendHeight);
-                if (coins->IsCoinBase())
-                    return state.Invalid(
-                        error("CheckInputs(): tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight),
-                        REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
-                if (coins->IsFromCert())
-                    return state.Invalid(
-                        error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
-                        REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
-            }
-        }
-
-        if (coins->IsCoinBase())
-        {
-            // Ensure that coinbases cannot be spent to transparent outputs
-            // Disabled on regtest
-            if (fCoinbaseEnforcedProtectionEnabled &&
-                consensusParams.fCoinbaseMustBeProtected &&
-                !cert.GetVout().empty()) {
-
-            // Since HARD_FORK_HEIGHT there is an exemption for community fund coinbase coins, so it is allowed
-            // to send them to the transparent addr.
-            bool fDisableProtectionForFR = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(nSpendHeight);
-            if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
-                return state.Invalid(
-                    error("CheckInputs(): tried to spend coinbase with transparent outputs"),
-                    REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
-                }
-            }
-        }
-
-        // Check for negative or overflow input values
-        nValueIn += coins->vout[prevout.n].nValue;
-        if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
-            return state.DoS(100, error("CheckInputs(): txin values out of range"),
-                REJECT_INVALID, "bad-txns-inputvalues-outofrange");
-    }
-
-    if (!cert.CheckFeeAmount(nValueIn, state))
-        return false;
-
-    return true;
-}
 }// namespace Consensus
 
 
@@ -2459,7 +2397,7 @@ bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, co
 
 bool ContextualCheckCertInputs(const CScCertificate& cert, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
 {
-    if (!Consensus::CheckCertInputs(cert, state, inputs, GetSpendHeight(inputs), consensusParams)) {
+    if (!Consensus::CheckTxInputs(cert, state, inputs, GetSpendHeight(inputs), consensusParams)) {
         return false;
     }
 
@@ -3028,7 +2966,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): tx inputs missing/spent"),
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
  
-            if (!view.HaveScRequirements(tx, pindex->nHeight))
+            if (!view.HaveScRequirements(tx))
                 return state.Invalid(error("ConnectBlock: sidechain is redeclared or coins are forwarded to unknown sidechain"),
                                             REJECT_INVALID, "bad-sc-tx");
 
@@ -3055,7 +2993,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-        if (!view.IsTxCswApplicableToState(tx, pindex->nHeight, state, scVerifier) ) {
+        if (!view.IsTxCswApplicableToState(tx, state, scVerifier) ) {
             LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
             return state.DoS(100, error("ConnectBlock(): invalid csw input for Tx [%s]", tx.GetHash().ToString()),
                              REJECT_INVALID, "bad-txns-csw-input-not-applicable");

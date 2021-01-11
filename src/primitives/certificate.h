@@ -159,6 +159,8 @@ public:
     bool CheckAmounts     (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
+    bool CheckInputsLimit() const override;
+
     //END OF CHECK FUNCTIONS
 
     void Relay() const override;
@@ -197,8 +199,6 @@ public:
     bool VerifyScript(
             const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
             bool cacheStore, ScriptError* serror) const override;
-    std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
-        unsigned int nIn, const CChain* chain, bool cacheStore) const override;
 };
 
 libzendoomc::ScFieldElement calculateCertDataHash(const CScCertificate& cert);

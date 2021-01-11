@@ -585,8 +585,7 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
 bool IsCommunityFund(const CCoins *coins, int nIn);
 
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
-bool CheckCertInputs(const CScCertificate& cert, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
+bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
 }
 
 struct CTransactionNetworkObj

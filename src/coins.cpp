@@ -868,7 +868,7 @@ int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
 std::string CSidechain::stateToString(State s) { return "";}
 bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
-bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
+bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
 bool libzendoomc::CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput(
         const ScFieldElement& prevCumulativeCertDataHash,
         const ScFieldElement& currentCertDataHash,
@@ -883,7 +883,7 @@ bool libzendoomc::CScProofVerifier::verifyCScCertificate(
     const uint256& prev_end_epoch_block_hash,
     const CScCertificate& scCert
 ) const { return true; }
-bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
+bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx) { return true; }
 size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
 #else
@@ -891,7 +891,7 @@ size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 #include "consensus/validation.h"
 #include "main.h"
 
-bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const
+bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const
 {
     for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
     {
@@ -904,9 +904,9 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, int nHeig
                  REJECT_INVALID, "tx-csw-input-scid-missed");
         }
 
-        if (isCeasedAtHeight(csw.scId, nHeight) != CSidechain::State::CEASED) {
-            LogPrintf("sc", "ERROR: Tx[%s] CSW input [%s] cannot be accepted, sidechain not ceased at height = %d (chain.h = %d)\n",
-                tx.ToString(), csw.ToString(), nHeight, chainActive.Height());
+        if ((CSidechain::State)scInfo.currentState != CSidechain::State::CEASED) {
+            LogPrintf("sc", "ERROR: Tx[%s] CSW input [%s] cannot be accepted, sidechain not ceased at height = %d\n",
+                tx.ToString(), csw.ToString(), chainActive.Height());
             return state.Invalid(error("received a csw for not ceased sidechain"),
                          REJECT_INVALID, "tx-csw-input-scid-not-ceased");
         }
@@ -1082,7 +1082,7 @@ bool CCoinsViewCache::isEpochDataValid(const CSidechain& scInfo, int epochNumber
     return true;
 }
 
-bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
+bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
 {
     if (tx.IsCoinBase())
         return true;
@@ -1109,12 +1109,11 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
         const uint256& scId = ft.scId;
         if (HaveSidechain(scId))
         {
-            // Q: whe do we not consider the height anymore? Previously we were not able to add FT Tx just before ceasing.
             auto s = GetSidechainState(scId);
             if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
             {
-                LogPrintf("ERROR: tx[%s] tries to send funds to scId[%s] with state(%s) at height = %d\n",
-                            txHash.ToString(), scId.ToString(), CSidechain::stateToString(s), height);
+                LogPrintf("ERROR: tx[%s] tries to send funds to scId[%s] with state(%s)\n",
+                            txHash.ToString(), scId.ToString(), CSidechain::stateToString(s));
                 return false;
             }
         } else {
@@ -1132,14 +1131,13 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height)
     // check CSW inputs
     for (const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
     {
-        auto s = isCeasedAtHeight(csw.scId, height);
+        auto s = GetSidechainState(csw.scId);
         if (s != CSidechain::State::CEASED)
         {
-            LogPrintf("ERROR: tx[%s] tries to send make ceased sidechain withdrawal to not yet ceased sidechain scId[%s] with state(%s) at height = %d\n",
-                        txHash.ToString(), csw.scId.ToString(), CSidechain::stateToString(s), height);
+            LogPrintf("ERROR: tx[%s] tries to send make ceased sidechain withdrawal to not yet ceased sidechain scId[%s] with state(%s)\n",
+                        txHash.ToString(), csw.scId.ToString(), CSidechain::stateToString(s));
             return false;
         }
-        // to do: check that CSW nullifier is unique
     }
 
     return true;

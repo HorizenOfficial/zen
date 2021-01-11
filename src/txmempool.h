@@ -292,6 +292,12 @@ public:
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).scCreationTxHash.IsNull());
     }
 
+    bool hasSidechainCswTx(uint256 scId, libzendoomc::ScFieldElement nullifier) const
+    {
+        LOCK(cs);
+        return mapSidechains.count(scId) != 0 && mapSidechains.at(scId).cswNullifiers.count(nullifier) != 0;
+    }
+
     bool lookup(uint256 hash, CTransaction& result) const;
     bool lookup(uint256 hash, CScCertificate& result) const;
 
