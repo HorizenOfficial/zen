@@ -680,7 +680,6 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
 {
     // Remove transactions which depend on inputs of tx, recursively
     // not used
-    // list<CTransaction> result;
     LOCK(cs);
     for(const CTxIn &txin: tx.GetVin()) {
         std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(txin.prevout);
@@ -713,7 +712,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
                 const uint256& txHash = cswNullifierPos->second;
                 const auto& it = mapTx.find(txHash);
                 // If CSW nullifier was present in cswNullifers, the containing tx must be present in the mempool.
-                assert(it == mapTx.end());
+                assert(it != mapTx.end());
 
                 const CTransaction &txConflict = it->second.GetTx();
                 if (txConflict != tx)

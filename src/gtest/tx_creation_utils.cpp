@@ -6,7 +6,7 @@
 #include <undo.h>
 
 // TODO: fwdTxAmount never used. Check test cases.
-CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, const CAmount & fwdTxAmount, int epochLength)
+CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength)
 {
     CMutableTransaction mtx;
     mtx.nVersion = txVersion;
@@ -60,7 +60,7 @@ void txCreationUtils::signTx(CMutableTransaction& mtx)
 
 CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, CAmount(0), epochLength);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, epochLength);
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vft_ccout.resize(0);
@@ -71,7 +71,7 @@ CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationT
 
 CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, CAmount(0), fwdTxAmount);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, fwdTxAmount);
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vsc_ccout.resize(0);

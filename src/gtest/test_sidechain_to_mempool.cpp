@@ -595,6 +595,86 @@ TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
     EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert6.GetHash());
 }
 
+TEST_F(SidechainsInMempoolTestSuite, SimpleCswRemovalFromMempool) {
+    //Create and persist sidechain
+    CTransaction scTx = GenerateScTx(CAmount(10));
+    const uint256& scId = scTx.GetScIdFromScCcOut(0);
+    CBlock aBlock;
+    CCoinsViewCache sidechainsView(pcoinsTip);
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.Flush();
+
+    //load csw tx to mempool
+    CAmount dummyAmount(1);
+    int32_t dummyEpoch(19);
+    uint160 dummyPubKeyHash;
+    libzendoomc::ScProof dummyScProof;
+    CScript dummyRedeemScript;
+
+    CMutableTransaction mutTx;
+    libzendoomc::ScFieldElement nullfier_1{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
+    libzendoomc::ScFieldElement nullfier_2{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, dummyEpoch, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, dummyEpoch, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+
+    CTransaction cswTx(mutTx);
+    CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(cswTx.GetHash(), cswEntry);
+
+    //Remove the csw tx
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    mempool.remove(cswTx, removedTxs, removedCerts, /*fRecursive*/false);
+
+    //checks
+    EXPECT_TRUE(removedCerts.size() == 0);
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), cswTx));
+    EXPECT_FALSE(mempool.existsTx(cswTx.GetHash()));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
+    //Create and persist sidechain
+    CTransaction scTx = GenerateScTx(CAmount(10));
+    const uint256& scId = scTx.GetScIdFromScCcOut(0);
+    CBlock aBlock;
+    CCoinsViewCache sidechainsView(pcoinsTip);
+    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.Flush();
+
+    //load csw tx to mempool
+    CAmount dummyAmount(1);
+    int32_t dummyEpoch(19);
+    uint160 dummyPubKeyHash;
+    libzendoomc::ScProof dummyScProof;
+    CScript dummyRedeemScript;
+
+    CMutableTransaction mutTx;
+    mutTx.nVersion = SC_TX_VERSION;
+    libzendoomc::ScFieldElement nullfier_1{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
+    libzendoomc::ScFieldElement nullfier_2{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, dummyEpoch, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, dummyEpoch, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+
+    CTransaction cswTx(mutTx);
+    CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(cswTx.GetHash(), cswEntry);
+
+    //Remove the csw tx due to nullifier conflict with cswConfirmedTx
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+
+    CMutableTransaction mutConfirmedTx;
+    mutConfirmedTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, dummyEpoch, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    CTransaction cswConfirmedTx(mutConfirmedTx);
+    ASSERT_TRUE(cswTx.GetHash() != cswConfirmedTx.GetHash());
+    mempool.removeConflicts(cswConfirmedTx, removedTxs, removedCerts);
+
+    //checks
+    EXPECT_TRUE(removedCerts.size() == 0);
+    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), cswTx));
+    EXPECT_FALSE(mempool.existsTx(cswTx.GetHash()));
+}
+
 TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
     //Create a coinbase
     CMutableTransaction mutCoinBase;
