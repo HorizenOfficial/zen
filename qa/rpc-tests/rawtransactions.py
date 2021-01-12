@@ -172,16 +172,24 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        sc_address="0000000000000000000000000000000000000000000000000000000000000abc"
+        sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
         sc_epoch = 123
         sc_cr_amount = Decimal('10.00000000')
 
         #generate wCertVk and constant
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
+        cswVk = mcTest.generate_params("csw1")
         constant = generate_random_field_element_hex()
 
-        sc_cr = [{"epoch_length": sc_epoch, "amount":sc_cr_amount, "address":sc_address, "wCertVk": vk, "constant": constant}]
+        sc_cr = [{
+            "epoch_length": sc_epoch,
+            "amount": sc_cr_amount,
+            "address": sc_address,
+            "wCertVk": vk,
+            "wCeasedVk": cswVk,
+            "constant": constant
+        }]
 
         #Try create a SC with no inputs
         print("Try create a SC with no inputs...")
@@ -298,7 +306,13 @@ class RawTransactionsTest(BitcoinTestFramework):
         # Create Tx with a single CSW input
         print("Create Tx with a single CSW input")
         rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
+        decoded_tx = self.nodes[0].decoderawtransaction(rawtx)
+        print("Raw tx:")
+        print(decoded_tx)
         sigRawtx = self.nodes[0].signrawtransaction(rawtx)
+        print("Signed raw tx:")
+        decoded_tx = self.nodes[0].decoderawtransaction(sigRawtx['hex'])
+        print(decoded_tx)
         finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
 
         self.sync_all()
@@ -318,7 +332,13 @@ class RawTransactionsTest(BitcoinTestFramework):
         sc_csws[0]['nullifier'] = generate_random_field_element_hex()
         
         rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
+        decoded_tx = self.nodes[0].decoderawtransaction(rawtx)
+        print("Raw tx:")
+        print(decoded_tx)
         sigRawtx = self.nodes[0].signrawtransaction(rawtx, [], [], "SINGLE")
+        print("Signed raw tx:")
+        decoded_tx = self.nodes[0].decoderawtransaction(sigRawtx['hex'])
+        print(decoded_tx)
         finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
 
         self.sync_all()
