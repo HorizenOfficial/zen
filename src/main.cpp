@@ -2298,6 +2298,42 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
 
 }// namespace Consensus
 
+bool InputScriptCheck(const CScript& scriptPubKey, const CTransactionBase& tx, unsigned int nIn,
+                      const CChain& chain, unsigned int flags, bool cacheStore,  CValidationState &state, std::vector<CScriptCheck> *pvChecks)
+{
+    // Verify signature
+    CScriptCheck check(scriptPubKey, tx, nIn, &chain, flags, cacheStore);
+    if (pvChecks) {
+        pvChecks->push_back(CScriptCheck());
+        check.swap(pvChecks->back());
+    } else if (!check()) {
+        if (check.GetScriptError() == SCRIPT_ERR_NOT_FINAL) {
+            return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
+        }
+        if (flags & STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS) {
+            // Check whether the failure was caused by a
+            // non-mandatory script verification check, such as
+            // non-standard DER encodings or non-null dummy
+            // arguments; if so, don't trigger DoS protection to
+            // avoid splitting the network between upgraded and
+            // non-upgraded nodes.
+            CScriptCheck check(scriptPubKey, tx, nIn, &chain,
+                    flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
+            if (check())
+                return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
+        }
+        // Failures of other flags indicate a transaction that is
+        // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
+        // such nodes as they are not following the protocol. That
+        // said during an upgrade careful thought should be taken
+        // as to the correct behavior - we may want to continue
+        // peering with non-upgraded nodes even after a soft-fork
+        // super-majority vote has passed.
+        return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+    }
+
+    return true;
+}
 
 bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
 {
@@ -2323,70 +2359,17 @@ bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, co
                 const CCoins* coins = inputs.AccessCoins(prevout.hash);
                 assert(coins);
 
-                // Verify signature
-                CScriptCheck check(*coins, tx, i, &chain, flags, cacheStore);
-                if (pvChecks) {
-                    pvChecks->push_back(CScriptCheck());
-                    check.swap(pvChecks->back());
-                } else if (!check()) {
-                    if (check.GetScriptError() == SCRIPT_ERR_NOT_FINAL) {
-                        return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
-                    }
-                    if (flags & STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS) {
-                        // Check whether the failure was caused by a
-                        // non-mandatory script verification check, such as
-                        // non-standard DER encodings or non-null dummy
-                        // arguments; if so, don't trigger DoS protection to
-                        // avoid splitting the network between upgraded and
-                        // non-upgraded nodes.
-                        CScriptCheck check(*coins, tx, i, &chain,
-                                flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
-                        if (check())
-                            return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
-                    }
-                    // Failures of other flags indicate a transaction that is
-                    // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
-                    // such nodes as they are not following the protocol. That
-                    // said during an upgrade careful thought should be taken
-                    // as to the correct behavior - we may want to continue
-                    // peering with non-upgraded nodes even after a soft-fork
-                    // super-majority vote has passed.
-                    return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+                const CScript& scriptPubKey = coins->vout[tx.GetVin()[i].prevout.n].scriptPubKey;
+                if(!InputScriptCheck(scriptPubKey, tx, i, chain, flags, cacheStore, state, pvChecks)) {
+                    return false;
                 }
             }
 
             unsigned int vinSize = tx.GetVin().size();
             for (unsigned int i = 0; i < tx.GetVcswCcIn().size(); i++) {
                 const CScript& scriptPubKey = tx.GetVcswCcIn()[i].scriptPubKey();
-                // Verify signature
-                CScriptCheck check(scriptPubKey, tx, i + vinSize, &chain, flags, cacheStore);
-                if (pvChecks) {
-                    pvChecks->push_back(CScriptCheck());
-                    check.swap(pvChecks->back());
-                } else if (!check()) {
-                    if (check.GetScriptError() == SCRIPT_ERR_NOT_FINAL) {
-                        return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
-                    }
-                    if (flags & STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS) {
-                        // Check whether the failure was caused by a
-                        // non-mandatory script verification check, such as
-                        // non-standard DER encodings or non-null dummy
-                        // arguments; if so, don't trigger DoS protection to
-                        // avoid splitting the network between upgraded and
-                        // non-upgraded nodes.
-                        CScriptCheck check(scriptPubKey, tx, i + vinSize, &chain,
-                                flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
-                        if (check())
-                            return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
-                    }
-                    // Failures of other flags indicate a transaction that is
-                    // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
-                    // such nodes as they are not following the protocol. That
-                    // said during an upgrade careful thought should be taken
-                    // as to the correct behavior - we may want to continue
-                    // peering with non-upgraded nodes even after a soft-fork
-                    // super-majority vote has passed.
-                    return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+                if(!InputScriptCheck(scriptPubKey, tx, i + vinSize, chain, flags, cacheStore, state, pvChecks)) {
+                    return false;
                 }
             }
         }
@@ -2417,35 +2400,9 @@ bool ContextualCheckCertInputs(const CScCertificate& cert, CValidationState &sta
             const CCoins* coins = inputs.AccessCoins(prevout.hash);
             assert(coins);
 
-            // Verify signature
-            CScriptCheck check(*coins, cert, i, &chain, flags, cacheStore);
-            if (pvChecks) {
-                pvChecks->push_back(CScriptCheck());
-                check.swap(pvChecks->back());
-            } else if (!check()) {
-                if (check.GetScriptError() == SCRIPT_ERR_NOT_FINAL) {
-                    return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
-                }
-                if (flags & STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS) {
-                    // Check whether the failure was caused by a
-                    // non-mandatory script verification check, such as
-                    // non-standard DER encodings or non-null dummy
-                    // arguments; if so, don't trigger DoS protection to
-                    // avoid splitting the network between upgraded and
-                    // non-upgraded nodes.
-                    CScriptCheck check(*coins, cert, i, &chain,
-                            flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
-                    if (check())
-                        return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
-                }
-                // Failures of other flags indicate a transaction that is
-                // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
-                // such nodes as they are not following the protocol. That
-                // said during an upgrade careful thought should be taken
-                // as to the correct behavior - we may want to continue
-                // peering with non-upgraded nodes even after a soft-fork
-                // super-majority vote has passed.
-                return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+            const CScript& scriptPubKey = coins->vout[cert.GetVin()[i].prevout.n].scriptPubKey;
+            if(!InputScriptCheck(scriptPubKey, cert, i, chain, flags, cacheStore, state, pvChecks)) {
+                return false;
             }
         }
     }
