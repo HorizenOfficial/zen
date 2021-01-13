@@ -249,15 +249,15 @@ UniValue getdifficulty(const UniValue& params, bool fHelp)
     return GetNetworkDifficulty();
 }
 
+#if 0
 void AddDependancy(const CTransaction& tx, UniValue& info)
 {
     set<string> setDepends;
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
+    for (const CTxIn& txin: tx.GetVin())
     {
         if (mempool.exists(txin.prevout.hash))
             setDepends.insert(txin.prevout.hash.ToString());
     }
-    // the dependancy of a certificate from the sc creation is not considered
     for (const auto& ft: tx.GetVftCcOut())
     {
         if (mempool.hasSidechainCreationTx(ft.scId))
@@ -282,7 +282,7 @@ void AddDependancy(const CTransaction& tx, UniValue& info)
     }
 
     UniValue depends(UniValue::VARR);
-    BOOST_FOREACH(const string& dep, setDepends)
+    for (const string& dep: setDepends)
     {
         depends.push_back(dep);
     }
@@ -293,20 +293,33 @@ void AddDependancy(const CTransaction& tx, UniValue& info)
 void AddDependancy(const CScCertificate& cert, UniValue& info)
 {
     set<string> setDepends;
-    BOOST_FOREACH(const CTxIn& txin, cert.GetVin())
+    for (const CTxIn& txin: cert.GetVin())
     {
         if (mempool.exists(txin.prevout.hash))
             setDepends.insert(txin.prevout.hash.ToString());
     }
 
     UniValue depends(UniValue::VARR);
-    BOOST_FOREACH(const string& dep, setDepends)
+    for (const string& dep: setDepends)
     {
         depends.push_back(dep);
     }
 
     info.push_back(Pair("depends", depends));
 }
+#else
+static void AddDependancy(const CTransactionBase& root, UniValue& info)
+{
+    std::vector<uint256> sDepHash = mempool.mempoolDirectDependenciesFrom(root);
+    UniValue depends(UniValue::VARR);
+    for(const uint256& hash: sDepHash)
+    {
+        depends.push_back(hash.ToString());
+    }
+
+    info.push_back(Pair("depends", depends));
+}
+#endif
 
 UniValue mempoolToJSON(bool fVerbose = false)
 {
@@ -1083,24 +1096,7 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
     if (ia.size() > 0)
         sc.push_back(Pair("unconf immature amounts", ia));
 
-    // TODO there are no info about bwt requests in sc db, shall we include them anyway when they are in mempool?
-    UniValue btra(UniValue::VARR);
-    for (const auto& bwtReqHash: mempool.mapSidechains.at(scId).mcBtrSet)
-    {
-        const CTransaction & bwtrTx = mempool.mapTx.at(bwtReqHash).GetTx();
-        for (const auto& out : bwtrTx.GetVBwtRequestOut())
-        {
-            if (scId == out.scId)
-            {
-                 UniValue o(UniValue::VOBJ);
-                 o.push_back(Pair("unconf bwt req sc fee", ValueFromAmount(out.scFee)));
-                 o.push_back(Pair("unconf bwt req dest addr", out.mcDestinationAddress.GetHex()));
-                 btra.push_back(o);
-             }
-        }
-    }
-    if (btra.size() > 0)
-        sc.push_back(Pair("unconf bwt req", btra));
+    // there are no info about bwt requests in sc db, therefore we do not include them neither when they are in mempool
 }
 
 bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechain::State scState,

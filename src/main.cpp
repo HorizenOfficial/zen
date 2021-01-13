@@ -905,6 +905,9 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
     if (!cert.IsValidVersion(state))
         return false;
 
+    if (!cert.CheckNonEmpty(state))
+        return false;
+
     if (!cert.CheckSerializedSize(state))
         return false;
 

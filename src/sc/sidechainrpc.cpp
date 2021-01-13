@@ -616,16 +616,6 @@ void ScRpcCmdCert::execute()
     send();
 }
 
-void ScRpcCmdCert::addInputs()
-{
-    if (_fee == 0)
-    {
-        LogPrint("sc", "%s():%d - No fee therefore no inputs are added to cert, exiting\n", __func__, __LINE__);
-        return;
-    }
-    ScRpcCmd::addInputs();
-}
-
 void ScRpcCmdCert::sign()
 {
     std::string rawcert;

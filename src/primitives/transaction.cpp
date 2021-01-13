@@ -308,11 +308,6 @@ CBwtRequestOut::CBwtRequestOut(
     scId(scIdIn), scUtxoId(paramsIn.scUtxoId), mcDestinationAddress(pkhIn),
     scFee(paramsIn.scFee), scProof(paramsIn.scProof) {}
 
-//----------------------------------------------------------------------------
-uint256 CBwtRequestOut::GetHash() const
-{
-    return SerializeHash(*this);
-}
 
 std::string CBwtRequestOut::ToString() const
 {
@@ -461,44 +456,23 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
 
     for(const CTxScCreationOut& scOut: vsc_ccout)
     {
-        if (scOut.nValue < 0)
-            return state.DoS(100, error("CheckAmounts(): scOut.nValue negative"),
-                             REJECT_INVALID, "bad-txns-vout-negative");
-        if (scOut.nValue > MAX_MONEY)
-            return state.DoS(100, error("CheckAmounts(): scOut.nValue too high"),
-                             REJECT_INVALID, "bad-txns-vout-toolarge");
-        nCumulatedValueOut += scOut.nValue;
-        if (!MoneyRange(nCumulatedValueOut))
-            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
-                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+        if (!scOut.CheckAmountRange(nCumulatedValueOut))
+            return state.DoS(100, error("%s(): ccout total out of range", __func__),
+                             REJECT_INVALID, "bad-txns-ccout-range");
     }
 
     for(const CTxForwardTransferOut& fwdOut: vft_ccout)
     {
-        if (fwdOut.nValue < 0)
-            return state.DoS(100, error("CheckAmounts(): fwdOut.nValue negative"),
-                             REJECT_INVALID, "bad-txns-vout-negative");
-        if (fwdOut.nValue > MAX_MONEY)
-            return state.DoS(100, error("CheckAmounts(): fwdOut.nValue too high"),
-                             REJECT_INVALID, "bad-txns-vout-toolarge");
-        nCumulatedValueOut += fwdOut.nValue;
-        if (!MoneyRange(nCumulatedValueOut))
-            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
-                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+        if (!fwdOut.CheckAmountRange(nCumulatedValueOut))
+            return state.DoS(100, error("%s(): ccout total out of range", __func__),
+                             REJECT_INVALID, "bad-txns-ccout-range");
     }
 
     for(const CBwtRequestOut& mbwtr: vmbtr_out)
     {
-        if (mbwtr.scFee < 0)
-            return state.DoS(100, error("CheckAmounts(): mbwtr.scFee negative"),
-                             REJECT_INVALID, "bad-txns-vout-negative");
-        if (mbwtr.scFee > MAX_MONEY)
-            return state.DoS(100, error("CheckAmounts(): mbwtr.scFee too high"),
-                             REJECT_INVALID, "bad-txns-vout-toolarge");
-        nCumulatedValueOut += mbwtr.scFee;
-        if (!MoneyRange(nCumulatedValueOut))
-            return state.DoS(100, error("CheckAmounts(): txout total out of range"),
-                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+        if (!mbwtr.CheckAmountRange(nCumulatedValueOut))
+            return state.DoS(100, error("%s(): ccout total out of range", __func__),
+                             REJECT_INVALID, "bad-txns-ccout-range");
     }
 
     // Ensure input values do not exceed MAX_MONEY

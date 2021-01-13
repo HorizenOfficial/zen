@@ -1674,7 +1674,6 @@ CAmount CWallet::GetChange(const CTransactionBase& txBase) const
     return nChange;
 }
 
-
 int CWalletTx::GetIndexInBlock(const CBlock& block)
 {
     // Locate the index of certificate
@@ -2153,6 +2152,16 @@ bool CWalletTx::RelayWalletTransaction()
     return false;
 }
 
+void CWalletTx::fillScFees(const std::vector<CBwtRequestOut>& vOuts, std::list<CScOutputEntry>& listScSent) const
+{
+    for(const auto& txccout : vOuts)
+    {
+        CScOutputEntry output = {uint256(), txccout.scFee};
+        listScSent.push_back(output);
+    }
+}
+
+
 void CWalletTransactionBase::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const
 {
     for(const CTxIn& txin: getTxBase()->GetVin())
@@ -2389,7 +2398,7 @@ CAmount CWalletTransactionBase::GetAvailableCredit(bool fUseCache) const
         if (!pwallet->IsSpent(getTxBase()->GetHash(), pos)) {
             nCredit += pwallet->GetCredit(getTxBase()->GetVout()[pos], ISMINE_SPENDABLE);
             if (!MoneyRange(nCredit))
-                throw std::runtime_error("CWalletTx::GetAvailableCredit() : value out of range");
+                throw std::runtime_error("CWalletTransactionBase::GetAvailableCredit() : value out of range");
         }
     }
 
@@ -2432,7 +2441,7 @@ CAmount CWalletTransactionBase::GetAvailableWatchOnlyCredit(const bool& fUseCach
             const CTxOut &txout = getTxBase()->GetVout()[pos];
             nCredit += pwallet->GetCredit(txout, ISMINE_WATCH_ONLY);
             if (!MoneyRange(nCredit))
-                throw std::runtime_error("CWalletTx::GetAvailableWatchOnlyCredit() : value out of range");
+                throw std::runtime_error("CWalletTTransactionBase:GetAvailableWatchOnlyCredit() : value out of range");
         }
     }
 

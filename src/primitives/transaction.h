@@ -447,7 +447,6 @@ public:
     }
 
     virtual const uint256& GetScId() const = 0; 
-    virtual uint256 GetHash() const = 0;
 
     virtual std::string ToString() const = 0;
 };
@@ -472,6 +471,7 @@ public:
     CAmount GetScValue() const override { return nValue; }
     bool AllowedZeroScValue() const override { return false; }
 
+    virtual uint256 GetHash() const = 0;
 protected:
     static bool isBaseEqual(const CTxCrosschainOut& a, const CTxCrosschainOut& b)
     {
@@ -499,9 +499,9 @@ public:
         READWRITE(scId);
     }
 
-    virtual const uint256& GetScId() const override { return scId;}; 
-    virtual uint256 GetHash() const override;
-    virtual std::string ToString() const override;
+    const uint256& GetScId() const override final { return scId;}; 
+    uint256 GetHash() const override final;
+    std::string ToString() const override final;
 
     friend bool operator==(const CTxForwardTransferOut& a, const CTxForwardTransferOut& b)
     {
@@ -548,10 +548,10 @@ public:
         READWRITE(wMbtrVk);
     }
 
-    virtual const uint256& GetScId() const override { return generatedScId;}; 
+    const uint256& GetScId() const override final { return generatedScId;}; 
 
-    virtual uint256 GetHash() const override;
-    virtual std::string ToString() const override;
+    uint256 GetHash() const override final;
+    std::string ToString() const override final;
 
     friend bool operator==(const CTxScCreationOut& a, const CTxScCreationOut& b)
     {
@@ -620,7 +620,6 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 
     const uint256& GetScId() const override { return scId;}; 
 
-    uint256 GetHash() const override;
     std::string ToString() const override;
 };
 
@@ -700,6 +699,7 @@ public:
 
     bool CheckSerializedSize (CValidationState &state) const;
     virtual bool CheckAmounts(CValidationState &state) const = 0;
+    virtual bool CheckNonEmpty(CValidationState &state) const = 0;
     bool CheckInputsDuplication(CValidationState &state) const;
     virtual bool CheckInputsInteraction(CValidationState &state) const = 0;
 
@@ -903,7 +903,7 @@ public:
     bool IsValidVersion   (CValidationState &state) const override;
     bool IsVersionStandard(int nHeight) const override;
     bool CheckAmounts     (CValidationState &state) const override;
-    bool CheckNonEmpty    (CValidationState &state) const;
+    bool CheckNonEmpty    (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
     //END OF CHECK FUNCTIONS

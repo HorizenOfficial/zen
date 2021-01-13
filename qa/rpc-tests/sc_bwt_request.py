@@ -264,11 +264,6 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_true(bwt3 in self.nodes[1].getrawmempool())
         assert_true(bwt4 in self.nodes[1].getrawmempool())
 
-        # verify unconf bwt requests data in scinfo are as expected
-        # TODO getscinfo as of now includes such info, check that
-        result = self.nodes[0].getscinfo(scid1)['items'][0]
-        assert_equal(len(result['unconf bwt req']), 6)
-
         mark_logs("Node0 confirms sc creation and bwt requests generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()

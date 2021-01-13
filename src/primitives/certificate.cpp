@@ -84,6 +84,20 @@ bool CScCertificate::IsVersionStandard(int nHeight) const
     return true;
 }
 
+bool CScCertificate::CheckNonEmpty(CValidationState &state) const
+{
+    // Certificates can not contain empty `vin` 
+    if (GetVin().empty())
+    {
+        LogPrint("sc", "%s():%d - Error: cert[%s]\n", __func__, __LINE__, GetHash().ToString() );
+        return state.DoS(10, error("%s(): vin empty", __func__),
+                         REJECT_INVALID, "bad-cert-vin-empty");
+    }
+
+    return true;
+}
+
+
 bool CScCertificate::CheckAmounts(CValidationState &state) const
 {
     // Check for negative or overflow output values

@@ -70,6 +70,7 @@ class CReserveKey;
 class CScript;
 class CTxMemPool;
 class CWalletTx;
+class CBwtRequestOut;
 
 /** (client) version numbers for particular wallet features */
 enum WalletFeature
@@ -527,15 +528,8 @@ public:
             listScSent.push_back(output);
         }
     }
-    template <typename T>
-    inline void fillScFees(const T& vOuts, std::list<CScOutputEntry>& listScSent) const
-    {
-        for(const auto& txccout : vOuts)
-        {
-            CScOutputEntry output = {uint256(), txccout.scFee};
-            listScSent.push_back(output);
-        }
-    }
+    void fillScFees(const std::vector<CBwtRequestOut>& vOuts, std::list<CScOutputEntry>& listScSent) const;
+
     std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const override;
 };
 

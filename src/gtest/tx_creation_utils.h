@@ -11,6 +11,7 @@ CMutableTransaction populateTx(int txVersion,
                                const CAmount & fwdTxAmount = CAmount(0),
                                int epochLength = 5);
 void signTx(CMutableTransaction& mtx);
+void signTx(CMutableScCertificate& mcert);
 
 CTransaction createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength = 15);
 CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
@@ -24,6 +25,10 @@ void addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount);
 CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
                                  CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,
                                  CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/);
+CScCertificate createCertificateWithInput(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+                                                  CAmount changeTotalAmount, unsigned int numChangeOut,
+                                                  CAmount bwtTotalAmount, unsigned int numBwt, CCoinsViewCache* view,
+                                                  int coinHeight);
 
 uint256 CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight);
 } // end of namespace

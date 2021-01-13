@@ -57,6 +57,22 @@ class sc_rawcert(BitcoinTestFramework):
 
     def run_test(self):
 
+        def get_spendable(nodeIdx, min_amount):
+            # get a UTXO for setting fee
+            utx = False
+            listunspent = self.nodes[nodeIdx].listunspent(0)
+            for aUtx in listunspent:
+                if aUtx['amount'] > CERT_FEE:
+                    utx = aUtx
+                    change = aUtx['amount'] - CERT_FEE
+                    break;
+ 
+            if utx == False:
+                pprint.pprint(listunspent)
+
+            assert_equal(utx!=False, True)
+            return utx, change
+
         '''
         Testing the capabilities of the api for creating raw certificates and handling their decoding.
         Negative tests are also performed by specifying wrong params and incorrect pkey for the signing
@@ -131,8 +147,10 @@ class sc_rawcert(BitcoinTestFramework):
         "sc1", epn, eph, pebh,
         quality, constant, [pkh_node2], [bt_amount])
 
-        raw_inputs   = []
-        raw_outs     = {}
+        utx, change = get_spendable(0, CERT_FEE)
+        raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
+        raw_outs    = { self.nodes[0].getnewaddress() : change }
+
         raw_bwt_outs = {pkh_node2: bt_amount}
         raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
         raw_cert = []
@@ -140,21 +158,16 @@ class sc_rawcert(BitcoinTestFramework):
 
         try:
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            # sign will not do anything useful since we specified no inputs
-            signed_cert = self.nodes[1].signrawcertificate(raw_cert)
-            assert_equal(raw_cert, signed_cert['hex'])
+            signed_cert = self.nodes[0].signrawcertificate(raw_cert)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
             assert_true(False)
 
-        decoded_cert_pre = self.nodes[0].decoderawcertificate(raw_cert)
-        decoded_cert_pre_list = sorted(decoded_cert_pre.items())
-
         mark_logs("Node0 sending raw certificate for epoch {}, expecting failure...".format(epn), self.nodes, DEBUG_MODE)
         # we expect it to fail because beyond the safeguard
         try:
-            cert = self.nodes[0].sendrawcertificate(raw_cert)
+            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -166,11 +179,14 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node0 sending raw certificate for epoch {}, expecting success".format(epn), self.nodes, DEBUG_MODE)
         try:
-            cert = self.nodes[0].sendrawcertificate(raw_cert)
+            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
             assert_true(False)
+
+        decoded_cert_pre = self.nodes[0].decoderawcertificate(signed_cert['hex'])
+        decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
         sync_mempools(self.nodes[1:3])
 
@@ -191,6 +207,7 @@ class sc_rawcert(BitcoinTestFramework):
         sigRawtx = self.nodes[2].signrawtransaction(rawtx)
         try:
             rawtx = self.nodes[2].sendrawtransaction(sigRawtx['hex'])
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
@@ -200,7 +217,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         decoded_cert_post = self.nodes[2].getrawcertificate(cert, 1)
         assert_equal(decoded_cert_post['certid'], cert)
-        assert_equal(decoded_cert_post['hex'], raw_cert)
+        assert_equal(decoded_cert_post['hex'], signed_cert['hex'])
         assert_equal(decoded_cert_post['blockhash'], mined)
         assert_equal(decoded_cert_post['confirmations'], 4)
         #remove fields not included in decoded_cert_pre_list
@@ -228,6 +245,7 @@ class sc_rawcert(BitcoinTestFramework):
         raw_cert = []
         cert = []
 
+        '''
         # get a UTXO for setting fee
         utx = False
         listunspent = self.nodes[0].listunspent()
@@ -238,6 +256,8 @@ class sc_rawcert(BitcoinTestFramework):
                 break;
 
         assert_equal(utx!=False, True)
+        '''
+        utx, change = get_spendable(0, CERT_FEE)
 
         raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         raw_outs    = { self.nodes[0].getnewaddress() : change }

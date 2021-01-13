@@ -57,6 +57,21 @@ void txCreationUtils::signTx(CMutableTransaction& mtx)
     assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL, dataToBeSigned.begin(), 32, joinSplitPrivKey ) == 0);
 }
 
+void txCreationUtils::signTx(CMutableScCertificate& mcert)
+{
+    // Compute the correct hSig.
+    // TODO: #966.
+    static const uint256 one(uint256S("1"));
+    // Empty output script.
+    CScript scriptCode;
+    CScCertificate signedCert(mcert);
+    uint256 dataToBeSigned = SignatureHash(scriptCode, signedCert, NOT_AN_INPUT, SIGHASH_ALL);
+    if (dataToBeSigned == one) {
+        throw std::runtime_error("SignatureHash failed");
+    }
+    // Add the signature
+}
+
 CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
 {
     CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, CAmount(0), epochLength);
@@ -142,6 +157,26 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
     return;
 }
 
+CScCertificate txCreationUtils::createCertificateWithInput(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+                                                  CAmount changeTotalAmount, unsigned int numChangeOut,
+                                                  CAmount bwtTotalAmount, unsigned int numBwt, CCoinsViewCache* view, int coinHeight)
+{
+    CAmount dummyFeeAmount{0};
+    CScript dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
+            << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    CTransaction inputTx = createCoinbase(dummyCoinbaseScript, dummyFeeAmount, coinHeight);
+    CTxUndo dummyUndo;
+    UpdateCoins(inputTx, *view, dummyUndo, coinHeight);
+
+    CMutableScCertificate res = createCertificate(scId, epochNum, endEpochBlockHash, changeTotalAmount, numChangeOut, bwtTotalAmount, numBwt);
+    res.vin.resize(1);
+    res.vin[0].prevout.hash = inputTx.GetHash();
+    res.vin[0].prevout.n = 0;
+
+    return res;
+}
+
 CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
                                                   CAmount changeTotalAmount, unsigned int numChangeOut,
                                                   CAmount bwtTotalAmount, unsigned int numBwt) {
@@ -152,6 +187,10 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     res.endEpochBlockHash = endEpochBlockHash;
     res.quality = 3; //setup to non zero value
 
+    res.vin.resize(1);
+    res.vin[0].prevout.hash = uint256S("1");
+    res.vin[0].prevout.n = 0;
+    
     CScript dummyScriptPubKey =
             GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     for(unsigned int idx = 0; idx < numChangeOut; ++idx)

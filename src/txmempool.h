@@ -155,9 +155,6 @@ private:
     bool checkCertImmatureExpenditures(
         const CScCertificate& cert, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
 
-    std::vector<uint256> mempoolDirectDependenciesFrom(const CTransactionBase& root) const;
-    std::vector<uint256> mempoolDirectDependenciesOf(const CTransactionBase& root) const;
-
     std::map<uint256, std::shared_ptr<CTransactionBase> > mapRecentlyAddedTxBase;
     uint64_t nRecentlyAddedSequence = 0;
     uint64_t nNotifiedSequence = 0;
@@ -193,8 +190,12 @@ public:
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
+    std::vector<uint256> mempoolDirectDependenciesFrom(const CTransactionBase& root) const;
+    std::vector<uint256> mempoolDirectDependenciesOf(const CTransactionBase& root) const;
+
     std::vector<uint256> mempoolDependenciesFrom(const CTransactionBase& origTx) const;
     std::vector<uint256> mempoolDependenciesOf(const CTransactionBase& origTx) const;
+
     void remove(const CTransactionBase& origTx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts, bool fRecursive = false);
 
     void removeWithAnchor(const uint256 &invalidRoot);
@@ -301,7 +302,7 @@ public:
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).mcBtrSet.empty());
     }
 
-    bool hasSidechainFwtRequest(uint256 scId) const
+    bool hasSidechainFwt(uint256 scId) const
     {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).fwdTransfersSet.empty());
