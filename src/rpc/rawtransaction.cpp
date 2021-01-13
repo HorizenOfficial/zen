@@ -1194,10 +1194,13 @@ static void TxInErrorToJSON(const CTxIn& txin, UniValue& vErrorsRet, const std::
 }
 
 /** Pushes a JSON object for script verification or signing errors to vErrorsRet. */
-// TODO:
 static void TxCswInErrorToJSON(const CTxCeasedSidechainWithdrawalInput& txcswin, UniValue& vErrorsRet, const std::string& strMessage)
 {
-
+    UniValue entry(UniValue::VOBJ);
+    entry.push_back(Pair("scriptPubKey", HexStr(txcswin.scriptPubKey().begin(), txcswin.scriptPubKey().end())));
+    entry.push_back(Pair("redeemScript", HexStr(txcswin.redeemScript.begin(), txcswin.redeemScript.end())));
+    entry.push_back(Pair("error", strMessage));
+    vErrorsRet.push_back(entry);
 }
 
 UniValue signrawcertificate(const UniValue& params, bool fHelp)
