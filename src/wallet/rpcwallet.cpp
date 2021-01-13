@@ -803,6 +803,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "                                   hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
             "6. \"constant\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                   hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "7. \"wMbtrVk\"                (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                   hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -874,6 +876,21 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         }
     }
 
+    if (params.size() > 6)
+    {
+        const std::string& inputString = params[6].get_str();
+        std::vector<unsigned char> wMbtrVkVec;
+        if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
+        }
+
+        sc.creationData.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
+        if (!libzendoomc::IsValidScVk(sc.creationData.wMbtrVk.get()))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
+        }
+    }
     vector<CRecipientScCreation> vecScSend;
     vecScSend.push_back(sc);
 
@@ -896,7 +913,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     if (fHelp ||  params.size() != 1)
         throw runtime_error(
-            "create_sidechain {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":...}\n"
+            "create_sidechain {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":... \"wMbtrVk\":...}\n"
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             "{\n"                     
@@ -917,6 +934,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "                                          hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "   \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "   \"wMbtrVk\":data                  (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                          hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "}\n"
             "\nResult:\n"
             "{\n"
@@ -932,7 +951,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
         {"withdrawalEpochLength", "fromaddress", "changeaddress",
-         "toaddress", "amount", "minconf", "fee", "wCertVk", "customData", "constant"};
+         "toaddress", "amount", "minconf", "fee", "wCertVk", "customData", "constant", "wMbtrVk"};
 
     UniValue inputObject = params[0].get_obj();
 
@@ -1051,7 +1070,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             FormatMoney(nFee), FormatMoney(nAmount)));
 
     // ---------------------------------------------------------
-
     std::string error;
 
     if (setKeyArgs.count("wCertVk"))
@@ -1069,7 +1087,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
         }
-
     }
     else
     {
@@ -1077,7 +1094,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
-
     if (setKeyArgs.count("customData"))
     {
         string inputString = find_value(inputObject, "customData").get_str();
@@ -1088,7 +1104,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
-
     if (setKeyArgs.count("constant"))
     {
         string inputString = find_value(inputObject, "constant").get_str();
@@ -1100,6 +1115,24 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         if (!libzendoomc::IsValidScConstant(creationData.constant))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
+        }
+    }
+
+    // ---------------------------------------------------------
+    if (setKeyArgs.count("wMbtrVk"))
+    {
+        string inputString = find_value(inputObject, "wMbtrVk").get_str();
+        std::vector<unsigned char> wMbtrVkVec;
+        if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
+        }
+
+        creationData.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
+
+        if (!libzendoomc::IsValidScVk(creationData.wMbtrVk.get()))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
         }
     }
 

@@ -1103,7 +1103,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     UniValue& sc, bool bOnlyAlive, bool bVerbose)
 {
     if (bOnlyAlive && (scState != CSidechain::State::ALIVE))
-    	return false;
+        return false;
 
     sc.push_back(Pair("scid", scId.GetHex()));
     if (!info.IsNull() )
@@ -1138,6 +1138,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
             sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
             sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
+            if (info.creationData.wMbtrVk.is_initialized())
+            	sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
+            else
+                sc.push_back(Pair("wMbtrVk", HexStr(libzendoomc::ScVk{std::vector<unsigned char>(SC_VK_SIZE,'\0')})));
         }
  
         UniValue ia(UniValue::VARR);
@@ -1181,6 +1185,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.customData = scCreation.customData;
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
+                    info.creationData.wMbtrVk = scCreation.wMbtrVk;
                     info.mImmatureAmounts[-1] = scCreation.GetScValue();
                     break;
                 }
@@ -1195,6 +1200,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
                 sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
                 sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
+                if (info.creationData.wMbtrVk.is_initialized())
+                    sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
+                else
+                    sc.push_back(Pair("unconf wMbtrVk", HexStr(libzendoomc::ScVk{std::vector<unsigned char>(SC_VK_SIZE,'\0')})));
             }
 
             addScUnconfCcData(scId, sc);
@@ -1291,13 +1300,13 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     if (fHelp || params.size() == 0 || params.size() > 5)
         throw runtime_error(
             "getscinfo (\"scid\" onlyAlive)\n"
-			"\nArguments:\n"
-			"1. \"scid\"   (string, mandatory) Retrive only information about specified scid, \"*\" means all \n"
-			"2. onlyAlive (bool, optional, default=false) Retrieve only information for alive sidechains\n"
-			"3. verbose   (bool, optional, default=true) If false include only essential info in result\n"
+            "\nArguments:\n"
+            "1. \"scid\"   (string, mandatory) Retrive only information about specified scid, \"*\" means all \n"
+            "2. onlyAlive (bool, optional, default=false) Retrieve only information for alive sidechains\n"
+            "3. verbose   (bool, optional, default=true) If false include only essential info in result\n"
             "   --- meaningful if scid is not specified:\n"
-			"4. from      (integer, optional, default=0) If set, limit the starting item index (0-base) in the result array to this entry (included)\n"
-			"5. to        (integer, optional, default=-1) If set, limit the ending item index (0-base) in the result array to this entry (excluded) (-1 means max)\n"
+            "4. from      (integer, optional, default=0) If set, limit the starting item index (0-base) in the result array to this entry (included)\n"
+            "5. to        (integer, optional, default=-1) If set, limit the ending item index (0-base) in the result array to this entry (excluded) (-1 means max)\n"
             "\nReturns side chain info for the given id or for all of the existing sc if the id is not given.\n"
             "\nResult:\n"
             "{\n"
@@ -1321,6 +1330,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
             "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
             "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
+            "     \"wMbtrVk\":                 xxxxx,   (string)  The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
             "     \"immature amounts\": [\n"
             "       {\n"
             "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
@@ -1341,7 +1351,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     bool bRetrieveAllSc = false;
     string inputString = params[0].get_str();
     if (!inputString.compare("*"))
-    	bRetrieveAllSc = true;
+        bRetrieveAllSc = true;
     else
     {
         if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
@@ -1350,11 +1360,11 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
 
     bool bOnlyAlive = false;
     if (params.size() > 1)
-    	bOnlyAlive = params[1].get_bool();
+        bOnlyAlive = params[1].get_bool();
 
     bool bVerbose = true;
     if (params.size() > 2)
-    	bVerbose = params[2].get_bool();
+        bVerbose = params[2].get_bool();
 
     UniValue ret(UniValue::VOBJ);
     UniValue scItems(UniValue::VARR);
@@ -1387,11 +1397,11 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     {
         int from = 0;
         if (params.size() > 3)
-    	    from = params[3].get_int();
+            from = params[3].get_int();
 
         int to = -1;
         if (params.size() > 4)
-    	    to = params[4].get_int();
+            to = params[4].get_int();
 
         // throws a json rpc exception if the from/to parameters are invalid or out of the range of the
         // retrieved scItems list

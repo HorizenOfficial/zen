@@ -234,6 +234,25 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             }
         }
 
+        const UniValue& wMbtrVk = find_value(o, "wMbtrVk");
+        if (!wMbtrVk.isNull())
+        {
+            const std::string& inputString = wMbtrVk.get_str();
+            std::vector<unsigned char> wMbtrVkVec;
+            if (!AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+            {
+                error = "wMbtrVk: " + error;
+                return false;
+            }
+
+            sc.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
+            if (!libzendoomc::IsValidScVk(sc.wMbtrVk.get()))
+            {
+                error = "invalid wMbtrVkVec";
+                return false;
+            }
+        }
+
         CTxScCreationOut txccout(nAmount, address, sc);
 
         rawTx.vsc_ccout.push_back(txccout);

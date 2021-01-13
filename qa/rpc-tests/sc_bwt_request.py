@@ -74,12 +74,15 @@ class sc_bwt_request(BitcoinTestFramework):
         #generate wCertVk and constant
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
         vk1  = mcTest.generate_params("sc1")
+        mbtrVk1 = mcTest.generate_params("sc1_mbtrVk")
         c1 = generate_random_field_element_hex()
 
         vk2 = mcTest.generate_params("sc2")
+        mbtrVk2 = mcTest.generate_params("sc2_mbtrVk")
         c2 = generate_random_field_element_hex()
 
         vk3 = mcTest.generate_params("sc3")
+        mbtrVk3 = mcTest.generate_params("sc3_mbtrVk")
         c3 = generate_random_field_element_hex()
 
         bal_before_sc_creation = self.nodes[1].getbalance("", 0)
@@ -92,7 +95,8 @@ class sc_bwt_request(BitcoinTestFramework):
             "amount":creation_amount1,
             "fee":fee_cr1,
             "wCertVk":vk1,
-            "constant":c1
+            "constant":c1,
+            "wMbtrVk": mbtrVk1,
         }
 
         try:
@@ -101,6 +105,9 @@ class sc_bwt_request(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False);
+
+        # Check that wMbtrVk is duly serialized
+        assert_equal(self.nodes[1].getscinfo(ret['scid'])['items'][0]['unconf wMbtrVk'], mbtrVk1)
 
         n1_net_bal = bal_before_sc_creation - creation_amount1 - fee_cr1
 
@@ -275,7 +282,7 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_true(bwt4 in vtx)
 
         #  create one more sc
-        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount2, vk2, "", c2);
+        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount2, vk2, "", c2, mbtrVk2);
         scid2  = ret['scid']
         cr_tx2 = ret['txid']
         mark_logs("Node0 created the SC2 spending {} coins via tx {}.".format(creation_amount1, cr_tx2), self.nodes, DEBUG_MODE)
@@ -283,7 +290,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         # create a bwt request with the raw cmd version
         mark_logs("Node0 creates a tx with a bwt request using raw version of cmd", self.nodes, DEBUG_MODE)
-        sc_bwt2_1 = [{'scUtxoId':fe2, 'scFee':SC_FEE, 'scid':scid2, 'scProof':p2, 'pubkeyhash':pkh2 }]
+        sc_bwt2_1 = [{'scUtxoId':fe2, 'scFee':SC_FEE, 'scid':scid2, 'scProof':p2, 'pubkeyhash':pkh2, "wMbtrVk": mbtrVk3 }]
         try:
             raw_tx = self.nodes[0].createrawtransaction([], {}, [], [], sc_bwt2_1)
             funded_tx = self.nodes[0].fundrawtransaction(raw_tx)
@@ -308,7 +315,7 @@ class sc_bwt_request(BitcoinTestFramework):
         # create a bwt request with the raw cmd version with some mixed output and cc output
         mark_logs("Node0 creates a tx with a few bwt request and mixed outputs using raw version of cmd", self.nodes, DEBUG_MODE)
         outputs = { self.nodes[0].getnewaddress() :4.998 }
-        sc_cr = [ {"epoch_length":10, "amount":1.0, "address":"effe", "wCertVk":vk3, "constant":c3} ]
+        sc_cr = [ {"epoch_length":10, "amount":1.0, "address":"effe", "wCertVk":vk3, "constant":c3, } ]
         sc_ft = [ {"address":"abc", "amount":1.0, "scid":scid2}, {"address":"cde", "amount":2.0, "scid":scid2} ]
         sc_bwt3 = [
             {'scUtxoId':fe2, 'scFee':Decimal("0.13"), 'scid':scid1, 'scProof':p2, 'pubkeyhash':pkh2 },

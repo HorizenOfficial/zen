@@ -873,7 +873,8 @@ public:
     bool IsNull() const override
     {
         bool ret = vin.empty() && vout.empty();
-        if (IsScVersion()) ret &= ccIsNull() && vmbtr_out.empty();
+        if (IsScVersion())
+            ret &= ccIsNull();
 
         return ret;
     }

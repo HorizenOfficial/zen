@@ -762,6 +762,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         scIt->second.scInfo.creationData.customData = cr.customData;
         scIt->second.scInfo.creationData.constant = cr.constant;
         scIt->second.scInfo.creationData.wCertVk = cr.wCertVk;
+        scIt->second.scInfo.creationData.wMbtrVk = cr.wMbtrVk;
         scIt->second.scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
         scIt->second.flag = CSidechainsCacheEntry::Flags::FRESH;
 
@@ -1094,6 +1095,9 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
             		break;
             	}
         }
+
+        if(!pWMbtrVk->is_initialized())
+            return state.Invalid(error("mbtr not supported"), REJECT_INVALID, "mbtr-not-supported");
 
         // Verify mainchain bwt request proof
         if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scUtxoId, mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, *pWMbtrVk))

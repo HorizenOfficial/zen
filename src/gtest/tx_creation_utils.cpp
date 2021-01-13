@@ -1,7 +1,8 @@
+#include "tx_creation_utils.h"
+#include <gtest/libzendoo_test_files.h>
 #include <script/interpreter.h>
 #include <main.h>
 #include <pubkey.h>
-#include "tx_creation_utils.h"
 #include <miner.h>
 #include <undo.h>
 
@@ -32,6 +33,7 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vsc_ccout.resize(1);
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
+    mtx.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
 
     return mtx;
 }

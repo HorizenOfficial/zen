@@ -97,7 +97,6 @@ bool CScCertificate::CheckNonEmpty(CValidationState &state) const
     return true;
 }
 
-
 bool CScCertificate::CheckAmounts(CValidationState &state) const
 {
     // Check for negative or overflow output values

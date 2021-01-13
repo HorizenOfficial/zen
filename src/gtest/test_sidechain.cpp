@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "tx_creation_utils.h"
+#include <gtest/libzendoo_test_files.h>
 #include <sc/sidechain.h>
 #include <boost/filesystem.hpp>
 #include <txdb.h>
@@ -379,6 +380,7 @@ TEST_F(SidechainTestSuite, McBwtRequestToAliveSidechainIsApplicableToState) {
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scCreationTx.GetScIdFromScCcOut(0);
+    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);

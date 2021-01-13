@@ -780,7 +780,8 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
     for (const auto& conflictingCert : vLowerQualCerts)
         remove(conflictingCert, removedTxs, removedCerts, true);
 
-    //remove all btrs for scIds mentioned by the certificate. These btrs would target outdated scFees
+    // Remove all btrs for scIds mentioned by the certificate.
+    // These btrs would reference outdated public inputs (CertificateDataCumulativeHash)
     while ((mapSidechains.count(scId) != 0) && !mapSidechains.at(scId).mcBtrSet.empty())
     {
     	auto entryToRm = mapSidechains.at(scId).mcBtrSet.begin();
@@ -1291,6 +1292,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationData.customData = scCreation.customData;
                 info.creationData.constant = scCreation.constant;
                 info.creationData.wCertVk = scCreation.wCertVk;
+                info.creationData.wMbtrVk = scCreation.wMbtrVk;
                 break;
             }
         }
