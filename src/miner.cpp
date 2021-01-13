@@ -245,7 +245,7 @@ bool AddToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view
     // Has to wait for dependencies
     if (!porphan)
     {
-        dPriority = mpEntry.GetPriority(nHeight);
+        dPriority = mpEntry.GetPriority(nHeight); // Csw inputs contributes to this
         nFee = mpEntry.GetFee();
         mempool.ApplyDeltas(hash, dPriority, nFee);
 
@@ -286,6 +286,8 @@ bool AddToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view
             dPriority += (double)nValueIn * nConf;
         }
         nTotalIn += txBase.GetJoinSplitValueIn();
+
+        // Csw contribute zero to initial priority
 
         // Priority is sum(valuein * age) / modified_txsize
         dPriority = txBase.ComputePriority(dPriority, nTxSize);

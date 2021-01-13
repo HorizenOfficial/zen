@@ -2021,7 +2021,10 @@ double CCoinsViewCache::GetPriority(const CTransactionBase &tx, int nHeight) con
             dResult += coins->vout[txin.prevout.n].nValue * (nHeight-coins->nHeight);
         }
     }
-    // Q: do we need to consider CSW inputs? set the coin height = 1?
+
+    // As per csw inputs, we assign them depth zero (i.e. their creation height matches containing tx height)
+    // They won't contribute to initial priority, but they will to priority in mempool
+
     return tx.ComputePriority(dResult);
 }
 
