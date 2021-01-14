@@ -1490,13 +1490,6 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                 return false;
             }
 
-            auto scVerifier = disconnecting ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-            if (!view.IsTxCswApplicableToState(tx, state, scVerifier) ) {
-                LogPrint("sc", "%s():%d - ERROR: csw input for Tx [%s] is not applicable\n", __func__, __LINE__, tx.GetHash().ToString() );
-                return state.DoS(100, error("%s(): invalid csw input for Tx [%s]", __func__, tx.GetHash().ToString()),
-                                 REJECT_INVALID, "bad-txns-csw-input-not-applicable");
-            }
-
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
             // and only helps with filling in pfMissingInputs (to determine missing vs spent).
@@ -1532,6 +1525,13 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             if (!view.HaveJoinSplitRequirements(tx))
                 return state.Invalid(error("%s(): joinsplit requirements not met", __func__),
                                      REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
+
+            auto scVerifier = disconnecting ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+            if (!view.IsTxCswApplicableToState(tx, state, scVerifier) ) {
+                LogPrint("sc", "%s():%d - ERROR: csw input for Tx [%s] is not applicable\n", __func__, __LINE__, tx.GetHash().ToString() );
+                return state.DoS(100, error("%s(): invalid csw input for Tx [%s]", __func__, tx.GetHash().ToString()),
+                                 REJECT_INVALID, "bad-txns-csw-input-not-applicable");
+            }
  
             // Bring the best block into scope
             view.GetBestBlock();
@@ -3410,6 +3410,9 @@ bool static DisconnectTip(CValidationState &state) {
     }
     mempool.removeImmatureExpenditures(pcoinsTip, pindexDelete->nHeight);
 
+    // remove CSW which Sc state is not CEASED anymore, remove FT which Sc state is not ACTIVE/UNCONFIRMED anymore.
+    mempool.removeOutdatedCrosschainData(pcoinsTip, /*connecting*/false);
+
     // remove any certificate, and possible dependancies, that refers to this block as end epoch
     mempool.removeOutOfEpochCertificates(pindexDelete);
 
@@ -3499,6 +3502,9 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     std::list<CScCertificate> removedCerts;
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
+
+    // remove CSW which try to withdraw more coins than belongs to the sidechain, remove FT which Sc state is not ACTIVE anymore.
+    mempool.removeOutdatedCrosschainData(pcoinsTip, /*connecting*/true);
 
     mempool.check(pcoinsTip);
     // Update chainActive & related variables.

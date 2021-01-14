@@ -346,6 +346,24 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_equal(decoded_tx['vcsw_ccin'][0]['scProof'], sc_csws[0]['scProof'])
 
 
+        # Try to create Tx with 2 CSW inputs and single output. CSW input signed as "SINGLE".
+        # Should fail, because the second CSW input has no corresponding output.
+        multiple_sc_csws = [sc_csws[0].copy(), sc_csws[0].copy()]
+        multiple_sc_csws[0]['nullifier'] = generate_random_field_element_hex()
+        multiple_sc_csws[1]['nullifier'] = generate_random_field_element_hex()
+        multiple_sc_csws[0]['amount'] = sc_csw_amount / 2
+        multiple_sc_csws[1]['amount'] = sc_csw_amount / 2
+
+        rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, multiple_sc_csws, [], [])
+        sigRawtx = self.nodes[0].signrawtransaction(rawtx, None, None, "SINGLE")
+
+        print("Check that Tx with 2 CSW inputs and 1 output signing as 'SINGLE' failed.")
+        assert_equal(sigRawtx['complete'], False)
+        # has no signature for the second CSW input, because we DON'T have corresponding output
+        assert_equal(len(sigRawtx['errors']), 1)
+        assert_equal(sigRawtx['errors'][0]['cswIndex'], 1)
+
+
         # Create Tx with single CSW input and single output. CSW input signed as "NONE"
         print("Create Tx with a single CSW input and single output. CSW input signed as 'NONE'.")
         sc_csws[0]['nullifier'] = generate_random_field_element_hex()

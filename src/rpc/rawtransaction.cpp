@@ -1194,10 +1194,12 @@ static void TxInErrorToJSON(const CTxIn& txin, UniValue& vErrorsRet, const std::
 }
 
 /** Pushes a JSON object for script verification or signing errors to vErrorsRet. */
-static void TxCswInErrorToJSON(const CTxCeasedSidechainWithdrawalInput& txcswin, UniValue& vErrorsRet, const std::string& strMessage)
+static void TxCswInErrorToJSON(const CTxCeasedSidechainWithdrawalInput& txcswin, int cswIndex, UniValue& vErrorsRet, const std::string& strMessage)
 {
     UniValue entry(UniValue::VOBJ);
-    entry.push_back(Pair("scriptPubKey", HexStr(txcswin.scriptPubKey().begin(), txcswin.scriptPubKey().end())));
+    entry.push_back(Pair("cswIndex", cswIndex));
+    const CScript& sciptPubKey = txcswin.scriptPubKey();
+    entry.push_back(Pair("scriptPubKey", HexStr(sciptPubKey.begin(), sciptPubKey.end())));
     entry.push_back(Pair("redeemScript", HexStr(txcswin.redeemScript.begin(), txcswin.redeemScript.end())));
     entry.push_back(Pair("error", strMessage));
     vErrorsRet.push_back(entry);
@@ -1622,7 +1624,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             if (!VerifyScript(txCswIn.redeemScript, prevPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
                               MutableTransactionSignatureChecker(&mergedTx, nAllInputsIndex), &serror))
             {
-                TxCswInErrorToJSON(txCswIn, vErrors, ScriptErrorString(serror));
+                TxCswInErrorToJSON(txCswIn, i, vErrors, ScriptErrorString(serror));
             }
         }
     }

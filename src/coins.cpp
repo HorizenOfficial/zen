@@ -741,6 +741,28 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     static const int SC_COIN_MATURITY = getScCoinsMaturity();
     const int maturityHeight = blockHeight + SC_COIN_MATURITY;
 
+    // ceased sidechain withdrawal ccin
+    for (const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+    {
+        if (!HaveSidechain(csw.scId))
+        {
+            // should not happen
+            LogPrint("sc", "ERROR: %s():%d - Can not update balance, could not find scId=%s\n",
+                __func__, __LINE__, csw.scId.ToString() );
+            return false;
+        }
+
+        CSidechainsMap::iterator scIt = ModifySidechain(csw.scId);
+
+        // decrease SC balance
+        scIt->second.scInfo.balance -= csw.nValue;
+        assert(scIt->second.scInfo.balance >= 0);
+        scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
+
+        LogPrint("sc", "%s():%d - sidechain balance decreased by CSW in scView csw_amount=%s scId=%s\n",
+            __func__, __LINE__, FormatMoney(csw.nValue), csw.scId.ToString());
+    }
+
     // creation ccout
     for (const auto& cr: tx.GetVscCcOut())
     {
@@ -858,6 +880,30 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         scIt->second.flag = CSidechainsCacheEntry::Flags::ERASED;
         LogPrint("sc", "%s():%d - scId=%s removed from scView\n", __func__, __LINE__, scId.ToString() );
     }
+
+    // revert sidechain balances for CSWs
+    for (const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+    {
+        LogPrint("sc", "%s():%d - removing CSW for scId=%s\n", __func__, __LINE__, csw.scId.ToString());
+
+        if (!HaveSidechain(csw.scId))
+        {
+            // should not happen
+            LogPrint("sc", "ERROR: %s():%d - Can not update balance, could not find scId=%s\n",
+                __func__, __LINE__, csw.scId.ToString() );
+            return false;
+        }
+
+        CSidechainsMap::iterator scIt = ModifySidechain(csw.scId);
+
+        // increase SC balance
+        scIt->second.scInfo.balance += csw.nValue;
+        scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
+
+        LogPrint("sc", "%s():%d - sidechain balance increased by CSW in scView csw_amount=%s scId=%s\n",
+            __func__, __LINE__, FormatMoney(csw.nValue), csw.scId.ToString());
+    }
+
     return true;
 }
 
@@ -893,6 +939,9 @@ size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
 bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const
 {
+    // Key is Sc id, value - total amount of coins to be withdrawn by Tx CSWs for given sidechain
+    std::map<uint256, CAmount> cswTotalBalances;
+
     for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
     {
         CSidechain scInfo;
@@ -919,6 +968,9 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
                  REJECT_INVALID, "tx-csw-input-sc-without-csw-support");
         }
 
+        // add a new balance entry in the map or increment it if already there
+        cswTotalBalances[csw.scId] += csw.nValue;
+
         // TODO: check that csw.nullifier is unique
 
 
@@ -929,11 +981,26 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
 
         // Verify CSW proof
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(prevCumulativeCertDataHash, currentCertDataHash,
-                                                                lastCumulativeCertDataHash, scInfo.creationData.wCeasedVk.get(), csw)) {
+                                                                lastCumulativeCertDataHash, scInfo.creationData.wCeasedVk.get(), csw))
+        {
             LogPrintf("ERROR: tx[%s] CSW input [%s] cannot be accepted: proof verification failed\n",
                 tx.ToString(), csw.ToString());
             return state.Invalid(error("proof not verified"),
                          REJECT_INVALID, "tx-csw-input-proof-not-verified");
+        }
+    }
+
+    // Check that CSW balances don't exceed the SC balance
+    for (auto const& totalBalance: cswTotalBalances)
+    {
+        CSidechain scInfo;
+        GetSidechain(totalBalance.first, scInfo);
+        if(totalBalance.second > scInfo.balance)
+        {
+            LogPrintf("ERROR: tx[%s] CSW inputs total amount is greater than sidechain [%s] total amount\n",
+                tx.ToString(), totalBalance.first.ToString());
+            return state.Invalid(error("CSW inputs total amount is greater than sidechain total amount"),
+                         REJECT_INVALID, "tx-csw-inputs-amount-greater-than-sc-balance");
         }
     }
 
