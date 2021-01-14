@@ -249,65 +249,6 @@ UniValue getdifficulty(const UniValue& params, bool fHelp)
     return GetNetworkDifficulty();
 }
 
-#if 0
-void AddDependancy(const CTransaction& tx, UniValue& info)
-{
-    set<string> setDepends;
-    for (const CTxIn& txin: tx.GetVin())
-    {
-        if (mempool.exists(txin.prevout.hash))
-            setDepends.insert(txin.prevout.hash.ToString());
-    }
-    for (const auto& ft: tx.GetVftCcOut())
-    {
-        if (mempool.hasSidechainCreationTx(ft.scId))
-        {
-            const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash;
-
-            // check if tx is also creating the sc
-            if (scCreationHash != tx.GetHash())
-                setDepends.insert(scCreationHash.ToString());
-        }
-    }
-    for (const auto& bt: tx.GetVBwtRequestOut())
-    {
-        if (mempool.hasSidechainCreationTx(bt.scId))
-        {
-            const uint256& scCreationHash = mempool.mapSidechains.at(bt.scId).scCreationTxHash;
-
-            // check if tx is also creating the sc
-            if (scCreationHash != tx.GetHash())
-                setDepends.insert(scCreationHash.ToString());
-        }
-    }
-
-    UniValue depends(UniValue::VARR);
-    for (const string& dep: setDepends)
-    {
-        depends.push_back(dep);
-    }
-
-    info.push_back(Pair("depends", depends));
-}
-
-void AddDependancy(const CScCertificate& cert, UniValue& info)
-{
-    set<string> setDepends;
-    for (const CTxIn& txin: cert.GetVin())
-    {
-        if (mempool.exists(txin.prevout.hash))
-            setDepends.insert(txin.prevout.hash.ToString());
-    }
-
-    UniValue depends(UniValue::VARR);
-    for (const string& dep: setDepends)
-    {
-        depends.push_back(dep);
-    }
-
-    info.push_back(Pair("depends", depends));
-}
-#else
 static void AddDependancy(const CTransactionBase& root, UniValue& info)
 {
     std::vector<uint256> sDepHash = mempool.mempoolDirectDependenciesFrom(root);
@@ -319,7 +260,6 @@ static void AddDependancy(const CTransactionBase& root, UniValue& info)
 
     info.push_back(Pair("depends", depends));
 }
-#endif
 
 UniValue mempoolToJSON(bool fVerbose = false)
 {

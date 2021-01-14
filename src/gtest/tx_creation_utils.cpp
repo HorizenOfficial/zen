@@ -159,26 +159,6 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
     return;
 }
 
-CScCertificate txCreationUtils::createCertificateWithInput(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
-                                                  CAmount changeTotalAmount, unsigned int numChangeOut,
-                                                  CAmount bwtTotalAmount, unsigned int numBwt, CCoinsViewCache* view, int coinHeight)
-{
-    CAmount dummyFeeAmount{0};
-    CScript dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
-            << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
-
-    CTransaction inputTx = createCoinbase(dummyCoinbaseScript, dummyFeeAmount, coinHeight);
-    CTxUndo dummyUndo;
-    UpdateCoins(inputTx, *view, dummyUndo, coinHeight);
-
-    CMutableScCertificate res = createCertificate(scId, epochNum, endEpochBlockHash, changeTotalAmount, numChangeOut, bwtTotalAmount, numBwt);
-    res.vin.resize(1);
-    res.vin[0].prevout.hash = inputTx.GetHash();
-    res.vin[0].prevout.n = 0;
-
-    return res;
-}
-
 CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
                                                   CAmount changeTotalAmount, unsigned int numChangeOut,
                                                   CAmount bwtTotalAmount, unsigned int numBwt) {
