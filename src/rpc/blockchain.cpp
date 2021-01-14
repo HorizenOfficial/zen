@@ -1081,7 +1081,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             if (info.creationData.wMbtrVk.is_initialized())
             	sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
             else
-                sc.push_back(Pair("wMbtrVk", HexStr(libzendoomc::ScVk{std::vector<unsigned char>(SC_VK_SIZE,'\0')})));
+                sc.push_back(Pair("wMbtrVk", std::string{"NOT INITIALIZED"}));
         }
  
         UniValue ia(UniValue::VARR);
@@ -1143,7 +1143,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 if (info.creationData.wMbtrVk.is_initialized())
                     sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
                 else
-                    sc.push_back(Pair("unconf wMbtrVk", HexStr(libzendoomc::ScVk{std::vector<unsigned char>(SC_VK_SIZE,'\0')})));
+                    sc.push_back(Pair("unconf wMbtrVk", std::string{"NOT INITIALIZED"}));
             }
 
             addScUnconfCcData(scId, sc);
