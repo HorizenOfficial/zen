@@ -113,6 +113,7 @@ struct CSidechainMemPoolEntry
     std::map<int64_t, uint256> mBackwardCertificates;
     // key - CSW nullifier, value - containing Tx hash
     std::map<libzendoomc::ScFieldElement, uint256> cswNullifiers;
+    CAmount cswTotalAmount;
 
     // Note: in fwdTransfersSet, a tx is registered only once, even if sends multiple fwd founds to a sidechain
     // Upon removal we will need to guard against potential double deletes.
@@ -120,7 +121,8 @@ struct CSidechainMemPoolEntry
         return (fwdTransfersSet.empty()         &&
                 scCreationTxHash.IsNull()       &&
                 mBackwardCertificates.empty()   &&
-                cswNullifiers.empty());
+                cswNullifiers.empty()           &&
+                cswTotalAmount == 0);
     }
 
     const std::map<int64_t, uint256>::const_reverse_iterator GetTopQualityCert() const;
@@ -209,6 +211,8 @@ public:
                         std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
 
     void removeConflicts(const CScCertificate &cert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    void onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins);
+    void onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins);
     void removeOutOfEpochCertificates(const CBlockIndex* pindexDelete);
     void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight,
                         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);

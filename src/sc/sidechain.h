@@ -57,7 +57,8 @@ public:
              prevBlockTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL &&
              prevBlockTopQualityCertHash.IsNull()                                 &&
              prevBlockTopQualityCertQuality == CScCertificate::QUALITY_NULL       &&
-             prevBlockTopQualityCertBwtAmount == 0 && balance == 0                &&
+             prevBlockTopQualityCertBwtAmount == 0                                &&
+             balance == 0                                                         &&
              creationData.IsNull()                                                &&
              mImmatureAmounts.empty()                                             &&
              currentState == (uint8_t)State::NOT_APPLICABLE);
