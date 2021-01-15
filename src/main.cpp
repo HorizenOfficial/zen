@@ -4550,18 +4550,22 @@ void static CheckBlockIndex()
     // During a reindex, we read the genesis block and call CheckBlockIndex before ActivateBestChain,
     // so we have the genesis block in mapBlockIndex but no active chain.  (A few of the tests when
     // iterating the block tree require that chainActive has been initialized.)
-    if (chainActive.Height() < 0) {
+    if (fReindex &&(chainActive.Height() < 0))
+    {
         assert(mapBlockIndex.size() <= 1);
         return;
     }
 
+    // fReindexFast loads all headers first, hence no assert on mapBlockIndex size
+    if (fReindexFast && (chainActive.Height() < 0))
+        return;
+
     // Build forward-pointing map of the entire block tree.
     std::multimap<CBlockIndex*,CBlockIndex*> forward;
-    for (BlockMap::iterator it = mapBlockIndex.begin(); it != mapBlockIndex.end(); ++it) {
+    for(BlockMap::iterator it = mapBlockIndex.begin(); it != mapBlockIndex.end(); ++it)
         forward.insert(std::make_pair(it->second->pprev, it->second));
-    }
 
-    assert(forward.size() == mapBlockIndex.size());
+    assert(forward.size() == mapBlockIndex.size()); //would fail if same CBlockIndex* is mapped to two different hashes
 
     std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeGenesis = forward.equal_range(NULL);
     CBlockIndex *pindex = rangeGenesis.first->second;
