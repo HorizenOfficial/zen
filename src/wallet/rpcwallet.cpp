@@ -216,7 +216,11 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     }
 
     if (tx.IsFromMe(ISMINE_ALL)) {
-        CAmount nDebit = tx.GetDebit(ISMINE_ALL);
+        // get any ceasing sidechain withdrawal input
+        CAmount cswInTotAmount = tx.getTxBase()->GetCSWValueIn();
+        // nDebit has only vin contribution, we must add the ceased sc with part if any
+        CAmount nDebit = tx.GetDebit(ISMINE_ALL) + cswInTotAmount;
+
         CAmount nFee = tx.getTxBase()->GetFeeAmount(nDebit);
         entry.push_back(Pair("fees", ValueFromAmount(nFee)));
     }
@@ -2922,7 +2926,9 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     CAmount nFee = 0;
     if (wtx.IsFromMe(filter))
     {
-        nFee = -(wtx.getTxBase()->GetFeeAmount(nDebit));
+        // nDebit has only vin contribution, we must add the ceased sc with part if any
+        CAmount cswInTotAmount = wtx.getTxBase()->GetCSWValueIn();
+        nFee = -(wtx.getTxBase()->GetFeeAmount(nDebit) + cswInTotAmount);
     }
 
     entry.push_back(Pair("amount", ValueFromAmount(nNet - nFee)));
