@@ -193,6 +193,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
             LogPrint("mempool", "%s():%d - adding tx [%s] in mapSidechain [%s], cswNullifiers\n",
                      __func__, __LINE__, hash.ToString(), csw.scId.ToString());
         mapSidechains[csw.scId].cswNullifiers[csw.nullifier] = tx.GetHash();
+        mapSidechains[csw.scId].cswTotalAmount += csw.nValue;
     }
 
     for(const auto& sc: tx.GetVscCcOut()) {
@@ -406,6 +407,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 
             for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
                 mapSidechains.at(csw.scId).cswNullifiers.erase(csw.nullifier);
+                mapSidechains.at(csw.scId).cswTotalAmount -= csw.nValue;
 
                 if (mapSidechains.at(csw.scId).IsNull())
                 {
@@ -614,12 +616,59 @@ void CTxMemPool::removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsig
     }
 }
 
-void CTxMemPool::removeOutdatedCrosschainData(const CCoinsViewCache *pcoins, bool connecting)
+void CTxMemPool::onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins)
 {
-    // Remove transactions that contains:
-    // FTs for Ceased or NOT_APPLICABLE sidechains
-    // CSWs for Active sidechains (if disconnecting)
-    // CSWs that try to withdraw more coins than belongs to the sidechain (if connecting).
+    LOCK(cs);
+    std::list<const CTransactionBase*> transactionsToRemove;
+
+
+    // Remove CSWs that try to withdraw more coins than belongs to the sidechain.
+    // Note: if there is a CSW values conflict (may occur only if CSW circuit is broken or malicious) -> remove all CSWs for given sidechain.
+    for(std::map<uint256, CSidechainMemPoolEntry>::const_iterator sIt = mapSidechains.begin(); sIt != mapSidechains.end(); sIt++)
+    {
+        const CSidechainMemPoolEntry& sidechainEntry = sIt->second;
+        // check if there is CSWs for given SC
+        if(sidechainEntry.cswTotalAmount > 0)
+        {
+            CSidechain scInfo;
+            assert(pcoins->GetSidechain(sIt->first, scInfo));
+            if(sidechainEntry.cswTotalAmount > scInfo.balance)
+            {
+                for(auto nIt = sidechainEntry.cswNullifiers.begin(); nIt != sidechainEntry.cswNullifiers.end(); nIt++)
+                {
+                    const uint256& txHash = nIt->second;
+                    const CTransaction& tx = mapTx[txHash].GetTx();
+                    transactionsToRemove.push_back(&tx);
+                }
+            }
+        }
+    }
+
+    // Sidechain may become CEASED, so remove related FTs
+    for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++)
+    {
+        const CTransaction& tx = it->second.GetTx();
+
+        for(const CTxForwardTransferOut& ft: tx.GetVftCcOut())
+        {
+            const CSidechain::State s = pcoins->GetSidechainState(ft.scId);
+            if(s != CSidechain::State::ALIVE)
+            {
+                transactionsToRemove.push_back(&tx);
+                break;
+            }
+        }
+    }
+
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    for(const CTransactionBase* tx: transactionsToRemove) {
+        remove(*tx, removedTxs, removedCerts, true);
+    }
+}
+
+void CTxMemPool::onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins)
+{
     LOCK(cs);
     std::list<const CTransactionBase*> transactionsToRemove;
 
@@ -627,39 +676,19 @@ void CTxMemPool::removeOutdatedCrosschainData(const CCoinsViewCache *pcoins, boo
     {
         const CTransaction& tx = it->second.GetTx();
 
-        std::map<uint256, CAmount> cswTotalBalances;
+        // Sidechain may become ACTIVE, so remove related CSWs
         for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
         {
-            if(connecting)
+            const CSidechain::State s = pcoins->GetSidechainState(csw.scId);
+            if(s != CSidechain::State::CEASED)
             {
-                // add a new balance entry in the map or increment it if already there
-                cswTotalBalances[csw.scId] += csw.nValue;
-            } else {
-                const CSidechain::State s = pcoins->GetSidechainState(csw.scId);
-                if(s != CSidechain::State::CEASED)
-                {
-                    transactionsToRemove.push_back(&tx);
-                    break;
-                }
+                transactionsToRemove.push_back(&tx);
+                break;
             }
         }
 
-        if(connecting)
-        {
-            // Check that CSW balances don't exceed the SC balance
-            for (auto const& totalBalance: cswTotalBalances)
-            {
-                CSidechain scInfo;
-                pcoins->GetSidechain(totalBalance.first, scInfo);
-                if(totalBalance.second > scInfo.balance)
-                {
-                    transactionsToRemove.push_back(&tx);
-                    break;
-                }
-            }
-
-        }
-
+        // Sidechain may become NOT_APPLICABLE, so remove related FTs if there is no corresponding SC creation in the mempool.
+        // May occur if for some reason Tx with SC creation output was not applied back to the mempool.
         for(const CTxForwardTransferOut& ft: tx.GetVftCcOut())
         {
             const CSidechain::State s = pcoins->GetSidechainState(ft.scId);
@@ -907,6 +936,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
     std::list<const CTxMemPoolEntry*> waitingOnDependantsTx;
 
+    std::map<uint256, CAmount> cswsTotalBalances;
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         unsigned int i = 0;
         checkTotal += it->second.GetTxSize();
@@ -956,6 +986,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
             //there cannot be no csw nullifiers for unconfirmed sidechains
             assert(mapSidechains.at(scCreation.GetScId()).cswNullifiers.empty());
+            assert(mapSidechains.at(scCreation.GetScId()).cswTotalAmount == 0);
         }
 
         for(const auto& fwd: tx.GetVftCcOut()) {
@@ -971,7 +1002,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
                 assert(pcoins->GetSidechainState(fwd.scId) == CSidechain::State::ALIVE);
         }
 
-        std::map<uint256, CAmount> cswTotalBalances;
+        std::map<uint256, CAmount> cswBalances;
         for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
             //CSW must be duly recorded in mapSidechain
             assert(mapSidechains.count(csw.scId) != 0);
@@ -982,15 +1013,17 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(pcoins->GetSidechainState(csw.scId) == CSidechain::State::CEASED);
 
             // add a new balance entry in the map or increment it if already there
-            cswTotalBalances[csw.scId] += csw.nValue;
+            cswBalances[csw.scId] += csw.nValue;
         }
 
         // Check that CSW balances don't exceed the SC balance
-        for (auto const& totalBalance: cswTotalBalances)
+        for (auto const& balanceInfo: cswBalances)
         {
             CSidechain scInfo;
-            pcoins->GetSidechain(totalBalance.first, scInfo);
-            assert(totalBalance.second <= scInfo.balance);
+            pcoins->GetSidechain(balanceInfo.first, scInfo);
+            assert(balanceInfo.second <= scInfo.balance);
+            // Update global CSW balances counter
+            cswsTotalBalances[balanceInfo.first] += balanceInfo.second;
         }
 
         boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
@@ -1025,6 +1058,12 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             CTxUndo dummyUndo;
             UpdateCoins(tx, mempoolDuplicateTx, dummyUndo, 1000000);
         }
+    }
+
+    // Check that total CSWs balances are consistent to the mempool values
+    for (auto const& totalBalanceInfo: cswsTotalBalances)
+    {
+        assert(totalBalanceInfo.second == mapSidechains.at(totalBalanceInfo.first).cswTotalAmount);
     }
 
     unsigned int stepsSinceLastRemoveTx = 0;
@@ -1380,6 +1419,10 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
         }
     } else if (!base->GetSidechain(scId, info))
         return false;
+
+    // Consider mempool Tx CSW amount for sidechain balance
+    if(mempool.mapSidechains.count(scId) > 0 && mempool.mapSidechains.at(scId).cswTotalAmount > 0)
+        info.balance -= mempool.mapSidechains.at(scId).cswTotalAmount;
 
     return true;
 }

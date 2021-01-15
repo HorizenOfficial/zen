@@ -213,8 +213,7 @@ class RawTransactionsTest(BitcoinTestFramework):
                 break;
 
         inputs = [{'txid': txid, 'vout': vout['n']}]
-        sc_ft = []
-        rawtx=self.nodes[0].createrawtransaction(inputs,{},[],sc_cr,sc_ft)
+        rawtx=self.nodes[0].createrawtransaction(inputs, {}, [], sc_cr, [])
         sigRawtx = self.nodes[0].signrawtransaction(rawtx)
         finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
 
@@ -253,7 +252,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         #Try create a FT
         print("Try create new FT to SC just created using fund cmd")
         inputs = []
-        sc_ft_amount = Decimal('7.00000000')
+        # Note: sc_ft_amount must be a multiple of 4
+        sc_ft_amount = Decimal('8.00000000')
         sc_ft = [{"address": sc_address, "amount":sc_ft_amount, "scid": scid}]
         rawtx=self.nodes[0].createrawtransaction(inputs,{},[],[],sc_ft)
         funded_tx = self.nodes[0].fundrawtransaction(rawtx)
@@ -399,6 +399,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
 
         # Try to create CSW that spends more coins that available for the given SC balance
+        print("Check that Tx with CSW input amount greater then Sc mature balance is invalid.")
         sc_csws[0]['nullifier'] = generate_random_field_element_hex()
         sc_csws[0]['amount'] = self.nodes[0].getscinfo(scid)['items'][0]['balance'] + Decimal('0.00000001')
         sc_csw_tx_outs = {self.nodes[0].getnewaddress(): sc_csws[0]['amount'] - Decimal('0.00001000')}
@@ -412,7 +413,29 @@ class RawTransactionsTest(BitcoinTestFramework):
         except JSONRPCException, e:
             error_occurred = True
 
-        assert_true(error_occurred, "CSW with more coins that available for the SC balance expected to be rejected by the mempool.")
+        assert_true(error_occurred, "CSW with more coins that available for the SC balance "
+                                    "expected to be rejected by the mempool.")
+
+
+        # Try to create CSW that spends more coins that available for the given SC balance (considering mempool)
+        print("Check that Tx with CSW input amount greater then [Sc mature balance minus mempool Txs values] is invalid.")
+        sc_csws[0]['nullifier'] = generate_random_field_element_hex()
+        # SC balance equal to sc_cr_amount + sc_csw_amount * 4
+        # Mempool contains 3 Txs with `sc_csw_amount` coins each.
+        sc_csws[0]['amount'] = self.nodes[0].getscinfo(scid)['items'][0]['balance'] - sc_csw_amount + Decimal('0.00000001')
+        sc_csw_tx_outs = {self.nodes[0].getnewaddress(): sc_csws[0]['amount'] - Decimal('0.00001000')}
+
+        rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
+        sigRawtx = self.nodes[0].signrawtransaction(rawtx)
+
+        error_occurred = False
+        try:
+            self.nodes[0].sendrawtransaction(sigRawtx['hex'])
+        except JSONRPCException, e:
+            error_occurred = True
+
+        assert_true(error_occurred, "CSW with more coins that available for the SC balance considering mempool "
+                                    "expected to be rejected by the mempool.")
 
 
 

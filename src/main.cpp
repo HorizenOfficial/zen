@@ -2947,13 +2947,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return false;
 
             control.Add(vChecks);
-        }
 
-        auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-        if (!view.IsTxCswApplicableToState(tx, state, scVerifier) ) {
-            LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
-            return state.DoS(100, error("ConnectBlock(): invalid csw input for Tx [%s]", tx.GetHash().ToString()),
-                             REJECT_INVALID, "bad-txns-csw-input-not-applicable");
+            auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+            if (!view.IsTxCswApplicableToState(tx, state, scVerifier) ) {
+                LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString() );
+                return state.DoS(100, error("ConnectBlock(): invalid csw input for Tx [%s]", tx.GetHash().ToString()),
+                                 REJECT_INVALID, "bad-txns-csw-input-not-applicable");
+            }
         }
 
         CTxUndo undoDummy;
@@ -3411,7 +3411,7 @@ bool static DisconnectTip(CValidationState &state) {
     mempool.removeImmatureExpenditures(pcoinsTip, pindexDelete->nHeight);
 
     // remove CSW which Sc state is not CEASED anymore, remove FT which Sc state is not ACTIVE/UNCONFIRMED anymore.
-    mempool.removeOutdatedCrosschainData(pcoinsTip, /*connecting*/false);
+    mempool.onDisconnectRemoveOutdatedCrosschainData(pcoinsTip);
 
     // remove any certificate, and possible dependancies, that refers to this block as end epoch
     mempool.removeOutOfEpochCertificates(pindexDelete);
@@ -3503,8 +3503,9 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
 
-    // remove CSW which try to withdraw more coins than belongs to the sidechain, remove FT which Sc state is not ACTIVE anymore.
-    mempool.removeOutdatedCrosschainData(pcoinsTip, /*connecting*/true);
+    // remove group of CSWs which try to withdraw more coins than belongs to the specific sidechain
+    // and remove FT which Sc state is not ACTIVE anymore.
+    mempool.onConnectRemoveOutdatedCrosschainData(pcoinsTip);
 
     mempool.check(pcoinsTip);
     // Update chainActive & related variables.
