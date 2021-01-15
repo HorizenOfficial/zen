@@ -270,7 +270,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         print("Try create new FT to SC just created using fund cmd")
         inputs = []
         # Note: sc_ft_amount must be a multiple of 4
-        sc_ft_amount = Decimal('8.00000000')
+        sc_ft_amount = Decimal('10.00000000')
         sc_ft = [{"address": sc_address, "amount":sc_ft_amount, "scid": scid}]
         rawtx=self.nodes[0].createrawtransaction(inputs,{},[],[],sc_ft)
         funded_tx = self.nodes[0].fundrawtransaction(rawtx)
@@ -308,7 +308,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         csw_mc_address = self.nodes[0].getnewaddress()
 
-        sc_csw_amount = sc_ft_amount/4
+        sc_csw_amount = sc_ft_amount/5
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -346,7 +346,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         csw_mc_address = self.nodes[0].getnewaddress()
 
         sc_csws2 = [{
-            "amount": Decimal("8.0"),
+            "amount": sc_csw_amount,
             "senderAddress": csw_mc_address,
             "scId": scid,
             "epoch": 0,
@@ -514,7 +514,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         # Try to create CSW that spends more coins that available for the given SC balance (considering mempool)
         print("Check that Tx with CSW input amount greater then [Sc mature balance minus mempool Txs values] is invalid.")
         sc_csws[0]['nullifier'] = generate_random_field_element_hex()
-        # SC balance equal to sc_cr_amount + sc_csw_amount * 4
+        # SC balance equal to sc_cr_amount + sc_csw_amount * 5
         # Mempool contains 3 Txs with `sc_csw_amount` coins each.
         sc_csws[0]['amount'] = self.nodes[0].getscinfo(scid)['items'][0]['balance'] - sc_csw_amount + Decimal('0.00000001')
         sc_csw_tx_outs = {self.nodes[0].getnewaddress(): sc_csws[0]['amount'] - Decimal('0.00001000')}
