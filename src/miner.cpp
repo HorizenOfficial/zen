@@ -245,7 +245,7 @@ bool AddToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view
     // Has to wait for dependencies
     if (!porphan)
     {
-        dPriority = mpEntry.GetPriority(nHeight);
+        dPriority = mpEntry.GetPriority(nHeight); // Csw inputs contributes to this
         nFee = mpEntry.GetFee();
         mempool.ApplyDeltas(hash, dPriority, nFee);
 
@@ -286,6 +286,8 @@ bool AddToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view
             dPriority += (double)nValueIn * nConf;
         }
         nTotalIn += txBase.GetJoinSplitValueIn();
+
+        // Csw contribute zero to initial priority
 
         // Priority is sum(valuein * age) / modified_txsize
         dPriority = txBase.ComputePriority(dPriority, nTxSize);
@@ -657,7 +659,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // policy here, but we still have to ensure that the block we
             // create only contains transactions that are valid in new blocks.
             CValidationState state;
-            // Q: why contextualCheckInputs for Certificates just "return true;"? Why we don't check Cert inputs signatures?
             if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
                 continue;
 

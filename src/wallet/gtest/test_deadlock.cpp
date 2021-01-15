@@ -51,12 +51,12 @@ TEST(deadlock_test, deadlock) {
     walletMain.AddSpendingKey(sk);
 
     //number of concurrent SyncTransaction Thread -1
-    int size = 2;
+    enum { ThreadNum = 2 };
     std::atomic_int finished(0);
-    std::thread myThreads[size];
+    std::thread myThreads[ThreadNum];
 
     //launch #size -1 thread to process transaction
-    for (int i = 0; i < size; i++) {
+    for (int i = 0; i < ThreadNum; i++) {
         if (i == 0) {
             myThreads[i] = std::thread(write_block, std::ref(walletMain),
                     std::ref(finished));
@@ -70,9 +70,9 @@ TEST(deadlock_test, deadlock) {
     }
 
     //wait all threads to finish
-    for (int i = 0; i < size; i++) {
+    for (int i = 0; i < ThreadNum; i++) {
         myThreads[i].join();
     }
 
-    EXPECT_EQ(finished, size);
+    EXPECT_EQ(finished, ThreadNum);
 }

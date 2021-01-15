@@ -52,6 +52,8 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTxMemPoolEntry& other)
 double CTxMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
     CAmount nValueIn = tx.GetValueOut()+nFee;
+    // tx.GetValueOut() + nFee indirectly account for csw inputs amounts too.
+
     double deltaPriority = ((double)(currentHeight-nHeight)*nValueIn)/nModSize;
     double dResult = dPriority + deltaPriority;
     LogPrint("mempool", "%s():%d - prioIn[%22.8f] + delta[%22.8f] = prioOut[%22.8f]\n",
@@ -188,7 +190,8 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
 
     for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
         if (mapSidechains.count(csw.scId) == 0)
-            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, csw.scId.ToString() );
+            LogPrint("mempool", "%s():%d - adding tx [%s] in mapSidechain [%s], cswNullifiers\n",
+                     __func__, __LINE__, hash.ToString(), csw.scId.ToString());
         mapSidechains[csw.scId].cswNullifiers[csw.nullifier] = tx.GetHash();
     }
 
@@ -679,7 +682,6 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
 {
     // Remove transactions which depend on inputs of tx, recursively
     // not used
-    // list<CTransaction> result;
     LOCK(cs);
     for(const CTxIn &txin: tx.GetVin()) {
         std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(txin.prevout);
@@ -711,12 +713,13 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
             if(cswNullifierPos != mapSidechains.at(csw.scId).cswNullifiers.end()) {
                 const uint256& txHash = cswNullifierPos->second;
                 const auto& it = mapTx.find(txHash);
-                if (it != mapTx.end()) {
-                    const CTransaction &txConflict = it->second.GetTx();
-                    if (txConflict != tx)
-                    {
-                        remove(txConflict, removedTxs, removedCerts, true);
-                    }
+                // If CSW nullifier was present in cswNullifers, the containing tx must be present in the mempool.
+                assert(it != mapTx.end());
+
+                const CTransaction &txConflict = it->second.GetTx();
+                if (txConflict != tx)
+                {
+                    remove(txConflict, removedTxs, removedCerts, true);
                 }
             }
         }

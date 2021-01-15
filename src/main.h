@@ -372,6 +372,13 @@ unsigned int GetP2SHSigOpCount(const CTransactionBase& tx, const CCoinsViewCache
 
 
 /**
+ * Check whether the specified input (both regular or CSW) of this transaction has valid scripts & sigs.
+ * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
+ * instead of being performed inline.
+ */
+bool InputScriptCheck(const CScript& scriptPubKey, const CTransactionBase& tx, unsigned int nIn,
+                      const CChain& chain, unsigned int flags, bool cache,  CValidationState &state, std::vector<CScriptCheck> *pvChecks);
+/**
  * Check whether all inputs (both regular and CSW) of this transaction are valid (no double spends, scripts & sigs, amounts)
  * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
  * instead of being performed inline.
@@ -585,8 +592,7 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
 bool IsCommunityFund(const CCoins *coins, int nIn);
 
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
-bool CheckCertInputs(const CScCertificate& cert, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
+bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
 }
 
 struct CTransactionNetworkObj

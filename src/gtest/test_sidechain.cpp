@@ -250,7 +250,7 @@ TEST_F(SidechainTestSuite, NewScCreationsHaveTheRightDependencies) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction, int(1789));
+    bool res = sidechainsView->HaveScRequirements(aTransaction);
 
     //checks
     EXPECT_TRUE(res);
@@ -267,7 +267,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsHaveTheRightDependencies
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction, creationHeight);
+    bool res = sidechainsView->HaveScRequirements(aTransaction);
 
     //checks
     EXPECT_TRUE(res);
@@ -280,7 +280,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsHaveNotTheRightDepend
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(uint256S("1492"), CAmount(1815));
 
     //test
-    bool res = sidechainsView->HaveScRequirements(aTransaction, fwdHeight);
+    bool res = sidechainsView->HaveScRequirements(aTransaction);
 
     //checks
     EXPECT_FALSE(res);

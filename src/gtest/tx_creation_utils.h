@@ -8,7 +8,6 @@ namespace txCreationUtils
 {
 CMutableTransaction populateTx(int txVersion,
                                const CAmount & creationTxAmount = CAmount(0),
-                               const CAmount & fwdTxAmount = CAmount(0),
                                int epochLength = 5);
 void signTx(CMutableTransaction& mtx);
 
