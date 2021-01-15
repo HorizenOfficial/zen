@@ -653,12 +653,12 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
                 break; // No block files left to reindex
             FILE *file = OpenBlockFile(pos, true);
             if (!file) break; // This error is logged in OpenBlockFile
-            LogPrintf("Reindexing block file blk%05u.dat, headers only...\n", (unsigned int)nFile);
+            LogPrintf("Reindexing block file blk%05u.dat, headers-only...\n", (unsigned int)nFile);
             LoadBlocksFromExternalFile(file, &pos, /*loadHeadersOnly*/true);
             nFile++;
         }
-        pblocktree->WriteFastReindexing(false);
-        fReindexFast = false;
+        if (fReindexFast)
+            LogPrintf("Headers-only reindexing finished. Going on with blocks\n");
 
         nFile = 0;
         uiInterface.InitMessage(_("Reindexing block from files..."));
@@ -676,6 +676,8 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
 
         pblocktree->WriteReindexing(false);
         fReindex = false;
+        pblocktree->WriteFastReindexing(false);
+        fReindexFast = false;
         LogPrintf("Reindexing finished\n");
         uiInterface.InitMessage(_("Reindexing finished"));
 
