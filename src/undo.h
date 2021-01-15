@@ -230,7 +230,7 @@ struct CSidechainUndoData
             ::Unserialize(s, prevTopCommittedCertQuality,         nType, nVersion);
             ::Unserialize(s, prevTopCommittedCertBwtAmount,       nType, nVersion);
             ::Unserialize(s, prevCertDataHash,                    nType, nVersion);
-        }
+        } 
         if (contentBitMask & AvailableSections::MATURED_AMOUNTS)
         {
             ::Unserialize(s, appliedMaturedAmount, nType, nVersion);

@@ -2724,7 +2724,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
         }
     }
-
+    
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = block.vtx[i];
@@ -2792,7 +2792,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     LogPrint("cert", "%s():%d ApplyTxInUndo returned FALSE on tx [%s] \n", __func__, __LINE__, tx.GetHash().ToString());
                     fClean = false;
                 }
+            }
 
+            for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
+                view.RemoveCswNullifier(cswIn.scId, cswIn.nullifier);
             }
         }
     }
@@ -3090,6 +3093,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
                     return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", fwdTransfer.GetScId().ToString()),
                                      REJECT_INVALID, "bad-fwd-not-recorded");
+                }
+            }
+            
+            for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
+                //libzendoomc::ScFieldElement cswIn.nullifier;
+                if (!view.GetCswNullifier(cswIn.scId, cswIn.nullifier)) {
+                    view.AddCswNullifier(cswIn.scId, cswIn.nullifier);
+                } else {
+                    return state.DoS(100, error("ConnectBlock(): try to use existed nullifier Tx [%s]", tx.GetHash().ToString()),
+                             REJECT_INVALID, "bad-txns-csw-input-not-applicable");                    
                 }
             }
         }

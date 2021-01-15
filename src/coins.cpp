@@ -201,10 +201,13 @@ void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                        c
 bool CCoinsView::CheckQuality(const CScCertificate& cert)                      const { return false; }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
+bool CCoinsView::GetCswNullifier(const uint256& scId,
+                                 const libzendoomc::ScFieldElement &nullifier) const { return false; }
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                             const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
-                            CSidechainEventsMap& mapSidechainEvents)                 { return false; }
+                            CSidechainEventsMap& mapSidechainEvents,
+                            CCswNullifiersMap& cswNullifiers)                         { return false; }
 bool CCoinsView::GetStats(CCoinsStats &stats)                                  const { return false; }
 
 
@@ -223,14 +226,19 @@ bool CCoinsViewBacked::CheckQuality(const CScCertificate& cert)                 
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
 uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
+bool CCoinsViewBacked::GetCswNullifier(const uint256& scId,
+                                       const libzendoomc::ScFieldElement &nullifier) const { return base->GetCswNullifier(scId,nullifier); }
 bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                                   const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                                   CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
-                                  CSidechainEventsMap& mapSidechainEvents) { return base->BatchWrite(mapCoins, hashBlock, hashAnchor,
-                                                                                          mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents); }
+                                  CSidechainEventsMap& mapSidechainEvents,
+                                  CCswNullifiersMap& cswNullifiers) { return base->BatchWrite(mapCoins, hashBlock, hashAnchor,
+                                                                                          mapAnchors, mapNullifiers, mapSidechains,
+                                                                                            mapSidechainEvents, cswNullifiers); }
 bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                                  const { return base->GetStats(stats); }
 
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
+CCswNullifiersKeyHasher::CCswNullifiersKeyHasher() : salt() {GetRandBytes(salt.begin(), SC_FIELD_SIZE);}
 
 CCoinsViewCache::CCoinsViewCache(CCoinsView *baseIn) : CCoinsViewBacked(baseIn), hasModifier(false), cachedCoinsUsage(0) { }
 
@@ -245,6 +253,7 @@ size_t CCoinsViewCache::DynamicMemoryUsage() const {
            memusage::DynamicUsage(cacheNullifiers) +
            memusage::DynamicUsage(cacheSidechains) +
            memusage::DynamicUsage(cacheSidechainEvents) +
+           memusage::DynamicUsage(cacheCswNullifiers) +
            cachedCoinsUsage;
 }
 
@@ -503,13 +512,47 @@ void CCoinsViewCache::SetBestBlock(const uint256 &hashBlockIn) {
     hashBlock = hashBlockIn;
 }
 
+void CCoinsViewCache::AddCswNullifier(const uint256& scId,
+                         const libzendoomc::ScFieldElement &nullifier) {
+    std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
+    std::pair<CCswNullifiersMap::iterator, bool> ret = cacheCswNullifiers.insert(std::make_pair(position, CCswNullifiersCacheEntry()));
+    ret.first->second.entered = true;
+    ret.first->second.flags |= CCswNullifiersCacheEntry::FRESH;
+}
+
+void CCoinsViewCache::RemoveCswNullifier(const uint256& scId,
+                         const libzendoomc::ScFieldElement &nullifier) {
+    std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
+    std::pair<CCswNullifiersMap::iterator, bool> ret = cacheCswNullifiers.insert(std::make_pair(position, CCswNullifiersCacheEntry()));
+    ret.first->second.entered = false;
+    ret.first->second.flags |= CCswNullifiersCacheEntry::DIRTY;
+}
+
+bool CCoinsViewCache::GetCswNullifier(const uint256& scId,
+                         const libzendoomc::ScFieldElement &nullifier) const {
+    std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
+    
+    CCswNullifiersMap::iterator it = cacheCswNullifiers.find(position);
+    if (it != cacheCswNullifiers.end())
+        return true;
+
+    CCswNullifiersCacheEntry entry;
+    bool tmp = base->GetCswNullifier(scId, nullifier);
+    entry.entered = tmp;
+
+    cacheCswNullifiers.insert(std::make_pair(position, entry));
+
+    return tmp;
+}
+
 bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  const uint256 &hashBlockIn,
                                  const uint256 &hashAnchorIn,
                                  CAnchorsMap &mapAnchors,
                                  CNullifiersMap &mapNullifiers,
                                  CSidechainsMap& mapSidechains,
-                                 CSidechainEventsMap& mapSidechainEvents) {
+                                 CSidechainEventsMap& mapSidechainEvents,
+                                 CCswNullifiersMap& cswNullifiers) {
     assert(!hasModifier);
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
@@ -646,6 +689,26 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
         }
     }
     mapSidechainEvents.clear();
+
+    for (CCswNullifiersMap::iterator child_it = cswNullifiers.begin(); child_it != cswNullifiers.end();)
+    {
+        if (child_it->second.flags & CNullifiersCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
+            CCswNullifiersMap::iterator parent_it = cswNullifiers.find(child_it->first);
+
+            if (parent_it == cswNullifiers.end()) {
+                CCswNullifiersCacheEntry& entry = cswNullifiers[child_it->first];
+                entry.entered = child_it->second.entered;
+                entry.flags = CCswNullifiersCacheEntry::DIRTY;
+            } else {
+                if (parent_it->second.entered != child_it->second.entered) {
+                    parent_it->second.entered = child_it->second.entered;
+                    parent_it->second.flags |= CCswNullifiersCacheEntry::DIRTY;
+                }
+            }
+        }
+        CCswNullifiersMap::iterator itOld = child_it++;
+        cswNullifiers.erase(itOld);
+    }
 
     hashAnchor = hashAnchorIn;
     hashBlock = hashBlockIn;
@@ -919,7 +982,12 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, int nHeig
                  REJECT_INVALID, "tx-csw-input-sc-without-csw-support");
         }
 
-        // TODO: check that csw.nullifier is unique
+        for(const CTxCeasedSidechainWithdrawalInput& cswIn : tx.GetVcswCcIn()) {
+            if (pcoinsTip->GetCswNullifier(csw.scId, cswIn.nullifier)) {
+                return state.Invalid(error("csw input had been already used"),
+                     REJECT_INVALID, "tx-csw-input-used-nullifier");                
+            }
+        }
 
 
         const libzendoomc::ScFieldElement& prevCumulativeCertDataHash = libzendoomc::ScFieldElement(); // GetCumulativeCertDataHash(csw.scId, csw.nEpoch - 1);
@@ -1841,13 +1909,14 @@ CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int hei
 }
 
 bool CCoinsViewCache::Flush() {
-    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheSidechainEvents);
+    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheSidechainEvents, cacheCswNullifiers);
     cacheCoins.clear();
     cacheSidechains.clear();
     cacheSidechainEvents.clear();
     cacheAnchors.clear();
     cacheNullifiers.clear();
     cachedCoinsUsage = 0;
+    cacheCswNullifiers.clear();
     return fOk;
 }
 

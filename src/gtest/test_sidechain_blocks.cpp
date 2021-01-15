@@ -33,7 +33,7 @@ public:
 
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CSidechainEventsMap& mapSidechainEvents) override
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CSidechainEventsMap& mapSidechainEvents, CCswNullifiersMap& cswNullifiers) override
     {
         for (auto& entry : sidechainMap)
             switch (entry.second.flag) {
@@ -454,9 +454,10 @@ uint256 SidechainConnectCertsBlockTestSuite::storeSidechain(const uint256& scId,
 
     CAnchorsMap dummyAnchors;
     dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
+    CCswNullifiersMap dummyCswNullifiers;
 
     sidechainsView->BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
-                               dummyNullifiers, mapSidechain, sidechainEventsMap);
+                               dummyNullifiers, mapSidechain, sidechainEventsMap, dummyCswNullifiers);
 
     return scId;
 }

@@ -47,13 +47,16 @@ public:
     void GetScIds(std::set<uint256>& scIdsList)                        const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
+    bool GetCswNullifier(const uint256& scId,
+                         const libzendoomc::ScFieldElement &nullifier) const override;
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapSidechainEvents)                 override;
+                    CSidechainEventsMap& mapSidechainEvents,
+                    CCswNullifiersMap& cswNullifies)                   override;
     bool GetStats(CCoinsStats &stats)                                  const override;
     void Dump_info() const;
 };

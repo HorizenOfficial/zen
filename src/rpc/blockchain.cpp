@@ -15,6 +15,7 @@
 #include "sync.h"
 #include "util.h"
 #include "zen/delay.h"
+#include "txdb.h"
 
 #include <stdint.h>
 
@@ -1500,6 +1501,54 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
     return strHex;
 
+}
+
+UniValue getnullifierinfo(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() == 0 || params.size() > 2)
+        throw runtime_error(
+            "getnullifierinfo\n"
+			"\nArguments:\n"
+			"1. \"scid\"   (string, mandatory) scid of nullifier, \"*\" means all \n"
+			"2. nullifier (integer, mandatory) Retrieve only information for nullifier\n"
+            "\nReturns True if nullifier exit in SC.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"data\":            xx,      (string) existance of nullifier\n"
+            "}\n"
+
+            /*"\nExamples\n"
+            + HelpExampleCli("getscinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+            + HelpExampleCli("getscinfo", "\"*\" true false 2 10")
+            + HelpExampleCli("getscinfo", "\"*\" ")*/
+        );
+
+    bool bRetrieveAllSc = false;
+    string inputString = params[0].get_str();
+
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+
+    uint256 scId;
+    scId.SetHex(inputString);
+    
+    inputString = params[1].get_str();
+
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid nullifier format: not an hex");
+
+    libzendoomc::ScFieldElement nullifier;
+    nullifier.SetHex(inputString);
+
+    UniValue ret(UniValue::VOBJ);
+    
+    if (pcoinsTip->GetCswNullifier(scId, nullifier)) {
+        ret.push_back(Pair("data", "true"));
+    } else {
+        ret.push_back(Pair("data", "false"));
+    }
+
+    return ret;
 }
 
 UniValue getblockfinalityindex(const UniValue& params, bool fHelp)

@@ -34,6 +34,7 @@ static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
 static const char DB_LAST_BLOCK = 'l';
 static const char DB_CERT_DATA_HASH = 'h';
+static const char DB_CSW_NULLIFIER = 'n';
 
 
 void static BatchWriteAnchor(CLevelDBBatch &batch,
@@ -100,6 +101,15 @@ void static BatchWriteHashBestChain(CLevelDBBatch &batch, const uint256 &hash) {
 
 void static BatchWriteHashBestAnchor(CLevelDBBatch &batch, const uint256 &hash) {
     batch.Write(DB_BEST_ANCHOR, hash);
+}
+
+void static BatchWriteCswNullifier(CLevelDBBatch &batch, const uint256 &scId, const libzendoomc::ScFieldElement &nullifier, const bool &entered) {
+    std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
+
+    if (!entered)
+        batch.Erase(make_pair(DB_CSW_NULLIFIER, position));
+    else
+        batch.Write(make_pair(DB_CSW_NULLIFIER, position), true);
 }
 
 CCoinsViewDB::CCoinsViewDB(std::string dbName, size_t nCacheSize, bool fMemory, bool fWipe) : db(GetDataDir() / dbName, nCacheSize, fMemory, fWipe) {
@@ -193,13 +203,22 @@ uint256 CCoinsViewDB::GetBestAnchor() const {
     return hashBestAnchor;
 }
 
+bool CCoinsViewDB::GetCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const {
+    std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
+    bool spent = false;
+    bool read = db.Read(make_pair(DB_CSW_NULLIFIER, position), spent);
+
+    return read;
+}
+
 bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
                               const uint256 &hashBlock,
                               const uint256 &hashAnchor,
                               CAnchorsMap &mapAnchors,
                               CNullifiersMap &mapNullifiers,
                               CSidechainsMap& mapSidechains,
-                              CSidechainEventsMap& mapSidechainEvents) {
+                              CSidechainEventsMap& mapSidechainEvents,
+                              CCswNullifiersMap& cswNullifies) {
     CLevelDBBatch batch;
     size_t count = 0;
     size_t changed = 0;
@@ -241,6 +260,13 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
         BatchCeasedScs(batch, it->first, it->second);
         CSidechainEventsMap::iterator itOld = it++;
         mapSidechainEvents.erase(itOld);
+    }
+    
+    for (CCswNullifiersMap::iterator it = cswNullifies.begin(); it != cswNullifies.end();) {
+        const std::pair<uint256, libzendoomc::ScFieldElement>& position = it->first;
+        BatchWriteCswNullifier(batch, position.first, position.second, it->second.entered);
+        CCswNullifiersMap::iterator itOld = it++;
+        cswNullifies.erase(itOld);
     }
 
     if (!hashBlock.IsNull())
@@ -463,12 +489,12 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
     return true;
 }
 
-bool CBlockTreeDB::addCertData(const uint256& scId, const int height, const libzendoomc::ScFieldElement &certHash) {
-    std::pair<uint256, int> position = std::make_pair(scId, height);
+bool CBlockTreeDB::addCertData(const uint256& scId, const int epochId, const libzendoomc::ScFieldElement &certHash) {
+    std::pair<uint256, int> position = std::make_pair(scId, epochId);
     libzendoomc::ScFieldElement cumulativeCertData;
 
     std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> prevData;
-    if (getCertData(scId, height - 1, prevData)) {
+    if (getCertData(scId, epochId - 1, prevData)) {
         cumulativeCertData = calculateCumulativeCertDataHash(prevData.first, prevData.second);
     }
 
@@ -479,14 +505,14 @@ bool CBlockTreeDB::addCertData(const uint256& scId, const int height, const libz
     return WriteBatch(batch);
 }
 
-bool CBlockTreeDB::getCertData(const uint256& scId, const int height, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data) {
-    std::pair<uint256, int> position = std::make_pair(scId, height);
+bool CBlockTreeDB::getCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data) {
+    std::pair<uint256, int> position = std::make_pair(scId, epochId);
 
     return Read(make_pair(DB_CERT_DATA_HASH, position), data);
 }
 
-bool CBlockTreeDB::removeCertData(const uint256& scId, const int height) {
-    std::pair<uint256, int> position = std::make_pair(scId, height);
+bool CBlockTreeDB::removeCertData(const uint256& scId, const int epochId) {
+    std::pair<uint256, int> position = std::make_pair(scId, epochId);
 
     CLevelDBBatch batch;
     batch.Erase(make_pair(DB_CERT_DATA_HASH, position));
