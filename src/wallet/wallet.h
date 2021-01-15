@@ -1105,7 +1105,7 @@ public:
     bool CreateTransaction(
         const std::vector<CRecipient>& vecSend, const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
         CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
-        std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
+        std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true, CAmount cswInTotAmount = 0);
 
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 
