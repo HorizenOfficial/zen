@@ -242,6 +242,101 @@ TEST_F(SidechainTestSuite, FwdTransferCumulatedAmountDoesNotOverFlow) {
         <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
+
+TEST_F(SidechainTestSuite, ValidCSWTx) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = 100;
+    csw.nEpoch = 1;
+    csw.nullifier = libzendoomc::ScFieldElement();
+    csw.scProof = libzendoomc::ScProof();
+    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
+    CValidationState txState;
+
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    EXPECT_TRUE(res);
+    EXPECT_TRUE(txState.IsValid());
+}
+
+TEST_F(SidechainTestSuite, CSWTxInvalidAmount) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = -1;
+    csw.nEpoch = 1;
+    csw.nullifier = libzendoomc::ScFieldElement();
+    csw.scProof = libzendoomc::ScProof();
+    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
+    CValidationState txState;
+
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SidechainTestSuite, CSWTxInvalidEpoch) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = 100;
+    csw.nEpoch = -1;
+    csw.nullifier = libzendoomc::ScFieldElement();
+    csw.scProof = libzendoomc::ScProof();
+    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
+    CValidationState txState;
+
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SidechainTestSuite, CSWTxInvalidNullifier) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = 100;
+    csw.nEpoch = 1;
+    csw.nullifier = libzendoomc::ScFieldElement({std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')});
+    csw.scProof = libzendoomc::ScProof();
+    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
+    CValidationState txState;
+
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SidechainTestSuite, CSWTxInvalidProof) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = 100;
+    csw.nEpoch = 1;
+    csw.nullifier = libzendoomc::ScFieldElement();
+    csw.scProof = libzendoomc::ScProof({std::vector<unsigned char>(size_t(SC_PROOF_SIZE), 'a')});
+    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
+    CValidationState txState;
+
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// HaveScRequirements /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
