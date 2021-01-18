@@ -211,8 +211,8 @@ public:
                         std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
 
     void removeConflicts(const CScCertificate &cert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
-    void onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins);
-    void onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins);
+    void onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins, std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts);
+    void onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins, std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts);
     void removeOutOfEpochCertificates(const CBlockIndex* pindexDelete);
     void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight,
                         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);

@@ -616,7 +616,7 @@ void CTxMemPool::removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsig
     }
 }
 
-void CTxMemPool::onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins)
+void CTxMemPool::onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins, std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts)
 {
     LOCK(cs);
     std::list<const CTransactionBase*> transactionsToRemove;
@@ -660,14 +660,12 @@ void CTxMemPool::onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pc
         }
     }
 
-    std::list<CTransaction> removedTxs;
-    std::list<CScCertificate> removedCerts;
     for(const CTransactionBase* tx: transactionsToRemove) {
-        remove(*tx, removedTxs, removedCerts, true);
+        remove(*tx, outdatedTxs, outdatedCerts, true);
     }
 }
 
-void CTxMemPool::onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins)
+void CTxMemPool::onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins, std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts)
 {
     LOCK(cs);
     std::list<const CTransactionBase*> transactionsToRemove;
@@ -700,10 +698,8 @@ void CTxMemPool::onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache 
         }
     }
 
-    std::list<CTransaction> removedTxs;
-    std::list<CScCertificate> removedCerts;
     for(const CTransactionBase* tx: transactionsToRemove) {
-        remove(*tx, removedTxs, removedCerts, true);
+        remove(*tx, outdatedTxs, outdatedCerts, true);
     }
 }
 
