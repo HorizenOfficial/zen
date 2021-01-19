@@ -8,6 +8,7 @@
 
 #include "primitives/transaction.h"
 #include "primitives/certificate.h"
+#include "sc/sidechaintypes.h"
 #include "serialize.h"
 #include "uint256.h"
 
@@ -30,7 +31,7 @@ public:
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
-    uint256 hashScTxsCommitment;
+    CFakePoseidonHash hashScTxsCommitment;
     uint32_t nTime;
     uint32_t nBits;
     uint256 nNonce;

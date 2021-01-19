@@ -11,11 +11,35 @@
 #include "serialize.h"
 #include <boost/unordered_map.hpp>
 #include <boost/optional.hpp>
-
+#include <boost/variant.hpp>
 #include<sc/proofverifier.h>
 
-//------------------------------------------------------------------------------------
 class CTxForwardTransferOut;
+
+class CFakePoseidonHash
+{
+public:
+    CFakePoseidonHash()  {SetNull();};
+    explicit CFakePoseidonHash(const uint256& sha256): innerHash(sha256) {} //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
+    ~CFakePoseidonHash() = default;
+
+    void SetNull() { innerHash.SetNull(); }
+    friend inline bool operator==(const CFakePoseidonHash& lhs, const CFakePoseidonHash& rhs) { return lhs.innerHash == rhs.innerHash; }
+    friend inline bool operator!=(const CFakePoseidonHash& lhs, const CFakePoseidonHash& rhs) { return !(lhs == rhs); }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(innerHash);
+    }
+
+    std::string GetHex() const   {return innerHash.GetHex();}
+    std::string ToString() const {return innerHash.ToString();}
+
+private:
+    uint256 innerHash; //Temporary, for backward compatibility with beta
+};
 
 namespace Sidechain
 {
