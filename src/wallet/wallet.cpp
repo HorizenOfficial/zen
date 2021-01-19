@@ -2093,7 +2093,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
         pcoinsTip->GetScIds(allScIds);
         for(const auto& scId: allScIds)
         {
-            if (pcoinsTip->isCeasedAtHeight(scId, chainActive.Height()) != CSidechain::State::ALIVE) {
+            if (pcoinsTip->GetSidechainState(scId) != CSidechain::State::ALIVE) {
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(scId, sidechain));
                 if (fUpdate)

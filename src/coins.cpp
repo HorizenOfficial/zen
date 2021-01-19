@@ -1100,17 +1100,18 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     }
 
     int certWindowStartHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1);
+    CSidechain::State scState = GetSidechainState(cert.GetScId());
+
     if (!((nHeight >= certWindowStartHeight) && (nHeight <= certWindowStartHeight + scInfo.SafeguardMargin())))
     {
-        std::string s = CSidechain::stateToString(isCeasedAtHeight(cert.GetScId(), nHeight));
         LogPrint("sc", "%s():%d - invalid cert[%s], cert epoch not acceptable at this height %d (state=%s, wsh=%d, sg=%d)\n",
-            __func__, __LINE__, certHash.ToString(), nHeight, s, certWindowStartHeight, scInfo.SafeguardMargin());
+            __func__, __LINE__, certHash.ToString(), nHeight, CSidechain::stateToString(scState), certWindowStartHeight, scInfo.SafeguardMargin());
         return state.Invalid(error("cert epoch not acceptable at this height"),
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    if (GetSidechainState(cert.GetScId())!= CSidechain::State::ALIVE) {
-        LogPrintf("ERROR: certificate[%s] cannot be accepted, sidechain [%s] already ceased at height = %d (chain.h = %d)\n",
+    if (scState != CSidechain::State::ALIVE) {
+        LogPrintf("ERROR: certificate[%s] cannot be accepted, sidechain [%s] not alive at height = %d (chain.h = %d)\n",
             certHash.ToString(), cert.GetScId().ToString(), nHeight, chainActive.Height());
         return state.Invalid(error("received a delayed cert"),
                      REJECT_INVALID, "sidechain-certificate-delayed");
