@@ -646,7 +646,9 @@ public:
     void RemoveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier);
 
+    // deprecated: currently used only in some UT and will be soon removed
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
+
     CSidechain::State GetSidechainState(const uint256& scId) const;
 
     bool Flush();
