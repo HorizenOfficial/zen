@@ -13,6 +13,7 @@ void signTx(CMutableTransaction& mtx);
 
 CTransaction createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength = 15);
 CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
+CTransaction createCSWTxWith(const CTxCeasedSidechainWithdrawalInput& csw);
 
 CTransaction createCoinBase(const CAmount& amount);
 CTransaction createTransparentTx(bool ccIsNull = true); //ccIsNull = false allows generation of faulty tx with non-empty cross chain output

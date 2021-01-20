@@ -156,6 +156,14 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
     for(const CTxCeasedSidechainWithdrawalInput& csw : tx.GetVcswCcIn())
     {
+        if (csw.nValue <= 0)
+        {
+            LogPrint("sc", "%s():%d - Invalid tx[%s] : CSW value %d is non-positive\n",
+                __func__, __LINE__, txHash.ToString(), csw.nValue);
+            return state.DoS(100, error("%s: CSW value is not valid",
+                __func__), REJECT_INVALID, "sidechain-cswinput-value-not-valid");
+        }
+
         if (csw.nEpoch < 0)
         {
             LogPrint("sc", "%s():%d - Invalid tx[%s] : CSW epoch %d is non-positive\n",

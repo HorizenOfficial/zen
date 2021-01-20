@@ -85,6 +85,16 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
     return CTransaction(mtx);
 }
 
+CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawalInput& csw)
+{
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vcsw_ccin.resize(1);
+    mtx.vcsw_ccin[0] = csw;
+
+    return CTransaction(mtx);
+}
+
 CTransaction txCreationUtils::createCoinBase(const CAmount& amount)
 {
     CMutableTransaction mutCoinBase;
