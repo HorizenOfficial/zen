@@ -6,8 +6,10 @@
 class CTransaction;
 class CMutableTransaction;
 class CScCertificate;
+class CMutableScCertificate;
 class uint256;
 class CBlock;
+class CCoinsViewCache;
 
 namespace txCreationUtils
 {

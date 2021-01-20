@@ -310,7 +310,9 @@ TEST(ScTxCommitmentTree, TreeCommitmentCalculation)
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(7));
 
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/12, /*endEpochBlockHash*/uint256S("abc"));
+    CScCertificate cert = txCreationUtils::createCertificate(scId,
+        /*epochNum*/12, /*endEpochBlockHash*/uint256S("abc"), /*changeTotalAmount*/0,
+        /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/1);
 
     builder.add(scCreationTx);
     builder.add(fwdTx);

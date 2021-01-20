@@ -7,6 +7,7 @@
 #include <pubkey.h>
 #include <miner.h>
 #include <undo.h>
+#include "tx_creation_utils.h"
 #include <pow.h>
 
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, const CAmount & fwdTxAmount, int epochLength)
