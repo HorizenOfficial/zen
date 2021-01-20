@@ -201,3 +201,35 @@ uint64_t base_blob<768>::GetHash(const base_blob<768>& salt) const
 
     return ((((uint64_t)b) << 32) | c);
 }
+
+uint64_t CalculateHash(const uint32_t* const src, size_t length, const uint32_t* const salt)
+{
+    uint32_t a, b, c;
+    const uint32_t *pn = (const uint32_t*)src;
+    const uint32_t *salt_pn = (const uint32_t*)salt;
+    a = b = c = 0xdeadbeef + length;
+
+    while(length > 3 ) {
+        a += pn[0] ^ salt_pn[0];
+        b += pn[1] ^ salt_pn[1];
+        c += pn[2] ^ salt_pn[2];
+        HashMix(a, b, c);
+
+        length -= 3;
+        pn += 3;
+        salt_pn += 3;
+    }
+
+    switch(length) {
+        case 3 : c += pn[2] ^ salt_pn[2];
+        case 2 : b += pn[1] ^ salt_pn[1];
+        case 1 : a += pn[0] ^ salt_pn[0];
+            HashFinal(a, b, c);
+        case 0:
+            break;
+    }
+
+    HashFinal(a, b, c);
+
+    return ((((uint64_t)b) << 32) | c);
+}

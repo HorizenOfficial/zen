@@ -215,12 +215,9 @@ uint256 CCoinsViewDB::GetBestAnchor() const {
     return hashBestAnchor;
 }
 
-bool CCoinsViewDB::GetCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const {
+bool CCoinsViewDB::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const {
     std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
-    bool spent = false;
-    bool read = db.Read(make_pair(DB_CSW_NULLIFIER, position), spent);
-
-    return read;
+    return db.Exists(make_pair(DB_CSW_NULLIFIER, position));
 }
 
 bool CCoinsViewDB::GetCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data) {
@@ -283,7 +280,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     
     for (CCswNullifiersMap::iterator it = cswNullifies.begin(); it != cswNullifies.end();) {
         const std::pair<uint256, libzendoomc::ScFieldElement>& position = it->first;
-        BatchWriteCswNullifier(batch, position.first, position.second, it->second.entered);
+        BatchWriteCswNullifier(batch, position.first, position.second, (it->second.flags == CCswNullifiersCacheEntry::FRESH));
         CCswNullifiersMap::iterator itOld = it++;
         cswNullifies.erase(itOld);
     }

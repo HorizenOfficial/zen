@@ -286,8 +286,8 @@ public:
 class CCswNullifiersKeyHasher
 {
 private:
-    libzendoomc::ScFieldElement salt;
-
+    static const size_t BUF_LEN = 32 + SC_FIELD_SIZE;
+    uint32_t salt[BUF_LEN/4];
 public:
     CCswNullifiersKeyHasher();
 
@@ -297,14 +297,18 @@ public:
      * uint64_t, resulting in failures when syncing the chain (#4634).
      */
     size_t operator()(const std::pair<uint256, libzendoomc::ScFieldElement>& key) const {
-        return key.second.GetHash(salt);
+        uint32_t buf[BUF_LEN/4];
+        memcpy(buf, key.first.begin(), 32);
+        memcpy(buf + 32, key.second.begin(), SC_FIELD_SIZE);
+        return CalculateHash(buf, BUF_LEN/4, salt);
     }
 };
 
 class CCertDataKeyHasher
 {
 private:
-    uint256 salt;
+    static const size_t BUF_LEN = 32 + sizeof(int);
+    uint32_t salt[BUF_LEN/4];
 
 public:
     CCertDataKeyHasher();
@@ -315,7 +319,10 @@ public:
      * uint64_t, resulting in failures when syncing the chain (#4634).
      */
     size_t operator()(const std::pair<uint256, int>& key) const {
-        return key.first.GetHash(salt);
+        uint32_t buf[BUF_LEN/4];
+        memcpy(buf, key.first.begin(), 32);
+        memcpy(buf + 32, &key.second, sizeof(int));
+        return CalculateHash(buf, BUF_LEN/4, salt);
     }
 };
 
@@ -390,16 +397,15 @@ struct CNullifiersCacheEntry
 
 struct CCswNullifiersCacheEntry
 {
-    bool entered; // If the nullifier is spent or not
     unsigned char flags;
 
     enum Flags {
         DEFAULT = 0,
+        ERASED = (1 << 0), // The parent view does have this entry but current one have it erased
         FRESH = (1 << 1), // The parent view does not have this entry    
-        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
     };
 
-    CCswNullifiersCacheEntry() : entered(false), flags(0) {}
+    CCswNullifiersCacheEntry() : flags(0) {}
 };
 
 struct CCertDataHashCacheEntry
@@ -481,7 +487,7 @@ public:
     virtual uint256 GetBestAnchor() const;
     
     //! Retrieve existance of CSW nullifier for specified Sidechain.
-    virtual bool GetCswNullifier(const uint256& scId,
+    virtual bool HaveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) const;
 
     //! Do a bulk modification (multiple CCoins changes + BestBlock change).
@@ -524,7 +530,7 @@ public:
     bool CheckQuality(const CScCertificate& cert)                      const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
-    bool GetCswNullifier(const uint256& scId,
+    bool HaveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) const override;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins,
@@ -599,7 +605,7 @@ public:
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
     void SetBestBlock(const uint256 &hashBlock);
-    bool GetCswNullifier(const uint256& scId,
+    bool HaveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) const override;
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,

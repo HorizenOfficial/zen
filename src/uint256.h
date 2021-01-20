@@ -156,4 +156,6 @@ inline uint256 uint256S(const std::string& str)
     return rv;
 }
 
+uint64_t CalculateHash(const uint32_t* const  src, size_t length, const uint32_t* const salt);
+
 #endif // BITCOIN_UINT256_H

@@ -15,7 +15,6 @@
 #include "sync.h"
 #include "util.h"
 #include "zen/delay.h"
-#include "txdb.h"
 
 #include <stdint.h>
 
@@ -1503,27 +1502,25 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
 }
 
-UniValue getnullifierinfo(const UniValue& params, bool fHelp)
+UniValue checkcswnullifier(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() == 0 || params.size() > 2)
         throw runtime_error(
-            "getnullifierinfo\n"
+            "checkcswnullifier\n"
 			"\nArguments:\n"
 			"1. \"scid\"   (string, mandatory) scid of nullifier, \"*\" means all \n"
-			"2. nullifier (integer, mandatory) Retrieve only information for nullifier\n"
+			"2. nullifier (string, mandatory) Retrieve only information for nullifier\n"
             "\nReturns True if nullifier exit in SC.\n"
             "\nResult:\n"
             "{\n"
-            "  \"data\":            xx,      (string) existance of nullifier\n"
+            "  \"data\":            xx,      (bool) existance of nullifier\n"
             "}\n"
 
             /*"\nExamples\n"
-            + HelpExampleCli("getscinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
-            + HelpExampleCli("getscinfo", "\"*\" true false 2 10")
-            + HelpExampleCli("getscinfo", "\"*\" ")*/
+            + HelpExampleCli("getscinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"",
+                             "\"0f580d529516a8744de63c578ad83551304c3215f76d204e1a3e7ccbfd40c4e21a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a8740f580d529516a8744de63c578ad83551304c3215f76d204e1a3e7ccbfd40c4e2\"" ) */
         );
 
-    bool bRetrieveAllSc = false;
     string inputString = params[0].get_str();
 
     if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
@@ -1542,7 +1539,7 @@ UniValue getnullifierinfo(const UniValue& params, bool fHelp)
 
     UniValue ret(UniValue::VOBJ);
     
-    if (pcoinsTip->GetCswNullifier(scId, nullifier)) {
+    if (pcoinsTip->HaveCswNullifier(scId, nullifier)) {
         ret.push_back(Pair("data", "true"));
     } else {
         ret.push_back(Pair("data", "false"));

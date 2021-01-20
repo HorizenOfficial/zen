@@ -47,7 +47,7 @@ public:
     void GetScIds(std::set<uint256>& scIdsList)                        const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
-    bool GetCswNullifier(const uint256& scId,
+    bool HaveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) const override;
     bool GetCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data);
     bool BatchWrite(CCoinsMap &mapCoins,

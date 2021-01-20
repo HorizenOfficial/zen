@@ -201,7 +201,7 @@ void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                        c
 bool CCoinsView::CheckQuality(const CScCertificate& cert)                      const { return false; }
 uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
-bool CCoinsView::GetCswNullifier(const uint256& scId,
+bool CCoinsView::HaveCswNullifier(const uint256& scId,
                                  const libzendoomc::ScFieldElement &nullifier) const { return false; }
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                             const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
@@ -227,8 +227,8 @@ bool CCoinsViewBacked::CheckQuality(const CScCertificate& cert)                 
 uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
 uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
-bool CCoinsViewBacked::GetCswNullifier(const uint256& scId,
-                                       const libzendoomc::ScFieldElement &nullifier) const { return base->GetCswNullifier(scId,nullifier); }
+bool CCoinsViewBacked::HaveCswNullifier(const uint256& scId,
+                                       const libzendoomc::ScFieldElement &nullifier) const { return base->HaveCswNullifier(scId,nullifier); }
 bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                                   const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                                   CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
@@ -241,8 +241,8 @@ bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
 bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                                  const { return base->GetStats(stats); }
 
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
-CCswNullifiersKeyHasher::CCswNullifiersKeyHasher() : salt() {GetRandBytes(salt.begin(), SC_FIELD_SIZE);}
-CCertDataKeyHasher::CCertDataKeyHasher() : salt(GetRandHash()) {}
+CCswNullifiersKeyHasher::CCswNullifiersKeyHasher() : salt() {GetRandBytes(reinterpret_cast<unsigned char*>(salt), BUF_LEN);}
+CCertDataKeyHasher::CCertDataKeyHasher() : salt() {GetRandBytes(reinterpret_cast<unsigned char*>(salt), BUF_LEN);}
 
 CCoinsViewCache::CCoinsViewCache(CCoinsView *baseIn) : CCoinsViewBacked(baseIn), hasModifier(false), cachedCoinsUsage(0) { }
 
@@ -521,31 +521,31 @@ void CCoinsViewCache::AddCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) {
     std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
     std::pair<CCswNullifiersMap::iterator, bool> ret = cacheCswNullifiers.insert(std::make_pair(position, CCswNullifiersCacheEntry()));
-    ret.first->second.entered = true;
-    ret.first->second.flags |= CCswNullifiersCacheEntry::FRESH;
+    ret.first->second.flags = CCswNullifiersCacheEntry::FRESH;
 }
 
 void CCoinsViewCache::RemoveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) {
     std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
     std::pair<CCswNullifiersMap::iterator, bool> ret = cacheCswNullifiers.insert(std::make_pair(position, CCswNullifiersCacheEntry()));
-    ret.first->second.entered = false;
-    ret.first->second.flags |= CCswNullifiersCacheEntry::DIRTY;
+    ret.first->second.flags = CCswNullifiersCacheEntry::ERASED;
 }
 
-bool CCoinsViewCache::GetCswNullifier(const uint256& scId,
+bool CCoinsViewCache::HaveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) const {
     std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
     
     CCswNullifiersMap::iterator it = cacheCswNullifiers.find(position);
     if (it != cacheCswNullifiers.end())
-        return true;
+        return (it->second.flags != CCswNullifiersCacheEntry::ERASED);
 
-    CCswNullifiersCacheEntry entry;
-    bool tmp = base->GetCswNullifier(scId, nullifier);
-    entry.entered = tmp;
+    bool tmp = base->HaveCswNullifier(scId, nullifier);
 
-    cacheCswNullifiers.insert(std::make_pair(position, entry));
+    if (tmp) {
+        CCswNullifiersCacheEntry entry;
+        entry.flags = CCswNullifiersCacheEntry::FRESH;
+        cacheCswNullifiers.insert(std::make_pair(position, entry));
+    }
 
     return tmp;
 }
@@ -709,25 +709,54 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
     }
     mapSidechainEvents.clear();
 
-    for (CCswNullifiersMap::iterator child_it = cswNullifiers.begin(); child_it != cswNullifiers.end();)
-    {
-        if (child_it->second.flags & CNullifiersCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
-            CCswNullifiersMap::iterator parent_it = cswNullifiers.find(child_it->first);
+    for (auto& entryToWrite : cswNullifiers) {
+        CCswNullifiersMap::iterator itLocalCacheEntry = cacheCswNullifiers.find(entryToWrite.first);
 
-            if (parent_it == cswNullifiers.end()) {
-                CCswNullifiersCacheEntry& entry = cswNullifiers[child_it->first];
-                entry.entered = child_it->second.entered;
-                entry.flags = CCswNullifiersCacheEntry::DIRTY;
-            } else {
-                if (parent_it->second.entered != child_it->second.entered) {
-                    parent_it->second.entered = child_it->second.entered;
-                    parent_it->second.flags |= CCswNullifiersCacheEntry::DIRTY;
-                }
-            }
+        switch (entryToWrite.second.flags) {
+            case CCswNullifiersCacheEntry::FRESH:
+                assert(
+                    itLocalCacheEntry == cacheCswNullifiers.end() ||
+                    itLocalCacheEntry->second.flags == CCswNullifiersCacheEntry::ERASED
+                ); //A fresh entry should not exist in localCache or be already erased
+                cacheCswNullifiers[entryToWrite.first] = entryToWrite.second;
+                break;
+            case CCswNullifiersCacheEntry::ERASED:
+                if (itLocalCacheEntry != cacheCswNullifiers.end())
+                    itLocalCacheEntry->second.flags = CCswNullifiersCacheEntry::ERASED;
+                break;
+            default:
+                assert(false);
         }
-        CCswNullifiersMap::iterator itOld = child_it++;
-        cswNullifiers.erase(itOld);
     }
+    cswNullifiers.clear();
+
+    for (auto& entryToWrite : certDataHashes) {
+        CCertDataHashMap::iterator itLocalCacheEntry = cacheCertDataHashes.find(entryToWrite.first);
+
+        switch (entryToWrite.second.flags) {
+            case CCertDataHashCacheEntry::Flags::FRESH:
+                assert(
+                    itLocalCacheEntry == cacheCertDataHashes.end() ||
+                    itLocalCacheEntry->second.flags == CCertDataHashCacheEntry::Flags::ERASED
+                ); //A fresh entry should not exist in localCache or be already erased
+                cacheCertDataHashes[entryToWrite.first] = entryToWrite.second;
+                break;
+            case CCertDataHashCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
+                cacheCertDataHashes[entryToWrite.first] = entryToWrite.second;
+                break;
+            case CCertDataHashCacheEntry::Flags::ERASED:
+                if (itLocalCacheEntry != cacheCertDataHashes.end())
+                    itLocalCacheEntry->second.flags = CCertDataHashCacheEntry::Flags::ERASED;
+                break;
+            case CCertDataHashCacheEntry::Flags::DEFAULT:
+                assert(itLocalCacheEntry != cacheCertDataHashes.end());
+                assert(itLocalCacheEntry->second.certDataHash == entryToWrite.second.certDataHash); //entry declared default is indeed different from backed value
+                break; //nothing to do. entry is already persisted and has not been modified
+            default:
+                assert(false);
+        }
+    }
+    certDataHashes.clear();
 
     // Store CertDataHashes
     for (CCertDataHashMap::iterator child_it = certDataHashes.begin(); child_it != certDataHashes.end();)
@@ -747,6 +776,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                 }
             }
         }
+
         CCertDataHashMap::iterator itOld = child_it++;
         certDataHashes.erase(itOld);
     }
@@ -1076,7 +1106,7 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
         cswTotalBalances[csw.scId] += csw.nValue;
 
         for(const CTxCeasedSidechainWithdrawalInput& cswIn : tx.GetVcswCcIn()) {
-            if (pcoinsTip->GetCswNullifier(csw.scId, cswIn.nullifier)) {
+            if (pcoinsTip->HaveCswNullifier(csw.scId, cswIn.nullifier)) {
                 return state.Invalid(error("csw input had been already used"),
                      REJECT_INVALID, "tx-csw-input-used-nullifier");                
             }
