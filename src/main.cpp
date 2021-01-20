@@ -2575,17 +2575,15 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
                 }
                 // Remove previously stored DataHash
-                if (!pblocktree->removeCertData(cert.GetScId(), cert.epochNumber))
-                    return error("DisconnectBlock(): Failed to write CertData");
+                view.RemoveCertDataHash(cert.GetScId(), cert.epochNumber);
             } else
             {
                 // resurrect prevBlockTopQualityCertHash bwts
                 assert(blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA);
                 view.RestoreBackwardTransfers(prevBlockTopQualityCertHash, blockUndo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
                 // Update CertDataHash
-                libzendoomc::ScFieldElement dataHash = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevCertDataHash;
-                if (!pblocktree->addCertData(cert.GetScId(), cert.epochNumber, dataHash))
-                    return error("DisconnectBlock(): Failed to write CertDataHash");
+                libzendoomc::ScFieldElement dataHash = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertDataHash;
+                view.AddCertDataHash(cert.GetScId(), cert.epochNumber, dataHash);
             }
 
             // Refresh previous certificate in wallet, whether it has been just restored or it is from previous epoch
@@ -3089,9 +3087,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
 
-            libzendoomc::ScFieldElement dataHash = blockundo.scUndoDatabyScId.at(cert.GetScId()).prevCertDataHash;
-            if (!pblocktree->addCertData(cert.GetScId(), cert.epochNumber, dataHash))
-                return AbortNode(state, "Failed to write transaction index");
+            libzendoomc::ScFieldElement dataHash = blockundo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertDataHash;
+            view.AddCertDataHash(cert.GetScId(), cert.epochNumber, dataHash);
 
             if (pCertsStateInfo != nullptr)
                 pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), cert.GetHash(),

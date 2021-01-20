@@ -59,7 +59,8 @@ public:
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapSidechainEvents,
-                    CCswNullifiersMap& cswNullifiers) override
+                    CCswNullifiersMap& cswNullifiers,
+                    CCertDataHashMap& certDataHashes) override
     {
         return false;
     }

@@ -34,8 +34,9 @@ public:
         CSidechainsMap mapSidechains;
         CSidechainEventsMap mapSidechainEvents;
         CCswNullifiersMap cswNullifiers;
+        CCertDataHashMap certDataHashes;
 
-        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents, cswNullifiers);
+        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents, cswNullifiers, certDataHashes);
     }
 };
 
@@ -926,8 +927,9 @@ bool SidechainsInMempoolTestSuite::StoreCoins(const std::pair<uint256, CCoinsCac
     CSidechainsMap mapSidechains;
     CSidechainEventsMap mapCeasingScs;
     CCswNullifiersMap cswNullifiers;
+    CCertDataHashMap certDataHashes;
 
-    pcoinsTip->BatchWrite(tmpCoinsMap, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapCeasingScs, cswNullifiers);
+    pcoinsTip->BatchWrite(tmpCoinsMap, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapCeasingScs, cswNullifiers, certDataHashes);
 
     return view.HaveCoins(entryToStore.first) == true;
 }

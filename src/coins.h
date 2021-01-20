@@ -301,6 +301,24 @@ public:
     }
 };
 
+class CCertDataKeyHasher
+{
+private:
+    uint256 salt;
+
+public:
+    CCertDataKeyHasher();
+
+    /**
+     * This *must* return size_t. With Boost 1.46 on 32-bit systems the
+     * unordered_map will behave unpredictably if the custom hasher returns a
+     * uint64_t, resulting in failures when syncing the chain (#4634).
+     */
+    size_t operator()(const std::pair<uint256, int>& key) const {
+        return key.first.GetHash(salt);
+    }
+};
+
 struct CCoinsCacheEntry
 {
     CCoins coins; // The actual cached data.
@@ -384,12 +402,28 @@ struct CCswNullifiersCacheEntry
     CCswNullifiersCacheEntry() : entered(false), flags(0) {}
 };
 
+struct CCertDataHashCacheEntry
+{
+    libzendoomc::ScFieldElement certDataHash;
+    unsigned char flags;
+
+    enum Flags {
+        DEFAULT = 0,
+        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+        FRESH = (1 << 1), // The parent view does not have this entry
+        ERASED = (1 << 2), // The parent view does have this entry but current one have it erased
+    };
+
+    CCertDataHashCacheEntry() : certDataHash(), flags(0) {}
+};
+
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
 typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap; //maps scId to sidechain informations
 typedef boost::unordered_map<int, CSidechainEventsCacheEntry>                 CSidechainEventsMap; //maps blockchain height to sidechain amount to mature/certs to void
 typedef boost::unordered_map<uint256, CAnchorsCacheEntry, CCoinsKeyHasher>    CAnchorsMap;
 typedef boost::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CNullifiersMap;
 typedef boost::unordered_map<std::pair<uint256, libzendoomc::ScFieldElement>, CCswNullifiersCacheEntry, CCswNullifiersKeyHasher> CCswNullifiersMap;
+typedef boost::unordered_map<std::pair<uint256, int>, CCertDataHashCacheEntry, CCertDataKeyHasher> CCertDataHashMap;
 
 struct CCoinsStats
 {
@@ -459,7 +493,8 @@ public:
                             CNullifiersMap &mapNullifiers,
                             CSidechainsMap& mapSidechains,
                             CSidechainEventsMap& mapCeasedScs,
-                            CCswNullifiersMap& cswNullifiers);
+                            CCswNullifiersMap& cswNullifiers,
+                            CCertDataHashMap& certDataHashes);
 
     //! Calculate statistics about the unspent transaction output set
     virtual bool GetStats(CCoinsStats &stats) const;
@@ -499,7 +534,8 @@ public:
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapCeasedScs,
-                    CCswNullifiersMap& cswNullifiers)                        override;
+                    CCswNullifiersMap& cswNullifiers,
+                    CCertDataHashMap& certDataHashes)                        override;
     bool GetStats(CCoinsStats &stats)                                  const override;
 };
 
@@ -546,6 +582,7 @@ protected:
     mutable CAnchorsMap    cacheAnchors;
     mutable CNullifiersMap cacheNullifiers;
     mutable CCswNullifiersMap cacheCswNullifiers;
+    mutable CCertDataHashMap cacheCertDataHashes;
 
     /* Cached dynamic memory usage for the inner CCoins objects. */
     mutable size_t cachedCoinsUsage;
@@ -571,7 +608,8 @@ public:
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapCeasedScs,
-                    CCswNullifiersMap& cswNullifiers)                        override;
+                    CCswNullifiersMap& cswNullifiers,
+                    CCertDataHashMap& certDataHashes)                        override;
 
 
     // Adds the tree to mapAnchors and sets the current commitment
@@ -640,11 +678,18 @@ public:
     bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
 
-    //CSW NULLIDIER PUBLIC MEMBERS
+    //CSW NULLIFIER PUBLIC MEMBERS
     void AddCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier);
     void RemoveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier);
+
+    //CERTIFICATE DATA HASH MEMEBERS
+    void AddCertDataHash(const uint256& scId,
+                         const int epoch,
+                         const libzendoomc::ScFieldElement &certDataHash);
+    void RemoveCertDataHash(const uint256& scId,
+                            const int epoch);
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
     CSidechain::State GetSidechainState(const uint256& scId) const;

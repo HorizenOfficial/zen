@@ -49,6 +49,7 @@ public:
     uint256 GetBestAnchor()                                            const override;
     bool GetCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) const override;
+    bool GetCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
@@ -56,7 +57,8 @@ public:
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapSidechainEvents,
-                    CCswNullifiersMap& cswNullifies)                   override;
+                    CCswNullifiersMap& cswNullifies,
+                    CCertDataHashMap& certDataHashes)                        override;
     bool GetStats(CCoinsStats &stats)                                  const override;
     void Dump_info() const;
 };
@@ -80,9 +82,6 @@ public:
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts();
-    bool addCertData(const uint256& scId, const int height, const libzendoomc::ScFieldElement &certHash);
-    bool getCertData(const uint256& scId, const int height, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data);
-    bool removeCertData(const uint256& scId, const int height);
 };
 
 #endif // BITCOIN_TXDB_H

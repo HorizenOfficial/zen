@@ -94,7 +94,8 @@ public:
                     CNullifiersMap& mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapSidechainEvents,
-                    CCswNullifiersMap& cswNullifiers) override
+                    CCswNullifiersMap& cswNullifiers,
+                    CCertDataHashMap& certDataHashes) override
     {
         for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); ) {
             map_[it->first] = it->second.coins;
@@ -147,7 +148,8 @@ public:
                      memusage::DynamicUsage(cacheNullifiers) +
                      memusage::DynamicUsage(cacheSidechains) +
                      memusage::DynamicUsage(cacheSidechainEvents) +
-                     memusage::DynamicUsage(cacheCswNullifiers);
+                     memusage::DynamicUsage(cacheCswNullifiers) +
+                     memusage::DynamicUsage(cacheCertDataHashes);
         for (CCoinsMap::iterator it = cacheCoins.begin(); it != cacheCoins.end(); it++) {
             ret += it->second.coins.DynamicMemoryUsage();
         }

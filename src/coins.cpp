@@ -207,7 +207,8 @@ bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                             const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
                             CSidechainEventsMap& mapSidechainEvents,
-                            CCswNullifiersMap& cswNullifiers)                         { return false; }
+                            CCswNullifiersMap& cswNullifiers,
+                            CCertDataHashMap& certDataHashes)                         { return false; }
 bool CCoinsView::GetStats(CCoinsStats &stats)                                  const { return false; }
 
 
@@ -232,13 +233,16 @@ bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                                   const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                                   CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
                                   CSidechainEventsMap& mapSidechainEvents,
-                                  CCswNullifiersMap& cswNullifiers) { return base->BatchWrite(mapCoins, hashBlock, hashAnchor,
+                                  CCswNullifiersMap& cswNullifiers,
+                                  CCertDataHashMap& certDataHashes) { return base->BatchWrite(mapCoins, hashBlock, hashAnchor,
                                                                                           mapAnchors, mapNullifiers, mapSidechains,
-                                                                                            mapSidechainEvents, cswNullifiers); }
+                                                                                            mapSidechainEvents, cswNullifiers,
+                                                                                            certDataHashes); }
 bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                                  const { return base->GetStats(stats); }
 
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
 CCswNullifiersKeyHasher::CCswNullifiersKeyHasher() : salt() {GetRandBytes(salt.begin(), SC_FIELD_SIZE);}
+CCertDataKeyHasher::CCertDataKeyHasher() : salt(GetRandHash()) {}
 
 CCoinsViewCache::CCoinsViewCache(CCoinsView *baseIn) : CCoinsViewBacked(baseIn), hasModifier(false), cachedCoinsUsage(0) { }
 
@@ -254,6 +258,7 @@ size_t CCoinsViewCache::DynamicMemoryUsage() const {
            memusage::DynamicUsage(cacheSidechains) +
            memusage::DynamicUsage(cacheSidechainEvents) +
            memusage::DynamicUsage(cacheCswNullifiers) +
+           memusage::DynamicUsage(cacheCertDataHashes) +
            cachedCoinsUsage;
 }
 
@@ -545,6 +550,19 @@ bool CCoinsViewCache::GetCswNullifier(const uint256& scId,
     return tmp;
 }
 
+void CCoinsViewCache::AddCertDataHash(const uint256& scId, const int epoch, const libzendoomc::ScFieldElement &certDataHash) {
+    std::pair<uint256, int> position = std::make_pair(scId, epoch);
+    std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
+    ret.first->second.certDataHash = certDataHash;
+    ret.first->second.flags |= CCertDataHashCacheEntry::FRESH;
+}
+
+void CCoinsViewCache::RemoveCertDataHash(const uint256& scId, const int epoch) {
+    std::pair<uint256, int> position = std::make_pair(scId, epoch);
+    std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
+    ret.first->second.flags |= CCertDataHashCacheEntry::ERASED;
+}
+
 bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  const uint256 &hashBlockIn,
                                  const uint256 &hashAnchorIn,
@@ -552,7 +570,8 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  CNullifiersMap &mapNullifiers,
                                  CSidechainsMap& mapSidechains,
                                  CSidechainEventsMap& mapSidechainEvents,
-                                 CCswNullifiersMap& cswNullifiers) {
+                                 CCswNullifiersMap& cswNullifiers,
+                                 CCertDataHashMap& certDataHashes) {
     assert(!hasModifier);
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
@@ -708,6 +727,28 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
         }
         CCswNullifiersMap::iterator itOld = child_it++;
         cswNullifiers.erase(itOld);
+    }
+
+    // Store CertDataHashes
+    for (CCertDataHashMap::iterator child_it = certDataHashes.begin(); child_it != certDataHashes.end();)
+    {
+        if (child_it->second.flags & CNullifiersCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
+            CCertDataHashMap::iterator parent_it = cacheCertDataHashes.find(child_it->first);
+
+            // TODO Recheck
+            if (parent_it == cacheCertDataHashes.end()) {
+                CCertDataHashCacheEntry& entry = cacheCertDataHashes[child_it->first];
+                entry.certDataHash = child_it->second.certDataHash;
+                entry.flags = CCertDataHashCacheEntry::DIRTY;
+            } else {
+                if (parent_it->second.certDataHash != child_it->second.certDataHash) {
+                    parent_it->second.certDataHash = child_it->second.certDataHash;
+                    parent_it->second.flags |= CCertDataHashCacheEntry::DIRTY;
+                }
+            }
+        }
+        CCertDataHashMap::iterator itOld = child_it++;
+        certDataHashes.erase(itOld);
     }
 
     hashAnchor = hashAnchorIn;
@@ -1304,7 +1345,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertQuality         = scIt->second.scInfo.prevBlockTopQualityCertQuality;
     blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertBwtAmount       = scIt->second.scInfo.prevBlockTopQualityCertBwtAmount;
     blockUndo.scUndoDatabyScId[scId].contentBitMask |= CSidechainUndoData::AvailableSections::SIDECHAIN_STATE;
-    blockUndo.scUndoDatabyScId[scId].prevCertDataHash = calculateCertDataHash(cert);
+    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertDataHash = calculateCertDataHash(cert);
 
     if (scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch != cert.epochNumber)
     {
@@ -1973,7 +2014,7 @@ CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int hei
 }
 
 bool CCoinsViewCache::Flush() {
-    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheSidechainEvents, cacheCswNullifiers);
+    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheSidechainEvents, cacheCswNullifiers, cacheCertDataHashes);
     cacheCoins.clear();
     cacheSidechains.clear();
     cacheSidechainEvents.clear();

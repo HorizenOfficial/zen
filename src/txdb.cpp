@@ -112,6 +112,18 @@ void static BatchWriteCswNullifier(CLevelDBBatch &batch, const uint256 &scId, co
         batch.Write(make_pair(DB_CSW_NULLIFIER, position), true);
 }
 
+void static BatchWriteCertDataHash(CLevelDBBatch &batch, const uint256 &scId, const int &epochId,
+                                   const libzendoomc::ScFieldElement& certDataHash, const libzendoomc::ScFieldElement& cumulativeCertData) {
+    std::pair<uint256, int> position = std::make_pair(scId, epochId);                                   
+    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> data = std::make_pair(cumulativeCertData, certDataHash);
+    batch.Write(make_pair(DB_CERT_DATA_HASH, position), data);
+}
+
+void static BatchRemoveCertDataHash(CLevelDBBatch &batch, const uint256 &scId, const int &epochId) {
+    std::pair<uint256, int> position = std::make_pair(scId, epochId);
+    batch.Erase(make_pair(DB_CERT_DATA_HASH, position));
+}
+
 CCoinsViewDB::CCoinsViewDB(std::string dbName, size_t nCacheSize, bool fMemory, bool fWipe) : db(GetDataDir() / dbName, nCacheSize, fMemory, fWipe) {
 }
 
@@ -211,6 +223,12 @@ bool CCoinsViewDB::GetCswNullifier(const uint256& scId, const libzendoomc::ScFie
     return read;
 }
 
+bool CCoinsViewDB::GetCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data) {
+    std::pair<uint256, int> position = std::make_pair(scId, epochId);
+
+    return db.Read(make_pair(DB_CERT_DATA_HASH, position), data);
+}
+
 bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
                               const uint256 &hashBlock,
                               const uint256 &hashAnchor,
@@ -218,7 +236,8 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
                               CNullifiersMap &mapNullifiers,
                               CSidechainsMap& mapSidechains,
                               CSidechainEventsMap& mapSidechainEvents,
-                              CCswNullifiersMap& cswNullifies) {
+                              CCswNullifiersMap& cswNullifies,
+                              CCertDataHashMap& certDataHashes) {
     CLevelDBBatch batch;
     size_t count = 0;
     size_t changed = 0;
@@ -267,6 +286,34 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
         BatchWriteCswNullifier(batch, position.first, position.second, it->second.entered);
         CCswNullifiersMap::iterator itOld = it++;
         cswNullifies.erase(itOld);
+    }
+
+    // Store cert Data Hashes
+    for (CCertDataHashMap::iterator it = certDataHashes.begin(); it != certDataHashes.end();) {
+        const std::pair<uint256, int>& position = it->first;
+        uint256 scId = position.first;
+        int epochId = position.second;
+        std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> prevData;
+        libzendoomc::ScFieldElement cumulativeCertData;
+
+        switch(it->second.flags) {
+            case CCertDataHashCacheEntry::Flags::FRESH:
+            case CCertDataHashCacheEntry::Flags::DIRTY:
+                if (GetCertData(scId, epochId - 1, prevData)) {
+                    cumulativeCertData = calculateCumulativeCertDataHash(prevData.first, prevData.second);
+                }
+                BatchWriteCertDataHash(batch, scId, epochId, it->second.certDataHash, cumulativeCertData);
+
+                break;
+            case CCertDataHashCacheEntry::Flags::ERASED:
+                BatchRemoveCertDataHash(batch, scId, epochId);
+                break;
+            default:
+                break;
+        }
+
+        CCertDataHashMap::iterator itOld = it++;
+        certDataHashes.erase(itOld);
     }
 
     if (!hashBlock.IsNull())
@@ -489,32 +536,3 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
     return true;
 }
 
-bool CBlockTreeDB::addCertData(const uint256& scId, const int epochId, const libzendoomc::ScFieldElement &certHash) {
-    std::pair<uint256, int> position = std::make_pair(scId, epochId);
-    libzendoomc::ScFieldElement cumulativeCertData;
-
-    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> prevData;
-    if (getCertData(scId, epochId - 1, prevData)) {
-        cumulativeCertData = calculateCumulativeCertDataHash(prevData.first, prevData.second);
-    }
-
-    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> data = std::make_pair(cumulativeCertData, certHash);
-
-    CLevelDBBatch batch;
-    batch.Write(make_pair(DB_CERT_DATA_HASH, position), certHash);
-    return WriteBatch(batch);
-}
-
-bool CBlockTreeDB::getCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data) {
-    std::pair<uint256, int> position = std::make_pair(scId, epochId);
-
-    return Read(make_pair(DB_CERT_DATA_HASH, position), data);
-}
-
-bool CBlockTreeDB::removeCertData(const uint256& scId, const int epochId) {
-    std::pair<uint256, int> position = std::make_pair(scId, epochId);
-
-    CLevelDBBatch batch;
-    batch.Erase(make_pair(DB_CERT_DATA_HASH, position));
-    return WriteBatch(batch);
-}
