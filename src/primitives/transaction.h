@@ -514,6 +514,9 @@ public:
     }
 };
 
+class FieldElementConfig;
+class CompressedMerkleTreeConfig;
+
 class CTxScCreationOut : public CTxCrosschainOut
 {
 friend class CTransaction;
@@ -529,6 +532,8 @@ public:
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
+    std::vector<FieldElementConfig> vFieldElementConfig;
+    std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
 
     CTxScCreationOut():withdrawalEpochLength(-1) { }
 
@@ -546,6 +551,8 @@ public:
         READWRITE(constant);
         READWRITE(wCertVk);
         READWRITE(wMbtrVk);
+        READWRITE(vFieldElementConfig);
+        READWRITE(vCompressedMerkleTreeConfig);
     }
 
     const uint256& GetScId() const override final { return generatedScId;}; 
@@ -561,7 +568,9 @@ public:
                  a.customData == b.customData &&
                  a.constant == b.constant &&
                  a.wCertVk == b.wCertVk &&
-                 a.wMbtrVk == b.wMbtrVk);
+                 a.wMbtrVk == b.wMbtrVk &&
+                 a.vFieldElementConfig == b.vFieldElementConfig &&
+                 a.vCompressedMerkleTreeConfig == b.vCompressedMerkleTreeConfig );
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)

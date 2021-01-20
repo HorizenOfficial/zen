@@ -793,18 +793,20 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "\nCreate a Side chain with the given id staring from the given block. A fixed amount is charged to the creator\n"
             "\nIt also sends cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
             "\nArguments:\n"
-            "1. withdrawalEpochLength:   (numeric, required) Length of the withdrawal epochs. The minimum valid value for " +
-                                          Params().NetworkIDString() + " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
-            "2. \"address\"                (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "3. amount:                  (numeric, required) The numeric amount in ZEN is the value\n"
-            "4. \"wCertVk\"                (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            "5. \"customData\"             (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
-            "6. \"constant\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
-            "7. \"wMbtrVk\"                (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "1. withdrawalEpochLength:        (numeric, required) Length of the withdrawal epochs. The minimum valid value for " +
+                                               Params().NetworkIDString() + " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
+            "2. \"address\"                     (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "3. amount:                       (numeric, required) The numeric amount in ZEN is the value\n"
+            "4. \"wCertVk\"                     (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                        hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "5. \"customData\"                  (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                        hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
+            "6. \"constant\"                    (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                        hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "7. \"wMbtrVk\"                     (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                        hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "8. \"vFieldElementConfig\"         (string, optional) TODO add description\n"
+            "9. \"vCompressedMerkleTreeConfig\" (string, optional) TODO add description\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -884,13 +886,41 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
         }
-
         sc.creationData.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
         if (!libzendoomc::IsValidScVk(sc.creationData.wMbtrVk.get()))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
         }
     }
+
+    if (params.size() > 6) 
+    {
+        UniValue intArray = params[6].get_array();
+        if (intArray.size() != 0)
+        {
+            for (const UniValue& o : intArray.getValues())
+            {
+                if (!o.isNum())
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
+                sc.creationData.vFieldElementConfig.push_back(o.get_int());
+            }
+        }
+    }
+
+    if (params.size() > 7) 
+    {
+        UniValue intArray = params[7].get_array();
+        if (intArray.size() != 0)
+        {
+            for (const UniValue& o : intArray.getValues())
+            {
+                if (!o.isNum())
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
+                sc.creationData.vCompressedMerkleTreeConfig.push_back(o.get_int());
+            }
+        }
+    }
+
     vector<CRecipientScCreation> vecScSend;
     vecScSend.push_back(sc);
 

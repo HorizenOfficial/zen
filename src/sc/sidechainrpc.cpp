@@ -36,6 +36,8 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
         o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
+        o.push_back(Pair("vFieldElementConfig", VecToStr(out.vFieldElementConfig)));
+        o.push_back(Pair("vCompressedMerkleTreeConfig", VecToStr(out.vCompressedMerkleTreeConfig)));
         o.push_back(Pair("customData", HexStr(out.customData)));
         o.push_back(Pair("constant", HexStr(out.constant)));
         vscs.push_back(o);
@@ -423,8 +425,10 @@ void fundCcRecipients(const CTransaction& tx,
         CRecipientScCreation sc;
         sc.nValue = entry.nValue;
         sc.address = entry.address;
-        sc.creationData.withdrawalEpochLength = entry.withdrawalEpochLength;
-        sc.creationData.wCertVk = entry.wCertVk;
+        sc.creationData.withdrawalEpochLength       = entry.withdrawalEpochLength;
+        sc.creationData.wCertVk                     = entry.wCertVk;
+        sc.creationData.vFieldElementConfig         = entry.vFieldElementConfig;
+        sc.creationData.vCompressedMerkleTreeConfig = entry.vCompressedMerkleTreeConfig;
         sc.creationData.customData = entry.customData;
         sc.creationData.constant = entry.constant;
 

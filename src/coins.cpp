@@ -763,6 +763,8 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         scIt->second.scInfo.creationData.constant = cr.constant;
         scIt->second.scInfo.creationData.wCertVk = cr.wCertVk;
         scIt->second.scInfo.creationData.wMbtrVk = cr.wMbtrVk;
+        scIt->second.scInfo.creationData.vFieldElementConfig = cr.vFieldElementConfig;
+        scIt->second.scInfo.creationData.vCompressedMerkleTreeConfig = cr.vCompressedMerkleTreeConfig;
         scIt->second.scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
         scIt->second.flag = CSidechainsCacheEntry::Flags::FRESH;
 
@@ -1867,6 +1869,8 @@ void CCoinsViewCache::Dump_info() const
         LogPrint("sc", "      customData[%s]\n", HexStr(info.creationData.customData));
         LogPrint("sc", "      constant[%s]\n", HexStr(info.creationData.constant));
         LogPrint("sc", "      wCertVk[%s]\n", HexStr(info.creationData.wCertVk));
+        LogPrint("sc", "      vFieldElementConfig[%s]\n", VecToStr(info.creationData.vFieldElementConfig));
+        LogPrint("sc", "      vCompressedMerkleTreeConfig[%s]\n", VecToStr(info.creationData.vCompressedMerkleTreeConfig));
         LogPrint("sc", "  immature amounts size[%d]\n", info.mImmatureAmounts.size());
     }
 

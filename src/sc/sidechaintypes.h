@@ -16,6 +16,70 @@
 
 class CTxForwardTransferOut;
 
+class FieldElementConfig
+{
+public:
+    int32_t nBits;
+
+    FieldElementConfig(int32_t nBitsIn):nBits(nBitsIn) {}
+    FieldElementConfig():nBits(-1) {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nBits);
+    }
+
+    friend bool operator==(const FieldElementConfig& a, const FieldElementConfig& b)
+    {
+        return (a.nBits == b.nBits);
+    }
+
+    friend bool operator!=(const FieldElementConfig& a, const FieldElementConfig& b)
+    {
+        return !(a == b);
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const FieldElementConfig& r)  
+    {  
+        os << r.nBits;  
+        return os;  
+    }
+};
+
+class CompressedMerkleTreeConfig
+{
+public:
+    int32_t treeHeight;
+
+    CompressedMerkleTreeConfig(int32_t treeHeightIn):treeHeight(treeHeightIn) {}
+    CompressedMerkleTreeConfig():treeHeight(-1) {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(treeHeight);
+    }
+
+    friend bool operator==(const CompressedMerkleTreeConfig& a, const CompressedMerkleTreeConfig& b)
+    {
+        return (a.treeHeight == b.treeHeight);
+    }
+
+    friend bool operator!=(const CompressedMerkleTreeConfig& a, const CompressedMerkleTreeConfig& b)
+    {
+        return !(a == b);
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const CompressedMerkleTreeConfig& r)  
+    {  
+        os << r.treeHeight;  
+        return os;  
+    }
+};
+
 class CFakePoseidonHash
 {
 public:
@@ -67,15 +131,19 @@ struct ScCreationParameters
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
+    std::vector<FieldElementConfig> vFieldElementConfig;
+    std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
 
     bool IsNull() const
     {
         return (
-            withdrawalEpochLength == -1 &&
-            customData.empty()          &&
-            constant.empty( )           &&
-            wCertVk.IsNull()            &&
-            wMbtrVk == boost::none);
+            withdrawalEpochLength == -1        &&
+            customData.empty()                 &&
+            constant.empty( )                  &&
+            wCertVk.IsNull()                   &&
+            wMbtrVk == boost::none             &&
+            vFieldElementConfig.empty()        &&
+            vCompressedMerkleTreeConfig.empty() );
     }
 
     ADD_SERIALIZE_METHODS;
@@ -86,6 +154,8 @@ struct ScCreationParameters
         READWRITE(constant);
         READWRITE(wCertVk);
         READWRITE(wMbtrVk);
+        READWRITE(vFieldElementConfig);
+        READWRITE(vCompressedMerkleTreeConfig);
     }
     ScCreationParameters() :withdrawalEpochLength(-1) {}
 
@@ -94,17 +164,21 @@ struct ScCreationParameters
         return (withdrawalEpochLength == rhs.withdrawalEpochLength) &&
                (customData == rhs.customData) &&
                (constant == rhs.constant) &&
-               (wCertVk == rhs.wCertVk) &&
-               (wMbtrVk == rhs.wMbtrVk);
+               (wCertVk == rhs.wCertVk)  &&
+               (wMbtrVk == rhs.wMbtrVk)  &&
+               (vFieldElementConfig == rhs.vFieldElementConfig) &&
+               (vCompressedMerkleTreeConfig == rhs.vCompressedMerkleTreeConfig);
     }
     inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
     inline ScCreationParameters& operator=(const ScCreationParameters& cp)
     {
-        withdrawalEpochLength = cp.withdrawalEpochLength;
-        customData = cp.customData;
-        constant = cp.constant;
-        wCertVk = cp.wCertVk;
-        wMbtrVk = cp.wMbtrVk;
+        withdrawalEpochLength       = cp.withdrawalEpochLength;
+        customData                  = cp.customData;
+        constant                    = cp.constant;
+        wCertVk                     = cp.wCertVk;
+        wMbtrVk                     = cp.wMbtrVk;
+        vFieldElementConfig         = cp.vFieldElementConfig;
+        vCompressedMerkleTreeConfig = cp.vCompressedMerkleTreeConfig;
         return *this;
     }
 };

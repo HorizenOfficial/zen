@@ -260,6 +260,14 @@ template <typename Callable> void TraceThread(const char* name,  Callable func)
     }
 }
 
+template <typename T>
+std::string VecToStr(const std::vector<T>& vIn)
+{
+    std::stringstream result;
+    std::copy(vIn.begin(), vIn.end(), std::ostream_iterator<T>(result, " "));
+    return result.str().c_str();
+}
+
 // Utilities useful for developing and debugging
 //--------------------------------------------------------------
 class CBlockIndex;

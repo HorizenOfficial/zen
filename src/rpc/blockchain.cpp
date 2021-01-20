@@ -1082,6 +1082,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             	sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
             else
                 sc.push_back(Pair("wMbtrVk", std::string{"NOT INITIALIZED"}));
+            sc.push_back(Pair("vFieldElementConfig", VecToStr(info.creationData.vFieldElementConfig)));
+            sc.push_back(Pair("vCompressedMerkleTreeConfig", VecToStr(info.creationData.vCompressedMerkleTreeConfig) ));
         }
  
         UniValue ia(UniValue::VARR);
@@ -1126,6 +1128,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
                     info.creationData.wMbtrVk = scCreation.wMbtrVk;
+                    info.creationData.vFieldElementConfig = scCreation.vFieldElementConfig;
+                    info.creationData.vCompressedMerkleTreeConfig = scCreation.vCompressedMerkleTreeConfig;
                     info.mImmatureAmounts[-1] = scCreation.GetScValue();
                     break;
                 }
@@ -1144,6 +1148,30 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
                 else
                     sc.push_back(Pair("unconf wMbtrVk", std::string{"NOT INITIALIZED"}));
+                sc.push_back(Pair("unconf vFieldElementConfig", VecToStr(info.creationData.vFieldElementConfig)));
+                sc.push_back(Pair("unconf vCompressedMerkleTreeConfig", VecToStr(info.creationData.vCompressedMerkleTreeConfig)));
+
+                CAmount fwd_am = 0;
+                for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
+                {
+                    const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
+                    for (const auto& fwdAmount : fwdTx.GetVftCcOut())
+                    {
+                        if (scId == fwdAmount.scId)
+                        {
+                            fwd_am += fwdAmount.nValue;
+                        }
+                    }
+                }
+                if (fwd_am > 0)
+                {
+                    UniValue ia(UniValue::VARR);
+                    UniValue o(UniValue::VOBJ);
+                    o.push_back(Pair("unconf maturityHeight", -1));
+                    o.push_back(Pair("unconf amount", ValueFromAmount(fwd_am)));
+                    ia.push_back(o);
+                    sc.push_back(Pair("unconf immature amounts", ia));
+                }
             }
 
             addScUnconfCcData(scId, sc);
@@ -1255,22 +1283,24 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "  \"to\":                    xx,      (numeric) index of the ending item (excluded in result)\n"
             "  \"items\":[\n"
             "   {\n"
-            "     \"scid\":                    xxxxx,   (string)  sidechain ID\n"
-            "     \"balance\":                 xxxxx,   (numeric) available balance\n"
-            "     \"epoch\":                   xxxxx,   (numeric) current epoch for this sidechain\n"
-            "     \"end epoch height\":        xxxxx,   (numeric) height of the last block of the current epoch\n"
-            "     \"state\":                   xxxxx,   (string)  state of the sidechain at the current chain height\n"
-            "     \"ceasing height\":          xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
-            "     \"creating tx hash\":        xxxxx,   (string)  txid of the creating transaction\n"
-            "     \"created in block\":        xxxxx,   (string)  hash of the block containing the creatimg tx\n"
-            "     \"created at block height\": xxxxx,   (numeric) height of the above block\n"
-            "     \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
-            "     \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
-            "     \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
-            "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
-            "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
-            "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
-            "     \"wMbtrVk\":                 xxxxx,   (string)  The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
+            "     \"scid\":                        xxxxx,   (string)  sidechain ID\n"
+            "     \"balance\":                     xxxxx,   (numeric) available balance\n"
+            "     \"epoch\":                       xxxxx,   (numeric) current epoch for this sidechain\n"
+            "     \"end epoch height\":            xxxxx,   (numeric) height of the last block of the current epoch\n"
+            "     \"state\":                       xxxxx,   (string)  state of the sidechain at the current chain height\n"
+            "     \"ceasing height\":              xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
+            "     \"creating tx hash\":            xxxxx,   (string)  txid of the creating transaction\n"
+            "     \"created in block\":            xxxxx,   (string)  hash of the block containing the creatimg tx\n"
+            "     \"created at block height\":     xxxxx,   (numeric) height of the above block\n"
+            "     \"last certificate epoch\":      xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
+            "     \"last certificate hash\":       xxxxx,   (numeric) the hash of the last certificate that has been received\n"
+            "     \"withdrawalEpochLength\":       xxxxx,   (numeric) length of the withdrawal epoch\n"
+            "     \"wCertVk\":                     xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
+            "     \"customData\":                  xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
+            "     \"constant\":                    xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
+            "     \"wMbtrVk\":                     xxxxx,   (string)  The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
+            "     \"vFieldElementConfig\":         xxxxx,   (string)  TODO  add description\n"
+            "     \"vCompressedMerkleTreeConfig\": xxxxx,   (string)  TODO  add description\n"
             "     \"immature amounts\": [\n"
             "       {\n"
             "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"

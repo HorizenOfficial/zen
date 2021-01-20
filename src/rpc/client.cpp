@@ -128,6 +128,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sc_sendmany", 0},
     { "sc_create", 0 },
     { "sc_create", 2 },
+    { "sc_create", 6 },
+    { "sc_create", 7 },
     { "create_sidechain", 0 },
 	{ "getscinfo", 1 },
 	{ "getscinfo", 2 },
