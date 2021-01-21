@@ -773,29 +773,6 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
     }
     certDataHashes.clear();
 
-    // Store CertDataHashes
-    for (CCertDataHashMap::iterator child_it = certDataHashes.begin(); child_it != certDataHashes.end();)
-    {
-        if (child_it->second.flags & CNullifiersCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
-            CCertDataHashMap::iterator parent_it = cacheCertDataHashes.find(child_it->first);
-
-            // TODO Recheck
-            if (parent_it == cacheCertDataHashes.end()) {
-                CCertDataHashCacheEntry& entry = cacheCertDataHashes[child_it->first];
-                entry.certDataHash = child_it->second.certDataHash;
-                entry.flags = CCertDataHashCacheEntry::DIRTY;
-            } else {
-                if (parent_it->second.certDataHash != child_it->second.certDataHash) {
-                    parent_it->second.certDataHash = child_it->second.certDataHash;
-                    parent_it->second.flags |= CCertDataHashCacheEntry::DIRTY;
-                }
-            }
-        }
-
-        CCertDataHashMap::iterator itOld = child_it++;
-        certDataHashes.erase(itOld);
-    }
-
     hashAnchor = hashAnchorIn;
     hashBlock = hashBlockIn;
     return true;
