@@ -296,12 +296,7 @@ public:
      * unordered_map will behave unpredictably if the custom hasher returns a
      * uint64_t, resulting in failures when syncing the chain (#4634).
      */
-    size_t operator()(const std::pair<uint256, libzendoomc::ScFieldElement>& key) const {
-        uint32_t buf[BUF_LEN/4];
-        memcpy(buf, key.first.begin(), 32);
-        memcpy(buf + 32, key.second.begin(), SC_FIELD_SIZE);
-        return CalculateHash(buf, BUF_LEN/4, salt);
-    }
+    size_t operator()(const std::pair<uint256, libzendoomc::ScFieldElement>& key) const;
 };
 
 class CCertDataKeyHasher
@@ -318,12 +313,7 @@ public:
      * unordered_map will behave unpredictably if the custom hasher returns a
      * uint64_t, resulting in failures when syncing the chain (#4634).
      */
-    size_t operator()(const std::pair<uint256, int>& key) const {
-        uint32_t buf[BUF_LEN/4];
-        memcpy(buf, key.first.begin(), 32);
-        memcpy(buf + 32, &key.second, sizeof(int));
-        return CalculateHash(buf, BUF_LEN/4, salt);
-    }
+    size_t operator()(const std::pair<uint256, int>& key) const;
 };
 
 struct CCoinsCacheEntry

@@ -2575,15 +2575,19 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
                 }
                 // Remove previously stored DataHash
+                libzendoomc::ScFieldElement dataHash = calculateCertDataHash(cert);
                 view.RemoveCertDataHash(cert.GetScId(), cert.epochNumber);
             } else
             {
                 // resurrect prevBlockTopQualityCertHash bwts
                 assert(blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA);
                 view.RestoreBackwardTransfers(prevBlockTopQualityCertHash, blockUndo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
+
                 // Update CertDataHash
-                libzendoomc::ScFieldElement dataHash = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertDataHash;
-                view.AddCertDataHash(cert.GetScId(), cert.epochNumber, dataHash);
+                std::map<uint256, libzendoomc::ScFieldElement>::iterator it = blockUndo.prevTopCommittedCertDataHashMap.find(cert.GetScId());
+                if (it != blockUndo.prevTopCommittedCertDataHashMap.end()) {
+                    view.AddCertDataHash(cert.GetScId(), cert.epochNumber, it->second);
+                }
             }
 
             // Refresh previous certificate in wallet, whether it has been just restored or it is from previous epoch
@@ -3086,7 +3090,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
 
-            libzendoomc::ScFieldElement dataHash = blockundo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertDataHash;
+            libzendoomc::ScFieldElement dataHash = calculateCertDataHash(cert);
+            blockundo.prevTopCommittedCertDataHashMap.insert(std::make_pair(cert.GetScId(), dataHash));
             view.AddCertDataHash(cert.GetScId(), cert.epochNumber, dataHash);
 
             if (pCertsStateInfo != nullptr)

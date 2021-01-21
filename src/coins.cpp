@@ -242,7 +242,22 @@ bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                             
 
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
 CCswNullifiersKeyHasher::CCswNullifiersKeyHasher() : salt() {GetRandBytes(reinterpret_cast<unsigned char*>(salt), BUF_LEN);}
+
+size_t CCswNullifiersKeyHasher::operator()(const std::pair<uint256, libzendoomc::ScFieldElement>& key) const {
+    uint32_t buf[BUF_LEN/4];
+    memcpy(buf, key.first.begin(), 32);
+    memcpy((buf + 8), key.second.begin(), SC_FIELD_SIZE);
+    return CalculateHash(buf, BUF_LEN/4, salt);
+}
+
 CCertDataKeyHasher::CCertDataKeyHasher() : salt() {GetRandBytes(reinterpret_cast<unsigned char*>(salt), BUF_LEN);}
+
+size_t CCertDataKeyHasher::operator()(const std::pair<uint256, int>& key) const {
+        uint32_t buf[BUF_LEN/4];
+        memcpy(buf, key.first.begin(), 32);
+        memcpy((buf + 8), &key.second, sizeof(int));
+        return CalculateHash(buf, BUF_LEN/4, salt);
+}
 
 CCoinsViewCache::CCoinsViewCache(CCoinsView *baseIn) : CCoinsViewBacked(baseIn), hasModifier(false), cachedCoinsUsage(0) { }
 
@@ -1375,7 +1390,6 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertQuality         = scIt->second.scInfo.prevBlockTopQualityCertQuality;
     blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertBwtAmount       = scIt->second.scInfo.prevBlockTopQualityCertBwtAmount;
     blockUndo.scUndoDatabyScId[scId].contentBitMask |= CSidechainUndoData::AvailableSections::SIDECHAIN_STATE;
-    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertDataHash = calculateCertDataHash(cert);
 
     if (scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch != cert.epochNumber)
     {
