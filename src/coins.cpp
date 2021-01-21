@@ -1162,17 +1162,15 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    int certWindowStartHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1);
-    if (!((nHeight >= certWindowStartHeight) && (nHeight <= certWindowStartHeight + scInfo.SafeguardMargin())))
+    if (nHeight < scInfo.StartHeightForEpoch(cert.epochNumber+1))
     {
-        std::string s = CSidechain::stateToString(isCeasedAtHeight(cert.GetScId(), nHeight));
-        LogPrint("sc", "%s():%d - invalid cert[%s], cert epoch not acceptable at this height %d (state=%s, wsh=%d, sg=%d)\n",
-            __func__, __LINE__, certHash.ToString(), nHeight, s, certWindowStartHeight, scInfo.SafeguardMargin());
+        LogPrint("sc", "%s():%d - invalid cert[%s] received too early (cert epoch %d, current height %d, current epoch %d)\n",
+            __func__, __LINE__, certHash.ToString(), cert.epochNumber, nHeight, scInfo.prevBlockTopQualityCertReferencedEpoch+1);
         return state.Invalid(error("cert epoch not acceptable at this height"),
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    if (GetSidechainState(cert.GetScId())!= CSidechain::State::ALIVE) {
+    if (GetSidechainState(cert.GetScId()) != CSidechain::State::ALIVE) {
         LogPrintf("ERROR: certificate[%s] cannot be accepted, sidechain [%s] already ceased at height = %d (chain.h = %d)\n",
             certHash.ToString(), cert.GetScId().ToString(), nHeight, chainActive.Height());
         return state.Invalid(error("received a delayed cert"),
@@ -2006,32 +2004,6 @@ CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
     LogPrint("cert", "%s.%s():%d sc %s state is %s\n", __FILE__, __func__, __LINE__, scId.ToString(),
         CSidechain::stateToString((CSidechain::State)scInfo.currentState));
     return (CSidechain::State)scInfo.currentState;
-}
-
-CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int height) const
-{
-    if (!HaveSidechain(scId))
-        return CSidechain::State::NOT_APPLICABLE;
-
-    CSidechain scInfo;
-    GetSidechain(scId, scInfo);
-
-    if (height < scInfo.creationBlockHeight)
-        return CSidechain::State::NOT_APPLICABLE;
-
-    int currentEpoch = scInfo.EpochFor(height);
-
-    if (currentEpoch > scInfo.prevBlockTopQualityCertReferencedEpoch + 2)
-        return CSidechain::State::CEASED;
-
-    if (currentEpoch == scInfo.prevBlockTopQualityCertReferencedEpoch + 2)
-    {
-        int targetEpochSafeguardHeight = scInfo.StartHeightForEpoch(currentEpoch) + scInfo.SafeguardMargin();
-        if (height > targetEpochSafeguardHeight)
-            return CSidechain::State::CEASED;
-    }
-
-    return  CSidechain::State::ALIVE;
 }
 
 bool CCoinsViewCache::Flush() {
