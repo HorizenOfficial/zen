@@ -896,29 +896,21 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (params.size() > 6) 
     {
         UniValue intArray = params[6].get_array();
-        if (intArray.size() != 0)
+        if (!Sidechain::AddScData(intArray, sc.creationData.vFieldElementConfig))
         {
-            for (const UniValue& o : intArray.getValues())
-            {
-                if (!o.isNum())
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
-                sc.creationData.vFieldElementConfig.push_back(o.get_int());
-            }
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
         }
+        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
     }
 
     if (params.size() > 7) 
     {
         UniValue intArray = params[7].get_array();
-        if (intArray.size() != 0)
+        if (!Sidechain::AddScData(intArray, sc.creationData.vCompressedMerkleTreeConfig))
         {
-            for (const UniValue& o : intArray.getValues())
-            {
-                if (!o.isNum())
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
-                sc.creationData.vCompressedMerkleTreeConfig.push_back(o.get_int());
-            }
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
         }
+        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
     }
 
     vector<CRecipientScCreation> vecScSend;
@@ -980,8 +972,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
-        {"withdrawalEpochLength", "fromaddress", "changeaddress",
-         "toaddress", "amount", "minconf", "fee", "wCertVk", "customData", "constant", "wMbtrVk"};
+        {"withdrawalEpochLength", "fromaddress", "changeaddress", "toaddress", "amount", "minconf", "fee",
+         "wCertVk", "customData", "constant", "wMbtrVk", "vFieldElementConfig", "vCompressedMerkleTreeConfig"};
 
     UniValue inputObject = params[0].get_obj();
 
@@ -1164,6 +1156,28 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
         }
+    }
+
+    // ---------------------------------------------------------
+    if (setKeyArgs.count("vFieldElementConfig"))
+    {
+        UniValue intArray = find_value(inputObject, "vFieldElementConfig").get_array();
+        if (!Sidechain::AddScData(intArray, creationData.vFieldElementConfig))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
+        }
+        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
+    }
+
+    // ---------------------------------------------------------
+    if (setKeyArgs.count("vCompressedMerkleTreeConfig"))
+    {
+        UniValue intArray = find_value(inputObject, "vCompressedMerkleTreeConfig").get_array();
+        if (!Sidechain::AddScData(intArray, creationData.vCompressedMerkleTreeConfig))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
+        }
+        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
     }
 
     CMutableTransaction tx_create;

@@ -1,5 +1,4 @@
 #include "sc/sidechainrpc.h"
-#include <univalue.h>
 #include "primitives/transaction.h"
 #include <boost/foreach.hpp>
 
@@ -127,6 +126,23 @@ bool AddScData(const std::string& inputString, std::vector<unsigned char>& vByte
     return true;
 }
 
+template <typename T>
+bool AddScData(const UniValue& intArray, std::vector<T>& vCfg)
+{ 
+    if (intArray.size() != 0)
+    {
+        for (const UniValue& o : intArray.getValues())
+        {
+            if (!o.isNum())
+            {
+                return false;
+            }
+            vCfg.push_back(o.get_int());
+        }
+    }
+    return true;
+}
+
 bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error)
 {
     rawTx.nVersion = SC_TX_VERSION;
@@ -251,6 +267,28 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             if (!libzendoomc::IsValidScVk(sc.wMbtrVk.get()))
             {
                 error = "invalid wMbtrVkVec";
+                return false;
+            }
+        }
+
+        const UniValue& FeCfg = find_value(o, "vFieldElementConfig");
+        if (!FeCfg.isNull())
+        {
+            UniValue intArray = FeCfg.get_array();
+            if (!Sidechain::AddScData(intArray, sc.vFieldElementConfig))
+            {
+                error = "invalid vFieldElementConfig";
+                return false;
+            }
+        }
+
+        const UniValue& CmtCfg = find_value(o, "vCompressedMerkleTreeConfig");
+        if (!CmtCfg.isNull())
+        {
+            UniValue intArray = CmtCfg.get_array();
+            if (!Sidechain::AddScData(intArray, sc.vCompressedMerkleTreeConfig))
+            {
+                error = "invalid vCompressedMerkleTreeConfig";
                 return false;
             }
         }
@@ -871,4 +909,7 @@ void ScRpcRetrieveCmdTx::addCcOutputs()
     }
 }
 
+// explicit instantiations
+template bool AddScData<FieldElementConfig>(const UniValue& intArray, std::vector<FieldElementConfig>& vCfg);
+template bool AddScData<CompressedMerkleTreeConfig>(const UniValue& intArray, std::vector<CompressedMerkleTreeConfig>& vCfg);
 }  // end of namespace

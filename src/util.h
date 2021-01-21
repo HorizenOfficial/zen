@@ -263,9 +263,11 @@ template <typename Callable> void TraceThread(const char* name,  Callable func)
 template <typename T>
 std::string VecToStr(const std::vector<T>& vIn)
 {
-    std::stringstream result;
-    std::copy(vIn.begin(), vIn.end(), std::ostream_iterator<T>(result, " "));
-    return result.str().c_str();
+    std::stringstream ss;
+    std::copy(vIn.begin(), vIn.end(), std::ostream_iterator<T>(ss, " "));
+    std::string s = ss.str();
+    // get rid of the trailing space (safe if s.empty) 
+    return s.substr(0, s.length()-1).c_str();
 }
 
 // Utilities useful for developing and debugging

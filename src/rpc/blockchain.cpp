@@ -1150,28 +1150,6 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     sc.push_back(Pair("unconf wMbtrVk", std::string{"NOT INITIALIZED"}));
                 sc.push_back(Pair("unconf vFieldElementConfig", VecToStr(info.creationData.vFieldElementConfig)));
                 sc.push_back(Pair("unconf vCompressedMerkleTreeConfig", VecToStr(info.creationData.vCompressedMerkleTreeConfig)));
-
-                CAmount fwd_am = 0;
-                for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
-                {
-                    const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-                    for (const auto& fwdAmount : fwdTx.GetVftCcOut())
-                    {
-                        if (scId == fwdAmount.scId)
-                        {
-                            fwd_am += fwdAmount.nValue;
-                        }
-                    }
-                }
-                if (fwd_am > 0)
-                {
-                    UniValue ia(UniValue::VARR);
-                    UniValue o(UniValue::VOBJ);
-                    o.push_back(Pair("unconf maturityHeight", -1));
-                    o.push_back(Pair("unconf amount", ValueFromAmount(fwd_am)));
-                    ia.push_back(o);
-                    sc.push_back(Pair("unconf immature amounts", ia));
-                }
             }
 
             addScUnconfCcData(scId, sc);

@@ -28,6 +28,9 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj);
 // otherwise the check is relaxed to inputString.size()/2 <= vSize
 bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, unsigned int vSize, bool enforceStrictvSize, std::string& error);
 
+// read an array of int in input and fills the passed cfg obj.
+template <typename T> bool AddScData(const UniValue& intArray, std::vector<T>& vCfg);
+
 // used when creating a raw transaction with cc outputs
 bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error);
 bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std::string& error);
