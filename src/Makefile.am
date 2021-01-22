@@ -508,6 +508,7 @@ zen_tx_SOURCES = \
     primitives/transaction.cpp \
     primitives/certificate.cpp \
     sc/sidechainTxsCommitmentBuilder.cpp \
+    sc/sidechain.cpp \
     coins.cpp \
     script/interpreter.cpp \
     script/standard.cpp

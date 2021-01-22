@@ -18,36 +18,52 @@ class CTxForwardTransferOut;
 
 class CustomField
 {
-    protected:
-    public:
-    virtual ~CustomField() {}
-    //virtual libzendoomc::ScFieldElement GetFieldElement() = 0;
+protected:
+    std::vector<unsigned char> vRawField;
+public:
+    virtual ~CustomField() {};
+    virtual const libzendoomc::ScFieldElement& GetFieldElement() = 0;
     virtual bool IsValid() = 0;
 };
 
 class FieldElement : public CustomField
 {
+    /* For instance: if it is a merkleTreeOfScUTXO, the number of bytes in vRawField is 32 = 256 bits which is
+     * the size of a PoseidonHash
+     */
+    // memory only, populated whenver the first call to GetFieldElement is made
+    libzendoomc::ScFieldElement scFieldElement;
+
 public:
+    ~FieldElement();
 
     ADD_SERIALIZE_METHODS;
 
     bool IsValid() override { return true; }
+    const libzendoomc::ScFieldElement& GetFieldElement() override;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(vRawField);
     }
 };
 
 class CompressedMerkleTree : public CustomField
 {
+    // memory only, populated whenver the first call to GetFieldElement is made
+    libzendoomc::ScFieldElement merkleRoot;
 public:
+
+    ~CompressedMerkleTree();
 
     ADD_SERIALIZE_METHODS;
 
     bool IsValid() override { return true; }
+    const libzendoomc::ScFieldElement& GetFieldElement() override;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(vRawField);
     }
 };
 

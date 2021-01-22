@@ -863,17 +863,11 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 }
 
 #ifdef BITCOIN_TX
-int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_NULL; }
-int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
-int CSidechain::SafeguardMargin() const { return -1; }
-size_t CSidechain::DynamicMemoryUsage() const { return 0; }
 bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight,
                                               CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
 bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height,
                                               CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const { return true;}
-size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
-
 #else
 
 #include "consensus/validation.h"

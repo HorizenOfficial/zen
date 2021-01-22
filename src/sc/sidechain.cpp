@@ -62,6 +62,23 @@ size_t CSidechainEvents::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(maturingScs) + memusage::DynamicUsage(ceasingScs);
 }
 
+
+bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
+{
+    BOOST_FOREACH(const auto& sc, tx.GetVscCcOut())
+    {
+        if (sc.GetScId() == scId)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+#ifdef BITCOIN_TX
+bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state) { return true; }
+bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state) { return true; }
+#else
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency
@@ -182,19 +199,6 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
     return true;
 }
-
-bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
-{
-    BOOST_FOREACH(const auto& sc, tx.GetVscCcOut())
-    {
-        if (sc.GetScId() == scId)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state)
 {
     const uint256& certHash = cert.GetHash();
@@ -217,3 +221,32 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 
     return true;
 }
+#endif
+
+//------------------------------------------------------------------------------------
+// implementations for sidechaintypes.h
+
+FieldElement::~FieldElement() {}
+
+const libzendoomc::ScFieldElement& FieldElement::GetFieldElement() 
+{
+    if (scFieldElement.IsNull())
+    {
+        // TODO a new method is needed? For instance zendoo_get_field_from_bytes() 
+        scFieldElement = libzendoomc::ScFieldElement(vRawField);
+    }
+    return scFieldElement;
+}
+
+CompressedMerkleTree::~CompressedMerkleTree() {}
+
+const libzendoomc::ScFieldElement& CompressedMerkleTree::GetFieldElement()
+{
+    if (merkleRoot.IsNull())
+    {
+        // TODO a new method is needed for filling the fieldelements contents starting from
+        // the compressed raw data
+    }
+    return merkleRoot;
+}
+
