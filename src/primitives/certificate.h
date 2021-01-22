@@ -33,6 +33,9 @@ public:
     bool IsNull() const { return (nValue == -1);  }
 };
 
+class FieldElement;
+class CompressedMerkleTree;
+
 class CScCertificate : public CTransactionBase
 {
     /** Memory only. */
@@ -56,6 +59,10 @@ public:
     const int64_t quality;
     const uint256 endEpochBlockHash;
     const libzendoomc::ScProof scProof;
+    std::vector<FieldElement> vFieldElement;
+    std::vector<CompressedMerkleTree> vCompressedMerkleTree;
+
+    // memory only
     const int nFirstBwtPos;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
@@ -101,6 +108,9 @@ public:
         READWRITE(*const_cast<int64_t*>(&quality));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
         READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
+        READWRITE(*const_cast<std::vector<FieldElement>*>(&vFieldElement));
+        READWRITE(*const_cast<std::vector<CompressedMerkleTree>*>(&vCompressedMerkleTree));
+
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
 
         //  - in the in-memory representation, ordinary outputs and backward transfer outputs are contained
@@ -184,6 +194,8 @@ public:
             quality == QUALITY_NULL &&
             endEpochBlockHash.IsNull() &&
             scProof.IsNull() &&
+            vFieldElement.empty() &&
+            vCompressedMerkleTree.empty() &&
             vin.empty() &&
             vout.empty() );
     }
@@ -213,6 +225,10 @@ struct CMutableScCertificate : public CMutableTransactionBase
     int64_t quality;
     uint256 endEpochBlockHash;
     libzendoomc::ScProof scProof;
+    std::vector<FieldElement> vFieldElement;
+    std::vector<CompressedMerkleTree> vCompressedMerkleTree;
+
+    // memory only
     const int nFirstBwtPos;
 
     CMutableScCertificate();
@@ -231,6 +247,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(quality);
         READWRITE(endEpochBlockHash);
         READWRITE(scProof);
+        READWRITE(vFieldElement);
+        READWRITE(vCompressedMerkleTree);
         READWRITE(vin);
 
         if (ser_action.ForRead())
@@ -264,7 +282,9 @@ struct CMutableScCertificate : public CMutableTransactionBase
 
     template <typename Stream>
     CMutableScCertificate(deserialize_type, Stream& s) :
-    scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), scProof() {
+        scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), scProof(),
+        vFieldElement(), vCompressedMerkleTree()
+    {
         Unserialize(s);
     }
 

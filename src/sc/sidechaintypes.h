@@ -16,6 +16,41 @@
 
 class CTxForwardTransferOut;
 
+class CustomField
+{
+    protected:
+    public:
+    virtual ~CustomField() {}
+    //virtual libzendoomc::ScFieldElement GetFieldElement() = 0;
+    virtual bool IsValid() = 0;
+};
+
+class FieldElement : public CustomField
+{
+public:
+
+    ADD_SERIALIZE_METHODS;
+
+    bool IsValid() override { return true; }
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+    }
+};
+
+class CompressedMerkleTree : public CustomField
+{
+public:
+
+    ADD_SERIALIZE_METHODS;
+
+    bool IsValid() override { return true; }
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+    }
+};
+
 class FieldElementConfig
 {
 public:
