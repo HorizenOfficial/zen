@@ -280,7 +280,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     
     for (CCswNullifiersMap::iterator it = cswNullifies.begin(); it != cswNullifies.end();) {
         const std::pair<uint256, libzendoomc::ScFieldElement>& position = it->first;
-        BatchWriteCswNullifier(batch, position.first, position.second, (it->second.flags == CCswNullifiersCacheEntry::FRESH));
+        BatchWriteCswNullifier(batch, position.first, position.second, (it->second.flag == CCswNullifiersCacheEntry::FRESH));
         CCswNullifiersMap::iterator itOld = it++;
         cswNullifies.erase(itOld);
     }

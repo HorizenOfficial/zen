@@ -536,14 +536,14 @@ void CCoinsViewCache::AddCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) {
     std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
     std::pair<CCswNullifiersMap::iterator, bool> ret = cacheCswNullifiers.insert(std::make_pair(position, CCswNullifiersCacheEntry()));
-    ret.first->second.flags = CCswNullifiersCacheEntry::FRESH;
+    ret.first->second.flag = CCswNullifiersCacheEntry::FRESH;
 }
 
 void CCoinsViewCache::RemoveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) {
     std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
     std::pair<CCswNullifiersMap::iterator, bool> ret = cacheCswNullifiers.insert(std::make_pair(position, CCswNullifiersCacheEntry()));
-    ret.first->second.flags = CCswNullifiersCacheEntry::ERASED;
+    ret.first->second.flag = CCswNullifiersCacheEntry::ERASED;
 }
 
 bool CCoinsViewCache::HaveCswNullifier(const uint256& scId,
@@ -552,13 +552,13 @@ bool CCoinsViewCache::HaveCswNullifier(const uint256& scId,
     
     CCswNullifiersMap::iterator it = cacheCswNullifiers.find(position);
     if (it != cacheCswNullifiers.end())
-        return (it->second.flags != CCswNullifiersCacheEntry::ERASED);
+        return (it->second.flag = CCswNullifiersCacheEntry::ERASED);
 
     bool tmp = base->HaveCswNullifier(scId, nullifier);
 
     if (tmp) {
         CCswNullifiersCacheEntry entry;
-        entry.flags = CCswNullifiersCacheEntry::FRESH;
+        entry.flag = CCswNullifiersCacheEntry::DEFAULT;
         cacheCswNullifiers.insert(std::make_pair(position, entry));
     }
 
@@ -727,17 +727,20 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
     for (auto& entryToWrite : cswNullifiers) {
         CCswNullifiersMap::iterator itLocalCacheEntry = cacheCswNullifiers.find(entryToWrite.first);
 
-        switch (entryToWrite.second.flags) {
+        switch (entryToWrite.second.flag) {
             case CCswNullifiersCacheEntry::FRESH:
                 assert(
                     itLocalCacheEntry == cacheCswNullifiers.end() ||
-                    itLocalCacheEntry->second.flags == CCswNullifiersCacheEntry::ERASED
+                    itLocalCacheEntry->second.flag == CCswNullifiersCacheEntry::ERASED
                 ); //A fresh entry should not exist in localCache or be already erased
                 cacheCswNullifiers[entryToWrite.first] = entryToWrite.second;
                 break;
             case CCswNullifiersCacheEntry::ERASED:
                 if (itLocalCacheEntry != cacheCswNullifiers.end())
-                    itLocalCacheEntry->second.flags = CCswNullifiersCacheEntry::ERASED;
+                    itLocalCacheEntry->second.flag = CCswNullifiersCacheEntry::ERASED;
+                break;
+            case CCswNullifiersCacheEntry::DEFAULT:
+                assert(itLocalCacheEntry != cacheCswNullifiers.end());
                 break;
             default:
                 assert(false);

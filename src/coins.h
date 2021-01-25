@@ -387,7 +387,7 @@ struct CNullifiersCacheEntry
 
 struct CCswNullifiersCacheEntry
 {
-    unsigned char flags;
+    unsigned char flag;
 
     enum Flags {
         DEFAULT = 0,
@@ -395,7 +395,7 @@ struct CCswNullifiersCacheEntry
         FRESH = (1 << 1), // The parent view does not have this entry    
     };
 
-    CCswNullifiersCacheEntry() : flags(0) {}
+    CCswNullifiersCacheEntry() : flag(0) {}
 };
 
 struct CCertDataHashCacheEntry
@@ -595,8 +595,6 @@ public:
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
     void SetBestBlock(const uint256 &hashBlock);
-    bool HaveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier) const override;
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
@@ -679,6 +677,8 @@ public:
                          const libzendoomc::ScFieldElement &nullifier);
     void RemoveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier);
+    bool HaveCswNullifier(const uint256& scId,
+                         const libzendoomc::ScFieldElement &nullifier) const override;
 
     //CERTIFICATE DATA HASH MEMEBERS
     void AddCertDataHash(const uint256& scId,

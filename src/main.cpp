@@ -2656,15 +2656,15 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
+        for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
+            view.RemoveCswNullifier(cswIn.scId, cswIn.nullifier);
+        }
+
         for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
             if (!view.CancelSidechainEvent(fwdTransfer, pindex->nHeight)) {
                 LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
                 return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
             }
-        }
-
-        for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
-            view.RemoveCswNullifier(cswIn.scId, cswIn.nullifier);
         }
 
         for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
