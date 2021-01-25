@@ -22,6 +22,8 @@ class CustomField
 protected:
     std::vector<unsigned char> vRawField;
 public:
+    CustomField(const std::vector<unsigned char>& data);
+    CustomField() = default;
     virtual ~CustomField() {};
     virtual const libzendoomc::ScFieldElement& GetFieldElement() = 0;
     virtual bool IsValid() const = 0;
@@ -37,6 +39,8 @@ class FieldElement : public CustomField
     libzendoomc::ScFieldElement scFieldElement;
 
 public:
+    FieldElement(const std::vector<unsigned char>& data);
+    FieldElement() = default;
     ~FieldElement();
 
     ADD_SERIALIZE_METHODS;
@@ -58,6 +62,8 @@ class CompressedMerkleTree : public CustomField
     libzendoomc::ScFieldElement merkleRoot;
 public:
 
+    CompressedMerkleTree(const std::vector<unsigned char>& data);
+    CompressedMerkleTree() = default;
     ~CompressedMerkleTree();
 
     ADD_SERIALIZE_METHODS;

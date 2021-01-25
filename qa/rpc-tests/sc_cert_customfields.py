@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
-    dump_sc_info, dump_sc_info_record
+    dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
@@ -17,6 +17,8 @@ import json
 NUMB_OF_NODES = 2
 DEBUG_MODE = 1
 SC_COINS_MAT = 2
+EPOCH_LENGTH = 5
+CERT_FEE = Decimal("0.000123")
 
 
 class FakeDict(dict):
@@ -121,7 +123,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         wel = 5
         amount = 20.0
         fee = 0.000025
-        feCfg = [22, 33]
+        feCfg = [4, 6]
         cmtCfg = [253, 19]
 
         cmdInput = {
@@ -152,6 +154,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 0 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
+        sc_creating_height = self.nodes[0].getblockcount()
         self.sync_all()
 
         mark_logs("\nVerify vFieldElementConfig / vCompressedMerkleTreeConfig are correctly set in scinfo", self.nodes,DEBUG_MODE)
@@ -159,6 +162,48 @@ class sc_cert_customfields(BitcoinTestFramework):
         cmtCfgStr = self.nodes[0].getscinfo(sc_id)['items'][0]['vCompressedMerkleTreeConfig']
         assert_equal([int(x) for x in feCfgStr.split()], feCfg)
         assert_equal([int(x) for x in cmtCfgStr.split()], cmtCfg)
+
+        # advance epoch
+        mark_logs("\nNode 0 generates 4 block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(4)
+        self.sync_all()
+
+        epoch_block_hash_1, epoch_number_1 = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number_1, epoch_block_hash_1), self.nodes, DEBUG_MODE)
+
+        prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number_1) * EPOCH_LENGTH))
+
+        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        bwt_amount = Decimal("0.1")
+
+        mark_logs("Create Cert with custom field", self.nodes, DEBUG_MODE)
+        scProof = mcTest.create_test_proof(
+            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
+            10, constant, [pkh_node1], [bwt_amount])
+
+        # get a UTXO
+        utx, change = get_spendable(self.nodes[0], CERT_FEE)
+
+        vFe = ["abcd1234", "ccccddddeeee"]
+        vCmt = ["1111", ""]
+
+        inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
+        outputs = { self.nodes[0].getnewaddress() : change }
+        bwt_outs = {pkh_node1: bwt_amount}
+        params = {"scid": scid, "quality": 10, "endEpochBlockHash": epoch_block_hash_1, "scProof": scProof,
+                  "withdrawalEpochNumber": epoch_number_1, "vFieldElement": vFe, "vCompressedMerkleTree":vCmt}
+
+        try:
+            rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
+            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            assert (False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+
+        mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
+        assert_equal(True, cert in self.nodes[0].getrawmempool())
 
 
 if __name__ == '__main__':

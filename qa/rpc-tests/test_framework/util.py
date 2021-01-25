@@ -508,3 +508,20 @@ def disconnect_nodes(from_connection, node_num):
     # with transaction relaying
     while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
         time.sleep(0.1)
+
+def get_spendable(node, min_amount):
+    # get a UTXO in node's wallet with minimal amount
+    utx = False
+    listunspent = node.listunspent()
+    for aUtx in listunspent:
+        if aUtx['amount'] > min_amount:
+            utx = aUtx
+            change = aUtx['amount'] - min_amount
+            break;
+
+    if utx == False:
+        print(listunspent)
+
+    assert_equal(utx!=False, True)
+    return utx, change
+

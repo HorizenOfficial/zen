@@ -225,8 +225,10 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 
 //------------------------------------------------------------------------------------
 // implementations for sidechaintypes.h
+CustomField::CustomField(const std::vector<unsigned char>& data) : vRawField(data) {}
 
 FieldElement::~FieldElement() {}
+FieldElement::FieldElement(const std::vector<unsigned char>& data) { vRawField = data; }
 
 const libzendoomc::ScFieldElement& FieldElement::GetFieldElement() 
 {
@@ -251,6 +253,7 @@ bool FieldElement::IsValid() const
 }
 
 CompressedMerkleTree::~CompressedMerkleTree() {}
+CompressedMerkleTree::CompressedMerkleTree(const std::vector<unsigned char>& data) { vRawField = data; }
 
 const libzendoomc::ScFieldElement& CompressedMerkleTree::GetFieldElement()
 {

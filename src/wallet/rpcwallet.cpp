@@ -958,6 +958,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
             "   \"wMbtrVk\":data                  (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "   \"vFieldElementConfig\"           (array, optional) TODO add description\n"
+            "   \"vCompressedMerkleTreeConfig\"   (array, optional) TODO add description\n"
             "}\n"
             "\nResult:\n"
             "{\n"

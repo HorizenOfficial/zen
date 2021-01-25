@@ -929,7 +929,9 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     std::set<std::string> setKeyArgs;
 
     // valid input keywords for certificate data
-    static const std::set<std::string> validKeyArgs = {"scid", "withdrawalEpochNumber", "quality", "endEpochBlockHash", "scProof"};
+    static const std::set<std::string> validKeyArgs = {
+        "scid", "withdrawalEpochNumber", "quality", "endEpochBlockHash", "scProof",
+        "vFieldElement", "vCompressedMerkleTree"};
 
     // sanity check, report error if unknown/duplicate key-value pairs
     for (const string& s : cert_params.getKeys())
@@ -1006,6 +1008,69 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     else
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scProof\"" );
+    }
+
+    // get fe cfg from creation params if any
+    std::vector<FieldElementConfig> vFieldElementConfig;
+    std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
+
+    CCoinsViewCache &view = *pcoinsTip;
+    if (!view.GetScCertCustomFieldsConfig(scId, vFieldElementConfig, vCompressedMerkleTreeConfig))
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not get custom field element cfg for sc");
+    }
+
+    // ---------------------------------------------------------
+    if (setKeyArgs.count("vFieldElement"))
+    {
+        UniValue feArray = find_value(cert_params, "vFieldElement").get_array();
+        if (feArray.size() != vFieldElementConfig.size() )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, field element array has not the expected size");
+        }
+
+        int count = 0;
+        for (const UniValue& o : feArray.getValues())
+        {
+            if (!o.isStr())
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected string");
+
+            std::string error;
+            std::vector<unsigned char> fe;
+            int fe_size = vFieldElementConfig.at(count).nBits; 
+            if (!Sidechain::AddScData(o.get_str(), fe, fe_size, true, error))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vFieldElement[" + std::to_string(count) + "]") + error);
+
+            rawCert.vFieldElement.push_back(fe);
+            count++;
+        }
+    }
+
+    // ---------------------------------------------------------
+    if (setKeyArgs.count("vCompressedMerkleTree"))
+    {
+        UniValue feArray = find_value(cert_params, "vCompressedMerkleTree").get_array();
+        if (feArray.size() != vCompressedMerkleTreeConfig.size() )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, field element array has not the expected size");
+        }
+
+        int count = 0;
+        for (const UniValue& o : feArray.getValues())
+        {
+            if (!o.isStr())
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected string");
+
+            std::string error;
+            std::vector<unsigned char> cmt;
+            // just check against a maximum size TODO
+            static const size_t MAX_CMT_SIZE_BYTES = 4096;
+            if (!Sidechain::AddScData(o.get_str(), cmt, MAX_CMT_SIZE_BYTES, false, error))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedMerkleTree[" + std::to_string(count) + "]") + error);
+
+            rawCert.vCompressedMerkleTree.push_back(cmt);
+            count++;
+        }
     }
 
     rawCert.scId = scId;
