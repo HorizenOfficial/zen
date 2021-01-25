@@ -358,7 +358,7 @@ public:
         for (auto entry : scUndoDatabyScId)
             str += strprintf("%s --> %s\n", entry.first.ToString().substr(0,10), entry.second.ToString());
 
-        str += strprintf("prevTopCommittedCertDataHashMap%s\n");
+        str += strprintf("prevTopCommittedCertDataHashMap\n");
         for (auto entry : prevTopCommittedCertDataHashMap)
             str += strprintf("%s --> %s\n", entry.first.ToString().substr(0,10), entry.second.ToString());
 

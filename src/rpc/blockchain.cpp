@@ -1517,7 +1517,7 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
             "}\n"
 
             "\nExamples\n"
-            + HelpExampleCli("getscinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\""
+            + HelpExampleCli("checkcswnullifier", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\""
                              "\"0f580d529516a8744de63c578ad83551304c3215f76d204e1a3e7ccbfd40c4e21a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a8740f580d529516a8744de63c578ad83551304c3215f76d204e1a3e7ccbfd40c4e2\"" ) 
         );
 
