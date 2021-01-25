@@ -14,136 +14,188 @@
 #include <boost/variant.hpp>
 #include<sc/proofverifier.h>
 
-class CTxForwardTransferOut;
-class CustomFieldConfig;
 
+////////////////////////////// Custom Config types //////////////////////////////
+class CustomFieldConfig
+{
+public:
+    CustomFieldConfig() = default;
+    virtual ~CustomFieldConfig() = default;
+    virtual int32_t getBitSize() const = 0;
+};
+
+class FieldElementConfig : public CustomFieldConfig
+{
+private:
+    int32_t nBits;
+
+public:
+    FieldElementConfig(int32_t nBitsIn): CustomFieldConfig(), nBits(nBitsIn)
+    {
+        if (nBits <= 0)
+            throw std::invalid_argument("FieldElementConfig size must be strictly positive");
+    }
+
+    FieldElementConfig(): CustomFieldConfig(), nBits(0) {} //for serialization only, which requires the default ctor
+    ~FieldElementConfig() = default;
+
+    int32_t getBitSize() const { return nBits; }
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nBits);
+
+        if (nBits <= 0)
+            throw std::invalid_argument("FieldElementConfig size must be strictly positive");
+    }
+
+    bool operator==(const FieldElementConfig& rhs) const {
+        return (this->nBits == rhs.nBits);
+    }
+
+    bool operator!=(const FieldElementConfig& rhs) const {
+        return !(*this == rhs);
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const FieldElementConfig& r) {
+        os << r.nBits;
+        return os;
+    }
+};
+
+class CompressedMerkleTreeConfig : public CustomFieldConfig
+{
+private:
+    int32_t treeHeight;
+
+public:
+    CompressedMerkleTreeConfig(int32_t treeHeightIn): CustomFieldConfig(), treeHeight(treeHeightIn)
+    {
+        if (treeHeight <= 0)
+            throw std::invalid_argument("CompressedMerkleTreeConfig height must be strictly positive");
+
+        if (treeHeight >= log2(std::numeric_limits<int32_t>::max()))
+            throw std::invalid_argument("CompressedMerkleTreeConfig height too large");
+    }
+
+    CompressedMerkleTreeConfig(): CustomFieldConfig(), treeHeight(0) {} //for serialization only, which requires the default ctor
+    ~CompressedMerkleTreeConfig() = default;
+
+    int32_t getBitSize() const { return 1 << treeHeight; }
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(treeHeight);
+
+        if (treeHeight <= 0)
+            throw std::invalid_argument("CompressedMerkleTreeConfig height must be strictly positive");
+
+        if (treeHeight >= std::numeric_limits<int32_t>::max()/2)
+            throw std::invalid_argument("CompressedMerkleTreeConfig height too large");
+    }
+
+    bool operator==(const CompressedMerkleTreeConfig& rhs) const {
+        return (this->treeHeight == rhs.treeHeight);
+    }
+
+    bool operator!=(const CompressedMerkleTreeConfig& rhs) const {
+        return !(*this == rhs);
+    }
+
+    friend std::ostream& operator<<(std::ostream& os, const CompressedMerkleTreeConfig& r) {
+        os << r.treeHeight;
+        return os;
+    }
+};
+////////////////////////// End of Custom Config types //////////////////////////
+
+////////////////////////////// Custom Field types //////////////////////////////
 class CustomField
 {
 protected:
-    std::vector<unsigned char> vRawField;
+    const std::vector<unsigned char> vRawField;
+
 public:
-    virtual ~CustomField() {};
+    CustomField(const CustomFieldConfig& cfg): vRawField(cfg.getBitSize()) {};
+    CustomField(const std::vector<unsigned char>& rawBytes): vRawField(rawBytes) {};
+    virtual ~CustomField() = default;
     virtual const libzendoomc::ScFieldElement& GetFieldElement() = 0;
+
     virtual bool IsValid() const = 0;
     virtual bool checkCfg(const CustomFieldConfig& cfg) const = 0;
 };
 
 class FieldElement : public CustomField
 {
-    /* For instance: if it is a merkleTreeOfScUTXO, the number of bytes in vRawField is 32 = 256 bits which is
-     * the size of a PoseidonHash
-     */
-    // memory only, populated whenver the first call to GetFieldElement is made
-    libzendoomc::ScFieldElement scFieldElement;
+private:
+    libzendoomc::ScFieldElement scFieldElement; // memory only, lazy-initialized by GetFieldElement call
 
 public:
-    ~FieldElement();
+    FieldElement(const FieldElementConfig& cfg = FieldElementConfig()): CustomField(cfg) {} //default ctor for serialization only
+    FieldElement(const std::vector<unsigned char>& rawBytes): CustomField(rawBytes) {}
+    FieldElement(const FieldElement& rhs) = default;
+    FieldElement& operator=(const FieldElement& rhs)
+    {
+    	*const_cast<std::vector<unsigned char>*>(&vRawField) = rhs.vRawField;
+    	return *this;
+    }
+    ~FieldElement() = default;
 
     ADD_SERIALIZE_METHODS;
-
-    bool IsValid() const override;
-
-    const libzendoomc::ScFieldElement& GetFieldElement() override;
-    bool checkCfg(const CustomFieldConfig& cfg) const override;
-
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(vRawField);
+    	READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawField));
     }
+
+    const libzendoomc::ScFieldElement& GetFieldElement() override
+    {
+        if (scFieldElement.IsNull())
+            scFieldElement = libzendoomc::ScFieldElement(vRawField);
+
+        return scFieldElement;
+    }
+
+    bool IsValid() const override { return true; };
+    bool checkCfg(const CustomFieldConfig& cfg) const override { return true; };
 };
 
 class CompressedMerkleTree : public CustomField
 {
-    // memory only, populated whenver the first call to GetFieldElement is made
-    libzendoomc::ScFieldElement merkleRoot;
-public:
+private:
+    libzendoomc::ScFieldElement merkleRoot; // memory only, lazy-initialized by GetFieldElement call
 
-    ~CompressedMerkleTree();
+public:
+    CompressedMerkleTree(const CompressedMerkleTreeConfig& cfg = CompressedMerkleTreeConfig()): CustomField(cfg) {} //default ctor for serialization only
+    CompressedMerkleTree(const std::vector<unsigned char>& rawBytes): CustomField(rawBytes) {}
+    ~CompressedMerkleTree() = default;
+    CompressedMerkleTree(const CompressedMerkleTree& rhs) = default;
+    CompressedMerkleTree& operator=(const CompressedMerkleTree& rhs)
+    {
+    	*const_cast<std::vector<unsigned char>*>(&vRawField) = rhs.vRawField;
+    	return *this;
+    }
 
     ADD_SERIALIZE_METHODS;
-
-    bool IsValid() const override;
-
-    const libzendoomc::ScFieldElement& GetFieldElement() override;
-    bool checkCfg(const CustomFieldConfig& cfg) const override;
-
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(vRawField);
-    }
-};
-
-class CustomFieldConfig
-{
-public:
-    virtual ~CustomFieldConfig() = 0;
-};
-
-class FieldElementConfig : public CustomFieldConfig
-{
-public:
-    int32_t nBits;
-
-    FieldElementConfig(int32_t nBitsIn):nBits(nBitsIn) {}
-    FieldElementConfig():nBits(-1) {}
-    ~FieldElementConfig();
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(nBits);
+        READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawField));
     }
 
-    friend bool operator==(const FieldElementConfig& a, const FieldElementConfig& b)
+    const libzendoomc::ScFieldElement& GetFieldElement() override
     {
-        return (a.nBits == b.nBits);
+        if (merkleRoot.IsNull())
+            merkleRoot = libzendoomc::ScFieldElement(vRawField);
+
+        return merkleRoot;
     }
 
-    friend bool operator!=(const FieldElementConfig& a, const FieldElementConfig& b)
-    {
-        return !(a == b);
-    }
-
-    friend std::ostream& operator<<(std::ostream& os, const FieldElementConfig& r)  
-    {  
-        os << r.nBits;  
-        return os;  
-    }
+    bool IsValid() const override { return true; };
+    bool checkCfg(const CustomFieldConfig& cfg) const override { return true; };
 };
+////////////////////////// End of Custom Field types ///////////////////////////
 
-class CompressedMerkleTreeConfig : public CustomFieldConfig
-{
-public:
-    int32_t treeHeight;
-
-    CompressedMerkleTreeConfig(int32_t treeHeightIn):treeHeight(treeHeightIn) {}
-    CompressedMerkleTreeConfig():treeHeight(-1) {}
-    ~CompressedMerkleTreeConfig();
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(treeHeight);
-    }
-
-    friend bool operator==(const CompressedMerkleTreeConfig& a, const CompressedMerkleTreeConfig& b)
-    {
-        return (a.treeHeight == b.treeHeight);
-    }
-
-    friend bool operator!=(const CompressedMerkleTreeConfig& a, const CompressedMerkleTreeConfig& b)
-    {
-        return !(a == b);
-    }
-
-    friend std::ostream& operator<<(std::ostream& os, const CompressedMerkleTreeConfig& r)  
-    {  
-        os << r.treeHeight;  
-        return os;  
-    }
-};
 
 class CFakePoseidonHash
 {
@@ -157,7 +209,6 @@ public:
     friend inline bool operator!=(const CFakePoseidonHash& lhs, const CFakePoseidonHash& rhs) { return !(lhs == rhs); }
 
     ADD_SERIALIZE_METHODS;
-
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(innerHash);
