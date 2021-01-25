@@ -869,6 +869,8 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "      \"quality\":n                     (numeric, required) A positive number specifying the quality of this withdrawal certificate. \n"
             "      \"endEpochBlockHash\":\"blockHash\" (string, required) The block hash determining the end of the referenced epoch\n"
             "      \"scProof\":\"scProof\"             (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + "bytes \n"
+            "      \"vFieldElement\":\"field els\"     (array, optional) An array of HEX string... TODO add description\n"
+            "      \"vCompressedMerkleTree\":\"cmp mkl trees\"  (array, optional) An array of HEX string... TODO add description\n"
             "    }\n"
             "\nResult:\n"
             "\"certificate\" (string) hex string of the certificate\n"
@@ -1010,24 +1012,12 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scProof\"" );
     }
 
-    // get fe cfg from creation params if any
-    std::vector<FieldElementConfig> vFieldElementConfig;
-    std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
-
-    CCoinsViewCache &view = *pcoinsTip;
-    if (!view.GetScCertCustomFieldsConfig(scId, vFieldElementConfig, vCompressedMerkleTreeConfig))
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not get custom field element cfg for sc");
-    }
-
     // ---------------------------------------------------------
+    // just check against a maximum size TODO for the time being set to 32 K
+    static const size_t MAX_FE_SIZE_BYTES  = 1024*32;
     if (setKeyArgs.count("vFieldElement"))
     {
         UniValue feArray = find_value(cert_params, "vFieldElement").get_array();
-        if (feArray.size() != vFieldElementConfig.size() )
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, field element array has not the expected size");
-        }
 
         int count = 0;
         for (const UniValue& o : feArray.getValues())
@@ -1037,8 +1027,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 
             std::string error;
             std::vector<unsigned char> fe;
-            int fe_size = vFieldElementConfig.at(count).getBitSize();
-            if (!Sidechain::AddScData(o.get_str(), fe, fe_size, true, error))
+            if (!Sidechain::AddScData(o.get_str(), fe, MAX_FE_SIZE_BYTES, false, error))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("vFieldElement[" + std::to_string(count) + "]") + error);
 
             rawCert.vFieldElement.push_back(fe);
@@ -1047,13 +1036,11 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
+    // just check against a maximum size TODO for the time being set to 32 K
+    static const size_t MAX_CMT_SIZE_BYTES = 1024*32;
     if (setKeyArgs.count("vCompressedMerkleTree"))
     {
         UniValue feArray = find_value(cert_params, "vCompressedMerkleTree").get_array();
-        if (feArray.size() != vCompressedMerkleTreeConfig.size() )
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, field element array has not the expected size");
-        }
 
         int count = 0;
         for (const UniValue& o : feArray.getValues())
@@ -1063,8 +1050,6 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 
             std::string error;
             std::vector<unsigned char> cmt;
-            // just check against a maximum size TODO
-            static const size_t MAX_CMT_SIZE_BYTES = 4096;
             if (!Sidechain::AddScData(o.get_str(), cmt, MAX_CMT_SIZE_BYTES, false, error))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedMerkleTree[" + std::to_string(count) + "]") + error);
 

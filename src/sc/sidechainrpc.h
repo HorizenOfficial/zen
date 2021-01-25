@@ -119,6 +119,7 @@ class ScRpcCmdCert : public ScRpcCmd
 
   private:
     void addBackwardTransfers();
+    void addCustomFields();
 
   public:
     struct sBwdParams
@@ -134,11 +135,13 @@ class ScRpcCmdCert : public ScRpcCmd
 
     // cmd params
     std::vector<sBwdParams> _bwdParams;
+    std::vector<FieldElement> _vFe;
+    std::vector<CompressedMerkleTree> _vCmt;
 
     ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
-        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
-        int minConf, const CAmount& nFee);
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
+        const std::vector<FieldElement>& vFe, const std::vector<CompressedMerkleTree>& vCmt);
 
     void execute() override;
 };

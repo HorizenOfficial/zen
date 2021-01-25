@@ -661,10 +661,10 @@ void ScRpcCmd::addChange()
 
 ScRpcCmdCert::ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
-        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
-        int minConf, const CAmount& nFee):
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
+        const std::vector<FieldElement>& vFe, const std::vector<CompressedMerkleTree>& vCmt):
         ScRpcCmd(fromaddress, changeaddress, minConf, nFee),
-        _cert(cert),_bwdParams(bwdParams)
+        _cert(cert),_bwdParams(bwdParams), _vFe(vFe), _vCmt(vCmt)
 {
 }
 
@@ -673,6 +673,7 @@ void ScRpcCmdCert::execute()
     addInputs();
     addChange();
     addBackwardTransfers();
+    addCustomFields();
     sign();
     send();
 }
@@ -746,6 +747,14 @@ void ScRpcCmdCert::addBackwardTransfers()
         CTxOut txout(entry._nAmount, entry._scriptPubKey);
         _cert.addBwt(txout);
     }
+}
+
+void ScRpcCmdCert::addCustomFields()
+{
+    if (!_vFe.empty())
+        _cert.vFieldElement = _vFe;
+    if (!_vCmt.empty())
+        _cert.vCompressedMerkleTree = _vCmt;
 }
 
 ScRpcCmdTx::ScRpcCmdTx(

@@ -52,7 +52,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
                                  extra_args=[["-sccoinsmaturity=%d" % SC_COINS_MAT, '-logtimemicros=1', '-debug=sc',
-                                              '-debug=py', '-debug=mempool', '-debug=net',
+                                              '-debug=py', '-debug=mempool', '-debug=net', '-debug=cert',
                                               '-debug=bench']] * NUMB_OF_NODES)
 
         connect_nodes_bi(self.nodes, 0, 1)
@@ -88,7 +88,9 @@ class sc_cert_customfields(BitcoinTestFramework):
         fee = 0.000025
         bad_obj = {"a":1, "b":2}
 
-        cmdInput = {'vFieldElementConfig': bad_obj, 'toaddress': toaddress, 'amount': amount, 'fee': fee, 'wCertVk': vk}
+        cmdInput = {
+            'withdrawalEpochLength': EPOCH_LENGTH, 'vFieldElementConfig': bad_obj,
+            'toaddress': toaddress, 'amount': amount, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with wrong vFieldElementConfig obj in input", self.nodes, DEBUG_MODE)
         try:
@@ -120,15 +122,15 @@ class sc_cert_customfields(BitcoinTestFramework):
         #------------------------------------------------------------------------------------------
         mark_logs("\nNode 1 create SC with valid vFieldElementConfig / vCompressedMerkleTreeConfig pair", self.nodes,DEBUG_MODE)
 
-        wel = 5
         amount = 20.0
         fee = 0.000025
         feCfg = [4, 6]
-        cmtCfg = [253, 19]
+        cmtCfg = [2, 19]
 
         cmdInput = {
-            'withdrawalEpochLength': 5, 'amount': amount, 'fee': fee, 'wCertVk': vk, 'toaddress':"cdcd",
-            'vFieldElementConfig':feCfg, 'vCompressedMerkleTreeConfig':cmtCfg
+            "withdrawalEpochLength": EPOCH_LENGTH, "amount": amount, "fee": fee,
+            "constant":constant , "wCertVk": vk, "toaddress":"cdcd",
+            "vFieldElementConfig":feCfg, "vCompressedMerkleTreeConfig":cmtCfg
         }
 
         try:
@@ -173,10 +175,10 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number_1) * EPOCH_LENGTH))
 
+        mark_logs("Create Cert with custom field elements", self.nodes, DEBUG_MODE)
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         bwt_amount = Decimal("0.1")
 
-        mark_logs("Create Cert with custom field", self.nodes, DEBUG_MODE)
         scProof = mcTest.create_test_proof(
             "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
             10, constant, [pkh_node1], [bwt_amount])
@@ -197,10 +199,10 @@ class sc_cert_customfields(BitcoinTestFramework):
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
             cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
-            assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert (False)
 
         mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
         assert_equal(True, cert in self.nodes[0].getrawmempool())

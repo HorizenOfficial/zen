@@ -5146,17 +5146,25 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "send_certificate scid epochNumber quality endEpochBlockHash scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
             "\nArguments:\n"
-            "1. \"scid\"                  (string, required) The uint256 side chain ID\n"
-            "2. epochNumber             (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
-            "3. quality                 (numeric, required) The quality of this withdrawal certificate. \n"
-            "4. \"endEpochBlockHash\"     (string, required) The block hash determining the end of the referenced epoch\n"
-            "5. \"scProof\"               (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
-            "6. transfers:              (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
+            "1. \"scid\"                      (string, required) The uint256 side chain ID\n"
+            "2. epochNumber                 (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
+            "3. quality                     (numeric, required) The quality of this withdrawal certificate. \n"
+            "4. \"endEpochBlockHash\"         (string, required) The block hash determining the end of the referenced epoch\n"
+            "5. \"scProof\"                   (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
+            "6. transfers:                  (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
             "    [{\n"                     
             "      \"pubkeyhash\":\"pkh\"    (string, required) The public key hash of the receiver\n"
             "      \"amount\":amount       (numeric, required) The numeric amount in ZEN\n"
             "    }, ... ]\n"
-            "7. fee                     (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
+            "7. fee                         (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
+            "8. vFieldElement           (array, optional) An array of byte strings...TODO add description\n"
+            "    [\n"                     
+            "      \"fieldElement\"    (string, required) The HEX string representing a generic field element\n"
+            "    , ... ]\n"
+            "9. vCompressedMerkleTree   (array, optional) An array of byte strings...TODO add description\n"
+            "    [\n"                     
+            "      \"compMklTree\"     (string, required) The HEX string representing a generic field element\n"
+            "    , ... ]\n"
             "\nResult:\n"
             "  \"certificateId\"   (string) The resulting certificate id.\n"
             "\nExamples:\n"
@@ -5307,6 +5315,66 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         // any check for upper threshold is left to cert processing
     }
 
+    // get fe cfg from creation params if any
+    std::vector<FieldElementConfig> vFieldElementConfig;
+    std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
+
+    CCoinsViewCache &view = *pcoinsTip;
+    if (!view.GetScCertCustomFieldsConfig(scId, vFieldElementConfig, vCompressedMerkleTreeConfig))
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not get custom field element cfg for sc");
+    }
+
+    std::vector<FieldElement> vFieldElement;
+    if (params.size() > 7)
+    {
+        const UniValue& feArray = params[7].get_array();
+        if (feArray.size() != vCompressedMerkleTreeConfig.size() )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, field element array has not the expected size");
+        }
+        int count = 0;
+        for (const UniValue& o : feArray.getValues())
+        {
+            if (!o.isStr())
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected string");
+
+            std::string error;
+            std::vector<unsigned char> fe;
+            int fe_size = vFieldElementConfig.at(count).getBitSize(); 
+            if (!Sidechain::AddScData(o.get_str(), fe, fe_size, true, error))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vFieldElement[" + std::to_string(count) + "]") + error);
+ 
+            vFieldElement.push_back(fe);
+            count++;
+        }
+    }
+
+    std::vector<CompressedMerkleTree> vCompressedMerkleTree;
+    if (params.size() > 8)
+    {
+        const UniValue& cmtArray = params[8].get_array();
+        if (cmtArray.size() != vCompressedMerkleTreeConfig.size() )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, field element array has not the expected size");
+        }
+        int count = 0;
+        for (const UniValue& o : cmtArray.getValues())
+        {
+            if (!o.isStr())
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected string");
+
+            std::string error;
+            std::vector<unsigned char> cmt;
+            int cmt_size = vCompressedMerkleTreeConfig.at(count).getBitSize(); 
+            if (!Sidechain::AddScData(o.get_str(), cmt, cmt_size, true, error))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedMerkleTree[" + std::to_string(count) + "]") + error);
+ 
+            vCompressedMerkleTree.push_back(cmt);
+            count++;
+        }
+    }
+
     EnsureWalletIsUnlocked();
 
     std::string strFailReason;
@@ -5331,7 +5399,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
 
-    Sidechain::ScRpcCmdCert cmd(cert, vBackwardTransfers, fromaddress, changeaddress, nMinDepth, nCertFee);
+    Sidechain::ScRpcCmdCert cmd(cert, vBackwardTransfers, fromaddress, changeaddress, nMinDepth, nCertFee,
+        vFieldElement, vCompressedMerkleTree);
     cmd.execute();
 
     return cert.GetHash().GetHex();
