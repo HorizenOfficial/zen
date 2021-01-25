@@ -35,7 +35,6 @@ public:
         if (nBits <= 0)
             throw std::invalid_argument("FieldElementConfig size must be strictly positive");
     }
-
     FieldElementConfig(): CustomFieldConfig(), nBits(0) {} //for serialization only, which requires the default ctor
     ~FieldElementConfig() = default;
 
