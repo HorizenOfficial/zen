@@ -15,6 +15,7 @@
 #include<sc/proofverifier.h>
 
 class CTxForwardTransferOut;
+class CustomFieldConfig;
 
 class CustomField
 {
@@ -23,7 +24,8 @@ protected:
 public:
     virtual ~CustomField() {};
     virtual const libzendoomc::ScFieldElement& GetFieldElement() = 0;
-    virtual bool IsValid() = 0;
+    virtual bool IsValid() const = 0;
+    virtual bool checkCfg(const CustomFieldConfig& cfg) const = 0;
 };
 
 class FieldElement : public CustomField
@@ -39,8 +41,10 @@ public:
 
     ADD_SERIALIZE_METHODS;
 
-    bool IsValid() override { return true; }
+    bool IsValid() const override;
+
     const libzendoomc::ScFieldElement& GetFieldElement() override;
+    bool checkCfg(const CustomFieldConfig& cfg) const override;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
@@ -58,8 +62,10 @@ public:
 
     ADD_SERIALIZE_METHODS;
 
-    bool IsValid() override { return true; }
+    bool IsValid() const override;
+
     const libzendoomc::ScFieldElement& GetFieldElement() override;
+    bool checkCfg(const CustomFieldConfig& cfg) const override;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
@@ -67,13 +73,20 @@ public:
     }
 };
 
-class FieldElementConfig
+class CustomFieldConfig
+{
+public:
+    virtual ~CustomFieldConfig() = 0;
+};
+
+class FieldElementConfig : public CustomFieldConfig
 {
 public:
     int32_t nBits;
 
     FieldElementConfig(int32_t nBitsIn):nBits(nBitsIn) {}
     FieldElementConfig():nBits(-1) {}
+    ~FieldElementConfig();
 
     ADD_SERIALIZE_METHODS;
 
@@ -99,13 +112,14 @@ public:
     }
 };
 
-class CompressedMerkleTreeConfig
+class CompressedMerkleTreeConfig : public CustomFieldConfig
 {
 public:
     int32_t treeHeight;
 
     CompressedMerkleTreeConfig(int32_t treeHeightIn):treeHeight(treeHeightIn) {}
     CompressedMerkleTreeConfig():treeHeight(-1) {}
+    ~CompressedMerkleTreeConfig();
 
     ADD_SERIALIZE_METHODS;
 

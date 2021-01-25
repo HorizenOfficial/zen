@@ -897,6 +897,15 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
+    // TODO check that custom data fields are consistent with creation data cfg
+    if (!CertCustomFieldsCfgValid(scInfo, cert) )
+    {
+        LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s], invalid custom data cfg\n",
+            __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
+        return state.Invalid(error("certificate with invalid custom fields"),
+             REJECT_INVALID, "sidechain-certificate-custom-fields");
+    }
+
     int certWindowStartHeight = scInfo.StartHeightForEpoch(cert.epochNumber+1);
     if (!((nHeight >= certWindowStartHeight) && (nHeight <= certWindowStartHeight + scInfo.SafeguardMargin())))
     {
@@ -951,6 +960,41 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
                      REJECT_INVALID, "sidechain-certificate-proof-not-verified");
     }
 
+    return true;
+}
+
+bool CCoinsViewCache::CertCustomFieldsCfgValid(const CSidechain& scInfo, const CScCertificate& cert) const
+{
+    const std::vector<FieldElementConfig>& vFeCfg = scInfo.creationData.vFieldElementConfig;
+    const std::vector<CompressedMerkleTreeConfig>& vCmtCfg = scInfo.creationData.vCompressedMerkleTreeConfig;
+
+    const std::vector<FieldElement>& vFe = cert.vFieldElement;
+    const std::vector<CompressedMerkleTree>& vCmt = cert.vCompressedMerkleTree;
+
+    if ( vFeCfg.size() != vFe.size() || vCmtCfg.size() != vCmt.size() )
+    {
+        LogPrint("sc", "%s():%d - invalid custom field cfg sz: %d/%d - %d/%d\n", __func__, __LINE__,
+            vFeCfg.size(), vFe.size(), vCmtCfg.size(), vCmt.size() );
+        return false;
+    }
+
+    for (int i = 0; i < vFe.size(); i++)
+    {
+        if (!vFe.at(i).checkCfg(vFeCfg.at(i)) )
+        {
+            LogPrint("sc", "%s():%d - invalid custom field cfg\n", __func__, __LINE__);
+            return false;
+        }
+    }
+
+    for (int i = 0; i < vCmt.size(); i++)
+    {
+        if (!vCmt.at(i).checkCfg(vCmtCfg.at(i)) )
+        {
+            LogPrint("sc", "%s():%d - invalid custom field cfg\n", __func__, __LINE__);
+            return false;
+        }
+    }
     return true;
 }
 
@@ -1783,6 +1827,22 @@ CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int hei
     }
 
     return  CSidechain::State::ALIVE;
+}
+
+bool CCoinsViewCache::GetScCertCustomFieldsConfig(const uint256 & scId,
+        std::vector<FieldElementConfig>& vFieldElementConfig,
+        std::vector<CompressedMerkleTreeConfig>& vCompressedMerkleTreeConfig) const
+{
+    if (!HaveSidechain(scId))
+        return false;
+
+    CSidechain scInfo;
+    GetSidechain(scId, scInfo);
+
+    vFieldElementConfig         = scInfo.creationData.vFieldElementConfig;
+    vCompressedMerkleTreeConfig = scInfo.creationData.vCompressedMerkleTreeConfig;
+
+    return true;
 }
 
 bool CCoinsViewCache::Flush() {

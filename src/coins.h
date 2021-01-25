@@ -593,6 +593,12 @@ public:
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
 
+    bool GetScCertCustomFieldsConfig(const uint256 & scId,
+        std::vector<FieldElementConfig>& vFieldElementConfig,
+        std::vector<CompressedMerkleTreeConfig>& vCompressedMerkleTreeConfig) const;
+
+    bool CertCustomFieldsCfgValid(const CSidechain& scInfo, const CScCertificate& cert) const;
+
     bool Flush();
 
     //! Calculate the size of the cache (in number of transactions)

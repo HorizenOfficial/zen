@@ -238,6 +238,18 @@ const libzendoomc::ScFieldElement& FieldElement::GetFieldElement()
     return scFieldElement;
 }
 
+bool FieldElement::checkCfg(const CustomFieldConfig& cfg) const
+{
+    // TODO
+    return true;
+}
+
+bool FieldElement::IsValid() const
+{
+    // TODO
+    return true;
+}
+
 CompressedMerkleTree::~CompressedMerkleTree() {}
 
 const libzendoomc::ScFieldElement& CompressedMerkleTree::GetFieldElement()
@@ -250,3 +262,20 @@ const libzendoomc::ScFieldElement& CompressedMerkleTree::GetFieldElement()
     return merkleRoot;
 }
 
+bool CompressedMerkleTree::checkCfg(const CustomFieldConfig& cfg) const
+{
+    // TODO
+    return true;
+}
+
+bool CompressedMerkleTree::IsValid() const
+{
+    // TODO
+    return true;
+}
+
+
+
+CustomFieldConfig::~CustomFieldConfig() {}
+FieldElementConfig::~FieldElementConfig() {}
+CompressedMerkleTreeConfig::~CompressedMerkleTreeConfig() {}

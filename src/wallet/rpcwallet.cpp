@@ -805,8 +805,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "                                        hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
             "7. \"wMbtrVk\"                     (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                        hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            "8. \"vFieldElementConfig\"         (string, optional) TODO add description\n"
-            "9. \"vCompressedMerkleTreeConfig\" (string, optional) TODO add description\n"
+            "8. \"vFieldElementConfig\"         (array, optional) TODO add description\n"
+            "9. \"vCompressedMerkleTreeConfig\" (array, optional) TODO add description\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -893,9 +893,9 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         }
     }
 
-    if (params.size() > 6) 
+    if (params.size() > 7) 
     {
-        UniValue intArray = params[6].get_array();
+        UniValue intArray = params[7].get_array();
         if (!Sidechain::AddScData(intArray, sc.creationData.vFieldElementConfig))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
@@ -903,9 +903,9 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
     }
 
-    if (params.size() > 7) 
+    if (params.size() > 8) 
     {
-        UniValue intArray = params[7].get_array();
+        UniValue intArray = params[8].get_array();
         if (!Sidechain::AddScData(intArray, sc.creationData.vCompressedMerkleTreeConfig))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
