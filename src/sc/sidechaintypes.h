@@ -35,6 +35,7 @@ public:
         if (nBits <= 0)
             throw std::invalid_argument("FieldElementConfig size must be strictly positive");
     }
+
     FieldElementConfig(): CustomFieldConfig(), nBits(0) {} //for serialization only, which requires the default ctor
     ~FieldElementConfig() = default;
 
@@ -71,17 +72,17 @@ private:
 public:
     CompressedMerkleTreeConfig(int32_t treeHeightIn): CustomFieldConfig(), treeHeight(treeHeightIn)
     {
-        if (treeHeight <= 0)
+        if (treeHeight < 0)
             throw std::invalid_argument("CompressedMerkleTreeConfig height must be strictly positive");
 
         if (treeHeight >= log2(std::numeric_limits<int32_t>::max()))
             throw std::invalid_argument("CompressedMerkleTreeConfig height too large");
     }
 
-    CompressedMerkleTreeConfig(): CustomFieldConfig(), treeHeight(0) {} //for serialization only, which requires the default ctor
+    CompressedMerkleTreeConfig(): CustomFieldConfig(), treeHeight(-1) {} //for serialization only, which requires the default ctor
     ~CompressedMerkleTreeConfig() = default;
 
-    int32_t getBitSize() const { return 1 << treeHeight; }
+    int32_t getBitSize() const { return (treeHeight == -1)? 0: 1 << treeHeight; }
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -137,15 +138,15 @@ public:
     FieldElement(const FieldElement& rhs) = default;
     FieldElement& operator=(const FieldElement& rhs)
     {
-    	*const_cast<std::vector<unsigned char>*>(&vRawField) = rhs.vRawField;
-    	return *this;
+        *const_cast<std::vector<unsigned char>*>(&vRawField) = rhs.vRawField;
+        return *this;
     }
     ~FieldElement() = default;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-    	READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawField));
+        READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawField));
     }
 
     const libzendoomc::ScFieldElement& GetFieldElement() override
@@ -172,8 +173,8 @@ public:
     CompressedMerkleTree(const CompressedMerkleTree& rhs) = default;
     CompressedMerkleTree& operator=(const CompressedMerkleTree& rhs)
     {
-    	*const_cast<std::vector<unsigned char>*>(&vRawField) = rhs.vRawField;
-    	return *this;
+        *const_cast<std::vector<unsigned char>*>(&vRawField) = rhs.vRawField;
+        return *this;
     }
 
     ADD_SERIALIZE_METHODS;

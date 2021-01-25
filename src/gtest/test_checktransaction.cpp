@@ -5,6 +5,8 @@
 #include "main.h"
 #include "primitives/transaction.h"
 #include "consensus/validation.h"
+#include <streams.h>
+#include <clientversion.h>
 
 TEST(checktransaction_tests, check_vpub_not_both_nonzero) {
     CMutableTransaction tx;
@@ -28,6 +30,9 @@ TEST(checktransaction_tests, check_vpub_not_both_nonzero) {
 
 class MockCValidationState : public CValidationState {
 public:
+	MockCValidationState() = default;
+	virtual ~MockCValidationState() = default;
+
     MOCK_METHOD5(DoS, bool(int level, bool ret,
              unsigned char chRejectCodeIn, std::string strRejectReasonIn,
              bool corruptionIn));
@@ -800,4 +805,49 @@ TEST(CertificateManipulation, ResizingCertificateChangeOutputs) {
         EXPECT_FALSE(noBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
     for(unsigned int idx = noOutNum; idx < noOutNum + noBwtNum; ++idx)
         EXPECT_TRUE(noBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
+}
+
+
+TEST(CertificateCustomFields, NegativeSizeFieldElementConfigCannotBeBuilt)
+{
+    EXPECT_THROW(
+    {
+        try { FieldElementConfig(-1); }
+        catch( const std::invalid_argument& e ) { throw; }
+    }, std::invalid_argument );
+}
+
+TEST(CertificateCustomFields, ZeroSizeFieldElementConfigCannotBeBuilt)
+{
+    EXPECT_THROW(
+    {
+        try { FieldElementConfig(0); }
+        catch( const std::invalid_argument& e ) { throw; }
+    }, std::invalid_argument );
+}
+
+TEST(CertificateCustomFields, DefaultConstructedFieldElementConfigCannotBeSerialized)
+{
+	FieldElementConfig cfgToWrite{};
+    CDataStream cfgStream(SER_DISK, CLIENT_VERSION);
+    EXPECT_THROW(
+    {
+        try { cfgStream << cfgToWrite; }
+        catch( const std::invalid_argument& e ) { throw; }
+    }, std::invalid_argument );
+}
+
+TEST(CertificateCustomFields, NegativeHeightCompressedMerkleTreeConfigCannotBeBuilt)
+{
+    EXPECT_THROW(
+    {
+        try { CompressedMerkleTreeConfig(-1); }
+        catch( const std::invalid_argument& e ) { throw; }
+    }, std::invalid_argument );
+}
+
+TEST(CertificateCustomFields, ZeroHeightCompressedMerkleTreeConfigCannotBeBuilt)
+{
+    CompressedMerkleTreeConfig zeroHeightCompressedMtConfig{0};
+    EXPECT_TRUE(zeroHeightCompressedMtConfig.getBitSize() == 1);
 }
