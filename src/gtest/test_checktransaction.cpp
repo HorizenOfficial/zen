@@ -807,6 +807,11 @@ TEST(CertificateManipulation, ResizingCertificateChangeOutputs) {
         EXPECT_TRUE(noBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
 }
 
+TEST(CertificateCustomFields, PositiveSizeFieldElementConfigCannotBeBuilt)
+{
+	FieldElementConfig positiveSizeFieldConfig{10};
+    EXPECT_TRUE(positiveSizeFieldConfig.getBitSize() == 10);
+}
 
 TEST(CertificateCustomFields, NegativeSizeFieldElementConfigCannotBeBuilt)
 {
@@ -837,6 +842,12 @@ TEST(CertificateCustomFields, DefaultConstructedFieldElementConfigCannotBeSerial
     }, std::invalid_argument );
 }
 
+TEST(CertificateCustomFields, ZeroHeightCompressedMerkleTreeConfigCanBeBuilt)
+{
+    CompressedMerkleTreeConfig zeroHeightCompressedMtConfig{0};
+    EXPECT_TRUE(zeroHeightCompressedMtConfig.getBitSize() == 1);
+}
+
 TEST(CertificateCustomFields, NegativeHeightCompressedMerkleTreeConfigCannotBeBuilt)
 {
     EXPECT_THROW(
@@ -846,8 +857,11 @@ TEST(CertificateCustomFields, NegativeHeightCompressedMerkleTreeConfigCannotBeBu
     }, std::invalid_argument );
 }
 
-TEST(CertificateCustomFields, ZeroHeightCompressedMerkleTreeConfigCannotBeBuilt)
+TEST(CertificateCustomFields, TooBigCompressedMerkleTreeConfigCannotBeBuilt)
 {
-    CompressedMerkleTreeConfig zeroHeightCompressedMtConfig{0};
-    EXPECT_TRUE(zeroHeightCompressedMtConfig.getBitSize() == 1);
+    EXPECT_THROW(
+    {
+        try { CompressedMerkleTreeConfig(log2(std::numeric_limits<int32_t>::max())+1); }
+        catch( const std::invalid_argument& e ) { throw; }
+    }, std::invalid_argument );
 }

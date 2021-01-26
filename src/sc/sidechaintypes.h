@@ -28,11 +28,12 @@ class FieldElementConfig : public CustomFieldConfig
 {
 private:
     int32_t nBits;
+    bool isBitsValid() { return (nBits > 0); }
 
 public:
     FieldElementConfig(int32_t nBitsIn): CustomFieldConfig(), nBits(nBitsIn)
     {
-        if (nBits <= 0)
+        if (!isBitsValid())
             throw std::invalid_argument("FieldElementConfig size must be strictly positive");
     }
 
@@ -46,7 +47,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nBits);
 
-        if (nBits <= 0)
+        if (!isBitsValid())
             throw std::invalid_argument("FieldElementConfig size must be strictly positive");
     }
 
@@ -68,15 +69,15 @@ class CompressedMerkleTreeConfig : public CustomFieldConfig
 {
 private:
     int32_t treeHeight;
+    bool isTreeHeightValid() {
+        return ((treeHeight >= 0) && (treeHeight < log2(std::numeric_limits<int32_t>::max())));
+    }
 
 public:
     CompressedMerkleTreeConfig(int32_t treeHeightIn): CustomFieldConfig(), treeHeight(treeHeightIn)
     {
-        if (treeHeight < 0)
-            throw std::invalid_argument("CompressedMerkleTreeConfig height must be strictly positive");
-
-        if (treeHeight >= log2(std::numeric_limits<int32_t>::max()))
-            throw std::invalid_argument("CompressedMerkleTreeConfig height too large");
+        if (!isTreeHeightValid())
+            throw std::invalid_argument("CompressedMerkleTreeConfig height is invalid");
     }
 
     CompressedMerkleTreeConfig(): CustomFieldConfig(), treeHeight(-1) {} //for serialization only, which requires the default ctor
@@ -89,11 +90,8 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(treeHeight);
 
-        if (treeHeight <= 0)
-            throw std::invalid_argument("CompressedMerkleTreeConfig height must be strictly positive");
-
-        if (treeHeight >= std::numeric_limits<int32_t>::max()/2)
-            throw std::invalid_argument("CompressedMerkleTreeConfig height too large");
+        if (!isTreeHeightValid())
+            throw std::invalid_argument("CompressedMerkleTreeConfig height is invalid");
     }
 
     bool operator==(const CompressedMerkleTreeConfig& rhs) const {
