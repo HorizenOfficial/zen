@@ -18,6 +18,7 @@ zcash_GenerateParams_LDADD = \
 zcash_CreateJoinSplit_SOURCES = \
     zcash/CreateJoinSplit.cpp \
     primitives/transaction.cpp \
+    sc/sidechaintypes.cpp \
     sc/sidechain.cpp
 zcash_CreateJoinSplit_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) -DBITCOIN_TX
 zcash_CreateJoinSplit_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) -DBITCOIN_TX
