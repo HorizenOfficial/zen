@@ -661,6 +661,7 @@ public:
     bool HaveScRequirements(const CTransaction& tx);
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
+    int getScCoinsMaturity();
 
     //CSW INPUTS RELATED PUBLIC MEMBERS
     bool IsTxCswApplicableToState(const CTransaction& tx, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
@@ -715,8 +716,7 @@ public:
     void RemoveCertDataHash(const uint256& scId,
                             const int epoch);
 
-    CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
-    CSidechain::State GetSidechainState(const uint256& scId) const;
+   CSidechain::State GetSidechainState(const uint256& scId) const;
 
     bool Flush();
 
@@ -759,7 +759,6 @@ private:
     CSidechainEventsMap::iterator  ModifySidechainEvents(int height);
 
     static int getInitScCoinsMaturity();
-    int getScCoinsMaturity();
 
     bool DecrementImmatureAmount(const uint256& scId, const CSidechainsMap::iterator& targetEntry, CAmount nValue, int maturityHeight);
     void Dump_info() const;

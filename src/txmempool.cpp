@@ -589,37 +589,41 @@ void CTxMemPool::removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsig
 {
     // Remove transactions spending a coinbase or a certificate output which are now immature
     LOCK(cs);
-    std::list<const CTransactionBase*> transactionsToRemove;
+    std::list<CTransaction> transactionsToRemove;
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         const CTransaction& tx = it->second.GetTx();
 
         if (!checkTxImmatureExpenditures(tx, pcoins, nMemPoolHeight))
         {
-            transactionsToRemove.push_back(&tx);
+            transactionsToRemove.push_back(tx);
         }
     }
 
     // the same for certificates
+    std::list<CScCertificate> certificatesToRemove;
     for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator it = mapCertificate.begin(); it != mapCertificate.end(); it++) {
         const CScCertificate& cert = it->second.GetCertificate();
 
         if (!checkCertImmatureExpenditures(cert, pcoins, nMemPoolHeight))
         {
-            transactionsToRemove.push_back(&cert);
+            certificatesToRemove.push_back(cert);
         }
     }
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    for(const CTransactionBase* tx: transactionsToRemove) {
-        remove(*tx, removedTxs, removedCerts, true);
+    for(const CTransaction& tx: transactionsToRemove) {
+        remove(tx, removedTxs, removedCerts, true);
+    }
+    for(const CScCertificate& cert: certificatesToRemove) {
+        remove(cert, removedTxs, removedCerts, true);
     }
 }
 
 void CTxMemPool::onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins, std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts)
 {
     LOCK(cs);
-    std::list<const CTransactionBase*> transactionsToRemove;
+    std::list<CTransaction> transactionsToRemove;
 
 
     // Remove CSWs that try to withdraw more coins than belongs to the sidechain.
@@ -638,7 +642,7 @@ void CTxMemPool::onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pc
                 {
                     const uint256& txHash = nIt->second;
                     const CTransaction& tx = mapTx[txHash].GetTx();
-                    transactionsToRemove.push_back(&tx);
+                    transactionsToRemove.push_back(tx);
                 }
             }
         }
@@ -652,23 +656,23 @@ void CTxMemPool::onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pc
         for(const CTxForwardTransferOut& ft: tx.GetVftCcOut())
         {
             const CSidechain::State s = pcoins->GetSidechainState(ft.scId);
-            if(s != CSidechain::State::ALIVE)
+            if(s == CSidechain::State::CEASED)
             {
-                transactionsToRemove.push_back(&tx);
+                transactionsToRemove.push_back(tx);
                 break;
             }
         }
     }
 
-    for(const CTransactionBase* tx: transactionsToRemove) {
-        remove(*tx, outdatedTxs, outdatedCerts, true);
+    for(const CTransaction& tx: transactionsToRemove) {
+        remove(tx, outdatedTxs, outdatedCerts, true);
     }
 }
 
 void CTxMemPool::onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins, std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts)
 {
     LOCK(cs);
-    std::list<const CTransactionBase*> transactionsToRemove;
+    std::list<CTransaction> transactionsToRemove;
 
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++)
     {
@@ -680,7 +684,7 @@ void CTxMemPool::onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache 
             const CSidechain::State s = pcoins->GetSidechainState(csw.scId);
             if(s != CSidechain::State::CEASED)
             {
-                transactionsToRemove.push_back(&tx);
+                transactionsToRemove.push_back(tx);
                 break;
             }
         }
@@ -692,14 +696,14 @@ void CTxMemPool::onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache 
             const CSidechain::State s = pcoins->GetSidechainState(ft.scId);
             if(s != CSidechain::State::ALIVE && !hasSidechainCreationTx(ft.scId))
             {
-                transactionsToRemove.push_back(&tx);
+                transactionsToRemove.push_back(tx);
                 break;
             }
         }
     }
 
-    for(const CTransactionBase* tx: transactionsToRemove) {
-        remove(*tx, outdatedTxs, outdatedCerts, true);
+    for(const CTransaction& tx: transactionsToRemove) {
+        remove(tx, outdatedTxs, outdatedCerts, true);
     }
 }
 
