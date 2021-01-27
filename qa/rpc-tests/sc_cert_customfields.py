@@ -107,7 +107,6 @@ class sc_cert_customfields(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("too large" in errorString)
-        return
 
         # Node 1 create the SC using a valid vFieldElementConfig / vCompressedMerkleTreeConfig pair
         #------------------------------------------------------------------------------------------
@@ -115,8 +114,12 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         amount = 20.0
         fee = 0.000025
+
+        # all certs must have custom FieldElements with exactly those values as size in byte 
         feCfg = [4, 6]
-        cmtCfg = [2, 19]
+
+        # all certs must have custom CompressedMerkleTrees with size = 2^those value at most in byte (i.e 2^8 = 256, 2^3 = 2048)
+        cmtCfg = [8, 3]
 
         cmdInput = {
             'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': fee,
@@ -166,6 +169,8 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number_1) * EPOCH_LENGTH))
 
+        # TODO do some negative test for having a raw cert rejected by mempool
+
         mark_logs("Create Cert with custom field elements", self.nodes, DEBUG_MODE)
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         bwt_amount = Decimal("0.1")
@@ -194,6 +199,61 @@ class sc_cert_customfields(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
+
+        mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
+        assert_equal(True, cert in self.nodes[0].getrawmempool())
+
+        # advance epoch
+        mark_logs("\nNode 0 generates 5 block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(5)
+        self.sync_all()
+
+        epoch_block_hash_2, epoch_number_2 = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number_2, epoch_block_hash_2), self.nodes, DEBUG_MODE)
+
+        prev_epoch_block_hash = epoch_block_hash_1
+
+        scProof = mcTest.create_test_proof(
+            'sc1', epoch_number_2, epoch_block_hash_2, prev_epoch_block_hash,
+            5, constant, [], [])
+
+        mark_logs("Create Cert without custom field elements (should fail)", self.nodes, DEBUG_MODE)
+        try:
+            cert = self.nodes[0].send_certificate(scid, epoch_number_2, 5, epoch_block_hash_2, scProof, [], CERT_FEE)
+            assert(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+
+        mark_logs("Create Cert with invalid custom field elements (should fail)", self.nodes, DEBUG_MODE)
+
+        vFe = ["06601c01528416d44682d41d979ded016d950924418ec354663f0bd761188da3", "0912f922dd37b01258eaf5311d68e723f8a8ced4a3c64471511b0020bf3fdcc9"]
+        vCmt = ["6d950924418ec337b01258eaf5311d68e723f8a8ced4", "233311860324"]
+
+        try:
+            cert = self.nodes[0].send_certificate(scid, epoch_number_2, 5, epoch_block_hash_2, scProof, [], CERT_FEE, vFe, vCmt)
+            assert(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+
+        mark_logs("Create Cert with invalid custom field elements (should fail)", self.nodes, DEBUG_MODE)
+
+        vFe = ["18ec3546", "12f922dd37b0"]
+        vCmt = ["6d950924418ec337b01258eaf5311d68e723f8a8ced4", "23331186032400aaff"]
+
+        try:
+            cert = self.nodes[0].send_certificate(scid, epoch_number_2, 5, epoch_block_hash_2, scProof, [], CERT_FEE, vFe, vCmt)
+            assert(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+
+        self.sync_all()
+
+        # TODO parse a good cert for getting wanted custom fields
+        # TODO mine a cert
+        # TODO restart nodes
 
         mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
         assert_equal(True, cert in self.nodes[0].getrawmempool())

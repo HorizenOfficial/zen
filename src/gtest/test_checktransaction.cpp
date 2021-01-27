@@ -848,6 +848,9 @@ TEST(CertificateCustomFields, NegativeHeightCompressedMerkleTreeConfigCannotBeBu
 
 TEST(CertificateCustomFields, ZeroHeightCompressedMerkleTreeConfigCannotBeBuilt)
 {
-    CompressedMerkleTreeConfig zeroHeightCompressedMtConfig{0};
-    EXPECT_TRUE(zeroHeightCompressedMtConfig.getBitSize() == 1);
+    EXPECT_THROW(
+    {
+        try { CompressedMerkleTreeConfig(0); }
+        catch( const std::invalid_argument& e ) { throw; }
+    }, std::invalid_argument );
 }

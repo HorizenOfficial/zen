@@ -44,16 +44,31 @@ FieldElement& FieldElement::operator=(const FieldElement& rhs)
     return *this;
 }
 
-const libzendoomc::ScFieldElement& FieldElement::GetFieldElement()
+void FieldElement::InitFieldElement() const
 {
     if (scFieldElement.IsNull())
-        scFieldElement = libzendoomc::ScFieldElement(vRawField);
+        *const_cast<libzendoomc::ScFieldElement*>(&scFieldElement) = libzendoomc::ScFieldElement(vRawField); // TODO
+}
 
+const libzendoomc::ScFieldElement& FieldElement::GetFieldElement() const
+{
+    InitFieldElement();
     return scFieldElement;
 }
 
-// TODO
-bool FieldElement::IsValid() const { return true; };
+#ifdef BITCOIN_TX
+bool FieldElement::IsValid() const { return true; }
+#else
+bool FieldElement::IsValid() const
+{
+    InitFieldElement();
+    if (scFieldElement.IsNull())
+        return false;
+
+    return libzendoomc::IsValidScFieldElement(scFieldElement);
+};
+#endif
+
 bool FieldElement::checkCfg(const CustomFieldConfig& cfg) const { return true; };
 
 //----------------------------------------------------------------------------------
@@ -69,15 +84,27 @@ CompressedMerkleTree& CompressedMerkleTree::operator=(const CompressedMerkleTree
     return *this;
 }
 
-const libzendoomc::ScFieldElement& CompressedMerkleTree::GetFieldElement()
+void CompressedMerkleTree::InitFieldElement() const
 {
     if (merkleRoot.IsNull())
-        merkleRoot = libzendoomc::ScFieldElement(vRawField);
+        *const_cast<libzendoomc::ScFieldElement*>(&merkleRoot) = libzendoomc::ScFieldElement(vRawField); // TODO
+}
 
+const libzendoomc::ScFieldElement& CompressedMerkleTree::GetFieldElement() const
+{
+    InitFieldElement();
     return merkleRoot;
 }
 
-// TODO
-bool CompressedMerkleTree::IsValid() const { return true; };
+bool CompressedMerkleTree::IsValid() const
+{
+    InitFieldElement();
+    if (merkleRoot.IsNull())
+        return false;
+
+    // TODO something like libzendoomc::IsValidScFieldElement() or exactly this?? In this case we can move this to base   
+    return true;
+}
+
 bool CompressedMerkleTree::checkCfg(const CustomFieldConfig& cfg) const { return true; };
 ////////////////////////// End of Custom Field types ///////////////////////////

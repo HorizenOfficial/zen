@@ -114,7 +114,8 @@ public:
     CustomField(const CustomFieldConfig& cfg): vRawField(cfg.getBitSize()) {};
     CustomField(const std::vector<unsigned char>& rawBytes): vRawField(rawBytes) {};
     virtual ~CustomField() = default;
-    virtual const libzendoomc::ScFieldElement& GetFieldElement() = 0;
+    virtual void InitFieldElement() const = 0;
+    virtual const libzendoomc::ScFieldElement& GetFieldElement() const = 0;
 
     virtual bool IsValid() const = 0;
     virtual bool checkCfg(const CustomFieldConfig& cfg) const = 0;
@@ -138,7 +139,8 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawField));
     }
 
-    const libzendoomc::ScFieldElement& GetFieldElement() override;
+    void InitFieldElement() const override;
+    const libzendoomc::ScFieldElement& GetFieldElement() const override;
     bool IsValid() const override;
     bool checkCfg(const CustomFieldConfig& cfg) const override;
 };
@@ -161,7 +163,8 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawField));
     }
 
-    const libzendoomc::ScFieldElement& GetFieldElement() override;
+    void InitFieldElement() const override;
+    const libzendoomc::ScFieldElement& GetFieldElement() const override;
     bool IsValid() const override;
     bool checkCfg(const CustomFieldConfig& cfg) const override;
 };
