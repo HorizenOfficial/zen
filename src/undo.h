@@ -138,7 +138,8 @@ struct CSidechainUndoData
         SIDECHAIN_STATE         = 1,
         MATURED_AMOUNTS         = 2,
         SUPERSEDED_CERT_DATA    = 4,
-        CEASED_CERTIFICATE_DATA = 8
+        CEASED_CERTIFICATE_DATA = 8,
+        CERT_DATA_HASH          = 16
     };
     uint8_t contentBitMask;
 
@@ -157,10 +158,13 @@ struct CSidechainUndoData
     // CEASED_CERTIFICATE_DATA
     std::vector<CTxInUndo> ceasedBwts;
 
+    // CERT DATA HASH SECTION
+    libzendoomc::ScFieldElement prevTopCommittedCertDataHash;
+
     CSidechainUndoData(): sidechainUndoDataVersion(0), contentBitMask(AvailableSections::UNDEFINED),
         prevTopCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL), prevTopCommittedCertHash(),
         prevTopCommittedCertQuality(CScCertificate::QUALITY_NULL), prevTopCommittedCertBwtAmount(0),
-        appliedMaturedAmount(0), lowQualityBwts(), ceasedBwts() {}
+        prevTopCommittedCertDataHash(), appliedMaturedAmount(0), lowQualityBwts(), ceasedBwts() {}
 
     size_t GetSerializeSize(int nType, int nVersion) const
     {
@@ -184,6 +188,10 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CEASED_CERTIFICATE_DATA)
         {
             totalSize += ::GetSerializeSize(ceasedBwts, nType, nVersion);
+        }
+        if (contentBitMask & AvailableSections::CERT_DATA_HASH)
+        {
+            totalSize += ::GetSerializeSize(prevTopCommittedCertDataHash, nType, nVersion);
         }
         return totalSize;
     }
@@ -212,6 +220,10 @@ struct CSidechainUndoData
         {
             ::Serialize(s, ceasedBwts, nType, nVersion);
         }
+        if (contentBitMask & AvailableSections::CERT_DATA_HASH)
+        {
+            ::Serialize(s, prevTopCommittedCertDataHash, nType, nVersion);
+        }
         return;
     }
 
@@ -239,6 +251,10 @@ struct CSidechainUndoData
         {
             ::Unserialize(s, ceasedBwts, nType, nVersion);
         }
+        if (contentBitMask & AvailableSections::CERT_DATA_HASH)
+        {
+            ::Unserialize(s, prevTopCommittedCertDataHash, nType, nVersion);
+        }
         return;
     }
 
@@ -252,6 +268,7 @@ struct CSidechainUndoData
             res += strprintf("prevTopCommittedCertHash=%s\n", prevTopCommittedCertHash.ToString());
             res += strprintf("prevTopCommittedCertQuality=%d\n", prevTopCommittedCertQuality);
             res += strprintf("prevTopCommittedCertBwtAmount=%d.%08d\n", prevTopCommittedCertBwtAmount / COIN, prevTopCommittedCertBwtAmount % COIN);
+            res += strprintf("prevTopCommittedCertDataHash=%s\n", prevTopCommittedCertDataHash.ToString());
         }
 
         if (contentBitMask & AvailableSections::MATURED_AMOUNTS)
@@ -264,6 +281,11 @@ struct CSidechainUndoData
         res += strprintf("lowQualityBwts.size %u\n", lowQualityBwts.size());
         for(const auto& voidCertUndo: lowQualityBwts)
             res += voidCertUndo.ToString() + "\n";
+
+        if (contentBitMask & AvailableSections::CERT_DATA_HASH)
+        {
+            res += strprintf("prevTopCommittedCertDataHash=%s\n", prevTopCommittedCertDataHash.ToString());
+        }
 
         return res;
     }
@@ -289,7 +311,6 @@ public:
     std::vector<CTxUndo> vtxundo;
     uint256 old_tree_root;
     std::map<uint256, CSidechainUndoData> scUndoDatabyScId;
-    std::map<uint256, libzendoomc::ScFieldElement> prevTopCommittedCertDataHashMap;
 
     /** create as new */
     CBlockUndo() : includesSidechainAttributes(true) {}
@@ -310,7 +331,6 @@ public:
             ::Serialize(s, vtxundo, nType, nVersion);
             ::Serialize(s, old_tree_root, nType, nVersion);
             ::Serialize(s, scUndoDatabyScId, nType, nVersion);
-            ::Serialize(s, prevTopCommittedCertDataHashMap, nType, nVersion);
         }
         else
         {
@@ -333,7 +353,6 @@ public:
             ::Unserialize(s, (vtxundo), nType, nVersion);
             ::Unserialize(s, (old_tree_root), nType, nVersion);
             ::Unserialize(s, scUndoDatabyScId, nType, nVersion);
-            ::Unserialize(s, prevTopCommittedCertDataHashMap, nType, nVersion);
             includesSidechainAttributes = true;
         }
         else
@@ -357,11 +376,6 @@ public:
 
         for (auto entry : scUndoDatabyScId)
             str += strprintf("%s --> %s\n", entry.first.ToString().substr(0,10), entry.second.ToString());
-
-        str += strprintf("prevTopCommittedCertDataHashMap\n");
-        for (auto entry : prevTopCommittedCertDataHashMap)
-            str += strprintf("%s --> %s\n", entry.first.ToString().substr(0,10), entry.second.ToString());
-
 
         str += strprintf(" ---> obj size %u\n", GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION));
         CHashWriter hasher(SER_GETHASH, PROTOCOL_VERSION);

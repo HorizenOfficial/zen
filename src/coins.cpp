@@ -1450,6 +1450,11 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertBwtAmount       = scIt->second.scInfo.prevBlockTopQualityCertBwtAmount;
     blockUndo.scUndoDatabyScId[scId].contentBitMask |= CSidechainUndoData::AvailableSections::SIDECHAIN_STATE;
 
+    libzendoomc::ScFieldElement dbCertDataHash;
+    GetCertDataHash(scId, cert.epochNumber, dbCertDataHash);
+    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertDataHash = dbCertDataHash;
+    blockUndo.scUndoDatabyScId[scId].contentBitMask |= CSidechainUndoData::AvailableSections::CERT_DATA_HASH;
+
     if (scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch != cert.epochNumber)
     {
         // we are changing epoch, this is the first certificate we got
@@ -1643,6 +1648,9 @@ bool CCoinsViewCache::RestoreScInfo(const CScCertificate& certToRevert, const CS
     scIt->second.scInfo.prevBlockTopQualityCertHash            = sidechainUndo.prevTopCommittedCertHash;
     scIt->second.scInfo.prevBlockTopQualityCertQuality         = sidechainUndo.prevTopCommittedCertQuality;
     scIt->second.scInfo.prevBlockTopQualityCertBwtAmount       = sidechainUndo.prevTopCommittedCertBwtAmount;
+
+    assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::CERT_DATA_HASH);
+    UpdateCertDataHash(scId, certToRevert.epochNumber, sidechainUndo.prevTopCommittedCertDataHash);
 
     scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
