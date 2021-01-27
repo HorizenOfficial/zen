@@ -33,6 +33,7 @@ class CCoinsViewDB : public CCoinsView
 protected:
     CLevelDBWrapper db;
     CCoinsViewDB(std::string dbName, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
+    bool GetCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data) const;
 public:
     CCoinsViewDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
 
@@ -48,8 +49,13 @@ public:
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
     bool HaveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier) const override;
-    bool GetCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data);
+                         const libzendoomc::ScFieldElement& nullifier) const override;
+    bool GetCertDataHash(const uint256& scId,
+                         const int epoch,
+                         libzendoomc::ScFieldElement& certDataHash) const override;
+    bool GetCertDataCumulativeHash(const uint256& scId,
+                                   const int epoch,
+                                   libzendoomc::ScFieldElement& certDataCumulativeHash) const override;
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,

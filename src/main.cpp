@@ -2586,7 +2586,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 // Update CertDataHash
                 std::map<uint256, libzendoomc::ScFieldElement>::iterator it = blockUndo.prevTopCommittedCertDataHashMap.find(cert.GetScId());
                 if (it != blockUndo.prevTopCommittedCertDataHashMap.end()) {
-                    view.AddCertDataHash(cert.GetScId(), cert.epochNumber, it->second);
+                    view.UpdateCertDataHash(cert.GetScId(), cert.epochNumber, it->second);
                 }
             }
 
@@ -3081,6 +3081,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                             blockundo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertQuality,
                                             CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
                 // if prevBlockTopQualityCertHash has to be voided, it has same scId/epochNumber as cert
+                
+                libzendoomc::ScFieldElement dataHash;
+                if (!view.GetCertDataHash(cert.GetScId(), cert.epochNumber, dataHash)) {
+                    return state.DoS(100, error("ConnectBlock(): could not retrieve previous cert data hash from view: sc[%s], epich[%d]", cert.GetScId().ToString(), cert.epochNumber),
+                                     REJECT_INVALID, "bad-sc-cert-data-hash-not-retrieved");                
+                }            
+                blockundo.prevTopCommittedCertDataHashMap.insert(std::make_pair(cert.GetScId(), dataHash));
+                dataHash = calculateCertDataHash(cert);
+                view.UpdateCertDataHash(cert.GetScId(), cert.epochNumber, dataHash);
             }
 
             if (!view.ScheduleSidechainEvent(cert))
@@ -3090,9 +3099,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
 
-            libzendoomc::ScFieldElement dataHash = calculateCertDataHash(cert);
-            blockundo.prevTopCommittedCertDataHashMap.insert(std::make_pair(cert.GetScId(), dataHash));
-            view.AddCertDataHash(cert.GetScId(), cert.epochNumber, dataHash);
 
             if (pCertsStateInfo != nullptr)
                 pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), cert.GetHash(),

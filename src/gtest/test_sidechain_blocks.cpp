@@ -149,6 +149,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
     initialScState.currentState = (uint8_t)CSidechain::State::ALIVE;
+    sidechainsView->UpdateCertDataHash(scId, certBlockHeight, libzendoomc::ScFieldElement(ParseHex("cccc")));
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
@@ -291,6 +292,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
     initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
     initialScState.currentState = (uint8_t)CSidechain::State::ALIVE;
+    sidechainsView->UpdateCertDataHash(scId, certBlockHeight, libzendoomc::ScFieldElement(ParseHex("cccc")));
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);

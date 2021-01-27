@@ -401,7 +401,8 @@ struct CCswNullifiersCacheEntry
 struct CCertDataHashCacheEntry
 {
     libzendoomc::ScFieldElement certDataHash;
-    unsigned char flags;
+    libzendoomc::ScFieldElement certDataCumulativeHash;
+    unsigned char flag;
 
     enum Flags {
         DEFAULT = 0,
@@ -410,7 +411,7 @@ struct CCertDataHashCacheEntry
         ERASED = (1 << 2), // The parent view does have this entry but current one have it erased
     };
 
-    CCertDataHashCacheEntry() : certDataHash(), flags(0) {}
+    CCertDataHashCacheEntry() : certDataHash(), flag(0) {}
 };
 
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
@@ -478,7 +479,17 @@ public:
     
     //! Retrieve existance of CSW nullifier for specified Sidechain.
     virtual bool HaveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier) const;
+                                  const libzendoomc::ScFieldElement& nullifier) const;
+
+    //! Retrieve cert data hash for specified Sidechain and epoch.
+    virtual bool GetCertDataHash(const uint256& scId,
+                                 const int epoch,
+                                 libzendoomc::ScFieldElement& certDataHash) const;
+
+    //! Retrieve cert data cumulative hash for specified Sidechain and epoch.
+    virtual bool GetCertDataCumulativeHash(const uint256& scId,
+                                           const int epoch,
+                                           libzendoomc::ScFieldElement& certDataCumulativeHash) const;
 
     //! Do a bulk modification (multiple CCoins changes + BestBlock change).
     //! The passed mapCoins can be modified.
@@ -522,6 +533,12 @@ public:
     uint256 GetBestAnchor()                                            const override;
     bool HaveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) const override;
+    bool GetCertDataHash(const uint256& scId,
+                         const int epoch,
+                         libzendoomc::ScFieldElement& certDataHash) const override;
+    bool GetCertDataCumulativeHash(const uint256& scId,
+                                   const int epoch,
+                                   libzendoomc::ScFieldElement& certDataCumulativeHash) const override;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
@@ -681,9 +698,20 @@ public:
                          const libzendoomc::ScFieldElement &nullifier) const override;
 
     //CERTIFICATE DATA HASH MEMEBERS
-    void AddCertDataHash(const uint256& scId,
+    /** 
+     * Updates CertDataHash for specified Sidechain and epoch.
+     * Also computates and stores CertDataCumulativeHash based on previous record 
+     * for this Sidechain if the record for this epoch haven't been existed before.
+     */
+    void UpdateCertDataHash(const uint256& scId,
+                            const int epoch,
+                            const libzendoomc::ScFieldElement &certDataHash);
+    bool GetCertDataHash(const uint256& scId,
                          const int epoch,
-                         const libzendoomc::ScFieldElement &certDataHash);
+                         libzendoomc::ScFieldElement& certDataHash) const override;
+    bool GetCertDataCumulativeHash(const uint256& scId,
+                                   const int epoch,
+                                   libzendoomc::ScFieldElement& certDataCumulativeHash) const override;
     void RemoveCertDataHash(const uint256& scId,
                             const int epoch);
 

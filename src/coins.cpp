@@ -203,6 +203,10 @@ uint256 CCoinsView::GetBestBlock()                                             c
 uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
 bool CCoinsView::HaveCswNullifier(const uint256& scId,
                                  const libzendoomc::ScFieldElement &nullifier) const { return false; }
+bool CCoinsView::GetCertDataHash(const uint256& scId, const int epoch,
+                                 libzendoomc::ScFieldElement& certDataHash)    const { return false; }
+bool CCoinsView::GetCertDataCumulativeHash(const uint256& scId, const int epoch,
+                                 libzendoomc::ScFieldElement& certDataCumulativeHash) const { return false; }
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                             const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
@@ -229,6 +233,10 @@ uint256 CCoinsViewBacked::GetBestAnchor()                                       
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
 bool CCoinsViewBacked::HaveCswNullifier(const uint256& scId,
                                        const libzendoomc::ScFieldElement &nullifier) const { return base->HaveCswNullifier(scId,nullifier); }
+bool CCoinsViewBacked::GetCertDataHash(const uint256& scId, const int epoch,
+                                       libzendoomc::ScFieldElement& certDataHash) const {return base->GetCertDataHash(scId, epoch, certDataHash);};
+bool CCoinsViewBacked::GetCertDataCumulativeHash(const uint256& scId, const int epoch,
+                                                 libzendoomc::ScFieldElement& certDataCumulativeHash) const {return base->GetCertDataCumulativeHash(scId, epoch, certDataCumulativeHash);}
 bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                                   const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                                   CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
@@ -565,17 +573,90 @@ bool CCoinsViewCache::HaveCswNullifier(const uint256& scId,
     return tmp;
 }
 
-void CCoinsViewCache::AddCertDataHash(const uint256& scId, const int epoch, const libzendoomc::ScFieldElement &certDataHash) {
+void CCoinsViewCache::UpdateCertDataHash(const uint256& scId, const int epoch, const libzendoomc::ScFieldElement &certDataHash) {
     std::pair<uint256, int> position = std::make_pair(scId, epoch);
-    std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
-    ret.first->second.certDataHash = certDataHash;
-    ret.first->second.flags |= CCertDataHashCacheEntry::FRESH;
+    
+    CCertDataHashMap::iterator it = cacheCertDataHashes.find(position);
+    if (it != cacheCertDataHashes.end()) {
+        it->second.certDataHash = certDataHash;
+        it->second.flag = CCertDataHashCacheEntry::DIRTY;
+    } else {
+        libzendoomc::ScFieldElement prevCertDataCumulativeHash;
+        libzendoomc::ScFieldElement prevCertDataHash;
+        libzendoomc::ScFieldElement certDataCumulativeHash;
+        if (GetCertDataCumulativeHash(scId, epoch - 1, prevCertDataCumulativeHash)
+            && GetCertDataHash(scId, epoch - 1, prevCertDataHash)) {
+            libzendoomc::ScFieldElement certDataCumulativeHash = calculateCumulativeCertDataHash(prevCertDataCumulativeHash, prevCertDataHash);
+        }
+
+        std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
+        ret.first->second.certDataHash = certDataHash;
+        ret.first->second.certDataCumulativeHash = certDataCumulativeHash;
+        ret.first->second.flag = CCertDataHashCacheEntry::FRESH;
+    }
+}
+
+bool CCoinsViewCache::GetCertDataHash(const uint256& scId,
+                     const int epoch,
+                     libzendoomc::ScFieldElement& certDataHash) const {
+    std::pair<uint256, int> position = std::make_pair(scId, epoch);
+    
+    CCertDataHashMap::iterator it = cacheCertDataHashes.find(position);
+    if (it != cacheCertDataHashes.end()) {
+        certDataHash = it->second.certDataHash;
+        return true;
+    }
+
+    libzendoomc::ScFieldElement tmp;
+    bool res = base->GetCertDataHash(scId, epoch, tmp);
+
+    if (res) {
+        certDataHash = tmp;
+        
+        std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
+        ret.first->second.flag = CCertDataHashCacheEntry::DEFAULT;
+        ret.first->second.certDataHash = tmp;
+        base->GetCertDataCumulativeHash(scId, epoch, tmp);
+        ret.first->second.certDataCumulativeHash = tmp;
+    }
+
+    return res;
+}
+
+bool CCoinsViewCache::GetCertDataCumulativeHash(const uint256& scId,
+                                                const int epoch,
+                                                libzendoomc::ScFieldElement& certDataCumulativeHash) const {
+
+    std::pair<uint256, int> position = std::make_pair(scId, epoch);
+
+    CCertDataHashMap::iterator it = cacheCertDataHashes.find(position);
+    if (it != cacheCertDataHashes.end()) {
+        certDataCumulativeHash = it->second.certDataCumulativeHash;
+        return true;
+    }
+
+    libzendoomc::ScFieldElement tmp;
+    bool res = base->GetCertDataCumulativeHash(scId, epoch, tmp);
+
+    if (res) {
+        certDataCumulativeHash = tmp;
+        
+        std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
+        ret.first->second.flag = CCertDataHashCacheEntry::DEFAULT;
+        ret.first->second.certDataCumulativeHash = tmp;
+        base->GetCertDataHash(scId, epoch, tmp);
+        ret.first->second.certDataHash = tmp;
+    }
+
+    return res;     
 }
 
 void CCoinsViewCache::RemoveCertDataHash(const uint256& scId, const int epoch) {
     std::pair<uint256, int> position = std::make_pair(scId, epoch);
-    std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
-    ret.first->second.flags |= CCertDataHashCacheEntry::ERASED;
+    CCertDataHashMap::iterator it = cacheCertDataHashes.find(position);
+    if (it != cacheCertDataHashes.end()) {
+        it->second.flag = CCertDataHashCacheEntry::ERASED;
+    }
 }
 
 bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
@@ -751,11 +832,11 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
     for (auto& entryToWrite : certDataHashes) {
         CCertDataHashMap::iterator itLocalCacheEntry = cacheCertDataHashes.find(entryToWrite.first);
 
-        switch (entryToWrite.second.flags) {
+        switch (entryToWrite.second.flag) {
             case CCertDataHashCacheEntry::Flags::FRESH:
                 assert(
                     itLocalCacheEntry == cacheCertDataHashes.end() ||
-                    itLocalCacheEntry->second.flags == CCertDataHashCacheEntry::Flags::ERASED
+                    itLocalCacheEntry->second.flag == CCertDataHashCacheEntry::Flags::ERASED
                 ); //A fresh entry should not exist in localCache or be already erased
                 cacheCertDataHashes[entryToWrite.first] = entryToWrite.second;
                 break;
@@ -764,7 +845,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                 break;
             case CCertDataHashCacheEntry::Flags::ERASED:
                 if (itLocalCacheEntry != cacheCertDataHashes.end())
-                    itLocalCacheEntry->second.flags = CCertDataHashCacheEntry::Flags::ERASED;
+                    itLocalCacheEntry->second.flag = CCertDataHashCacheEntry::Flags::ERASED;
                 break;
             case CCertDataHashCacheEntry::Flags::DEFAULT:
                 assert(itLocalCacheEntry != cacheCertDataHashes.end());

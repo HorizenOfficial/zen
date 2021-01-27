@@ -103,13 +103,20 @@ void static BatchWriteHashBestAnchor(CLevelDBBatch &batch, const uint256 &hash) 
     batch.Write(DB_BEST_ANCHOR, hash);
 }
 
-void static BatchWriteCswNullifier(CLevelDBBatch &batch, const uint256 &scId, const libzendoomc::ScFieldElement &nullifier, const bool &entered) {
+void static BatchWriteCswNullifier(CLevelDBBatch &batch, const uint256 &scId, const libzendoomc::ScFieldElement &nullifier, CCswNullifiersCacheEntry state) {
     std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
 
-    if (!entered)
-        batch.Erase(make_pair(DB_CSW_NULLIFIER, position));
-    else
-        batch.Write(make_pair(DB_CSW_NULLIFIER, position), true);
+    switch(state.flag) {
+        case CCswNullifiersCacheEntry::Flags::FRESH:
+            batch.Write(make_pair(DB_CSW_NULLIFIER, position), true);
+            break;
+        case CCswNullifiersCacheEntry::Flags::ERASED:
+            batch.Erase(make_pair(DB_CSW_NULLIFIER, position));
+            break;
+        case CCswNullifiersCacheEntry::Flags::DEFAULT:
+        default:
+            break;
+    }
 }
 
 void static BatchWriteCertDataHash(CLevelDBBatch &batch, const uint256 &scId, const int &epochId,
@@ -220,10 +227,32 @@ bool CCoinsViewDB::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFi
     return db.Exists(make_pair(DB_CSW_NULLIFIER, position));
 }
 
-bool CCoinsViewDB::GetCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data) {
+bool CCoinsViewDB::GetCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data) const {
     std::pair<uint256, int> position = std::make_pair(scId, epochId);
 
     return db.Read(make_pair(DB_CERT_DATA_HASH, position), data);
+}
+
+bool CCoinsViewDB::GetCertDataHash(const uint256& scId, const int epoch, libzendoomc::ScFieldElement& certDataHash) const {
+    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> data;
+
+    if (!GetCertData(scId, epoch, data)) {
+        return false;
+    }
+    
+    certDataHash = data.second;
+    return true;
+}
+
+bool CCoinsViewDB::GetCertDataCumulativeHash(const uint256& scId, const int epoch, libzendoomc::ScFieldElement& certDataCumulativeHash) const {
+    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> data;
+
+    if (!GetCertData(scId, epoch, data)) {
+        return false;
+    }
+    
+    certDataCumulativeHash = data.first;
+    return true;    
 }
 
 bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
@@ -280,7 +309,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     
     for (CCswNullifiersMap::iterator it = cswNullifies.begin(); it != cswNullifies.end();) {
         const std::pair<uint256, libzendoomc::ScFieldElement>& position = it->first;
-        BatchWriteCswNullifier(batch, position.first, position.second, (it->second.flag == CCswNullifiersCacheEntry::FRESH));
+        BatchWriteCswNullifier(batch, position.first, position.second, it->second);
         CCswNullifiersMap::iterator itOld = it++;
         cswNullifies.erase(itOld);
     }
@@ -289,21 +318,15 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     for (CCertDataHashMap::iterator it = certDataHashes.begin(); it != certDataHashes.end();) {
         const std::pair<uint256, int>& position = it->first;
         uint256 scId = position.first;
-        int epochId = position.second;
-        std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> prevData;
-        libzendoomc::ScFieldElement cumulativeCertData;
+        int epochNumber = position.second;
 
-        switch(it->second.flags) {
+        switch(it->second.flag) {
             case CCertDataHashCacheEntry::Flags::FRESH:
             case CCertDataHashCacheEntry::Flags::DIRTY:
-                if (GetCertData(scId, epochId - 1, prevData)) {
-                    cumulativeCertData = calculateCumulativeCertDataHash(prevData.first, prevData.second);
-                }
-                BatchWriteCertDataHash(batch, scId, epochId, it->second.certDataHash, cumulativeCertData);
-
+                BatchWriteCertDataHash(batch, scId, epochNumber, it->second.certDataHash, it->second.certDataCumulativeHash);
                 break;
             case CCertDataHashCacheEntry::Flags::ERASED:
-                BatchRemoveCertDataHash(batch, scId, epochId);
+                BatchRemoveCertDataHash(batch, scId, epochNumber);
                 break;
             default:
                 break;
