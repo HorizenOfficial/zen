@@ -1534,8 +1534,20 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
     if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid nullifier format: not an hex");
 
-    libzendoomc::ScFieldElement nullifier;
-    nullifier.SetHex(inputString);
+    std::string nullifierError;
+    std::vector<unsigned char> nullifierVec;
+    if (!AddScData(inputString, nullifierVec, SC_FIELD_SIZE, true, nullifierError))
+    {
+        std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": " + nullifierError;
+        throw JSONRPCError(RPC_TYPE_ERROR, error);
+    }
+
+    libzendoomc::ScFieldElement nullifier(nullifierVec);
+    if (!libzendoomc::IsValidScFieldElement(nullifier))
+    {
+        std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": invalid nullifier data";
+        throw JSONRPCError(RPC_TYPE_ERROR, error);
+    }
 
     UniValue ret(UniValue::VOBJ);
     

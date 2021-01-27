@@ -8,7 +8,6 @@
 #include "random.h"
 #include "version.h"
 #include "policy/fees.h"
-#include "sc/proofverifier.h"
 
 #include <assert.h>
 #include "utilmoneystr.h"
@@ -586,7 +585,7 @@ void CCoinsViewCache::UpdateCertDataHash(const uint256& scId, const int epoch, c
         libzendoomc::ScFieldElement certDataCumulativeHash;
         if (GetCertDataCumulativeHash(scId, epoch - 1, prevCertDataCumulativeHash)
             && GetCertDataHash(scId, epoch - 1, prevCertDataHash)) {
-            libzendoomc::ScFieldElement certDataCumulativeHash = calculateCumulativeCertDataHash(prevCertDataCumulativeHash, prevCertDataHash);
+            libzendoomc::CalculateCumulativeCertDataHash(prevCertDataCumulativeHash, prevCertDataHash, certDataCumulativeHash);
         }
 
         std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
@@ -1132,6 +1131,7 @@ bool libzendoomc::CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput(
         const ScVk& wCeasedVk,
         const CTxCeasedSidechainWithdrawalInput& csw
     ) const { return true; }
+bool libzendoomc::CalculateCumulativeCertDataHash(const ScFieldElement& prevCumulativeHash, const ScFieldElement& prevCertHash, ScFieldElement& CumulativeHashOutput) {return true;};
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
 bool libzendoomc::CScProofVerifier::verifyCScCertificate(              
     const libzendoomc::ScConstant& constant,

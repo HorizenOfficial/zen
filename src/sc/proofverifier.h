@@ -41,6 +41,12 @@ namespace libzendoomc{
     /* Write scVk to file in vkPath. Returns true if operation succeeds, false otherwise. */
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk);
 
+    /* Calculate certificate data hash for given certificate. */
+    ScFieldElement CalculateCertDataHash(const CScCertificate& cert);
+
+    /* Calculate cumulative certificate data hash by given cunulative data hash and data hash of previous certificate. */
+    bool CalculateCumulativeCertDataHash(const ScFieldElement& prevCumulativeHash, const ScFieldElement& prevCertHash, ScFieldElement& CumulativeHashOutput);
+
     /* Support class for WCert SNARK proof verification. */
     class CScWCertProofVerification {
         public:

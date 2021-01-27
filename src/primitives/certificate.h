@@ -201,9 +201,6 @@ public:
             bool cacheStore, ScriptError* serror) const override;
 };
 
-libzendoomc::ScFieldElement calculateCertDataHash(const CScCertificate& cert);
-libzendoomc::ScFieldElement calculateCumulativeCertDataHash(const libzendoomc::ScFieldElement& prevCumulativeHash, const libzendoomc::ScFieldElement& prevCertHash);
-
 /** A mutable version of CScCertificate. */
 struct CMutableScCertificate : public CMutableTransactionBase
 {

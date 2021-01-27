@@ -619,7 +619,7 @@ TEST_F(SidechainTestSuite, CertificateUpdatesCertHashData) {
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
     EXPECT_FALSE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertDataHash.IsNull());
-    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertDataHash == calculateCertDataHash(aCertificate));
+    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertDataHash == libzendoomc::CalculateCertDataHash(aCertificate));
 
     CScCertificate bCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
         /*changeTotalAmount*/CAmount(3),/*numChangeOut*/2, /*bwtAmount*/CAmount(1), /*numBwt*/2, /*quality*/5);
@@ -627,7 +627,7 @@ TEST_F(SidechainTestSuite, CertificateUpdatesCertHashData) {
 
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
-    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertDataHash == calculateCertDataHash(bCertificate));
+    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertDataHash == libzendoomc::CalculateCertDataHash(bCertificate));
     EXPECT_FALSE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertDataHash.IsNull());
 }
 

@@ -3083,7 +3083,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
 
-            libzendoomc::ScFieldElement dataHash = calculateCertDataHash(cert);
+            libzendoomc::ScFieldElement dataHash = libzendoomc::CalculateCertDataHash(cert);
+            libzendoomc::CalculateCumulativeCertDataHash(dataHash, dataHash, dataHash);
             view.UpdateCertDataHash(cert.GetScId(), cert.epochNumber, dataHash);
 
             if (pCertsStateInfo != nullptr)
