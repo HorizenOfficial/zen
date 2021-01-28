@@ -577,9 +577,24 @@ void CCoinsViewCache::UpdateCertDataHash(const uint256& scId, const int epoch, c
     
     CCertDataHashMap::iterator it = cacheCertDataHashes.find(position);
     if (it != cacheCertDataHashes.end()) {
+        // Updating the certificate data that already exist in cache
         it->second.certDataHash = certDataHash;
         it->second.flag = CCertDataHashCacheEntry::DIRTY;
+        return;
+    }
+
+    libzendoomc::ScFieldElement tmp;
+    bool res = base->GetCertDataHash(scId, epoch, tmp);
+
+    if (res) {
+        // Updating certificate that already exist in db
+        std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
+        ret.first->second.flag = CCertDataHashCacheEntry::DIRTY;
+        ret.first->second.certDataHash = certDataHash;
+        base->GetCertDataCumulativeHash(scId, epoch, tmp);
+        ret.first->second.certDataCumulativeHash = tmp;
     } else {
+        // Creating new entry
         libzendoomc::ScFieldElement prevCertDataCumulativeHash;
         libzendoomc::ScFieldElement prevCertDataHash;
         libzendoomc::ScFieldElement certDataCumulativeHash;
