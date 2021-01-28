@@ -3367,7 +3367,7 @@ bool ReceivedBlockTransactions(const CBlock &block, CValidationState& state, CBl
     return true;
 }
 
-bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAddSize, unsigned int nHeight, uint64_t nTime, bool fKnown = false)
+bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAddSize, unsigned int nHeight, uint64_t nTime, bool fKnown)
 {
     // Currently fKnown is false for blocks coming from network, true for blocks loaded from files upon reindexing
     LOCK(cs_LastBlockFile);
@@ -3377,30 +3377,33 @@ bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAdd
 
     if (!fKnown)
     {
-        for(;vinfoBlockFile[nFile].nSize + nAddSize >= MAX_BLOCKFILE_SIZE; ++nFile)
-            vinfoBlockFile.resize(std::max<unsigned int>(vinfoBlockFile.size(), nFile + 1));
-
+        while (vinfoBlockFile[nFile].nSize + nAddSize >= MAX_BLOCKFILE_SIZE)
+        {
+            nFile++;
+            vinfoBlockFile.resize(nFile + 1);
+        }
+        
         pos.nFile = nFile;
         pos.nPos = vinfoBlockFile[nFile].nSize;
     }
 
     if (nFile != nLastBlockFile) {
         if (!fKnown) {
-            LogPrintf("Leaving block file %i: %s\n", nFile, vinfoBlockFile[nFile].ToString());
+            LogPrintf("Leaving block file %i: %s\n", nFile, vinfoBlockFile.at(nFile).ToString());
         }
         FlushBlockFile(!fKnown);
         nLastBlockFile = nFile;
     }
 
-    vinfoBlockFile[nFile].AddBlock(nHeight, nTime);
+    vinfoBlockFile.at(nFile).AddBlock(nHeight, nTime);
     if (fKnown)
-        vinfoBlockFile[nFile].nSize = std::max(pos.nPos + nAddSize, vinfoBlockFile[nFile].nSize);
+        vinfoBlockFile.at(nFile).nSize = std::max(pos.nPos + nAddSize, vinfoBlockFile.at(nFile).nSize);
     else
-        vinfoBlockFile[nFile].nSize += nAddSize;
+        vinfoBlockFile.at(nFile).nSize += nAddSize;
 
     if (!fKnown) {
         unsigned int nOldChunks = (pos.nPos + BLOCKFILE_CHUNK_SIZE - 1) / BLOCKFILE_CHUNK_SIZE;
-        unsigned int nNewChunks = (vinfoBlockFile[nFile].nSize + BLOCKFILE_CHUNK_SIZE - 1) / BLOCKFILE_CHUNK_SIZE;
+        unsigned int nNewChunks = (vinfoBlockFile.at(nFile).nSize + BLOCKFILE_CHUNK_SIZE - 1) / BLOCKFILE_CHUNK_SIZE;
         if (nNewChunks > nOldChunks) {
             if (fPruneMode)
                 fCheckForPruning = true;
