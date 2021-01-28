@@ -33,29 +33,27 @@ class CCoinsViewDB : public CCoinsView
 protected:
     CLevelDBWrapper db;
     CCoinsViewDB(std::string dbName, size_t nCacheSize, bool fMemory = false, bool fWipe = false);
-    bool GetCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data) const;
 public:
     CCoinsViewDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
 
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override;
-    bool GetNullifier(const uint256 &nf)                               const override;
-    bool GetCoins(const uint256 &txid, CCoins &coins)                  const override;
-    bool HaveCoins(const uint256 &txid)                                const override;
-    bool GetSidechain(const uint256& scId, CSidechain& info)           const override;
-    bool HaveSidechain(const uint256& scId)                            const override;
-    bool HaveSidechainEvents(int height)                               const override;
-    bool GetSidechainEvents(int height, CSidechainEvents& ceasingScs)  const override;
-    void GetScIds(std::set<uint256>& scIdsList)                        const override;
-    uint256 GetBestBlock()                                             const override;
-    uint256 GetBestAnchor()                                            const override;
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree)   const override;
+    bool GetNullifier(const uint256 &nf)                                 const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)                    const override;
+    bool HaveCoins(const uint256 &txid)                                  const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)             const override;
+    bool HaveSidechain(const uint256& scId)                              const override;
+    bool HaveSidechainEvents(int height)                                 const override;
+    bool GetSidechainEvents(int height, CSidechainEvents& ceasingScs)    const override;
+    void GetScIds(std::set<uint256>& scIdsList)                          const override;
+    uint256 GetBestBlock()                                               const override;
+    uint256 GetBestAnchor()                                              const override;
     bool HaveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement& nullifier) const override;
-    bool GetCertDataHash(const uint256& scId,
-                         const int epoch,
-                         libzendoomc::ScFieldElement& certDataHash) const override;
-    bool GetCertDataCumulativeHash(const uint256& scId,
-                                   const int epoch,
-                                   libzendoomc::ScFieldElement& certDataCumulativeHash) const override;
+                          const libzendoomc::ScFieldElement& nullifier)  const override;
+
+    bool HaveCertDataHashes(const uint256& scId, const int epoch)        const override;
+    bool GetCertDataHashes(const uint256& scId, const int epoch,
+    		               std::pair<libzendoomc::ScFieldElement,
+                           libzendoomc::ScFieldElement>& certDataHashes) const override;
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
