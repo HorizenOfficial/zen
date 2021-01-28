@@ -9,6 +9,7 @@
 #include <consensus/validation.h>
 #include <pow.h>
 #include <miner.h>
+#include <sync.h>
 
 //includes for sut
 #include <main.h>
@@ -29,7 +30,8 @@ public:
     ReindexTestSuite():
         dataDirLocation(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()),
         chainStateDbSize(2 * 1024 * 1024),
-        pChainStateDb(nullptr)
+        pChainStateDb(nullptr),
+        csMainLock(cs_main, "cs_main", __FILE__, __LINE__)
     {
         // only in regtest we can compute easily a proper equihash solution
         // for the blocks we will produce
@@ -68,6 +70,7 @@ private:
     boost::filesystem::path  dataDirLocation;
     const unsigned int       chainStateDbSize;
     CFakeCoinDB*             pChainStateDb;
+    CCriticalBlock           csMainLock;        /**< Critical section needed when compiled with --enable-debug, which activates ASSERT_HELD */
 };
 
 TEST_F(ReindexTestSuite, LoadingBlocksFromNullFilePtrWillAbort) {
@@ -535,6 +538,23 @@ TEST_F(ReindexTestSuite, HeaderAndBlockLoadWorkBackToBack) {
     		== BLOCK_HAVE_MASK || BlockStatus::BLOCK_VALID_SCRIPTS);
     EXPECT_TRUE(chainActive.Height() == 2) << chainActive.Height();
 }
+
+/**
+ * Test that when a blk?????.dat file is full a new one is created
+ * and that the related variables are correctly initialized.
+ */
+TEST_F(ReindexTestSuite, CreateNewBlockFile)
+{
+    CValidationState state;
+    CDiskBlockPos pos;
+    unsigned int nAddSize = MAX_BLOCKFILE_SIZE -1;
+    unsigned int nHeight = 0;
+    uint64_t nTime = 0;
+    bool fKnown = false;
+    ASSERT_TRUE(FindBlockPos(state, pos, nAddSize, nHeight++, nTime, fKnown));
+    ASSERT_TRUE(FindBlockPos(state, pos, nAddSize, nHeight++, nTime, fKnown));
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
