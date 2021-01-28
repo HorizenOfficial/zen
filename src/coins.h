@@ -401,17 +401,16 @@ struct CCswNullifiersCacheEntry
 struct CCertDataHashCacheEntry
 {
     libzendoomc::ScFieldElement certDataHash;
-    libzendoomc::ScFieldElement certDataCumulativeHash;
-    unsigned char flag;
+    libzendoomc::ScFieldElement prevEpochCumulativeCertDataHash;
 
     enum Flags {
         DEFAULT = 0,
         DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
         FRESH = (1 << 1), // The parent view does not have this entry
         ERASED = (1 << 2), // The parent view does have this entry but current one have it erased
-    };
+    } flag;
 
-    CCertDataHashCacheEntry() : certDataHash(), flag(0) {}
+    CCertDataHashCacheEntry() : certDataHash(), flag(Flags::DEFAULT) {}
 };
 
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;

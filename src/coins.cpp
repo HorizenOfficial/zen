@@ -592,7 +592,7 @@ void CCoinsViewCache::UpdateCertDataHash(const uint256& scId, const int epoch, c
         ret.first->second.flag = CCertDataHashCacheEntry::DIRTY;
         ret.first->second.certDataHash = certDataHash;
         base->GetCertDataCumulativeHash(scId, epoch, tmp);
-        ret.first->second.certDataCumulativeHash = tmp;
+        ret.first->second.prevEpochCumulativeCertDataHash = tmp;
     } else {
         // Creating new entry
         libzendoomc::ScFieldElement prevCertDataCumulativeHash;
@@ -605,7 +605,7 @@ void CCoinsViewCache::UpdateCertDataHash(const uint256& scId, const int epoch, c
 
         std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
         ret.first->second.certDataHash = certDataHash;
-        ret.first->second.certDataCumulativeHash = certDataCumulativeHash;
+        ret.first->second.prevEpochCumulativeCertDataHash = certDataCumulativeHash;
         ret.first->second.flag = CCertDataHashCacheEntry::FRESH;
     }
 }
@@ -631,7 +631,7 @@ bool CCoinsViewCache::GetCertDataHash(const uint256& scId,
         ret.first->second.flag = CCertDataHashCacheEntry::DEFAULT;
         ret.first->second.certDataHash = tmp;
         base->GetCertDataCumulativeHash(scId, epoch, tmp);
-        ret.first->second.certDataCumulativeHash = tmp;
+        ret.first->second.prevEpochCumulativeCertDataHash = tmp;
     }
 
     return res;
@@ -645,7 +645,7 @@ bool CCoinsViewCache::GetCertDataCumulativeHash(const uint256& scId,
 
     CCertDataHashMap::iterator it = cacheCertDataHashes.find(position);
     if (it != cacheCertDataHashes.end()) {
-        certDataCumulativeHash = it->second.certDataCumulativeHash;
+        certDataCumulativeHash = it->second.prevEpochCumulativeCertDataHash;
         return true;
     }
 
@@ -657,7 +657,7 @@ bool CCoinsViewCache::GetCertDataCumulativeHash(const uint256& scId,
         
         std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
         ret.first->second.flag = CCertDataHashCacheEntry::DEFAULT;
-        ret.first->second.certDataCumulativeHash = tmp;
+        ret.first->second.prevEpochCumulativeCertDataHash = tmp;
         base->GetCertDataHash(scId, epoch, tmp);
         ret.first->second.certDataHash = tmp;
     }

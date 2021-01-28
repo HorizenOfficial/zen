@@ -323,7 +323,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
         switch(it->second.flag) {
             case CCertDataHashCacheEntry::Flags::FRESH:
             case CCertDataHashCacheEntry::Flags::DIRTY:
-                BatchWriteCertDataHash(batch, scId, epochNumber, it->second.certDataHash, it->second.certDataCumulativeHash);
+                BatchWriteCertDataHash(batch, scId, epochNumber, it->second.certDataHash, it->second.prevEpochCumulativeCertDataHash);
                 break;
             case CCertDataHashCacheEntry::Flags::ERASED:
                 BatchRemoveCertDataHash(batch, scId, epochNumber);
