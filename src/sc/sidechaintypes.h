@@ -114,6 +114,7 @@ public:
     virtual const libzendoomc::ScFieldElement& GetFieldElement() const = 0; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
     virtual bool IsValid() const = 0; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
     virtual bool checkCfg(const CustomFieldConfig& cfg) const = 0;
+    const std::vector<unsigned char>& getVRawField() const { return vRawField; }
 };
 
 class FieldElement : public CustomField

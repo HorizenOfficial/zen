@@ -1,4 +1,5 @@
 #include "sc/sidechaintypes.h"
+#include "util.h"
 
 ////////////////////////////// Custom Config types //////////////////////////////
 bool FieldElementConfig::isBitsLenghtValid() { return (nBits > 0); }
@@ -23,8 +24,8 @@ CompressedMerkleTreeConfig::CompressedMerkleTreeConfig(int32_t treeHeightIn): Cu
 {
 	if (!isTreeHeightValid())
         throw std::invalid_argument(
-            std::string("CompressedMerkleTreeConfig height must be within [0] and [: ") + std::to_string(MAX_TREE_HEIGHT) +
-            std::string("], but it is [ ") + std::to_string(treeHeight) + std::string("]."));
+            std::string("CompressedMerkleTreeConfig height=" + std::to_string(treeHeight) +
+            ", must be in the range [0, ") + std::to_string(MAX_TREE_HEIGHT) + std::string(")"));
 }
 
 int32_t CompressedMerkleTreeConfig::getBitSize() const
@@ -50,7 +51,18 @@ void FieldElement::InitFieldElement() const
 {
     if (scFieldElement.IsNull())
     {
-    	*const_cast<libzendoomc::ScFieldElement*>(&scFieldElement) = libzendoomc::ScFieldElement(vRawField); // TODO
+        if (vRawField.size() > scFieldElement.size())
+        {
+            LogPrint("sc", "%s():%d - Error: Wrong size: rawData[%d]>fieldElement[%d]\n", 
+                __func__, __LINE__, vRawField.size(), scFieldElement.size());
+            throw std::invalid_argument(
+                std::string("Wrong size: rawData[" + std::to_string(vRawField.size()) + "] > fieldElement[" +
+                std::to_string(scFieldElement.size()) + "]"));
+        }
+        // pad with zeroes, must have the same size for the internal repr
+        std::vector<unsigned char> temp(vRawField);
+        temp.resize(scFieldElement.size(), 0x0);
+        *const_cast<libzendoomc::ScFieldElement*>(&scFieldElement) = libzendoomc::ScFieldElement(temp); // TODO
     }
 }
 
@@ -73,7 +85,16 @@ bool FieldElement::IsValid() const
 };
 #endif
 
-bool FieldElement::checkCfg(const CustomFieldConfig& cfg) const { return true; };
+bool FieldElement::checkCfg(const CustomFieldConfig& cfg) const
+{
+    if (vRawField.size() != cfg.getBitSize() )
+    {
+        LogPrint("sc", "%s():%d - ERROR: wrong size: data[%d] != cfg[%d]\n", 
+            __func__, __LINE__, vRawField.size(), cfg.getBitSize());
+        return false;
+    }
+    return true;
+};
 
 //----------------------------------------------------------------------------------
 CompressedMerkleTree::CompressedMerkleTree(const CompressedMerkleTreeConfig& cfg)
@@ -91,7 +112,20 @@ CompressedMerkleTree& CompressedMerkleTree::operator=(const CompressedMerkleTree
 void CompressedMerkleTree::InitFieldElement() const
 {
     if (merkleRoot.IsNull())
-        *const_cast<libzendoomc::ScFieldElement*>(&merkleRoot) = libzendoomc::ScFieldElement(vRawField); // TODO
+    {
+        if (vRawField.size() > merkleRoot.size())
+        {
+            LogPrint("sc", "%s():%d - ERROR: wrong size: rawData[%d] > mklRoot[%d]\n", 
+                __func__, __LINE__, vRawField.size(), merkleRoot.size());
+            throw std::invalid_argument(
+                std::string("Wrong size: rawData[" + std::to_string(vRawField.size()) + "] > mklRoot[" +
+                std::to_string(merkleRoot.size()) + "]"));
+        }
+        // pad with zeroes, must have the same size for the internal fe repr
+        std::vector<unsigned char> temp(vRawField);
+        temp.resize(merkleRoot.size(), 0x0);
+        *const_cast<libzendoomc::ScFieldElement*>(&merkleRoot) = libzendoomc::ScFieldElement(temp); // TODO
+    }
 }
 
 const libzendoomc::ScFieldElement& CompressedMerkleTree::GetFieldElement() const
@@ -110,5 +144,14 @@ bool CompressedMerkleTree::IsValid() const
     return true;
 }
 
-bool CompressedMerkleTree::checkCfg(const CustomFieldConfig& cfg) const { return true; };
+bool CompressedMerkleTree::checkCfg(const CustomFieldConfig& cfg) const
+{
+    if (vRawField.size() > cfg.getBitSize() )
+    {
+        LogPrint("sc", "%s():%d - ERROR: mklTree wrong size: data[%d] > cfg[%d]\n", 
+            __func__, __LINE__, vRawField.size(), cfg.getBitSize());
+        return false;
+    }
+    return true;
+}
 ////////////////////////// End of Custom Field types ///////////////////////////

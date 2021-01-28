@@ -227,6 +227,19 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     x.push_back(Pair("quality", cert.quality));
     x.push_back(Pair("endEpochBlockHash", cert.endEpochBlockHash.GetHex()));
     x.push_back(Pair("scProof", HexStr(cert.scProof)));
+
+    UniValue vFe(UniValue::VARR);
+    for (const auto& entry : cert.vFieldElement) {
+        vFe.push_back(HexStr(entry.getVRawField()));
+    }
+    x.push_back(Pair("vFieldElement", vFe));
+
+    UniValue vCmt(UniValue::VARR);
+    for (const auto& entry : cert.vCompressedMerkleTree) {
+        vCmt.push_back(HexStr(entry.getVRawField()));
+    }
+    x.push_back(Pair("vCompressedMerkleTree", vCmt));
+
     x.push_back(Pair("totalAmount", ValueFromAmount(cert.GetValueOfBackwardTransfers())));
 
     entry.push_back(Pair("cert", x));

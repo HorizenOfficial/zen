@@ -5351,7 +5351,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         }
     }
     // check here because we must check also if custom field vec is empty and sc creation has a non-empty cfg 
-    if (feArray.size() != vCompressedMerkleTreeConfig.size() )
+    if (feArray.size() != vFieldElementConfig.size() )
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
             "Invalid parameter, fe array has size %d, but the expected size is %d",
@@ -5362,7 +5362,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     UniValue cmtArray(UniValue::VARR);
     if (params.size() > 8)
     {
-        const UniValue& cmtArray = params[8].get_array();
+        cmtArray = params[8].get_array();
         int count = 0;
         for (const UniValue& o : cmtArray.getValues())
         {

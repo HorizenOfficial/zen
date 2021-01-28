@@ -597,7 +597,7 @@ public:
         std::vector<FieldElementConfig>& vFieldElementConfig,
         std::vector<CompressedMerkleTreeConfig>& vCompressedMerkleTreeConfig) const;
 
-    bool CertCustomFieldsCfgValid(const CSidechain& scInfo, const CScCertificate& cert) const;
+    bool CertCustomFieldsValid(const CSidechain& scInfo, const CScCertificate& cert) const;
 
     bool Flush();
 

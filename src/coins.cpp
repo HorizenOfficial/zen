@@ -897,7 +897,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    if (!CertCustomFieldsCfgValid(scInfo, cert) )
+    if (!CertCustomFieldsValid(scInfo, cert) )
     {
         LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s], invalid custom data cfg\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
@@ -962,7 +962,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     return true;
 }
 
-bool CCoinsViewCache::CertCustomFieldsCfgValid(const CSidechain& scInfo, const CScCertificate& cert) const
+bool CCoinsViewCache::CertCustomFieldsValid(const CSidechain& scInfo, const CScCertificate& cert) const
 {
     const std::vector<FieldElementConfig>& vFeCfg = scInfo.creationData.vFieldElementConfig;
     const std::vector<CompressedMerkleTreeConfig>& vCmtCfg = scInfo.creationData.vCompressedMerkleTreeConfig;
@@ -979,18 +979,30 @@ bool CCoinsViewCache::CertCustomFieldsCfgValid(const CSidechain& scInfo, const C
 
     for (int i = 0; i < vFe.size(); i++)
     {
-        if (!vFe.at(i).checkCfg(vFeCfg.at(i)) )
+        const FieldElement& fe = vFe.at(i);
+        if (!fe.checkCfg(vFeCfg.at(i)) )
         {
-            LogPrint("sc", "%s():%d - invalid custom field cfg\n", __func__, __LINE__);
+            LogPrint("sc", "%s():%d - invalid custom field cfg at pos %d\n", __func__, __LINE__, i);
+            return false;
+        }
+        if (!fe.IsValid())
+        {
+            LogPrint("sc", "%s():%d - invalid custom field at pos %d\n", __func__, __LINE__, i);
             return false;
         }
     }
 
     for (int i = 0; i < vCmt.size(); i++)
     {
-        if (!vCmt.at(i).checkCfg(vCmtCfg.at(i)) )
+        const CompressedMerkleTree& cmt = vCmt.at(i);
+        if (!cmt.checkCfg(vCmtCfg.at(i)) )
         {
-            LogPrint("sc", "%s():%d - invalid custom field cfg\n", __func__, __LINE__);
+            LogPrint("sc", "%s():%d - invalid compr mkl tree field cfg at pos %d\n", __func__, __LINE__, i);
+            return false;
+        }
+        if (!cmt.IsValid())
+        {
+            LogPrint("sc", "%s():%d - invalid compr mkl tree field at pos %d\n", __func__, __LINE__, i);
             return false;
         }
     }
