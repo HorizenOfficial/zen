@@ -897,7 +897,6 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    // TODO check that custom data fields are consistent with creation data cfg
     if (!CertCustomFieldsCfgValid(scInfo, cert) )
     {
         LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s], invalid custom data cfg\n",

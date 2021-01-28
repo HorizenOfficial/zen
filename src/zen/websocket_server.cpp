@@ -641,8 +641,10 @@ private:
                 // sanity check, report error if unknown/duplicate key-value pairs
                 std::set<std::string> setKeyArgs;
 
-                static const std::set<std::string> validKeyArgs =
-                    {"scid", "epochNumber", "quality", "fee", "endEpochBlockHash", "scProof", "backwardTransfers"};
+                static const std::set<std::string> validKeyArgs = {
+                    "scid", "epochNumber", "quality", "fee", "endEpochBlockHash", "scProof",
+                    "backwardTransfers", "vFieldElement", "vCompressedMerkleTree"
+                };
 
                 for (const std::string& s : reqPayload.getKeys()) {
                     if (!validKeyArgs.count(s))
@@ -725,6 +727,24 @@ private:
                         LogPrint("ws", "%s():%d - Generic exception\n", __func__, __LINE__);
                         return INVALID_PARAMETER;
                     }
+                }
+
+                // optional, can be null
+                const UniValue& fe = find_value(reqPayload, "vFieldElement");
+                if (!fe.isNull())
+                {
+                    const UniValue& vFe = fe.get_array();
+                    LogPrint("ws", "%s():%d - adding vFieldElement, sz(%d): msg[%s]\n", __func__, __LINE__, vFe.size(), msg);
+                    cmdParams.push_back(vFe);
+                }
+
+                // optional, can be null
+                const UniValue& cmt = find_value(reqPayload, "vCompressedMerkleTree");
+                if (!cmt.isNull())
+                {
+                    const UniValue& vCmt = cmt.get_array();
+                    LogPrint("ws", "%s():%d - adding vCompressedMerkleTree, sz(%d): msg[%s]\n", __func__, __LINE__, vCmt.size(), msg);
+                    cmdParams.push_back(vCmt);
                 }
 
                 return sendCertificate(cmdParams, clientRequestId, outMsg);

@@ -11,9 +11,8 @@
 
 namespace libzendoomc{
 
-    bool IsValidScFieldElement(const ScFieldElement& scFieldElement)
+    bool IsValidScFieldElement(const ScFieldElement& scFieldElement) //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
     {
-        // TODO
         return true;
     }
 

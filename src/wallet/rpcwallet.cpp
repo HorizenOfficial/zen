@@ -5326,13 +5326,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     std::vector<FieldElement> vFieldElement;
+    UniValue feArray(UniValue::VARR);
     if (params.size() > 7)
     {
-        const UniValue& feArray = params[7].get_array();
-        if (feArray.size() != vCompressedMerkleTreeConfig.size() )
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, field element array has not the expected size");
-        }
+        feArray = params[7].get_array();
         int count = 0;
         for (const UniValue& o : feArray.getValues())
         {
@@ -5342,22 +5339,30 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             std::string error;
             std::vector<unsigned char> fe;
             int fe_size = vFieldElementConfig.at(count).getBitSize(); 
-            if (!Sidechain::AddScData(o.get_str(), fe, fe_size, true, error))
-                throw JSONRPCError(RPC_TYPE_ERROR, string("vFieldElement[" + std::to_string(count) + "]") + error);
+
+            // check strict expected sz 
+            static const bool STRICT_SZ_CHECK = true;
+
+            if (!Sidechain::AddScData(o.get_str(), fe, fe_size, STRICT_SZ_CHECK, error))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vFieldElement[" + std::to_string(count) + "]: ") + error);
  
             vFieldElement.push_back(fe);
             count++;
         }
     }
+    // check here because we must check also if custom field vec is empty and sc creation has a non-empty cfg 
+    if (feArray.size() != vCompressedMerkleTreeConfig.size() )
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+            "Invalid parameter, fe array has size %d, but the expected size is %d",
+            feArray.size(), vFieldElementConfig.size()));
+    }
 
     std::vector<CompressedMerkleTree> vCompressedMerkleTree;
+    UniValue cmtArray(UniValue::VARR);
     if (params.size() > 8)
     {
         const UniValue& cmtArray = params[8].get_array();
-        if (cmtArray.size() != vCompressedMerkleTreeConfig.size() )
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, field element array has not the expected size");
-        }
         int count = 0;
         for (const UniValue& o : cmtArray.getValues())
         {
@@ -5367,12 +5372,22 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             std::string error;
             std::vector<unsigned char> cmt;
             int cmt_size = vCompressedMerkleTreeConfig.at(count).getBitSize(); 
-            if (!Sidechain::AddScData(o.get_str(), cmt, cmt_size, true, error))
-                throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedMerkleTree[" + std::to_string(count) + "]") + error);
+
+            // check upper limit only since data are compressed
+            static const bool STRICT_SZ_CHECK = false;
+
+            if (!Sidechain::AddScData(o.get_str(), cmt, cmt_size, STRICT_SZ_CHECK, error))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedMerkleTree[" + std::to_string(count) + "]: ") + error);
  
             vCompressedMerkleTree.push_back(cmt);
             count++;
         }
+    }
+    if (cmtArray.size() != vCompressedMerkleTreeConfig.size() )
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+            "Invalid parameter, compr mkl tree array has size %d, but the expected size is %d",
+            cmtArray.size(), vCompressedMerkleTreeConfig.size()));
     }
 
     EnsureWalletIsUnlocked();
