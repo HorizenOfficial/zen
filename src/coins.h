@@ -403,7 +403,7 @@ struct CCertDataHashCacheEntry
     libzendoomc::ScFieldElement certDataHash;
     libzendoomc::ScFieldElement prevEpochCumulativeCertDataHash;
 
-    enum Flags {
+    enum class Flags {
         DEFAULT = 0,
         DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
         FRESH = (1 << 1), // The parent view does not have this entry
@@ -705,14 +705,8 @@ public:
     bool GetCertDataHashes(const uint256& scId, const int epoch,
                            std::pair<libzendoomc::ScFieldElement,
                            libzendoomc::ScFieldElement>& certDataHashes) const override;
-    void UpdateCertDataHash(const uint256& scId, const int epoch,
-                            const libzendoomc::ScFieldElement &certDataHash);
-//    bool GetCertDataHash(const uint256& scId, const int epoch,
-//                         libzendoomc::ScFieldElement& certDataHash) const ;
-//    bool GetCertDataCumulativeHash(const uint256& scId, const int epoch,
-//                                   libzendoomc::ScFieldElement& prevEpochCumulativeCertDataHash) const;
-    void RemoveCertDataHash(const uint256& scId,
-                            const int epoch);
+    void UpdateCertDataHash(const uint256& scId, const int epoch, const libzendoomc::ScFieldElement &certDataHash, CBlockUndo& blockUndo);
+    void RestoreCertDataHash(const uint256& scId, const int epoch, const CBlockUndo& blockUndo);
 
    CSidechain::State GetSidechainState(const uint256& scId) const;
 

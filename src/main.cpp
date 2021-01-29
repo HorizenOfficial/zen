@@ -2574,8 +2574,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
                     return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
                 }
-                // Remove previously stored DataHash
-                view.RemoveCertDataHash(cert.GetScId(), cert.epochNumber);
             } else
             {
                 // resurrect prevBlockTopQualityCertHash bwts
@@ -2593,6 +2591,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                                            blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertQuality,
                                            CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
             }
+
+            view.RestoreCertDataHash(cert.GetScId(), cert.epochNumber, blockUndo);
 
             if (!view.RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
             {
@@ -3057,15 +3057,21 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (isBlockTopQualityCert)
         {
+        	const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
+
             if (!view.UpdateScInfo(cert, blockundo) )
             {
                 return state.DoS(100, error("ConnectBlock(): could not add in scView: cert[%s]", cert.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-cert-not-updated");
             }
 
-            const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
+            libzendoomc::ScFieldElement dataHash = libzendoomc::CalculateCertDataHash(cert);
+            view.UpdateCertDataHash(cert.GetScId(), cert.epochNumber, dataHash, blockundo);
+
             if (!prevBlockTopQualityCertHash.IsNull())
             {
+            	// if prevBlockTopQualityCertHash is not null, it has same scId/epochNumber as cert
+
                 view.NullifyBackwardTransfers(prevBlockTopQualityCertHash, blockundo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
                 blockundo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask |= CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA;
                 if (pCertsStateInfo != nullptr)
@@ -3073,7 +3079,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                             cert.epochNumber,
                                             blockundo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertQuality,
                                             CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
-                // if prevBlockTopQualityCertHash has to be voided, it has same scId/epochNumber as cert
             }
 
             if (!view.ScheduleSidechainEvent(cert))
@@ -3082,10 +3087,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
-
-            libzendoomc::ScFieldElement dataHash = libzendoomc::CalculateCertDataHash(cert);
-            libzendoomc::CalculateCumulativeCertDataHash(dataHash, dataHash, dataHash);
-            view.UpdateCertDataHash(cert.GetScId(), cert.epochNumber, dataHash);
 
             if (pCertsStateInfo != nullptr)
                 pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), cert.GetHash(),

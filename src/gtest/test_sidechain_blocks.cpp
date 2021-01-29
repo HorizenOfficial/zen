@@ -149,7 +149,6 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
     initialScState.currentState = (uint8_t)CSidechain::State::ALIVE;
-    sidechainsView->UpdateCertDataHash(scId, certBlockHeight, libzendoomc::ScFieldElement());
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
@@ -157,6 +156,9 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     // ceasing height is 20% of epoch length (20) + 1; end of epoch 5 is h=199
     ceasingMap[204] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
     storeSidechain(scId, initialScState, ceasingMap);
+
+    CBlockUndo dummyBlockUndo;
+    sidechainsView->UpdateCertDataHash(scId, certBlockHeight, libzendoomc::ScFieldElement(),dummyBlockUndo);
 
     // create block with certificate ...
     CMutableScCertificate singleCert;
@@ -292,13 +294,15 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
     initialScState.prevBlockTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
     initialScState.currentState = (uint8_t)CSidechain::State::ALIVE;
-    sidechainsView->UpdateCertDataHash(scId, certBlockHeight, libzendoomc::ScFieldElement());
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
     CSidechainEventsMap ceasingMap;
     ceasingMap[204] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
     storeSidechain(scId, initialScState, ceasingMap);
+
+    CBlockUndo dummyBlockUndo;
+    sidechainsView->UpdateCertDataHash(scId, certBlockHeight, libzendoomc::ScFieldElement(),dummyBlockUndo);
 
     // create block with certificates ...
     CMutableScCertificate lowQualityCert;
