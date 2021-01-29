@@ -232,7 +232,7 @@ bool CCoinsViewDB::HaveCertDataHashes(const uint256& scId, const int epoch) cons
 }
 
 bool CCoinsViewDB::GetCertDataHashes(const uint256& scId, const int epoch,
-		               std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement>& certDataHashes) const {
+                       std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement>& certDataHashes) const {
     return db.Read(make_pair(DB_CERT_DATA_HASH, std::make_pair(scId, epoch)), certDataHashes);
 }
 

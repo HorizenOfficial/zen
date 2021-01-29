@@ -52,7 +52,7 @@ public:
 
     bool HaveCertDataHashes(const uint256& scId, const int epoch)        const override;
     bool GetCertDataHashes(const uint256& scId, const int epoch,
-    		               std::pair<libzendoomc::ScFieldElement,
+                           std::pair<libzendoomc::ScFieldElement,
                            libzendoomc::ScFieldElement>& certDataHashes) const override;
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,

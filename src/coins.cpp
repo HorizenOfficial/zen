@@ -204,8 +204,8 @@ bool CCoinsView::HaveCswNullifier(const uint256& scId,
                                  const libzendoomc::ScFieldElement &nullifier)  const { return false; }
 bool CCoinsView::HaveCertDataHashes(const uint256& scId, const int epoch)       const { return false; }
 bool CCoinsView::GetCertDataHashes(const uint256& scId, const int epoch,
-		                          std::pair<libzendoomc::ScFieldElement,
-								  libzendoomc::ScFieldElement>& certDataHashes) const { return false; }
+                                  std::pair<libzendoomc::ScFieldElement,
+                                  libzendoomc::ScFieldElement>& certDataHashes) const { return false; }
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                             const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
@@ -383,8 +383,8 @@ CSidechainEventsMap::iterator CCoinsViewCache::ModifySidechainEvents(int height)
 }
 
 CCertDataHashMap::const_iterator CCoinsViewCache::FetchCertDataEntry(const uint256& scId, const int epoch) const {
-	auto key = std::make_pair(scId, epoch);
-	CCertDataHashMap::iterator candidateIt = cacheCertDataHashes.find(key);
+    auto key = std::make_pair(scId, epoch);
+    CCertDataHashMap::iterator candidateIt = cacheCertDataHashes.find(key);
     if (candidateIt != cacheCertDataHashes.end())
         return candidateIt;
 
@@ -597,43 +597,44 @@ void CCoinsViewCache::UpdateCertDataHash(const uint256& scId, const int epoch, c
     if (HaveCertDataHashes(scId, epoch))
     {
         this->cacheCertDataHashes.at(std::make_pair(scId, epoch)).certDataHash = certDataHash;
+        this->cacheCertDataHashes.at(std::make_pair(scId, epoch)).flag = CCertDataHashCacheEntry::DIRTY;
         //prevEpochCumulativeCertDataHash is not updated since epoch is not finished yet
     } else {
-    	libzendoomc::ScFieldElement updatedprevEpochCumulativeCertDataHash;
+        libzendoomc::ScFieldElement updatedprevEpochCumulativeCertDataHash;
 
         if (HaveCertDataHashes(scId, epoch-1))
         {
-        	// Update prevEpochCumulativeCertDataHash
-        	auto& prevEpochCertDataHash = this->cacheCertDataHashes.at(std::make_pair(scId, epoch)).certDataHash;
-        	auto& prevEpochCumulativeCertDataHash = this->cacheCertDataHashes.at(std::make_pair(scId, epoch)).prevEpochCumulativeCertDataHash;
-        	libzendoomc::CalculateCumulativeCertDataHash(prevEpochCumulativeCertDataHash, prevEpochCertDataHash, updatedprevEpochCumulativeCertDataHash);
+            // Update prevEpochCumulativeCertDataHash
+            const auto & prevEpochCertDataHash = this->cacheCertDataHashes.at(std::make_pair(scId, epoch-1)).certDataHash;
+            const auto & prevEpochCumulativeCertDataHash = this->cacheCertDataHashes.at(std::make_pair(scId, epoch-1)).prevEpochCumulativeCertDataHash;
+            libzendoomc::CalculateCumulativeCertDataHash(prevEpochCumulativeCertDataHash, prevEpochCertDataHash, updatedprevEpochCumulativeCertDataHash);
         } else {
-        	// use default value prevEpochCumulativeCertDataHash
-        	updatedprevEpochCumulativeCertDataHash = libzendoomc::ScFieldElement();
+            // use default value prevEpochCumulativeCertDataHash
+            updatedprevEpochCumulativeCertDataHash = libzendoomc::ScFieldElement();
         }
 
-    	CCertDataHashCacheEntry newEntry{std::make_pair(certDataHash, updatedprevEpochCumulativeCertDataHash),CCertDataHashCacheEntry::FRESH};
-    	this->cacheCertDataHashes[std::make_pair(scId, epoch)] = newEntry;
+        CCertDataHashCacheEntry newEntry{std::make_pair(certDataHash, updatedprevEpochCumulativeCertDataHash),CCertDataHashCacheEntry::FRESH};
+        this->cacheCertDataHashes[std::make_pair(scId, epoch)] = newEntry;
     }
 }
 
 bool CCoinsViewCache::HaveCertDataHashes(const uint256& scId, const int epoch) const {
-	CCertDataHashMap::const_iterator it = FetchCertDataEntry(scId, epoch);
-	if (it != cacheCertDataHashes.end() && it->second.flag != CCertDataHashCacheEntry::Flags::ERASED)
+    CCertDataHashMap::const_iterator it = FetchCertDataEntry(scId, epoch);
+    if (it != cacheCertDataHashes.end() && it->second.flag != CCertDataHashCacheEntry::Flags::ERASED)
         return true;
 
     return false;
 }
 
 bool CCoinsViewCache::GetCertDataHashes(const uint256& scId, const int epoch,
-		               std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement>& certDataHashes) const
+                       std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement>& certDataHashes) const
 {
-	CCertDataHashMap::const_iterator it = FetchCertDataEntry(scId, epoch);
-	if (it != cacheCertDataHashes.end() && it->second.flag != CCertDataHashCacheEntry::Flags::ERASED) {
-		certDataHashes.first = it->second.certDataHash;
-		certDataHashes.second = it->second.prevEpochCumulativeCertDataHash;
-		return true;
-	}
+    CCertDataHashMap::const_iterator it = FetchCertDataEntry(scId, epoch);
+    if (it != cacheCertDataHashes.end() && it->second.flag != CCertDataHashCacheEntry::Flags::ERASED) {
+        certDataHashes.first = it->second.certDataHash;
+        certDataHashes.second = it->second.prevEpochCumulativeCertDataHash;
+        return true;
+    }
 
     return false;
 }

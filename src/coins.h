@@ -412,7 +412,7 @@ struct CCertDataHashCacheEntry
 
     CCertDataHashCacheEntry() : certDataHash(), flag(Flags::DEFAULT) {}
     CCertDataHashCacheEntry(const std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> & _dataPair, Flags _flag):
-    	certDataHash(_dataPair.first), prevEpochCumulativeCertDataHash(_dataPair.second), flag(_flag) {}
+        certDataHash(_dataPair.first), prevEpochCumulativeCertDataHash(_dataPair.second), flag(_flag) {}
 };
 
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
@@ -485,7 +485,7 @@ public:
     virtual bool HaveCertDataHashes(const uint256& scId, const int epoch) const;
 
     virtual bool GetCertDataHashes(const uint256& scId, const int epoch,
-    		                      std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement>& certDataHashes) const;
+                                  std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement>& certDataHashes) const;
 
     //! Do a bulk modification (multiple CCoins changes + BestBlock change).
     //! The passed mapCoins can be modified.
@@ -531,7 +531,7 @@ public:
                          const libzendoomc::ScFieldElement &nullifier)   const override;
     bool HaveCertDataHashes(const uint256& scId, const int epoch)        const override;
     bool GetCertDataHashes(const uint256& scId, const int epoch,
-    		               std::pair<libzendoomc::ScFieldElement,
+                           std::pair<libzendoomc::ScFieldElement,
                            libzendoomc::ScFieldElement>& certDataHashes) const override;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins,
@@ -703,7 +703,7 @@ public:
      */
     bool HaveCertDataHashes(const uint256& scId, const int epoch)        const override;
     bool GetCertDataHashes(const uint256& scId, const int epoch,
-    		               std::pair<libzendoomc::ScFieldElement,
+                           std::pair<libzendoomc::ScFieldElement,
                            libzendoomc::ScFieldElement>& certDataHashes) const override;
     void UpdateCertDataHash(const uint256& scId, const int epoch,
                             const libzendoomc::ScFieldElement &certDataHash);
