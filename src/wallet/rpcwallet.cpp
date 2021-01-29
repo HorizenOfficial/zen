@@ -881,15 +881,19 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (params.size() > 6)
     {
         const std::string& inputString = params[6].get_str();
-        std::vector<unsigned char> wMbtrVkVec;
-        if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+        // it is optional, non-empty if set
+        if (!inputString.empty())
         {
-            throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
-        }
-        sc.creationData.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
-        if (!libzendoomc::IsValidScVk(sc.creationData.wMbtrVk.get()))
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
+            std::vector<unsigned char> wMbtrVkVec;
+            if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
+            }
+            sc.creationData.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
+            if (!libzendoomc::IsValidScVk(sc.creationData.wMbtrVk.get()))
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
+            }
         }
     }
 
