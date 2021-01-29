@@ -99,6 +99,7 @@ testScripts=(
   'sc_quality_voiding.py'
   'sc_cert_quality_wallet.py'
   'sc_cert_ceasing_sg.py'
+  'sc_csw_nullifier.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
