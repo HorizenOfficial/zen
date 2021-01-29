@@ -631,7 +631,7 @@ bool CCoinsViewCache::GetCertDataHashes(const uint256& scId, const int epoch,
 	CCertDataHashMap::const_iterator it = FetchCertDataEntry(scId, epoch);
 	if (it != cacheCertDataHashes.end() && it->second.flag != CCertDataHashCacheEntry::Flags::ERASED) {
 		certDataHashes.first = it->second.certDataHash;
-		certDataHashes.first = it->second.prevEpochCumulativeCertDataHash;
+		certDataHashes.second = it->second.prevEpochCumulativeCertDataHash;
 		return true;
 	}
 
