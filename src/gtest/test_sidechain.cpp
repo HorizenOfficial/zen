@@ -607,17 +607,18 @@ TEST_F(SidechainTestSuite, CertificateUpdatesCertHashData) {
     const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
     CBlock dummyBlock;
     ASSERT_TRUE(sidechainsView->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+    ASSERT_TRUE(sidechainsView->UpdateCertDataHash(scCreationTx.GetVscCcOut().at(0)));
 
     CBlockUndo blockUndo;
     CScCertificate cert_A = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
         /*changeTotalAmount*/CAmount(3),/*numChangeOut*/2, /*bwtAmount*/CAmount(1), /*numBwt*/2);
-    sidechainsView->UpdateCertDataHash(scId, cert_A.epochNumber, libzendoomc::CalculateCertDataHash(cert_A),blockUndo);
+    sidechainsView->UpdateCertDataHash(cert_A,blockUndo);
 
     CScCertificate cert_B = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
         /*changeTotalAmount*/CAmount(3),/*numChangeOut*/2, /*bwtAmount*/CAmount(1), /*numBwt*/2, /*quality*/5);
 
     // test
-    sidechainsView->UpdateCertDataHash(scId, cert_B.epochNumber, libzendoomc::CalculateCertDataHash(cert_B),blockUndo);
+    sidechainsView->UpdateCertDataHash(cert_B,blockUndo);
 
     //check
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertDataHash == libzendoomc::CalculateCertDataHash(cert_A));

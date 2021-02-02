@@ -2592,7 +2592,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                                            CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
             }
 
-            view.RestoreCertDataHash(cert.GetScId(), cert.epochNumber, blockUndo);
+            if (!view.RestoreCertDataHash(cert, blockUndo))
+            {
+            	LogPrint("sc", "%s():%d - ERROR undoing certHashData\n", __func__, __LINE__);
+                return error("DisconnectBlock(): certHashData for certificate can not be reverted: data inconsistent");
+            }
 
             if (!view.RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
             {
@@ -2664,6 +2668,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             if (!view.CancelSidechainEvent(scCreation, pindex->nHeight)) {
                 LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
                 return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
+            }
+
+            if (!view.RestoreCertDataHash(scCreation)) {
+            	LogPrint("sc", "%s():%d - ERROR undoing certHashData\n", __func__, __LINE__);
+                return error("DisconnectBlock(): initial entry for certData hash cannot be reverted: data inconsistent");
             }
         }
 
@@ -2969,6 +2978,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
 
             for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
+                if (!view.UpdateCertDataHash(scCreation))
+                {
+                    return state.DoS(100, error("ConnectBlock(): error initializing certDataHash entry for scId [%s]", scCreation.GetScId().ToString()),
+                                                         REJECT_INVALID, "bad-sc-not-recorded");
+                }
+
                 if (!view.ScheduleSidechainEvent(scCreation, pindex->nHeight))
                 {
                     LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
@@ -3057,7 +3072,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (isBlockTopQualityCert)
         {
-        	const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
+            const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
 
             if (!view.UpdateScInfo(cert, blockundo) )
             {
@@ -3065,12 +3080,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-cert-not-updated");
             }
 
-            libzendoomc::ScFieldElement dataHash = libzendoomc::CalculateCertDataHash(cert);
-            view.UpdateCertDataHash(cert.GetScId(), cert.epochNumber, dataHash, blockundo);
+            if (!view.UpdateCertDataHash(cert, blockundo))
+            {
+                return state.DoS(100, error("ConnectBlock(): Error updating cert data hashes with certificate [%s]", cert.GetHash().ToString()),
+                                 REJECT_INVALID, "bad-sc-cert-not-recorded");
+            }
 
             if (!prevBlockTopQualityCertHash.IsNull())
             {
-            	// if prevBlockTopQualityCertHash is not null, it has same scId/epochNumber as cert
+                // if prevBlockTopQualityCertHash is not null, it has same scId/epochNumber as cert
 
                 view.NullifyBackwardTransfers(prevBlockTopQualityCertHash, blockundo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
                 blockundo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask |= CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA;

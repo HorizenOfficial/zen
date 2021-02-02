@@ -594,48 +594,6 @@ bool CCoinsViewCache::HaveCswNullifier(const uint256& scId,
     return tmp;
 }
 
-void CCoinsViewCache::UpdateCertDataHash(const uint256& scId, const int epoch, const libzendoomc::ScFieldElement &certDataHash, CBlockUndo& blockUndo) {
-	assert(HaveSidechain(scId));
-    if (HaveCertDataHashes(scId, epoch))
-    {
-    	//pick or create scId entry in scUndoDatabyScId
-    	blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertDataHash = this->cacheCertDataHashes.at(std::make_pair(scId, epoch)).certDataHash;
-    	blockUndo.scUndoDatabyScId[scId].contentBitMask |= CSidechainUndoData::AvailableSections::CERT_DATA_HASH;
-
-        this->cacheCertDataHashes.at(std::make_pair(scId, epoch)).certDataHash = certDataHash;
-        this->cacheCertDataHashes.at(std::make_pair(scId, epoch)).flag = CCertDataHashCacheEntry::Flags::DIRTY;
-    } else
-    {
-        libzendoomc::ScFieldElement updatedprevEpochCumulativeCertDataHash;
-
-        if (HaveCertDataHashes(scId, epoch-1))
-        {
-            // Update prevEpochCumulativeCertDataHash
-            const auto & prevEpochCertDataHash = this->cacheCertDataHashes.at(std::make_pair(scId, epoch-1)).certDataHash;
-            const auto & prevEpochCumulativeCertDataHash = this->cacheCertDataHashes.at(std::make_pair(scId, epoch-1)).prevEpochCumulativeCertDataHash;
-            libzendoomc::CalculateCumulativeCertDataHash(prevEpochCumulativeCertDataHash, prevEpochCertDataHash, updatedprevEpochCumulativeCertDataHash);
-        } else {
-            // use default value prevEpochCumulativeCertDataHash
-            updatedprevEpochCumulativeCertDataHash = libzendoomc::ScFieldElement();
-        }
-
-        CCertDataHashCacheEntry newEntry{std::make_pair(certDataHash, updatedprevEpochCumulativeCertDataHash),CCertDataHashCacheEntry::Flags::FRESH};
-        this->cacheCertDataHashes[std::make_pair(scId, epoch)] = newEntry;
-    }
-}
-
-void CCoinsViewCache::RestoreCertDataHash(const uint256& scId, const int epoch, const CBlockUndo& blockUndo) {
-	assert(HaveCertDataHashes(scId, epoch));
-	if(blockUndo.scUndoDatabyScId.count(scId) &&
-       (blockUndo.scUndoDatabyScId.at(scId).contentBitMask & CSidechainUndoData::AvailableSections::CERT_DATA_HASH))
-	{
-        this->cacheCertDataHashes.at(std::make_pair(scId, epoch)).certDataHash = blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertDataHash;
-        this->cacheCertDataHashes.at(std::make_pair(scId, epoch)).flag = CCertDataHashCacheEntry::Flags::DIRTY;
-	} else
-	{
-	    this->cacheCertDataHashes.at(std::make_pair(scId, epoch)).flag = CCertDataHashCacheEntry::Flags::ERASED;
-	}
-}
 
 bool CCoinsViewCache::HaveCertDataHashes(const uint256& scId, const int epoch) const {
     CCertDataHashMap::const_iterator it = FetchCertDataEntry(scId, epoch);
@@ -656,6 +614,72 @@ bool CCoinsViewCache::GetCertDataHashes(const uint256& scId, const int epoch,
     }
 
     return false;
+}
+
+bool CCoinsViewCache::UpdateCertDataHash(const CTxScCreationOut& scCreationOut) {
+    if(!HaveSidechain(scCreationOut.GetScId()))
+        return false;
+
+    libzendoomc::ScFieldElement nullCertDataHash{};
+    CCertDataHashCacheEntry newEntry{std::make_pair(nullCertDataHash, nullCertDataHash),CCertDataHashCacheEntry::Flags::FRESH};
+    this->cacheCertDataHashes[std::make_pair(scCreationOut.GetScId(), 0)] = newEntry;
+    return true;
+}
+
+bool CCoinsViewCache::RestoreCertDataHash(const CTxScCreationOut& scCreationOut) {
+    if(!HaveCertDataHashes(scCreationOut.GetScId(), 0))
+        return false;
+
+    this->cacheCertDataHashes.at(std::make_pair(scCreationOut.GetScId(), 0)).flag = CCertDataHashCacheEntry::Flags::ERASED;
+    return true;
+}
+
+bool CCoinsViewCache::UpdateCertDataHash(const CScCertificate& cert, CBlockUndo& blockUndo) {
+    if (!HaveSidechain(cert.GetScId()))
+        return false;
+
+    const libzendoomc::ScFieldElement &certDataHash = libzendoomc::CalculateCertDataHash(cert);
+
+    if (HaveCertDataHashes(cert.GetScId(), cert.epochNumber))
+    {
+        //pick or create scId entry in scUndoDatabyScId
+        blockUndo.scUndoDatabyScId[cert.GetScId()].prevTopCommittedCertDataHash = this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).certDataHash;
+        blockUndo.scUndoDatabyScId[cert.GetScId()].contentBitMask |= CSidechainUndoData::AvailableSections::CERT_DATA_HASH;
+
+        this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).certDataHash = certDataHash;
+        this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).flag = CCertDataHashCacheEntry::Flags::DIRTY;
+    } else
+    {
+        if (!HaveCertDataHashes(cert.GetScId(), cert.epochNumber-1))
+            return false;
+
+        libzendoomc::ScFieldElement updatedprevEpochCumulativeCertDataHash;
+        const auto & prevEpochCertDataHash = this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber-1)).certDataHash;
+        const auto & prevEpochCumulativeCertDataHash = this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber-1)).prevEpochCumulativeCertDataHash;
+        libzendoomc::CalculateCumulativeCertDataHash(prevEpochCumulativeCertDataHash, prevEpochCertDataHash, updatedprevEpochCumulativeCertDataHash);
+
+        CCertDataHashCacheEntry newEntry{std::make_pair(certDataHash, updatedprevEpochCumulativeCertDataHash),CCertDataHashCacheEntry::Flags::FRESH};
+        this->cacheCertDataHashes[std::make_pair(cert.GetScId(), cert.epochNumber)] = newEntry;
+    }
+
+    return true;
+}
+
+bool CCoinsViewCache::RestoreCertDataHash(const CScCertificate& cert, const CBlockUndo& blockUndo) {
+    if (!HaveCertDataHashes(cert.GetScId(), cert.epochNumber))
+        return false;
+
+    if(blockUndo.scUndoDatabyScId.count(cert.GetScId()) &&
+       (blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::CERT_DATA_HASH))
+    {
+        this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).certDataHash = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertDataHash;
+        this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).flag = CCertDataHashCacheEntry::Flags::DIRTY;
+    } else
+    {
+        this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).flag = CCertDataHashCacheEntry::Flags::ERASED;
+    }
+
+    return true;
 }
 
 bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
@@ -1142,6 +1166,11 @@ bool libzendoomc::CScProofVerifier::verifyCScCertificate(
 bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx) { return true; }
 size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
+bool UpdateCertDataHash(const CTxScCreationOut& scCreationOut) {return false;}
+bool RestoreCertDataHash(const CTxScCreationOut& scCreationOut) {return false;}
+bool UpdateCertDataHash(const CScCertificate& cert, CBlockUndo& blockUndo) {return false;}
+bool RestoreCertDataHash(const CScCertificate& cert, const CBlockUndo& blockUndo) {return false;}
+libzendoomc::ScFieldElement libzendoomc::CalculateCertDataHash(const CScCertificate& cert) {return libzendoomc::ScFieldElement{};}
 #else
 
 #include "consensus/validation.h"
@@ -1154,23 +1183,23 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
 
     for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
     {
-        CSidechain scInfo;
-        if (!GetSidechain(csw.scId, scInfo))
+        CSidechain sidechain;
+        if (!GetSidechain(csw.scId, sidechain))
         {
-            LogPrintf("%s():%d - tx[%s] CSW input [%s] refers to scId not yet created\n",
+            LogPrintf("%s():%d - tx[%s] CSW input [%s] refers to unknown scId\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString() );
             return state.Invalid(error("scid does not exist"),
                  REJECT_INVALID, "tx-csw-input-scid-missed");
         }
 
-        if ((CSidechain::State)scInfo.currentState != CSidechain::State::CEASED) {
+        if ((CSidechain::State)sidechain.currentState != CSidechain::State::CEASED) {
             LogPrintf("ERROR: Tx[%s] CSW input [%s] cannot be accepted, sidechain not ceased at height = %d\n",
                 tx.ToString(), csw.ToString(), chainActive.Height());
             return state.Invalid(error("received a csw for not ceased sidechain"),
                          REJECT_INVALID, "tx-csw-input-scid-not-ceased");
         }
 
-        if(!scInfo.creationData.wCeasedVk.is_initialized())
+        if(!sidechain.creationData.wCeasedVk.is_initialized())
         {
             LogPrintf("%s():%d - tx[%s] CSW input [%s] refers to SC without CSW support\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString() );
@@ -1189,7 +1218,10 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
         }
 
         std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> certDataHashes;
-        this->GetCertDataHashes(csw.scId, csw.nEpoch, certDataHashes);
+        if (!this->GetCertDataHashes(csw.scId, csw.nEpoch, certDataHashes))
+            return state.Invalid(error("missing cert data hash for required scId/epoch"),
+                 REJECT_INVALID, "tx-csw-missing-cert-data-hash");
+
         const libzendoomc::ScFieldElement& prevCumulativeCertDataHash = certDataHashes.second;
         const libzendoomc::ScFieldElement& currentCertDataHash = certDataHashes.first;
         libzendoomc::ScFieldElement lastCumulativeCertDataHash = libzendoomc::ScFieldElement();
@@ -1198,7 +1230,7 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
 
         // Verify CSW proof
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(prevCumulativeCertDataHash, currentCertDataHash,
-                                                                lastCumulativeCertDataHash, scInfo.creationData.wCeasedVk.get(), csw))
+                                                                lastCumulativeCertDataHash, sidechain.creationData.wCeasedVk.get(), csw))
         {
             LogPrintf("ERROR: tx[%s] CSW input [%s] cannot be accepted: proof verification failed\n",
                 tx.ToString(), csw.ToString());

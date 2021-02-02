@@ -695,18 +695,17 @@ public:
     bool HaveCswNullifier(const uint256& scId,
                          const libzendoomc::ScFieldElement &nullifier) const override;
 
-    //CERTIFICATE DATA HASH MEMEBERS
-    /** 
-     * Updates CertDataHash for specified Sidechain and epoch.
-     * Also computes and stores CertDataCumulativeHash based on previous record
-     * for this Sidechain if the record for this epoch haven't been existed before.
-     */
+    // CERTIFICATE DATA HASH PUBLIC MEMBERS
     bool HaveCertDataHashes(const uint256& scId, const int epoch)        const override;
     bool GetCertDataHashes(const uint256& scId, const int epoch,
                            std::pair<libzendoomc::ScFieldElement,
                            libzendoomc::ScFieldElement>& certDataHashes) const override;
-    void UpdateCertDataHash(const uint256& scId, const int epoch, const libzendoomc::ScFieldElement &certDataHash, CBlockUndo& blockUndo);
-    void RestoreCertDataHash(const uint256& scId, const int epoch, const CBlockUndo& blockUndo);
+
+    bool UpdateCertDataHash(const CTxScCreationOut& scCreationOut);
+    bool RestoreCertDataHash(const CTxScCreationOut& scCreationOut);
+
+    bool UpdateCertDataHash(const CScCertificate& cert, CBlockUndo& blockUndo);
+    bool RestoreCertDataHash(const CScCertificate& cert, const CBlockUndo& blockUndo);
 
    CSidechain::State GetSidechainState(const uint256& scId) const;
 

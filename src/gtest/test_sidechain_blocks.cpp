@@ -115,6 +115,7 @@ protected:
     CSidechainEventsMap dummyScEvents;
 
     uint256 storeSidechain(const uint256& scId, const CSidechain& sidechain, CSidechainEventsMap& sidechainEventsMap);
+    void storeCertDataHash(const uint256& scId, uint32_t epochNumber);
     void fillBlockHeader(CBlock& blockToFill, const uint256& prevBlockHash);
 
     CAmount dummyFeeAmount;
@@ -156,9 +157,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     // ceasing height is 20% of epoch length (20) + 1; end of epoch 5 is h=199
     ceasingMap[204] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
     storeSidechain(scId, initialScState, ceasingMap);
-
-    CBlockUndo dummyBlockUndo;
-    sidechainsView->UpdateCertDataHash(scId, certBlockHeight, libzendoomc::ScFieldElement(),dummyBlockUndo);
+    storeCertDataHash(scId, initialScState.prevBlockTopQualityCertReferencedEpoch);
 
     // create block with certificate ...
     CMutableScCertificate singleCert;
@@ -229,6 +228,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpo
     CSidechainEventsMap ceasingMap;
     ceasingMap[204] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
     storeSidechain(scId, initialScState, ceasingMap);
+    storeCertDataHash(scId, initialScState.prevBlockTopQualityCertReferencedEpoch);
 
     // create block with certificate ...
     CMutableScCertificate singleCert;
@@ -300,9 +300,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
     CSidechainEventsMap ceasingMap;
     ceasingMap[204] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
     storeSidechain(scId, initialScState, ceasingMap);
-
-    CBlockUndo dummyBlockUndo;
-    sidechainsView->UpdateCertDataHash(scId, certBlockHeight, libzendoomc::ScFieldElement(),dummyBlockUndo);
+    storeCertDataHash(scId, initialScState.prevBlockTopQualityCertReferencedEpoch);
 
     // create block with certificates ...
     CMutableScCertificate lowQualityCert;
@@ -387,6 +385,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
     CSidechainEventsMap ceasingMap;
     ceasingMap[204] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
     storeSidechain(scId, initialScState, ceasingMap);
+    storeCertDataHash(scId, initialScState.prevBlockTopQualityCertReferencedEpoch);
 
     // create block with certificates ...
     CMutableScCertificate lowQualityCert;
@@ -470,6 +469,33 @@ uint256 SidechainConnectCertsBlockTestSuite::storeSidechain(const uint256& scId,
                                dummyCswNullifiers, dummyCertDataHashes);
 
     return scId;
+}
+
+void SidechainConnectCertsBlockTestSuite::storeCertDataHash(const uint256& scId, uint32_t epochNumber)
+{
+    CSidechainsMap      dummySidechainMap;
+    CSidechainEventsMap dummyScEventsMap;
+    CCoinsMap           dummyCoins;
+    uint256             dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
+    CNullifiersMap      dummyNullifiers;
+
+    CAnchorsCacheEntry dummyAnchorsEntry;
+    dummyAnchorsEntry.entered = true;
+    dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
+
+    CAnchorsMap dummyAnchors;
+    dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
+    CCswNullifiersMap dummyCswNullifiers;
+    CCertDataHashMap certDataHashes;
+
+    libzendoomc::ScFieldElement nullCertDataHash{};
+    CCertDataHashCacheEntry newEntry{std::make_pair(nullCertDataHash, nullCertDataHash),CCertDataHashCacheEntry::Flags::FRESH};
+    certDataHashes[std::make_pair(scId, epochNumber)] = newEntry;
+
+    sidechainsView->BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
+                               dummyNullifiers, dummySidechainMap, dummyScEventsMap,
+                               dummyCswNullifiers, certDataHashes);
+
 }
 
 void SidechainConnectCertsBlockTestSuite::fillBlockHeader(CBlock& blockToFill, const uint256& prevBlockHash)
