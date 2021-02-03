@@ -181,13 +181,16 @@ public:
      * check does nothing.
      */
     void check(const CCoinsViewCache *pcoins) const;
+    bool checkIncomingTxConflicts(const CTransaction& incomingTx) const;
+    bool checkIncomingCertConflicts(const CScCertificate& incomingCert) const;
+
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
     std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality);
     bool RemoveCertAndSync(const uint256& certToRmHash);
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true,
-    		          const std::map<uint256, libzendoomc::ScFieldElement>& scIdToCertDataHash = std::map<uint256, libzendoomc::ScFieldElement>{});
+                      const std::map<uint256, libzendoomc::ScFieldElement>& scIdToCertDataHash = std::map<uint256, libzendoomc::ScFieldElement>{});
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
     std::vector<uint256> mempoolDirectDependenciesFrom(const CTransactionBase& root) const;
