@@ -192,6 +192,63 @@ uint256 txCreationUtils::CreateSpendableCoinAtHeight(CCoinsViewCache& targetView
     return inputTx.GetHash();
 }
 
+void txCreationUtils::storeSidechain(CCoinsViewCache& targetView, const uint256& scId, const CSidechain& sidechain, CSidechainEventsMap& sidechainEventsMap)
+{
+    CSidechainsMap mapSidechain;
+    mapSidechain[scId] = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::DIRTY); //Instead of fresh to avoid asserts in BatchWrite
+
+    CCoinsMap           dummyCoins;
+    uint256             dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
+    CNullifiersMap      dummyNullifiers;
+
+    CBlock              dummyBlock;
+    uint256             dummyHash = dummyBlock.GetHash();
+
+    CAnchorsCacheEntry dummyAnchorsEntry;
+    dummyAnchorsEntry.entered = true;
+    dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
+
+    CAnchorsMap dummyAnchors;
+    dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
+    CCswNullifiersMap dummyCswNullifiers;
+    CCertDataHashMap dummyCertDataHashes;
+
+    targetView.BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
+                          dummyNullifiers, mapSidechain, sidechainEventsMap,
+                          dummyCswNullifiers, dummyCertDataHashes);
+
+    return;
+}
+
+void txCreationUtils::storeCertDataHash(CCoinsViewCache& targetView, const uint256& scId, uint32_t epochNumber)
+{
+    CSidechainsMap      dummySidechainMap;
+    CSidechainEventsMap dummyScEventsMap;
+    CCoinsMap           dummyCoins;
+    uint256             dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
+    CNullifiersMap      dummyNullifiers;
+
+    CBlock              dummyBlock;
+    uint256             dummyHash = dummyBlock.GetHash();
+
+    CAnchorsCacheEntry dummyAnchorsEntry;
+    dummyAnchorsEntry.entered = true;
+    dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
+
+    CAnchorsMap dummyAnchors;
+    dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
+    CCswNullifiersMap dummyCswNullifiers;
+    CCertDataHashMap certDataHashes;
+
+    libzendoomc::ScFieldElement nullCertDataHash{};
+    CCertDataHashCacheEntry newEntry{std::make_pair(nullCertDataHash, nullCertDataHash),CCertDataHashCacheEntry::Flags::FRESH};
+    certDataHashes[std::make_pair(scId, epochNumber)] = newEntry;
+
+    targetView.BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
+                          dummyNullifiers, dummySidechainMap, dummyScEventsMap,
+                          dummyCswNullifiers, certDataHashes);
+}
+
 void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)
 {
     if (chainActive.Height() > targetHeight)

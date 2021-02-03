@@ -3,6 +3,7 @@
 
 #include <primitives/transaction.h>
 #include <primitives/certificate.h>
+#include <coins.h>
 
 namespace txCreationUtils
 {
@@ -26,6 +27,9 @@ CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint2
                                  CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/, const int quality = 3);
 
 uint256 CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight);
+
+void storeSidechain(CCoinsViewCache& targetView, const uint256& scId, const CSidechain& sidechain, CSidechainEventsMap& sidechainEventsMap);
+void storeCertDataHash(CCoinsViewCache& targetView, const uint256& scId, uint32_t epochNumber);
 } // end of namespace
 
 namespace chainSettingUtils
