@@ -329,36 +329,6 @@ struct CCoinsCacheEntry
     CCoinsCacheEntry() : coins(), flags(0) {}
 };
 
-struct CSidechainsCacheEntry
-{
-    CSidechain scInfo; // The actual cached data.
-
-    enum class Flags {
-        DEFAULT = 0,
-        DIRTY   = (1 << 0), // This cache entry is potentially different from the version in the parent view.
-        FRESH   = (1 << 1), // The parent view does not have this entry
-        ERASED  = (1 << 2), // The parent view does have this entry but current one have it erased
-    } flag;
-
-    CSidechainsCacheEntry() : scInfo(), flag(Flags::DEFAULT) {}
-    CSidechainsCacheEntry(const CSidechain & _scInfo, Flags _flag) : scInfo(_scInfo), flag(_flag) {}
-};
-
-struct CSidechainEventsCacheEntry
-{
-    CSidechainEvents scEvents; // The actual cached data.
-
-    enum class Flags {
-        DEFAULT = 0,
-        DIRTY   = (1 << 0), // This cache entry is potentially different from the version in the parent view.
-        FRESH   = (1 << 1), // The parent view does not have this entry
-        ERASED  = (1 << 2), // The parent view does have this entry but current one have it erased
-    } flag;
-
-    CSidechainEventsCacheEntry() : scEvents(), flag(Flags::DEFAULT) {}
-    CSidechainEventsCacheEntry(const CSidechainEvents & _scList, Flags _flag) : scEvents(_scList), flag(_flag) {}
-};
-
 struct CAnchorsCacheEntry
 {
     bool entered; // This will be false if the anchor is removed from the cache
@@ -385,41 +355,68 @@ struct CNullifiersCacheEntry
     CNullifiersCacheEntry() : entered(false), flags(0) {}
 };
 
-struct CCswNullifiersCacheEntry
+struct CMutableSidechainCacheEntry
 {
-    unsigned char flag;
-
-    enum Flags {
+    enum class Flags {
         DEFAULT = 0,
-        ERASED = (1 << 0), // The parent view does have this entry but current one have it erased
-        FRESH = (1 << 1), // The parent view does not have this entry    
-    };
+        DIRTY   = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+        FRESH   = (1 << 1), // The parent view does not have this entry
+        ERASED  = (1 << 2), // The parent view does have this entry but current one have it erased
+    } flag;
 
-    CCswNullifiersCacheEntry() : flag(0) {}
+    CMutableSidechainCacheEntry(Flags _flag): flag(_flag) {}
 };
 
-struct CCertDataHashCacheEntry
+struct CImmutableSidechainCacheEntry
+{
+    enum class Flags {
+        DEFAULT = 0,
+        FRESH   = (1 << 1), // The parent view does not have this entry
+        ERASED  = (1 << 2), // The parent view does have this entry but current one have it erased
+    } flag;
+
+    CImmutableSidechainCacheEntry(Flags _flag): flag(_flag) {}
+};
+
+struct CSidechainsCacheEntry: public CMutableSidechainCacheEntry
+{
+    CSidechain scInfo;
+
+    CSidechainsCacheEntry(): CMutableSidechainCacheEntry(Flags::DEFAULT), scInfo() {}
+    CSidechainsCacheEntry(const CSidechain & _scInfo, Flags _flag):
+        CMutableSidechainCacheEntry(_flag), scInfo(_scInfo) {}
+};
+
+struct CSidechainEventsCacheEntry: public CMutableSidechainCacheEntry
+{
+    CSidechainEvents scEvents;
+
+    CSidechainEventsCacheEntry(): CMutableSidechainCacheEntry(Flags::DEFAULT), scEvents() {}
+    CSidechainEventsCacheEntry(const CSidechainEvents & _scList, Flags _flag):
+        CMutableSidechainCacheEntry(_flag), scEvents(_scList) {}
+};
+
+struct CCswNullifiersCacheEntry: public CImmutableSidechainCacheEntry
+{
+    CCswNullifiersCacheEntry(Flags _flag = Flags::DEFAULT): CImmutableSidechainCacheEntry(_flag) {}
+};
+
+struct CCertDataHashCacheEntry: public CMutableSidechainCacheEntry
 {
     libzendoomc::ScFieldElement certDataHash;
     libzendoomc::ScFieldElement prevEpochCumulativeCertDataHash;
 
-    enum class Flags {
-        DEFAULT = 0,
-        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
-        FRESH = (1 << 1), // The parent view does not have this entry
-        ERASED = (1 << 2), // The parent view does have this entry but current one have it erased
-    } flag;
-
-    CCertDataHashCacheEntry() : certDataHash(), flag(Flags::DEFAULT) {}
+    CCertDataHashCacheEntry(): CMutableSidechainCacheEntry(Flags::DEFAULT), certDataHash(), prevEpochCumulativeCertDataHash() {}
     CCertDataHashCacheEntry(const std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> & _dataPair, Flags _flag):
-        certDataHash(_dataPair.first), prevEpochCumulativeCertDataHash(_dataPair.second), flag(_flag) {}
+    	CMutableSidechainCacheEntry(_flag), certDataHash(_dataPair.first), prevEpochCumulativeCertDataHash(_dataPair.second) {}
 };
 
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
-typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap; //maps scId to sidechain informations
-typedef boost::unordered_map<int, CSidechainEventsCacheEntry>                 CSidechainEventsMap; //maps blockchain height to sidechain amount to mature/certs to void
 typedef boost::unordered_map<uint256, CAnchorsCacheEntry, CCoinsKeyHasher>    CAnchorsMap;
 typedef boost::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CNullifiersMap;
+
+typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap;
+typedef boost::unordered_map<int, CSidechainEventsCacheEntry> CSidechainEventsMap;
 typedef boost::unordered_map<std::pair<uint256, libzendoomc::ScFieldElement>, CCswNullifiersCacheEntry, CCswNullifiersKeyHasher> CCswNullifiersMap;
 typedef boost::unordered_map<std::pair<uint256, int>, CCertDataHashCacheEntry, CCertDataKeyHasher> CCertDataHashMap;
 
@@ -688,12 +685,9 @@ public:
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
 
     //CSW NULLIFIER PUBLIC MEMBERS
-    void AddCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier);
-    void RemoveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier);
-    bool HaveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier) const override;
+    bool HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const override;
+    bool AddCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier);
+    bool RemoveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier);
 
     // CERTIFICATE DATA HASH PUBLIC MEMBERS
     bool HaveCertDataHashes(const uint256& scId, const int epoch)        const override;

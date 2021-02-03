@@ -561,39 +561,36 @@ void CCoinsViewCache::SetBestBlock(const uint256 &hashBlockIn) {
     hashBlock = hashBlockIn;
 }
 
-void CCoinsViewCache::AddCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier) {
-    std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
-    std::pair<CCswNullifiersMap::iterator, bool> ret = cacheCswNullifiers.insert(std::make_pair(position, CCswNullifiersCacheEntry()));
-    ret.first->second.flag = CCswNullifiersCacheEntry::FRESH;
-}
+bool CCoinsViewCache::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const {
+    std::pair<uint256, libzendoomc::ScFieldElement> key = std::make_pair(scId, nullifier);
 
-void CCoinsViewCache::RemoveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier) {
-    std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
-    std::pair<CCswNullifiersMap::iterator, bool> ret = cacheCswNullifiers.insert(std::make_pair(position, CCswNullifiersCacheEntry()));
-    ret.first->second.flag = CCswNullifiersCacheEntry::ERASED;
-}
-
-bool CCoinsViewCache::HaveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier) const {
-    std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
-    
-    CCswNullifiersMap::iterator it = cacheCswNullifiers.find(position);
+    CCswNullifiersMap::iterator it = cacheCswNullifiers.find(key);
     if (it != cacheCswNullifiers.end())
-        return (it->second.flag == CCswNullifiersCacheEntry::ERASED);
+        return (it->second.flag != CCswNullifiersCacheEntry::Flags::ERASED);
 
-    bool tmp = base->HaveCswNullifier(scId, nullifier);
+    if (!base->HaveCswNullifier(scId, nullifier))
+    	return false;
 
-    if (tmp) {
-        CCswNullifiersCacheEntry entry;
-        entry.flag = CCswNullifiersCacheEntry::DEFAULT;
-        cacheCswNullifiers.insert(std::make_pair(position, entry));
-    }
-
-    return tmp;
+	cacheCswNullifiers.insert(std::make_pair(key, CCswNullifiersCacheEntry{CCswNullifiersCacheEntry::Flags::DEFAULT}));
+	return true;
 }
 
+bool CCoinsViewCache::AddCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) {
+    if (HaveCswNullifier(scId, nullifier))
+    	return false;
+
+    std::pair<uint256, libzendoomc::ScFieldElement> key = std::make_pair(scId, nullifier);
+    cacheCswNullifiers.insert(std::make_pair(key, CCswNullifiersCacheEntry{CCswNullifiersCacheEntry::Flags::FRESH}));
+    return true;
+}
+
+bool CCoinsViewCache::RemoveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) {
+    if (!HaveCswNullifier(scId, nullifier))
+    	return false;
+
+    cacheCswNullifiers.at(std::make_pair(scId, nullifier)).flag = CCswNullifiersCacheEntry::Flags::ERASED;
+    return true;
+}
 
 bool CCoinsViewCache::HaveCertDataHashes(const uint256& scId, const int epoch) const {
     CCertDataHashMap::const_iterator it = FetchCertDataEntry(scId, epoch);
@@ -832,18 +829,18 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
         CCswNullifiersMap::iterator itLocalCacheEntry = cacheCswNullifiers.find(entryToWrite.first);
 
         switch (entryToWrite.second.flag) {
-            case CCswNullifiersCacheEntry::FRESH:
+            case CCswNullifiersCacheEntry::Flags::FRESH:
                 assert(
                     itLocalCacheEntry == cacheCswNullifiers.end() ||
-                    itLocalCacheEntry->second.flag == CCswNullifiersCacheEntry::ERASED
+                    itLocalCacheEntry->second.flag == CCswNullifiersCacheEntry::Flags::ERASED
                 ); //A fresh entry should not exist in localCache or be already erased
                 cacheCswNullifiers[entryToWrite.first] = entryToWrite.second;
                 break;
-            case CCswNullifiersCacheEntry::ERASED:
+            case CCswNullifiersCacheEntry::Flags::ERASED:
                 if (itLocalCacheEntry != cacheCswNullifiers.end())
-                    itLocalCacheEntry->second.flag = CCswNullifiersCacheEntry::ERASED;
+                    itLocalCacheEntry->second.flag = CCswNullifiersCacheEntry::Flags::ERASED;
                 break;
-            case CCswNullifiersCacheEntry::DEFAULT:
+            case CCswNullifiersCacheEntry::Flags::DEFAULT:
                 assert(itLocalCacheEntry != cacheCswNullifiers.end());
                 break;
             default:
@@ -1211,7 +1208,7 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
         cswTotalBalances[csw.scId] += csw.nValue;
 
         for(const CTxCeasedSidechainWithdrawalInput& cswIn : tx.GetVcswCcIn()) {
-            if (pcoinsTip->HaveCswNullifier(csw.scId, cswIn.nullifier)) {
+            if (this->HaveCswNullifier(csw.scId, cswIn.nullifier)) {
                 return state.Invalid(error("csw input had been already used"),
                      REJECT_INVALID, "tx-csw-input-used-nullifier");                
             }
