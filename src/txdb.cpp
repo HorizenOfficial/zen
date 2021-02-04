@@ -227,32 +227,13 @@ bool CCoinsViewDB::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFi
     return db.Exists(make_pair(DB_CSW_NULLIFIER, position));
 }
 
-bool CCoinsViewDB::GetCertData(const uint256& scId, const int epochId, std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> &data) const {
-    std::pair<uint256, int> position = std::make_pair(scId, epochId);
-
-    return db.Read(make_pair(DB_CERT_DATA_HASH, position), data);
+bool CCoinsViewDB::HaveCertDataHashes(const uint256& scId, const int epoch) const {
+    return db.Exists(make_pair(DB_CERT_DATA_HASH, std::make_pair(scId, epoch)));
 }
 
-bool CCoinsViewDB::GetCertDataHash(const uint256& scId, const int epoch, libzendoomc::ScFieldElement& certDataHash) const {
-    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> data;
-
-    if (!GetCertData(scId, epoch, data)) {
-        return false;
-    }
-    
-    certDataHash = data.second;
-    return true;
-}
-
-bool CCoinsViewDB::GetCertDataCumulativeHash(const uint256& scId, const int epoch, libzendoomc::ScFieldElement& certDataCumulativeHash) const {
-    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> data;
-
-    if (!GetCertData(scId, epoch, data)) {
-        return false;
-    }
-    
-    certDataCumulativeHash = data.first;
-    return true;    
+bool CCoinsViewDB::GetCertDataHashes(const uint256& scId, const int epoch,
+                       std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement>& certDataHashes) const {
+    return db.Read(make_pair(DB_CERT_DATA_HASH, std::make_pair(scId, epoch)), certDataHashes);
 }
 
 bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
@@ -323,7 +304,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
         switch(it->second.flag) {
             case CCertDataHashCacheEntry::Flags::FRESH:
             case CCertDataHashCacheEntry::Flags::DIRTY:
-                BatchWriteCertDataHash(batch, scId, epochNumber, it->second.certDataHash, it->second.certDataCumulativeHash);
+                BatchWriteCertDataHash(batch, scId, epochNumber, it->second.certDataHash, it->second.prevEpochCumulativeCertDataHash);
                 break;
             case CCertDataHashCacheEntry::Flags::ERASED:
                 BatchRemoveCertDataHash(batch, scId, epochNumber);

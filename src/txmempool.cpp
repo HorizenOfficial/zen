@@ -1194,6 +1194,108 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     assert(innerUsage == cachedInnerUsage);
 }
 
+bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
+{
+	LOCK(cs);
+
+	const uint256& hash = incomingTx.GetHash();
+    if (mapTx.count(hash) != 0) {
+        LogPrint("mempool", "Dropping txid %s : already in mempool\n", hash.ToString());
+        return false;
+    }
+
+    for (const CTxIn & vin : incomingTx.GetVin()) {
+        if (mapNextTx.count(vin.prevout)) {
+            // Disable replacement feature for now
+            LogPrint("mempool", "%s():%d - Dropping txid %s : it double spends input of tx[%s] that is in mempool\n",
+                __func__, __LINE__, hash.ToString(), vin.prevout.hash.ToString());
+            return false;
+        }
+        if (mapCertificate.count(vin.prevout.hash)) {
+            LogPrint("mempool", "%s():%d - Dropping tx[%s]: it would spend the output %d of cert[%s] that is in mempool\n",
+                __func__, __LINE__, hash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
+            return false;
+        }
+    }
+
+    // If this tx creates a sc, no other tx must be doing the same in the mempool
+    for(const CTxScCreationOut& sc: incomingTx.GetVscCcOut()) {
+        if (hasSidechainCreationTx(sc.GetScId())) {
+            LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another sc in mempool\n",
+                    __func__, __LINE__, hash.ToString());
+            return false;
+        }
+    }
+
+    for(const JSDescription &joinsplit: incomingTx.GetVjoinsplit()) {
+        for(const uint256 &nf: joinsplit.nullifiers) {
+            if (mapNullifiers.count(nf))
+                return false;
+        }
+    }
+
+    // Check if this tx does CSW with the nullifier already present in the mempool
+    for(const CTxCeasedSidechainWithdrawalInput& csw: incomingTx.GetVcswCcIn())
+    {
+        if (mapSidechains.count(csw.scId) != 0 && mapSidechains.at(csw.scId).cswNullifiers.count(csw.nullifier) != 0) {
+            LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another CSW input nullifier in mempool\n",
+                    __func__, __LINE__, hash.ToString());
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) const
+{
+    LOCK(cs);
+
+	const uint256& certHash = incomingCert.GetHash();
+    if (mapCertificate.count(certHash) != 0) {
+        return error("Dropping cert %s : already in mempool\n", certHash.ToString());
+    }
+
+    for (const CTxIn & vin : incomingCert.GetVin())
+    {
+        if (mapNextTx.count(vin.prevout))
+        {
+            return error("%s():%d - Dropping cert %s : it double spends input of [%s] that is in mempool\n",
+                __func__, __LINE__, certHash.ToString(), vin.prevout.hash.ToString());
+        }
+
+        if (mapCertificate.count(vin.prevout.hash))
+        {
+            const CScCertificate & inputCert = mapCertificate.at(vin.prevout.hash).GetCertificate();
+            // certificates can only spend change outputs of another certificate in mempool, while backward transfers must mature first
+            if (inputCert.IsBackwardTransfer(vin.prevout.n))
+            {
+                return error("%s():%d - Dropping cert[%s]: it would spend the backward transfer output %d of cert[%s] that is in mempool\n",
+                    __func__, __LINE__, certHash.ToString(), vin.prevout.n, vin.prevout.hash.ToString());
+            }
+        }
+    }
+
+    // No lower quality certs should spend (directly or indirectly) outputs of higher or equal quality certs
+    std::vector<uint256> txesHashesSpentByCert = mempoolDependenciesFrom(incomingCert);
+    for(const uint256& dep: txesHashesSpentByCert)
+    {
+        if (mapCertificate.count(dep)==0)
+            continue; //tx won't conflict with cert on quality
+
+        const CScCertificate& certDep = mapCertificate.at(dep).GetCertificate();
+        if (certDep.GetScId() != incomingCert.GetScId())
+            continue; //no certs conflicts with certs of other sidechains
+        if (certDep.quality >= incomingCert.quality)
+        {
+            return error("%s():%d - cert %s depends on worse-quality ancestorCert %s\n", __func__, __LINE__,
+            		incomingCert.GetHash().ToString(), certDep.GetHash().ToString());
+        }
+    }
+
+    return true;
+}
+
 void CTxMemPool::queryHashes(std::vector<uint256>& vtxid)
 {
     vtxid.clear();

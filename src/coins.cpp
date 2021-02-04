@@ -188,54 +188,57 @@ void CCoins::CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) con
     nBytes += nLastUsedByte;
 }
 
-bool CCoinsView::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const { return false; }
-bool CCoinsView::GetNullifier(const uint256 &nullifier)                        const { return false; }
-bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  const { return false; }
-bool CCoinsView::HaveCoins(const uint256 &txid)                                const { return false; }
-bool CCoinsView::HaveSidechain(const uint256& scId)                            const { return false; }
-bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)           const { return false; }
-bool CCoinsView::HaveSidechainEvents(int height)                               const { return false; }
-bool CCoinsView::GetSidechainEvents(int height, CSidechainEvents& scEvent)     const { return false; }
-void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                        const { scIdsList.clear(); return; }
-bool CCoinsView::CheckQuality(const CScCertificate& cert)                      const { return false; }
-uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
-uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
+bool CCoinsView::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree)  const { return false; }
+bool CCoinsView::GetNullifier(const uint256 &nullifier)                         const { return false; }
+bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                   const { return false; }
+bool CCoinsView::HaveCoins(const uint256 &txid)                                 const { return false; }
+bool CCoinsView::HaveSidechain(const uint256& scId)                             const { return false; }
+bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)            const { return false; }
+bool CCoinsView::HaveSidechainEvents(int height)                                const { return false; }
+bool CCoinsView::GetSidechainEvents(int height, CSidechainEvents& scEvent)      const { return false; }
+void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                         const { scIdsList.clear(); return; }
+bool CCoinsView::CheckQuality(const CScCertificate& cert)                       const { return false; }
+uint256 CCoinsView::GetBestBlock()                                              const { return uint256(); }
+uint256 CCoinsView::GetBestAnchor()                                             const { return uint256(); };
 bool CCoinsView::HaveCswNullifier(const uint256& scId,
-                                 const libzendoomc::ScFieldElement &nullifier) const { return false; }
-bool CCoinsView::GetCertDataHash(const uint256& scId, const int epoch,
-                                 libzendoomc::ScFieldElement& certDataHash)    const { return false; }
-bool CCoinsView::GetCertDataCumulativeHash(const uint256& scId, const int epoch,
-                                 libzendoomc::ScFieldElement& certDataCumulativeHash) const { return false; }
+                                 const libzendoomc::ScFieldElement &nullifier)  const { return false; }
+bool CCoinsView::HaveCertDataHashes(const uint256& scId, const int epoch)       const { return false; }
+bool CCoinsView::GetCertDataHashes(const uint256& scId, const int epoch,
+                                  std::pair<libzendoomc::ScFieldElement,
+                                  libzendoomc::ScFieldElement>& certDataHashes) const { return false; }
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                             const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
                             CSidechainEventsMap& mapSidechainEvents,
                             CCswNullifiersMap& cswNullifiers,
                             CCertDataHashMap& certDataHashes)                         { return false; }
-bool CCoinsView::GetStats(CCoinsStats &stats)                                  const { return false; }
+bool CCoinsView::GetStats(CCoinsStats &stats)                                   const { return false; }
 
 
 CCoinsViewBacked::CCoinsViewBacked(CCoinsView *viewIn) : base(viewIn) { }
 
-bool CCoinsViewBacked::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const { return base->GetAnchorAt(rt, tree); }
-bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier)                        const { return base->GetNullifier(nullifier); }
-bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins)                  const { return base->GetCoins(txid, coins); }
-bool CCoinsViewBacked::HaveCoins(const uint256 &txid)                                const { return base->HaveCoins(txid); }
-bool CCoinsViewBacked::HaveSidechain(const uint256& scId)                            const { return base->HaveSidechain(scId); }
-bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)           const { return base->GetSidechain(scId,info); }
-bool CCoinsViewBacked::HaveSidechainEvents(int height)                               const { return base->HaveSidechainEvents(height); }
-bool CCoinsViewBacked::GetSidechainEvents(int height, CSidechainEvents& scEvents)    const { return base->GetSidechainEvents(height, scEvents); }
-void CCoinsViewBacked::GetScIds(std::set<uint256>& scIdsList)                        const { return base->GetScIds(scIdsList); }
-bool CCoinsViewBacked::CheckQuality(const CScCertificate& cert)                      const { return base->CheckQuality(cert); }
-uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
-uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
-void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
+bool CCoinsViewBacked::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree)   const { return base->GetAnchorAt(rt, tree); }
+bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier)                          const { return base->GetNullifier(nullifier); }
+bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins)                    const { return base->GetCoins(txid, coins); }
+bool CCoinsViewBacked::HaveCoins(const uint256 &txid)                                  const { return base->HaveCoins(txid); }
+bool CCoinsViewBacked::HaveSidechain(const uint256& scId)                              const { return base->HaveSidechain(scId); }
+bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)             const { return base->GetSidechain(scId,info); }
+bool CCoinsViewBacked::HaveSidechainEvents(int height)                                 const { return base->HaveSidechainEvents(height); }
+bool CCoinsViewBacked::GetSidechainEvents(int height, CSidechainEvents& scEvents)      const { return base->GetSidechainEvents(height, scEvents); }
+void CCoinsViewBacked::GetScIds(std::set<uint256>& scIdsList)                          const { return base->GetScIds(scIdsList); }
+bool CCoinsViewBacked::CheckQuality(const CScCertificate& cert)                        const { return base->CheckQuality(cert); }
+uint256 CCoinsViewBacked::GetBestBlock()                                               const { return base->GetBestBlock(); }
+uint256 CCoinsViewBacked::GetBestAnchor()                                              const { return base->GetBestAnchor(); }
+
 bool CCoinsViewBacked::HaveCswNullifier(const uint256& scId,
-                                       const libzendoomc::ScFieldElement &nullifier) const { return base->HaveCswNullifier(scId,nullifier); }
-bool CCoinsViewBacked::GetCertDataHash(const uint256& scId, const int epoch,
-                                       libzendoomc::ScFieldElement& certDataHash) const {return base->GetCertDataHash(scId, epoch, certDataHash);};
-bool CCoinsViewBacked::GetCertDataCumulativeHash(const uint256& scId, const int epoch,
-                                                 libzendoomc::ScFieldElement& certDataCumulativeHash) const {return base->GetCertDataCumulativeHash(scId, epoch, certDataCumulativeHash);}
+                                        const libzendoomc::ScFieldElement &nullifier)  const { return base->HaveCswNullifier(scId,nullifier); }
+
+bool CCoinsViewBacked::HaveCertDataHashes(const uint256& scId, const int epoch)        const { return base->HaveCertDataHashes(scId, epoch); }
+bool CCoinsViewBacked::GetCertDataHashes(const uint256& scId, const int epoch,
+                                         std::pair<libzendoomc::ScFieldElement,
+                                         libzendoomc::ScFieldElement>& certDataHashes) const { return base->GetCertDataHashes(scId, epoch, certDataHashes); }
+
+void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
 bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                                   const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                                   CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
@@ -376,6 +379,43 @@ CSidechainEventsMap::iterator CCoinsViewCache::ModifySidechainEvents(int height)
         ret = cacheSidechainEvents.insert(std::make_pair(height, CSidechainEventsCacheEntry(tmp, CSidechainEventsCacheEntry::Flags::DEFAULT ))).first;
 
     cachedCoinsUsage += ret->second.scEvents.DynamicMemoryUsage();
+    return ret;
+}
+
+CCertDataHashMap::iterator CCoinsViewCache::ModifyCertDataEntry(const uint256& scId, const int epoch)
+{
+    auto key = std::make_pair(scId, epoch);
+    CCertDataHashMap::iterator candidateIt = cacheCertDataHashes.find(key);
+    if (candidateIt != cacheCertDataHashes.end())
+        return candidateIt;
+
+    CCertDataHashMap::iterator ret = cacheCertDataHashes.end();
+    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> baseData;
+    if (!base->GetCertDataHashes(scId, epoch, baseData))
+        ret = cacheCertDataHashes.insert(std::make_pair(key, CCertDataHashCacheEntry(baseData, CCertDataHashCacheEntry::Flags::FRESH))).first;
+    else
+        ret = cacheCertDataHashes.insert(std::make_pair(key, CCertDataHashCacheEntry(baseData, CCertDataHashCacheEntry::Flags::DEFAULT))).first;
+
+    //cachedCoinsUsage += ret->second.scEvents.DynamicMemoryUsage(); //TODO
+    return ret;
+}
+
+CCertDataHashMap::const_iterator CCoinsViewCache::FetchCertDataEntry(const uint256& scId, const int epoch) const {
+    auto key = std::make_pair(scId, epoch);
+    CCertDataHashMap::iterator candidateIt = cacheCertDataHashes.find(key);
+    if (candidateIt != cacheCertDataHashes.end())
+        return candidateIt;
+
+    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> baseData;
+    if (!base->GetCertDataHashes(scId, epoch, baseData))
+        return cacheCertDataHashes.end();
+
+    //Fill cache and return iterator. The insert in cache below looks cumbersome. However
+    //it allows to insert CCertDataHashCacheEntry and keep iterator to inserted member without extra searches
+    CCertDataHashMap::iterator ret = cacheCertDataHashes.insert(std::make_pair(key,
+        CCertDataHashCacheEntry(baseData, CCertDataHashCacheEntry::Flags::DEFAULT))).first;
+
+    //cachedCoinsUsage += ret->second.scEvents.DynamicMemoryUsage(); //TODO
     return ret;
 }
 
@@ -559,7 +599,7 @@ bool CCoinsViewCache::HaveCswNullifier(const uint256& scId,
     
     CCswNullifiersMap::iterator it = cacheCswNullifiers.find(position);
     if (it != cacheCswNullifiers.end())
-        return (it->second.flag = CCswNullifiersCacheEntry::ERASED);
+        return (it->second.flag == CCswNullifiersCacheEntry::ERASED);
 
     bool tmp = base->HaveCswNullifier(scId, nullifier);
 
@@ -572,105 +612,84 @@ bool CCoinsViewCache::HaveCswNullifier(const uint256& scId,
     return tmp;
 }
 
-void CCoinsViewCache::UpdateCertDataHash(const uint256& scId, const int epoch, const libzendoomc::ScFieldElement &certDataHash) {
-    std::pair<uint256, int> position = std::make_pair(scId, epoch);
-    
-    CCertDataHashMap::iterator it = cacheCertDataHashes.find(position);
-    if (it != cacheCertDataHashes.end()) {
-        // Updating the certificate data that already exist in cache
-        it->second.certDataHash = certDataHash;
-        it->second.flag = CCertDataHashCacheEntry::DIRTY;
-        return;
+
+bool CCoinsViewCache::HaveCertDataHashes(const uint256& scId, const int epoch) const {
+    CCertDataHashMap::const_iterator it = FetchCertDataEntry(scId, epoch);
+    if (it != cacheCertDataHashes.end() && it->second.flag != CCertDataHashCacheEntry::Flags::ERASED)
+        return true;
+
+    return false;
+}
+
+bool CCoinsViewCache::GetCertDataHashes(const uint256& scId, const int epoch,
+                       std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement>& certDataHashes) const
+{
+    CCertDataHashMap::const_iterator it = FetchCertDataEntry(scId, epoch);
+    if (it != cacheCertDataHashes.end() && it->second.flag != CCertDataHashCacheEntry::Flags::ERASED) {
+        certDataHashes.first = it->second.certDataHash;
+        certDataHashes.second = it->second.prevEpochCumulativeCertDataHash;
+        return true;
     }
 
-    libzendoomc::ScFieldElement tmp;
-    bool res = base->GetCertDataHash(scId, epoch, tmp);
+    return false;
+}
 
-    if (res) {
-        // Updating certificate that already exist in db
-        std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
-        ret.first->second.flag = CCertDataHashCacheEntry::DIRTY;
-        ret.first->second.certDataHash = certDataHash;
-        base->GetCertDataCumulativeHash(scId, epoch, tmp);
-        ret.first->second.certDataCumulativeHash = tmp;
-    } else {
-        // Creating new entry
-        libzendoomc::ScFieldElement prevCertDataCumulativeHash;
-        libzendoomc::ScFieldElement prevCertDataHash;
-        libzendoomc::ScFieldElement certDataCumulativeHash;
-        if (GetCertDataCumulativeHash(scId, epoch - 1, prevCertDataCumulativeHash)
-            && GetCertDataHash(scId, epoch - 1, prevCertDataHash)) {
-            libzendoomc::CalculateCumulativeCertDataHash(prevCertDataCumulativeHash, prevCertDataHash, certDataCumulativeHash);
+bool CCoinsViewCache::UpdateCertDataHash(const CScCertificate& cert, CBlockUndo& blockUndo) {
+    if (!HaveSidechain(cert.GetScId()))
+        return false;
+
+    const libzendoomc::ScFieldElement &certDataHash = libzendoomc::CalculateCertDataHash(cert);
+    if (HaveCertDataHashes(cert.GetScId(), cert.epochNumber))
+    {
+        CCertDataHashMap::iterator certDataHashIt = ModifyCertDataEntry(cert.GetScId(), cert.epochNumber);
+
+        blockUndo.scUndoDatabyScId[cert.GetScId()].prevTopCommittedCertDataHash = certDataHashIt->second.certDataHash;
+        blockUndo.scUndoDatabyScId[cert.GetScId()].contentBitMask |= CSidechainUndoData::AvailableSections::CERT_DATA_HASH;
+
+        certDataHashIt->second.certDataHash = certDataHash;
+        certDataHashIt->second.flag = CCertDataHashCacheEntry::Flags::DIRTY;
+    } else
+    {
+        bool HasPrevEpochCertDataHash = HaveCertDataHashes(cert.GetScId(), cert.epochNumber-1);
+
+        //cert referencing epoch 0 won't have a previousEpochCumulativeCertDataHash. All other certs must have
+        if ((cert.epochNumber != 0) && !HasPrevEpochCertDataHash)
+            return false;
+
+        libzendoomc::ScFieldElement updatedprevEpochCumulativeCertDataHash = libzendoomc::ScFieldElement();
+        if (HasPrevEpochCertDataHash)
+        {
+            CCertDataHashMap::const_iterator prevCertDataHashIt = FetchCertDataEntry(cert.GetScId(), cert.epochNumber-1);
+            const auto & prevEpochCertDataHash = prevCertDataHashIt->second.certDataHash;
+            const auto & prevEpochCumulativeCertDataHash = prevCertDataHashIt->second.prevEpochCumulativeCertDataHash;
+            libzendoomc::CalculateCumulativeCertDataHash(prevEpochCumulativeCertDataHash, prevEpochCertDataHash, updatedprevEpochCumulativeCertDataHash);
         }
 
-        std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
-        ret.first->second.certDataHash = certDataHash;
-        ret.first->second.certDataCumulativeHash = certDataCumulativeHash;
-        ret.first->second.flag = CCertDataHashCacheEntry::FRESH;
+        CCertDataHashMap::iterator certDataHashIt = ModifyCertDataEntry(cert.GetScId(), cert.epochNumber);
+        certDataHashIt->second.certDataHash = certDataHash;
+        certDataHashIt->second.prevEpochCumulativeCertDataHash = updatedprevEpochCumulativeCertDataHash;
     }
+
+    return true;
 }
 
-bool CCoinsViewCache::GetCertDataHash(const uint256& scId,
-                     const int epoch,
-                     libzendoomc::ScFieldElement& certDataHash) const {
-    std::pair<uint256, int> position = std::make_pair(scId, epoch);
-    
-    CCertDataHashMap::iterator it = cacheCertDataHashes.find(position);
-    if (it != cacheCertDataHashes.end()) {
-        certDataHash = it->second.certDataHash;
-        return true;
+bool CCoinsViewCache::RestoreCertDataHash(const CScCertificate& cert, const CBlockUndo& blockUndo) {
+    if (!HaveCertDataHashes(cert.GetScId(), cert.epochNumber))
+        return false;
+
+    CCertDataHashMap::iterator certDataHashIt = ModifyCertDataEntry(cert.GetScId(), cert.epochNumber);
+
+    if(blockUndo.scUndoDatabyScId.count(cert.GetScId()) &&
+       (blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::CERT_DATA_HASH))
+    {
+        certDataHashIt->second.certDataHash = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertDataHash;
+        certDataHashIt->second.flag = CCertDataHashCacheEntry::Flags::DIRTY;
+    } else
+    {
+        certDataHashIt->second.flag = CCertDataHashCacheEntry::Flags::ERASED;
     }
 
-    libzendoomc::ScFieldElement tmp;
-    bool res = base->GetCertDataHash(scId, epoch, tmp);
-
-    if (res) {
-        certDataHash = tmp;
-        
-        std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
-        ret.first->second.flag = CCertDataHashCacheEntry::DEFAULT;
-        ret.first->second.certDataHash = tmp;
-        base->GetCertDataCumulativeHash(scId, epoch, tmp);
-        ret.first->second.certDataCumulativeHash = tmp;
-    }
-
-    return res;
-}
-
-bool CCoinsViewCache::GetCertDataCumulativeHash(const uint256& scId,
-                                                const int epoch,
-                                                libzendoomc::ScFieldElement& certDataCumulativeHash) const {
-
-    std::pair<uint256, int> position = std::make_pair(scId, epoch);
-
-    CCertDataHashMap::iterator it = cacheCertDataHashes.find(position);
-    if (it != cacheCertDataHashes.end()) {
-        certDataCumulativeHash = it->second.certDataCumulativeHash;
-        return true;
-    }
-
-    libzendoomc::ScFieldElement tmp;
-    bool res = base->GetCertDataCumulativeHash(scId, epoch, tmp);
-
-    if (res) {
-        certDataCumulativeHash = tmp;
-        
-        std::pair<CCertDataHashMap::iterator, bool> ret = cacheCertDataHashes.insert(std::make_pair(position, CCertDataHashCacheEntry()));
-        ret.first->second.flag = CCertDataHashCacheEntry::DEFAULT;
-        ret.first->second.certDataCumulativeHash = tmp;
-        base->GetCertDataHash(scId, epoch, tmp);
-        ret.first->second.certDataHash = tmp;
-    }
-
-    return res;     
-}
-
-void CCoinsViewCache::RemoveCertDataHash(const uint256& scId, const int epoch) {
-    std::pair<uint256, int> position = std::make_pair(scId, epoch);
-    CCertDataHashMap::iterator it = cacheCertDataHashes.find(position);
-    if (it != cacheCertDataHashes.end()) {
-        it->second.flag = CCertDataHashCacheEntry::ERASED;
-    }
+    return true;
 }
 
 bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
@@ -971,7 +990,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         if (!HaveSidechain(csw.scId))
         {
             // should not happen
-            LogPrint("sc", "ERROR: %s():%d - Can not update balance, could not find scId=%s\n",
+            LogPrintf("ERROR: %s():%d - Can not update balance, could not find scId=%s\n",
                 __func__, __LINE__, csw.scId.ToString() );
             return false;
         }
@@ -992,7 +1011,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
     {
         const uint256& scId = cr.GetScId();
         if (HaveSidechain(scId)) {
-            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, scId.ToString() );
+            LogPrintf("ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
 
@@ -1025,7 +1044,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         if (!HaveSidechain(ft.scId))
         {
             // should not happen
-            LogPrint("sc", "%s():%d - Can not update balance, could not find scId=%s\n",
+            LogPrintf("%s():%d - Can not update balance, could not find scId=%s\n",
                 __func__, __LINE__, ft.scId.ToString() );
             return false;
         }
@@ -1057,7 +1076,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         if (!HaveSidechain(scId))
         {
             // should not happen
-            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+            LogPrintf("ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
 
@@ -1065,7 +1084,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         if (!DecrementImmatureAmount(scId, scIt, entry.nValue, maturityHeight) )
         {
             // should not happen
-            LogPrint("sc", "ERROR %s():%d - scId=%s could not handle immature balance at height%d\n",
+            LogPrintf("ERROR %s():%d - scId=%s could not handle immature balance at height%d\n",
                 __func__, __LINE__, scId.ToString(), maturityHeight);
             return false;
         }
@@ -1080,7 +1099,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         if (!HaveSidechain(scId))
         {
             // should not happen
-            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+            LogPrintf("ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
 
@@ -1088,7 +1107,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         if (!DecrementImmatureAmount(scId, scIt, entry.nValue, maturityHeight) )
         {
             // should not happen
-            LogPrint("sc", "ERROR %s():%d - scId=%s could not handle immature balance at height%d\n",
+            LogPrintf("ERROR %s():%d - scId=%s could not handle immature balance at height%d\n",
                 __func__, __LINE__, scId.ToString(), maturityHeight);
             return false;
         }
@@ -1096,7 +1115,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         if (scIt->second.scInfo.balance > 0)
         {
             // should not happen either
-            LogPrint("sc", "ERROR %s():%d - scId=%s balance not null: %s\n",
+            LogPrintf("ERROR %s():%d - scId=%s balance not null: %s\n",
                 __func__, __LINE__, scId.ToString(), FormatMoney(scIt->second.scInfo.balance));
             return false;
         }
@@ -1113,7 +1132,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         if (!HaveSidechain(csw.scId))
         {
             // should not happen
-            LogPrint("sc", "ERROR: %s():%d - Can not update balance, could not find scId=%s\n",
+            LogPrintf("ERROR: %s():%d - Can not update balance, could not find scId=%s\n",
                 __func__, __LINE__, csw.scId.ToString() );
             return false;
         }
@@ -1157,6 +1176,9 @@ bool libzendoomc::CScProofVerifier::verifyCScCertificate(
 bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx) { return true; }
 size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
+bool UpdateCertDataHash(const CScCertificate& cert, CBlockUndo& blockUndo) {return false;}
+bool RestoreCertDataHash(const CScCertificate& cert, const CBlockUndo& blockUndo) {return false;}
+libzendoomc::ScFieldElement libzendoomc::CalculateCertDataHash(const CScCertificate& cert) {return libzendoomc::ScFieldElement{};}
 #else
 
 #include "consensus/validation.h"
@@ -1169,25 +1191,25 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
 
     for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
     {
-        CSidechain scInfo;
-        if (!GetSidechain(csw.scId, scInfo))
+        CSidechain sidechain;
+        if (!GetSidechain(csw.scId, sidechain))
         {
-            LogPrint("sc", "%s():%d - tx[%s] CSW input [%s] refers to scId not yet created\n",
+            LogPrintf("%s():%d - tx[%s] CSW input [%s] refers to unknown scId\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString() );
             return state.Invalid(error("scid does not exist"),
                  REJECT_INVALID, "tx-csw-input-scid-missed");
         }
 
-        if ((CSidechain::State)scInfo.currentState != CSidechain::State::CEASED) {
-            LogPrintf("sc", "ERROR: Tx[%s] CSW input [%s] cannot be accepted, sidechain not ceased at height = %d\n",
+        if ((CSidechain::State)sidechain.currentState != CSidechain::State::CEASED) {
+            LogPrintf("ERROR: Tx[%s] CSW input [%s] cannot be accepted, sidechain not ceased at height = %d\n",
                 tx.ToString(), csw.ToString(), chainActive.Height());
             return state.Invalid(error("received a csw for not ceased sidechain"),
                          REJECT_INVALID, "tx-csw-input-scid-not-ceased");
         }
 
-        if(!scInfo.creationData.wCeasedVk.is_initialized())
+        if(!sidechain.creationData.wCeasedVk.is_initialized())
         {
-            LogPrint("sc", "%s():%d - tx[%s] CSW input [%s] refers to SC without CSW support\n",
+            LogPrintf("%s():%d - tx[%s] CSW input [%s] refers to SC without CSW support\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString() );
             return state.Invalid(error("received a csw for sc without CSW support"),
                  REJECT_INVALID, "tx-csw-input-sc-without-csw-support");
@@ -1203,14 +1225,26 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
             }
         }
 
-        const libzendoomc::ScFieldElement& prevCumulativeCertDataHash = libzendoomc::ScFieldElement(); // GetCumulativeCertDataHash(csw.scId, csw.nEpoch - 1);
-        const libzendoomc::ScFieldElement& currentCertDataHash = libzendoomc::ScFieldElement(); // GetCertDataHash(csw.scId, csw.nEpoch);
-        const libzendoomc::ScFieldElement& lastCumulativeCertDataHash = libzendoomc::ScFieldElement(); // GetLastCumulativeCertDataHash(csw.scId);
+        std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> certDataHashes;
+        if (!this->GetCertDataHashes(csw.scId, csw.nEpoch, certDataHashes))
+            return state.Invalid(error("missing cert data hash for required scId/epoch"),
+                 REJECT_INVALID, "tx-csw-missing-cert-data-hash");
+
+        const libzendoomc::ScFieldElement& prevCumulativeCertDataHash = certDataHashes.second;
+        const libzendoomc::ScFieldElement& currentCertDataHash = certDataHashes.first;
+
+        std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> finalCertDataHashes;
+        if (!this->GetCertDataHashes(csw.scId, sidechain.prevBlockTopQualityCertReferencedEpoch-1, finalCertDataHashes))
+            return state.Invalid(error("missing cert data hash for final scId/epoch"),
+                 REJECT_INVALID, "tx-csw-missing-cert-data-hash");
+
+        libzendoomc::ScFieldElement lastCumulativeCertDataHash = libzendoomc::ScFieldElement();
+        libzendoomc::CalculateCumulativeCertDataHash(finalCertDataHashes.second, finalCertDataHashes.first, lastCumulativeCertDataHash);
         //TODO: check that field elements are not null/empty.
 
         // Verify CSW proof
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(prevCumulativeCertDataHash, currentCertDataHash,
-                                                                lastCumulativeCertDataHash, scInfo.creationData.wCeasedVk.get(), csw))
+                                                                lastCumulativeCertDataHash, sidechain.creationData.wCeasedVk.get(), csw))
         {
             LogPrintf("ERROR: tx[%s] CSW input [%s] cannot be accepted: proof verification failed\n",
                 tx.ToString(), csw.ToString());
@@ -1246,7 +1280,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     CSidechain scInfo;
     if (!GetSidechain(cert.GetScId(), scInfo))
     {
-        LogPrint("sc", "%s():%d - cert[%s] refers to scId[%s] not yet created\n",
+        LogPrintf("%s():%d - cert[%s] refers to scId[%s] not yet created\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
         return state.Invalid(error("scid does not exist"),
              REJECT_INVALID, "sidechain-certificate-scid");
@@ -1255,7 +1289,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     // check that epoch data are consistent
     if (!isEpochDataValid(scInfo, cert.epochNumber, cert.endEpochBlockHash) )
     {
-        LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s] invalid epoch data\n",
+        LogPrintf("%s():%d - invalid cert[%s], scId[%s] invalid epoch data\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
         return state.Invalid(error("certificate with invalid epoch"),
              REJECT_INVALID, "sidechain-certificate-epoch");
@@ -1263,7 +1297,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
 
     if (nHeight < scInfo.StartHeightForEpoch(cert.epochNumber+1))
     {
-        LogPrint("sc", "%s():%d - invalid cert[%s] received too early (cert epoch %d, current height %d, current epoch %d)\n",
+        LogPrintf("%s():%d - invalid cert[%s] received too early (cert epoch %d, current height %d, current epoch %d)\n",
             __func__, __LINE__, certHash.ToString(), cert.epochNumber, nHeight, scInfo.prevBlockTopQualityCertReferencedEpoch+1);
         return state.Invalid(error("cert epoch not acceptable at this height"),
              REJECT_INVALID, "sidechain-certificate-epoch");
@@ -1294,7 +1328,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
 
     if (bwtTotalAmount > scBalance)
     {
-        LogPrint("sc", "%s():%d - insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
+        LogPrintf("%s():%d - insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
             __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
         return state.Invalid(error("insufficient balance"),
                      REJECT_INVALID, "sidechain-insufficient-balance");
@@ -1389,7 +1423,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
         const uint256& scId = sc.GetScId();
         if (HaveSidechain(scId))
         {
-            LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
+            LogPrintf("%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
                 __func__, __LINE__, txHash.ToString(), scId.ToString());
             return false;
         }
@@ -1412,7 +1446,7 @@ bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx)
             }
         } else {
             if (!Sidechain::hasScCreationOutput(tx, scId)) {
-                LogPrint("sc", "%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
+                LogPrintf("%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
                         __func__, __LINE__, txHash.ToString(), scId.ToString() );
                 return false;
             }
@@ -1450,7 +1484,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     if (!HaveSidechain(scId))
     {
         // should not happen
-        LogPrint("cert", "%s():%d - Can not update balance, could not find scId=%s\n",
+        LogPrintf("%s():%d - Can not update balance, could not find scId=%s\n",
             __func__, __LINE__, scId.ToString() );
         return false;
     }
@@ -1464,11 +1498,6 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
     blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertQuality         = scIt->second.scInfo.prevBlockTopQualityCertQuality;
     blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertBwtAmount       = scIt->second.scInfo.prevBlockTopQualityCertBwtAmount;
     blockUndo.scUndoDatabyScId[scId].contentBitMask |= CSidechainUndoData::AvailableSections::SIDECHAIN_STATE;
-
-    libzendoomc::ScFieldElement dbCertDataHash;
-    GetCertDataHash(scId, cert.epochNumber, dbCertDataHash);
-    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertDataHash = dbCertDataHash;
-    blockUndo.scUndoDatabyScId[scId].contentBitMask |= CSidechainUndoData::AvailableSections::CERT_DATA_HASH;
 
     if (scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch != cert.epochNumber)
     {
@@ -1531,7 +1560,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
         else
         {
             // should never happen if certs are ordered by quality in a block
-            LogPrint("cert", "%s():%d - cert quality %d not greater than last seen %d", 
+            LogPrintf("%s():%d - cert quality %d not greater than last seen %d", 
                 __func__, __LINE__, cert.quality, scIt->second.scInfo.prevBlockTopQualityCertQuality);
             return false;
         }
@@ -1628,7 +1657,7 @@ bool CCoinsViewCache::RestoreScInfo(const CScCertificate& certToRevert, const CS
     if (!HaveSidechain(scId))
     {
         // should not happen
-        LogPrint("cert", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+        LogPrintf("ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
         return false;
     }
 
@@ -1664,9 +1693,6 @@ bool CCoinsViewCache::RestoreScInfo(const CScCertificate& certToRevert, const CS
     scIt->second.scInfo.prevBlockTopQualityCertQuality         = sidechainUndo.prevTopCommittedCertQuality;
     scIt->second.scInfo.prevBlockTopQualityCertBwtAmount       = sidechainUndo.prevTopCommittedCertBwtAmount;
 
-    assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::CERT_DATA_HASH);
-    UpdateCertDataHash(scId, certToRevert.epochNumber, sidechainUndo.prevTopCommittedCertDataHash);
-
     scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
     return true;
@@ -1692,7 +1718,7 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CTxScCreationOut& scCreationO
 {
     CSidechain scInfo;
     if (!this->GetSidechain(scCreationOut.GetScId(), scInfo)) {
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: attempt schedule maturing scCreation for unknown scId[%s]\n",
+        LogPrintf("%s():%d - SIDECHAIN-EVENT: attempt schedule maturing scCreation for unknown scId[%s]\n",
             __func__, __LINE__, scCreationOut.GetScId().ToString());
         return false;
     }
@@ -2033,7 +2059,7 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
         if (!HaveSidechain(scId))
         {
             // should not happen
-            LogPrint("sc", "ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
+            LogPrintf("ERROR: %s():%d - scId=%s not in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
 
@@ -2133,7 +2159,7 @@ bool CCoinsViewCache::DecrementImmatureAmount(const uint256& scId, const CSidech
     if (!iaMap.count(maturityHeight) )
     {
         // should not happen
-        LogPrint("sc", "ERROR %s():%d - could not find immature balance at height%d\n",
+        LogPrintf("ERROR %s():%d - could not find immature balance at height%d\n",
             __func__, __LINE__, maturityHeight);
         return false;
     }
@@ -2144,7 +2170,7 @@ bool CCoinsViewCache::DecrementImmatureAmount(const uint256& scId, const CSidech
     if (iaMap[maturityHeight] < nValue)
     {
         // should not happen either
-        LogPrint("sc", "ERROR %s():%d - negative balance at height=%d\n",
+        LogPrintf("ERROR %s():%d - negative balance at height=%d\n",
             __func__, __LINE__, maturityHeight);
         return false;
     }
