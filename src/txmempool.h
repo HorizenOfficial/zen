@@ -190,6 +190,9 @@ public:
      * check does nothing.
      */
     void check(const CCoinsViewCache *pcoins) const;
+    bool checkIncomingTxConflicts(const CTransaction& incomingTx) const;
+    bool checkIncomingCertConflicts(const CScCertificate& incomingCert) const;
+
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
     std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality);
@@ -294,12 +297,6 @@ public:
     {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).scCreationTxHash.IsNull());
-    }
-
-    bool hasSidechainCswTx(uint256 scId, libzendoomc::ScFieldElement nullifier) const
-    {
-        LOCK(cs);
-        return mapSidechains.count(scId) != 0 && mapSidechains.at(scId).cswNullifiers.count(nullifier) != 0;
     }
 
     bool lookup(uint256 hash, CTransaction& result) const;

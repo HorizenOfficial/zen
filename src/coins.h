@@ -695,9 +695,6 @@ public:
                            std::pair<libzendoomc::ScFieldElement,
                            libzendoomc::ScFieldElement>& certDataHashes) const override;
 
-    bool UpdateCertDataHash(const CTxScCreationOut& scCreationOut);
-    bool RestoreCertDataHash(const CTxScCreationOut& scCreationOut);
-
     bool UpdateCertDataHash(const CScCertificate& cert, CBlockUndo& blockUndo);
     bool RestoreCertDataHash(const CScCertificate& cert, const CBlockUndo& blockUndo);
 
@@ -742,6 +739,7 @@ private:
     const CSidechain* const             AccessSidechain(const uint256& scId);
     CSidechainEventsMap::const_iterator FetchSidechainEvents(int height)      const;
     CSidechainEventsMap::iterator       ModifySidechainEvents(int height);
+    CCertDataHashMap::iterator          ModifyCertDataEntry(const uint256& scId, const int epoch);
     CCertDataHashMap::const_iterator    FetchCertDataEntry(const uint256& scId, const int epoch) const;
 
     static int getInitScCoinsMaturity();

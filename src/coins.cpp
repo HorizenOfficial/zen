@@ -382,6 +382,24 @@ CSidechainEventsMap::iterator CCoinsViewCache::ModifySidechainEvents(int height)
     return ret;
 }
 
+CCertDataHashMap::iterator CCoinsViewCache::ModifyCertDataEntry(const uint256& scId, const int epoch)
+{
+    auto key = std::make_pair(scId, epoch);
+    CCertDataHashMap::iterator candidateIt = cacheCertDataHashes.find(key);
+    if (candidateIt != cacheCertDataHashes.end())
+        return candidateIt;
+
+    CCertDataHashMap::iterator ret = cacheCertDataHashes.end();
+    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> baseData;
+    if (!base->GetCertDataHashes(scId, epoch, baseData))
+        ret = cacheCertDataHashes.insert(std::make_pair(key, CCertDataHashCacheEntry(baseData, CCertDataHashCacheEntry::Flags::FRESH))).first;
+    else
+        ret = cacheCertDataHashes.insert(std::make_pair(key, CCertDataHashCacheEntry(baseData, CCertDataHashCacheEntry::Flags::DEFAULT))).first;
+
+    //cachedCoinsUsage += ret->second.scEvents.DynamicMemoryUsage(); //TODO
+    return ret;
+}
+
 CCertDataHashMap::const_iterator CCoinsViewCache::FetchCertDataEntry(const uint256& scId, const int epoch) const {
     auto key = std::make_pair(scId, epoch);
     CCertDataHashMap::iterator candidateIt = cacheCertDataHashes.find(key);
@@ -393,7 +411,7 @@ CCertDataHashMap::const_iterator CCoinsViewCache::FetchCertDataEntry(const uint2
         return cacheCertDataHashes.end();
 
     //Fill cache and return iterator. The insert in cache below looks cumbersome. However
-    //it allows to insert CCeasingSidechains and keep iterator to inserted member without extra searches
+    //it allows to insert CCertDataHashCacheEntry and keep iterator to inserted member without extra searches
     CCertDataHashMap::iterator ret = cacheCertDataHashes.insert(std::make_pair(key,
         CCertDataHashCacheEntry(baseData, CCertDataHashCacheEntry::Flags::DEFAULT))).first;
 
@@ -613,50 +631,40 @@ bool CCoinsViewCache::GetCertDataHashes(const uint256& scId, const int epoch,
     return false;
 }
 
-bool CCoinsViewCache::UpdateCertDataHash(const CTxScCreationOut& scCreationOut) {
-    if(!HaveSidechain(scCreationOut.GetScId()))
-        return false;
-
-    libzendoomc::ScFieldElement nullCertDataHash{};
-    CCertDataHashCacheEntry newEntry{std::make_pair(nullCertDataHash, nullCertDataHash),CCertDataHashCacheEntry::Flags::FRESH};
-    this->cacheCertDataHashes[std::make_pair(scCreationOut.GetScId(), 0)] = newEntry;
-    return true;
-}
-
-bool CCoinsViewCache::RestoreCertDataHash(const CTxScCreationOut& scCreationOut) {
-    if(!HaveCertDataHashes(scCreationOut.GetScId(), 0))
-        return false;
-
-    this->cacheCertDataHashes.at(std::make_pair(scCreationOut.GetScId(), 0)).flag = CCertDataHashCacheEntry::Flags::ERASED;
-    return true;
-}
-
 bool CCoinsViewCache::UpdateCertDataHash(const CScCertificate& cert, CBlockUndo& blockUndo) {
     if (!HaveSidechain(cert.GetScId()))
         return false;
 
     const libzendoomc::ScFieldElement &certDataHash = libzendoomc::CalculateCertDataHash(cert);
-
     if (HaveCertDataHashes(cert.GetScId(), cert.epochNumber))
     {
-        //pick or create scId entry in scUndoDatabyScId
-        blockUndo.scUndoDatabyScId[cert.GetScId()].prevTopCommittedCertDataHash = this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).certDataHash;
+        CCertDataHashMap::iterator certDataHashIt = ModifyCertDataEntry(cert.GetScId(), cert.epochNumber);
+
+        blockUndo.scUndoDatabyScId[cert.GetScId()].prevTopCommittedCertDataHash = certDataHashIt->second.certDataHash;
         blockUndo.scUndoDatabyScId[cert.GetScId()].contentBitMask |= CSidechainUndoData::AvailableSections::CERT_DATA_HASH;
 
-        this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).certDataHash = certDataHash;
-        this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).flag = CCertDataHashCacheEntry::Flags::DIRTY;
+        certDataHashIt->second.certDataHash = certDataHash;
+        certDataHashIt->second.flag = CCertDataHashCacheEntry::Flags::DIRTY;
     } else
     {
-        if (!HaveCertDataHashes(cert.GetScId(), cert.epochNumber-1))
+        bool HasPrevEpochCertDataHash = HaveCertDataHashes(cert.GetScId(), cert.epochNumber-1);
+
+        //cert referencing epoch 0 won't have a previousEpochCumulativeCertDataHash. All other certs must have
+        if ((cert.epochNumber != 0) && !HasPrevEpochCertDataHash)
             return false;
 
-        libzendoomc::ScFieldElement updatedprevEpochCumulativeCertDataHash;
-        const auto & prevEpochCertDataHash = this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber-1)).certDataHash;
-        const auto & prevEpochCumulativeCertDataHash = this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber-1)).prevEpochCumulativeCertDataHash;
-        libzendoomc::CalculateCumulativeCertDataHash(prevEpochCumulativeCertDataHash, prevEpochCertDataHash, updatedprevEpochCumulativeCertDataHash);
+        libzendoomc::ScFieldElement updatedprevEpochCumulativeCertDataHash = libzendoomc::ScFieldElement();
+        if (HasPrevEpochCertDataHash)
+        {
+            CCertDataHashMap::const_iterator prevCertDataHashIt = FetchCertDataEntry(cert.GetScId(), cert.epochNumber-1);
+            const auto & prevEpochCertDataHash = prevCertDataHashIt->second.certDataHash;
+            const auto & prevEpochCumulativeCertDataHash = prevCertDataHashIt->second.prevEpochCumulativeCertDataHash;
+            libzendoomc::CalculateCumulativeCertDataHash(prevEpochCumulativeCertDataHash, prevEpochCertDataHash, updatedprevEpochCumulativeCertDataHash);
+        }
 
-        CCertDataHashCacheEntry newEntry{std::make_pair(certDataHash, updatedprevEpochCumulativeCertDataHash),CCertDataHashCacheEntry::Flags::FRESH};
-        this->cacheCertDataHashes[std::make_pair(cert.GetScId(), cert.epochNumber)] = newEntry;
+        CCertDataHashMap::iterator certDataHashIt = ModifyCertDataEntry(cert.GetScId(), cert.epochNumber);
+        certDataHashIt->second.certDataHash = certDataHash;
+        certDataHashIt->second.prevEpochCumulativeCertDataHash = updatedprevEpochCumulativeCertDataHash;
     }
 
     return true;
@@ -666,14 +674,16 @@ bool CCoinsViewCache::RestoreCertDataHash(const CScCertificate& cert, const CBlo
     if (!HaveCertDataHashes(cert.GetScId(), cert.epochNumber))
         return false;
 
+    CCertDataHashMap::iterator certDataHashIt = ModifyCertDataEntry(cert.GetScId(), cert.epochNumber);
+
     if(blockUndo.scUndoDatabyScId.count(cert.GetScId()) &&
        (blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::CERT_DATA_HASH))
     {
-        this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).certDataHash = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertDataHash;
-        this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).flag = CCertDataHashCacheEntry::Flags::DIRTY;
+        certDataHashIt->second.certDataHash = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertDataHash;
+        certDataHashIt->second.flag = CCertDataHashCacheEntry::Flags::DIRTY;
     } else
     {
-        this->cacheCertDataHashes.at(std::make_pair(cert.GetScId(), cert.epochNumber)).flag = CCertDataHashCacheEntry::Flags::ERASED;
+        certDataHashIt->second.flag = CCertDataHashCacheEntry::Flags::ERASED;
     }
 
     return true;
@@ -1163,8 +1173,6 @@ bool libzendoomc::CScProofVerifier::verifyCScCertificate(
 bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx) { return true; }
 size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
-bool UpdateCertDataHash(const CTxScCreationOut& scCreationOut) {return false;}
-bool RestoreCertDataHash(const CTxScCreationOut& scCreationOut) {return false;}
 bool UpdateCertDataHash(const CScCertificate& cert, CBlockUndo& blockUndo) {return false;}
 bool RestoreCertDataHash(const CScCertificate& cert, const CBlockUndo& blockUndo) {return false;}
 libzendoomc::ScFieldElement libzendoomc::CalculateCertDataHash(const CScCertificate& cert) {return libzendoomc::ScFieldElement{};}
@@ -1221,8 +1229,14 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
 
         const libzendoomc::ScFieldElement& prevCumulativeCertDataHash = certDataHashes.second;
         const libzendoomc::ScFieldElement& currentCertDataHash = certDataHashes.first;
+
+        std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> finalCertDataHashes;
+        if (!this->GetCertDataHashes(csw.scId, sidechain.prevBlockTopQualityCertReferencedEpoch-1, finalCertDataHashes))
+            return state.Invalid(error("missing cert data hash for final scId/epoch"),
+                 REJECT_INVALID, "tx-csw-missing-cert-data-hash");
+
         libzendoomc::ScFieldElement lastCumulativeCertDataHash = libzendoomc::ScFieldElement();
-        libzendoomc::CalculateCumulativeCertDataHash(prevCumulativeCertDataHash, currentCertDataHash, lastCumulativeCertDataHash);
+        libzendoomc::CalculateCumulativeCertDataHash(finalCertDataHashes.second, finalCertDataHashes.first, lastCumulativeCertDataHash);
         //TODO: check that field elements are not null/empty.
 
         // Verify CSW proof

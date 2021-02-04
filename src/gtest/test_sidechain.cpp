@@ -607,7 +607,6 @@ TEST_F(SidechainTestSuite, CertificateUpdatesCertHashData) {
     const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
     CBlock dummyBlock;
     ASSERT_TRUE(sidechainsView->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
-    ASSERT_TRUE(sidechainsView->UpdateCertDataHash(scCreationTx.GetVscCcOut().at(0)));
 
     CBlockUndo blockUndo;
     CScCertificate cert_A = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
