@@ -587,15 +587,15 @@ bool CCoinsViewCache::HaveCswNullifier(const uint256& scId, const libzendoomc::S
         return (it->second.flag != CCswNullifiersCacheEntry::Flags::ERASED);
 
     if (!base->HaveCswNullifier(scId, nullifier))
-    	return false;
+        return false;
 
-	cacheCswNullifiers.insert(std::make_pair(key, CCswNullifiersCacheEntry{CCswNullifiersCacheEntry::Flags::DEFAULT}));
-	return true;
+    cacheCswNullifiers.insert(std::make_pair(key, CCswNullifiersCacheEntry{CCswNullifiersCacheEntry::Flags::DEFAULT}));
+    return true;
 }
 
 bool CCoinsViewCache::AddCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) {
     if (HaveCswNullifier(scId, nullifier))
-    	return false;
+        return false;
 
     std::pair<uint256, libzendoomc::ScFieldElement> key = std::make_pair(scId, nullifier);
     cacheCswNullifiers.insert(std::make_pair(key, CCswNullifiersCacheEntry{CCswNullifiersCacheEntry::Flags::FRESH}));
@@ -604,7 +604,7 @@ bool CCoinsViewCache::AddCswNullifier(const uint256& scId, const libzendoomc::Sc
 
 bool CCoinsViewCache::RemoveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) {
     if (!HaveCswNullifier(scId, nullifier))
-    	return false;
+        return false;
 
     cacheCswNullifiers.at(std::make_pair(scId, nullifier)).flag = CCswNullifiersCacheEntry::Flags::ERASED;
     return true;

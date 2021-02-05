@@ -2891,9 +2891,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
             
             for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
-                if (!view.HaveCswNullifier(cswIn.scId, cswIn.nullifier)) {
-                    view.AddCswNullifier(cswIn.scId, cswIn.nullifier);
-                } else {
+                if (!view.AddCswNullifier(cswIn.scId, cswIn.nullifier)) {
                     return state.DoS(100, error("ConnectBlock(): try to use existed nullifier Tx [%s]", tx.GetHash().ToString()),
                              REJECT_INVALID, "bad-txns-csw-input-nullifier");
                 }
