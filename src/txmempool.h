@@ -109,10 +109,8 @@ struct CSidechainMemPoolEntry
 {
     uint256 scCreationTxHash;
     std::set<uint256> fwdTransfersSet; 
-    // certificates are ordered by quality
-    std::map<int64_t, uint256> mBackwardCertificates;
-    // key - CSW nullifier, value - containing Tx hash
-    std::map<libzendoomc::ScFieldElement, uint256> cswNullifiers;
+    std::map<int64_t, uint256> mBackwardCertificates;             // cert quality  -> cert hash
+    std::map<libzendoomc::ScFieldElement, uint256> cswNullifiers; // csw nullifier -> containing Tx hash
     CAmount cswTotalAmount;
 
     // Note: in fwdTransfersSet, a tx is registered only once, even if sends multiple fwd founds to a sidechain

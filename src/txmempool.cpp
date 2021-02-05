@@ -1196,9 +1196,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
 bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
 {
-	LOCK(cs);
+    LOCK(cs);
 
-	const uint256& hash = incomingTx.GetHash();
+    const uint256& hash = incomingTx.GetHash();
     if (mapTx.count(hash) != 0) {
         LogPrint("mempool", "Dropping txid %s : already in mempool\n", hash.ToString());
         return false;
@@ -1251,7 +1251,7 @@ bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) 
 {
     LOCK(cs);
 
-	const uint256& certHash = incomingCert.GetHash();
+    const uint256& certHash = incomingCert.GetHash();
     if (mapCertificate.count(certHash) != 0) {
         return error("Dropping cert %s : already in mempool\n", certHash.ToString());
     }
@@ -1289,7 +1289,7 @@ bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) 
         if (certDep.quality >= incomingCert.quality)
         {
             return error("%s():%d - cert %s depends on worse-quality ancestorCert %s\n", __func__, __LINE__,
-            		incomingCert.GetHash().ToString(), certDep.GetHash().ToString());
+                    incomingCert.GetHash().ToString(), certDep.GetHash().ToString());
         }
     }
 

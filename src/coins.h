@@ -408,7 +408,7 @@ struct CCertDataHashCacheEntry: public CMutableSidechainCacheEntry
 
     CCertDataHashCacheEntry(): CMutableSidechainCacheEntry(Flags::DEFAULT), certDataHash(), prevEpochCumulativeCertDataHash() {}
     CCertDataHashCacheEntry(const std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> & _dataPair, Flags _flag):
-    	CMutableSidechainCacheEntry(_flag), certDataHash(_dataPair.first), prevEpochCumulativeCertDataHash(_dataPair.second) {}
+        CMutableSidechainCacheEntry(_flag), certDataHash(_dataPair.first), prevEpochCumulativeCertDataHash(_dataPair.second) {}
 };
 
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
