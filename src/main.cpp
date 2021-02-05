@@ -3320,15 +3320,9 @@ bool static DisconnectTip(CValidationState &state) {
         // in which case we don't want to evict from the mempool yet!
         mempool.removeWithAnchor(anchorBeforeDisconnect);
     }
-    mempool.removeImmatureExpenditures(pcoinsTip, pindexDelete->nHeight);
 
-    // remove CSW which Sc state is not CEASED anymore, remove FT which Sc state is not ACTIVE/UNCONFIRMED anymore.
-    dummyTxs.clear();
-    dummyCerts.clear();
-    mempool.onDisconnectRemoveOutdatedCrosschainData(pcoinsTip, dummyTxs, dummyCerts);
-
-    // remove any certificate, and possible dependancies, that refers to this block as end epoch
-    mempool.removeOutOfEpochCertificates(pindexDelete);
+    mempool.removeStaleTransactions(pcoinsTip, pindexDelete->nHeight, dummyTxs, dummyCerts);
+    mempool.removeStaleCertificates(pcoinsTip, pindexDelete->GetBlockHash(), pindexDelete->nHeight, dummyCerts);
 
     mempool.check(pcoinsTip);
     // Update chainActive and related variables.
@@ -3416,14 +3410,11 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     std::list<CScCertificate> removedCerts;
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
-
-    // remove group of CSWs which try to withdraw more coins than belongs to the specific sidechain
-    // and remove FT which Sc state is not ACTIVE anymore.
-    mempool.onConnectRemoveOutdatedCrosschainData(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeStaleTransactions(pcoinsTip, pindexNew->nHeight, removedTxs, removedCerts);
 
     mempool.check(pcoinsTip);
-    // Update chainActive & related variables.
-    UpdateTip(pindexNew);
+
+    UpdateTip(pindexNew); // Update chainActive & related variables.
 
     // Tell wallet about transactions and certificates that went from mempool to conflicted:
     for(const CTransaction &tx: removedTxs) {
