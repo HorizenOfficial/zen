@@ -780,11 +780,16 @@ TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
     EXPECT_FALSE(pcoinsTip->AccessCoins(coinBase.GetHash())->isOutputMature(0, chainActive.Height()));
 
     //test
-    mempool.removeImmatureExpenditures(pcoinsTip, chainActive.Height());
+    std::list<CTransaction> outdatedTxs;
+    std::list<CScCertificate> outdatedCerts;
+    mempool.removeStaleTransactions(pcoinsTip, chainActive.Height(), outdatedTxs, outdatedCerts);
 
     //Check
     EXPECT_FALSE(mempool.exists(mempoolTx1.GetHash()));
+    EXPECT_TRUE(std::find(outdatedTxs.begin(), outdatedTxs.end(), mempoolTx1) != outdatedTxs.end());
+
     EXPECT_FALSE(mempool.exists(mempoolTx2.GetHash()));
+    EXPECT_TRUE(std::find(outdatedTxs.begin(), outdatedTxs.end(), mempoolTx2) != outdatedTxs.end());
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DependenciesInEmptyMempool) {

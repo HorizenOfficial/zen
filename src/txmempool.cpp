@@ -481,8 +481,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
     }
 }
 
-inline bool CTxMemPool::checkTxImmatureExpenditures(
-    const CTransaction& tx, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight) 
+inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight)
 {
     for(const CTxIn& txin: tx.GetVin())
     {
@@ -537,8 +536,7 @@ inline bool CTxMemPool::checkTxImmatureExpenditures(
     return true;
 }
 
-inline bool CTxMemPool::checkCertImmatureExpenditures(
-    const CScCertificate& cert, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight)
+inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight)
 {
     for(const CTxIn& txin: cert.GetVin())
     {
@@ -588,47 +586,21 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(
     return true;
 }
 
-void CTxMemPool::removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight)
-{
-    // Remove transactions spending a coinbase or a certificate output which are now immature
-    LOCK(cs);
-    std::list<const CTransactionBase*> transactionsToRemove;
-    for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
-        const CTransaction& tx = it->second.GetTx();
-
-        if (!checkTxImmatureExpenditures(tx, pcoins, nMemPoolHeight))
-        {
-            transactionsToRemove.push_back(&tx);
-        }
-    }
-
-    // the same for certificates
-    for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator it = mapCertificate.begin(); it != mapCertificate.end(); it++) {
-        const CScCertificate& cert = it->second.GetCertificate();
-
-        if (!checkCertImmatureExpenditures(cert, pcoins, nMemPoolHeight))
-        {
-            transactionsToRemove.push_back(&cert);
-        }
-    }
-
-    std::list<CTransaction> removedTxs;
-    std::list<CScCertificate> removedCerts;
-    for(const CTransactionBase* tx: transactionsToRemove) {
-        remove(*tx, removedTxs, removedCerts, true);
-    }
-}
-
-void CTxMemPool::removeOutOfEpochCertificates(const uint256& disconnectedBlockHash)
+void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsView, const uint256& disconnectedBlockHash, unsigned int nMemPoolHeight,
+                                         std::list<CScCertificate>& outdatedCerts)
 {
     LOCK(cs);
-
     std::set<uint256> certsToRemove;
 
     // Remove certificates referring to this block as end epoch
     for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.begin(); itCert != mapCertificate.end(); itCert++)
     {
         const CScCertificate& cert = itCert->second.GetCertificate();
+        if (!checkCertImmatureExpenditures(cert, pCoinsView, nMemPoolHeight))
+        {
+            certsToRemove.insert(cert.GetHash());
+            continue;
+        }
 
         if (cert.endEpochBlockHash == disconnectedBlockHash)
         {
@@ -638,21 +610,17 @@ void CTxMemPool::removeOutOfEpochCertificates(const uint256& disconnectedBlockHa
         }
     }
 
-    if (certsToRemove.empty())
-        return;
-
     std::list<CTransaction> dummyTxs;
-    std::list<CScCertificate> dummyCerts;
-    for(const auto hash: certsToRemove)
+    for(const auto& hash: certsToRemove)
     {
         // there can be dependancy also between certs, so check that a cert is still in map during the loop
         if (mapCertificate.count(hash))
         {
             const CScCertificate& cert = mapCertificate.at(hash).GetCertificate();
-            remove(cert, dummyTxs, dummyCerts, true);
+            remove(cert, dummyTxs, outdatedCerts, true);
         }
     }
-    LogPrint("mempool", "%s():%d - removed %d certs and %d txes", __func__, __LINE__, dummyCerts.size(), dummyTxs.size());
+    LogPrint("mempool", "%s():%d - removed %d certs and %d txes", __func__, __LINE__, outdatedCerts.size(), dummyTxs.size());
 }
 
 
@@ -684,31 +652,60 @@ void CTxMemPool::removeWithAnchor(const uint256 &invalidRoot)
 
 void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts)
 {
-    // Remove transactions which depend on inputs of tx, recursively
-    // not used
-    // list<CTransaction> result;
     LOCK(cs);
-    BOOST_FOREACH(const CTxIn &txin, tx.GetVin()) {
+
+    for(const CTxIn &txin: tx.GetVin())
+    {
         std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(txin.prevout);
-        if (it != mapNextTx.end()) {
-            const CTransactionBase &txConflict = *it->second.ptx;
+        if (it == mapNextTx.end())
+            continue;
+
+        const CTransactionBase &txConflict = *it->second.ptx;
+        if (txConflict != tx)
+            remove(txConflict, removedTxs, removedCerts, true);
+    }
+
+    for(const JSDescription &joinsplit: tx.GetVjoinsplit())
+    {
+        for(const uint256 &nf: joinsplit.nullifiers)
+        {
+            std::map<uint256, const CTransaction*>::iterator it = mapNullifiers.find(nf);
+            if (it == mapNullifiers.end())
+                continue;
+
+            const CTransactionBase &txConflict = *it->second;
             if (txConflict != tx)
-            {
                 remove(txConflict, removedTxs, removedCerts, true);
-            }
+
+        }
+    }
+}
+
+void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsView, unsigned int nMemPoolHeight,
+                                         std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts)
+{
+    LOCK(cs);
+    std::set<uint256> txesToRemove;
+
+    // Sidechain may become CEASED, so remove related FTs
+    for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++)
+    {
+        const CTransaction& tx = it->second.GetTx();
+
+        if (!checkTxImmatureExpenditures(tx, pCoinsView, nMemPoolHeight))
+        {
+            txesToRemove.insert(tx.GetHash());
+            continue;
         }
     }
 
-    BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
-        BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
-            std::map<uint256, const CTransaction*>::iterator it = mapNullifiers.find(nf);
-            if (it != mapNullifiers.end()) {
-                const CTransactionBase &txConflict = *it->second;
-                if (txConflict != tx)
-                {
-                    remove(txConflict, removedTxs, removedCerts, true);
-                }
-            }
+    for(const auto& hash: txesToRemove)
+    {
+        // there can be dependancy also between txes, so check that a tx is still in map during the loop
+        if (mapTx.count(hash))
+        {
+            const CTransaction& tx = mapTx.at(hash).GetTx();
+            remove(tx, outdatedTxs, outdatedCerts, true);
         }
     }
 }
@@ -742,7 +739,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
     minerPolicyEstimator->processBlock(nBlockHeight, entries, fCurrentEstimate);
 }
 
-void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts) {
+void CTxMemPool::removeConflicts(const CScCertificate &cert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts) {
     LOCK(cs);
     for(const CTxIn &txin: cert.GetVin()) {
         std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(txin.prevout);
@@ -763,8 +760,8 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
 
     // cert has been confirmed in a block, therefore any other cert in mempool for this scid
     // with equal or lower quality is deemed conflicting and must be removed
-    std::list<CScCertificate> vLowerQualCerts;
-    for (auto entry :  mapSidechains.at(scId).mBackwardCertificates)
+    std::set<uint256> lowerQualCerts;
+    for (auto entry :  mapSidechains.at(cert.GetScId()).mBackwardCertificates)
     {
         const uint256& memPoolCertHash = entry.second;
         const CScCertificate& memPoolCert = mapCertificate.at(memPoolCertHash).GetCertificate();
@@ -773,12 +770,19 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
         {
             LogPrint("mempool", "%s():%d - mempool cert[%s] q=%d conflicting with cert[%s] q=%d\n",
                 __func__, __LINE__, memPoolCertHash.ToString(), memPoolCert.quality, cert.GetHash().ToString(), cert.quality);
-            vLowerQualCerts.push_back(memPoolCert);
+            lowerQualCerts.insert(memPoolCert.GetHash());
         }
     }
 
-    for (const auto& conflictingCert : vLowerQualCerts)
-        remove(conflictingCert, removedTxs, removedCerts, true);
+    for(const auto& hash: lowerQualCerts)
+    {
+        // there can be dependancy also between certs, so check that a cert is still in map during the loop
+        if (mapCertificate.count(hash))
+        {
+            const CScCertificate& cert = mapCertificate.at(hash).GetCertificate();
+            remove(cert, removedTxs, removedCerts, true);
+        }
+    }
 
     // Remove all btrs for scIds mentioned by the certificate.
     // These btrs would reference outdated public inputs (CertificateDataCumulativeHash)
