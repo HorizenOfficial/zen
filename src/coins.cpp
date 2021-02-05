@@ -1257,8 +1257,8 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
         GetSidechain(totalBalance.first, scInfo);
         if(totalBalance.second > scInfo.balance)
         {
-            LogPrintf("ERROR: tx[%s] CSW inputs total amount is greater than sidechain [%s] total amount\n",
-                tx.ToString(), totalBalance.first.ToString());
+            LogPrintf("ERROR: tx[%s] CSW inputs total amount[%s] > sc[%s] total balance[%s]\n",
+                tx.ToString(), FormatMoney(totalBalance.second), totalBalance.first.ToString(), FormatMoney(scInfo.balance));
             return state.Invalid(error("CSW inputs total amount is greater than sidechain total amount"),
                          REJECT_INVALID, "tx-csw-inputs-amount-greater-than-sc-balance");
         }

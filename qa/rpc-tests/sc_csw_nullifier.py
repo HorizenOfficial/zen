@@ -87,7 +87,8 @@ class CswNullifierTest(BitcoinTestFramework):
             assert(False)
         self.sync_all()
 
-        mark_logs("==> certificate for epoch {} is {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
+        assert_true(cert in self.nodes[nodeIdx].getrawmempool())
+        mark_logs("==> certificate for epoch {} {} is in mempool".format(epoch_number, cert), self.nodes, DEBUG_MODE)
         print
         return cert, epoch_block_hash, epoch_number
 
@@ -144,6 +145,23 @@ class CswNullifierTest(BitcoinTestFramework):
 
         cert, epoch_block_hash, epoch_number = self.advance_epoch(scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
         prev_epoch_hash = epoch_block_hash
+
+        # mine one block for having last cert in chain
+        mark_logs("\nNode0 generates 1 block confirming last cert", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        # check we have cert data hash for both epocs
+        mark_logs("\nCheck we have expected cert data hashes", self.nodes, DEBUG_MODE)
+        try:
+            assert_true(self.nodes[0].getcertdatahash(scid, 0)['certDataHash'])
+            assert_true(self.nodes[0].getcertdatahash(scid, 0)['prevEpochCumCertDataHash'])
+            assert_true(self.nodes[0].getcertdatahash(scid, 1)['certDataHash'])
+            assert_true(self.nodes[0].getcertdatahash(scid, 1)['prevEpochCumCertDataHash'])
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
+            assert (False)
 
         mark_logs("Let SC cease... ".format(scid), self.nodes, DEBUG_MODE)
 
@@ -465,14 +483,14 @@ class CswNullifierTest(BitcoinTestFramework):
         creating_tx = ret['txid']
         mark_logs("Node 0 created SC spending {} coins via tx1 {}.".format(sc_cr_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
-        scid = self.nodes[0].getrawtransaction(creating_tx, 1)['vsc_ccout'][0]['scid']
-        mark_logs("==> created SC ids {}".format(scid), self.nodes, DEBUG_MODE)
+        scid2 = self.nodes[0].getrawtransaction(creating_tx, 1)['vsc_ccout'][0]['scid']
+        mark_logs("==> created SC ids {}".format(scid2), self.nodes, DEBUG_MODE)
             
         # advance just one epoch and cease it
-        cert, epoch_block_hash, epoch_number = self.advance_epoch(scid, prev_epoch_hash, "sc2", constant, sc_epoch_len)
+        cert, epoch_block_hash, epoch_number = self.advance_epoch(scid2, prev_epoch_hash, "sc2", constant, sc_epoch_len)
         prev_epoch_hash = epoch_block_hash
 
-        mark_logs("Let SC cease... ".format(scid), self.nodes, DEBUG_MODE)
+        mark_logs("Let SC cease... ".format(scid2), self.nodes, DEBUG_MODE)
 
         nbl = int(sc_epoch_len * 1.5)
         mark_logs("Node0 generates {} blocks".format(nbl), self.nodes, DEBUG_MODE)
@@ -480,11 +498,11 @@ class CswNullifierTest(BitcoinTestFramework):
         self.sync_all()
 
         # check it is really ceased
-        ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
+        ret = self.nodes[0].getscinfo(scid2, False, False)['items'][0]
         assert_equal(ret['state'], "CEASED")
 
         # and has the expected balance
-        sc_bal = self.nodes[0].getscinfo(scid, False, False)['items'][0]['balance']
+        sc_bal = self.nodes[0].getscinfo(scid2, False, False)['items'][0]['balance']
         assert_equal(sc_bal, sc_cr_amount)
 
         # Try to create a CSW with less than minimal number of certificates (min is 2)
@@ -496,7 +514,7 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_csws = [{
             "amount": sc_csw_amount,
             "senderAddress": csw_mc_address,
-            "scId": scid,
+            "scId": scid2,
             "epoch": 0,
             "nullifier": null2,
             # Temp hardcoded proof with valid structure TODO: generate a real valid CSW proof
@@ -516,6 +534,22 @@ class CswNullifierTest(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+
+
+        # check we have all cert data hash for both sidechains
+        mark_logs("\nCheck we have expected cert data hashes for both sidechains", self.nodes, DEBUG_MODE)
+        try:
+            assert_true(self.nodes[1].getcertdatahash(scid, 0)['certDataHash'])
+            assert_true(self.nodes[1].getcertdatahash(scid, 0)['prevEpochCumCertDataHash'])
+            assert_true(self.nodes[1].getcertdatahash(scid, 1)['certDataHash'])
+            assert_true(self.nodes[1].getcertdatahash(scid, 1)['prevEpochCumCertDataHash'])
+
+            assert_true(self.nodes[1].getcertdatahash(scid2, 0)['certDataHash'])
+            assert_true(self.nodes[1].getcertdatahash(scid2, 0)['prevEpochCumCertDataHash'])
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
+            assert (False)
 
 
 if __name__ == '__main__':

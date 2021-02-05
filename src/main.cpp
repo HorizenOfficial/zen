@@ -2950,8 +2950,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
         if (!view.IsCertApplicableToState(cert, pindex->nHeight, state, scVerifier) ) {
-            LogPrint("sc", "%s():%d - ERROR: cert=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
-            return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
+            return state.DoS(100, error("%s():%d - ERROR: invalid cert=%s\n", __func__, __LINE__, cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
         }
 
