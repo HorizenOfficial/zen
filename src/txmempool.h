@@ -152,11 +152,8 @@ private:
     uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
-    bool checkTxImmatureExpenditures(
-        const CTransaction& tx, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
-
-    bool checkCertImmatureExpenditures(
-        const CScCertificate& cert, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
+    bool checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight);
+    bool checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight);
 
     std::vector<uint256> mempoolDirectDependenciesFrom(const CTransactionBase& root) const;
     std::vector<uint256> mempoolDirectDependenciesOf(const CTransactionBase& root) const;
@@ -205,18 +202,25 @@ public:
 
     void removeWithAnchor(const uint256 &invalidRoot);
 
-    void removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
-
-    void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    // UNCONFIRMED TRANSACTIONS CLEANUP METHODS
     void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
                         std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
+    void removeConflicts(const CTransaction &tx,
+                         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    void removeOutOfScBalanceCsw(const CCoinsViewCache * const pCoinsView,
+                                 std::list<CTransaction> &removedTxs, std::list<CScCertificate> &removedCerts);
+    void removeStaleTransactions(const CCoinsViewCache * const pCoinsView, unsigned int nMemPoolHeight,
+                                 std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts);
+    // END OF UNCONFIRMED TRANSACTIONS CLEANUP METHODS
 
-    void removeConflicts(const CScCertificate &cert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
-    void onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins, std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts);
-    void onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins, std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts);
-    void removeOutOfEpochCertificates(const CBlockIndex* pindexDelete);
+    // UNCONFIRMED CERTIFICATES CLEANUP METHODS
     void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight,
                         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    void removeConflicts(const CScCertificate &cert,
+                         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    void removeStaleCertificates(const CCoinsViewCache * const pCoinsView, const uint256& disconnectedBlockHash, unsigned int nMemPoolHeight,
+                                 std::list<CScCertificate>& outdatedCerts);
+    // END OF UNCONFIRMED CERTIFICATES CLEANUP METHODS
 
     void clear();
     void queryHashes(std::vector<uint256>& vtxid);
