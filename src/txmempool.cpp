@@ -1205,7 +1205,7 @@ bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
     // Check if this tx does CSW with the nullifier already present in the mempool
     for(const CTxCeasedSidechainWithdrawalInput& csw: incomingTx.GetVcswCcIn())
     {
-        if (mapSidechains.count(csw.scId) != 0 && mapSidechains.at(csw.scId).cswNullifiers.count(csw.nullifier) != 0) {
+        if (HaveCswNullifier(csw.scId, csw.nullifier)) {
             LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another CSW input nullifier in mempool\n",
                     __func__, __LINE__, hash.ToString());
             return false;
@@ -1276,7 +1276,7 @@ void CTxMemPool::queryHashes(std::vector<uint256>& vtxid)
         vtxid.push_back((*mi).first);
 }
 
-bool CTxMemPool::lookup(uint256 hash, CTransaction& result) const
+bool CTxMemPool::lookup(const uint256& hash, CTransaction& result) const
 {
     LOCK(cs);
     std::map<uint256, CTxMemPoolEntry>::const_iterator i = mapTx.find(hash);
@@ -1285,7 +1285,7 @@ bool CTxMemPool::lookup(uint256 hash, CTransaction& result) const
     return true;
 }
 
-bool CTxMemPool::lookup(uint256 hash, CScCertificate& result) const
+bool CTxMemPool::lookup(const uint256& hash, CScCertificate& result) const
 {
     LOCK(cs);
     std::map<uint256, CCertificateMemPoolEntry>::const_iterator i = mapCertificate.find(hash);
@@ -1499,6 +1499,11 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
 
 bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
     return mempool.hasSidechainCreationTx(scId) || base->HaveSidechain(scId);
+}
+
+bool CCoinsViewMemPool::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const
+{
+	return mempool.HaveCswNullifier(scId, nullifier) || base->HaveCswNullifier(scId, nullifier);
 }
 
 size_t CTxMemPool::DynamicMemoryUsage() const {

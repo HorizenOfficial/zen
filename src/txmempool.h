@@ -277,32 +277,37 @@ public:
         return (totalTxSize + totalCertificateSize);
     }
 
-    bool existsTx(uint256 hash) const
+    bool existsTx(const uint256& hash) const
     {
         LOCK(cs);
         return (mapTx.count(hash) != 0);
     }
 
-    bool existsCert(uint256 hash) const
+    bool existsCert(const uint256& hash) const
     {
         LOCK(cs);
         return (mapCertificate.count(hash) != 0);
     }
-
-    bool exists(uint256 hash) const
+    bool exists(const uint256& hash) const
     {
         LOCK(cs);
         return (mapCertificate.count(hash) != 0 || mapTx.count(hash) != 0);
     }
 
-    bool hasSidechainCreationTx(uint256 scId) const
+    bool hasSidechainCreationTx(const uint256& scId) const
     {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).scCreationTxHash.IsNull());
     }
 
-    bool lookup(uint256 hash, CTransaction& result) const;
-    bool lookup(uint256 hash, CScCertificate& result) const;
+    bool HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const
+    {
+    	LOCK(cs);
+    	return mapSidechains.count(scId) != 0 && mapSidechains.at(scId).cswNullifiers.count(nullifier) != 0;
+    }
+
+    bool lookup(const uint256& hash, CTransaction& result) const;
+    bool lookup(const uint256& hash, CScCertificate& result) const;
 
     /** Estimate fee rate needed to get into the next nBlocks */
     CFeeRate estimateFee(int nBlocks) const;
@@ -328,11 +333,13 @@ protected:
 
 public:
     CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn);
-    bool GetNullifier(const uint256 &txid)                         const override;
-    bool GetCoins(const uint256 &txid, CCoins &coins)              const override;
-    bool HaveCoins(const uint256 &txid)                            const override;
-    bool GetSidechain(const uint256& scId, CSidechain& info)       const override;
-    bool HaveSidechain(const uint256& scId)                        const override;
+    bool GetNullifier(const uint256 &txid)                              const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)                   const override;
+    bool HaveCoins(const uint256 &txid)                                 const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)            const override;
+    bool HaveSidechain(const uint256& scId)                             const override;
+    bool HaveCswNullifier(const uint256& scId,
+    		              const libzendoomc::ScFieldElement &nullifier) const override;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H
