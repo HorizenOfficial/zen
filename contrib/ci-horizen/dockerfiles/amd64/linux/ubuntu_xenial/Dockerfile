@@ -15,7 +15,7 @@ RUN set -euxo pipefail \
        ca-certificates cmake curl dirmngr fakeroot git g++-multilib gnupg2 help2man libc6-dev libgomp1 \
        libtool lintian m4 ncurses-dev pigz pkg-config pv python python-dev python-pip python-setuptools \
        python-wheel python-wheel-common python-zmq unzip wget zlib1g-dev \
-    && pip install b2 pyblake2 \
+    && pip install b2==1.4.2 pyblake2 \
     && BASEURL="https://github.com/tianon/gosu/releases/download/" \
     && GOSU_VERSION="1.11" \
     && DPKG_ARCH="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \

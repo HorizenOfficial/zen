@@ -59,7 +59,6 @@ fi
 
 if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
 #  export UPDATE_PACKAGES="aria2 pigz"
-  export UPDATE_PACKAGES="pigz"
   export PIP_INSTALL=""
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Prepare" ]; then
     export PIP_INSTALL="${PIP_INSTALL} b2==1.4.2"

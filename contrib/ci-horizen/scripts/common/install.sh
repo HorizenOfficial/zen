@@ -25,7 +25,7 @@ if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
 fi
 
 if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
-  brew install ${UPDATE_PACKAGES}
+  #brew install ${UPDATE_PACKAGES}
   if [ ! -z "${PIP_INSTALL}" ]; then
     sudo pip install --upgrade ${PIP_INSTALL}
   fi
