@@ -2554,7 +2554,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
-            view.RemoveCswNullifier(cswIn.scId, cswIn.nullifier);
+            if (!view.RemoveCswNullifier(cswIn.scId, cswIn.nullifier)) {
+                LogPrint("sc", "%s():%d - ERROR removing csw nullifier\n", __func__, __LINE__);
+                return error("DisconnectBlock(): nullifiers cannot be reverted: data inconsistent");
+            }
         }
 
         for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
