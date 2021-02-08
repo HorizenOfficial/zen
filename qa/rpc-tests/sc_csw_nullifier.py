@@ -12,7 +12,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
     wait_bitcoinds, stop_nodes, get_epoch_data, sync_mempools, sync_blocks, \
-    disconnect_nodes
+    disconnect_nodes, advance_epoch
 
 from test_framework.mc_test.mc_test import *
 
@@ -63,35 +63,6 @@ class CswNullifierTest(BitcoinTestFramework):
         time.sleep(2)
         self.is_network_split = False
 
-    def advance_epoch(self, scid, prev_epoch_hash, sc_tag, constant, epoch_length,
-        cert_quality=1, nodeIdx=0, cert_fee=Decimal("0.00001")):
-
-        mark_logs("Node{} generates {} blocks to achieve end of withdrawal epochs".
-            format(nodeIdx, epoch_length), self.nodes, DEBUG_MODE)
-
-        self.nodes[nodeIdx].generate(epoch_length)
-        self.sync_all()
-
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[nodeIdx], epoch_length)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
-
-        proof = self.mcTest.create_test_proof(
-            sc_tag, epoch_number, epoch_block_hash, prev_epoch_hash,
-            cert_quality, constant, [], [])
-
-        try:
-            cert = self.nodes[nodeIdx].send_certificate(scid, epoch_number, cert_quality, epoch_block_hash, proof, [], CERT_FEE)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-            assert(False)
-        self.sync_all()
-
-        assert_true(cert in self.nodes[nodeIdx].getrawmempool())
-        mark_logs("==> certificate for epoch {} {} is in mempool".format(epoch_number, cert), self.nodes, DEBUG_MODE)
-        print
-        return cert, epoch_block_hash, epoch_number
-
     def run_test(self):
         '''
         Create a SC, advance two epochs and then let it cease.
@@ -111,11 +82,11 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_epoch_len = EPOCH_LENGTH
         sc_cr_amount = Decimal('12.00000000')
 
-        self.mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
 
         # generate wCertVk and constant
-        vk = self.mcTest.generate_params("sc1")
-        cswVk = self.mcTest.generate_params("csw1")
+        vk = mcTest.generate_params("sc1")
+        cswVk = mcTest.generate_params("csw1")
         constant = generate_random_field_element_hex()
 
         sc_cr = []
@@ -140,10 +111,22 @@ class CswNullifierTest(BitcoinTestFramework):
         print
 
         # advance two epochs
-        cert, epoch_block_hash, epoch_number = self.advance_epoch(scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
+        mark_logs("\nLet 2 epochs pass by...".  format(sc_epoch_len), self.nodes, DEBUG_MODE)
+
+        cert, epoch_block_hash, epoch_number = advance_epoch(
+            mcTest, self.nodes[0], self.sync_all,
+             scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
+
+        mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
+
         prev_epoch_hash = epoch_block_hash
 
-        cert, epoch_block_hash, epoch_number = self.advance_epoch(scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
+        cert, epoch_block_hash, epoch_number = advance_epoch(
+            mcTest, self.nodes[0], self.sync_all,
+             scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
+
+        mark_logs("\n==> certificate for epoch {} {}l".format(epoch_number, cert), self.nodes, DEBUG_MODE)
+
         prev_epoch_hash = epoch_block_hash
 
         # mine one block for having last cert in chain
@@ -422,7 +405,7 @@ class CswNullifierTest(BitcoinTestFramework):
         res = self.nodes[0].checkcswnullifier(scid, null_n2)
         assert_equal(res['data'], 'true')
 
-        mark_logs("Check tx {} is no more in mempool", self.nodes, DEBUG_MODE)
+        mark_logs("Check tx {} is no more in mempool".format(tx_1_0), self.nodes, DEBUG_MODE)
         assert_false(tx_1_0 in self.nodes[0].getrawmempool()) 
         assert_false(tx_1_0 in self.nodes[1].getrawmempool()) 
 
@@ -476,8 +459,8 @@ class CswNullifierTest(BitcoinTestFramework):
         mark_logs("\nVerify we need at least 2 certificates for a CSW to be legal...", self.nodes, DEBUG_MODE)
         
         prev_epoch_hash = self.nodes[0].getbestblockhash()
-        vk2 = self.mcTest.generate_params("sc2")
-        cswVk2 = self.mcTest.generate_params("csw2")
+        vk2 = mcTest.generate_params("sc2")
+        cswVk2 = mcTest.generate_params("csw2")
 
         ret = self.nodes[0].sc_create(sc_epoch_len, "dada", sc_cr_amount, vk2, "abcdef", constant, cswVk2)
         creating_tx = ret['txid']
@@ -487,8 +470,13 @@ class CswNullifierTest(BitcoinTestFramework):
         mark_logs("==> created SC ids {}".format(scid2), self.nodes, DEBUG_MODE)
             
         # advance just one epoch and cease it
-        cert, epoch_block_hash, epoch_number = self.advance_epoch(scid2, prev_epoch_hash, "sc2", constant, sc_epoch_len)
-        prev_epoch_hash = epoch_block_hash
+        mark_logs("\nLet 1 epochs pass by...".  format(sc_epoch_len), self.nodes, DEBUG_MODE)
+
+        cert, epoch_block_hash, epoch_number = advance_epoch(
+            mcTest, self.nodes[0], self.sync_all,
+             scid2, prev_epoch_hash, "sc2", constant, sc_epoch_len)
+
+        mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
         mark_logs("Let SC cease... ".format(scid2), self.nodes, DEBUG_MODE)
 
