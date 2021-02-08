@@ -124,6 +124,8 @@ class CeasingSplitTest(BitcoinTestFramework):
 
         mark_logs("\n==> certificate for epoch {} {}l".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
+        prev_epoch_hash = epoch_block_hash
+
         ceas_height = self.nodes[0].getscinfo(scid, False, False)['items'][0]['ceasing height']
         numbBlocks = ceas_height - self.nodes[0].getblockcount() + sc_epoch_len - 1
 
@@ -131,7 +133,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         self.nodes[0].generate(numbBlocks)
         self.sync_all()
 
-
+        bal_initial = self.nodes[0].getscinfo(scid, False, False)['items'][0]['balance']
 
         #============================================================================================
         mark_logs("\nSplit network", self.nodes, DEBUG_MODE)
@@ -139,21 +141,43 @@ class CeasingSplitTest(BitcoinTestFramework):
         mark_logs("The network is split: 0-1 .. 2", self.nodes, DEBUG_MODE)
 
         # Network part 0-1
-        #------------------
+        print "------------------"
         fwt_amount = Decimal("2.0")
-        mark_logs("\nNode0 sends {} coins to SC".format(fwt_amount), self.nodes, DEBUG_MODE)
+        mark_logs("\nNTW part 1) Node0 sends {} coins to SC".format(fwt_amount), self.nodes, DEBUG_MODE)
         tx_fwd = self.nodes[0].sc_send("abcd", fwt_amount, scid)
         self.sync_all()
 
-        mark_logs("Check fwd tx {} is in mempool".format(tx_fwd), self.nodes, DEBUG_MODE)
+        mark_logs("              Check fwd tx {} is in mempool".format(tx_fwd), self.nodes, DEBUG_MODE)
         assert_true(tx_fwd in self.nodes[0].getrawmempool()) 
 
+        mark_logs("\nNTW part 1) Node0 sends a certificate for keeping the SC alive", self.nodes, DEBUG_MODE)
+        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], sc_epoch_len)
+
+        bt_amount = Decimal("5.0")
+        pkh_node1 = self.nodes[1].getnewaddress("", True)
+ 
+        proof = mcTest.create_test_proof(
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
+            10, constant, [pkh_node1], [bt_amount])
+ 
+        amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
+        try:
+            cert = self.nodes[0].send_certificate(scid, epoch_number, 10, epoch_block_hash, proof, amount_cert, 0.01)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "Send certificate failed with reason {}".format(errorString)
+            assert(False)
+        self.sync_all()
+
+        mark_logs("              Check cert {} is in mempool".format(cert), self.nodes, DEBUG_MODE)
+        assert_true(cert in self.nodes[0].getrawmempool()) 
+
         # Network part 2
-        #------------------
+        print "------------------"
 
-        mark_logs("Let SC cease... ".format(scid), self.nodes, DEBUG_MODE)
+        mark_logs("\nNTW part 2) Let SC cease... ".format(scid), self.nodes, DEBUG_MODE)
 
-        mark_logs("Node0 generates 1 block", self.nodes, DEBUG_MODE)
+        mark_logs("NTW part 2) Node2 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[2].generate(1)
         self.sync_all()
 
@@ -166,10 +190,44 @@ class CeasingSplitTest(BitcoinTestFramework):
         self.join_network()
         mark_logs("Network joined", self.nodes, DEBUG_MODE)
 
-        mark_logs("Check tx {} is no more in mempool".format(tx_fwd), self.nodes, DEBUG_MODE)
+        # check SC is really ceased
+        mark_logs("Check that Node2 has prevailed and SC is really ceased...".format(tx_fwd), self.nodes, DEBUG_MODE)
+        ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
+        assert_equal(ret['state'], "CEASED")
+
+        mark_logs("Check fwd tx {} is no more in mempool...".format(tx_fwd), self.nodes, DEBUG_MODE)
         assert_false(tx_fwd in self.nodes[0].getrawmempool()) 
 
-        pprint.pprint(self.nodes[0].getscinfo(scid, False, True)['items'][0]['balance'])
+        mark_logs("And that no info are available too...".format(tx_fwd), self.nodes, DEBUG_MODE)
+        try:
+            dec = self.nodes[0].getrawtransaction(tx_fwd, 1)
+            assert (False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("===> {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert_true("No information" in errorString)
+
+        mark_logs("Check cert {} is no more in mempool".format(cert), self.nodes, DEBUG_MODE)
+        assert_false(cert in self.nodes[0].getrawmempool()) 
+
+        mark_logs("And that no info are available too...", self.nodes, DEBUG_MODE)
+        try:
+            dec = self.nodes[0].getrawcertificate(cert, 1)
+            assert (False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("===> {}".format(errorString), self.nodes, DEBUG_MODE)
+            #assert_true("No information" in errorString)
+
+        mark_logs("Check SC balance has not changed", self.nodes, DEBUG_MODE)
+        try:
+            bal_final = self.nodes[0].getscinfo(scid)['items'][0]['balance']
+            assert_equal(bal_initial, bal_final)
+            assert_equal(len(self.nodes[0].getrawmempool()), 0) 
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("===> {}".format(errorString), self.nodes, DEBUG_MODE)
+
 
 
 if __name__ == '__main__':

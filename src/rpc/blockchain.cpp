@@ -1280,7 +1280,6 @@ int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, in
 
 void FillCertDataHash(const uint256& scid, int epoch, UniValue& ret)
 {
-    ret.setNull();
     CCoinsViewCache scView(pcoinsTip);
 
     if (!scView.HaveSidechain(scid))
