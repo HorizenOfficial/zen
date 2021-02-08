@@ -73,21 +73,6 @@ private:
     CCriticalBlock           csMainLock;        /**< Critical section needed when compiled with --enable-debug, which activates ASSERT_HELD */
 };
 
-TEST_F(ReindexTestSuite, LoadingBlocksFromNullFilePtrWillAbort) {
-    //prerequisites
-    int blkFileSuffix = {1987};
-
-    CDiskBlockPos diskBlkPos(blkFileSuffix, 0);
-    ASSERT_TRUE(!boost::filesystem::exists(GetBlockPosFilename(diskBlkPos, "blk")));
-
-    FILE* filePtr = OpenBlockFile(diskBlkPos, /*fReadOnly*/true);
-    ASSERT_TRUE(filePtr == nullptr);
-
-    //test && checks
-    EXPECT_EXIT(LoadBlocksFromExternalFile(filePtr, &diskBlkPos, /*loadHeadersOnly*/false), ::testing::KilledBySignal(SIGSEGV),".*");
-    EXPECT_EXIT(LoadBlocksFromExternalFile(filePtr, &diskBlkPos, /*loadHeadersOnly*/true), ::testing::KilledBySignal(SIGSEGV),".*");
-}
-
 TEST_F(ReindexTestSuite, BlocksAreNotLoadedFromEmptyBlkFile) {
     //prerequisites
     int blkFileSuffix = {1};
