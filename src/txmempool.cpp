@@ -1110,7 +1110,7 @@ void CTxMemPool::queryHashes(std::vector<uint256>& vtxid)
         vtxid.push_back((*mi).first);
 }
 
-bool CTxMemPool::lookup(uint256 hash, CTransaction& result) const
+bool CTxMemPool::lookup(const uint256& hash, CTransaction& result) const
 {
     LOCK(cs);
     std::map<uint256, CTxMemPoolEntry>::const_iterator i = mapTx.find(hash);
@@ -1119,7 +1119,7 @@ bool CTxMemPool::lookup(uint256 hash, CTransaction& result) const
     return true;
 }
 
-bool CTxMemPool::lookup(uint256 hash, CScCertificate& result) const
+bool CTxMemPool::lookup(const uint256& hash, CScCertificate& result) const
 {
     LOCK(cs);
     std::map<uint256, CCertificateMemPoolEntry>::const_iterator i = mapCertificate.find(hash);
