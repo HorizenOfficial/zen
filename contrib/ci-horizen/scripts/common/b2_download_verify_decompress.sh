@@ -7,7 +7,7 @@ FILENAME="$2"
 gzip_cmd="gzip"
 
 if command -v pigz > /dev/null;then
-gzip_cmd="pigz"
+  gzip_cmd="pigz"
 fi
 
 

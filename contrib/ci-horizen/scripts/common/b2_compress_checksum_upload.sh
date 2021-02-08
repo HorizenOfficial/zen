@@ -7,7 +7,7 @@ FILENAME="$2"
 gzip_cmd="gzip"
 
 if command -v pigz > /dev/null;then
-gzip_cmd="pigz"
+  gzip_cmd="pigz"
 fi
 
 tar -hcf - -C "${FOLDERNAME}" . | $gzip_cmd -c | tee >(sha256sum | cut -d " " -f1 | xargs -I {} echo {}"  ${FILENAME}" > ~/"${FILENAME}.sha256") > ~/"${FILENAME}"
