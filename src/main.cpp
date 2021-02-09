@@ -3872,8 +3872,16 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
         LogPrintf("%s: Block belong to a chain under punishment Delay VAL: %i BLOCKHEIGHT: %d\n",__func__, pindexNew->nChainDelay,pindexNew->nHeight);
     }
     // TODO set here the scCumulativeTreeHash based on previous block header data 
-    const CPoseidonHash& prevScCumTreeHash = pindexNew->pprev->scCumTreeHash;
-    pindexNew->scCumTreeHash = CPoseidonHash::ComputeHash(prevScCumTreeHash, block.hashScTxsCommitment); 
+    if (pindexNew->pprev && pindexNew->nVersion == BLOCK_VERSION_SC_SUPPORT )
+    {
+        const CPoseidonHash& prevScCumTreeHash = pindexNew->pprev->scCumTreeHash;
+        pindexNew->scCumTreeHash = CPoseidonHash::ComputeHash(prevScCumTreeHash, block.hashScTxsCommitment); 
+    }
+    else
+    {
+        pindexNew->scCumTreeHash = CPoseidonHash();
+    }
+
 
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
     if (pindexBestHeader == NULL || (pindexBestHeader->nChainWork < pindexNew->nChainWork && pindexNew->nChainDelay==0))
