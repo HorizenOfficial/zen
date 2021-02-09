@@ -3025,7 +3025,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     {
         const uint256& scTxsCommittment = scCommitmentBuilder.getCommitment();
 
-        if (block.hashScTxsCommitment != scTxsCommittment)
+        if (block.hashScTxsCommitment != CPoseidonHash(scTxsCommittment))
         {
             // If this check fails, we return validation state obj with a state.corruptionPossible=false attribute,
             // which will mark this header as failed. This is because the previous check on merkel root was successful,
@@ -3871,6 +3871,10 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
     if(pindexNew->nChainDelay != 0) {
         LogPrintf("%s: Block belong to a chain under punishment Delay VAL: %i BLOCKHEIGHT: %d\n",__func__, pindexNew->nChainDelay,pindexNew->nHeight);
     }
+    // TODO set here the scCumulativeTreeHash based on previous block header data 
+    const CPoseidonHash& prevScCumTreeHash = pindexNew->pprev->scCumTreeHash;
+    pindexNew->scCumTreeHash = CPoseidonHash::ComputeHash(prevScCumTreeHash, block.hashScTxsCommitment); 
+
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
     if (pindexBestHeader == NULL || (pindexBestHeader->nChainWork < pindexNew->nChainWork && pindexNew->nChainDelay==0))
         pindexBestHeader = pindexNew;

@@ -274,6 +274,7 @@ libbitcoin_server_a_SOURCES = \
   sc/proofverifier.cpp \
   sc/sidechain.cpp \
   sc/sidechainrpc.cpp \
+  sc/sidechaintypes.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \
@@ -506,6 +507,8 @@ zen_tx_SOURCES = \
     bitcoin-tx.cpp \
     primitives/transaction.cpp \
     primitives/certificate.cpp \
+    sc/sidechaintypes.cpp \
+    sc/sidechain.cpp \
     coins.cpp \
     script/interpreter.cpp \
     script/standard.cpp

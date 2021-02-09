@@ -153,6 +153,9 @@ public:
 
     int64_t nChainDelay;
 
+    // Cumulative scTxCommittmentTreeHash
+    CPoseidonHash scCumTreeHash;
+
     //! Number of transactions in this block.
     //! Note: in a potential headers-first mode, this number cannot be relied upon
     unsigned int nTx;
@@ -183,7 +186,7 @@ public:
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
-    uint256 hashScTxsCommitment;
+    CPoseidonHash hashScTxsCommitment;
     unsigned int nTime;
     unsigned int nBits;
     uint256 nNonce;
@@ -214,7 +217,7 @@ public:
 
         nVersion       = 0;
         hashMerkleRoot = uint256();
-        hashScTxsCommitment = uint256();
+        hashScTxsCommitment.SetNull();
         nTime          = 0;
         nBits          = 0;
         nNonce         = uint256();

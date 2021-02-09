@@ -17,6 +17,32 @@
 //------------------------------------------------------------------------------------
 class CTxForwardTransferOut;
 
+class CPoseidonHash
+{
+public:
+    CPoseidonHash();
+    explicit CPoseidonHash(const uint256& sha256); //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
+    ~CPoseidonHash() = default;
+
+    void SetNull();
+    friend inline bool operator==(const CPoseidonHash& lhs, const CPoseidonHash& rhs) { return lhs.innerHash == rhs.innerHash; }
+    friend inline bool operator!=(const CPoseidonHash& lhs, const CPoseidonHash& rhs) { return !(lhs == rhs); }
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(innerHash);
+    }
+
+    std::string GetHex() const   {return innerHash.GetHex();}
+    std::string ToString() const {return innerHash.ToString();}
+
+    static CPoseidonHash ComputeHash(const CPoseidonHash& a, const CPoseidonHash& b);
+
+private:
+    uint256 innerHash; //Temporary, for backward compatibility with beta
+};
+
 namespace Sidechain
 {
 
