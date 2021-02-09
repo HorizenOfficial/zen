@@ -563,12 +563,12 @@ public:
     bool HaveSidechain(const uint256& scId)                           const override;
     bool GetSidechain(const uint256 & scId, CSidechain& targetScInfo) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
-    bool IsScTxApplicableToState(const CTransaction& tx, int height, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
+    bool IsScTxApplicableToState(const CTransaction& tx, int height, libzendoomc::CScProofVerifier& scVerifier) const;
     bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
+    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, libzendoomc::CScProofVerifier& scVerifier) const;
     bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash) const;
     bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockUndo);
     bool RestoreScInfo(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);

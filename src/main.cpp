@@ -1220,9 +1220,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             }
 
             auto scVerifier = fVerifyCert ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-            if (!view.IsCertApplicableToState(cert, nextBlockHeight, state, scVerifier))
+            if (!view.IsCertApplicableToState(cert, nextBlockHeight, scVerifier))
             {
-                LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
                 return state.DoS(0, error("%s(): certificate not applicable", __func__),
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
             }
@@ -1494,10 +1493,9 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             }
 
             auto scVerifier = fVerifyBwtRequests? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-            if (!view.IsScTxApplicableToState(tx, nextBlockHeight, state, scVerifier))
+            if (!view.IsScTxApplicableToState(tx, nextBlockHeight, scVerifier))
             {
-                LogPrint("sc", "%s():%d - sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString());
-                return state.DoS(0, error("%s(): tx not applicable", __func__),
+                return state.DoS(0, error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
  
@@ -2825,9 +2823,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
  
             auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-            if (!view.IsScTxApplicableToState(tx, pindex->nHeight, state, scVerifier)) {
-                LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString());
-                return state.DoS(100, error("ConnectBlock(): invalid sc-related tx [%s]", tx.GetHash().ToString()),
+            if (!view.IsScTxApplicableToState(tx, pindex->nHeight, scVerifier))
+            {
+                return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
 
@@ -2937,8 +2935,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         control.Add(vChecks);
 
         auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-        if (!view.IsCertApplicableToState(cert, pindex->nHeight, state, scVerifier) ) {
-            LogPrint("sc", "%s():%d - ERROR: cert=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
+        if (!view.IsCertApplicableToState(cert, pindex->nHeight, scVerifier) )
+        {
             return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
         }

@@ -784,7 +784,7 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
     // These btrs would reference outdated public inputs (CertificateDataCumulativeHash)
     while ((mapSidechains.count(scId) != 0) && !mapSidechains.at(scId).mcBtrSet.empty())
     {
-    	auto entryToRm = mapSidechains.at(scId).mcBtrSet.begin();
+        auto entryToRm = mapSidechains.at(scId).mcBtrSet.begin();
         const CTransaction& outdatedBtr = mapTx.at(*entryToRm).GetTx();
         remove(outdatedBtr, removedTxs, removedCerts, true);
     }
