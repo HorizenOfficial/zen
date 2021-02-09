@@ -594,61 +594,16 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
         mapNullifiers.erase(itOld);
     }
 
-    for (auto& entryToWrite : mapSidechains) {
-        CSidechainsMap::iterator itLocalCacheEntry = cacheSidechains.find(entryToWrite.first);
+    // Sidechain related section
+    for (auto& entryToWrite : mapSidechains)
+    	WriteMutableEntry(entryToWrite.first, entryToWrite.second, cacheSidechains);
 
-        switch (entryToWrite.second.flag) {
-            case CSidechainsCacheEntry::Flags::FRESH:
-                assert(
-                    itLocalCacheEntry == cacheSidechains.end() ||
-                    itLocalCacheEntry->second.flag == CSidechainsCacheEntry::Flags::ERASED
-                ); //A fresh entry should not exist in localCache or be already erased
-                cacheSidechains[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CSidechainsCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
-                cacheSidechains[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CSidechainsCacheEntry::Flags::ERASED:
-                if (itLocalCacheEntry != cacheSidechains.end())
-                    itLocalCacheEntry->second.flag = CSidechainsCacheEntry::Flags::ERASED;
-                break;
-            case CSidechainsCacheEntry::Flags::DEFAULT:
-                assert(itLocalCacheEntry != cacheSidechains.end());
-                assert(itLocalCacheEntry->second.sidechain == entryToWrite.second.sidechain); //entry declared default is indeed different from backed value
-                break; //nothing to do. entry is already persisted and has not been modified
-            default:
-                assert(false);
-        }
-    }
+    for (auto& entryToWrite : mapSidechainEvents)
+    	WriteMutableEntry(entryToWrite.first, entryToWrite.second, cacheSidechainEvents);
+
     mapSidechains.clear();
-
-    for (auto& entryToWrite : mapSidechainEvents) {
-        CSidechainEventsMap::iterator itLocalCacheEntry = cacheSidechainEvents.find(entryToWrite.first);
-
-        switch (entryToWrite.second.flag) {
-            case CSidechainEventsCacheEntry::Flags::FRESH:
-                assert(
-                    itLocalCacheEntry == cacheSidechainEvents.end() ||
-                    itLocalCacheEntry->second.flag == CSidechainEventsCacheEntry::Flags::ERASED
-                ); //A fresh entry should not exist in localCache or be already erased
-                cacheSidechainEvents[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CSidechainEventsCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
-                cacheSidechainEvents[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CSidechainEventsCacheEntry::Flags::ERASED:
-                if (itLocalCacheEntry != cacheSidechainEvents.end())
-                    itLocalCacheEntry->second.flag = CSidechainEventsCacheEntry::Flags::ERASED;
-                break;
-            case CSidechainEventsCacheEntry::Flags::DEFAULT:
-                assert(itLocalCacheEntry != cacheSidechainEvents.end());
-                assert(itLocalCacheEntry->second.scEvents == entryToWrite.second.scEvents); //entry declared default is indeed different from backed value
-                break; //nothing to do. entry is already persisted and has not been modified
-            default:
-                assert(false);
-        }
-    }
     mapSidechainEvents.clear();
+    // End of sidechain related section
 
     hashAnchor = hashAnchorIn;
     hashBlock = hashBlockIn;
