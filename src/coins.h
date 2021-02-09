@@ -367,6 +367,36 @@ struct CMutableSidechainCacheEntry
     CMutableSidechainCacheEntry(Flags _flag): flag(_flag) {}
 };
 
+template<typename KeyType, typename ValueType, template<typename...> class MapType, typename ... TOthers >
+void WriteMutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap)
+{
+	typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
+
+    switch (value.flag) {
+        case CMutableSidechainCacheEntry::Flags::FRESH:
+            assert(
+                itLocalCacheEntry == destinationMap.end() ||
+                itLocalCacheEntry->second.flag == CMutableSidechainCacheEntry::Flags::ERASED
+            ); //A fresh entry should not exist in localCache or be already erased
+            destinationMap[key] = value;
+            break;
+        case CMutableSidechainCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
+        	destinationMap[key] = value;
+            break;
+        case CMutableSidechainCacheEntry::Flags::ERASED:
+            if (itLocalCacheEntry != destinationMap.end())
+                itLocalCacheEntry->second.flag = CMutableSidechainCacheEntry::Flags::ERASED;
+            break;
+        case CMutableSidechainCacheEntry::Flags::DEFAULT:
+            assert(itLocalCacheEntry != destinationMap.end());
+            assert(itLocalCacheEntry->second.flag != CMutableSidechainCacheEntry::Flags::ERASED);
+            assert(itLocalCacheEntry->second.ContentCheck(value));
+            break; //nothing to do. entry is already persisted and has not been modified
+        default:
+            assert(false);
+    }
+}
+
 struct CImmutableSidechainCacheEntry
 {
     enum class Flags {
@@ -378,6 +408,32 @@ struct CImmutableSidechainCacheEntry
     CImmutableSidechainCacheEntry(Flags _flag): flag(_flag) {}
 };
 
+template<typename KeyType, typename ValueType, template<typename...> class MapType, typename ... TOthers >
+void WriteImmutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap)
+{
+	typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
+
+    switch (value.flag) {
+        case CImmutableSidechainCacheEntry::Flags::FRESH:
+            assert(
+                itLocalCacheEntry == destinationMap.end() ||
+                itLocalCacheEntry->second.flag == CImmutableSidechainCacheEntry::Flags::ERASED
+            ); //A fresh entry should not exist in localCache or be already erased
+            destinationMap[key] = value;
+            break;
+        case CImmutableSidechainCacheEntry::Flags::ERASED:
+            if (itLocalCacheEntry != destinationMap.end())
+                itLocalCacheEntry->second.flag = CImmutableSidechainCacheEntry::Flags::ERASED;
+            break;
+        case CImmutableSidechainCacheEntry::Flags::DEFAULT:
+            assert(itLocalCacheEntry != destinationMap.end());
+            assert(itLocalCacheEntry->second.flag != CImmutableSidechainCacheEntry::Flags::ERASED);
+            break; //nothing to do. entry is already persisted and has not been modified
+        default:
+            assert(false);
+    }
+}
+
 struct CSidechainsCacheEntry: public CMutableSidechainCacheEntry
 {
     CSidechain scInfo;
@@ -385,6 +441,9 @@ struct CSidechainsCacheEntry: public CMutableSidechainCacheEntry
     CSidechainsCacheEntry(): CMutableSidechainCacheEntry(Flags::DEFAULT), scInfo() {}
     CSidechainsCacheEntry(const CSidechain & _scInfo, Flags _flag):
         CMutableSidechainCacheEntry(_flag), scInfo(_scInfo) {}
+
+    // Not an equality operator since we want to neglect flag
+    bool ContentCheck(const CSidechainsCacheEntry& rhs) {return this->scInfo == rhs.scInfo;}
 };
 
 struct CSidechainEventsCacheEntry: public CMutableSidechainCacheEntry
@@ -394,6 +453,9 @@ struct CSidechainEventsCacheEntry: public CMutableSidechainCacheEntry
     CSidechainEventsCacheEntry(): CMutableSidechainCacheEntry(Flags::DEFAULT), scEvents() {}
     CSidechainEventsCacheEntry(const CSidechainEvents & _scList, Flags _flag):
         CMutableSidechainCacheEntry(_flag), scEvents(_scList) {}
+
+    // Not an equality operator since we want to neglect flag
+    bool ContentCheck(const CSidechainEventsCacheEntry& rhs) {return this->scEvents == rhs.scEvents;}
 };
 
 struct CCswNullifiersCacheEntry: public CImmutableSidechainCacheEntry
@@ -409,6 +471,12 @@ struct CCertDataHashCacheEntry: public CMutableSidechainCacheEntry
     CCertDataHashCacheEntry(): CMutableSidechainCacheEntry(Flags::DEFAULT), certDataHash(), prevEpochCumulativeCertDataHash() {}
     CCertDataHashCacheEntry(const std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> & _dataPair, Flags _flag):
         CMutableSidechainCacheEntry(_flag), certDataHash(_dataPair.first), prevEpochCumulativeCertDataHash(_dataPair.second) {}
+
+    // Not an equality operator since we want to neglect flag
+    bool ContentCheck(const CCertDataHashCacheEntry& rhs) {
+        return (this->certDataHash == rhs.certDataHash) &&
+               (this->prevEpochCumulativeCertDataHash == rhs.prevEpochCumulativeCertDataHash);
+    }
 };
 
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
