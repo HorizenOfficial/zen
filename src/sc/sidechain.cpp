@@ -62,6 +62,11 @@ size_t CSidechainEvents::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(maturingScs) + memusage::DynamicUsage(ceasingScs);
 }
 
+
+#ifdef BITCOIN_TX
+bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state) { return true; }
+bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state) { return true; }
+#else
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
     // check version consistency
@@ -182,3 +187,4 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 
     return true;
 }
+#endif

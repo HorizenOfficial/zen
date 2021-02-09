@@ -869,8 +869,6 @@ bool libzendoomc::CScProofVerifier::verifyCScCertificate(
     const CScCertificate& scCert
 ) const { return true; }
 bool CCoinsViewCache::HaveScRequirements(const CTransaction& tx, int height) { return true;}
-size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
-
 #else
 
 #include "consensus/validation.h"
