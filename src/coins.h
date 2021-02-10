@@ -509,6 +509,7 @@ protected:
 
 public:
     CCoinsViewCache(CCoinsView *baseIn);
+    CCoinsViewCache(const CCoinsViewCache &) = delete; //prevent accidental copies when one intends to create a cache on top of a base cache.
     ~CCoinsViewCache();
 
     // Standard CCoinsView methods
@@ -638,12 +639,6 @@ private:
 
     bool DecrementImmatureAmount(const uint256& scId, const CSidechainsMap::iterator& targetEntry, CAmount nValue, int maturityHeight);
     void Dump_info() const;
-
-private:
-    /**
-     * By making the copy constructor private, we prevent accidentally using it when one intends to create a cache on top of a base cache.
-     */
-    CCoinsViewCache(const CCoinsViewCache &);
 };
 
 #endif // BITCOIN_COINS_H

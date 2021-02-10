@@ -429,7 +429,7 @@ class CTxCrosschainOutBase
 public:
     virtual ~CTxCrosschainOutBase() {};
 
-    virtual bool IsNull() const = 0;
+    bool IsNull() const {return this->GetScValue() == -1; };
     virtual CAmount GetScValue() const = 0;
     virtual bool AllowedZeroScValue() const = 0;
 
@@ -464,11 +464,7 @@ public:
 
     CTxCrosschainOut():nValue(-1), address() {}
 
-    bool IsNull() const override
-    {
-        return (nValue == -1);
-    }
-    CAmount GetScValue() const override { return nValue; }
+    CAmount GetScValue()      const override { return nValue; }
     bool AllowedZeroScValue() const override { return false; }
 
     virtual uint256 GetHash() const = 0;
@@ -593,12 +589,6 @@ class CBwtRequestOut : public CTxCrosschainOutBase
         READWRITE(mcDestinationAddress);
         READWRITE(scFee);
         READWRITE(scProof);
-    }
-
-    bool IsNull() const override
-    {
-        // TODO
-        return (scFee == -1);
     }
 
     CAmount GetScValue() const override { return scFee; };
