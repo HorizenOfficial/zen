@@ -1489,6 +1489,9 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     // block hex data
     ssBlock << block;
 
+    // block scCommittmentTreeCumulativeHash
+    ssBlock << pblockindex->scCumTreeHash;
+
     std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
     return strHex;
 

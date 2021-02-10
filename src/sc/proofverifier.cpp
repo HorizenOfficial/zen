@@ -205,4 +205,37 @@ namespace libzendoomc{
         else
             return CScWCertProofVerification().verifyScCert(constant, wCertVk, prev_end_epoch_block_hash, cert);
     }
+
+    bool CalculateHash(const ScFieldElement& inA, const ScFieldElement& inB, ScFieldElement& out)
+    {
+        zendoo_clear_error();
+
+        field_t* aFe = zendoo_deserialize_field(inA.begin());
+        if (aFe == nullptr) {
+            LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, ToString(zendoo_get_last_error()));
+            zendoo_clear_error();
+            return false;
+        }
+ 
+        field_t* bFe = zendoo_deserialize_field(inB.begin());
+        if (bFe == nullptr) {
+            LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, ToString(zendoo_get_last_error()));
+            zendoo_clear_error();
+            zendoo_field_free(aFe);
+            return false;
+        }
+ 
+        const field_t* inputArrayFe[] = {aFe, bFe};
+ 
+        field_t* outFe = zendoo_compute_poseidon_hash(inputArrayFe, 2);
+ 
+        zendoo_serialize_field(outFe, out.begin());
+ 
+        zendoo_field_free(aFe);
+        zendoo_field_free(bFe);
+        zendoo_field_free(outFe);
+ 
+        return true;
+    }
+
 }

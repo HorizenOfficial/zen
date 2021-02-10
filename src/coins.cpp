@@ -940,9 +940,18 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
+
     // Retrieve previous end epoch block hash for certificate proof verification
     int targetHeight = scInfo.StartHeightForEpoch(cert.epochNumber) - 1;
-    uint256 prev_end_epoch_block_hash = chainActive[targetHeight] -> GetBlockHash();
+    CBlockIndex* pblockIndex = chainActive[targetHeight];
+    assert(pblockIndex);
+
+    uint256 prev_end_epoch_block_hash = pblockIndex->GetBlockHash();
+
+    // TODO check that targetHeight is the correct height also for scCumTreeHash
+    // TODO add the cumulative committment tree hash to the verify call
+    CPoseidonHash scCumTreeHash = pblockIndex->scCumTreeHash;
+    const libzendoomc::ScFieldElement& scCumTreeHashFe = scCumTreeHash.GetFieldElement();
 
     // Verify certificate proof
     if (!scVerifier.verifyCScCertificate(scInfo.creationData.constant, scInfo.creationData.wCertVk, prev_end_epoch_block_hash, cert)){

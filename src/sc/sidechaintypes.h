@@ -22,6 +22,7 @@ class CPoseidonHash
 public:
     CPoseidonHash();
     explicit CPoseidonHash(const uint256& sha256); //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
+    explicit CPoseidonHash(const libzendoomc::ScFieldElement& fe);
     ~CPoseidonHash() = default;
 
     void SetNull();
@@ -31,6 +32,7 @@ public:
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        // substitute with real field element serialization
         READWRITE(innerHash);
     }
 
@@ -38,9 +40,13 @@ public:
     std::string ToString() const {return innerHash.ToString();}
 
     static CPoseidonHash ComputeHash(const CPoseidonHash& a, const CPoseidonHash& b);
+    static libzendoomc::ScFieldElement ComputeHash(const libzendoomc::ScFieldElement& a, const libzendoomc::ScFieldElement& b);
+
+    const libzendoomc::ScFieldElement& GetFieldElement() const { return innerFieldElement; }
 
 private:
     uint256 innerHash; //Temporary, for backward compatibility with beta
+    libzendoomc::ScFieldElement innerFieldElement;
 };
 
 namespace Sidechain

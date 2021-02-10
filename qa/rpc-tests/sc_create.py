@@ -6,6 +6,7 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
+    stop_nodes, wait_bitcoinds, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     dump_sc_info_record
 from test_framework.mc_test.mc_test import *
@@ -389,6 +390,15 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("Check that there are no immature coins", self.nodes, DEBUG_MODE)
         ia = self.nodes[2].getscinfo(scid)['items'][0]["immature amounts"]
         assert_equal(len(ia), 0)
+
+        mark_logs("Checking blockindex persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
+        scgeninfo = self.nodes[2].getscgenesisinfo(scid)
+
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.setup_network(False)
+
+        assert_equal(scgeninfo, self.nodes[0].getscgenesisinfo(scid))
 
 
 if __name__ == '__main__':

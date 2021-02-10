@@ -13,7 +13,11 @@
 class CSidechain;
 class CScCertificate;
 
-namespace libzendoomc{
+namespace libzendoomc {
+    typedef base_blob<SC_FIELD_SIZE * 8> ScFieldElement;
+
+    /* Check if scFieldElement is a valid zendoo-mc-cryptolib's field */
+    bool IsValidScFieldElement(const ScFieldElement& scFieldElement);
 
     typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
 
@@ -35,6 +39,9 @@ namespace libzendoomc{
 
     /* Write scVk to file in vkPath. Returns true if operation succeeds, false otherwise. */
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk);
+
+    /* Calculate poseidon hash of the two inputs and return as out param. Return true if no errors occurred*/
+    bool CalculateHash(const ScFieldElement& inA, const ScFieldElement& inB, ScFieldElement& outHash);
 
     /* Support class for WCert SNARK proof verification. */
     class CScWCertProofVerification {
