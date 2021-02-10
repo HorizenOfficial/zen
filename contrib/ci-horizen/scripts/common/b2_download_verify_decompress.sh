@@ -4,6 +4,12 @@ set +u -eo pipefail
 
 FOLDERNAME="$1"
 FILENAME="$2"
+gzip_cmd="gzip"
+
+if command -v pigz > /dev/null;then
+  gzip_cmd="pigz"
+fi
+
 
 if [ "${RENAME_FOLDER}" = "true" ] && [ ! -z "${RENAME_SUFFIX}" ]; then
   mv "${FOLDERNAME}" "${FOLDERNAME}${RENAME_SUFFIX}"
@@ -25,7 +31,7 @@ else
   cd "${HOME}"
   sha256sum -c "${FILENAME}.sha256"
   mkdir -p "${FOLDERNAME}"
-  pigz -cd "${FILENAME}" | tar -xf - -C "${FOLDERNAME}"
+  $gzip_cmd -cd "${FILENAME}" | tar -xf - -C "${FOLDERNAME}"
   if [ "${DELETE_DL_FILE}" = "true" ]; then
     rm -f "${HOME}/${FILENAME}" "${HOME}/${FILENAME}.sha256"
   fi
