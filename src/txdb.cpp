@@ -358,8 +358,7 @@ void CCoinsViewDB::Dump_info()  const
             std::cout
                 << "scId[" << keyScId.ToString() << "]" << std::endl
                 << "  ==> balance: " << FormatMoney(info.balance) << std::endl
-                << "  creating block hash: " << info.creationBlockHash.ToString() <<
-                   " (height: " << info.creationBlockHeight << ")" << std::endl
+                << "  creating block height: " << info.creationBlockHeight  << std::endl
                 << "  creating tx hash: " << info.creationTxHash.ToString() << std::endl
                 // creation parameters
                 << "  withdrawalEpochLength: " << info.creationData.withdrawalEpochLength << std::endl;

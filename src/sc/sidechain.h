@@ -43,7 +43,7 @@ public:
 
 class CSidechain {
 public:
-    CSidechain() : sidechainVersion(0), creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
+    CSidechain() : sidechainVersion(0), creationBlockHeight(-1), creationTxHash(),
                    prevBlockTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
                    prevBlockTopQualityCertHash(), prevBlockTopQualityCertQuality(CScCertificate::QUALITY_NULL),
                    prevBlockTopQualityCertBwtAmount(0), balance(0) {}
@@ -51,7 +51,6 @@ public:
     bool IsNull() const
     {
         return (
-             creationBlockHash.IsNull()                                           &&
              creationBlockHeight == -1                                            &&
              creationTxHash.IsNull()                                              &&
              prevBlockTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL &&
@@ -63,9 +62,6 @@ public:
     }
 
     int32_t sidechainVersion;
-
-    // reference to the block containing the tx that created the side chain
-    uint256 creationBlockHash;
 
     // We can not serialize a pointer value to block index, but can retrieve it from chainActive if we have height
     int creationBlockHeight;
@@ -111,7 +107,6 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
         READWRITE(sidechainVersion);
-        READWRITE(creationBlockHash);
         READWRITE(creationBlockHeight);
         READWRITE(creationTxHash);
         READWRITE(prevBlockTopQualityCertReferencedEpoch);
@@ -126,7 +121,6 @@ public:
     inline bool operator==(const CSidechain& rhs) const
     {
         return (this->sidechainVersion                        == rhs.sidechainVersion)                       &&
-               (this->creationBlockHash                       == rhs.creationBlockHash)                      &&
                (this->creationBlockHeight                     == rhs.creationBlockHeight)                    &&
                (this->creationTxHash                          == rhs.creationTxHash)                         &&
                (this->prevBlockTopQualityCertReferencedEpoch  == rhs.prevBlockTopQualityCertReferencedEpoch) &&

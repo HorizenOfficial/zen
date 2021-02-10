@@ -751,7 +751,6 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         }
 
         CSidechainsMap::iterator scIt = ModifySidechain(scId);
-        scIt->second.scInfo.creationBlockHash = block.GetHash();
         scIt->second.scInfo.creationBlockHeight = blockHeight;
         scIt->second.scInfo.creationTxHash = txHash;
         scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch = CScCertificate::EPOCH_NULL;
@@ -941,17 +940,25 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
 
-    // Retrieve previous end epoch block hash for certificate proof verification
-    int targetHeight = scInfo.StartHeightForEpoch(cert.epochNumber) - 1;
-    CBlockIndex* pblockIndex = chainActive[targetHeight];
-    assert(pblockIndex);
+    // Retrieve previous end epoch block info for certificate proof verification
+    int prev_start_epoch_block_height = scInfo.StartHeightForEpoch(cert.epochNumber-1);
+    int prev_end_epoch_block_height   = scInfo.StartHeightForEpoch(cert.epochNumber) - 1;
 
-    uint256 prev_end_epoch_block_hash = pblockIndex->GetBlockHash();
+    CBlockIndex* prev_start_epoch_block_index = chainActive[prev_start_epoch_block_height];
+    CBlockIndex* prev_end_epoch_block_index   = chainActive[prev_end_epoch_block_height];
 
-    // TODO check that targetHeight is the correct height also for scCumTreeHash
-    // TODO add the cumulative committment tree hash to the verify call
-    CPoseidonHash scCumTreeHash = pblockIndex->scCumTreeHash;
-    const libzendoomc::ScFieldElement& scCumTreeHashFe = scCumTreeHash.GetFieldElement();
+    assert(prev_start_epoch_block_index);
+    assert(prev_end_epoch_block_index);
+
+    // TODO check that ithose are the correct heights for both scCumTreeHash objs
+    // TODO add the cumulative committment tree hash objs to the verify call
+    CPoseidonHash scCumTreeHash_start = prev_start_epoch_block_index->scCumTreeHash;
+    const libzendoomc::ScFieldElement& scCumTreeHash_start_Fe = scCumTreeHash_start.GetFieldElement();
+
+    CPoseidonHash scCumTreeHash_end   = prev_end_epoch_block_index->scCumTreeHash;
+    const libzendoomc::ScFieldElement& scCumTreeHash_end_Fe = scCumTreeHash_end.GetFieldElement();
+
+    uint256 prev_end_epoch_block_hash = prev_end_epoch_block_index->GetBlockHash();
 
     // Verify certificate proof
     if (!scVerifier.verifyCScCertificate(scInfo.creationData.constant, scInfo.creationData.wCertVk, prev_end_epoch_block_hash, cert)){
@@ -1810,7 +1817,6 @@ void CCoinsViewCache::Dump_info() const
             return;
         }
 
-        LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
         LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
         LogPrint("sc", "  prevBlockTopQualityCertReferencedEpoch[%d]\n", info.prevBlockTopQualityCertReferencedEpoch);
         LogPrint("sc", "  prevBlockTopQualityCertHash[%s]\n",            info.prevBlockTopQualityCertHash.ToString());
