@@ -153,7 +153,7 @@ public:
 
     int64_t nChainDelay;
 
-    // Cumulative scTxCommittmentTreeHash
+    //! Cumulative Hash Block Sidechain Transaction Commitment Tree
     CPoseidonHash scCumTreeHash;
 
     //! Number of transactions in this block.
@@ -222,6 +222,7 @@ public:
         nBits          = 0;
         nNonce         = uint256();
         nSolution.clear();
+        scCumTreeHash.SetNull();
     }
 
     CBlockIndex()
@@ -386,6 +387,10 @@ public:
         // this index was storing them.
         if ((nType & SER_DISK) && (nVersion >= SPROUT_VALUE_VERSION)) {
             READWRITE(nSproutValue);
+        }
+
+        if (nVersion >= SC_TX_VERSION) {
+            READWRITE(scCumTreeHash);
         }
     }
 
