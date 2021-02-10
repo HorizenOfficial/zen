@@ -519,6 +519,7 @@ public:
     bool HaveCoins(const uint256 &txid)                                const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
+    int GetHeight() const; // Return view height, which is inputs.GetBestBlock() (aka parent block) one.
     void SetBestBlock(const uint256 &hashBlock);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
@@ -593,6 +594,7 @@ public:
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
+    uint256 GetActiveCertDataHash(const uint256& scId);
 
     bool Flush();
 

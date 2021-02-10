@@ -528,8 +528,8 @@ TEST_F(SidechainTestSuite, RestoreScInfoRestoresLastCertHash) {
     sidechainsView->UpdateScInfo(cert, blockUndo);
     CSidechain scInfoPostCert;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCert));
-    EXPECT_TRUE(scInfoPostCert.prevBlockTopQualityCertReferencedEpoch == certEpoch);
-    EXPECT_TRUE(scInfoPostCert.prevBlockTopQualityCertHash == cert.GetHash());
+    EXPECT_TRUE(scInfoPostCert.lastTopQualityCertReferencedEpoch == certEpoch);
+    EXPECT_TRUE(scInfoPostCert.lastTopQualityCertHash == cert.GetHash());
 
     //test
     bool res = sidechainsView->RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(scId));
@@ -538,8 +538,8 @@ TEST_F(SidechainTestSuite, RestoreScInfoRestoresLastCertHash) {
     EXPECT_TRUE(res);
     CSidechain scInfoPostCertUndo;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, scInfoPostCertUndo));
-    EXPECT_TRUE(scInfoPostCertUndo.prevBlockTopQualityCertHash == scInfoAtCreation.prevBlockTopQualityCertHash);
-    EXPECT_TRUE(scInfoPostCertUndo.prevBlockTopQualityCertReferencedEpoch == scInfoAtCreation.prevBlockTopQualityCertReferencedEpoch);
+    EXPECT_TRUE(scInfoPostCertUndo.lastTopQualityCertHash == scInfoAtCreation.lastTopQualityCertHash);
+    EXPECT_TRUE(scInfoPostCertUndo.lastTopQualityCertReferencedEpoch == scInfoAtCreation.lastTopQualityCertReferencedEpoch);
 }
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// UpdateScInfo ////////////////////////////////
@@ -597,7 +597,7 @@ TEST_F(SidechainTestSuite, CertificateUpdatesTopCommittedCertHash) {
 
     CSidechain scInfo;
     EXPECT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
-    EXPECT_TRUE(scInfo.prevBlockTopQualityCertHash.IsNull());
+    EXPECT_TRUE(scInfo.lastTopQualityCertHash.IsNull());
 
     //Fully mature initial Sc balance
     for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
@@ -614,7 +614,7 @@ TEST_F(SidechainTestSuite, CertificateUpdatesTopCommittedCertHash) {
 
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,scInfo));
-    EXPECT_TRUE(scInfo.prevBlockTopQualityCertHash == aCertificate.GetHash());
+    EXPECT_TRUE(scInfo.lastTopQualityCertHash == aCertificate.GetHash());
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertReferencedEpoch == -1);
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertHash.IsNull());
 }
@@ -1037,7 +1037,7 @@ TEST_F(SidechainTestSuite, GetScInfoForFwdTransfersInMempool) {
     //check
     EXPECT_TRUE(retrievedInfo.creationBlockHeight == scCreationHeight);
     EXPECT_TRUE(retrievedInfo.balance == creationAmount);             //certs in mempool do not affect balance
-    EXPECT_TRUE(retrievedInfo.prevBlockTopQualityCertReferencedEpoch == -1); //certs in mempool do not affect topCommittedCertReferencedEpoch
+    EXPECT_TRUE(retrievedInfo.lastTopQualityCertReferencedEpoch == -1); //certs in mempool do not affect topCommittedCertReferencedEpoch
 }
 
 TEST_F(SidechainTestSuite, GetScInfoForScCreationInMempool) {
@@ -1066,7 +1066,7 @@ TEST_F(SidechainTestSuite, GetScInfoForScCreationInMempool) {
     //check
     EXPECT_TRUE(retrievedInfo.creationBlockHeight == -1);
     EXPECT_TRUE(retrievedInfo.balance == 0);
-    EXPECT_TRUE(retrievedInfo.prevBlockTopQualityCertReferencedEpoch == -1);
+    EXPECT_TRUE(retrievedInfo.lastTopQualityCertReferencedEpoch == -1);
     EXPECT_TRUE(retrievedInfo.mImmatureAmounts.size() == 0);
 }
 

@@ -15,6 +15,9 @@
 #include <undo.h>
 #include <chainparams.h>
 
+#include <main.h>
+#include <consensus/validation.h>
+
 std::string CCoins::ToString() const
 {
     std::string ret;
@@ -694,12 +697,12 @@ bool CCoinsViewCache::CheckQuality(const CScCertificate& cert) const
     CSidechain info;
     if (GetSidechain(cert.GetScId(), info))
     {
-        if (info.prevBlockTopQualityCertHash != cert.GetHash() &&
-            info.prevBlockTopQualityCertReferencedEpoch == cert.epochNumber &&
-            info.prevBlockTopQualityCertQuality >= cert.quality)
+        if (info.lastTopQualityCertHash != cert.GetHash() &&
+            info.lastTopQualityCertReferencedEpoch == cert.epochNumber &&
+            info.lastTopQualityCertQuality >= cert.quality)
         {
             LogPrint("cert", "%s.%s():%d - NOK, cert %s q=%d : a cert q=%d for same sc/epoch is already in blockchain\n",
-                __FILE__, __func__, __LINE__, cert.GetHash().ToString(), cert.quality, info.prevBlockTopQualityCertQuality);
+                __FILE__, __func__, __LINE__, cert.GetHash().ToString(), cert.quality, info.lastTopQualityCertQuality);
             return false;
         }
     }
@@ -754,10 +757,10 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         scIt->second.scInfo.creationBlockHash = block.GetHash();
         scIt->second.scInfo.creationBlockHeight = blockHeight;
         scIt->second.scInfo.creationTxHash = txHash;
-        scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch = CScCertificate::EPOCH_NULL;
-        scIt->second.scInfo.prevBlockTopQualityCertHash.SetNull();
-        scIt->second.scInfo.prevBlockTopQualityCertQuality = CScCertificate::QUALITY_NULL;
-        scIt->second.scInfo.prevBlockTopQualityCertBwtAmount = 0;
+        scIt->second.scInfo.lastTopQualityCertReferencedEpoch = CScCertificate::EPOCH_NULL;
+        scIt->second.scInfo.lastTopQualityCertHash.SetNull();
+        scIt->second.scInfo.lastTopQualityCertQuality = CScCertificate::QUALITY_NULL;
+        scIt->second.scInfo.lastTopQualityCertBwtAmount = 0;
         scIt->second.scInfo.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
         scIt->second.scInfo.creationData.customData = cr.customData;
         scIt->second.scInfo.creationData.constant = cr.constant;
@@ -861,6 +864,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 }
 
 #ifdef BITCOIN_TX
+int CCoinsViewCache::GetHeight() const {return -1;}
 int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_NULL; }
 int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
@@ -874,8 +878,14 @@ size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
 #else
 
-#include "consensus/validation.h"
-#include "main.h"
+int CCoinsViewCache::GetHeight() const
+{
+    LOCK(cs_main);
+    BlockMap::const_iterator itBlockIdx = mapBlockIndex.find(this->GetBestBlock());
+    CBlockIndex* pindexPrev = (itBlockIdx == mapBlockIndex.end()) ? nullptr : itBlockIdx->second;
+    return pindexPrev->nHeight;
+}
+
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, libzendoomc::CScProofVerifier& scVerifier) const
 {
     const uint256& certHash = cert.GetHash();
@@ -917,11 +927,11 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
 
     CAmount bwtTotalAmount = cert.GetValueOfBackwardTransfers(); 
     CAmount scBalance = scInfo.balance;
-    if (cert.epochNumber == scInfo.prevBlockTopQualityCertReferencedEpoch) 
+    if (cert.epochNumber == scInfo.lastTopQualityCertReferencedEpoch) 
     {
         // if we are targeting the same epoch of an existing certificate, add
         // to the scInfo.balance the amount of the former top-quality cert if any
-        scBalance += scInfo.prevBlockTopQualityCertBwtAmount;
+        scBalance += scInfo.lastTopQualityCertBwtAmount;
     }
 
     if (bwtTotalAmount > scBalance)
@@ -957,13 +967,13 @@ bool CCoinsViewCache::isEpochDataValid(const CSidechain& scInfo, int epochNumber
 
     // Adding handling of quality, we can have also certificates for the same epoch of the last certificate
     // 1. the epoch number must be consistent with the sc certificate history (no old epoch allowed)
-    if ( epochNumber != scInfo.prevBlockTopQualityCertReferencedEpoch &&
-         epochNumber != scInfo.prevBlockTopQualityCertReferencedEpoch + 1)
+    if ( epochNumber != scInfo.lastTopQualityCertReferencedEpoch &&
+         epochNumber != scInfo.lastTopQualityCertReferencedEpoch + 1)
 
     {
         LogPrint("sc", "%s():%d - can not receive a certificate for epoch %d (expected: %d or %d)\n",
             __func__, __LINE__, epochNumber,
-            scInfo.prevBlockTopQualityCertReferencedEpoch, scInfo.prevBlockTopQualityCertReferencedEpoch+1);
+            scInfo.lastTopQualityCertReferencedEpoch, scInfo.lastTopQualityCertReferencedEpoch+1);
         return false;
     }
 
@@ -1077,7 +1087,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
         }
 
         // Verify mainchain bwt request proof
-        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scUtxoId, mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk))
+        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData, mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk))
             return error("%s():%d - ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
                     __func__, __LINE__, mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
 
@@ -1110,19 +1120,19 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
 
     //UpdateScInfo should be called only once per block and scId, with top qualiy cert only
     assert(blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertHash.IsNull());
-    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertReferencedEpoch = scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch;
-    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertHash            = scIt->second.scInfo.prevBlockTopQualityCertHash;
-    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertQuality         = scIt->second.scInfo.prevBlockTopQualityCertQuality;
-    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertBwtAmount       = scIt->second.scInfo.prevBlockTopQualityCertBwtAmount;
+    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertReferencedEpoch = scIt->second.scInfo.lastTopQualityCertReferencedEpoch;
+    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertHash            = scIt->second.scInfo.lastTopQualityCertHash;
+    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertQuality         = scIt->second.scInfo.lastTopQualityCertQuality;
+    blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertBwtAmount       = scIt->second.scInfo.lastTopQualityCertBwtAmount;
     blockUndo.scUndoDatabyScId[scId].contentBitMask |= CSidechainUndoData::AvailableSections::SIDECHAIN_STATE;
 
-    if (scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch != cert.epochNumber)
+    if (scIt->second.scInfo.lastTopQualityCertReferencedEpoch != cert.epochNumber)
     {
         // we are changing epoch, this is the first certificate we got
-        if (cert.epochNumber != scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch+1)
+        if (cert.epochNumber != scIt->second.scInfo.lastTopQualityCertReferencedEpoch+1)
         {
             LogPrint("cert", "%s():%d - bad epoch value: %d (should be %d)\n",
-                __func__, __LINE__, cert.epochNumber, scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch+1);
+                __func__, __LINE__, cert.epochNumber, scIt->second.scInfo.lastTopQualityCertReferencedEpoch+1);
             return false;
         }
 
@@ -1137,24 +1147,24 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
         LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
           __func__, __LINE__, FormatMoney(bwtTotalAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
 
-        scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch = cert.epochNumber;
-        scIt->second.scInfo.prevBlockTopQualityCertHash            = certHash;
-        scIt->second.scInfo.prevBlockTopQualityCertQuality         = cert.quality;
-        scIt->second.scInfo.prevBlockTopQualityCertBwtAmount       = bwtTotalAmount;
+        scIt->second.scInfo.lastTopQualityCertReferencedEpoch = cert.epochNumber;
+        scIt->second.scInfo.lastTopQualityCertHash            = certHash;
+        scIt->second.scInfo.lastTopQualityCertQuality         = cert.quality;
+        scIt->second.scInfo.lastTopQualityCertBwtAmount       = bwtTotalAmount;
 
         LogPrint("cert", "%s():%d - cert quality set in scView (best cert=%s, best q=%d)\n", __func__, __LINE__,
-        scIt->second.scInfo.prevBlockTopQualityCertHash.ToString(), scIt->second.scInfo.prevBlockTopQualityCertQuality);
+        scIt->second.scInfo.lastTopQualityCertHash.ToString(), scIt->second.scInfo.lastTopQualityCertQuality);
     }
     else
     {
         // another cert for the same epoch in this scid
-        assert(cert.quality != scIt->second.scInfo.prevBlockTopQualityCertQuality);
+        assert(cert.quality != scIt->second.scInfo.lastTopQualityCertQuality);
 
-        if (cert.quality > scIt->second.scInfo.prevBlockTopQualityCertQuality)
+        if (cert.quality > scIt->second.scInfo.lastTopQualityCertQuality)
         {
-            scIt->second.scInfo.balance += scIt->second.scInfo.prevBlockTopQualityCertBwtAmount;
+            scIt->second.scInfo.balance += scIt->second.scInfo.lastTopQualityCertBwtAmount;
             LogPrint("cert", "%s():%d - amount restored into scView (amount=%s, resulting bal=%s) %s\n", __func__, __LINE__,
-                FormatMoney(scIt->second.scInfo.prevBlockTopQualityCertBwtAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
+                FormatMoney(scIt->second.scInfo.lastTopQualityCertBwtAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
 
             if (scIt->second.scInfo.balance < bwtTotalAmount)
             {
@@ -1164,11 +1174,11 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
             }
 
             // update top-quality certificate data
-            scIt->second.scInfo.prevBlockTopQualityCertHash      = certHash;
-            scIt->second.scInfo.prevBlockTopQualityCertQuality   = cert.quality;
-            scIt->second.scInfo.prevBlockTopQualityCertBwtAmount = bwtTotalAmount;
+            scIt->second.scInfo.lastTopQualityCertHash      = certHash;
+            scIt->second.scInfo.lastTopQualityCertQuality   = cert.quality;
+            scIt->second.scInfo.lastTopQualityCertBwtAmount = bwtTotalAmount;
             LogPrint("cert", "%s():%d - cert quality updated in scView (best cert=%s, best q=%d)\n", __func__, __LINE__,
-            scIt->second.scInfo.prevBlockTopQualityCertHash.ToString(), scIt->second.scInfo.prevBlockTopQualityCertQuality);
+            scIt->second.scInfo.lastTopQualityCertHash.ToString(), scIt->second.scInfo.lastTopQualityCertQuality);
             scIt->second.scInfo.balance -= bwtTotalAmount;
             LogPrint("cert", "%s():%d - amount removed from scView (amount=%s, resulting bal=%s) %s\n",
               __func__, __LINE__, FormatMoney(bwtTotalAmount), FormatMoney(scIt->second.scInfo.balance), scId.ToString());
@@ -1178,7 +1188,7 @@ bool CCoinsViewCache::UpdateScInfo(const CScCertificate& cert, CBlockUndo& block
         {
             // should never happen if certs are ordered by quality in a block
             LogPrint("cert", "%s():%d - cert quality %d not greater than last seen %d", 
-                __func__, __LINE__, cert.quality, scIt->second.scInfo.prevBlockTopQualityCertQuality);
+                __func__, __LINE__, cert.quality, scIt->second.scInfo.lastTopQualityCertQuality);
             return false;
         }
     }
@@ -1282,12 +1292,12 @@ bool CCoinsViewCache::RestoreScInfo(const CScCertificate& certToRevert, const CS
 
     // restore only if this is the top quality cert for this epoch
     LogPrint("cert", "%s():%d - cert %s, last cert %s, undo cert %s\n", __func__, __LINE__,
-        certToRevert.GetHash().ToString(), scIt->second.scInfo.prevBlockTopQualityCertHash.ToString(), sidechainUndo.prevTopCommittedCertHash.ToString());
+        certToRevert.GetHash().ToString(), scIt->second.scInfo.lastTopQualityCertHash.ToString(), sidechainUndo.prevTopCommittedCertHash.ToString());
     LogPrint("cert", "%s():%d - cert epoch %d, last epoch %d, undo epoch %d\n", __func__, __LINE__,
-        certToRevert.epochNumber, scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch, sidechainUndo.prevTopCommittedCertReferencedEpoch);
+        certToRevert.epochNumber, scIt->second.scInfo.lastTopQualityCertReferencedEpoch, sidechainUndo.prevTopCommittedCertReferencedEpoch);
 
     // RestoreScInfo should be called only once per block and scId, with top qualiy cert only    
-    assert(certToRevert.GetHash() == scIt->second.scInfo.prevBlockTopQualityCertHash);
+    assert(certToRevert.GetHash() == scIt->second.scInfo.lastTopQualityCertHash);
 
     scIt->second.scInfo.balance += bwtTotalAmount;
     LogPrint("cert", "%s():%d - amount restored to scView (amount=%s, resulting bal=%s) scid=%s\n",
@@ -1305,10 +1315,10 @@ bool CCoinsViewCache::RestoreScInfo(const CScCertificate& certToRevert, const CS
     }
 
     assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::SIDECHAIN_STATE);
-    scIt->second.scInfo.prevBlockTopQualityCertReferencedEpoch = sidechainUndo.prevTopCommittedCertReferencedEpoch;
-    scIt->second.scInfo.prevBlockTopQualityCertHash            = sidechainUndo.prevTopCommittedCertHash;
-    scIt->second.scInfo.prevBlockTopQualityCertQuality         = sidechainUndo.prevTopCommittedCertQuality;
-    scIt->second.scInfo.prevBlockTopQualityCertBwtAmount       = sidechainUndo.prevTopCommittedCertBwtAmount;
+    scIt->second.scInfo.lastTopQualityCertReferencedEpoch = sidechainUndo.prevTopCommittedCertReferencedEpoch;
+    scIt->second.scInfo.lastTopQualityCertHash            = sidechainUndo.prevTopCommittedCertHash;
+    scIt->second.scInfo.lastTopQualityCertQuality         = sidechainUndo.prevTopCommittedCertQuality;
+    scIt->second.scInfo.lastTopQualityCertBwtAmount       = sidechainUndo.prevTopCommittedCertBwtAmount;
 
     scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
@@ -1423,7 +1433,7 @@ bool CCoinsViewCache::ScheduleSidechainEvent(const CScCertificate& cert)
 
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] removes prevCeasingHeight [%d] (certEp=%d, currentEp=%d)\n",
                 __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), curCeasingHeight, cert.epochNumber,
-                sidechain.prevBlockTopQualityCertReferencedEpoch);
+                sidechain.lastTopQualityCertReferencedEpoch);
     } else
     {
         if (!HaveSidechainEvents(nextCeasingHeight) )
@@ -1626,22 +1636,22 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         assert(GetSidechain(ceasingScId, scInfo));
 
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: lastCertEpoch [%d], lastCertHash [%s]\n",
-                __func__, __LINE__, scInfo.prevBlockTopQualityCertReferencedEpoch, scInfo.prevBlockTopQualityCertHash.ToString());
+                __func__, __LINE__, scInfo.lastTopQualityCertReferencedEpoch, scInfo.lastTopQualityCertHash.ToString());
 
         LogPrint("sc", "%s():%d - set voidedCertHash[%s], ceasingScId = %s\n",
-            __func__, __LINE__, scInfo.prevBlockTopQualityCertHash.ToString(), ceasingScId.ToString());
+            __func__, __LINE__, scInfo.lastTopQualityCertHash.ToString(), ceasingScId.ToString());
 
         blockUndo.scUndoDatabyScId[ceasingScId].contentBitMask |= CSidechainUndoData::AvailableSections::CEASED_CERTIFICATE_DATA;
-        if (scInfo.prevBlockTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL) {
-            assert(scInfo.prevBlockTopQualityCertHash.IsNull());
+        if (scInfo.lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL) {
+            assert(scInfo.lastTopQualityCertHash.IsNull());
             continue;
         }
 
-        NullifyBackwardTransfers(scInfo.prevBlockTopQualityCertHash, blockUndo.scUndoDatabyScId[ceasingScId].ceasedBwts);
+        NullifyBackwardTransfers(scInfo.lastTopQualityCertHash, blockUndo.scUndoDatabyScId[ceasingScId].ceasedBwts);
         if (pCertsStateInfo != nullptr)
-            pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(ceasingScId, scInfo.prevBlockTopQualityCertHash,
-                                       scInfo.prevBlockTopQualityCertReferencedEpoch,
-                                       scInfo.prevBlockTopQualityCertQuality,
+            pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(ceasingScId, scInfo.lastTopQualityCertHash,
+                                       scInfo.lastTopQualityCertReferencedEpoch,
+                                       scInfo.lastTopQualityCertQuality,
                                        CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
     }
 
@@ -1711,15 +1721,15 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
         const uint256& scId = it->first;
         const CSidechain* const pSidechain = AccessSidechain(scId);
 
-        if (pSidechain->prevBlockTopQualityCertReferencedEpoch != CScCertificate::EPOCH_NULL)
+        if (pSidechain->lastTopQualityCertReferencedEpoch != CScCertificate::EPOCH_NULL)
         {
-            if (!RestoreBackwardTransfers(pSidechain->prevBlockTopQualityCertHash, blockUndo.scUndoDatabyScId.at(scId).ceasedBwts))
+            if (!RestoreBackwardTransfers(pSidechain->lastTopQualityCertHash, blockUndo.scUndoDatabyScId.at(scId).ceasedBwts))
                 return false;
  
             if (pCertsStateInfo != nullptr)
-                pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(scId, pSidechain->prevBlockTopQualityCertHash,
-                                           pSidechain->prevBlockTopQualityCertReferencedEpoch,
-                                           pSidechain->prevBlockTopQualityCertQuality,
+                pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(scId, pSidechain->lastTopQualityCertHash,
+                                           pSidechain->lastTopQualityCertReferencedEpoch,
+                                           pSidechain->lastTopQualityCertQuality,
                                            CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
         }
 
@@ -1749,10 +1759,10 @@ CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int hei
 
     int currentEpoch = scInfo.EpochFor(height);
 
-    if (currentEpoch > scInfo.prevBlockTopQualityCertReferencedEpoch + 2)
+    if (currentEpoch > scInfo.lastTopQualityCertReferencedEpoch + 2)
         return CSidechain::State::CEASED;
 
-    if (currentEpoch == scInfo.prevBlockTopQualityCertReferencedEpoch + 2)
+    if (currentEpoch == scInfo.lastTopQualityCertReferencedEpoch + 2)
     {
         int targetEpochSafeguardHeight = scInfo.StartHeightForEpoch(currentEpoch) + scInfo.SafeguardMargin();
         if (height > targetEpochSafeguardHeight)
@@ -1760,6 +1770,22 @@ CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int hei
     }
 
     return  CSidechain::State::ALIVE;
+}
+
+uint256 CCoinsViewCache::GetActiveCertDataHash(const uint256& scId)
+{
+    const CSidechain* const sidechain = this->AccessSidechain(scId);
+
+    if (sidechain == nullptr)
+        uint256();
+
+    int currentHeight = this->GetHeight();
+    int currentEpochSafeguard = sidechain->StartHeightForEpoch(sidechain->EpochFor(currentHeight)) + sidechain->SafeguardMargin();
+
+    if (currentHeight <= currentEpochSafeguard)
+        return sidechain->pastEpochTopQualityCertDataHash;
+    else
+        return sidechain->lastTopQualityCertDataHash;
 }
 
 bool CCoinsViewCache::Flush() {
@@ -1830,10 +1856,10 @@ void CCoinsViewCache::Dump_info() const
 
         LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
         LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
-        LogPrint("sc", "  prevBlockTopQualityCertReferencedEpoch[%d]\n", info.prevBlockTopQualityCertReferencedEpoch);
-        LogPrint("sc", "  prevBlockTopQualityCertHash[%s]\n",            info.prevBlockTopQualityCertHash.ToString());
-        LogPrint("sc", "  prevBlockTopQualityCertQuality[%d]\n",         info.prevBlockTopQualityCertQuality);
-        LogPrint("sc", "  prevBlockTopQualityCertBwtAmount[%s]\n",       FormatMoney(info.prevBlockTopQualityCertBwtAmount));
+        LogPrint("sc", "  prevBlockTopQualityCertReferencedEpoch[%d]\n", info.lastTopQualityCertReferencedEpoch);
+        LogPrint("sc", "  prevBlockTopQualityCertHash[%s]\n",            info.lastTopQualityCertHash.ToString());
+        LogPrint("sc", "  prevBlockTopQualityCertQuality[%d]\n",         info.lastTopQualityCertQuality);
+        LogPrint("sc", "  prevBlockTopQualityCertBwtAmount[%s]\n",       FormatMoney(info.lastTopQualityCertBwtAmount));
         LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
         LogPrint("sc", "  ----- creation data:\n");
         LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);

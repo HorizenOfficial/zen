@@ -79,7 +79,7 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         
         o.push_back(Pair("mcDestinationAddress", mcAddr));
         o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
-        o.push_back(Pair("scUtxoId", HexStr(out.scUtxoId)));
+        o.push_back(Pair("scUtxoId", HexStr(out.scRequestData)));
         o.push_back(Pair("scProof", HexStr(out.scProof)));
         vbts.push_back(o);
         nIdx++;
@@ -447,7 +447,7 @@ void fundCcRecipients(const CTransaction& tx,
         bt.scId = entry.scId;
         bt.mcDestinationAddress = entry.mcDestinationAddress;
         bt.bwtRequestData.scFee = entry.scFee;
-        bt.bwtRequestData.scUtxoId = entry.scUtxoId;
+        bt.bwtRequestData.scUtxoId = entry.scRequestData;
         bt.bwtRequestData.scProof = entry.scProof;
 
         vecBwtRequest.push_back(bt);

@@ -570,7 +570,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 {
   public:
     uint256 scId;
-    libzendoomc::ScFieldElement scUtxoId;
+    libzendoomc::ScFieldElement scRequestData;
     uint160 mcDestinationAddress;
     CAmount scFee;
     libzendoomc::ScProof scProof;
@@ -585,7 +585,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
         READWRITE(scId);
-        READWRITE(scUtxoId);
+        READWRITE(scRequestData);
         READWRITE(mcDestinationAddress);
         READWRITE(scFee);
         READWRITE(scProof);
@@ -596,11 +596,11 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 
     friend bool operator==(const CBwtRequestOut& a, const CBwtRequestOut& b)
     {
-        return ( a.scId == b.scId &&
-                 a.scUtxoId == b.scUtxoId &&
+        return ( a.scId                 == b.scId                 &&
+                 a.scRequestData        == b.scRequestData        &&
                  a.mcDestinationAddress == b.mcDestinationAddress &&
-                 a.scFee == b.scFee &&
-                 a.scProof == b.scProof );
+                 a.scFee                == b.scFee                &&
+                 a.scProof              == b.scProof );
     }
 
     friend bool operator!=(const CBwtRequestOut& a, const CBwtRequestOut& b)

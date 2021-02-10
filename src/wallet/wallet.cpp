@@ -2094,9 +2094,9 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(scId, sidechain));
                 if (fUpdate)
-                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.prevBlockTopQualityCertHash,
-                                                                      sidechain.prevBlockTopQualityCertReferencedEpoch,
-                                                                      sidechain.prevBlockTopQualityCertQuality,
+                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.lastTopQualityCertHash,
+                                                                      sidechain.lastTopQualityCertReferencedEpoch,
+                                                                      sidechain.lastTopQualityCertQuality,
                                                                       CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
             }
         }

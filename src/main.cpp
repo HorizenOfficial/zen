@@ -943,8 +943,8 @@ std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToConnect, cons
         if(!view.GetSidechain(itCert->GetScId(), sidechain))
             continue;
 
-        if (itCert->epochNumber == sidechain.prevBlockTopQualityCertReferencedEpoch)
-            res[itCert->GetHash()] = sidechain.prevBlockTopQualityCertHash;
+        if (itCert->epochNumber == sidechain.lastTopQualityCertReferencedEpoch)
+            res[itCert->GetHash()] = sidechain.lastTopQualityCertHash;
         else
             res[itCert->GetHash()] = uint256();
 
@@ -2148,13 +2148,6 @@ void CScriptCheck::swap(CScriptCheck &check) {
 
 ScriptError CScriptCheck::GetScriptError() const { return error; }
 
-int GetSpendHeight(const CCoinsViewCache& inputs)
-{
-    LOCK(cs_main);
-    CBlockIndex* pindexPrev = mapBlockIndex.find(inputs.GetBestBlock())->second;
-    return pindexPrev->nHeight + 1;
-}
-
 bool IsCommunityFund(const CCoins *coins, int nIn)
 {
     if(coins != NULL &&
@@ -2257,7 +2250,10 @@ bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, 
 {
     if (!tx.IsCoinBase())
     {
-        if (!Consensus::CheckTxInputs(tx, state, inputs, GetSpendHeight(inputs), consensusParams)) {
+        // While checking, GetHeight() is the height of the parent block.
+        // This is also true for mempool checks.
+        int spendHeight = inputs.GetHeight() + 1;
+        if (!Consensus::CheckTxInputs(tx, state, inputs, spendHeight, consensusParams)) {
             return false;
         }
 
