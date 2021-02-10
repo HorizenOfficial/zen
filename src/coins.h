@@ -298,7 +298,7 @@ struct CCoinsCacheEntry
 
 struct CSidechainsCacheEntry
 {
-    CSidechain scInfo; // The actual cached data.
+    CSidechain sidechain; // The actual cached data.
 
     enum class Flags {
         DEFAULT = 0,
@@ -307,8 +307,8 @@ struct CSidechainsCacheEntry
         ERASED  = (1 << 2), // The parent view does have this entry but current one have it erased
     } flag;
 
-    CSidechainsCacheEntry() : scInfo(), flag(Flags::DEFAULT) {}
-    CSidechainsCacheEntry(const CSidechain & _scInfo, Flags _flag) : scInfo(_scInfo), flag(_flag) {}
+    CSidechainsCacheEntry() : sidechain(), flag(Flags::DEFAULT) {}
+    CSidechainsCacheEntry(const CSidechain & _sidechain, Flags _flag) : sidechain(_sidechain), flag(_flag) {}
 };
 
 struct CSidechainEventsCacheEntry
@@ -563,17 +563,17 @@ public:
 
     //SIDECHAIN RELATED PUBLIC MEMBERS
     bool HaveSidechain(const uint256& scId)                           const override;
-    bool GetSidechain(const uint256 & scId, CSidechain& targetScInfo) const override;
+    bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
     bool IsScTxApplicableToState(const CTransaction& tx, int height, libzendoomc::CScProofVerifier& scVerifier) const;
-    bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
+    bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, libzendoomc::CScProofVerifier& scVerifier) const;
-    bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash) const;
-    bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockUndo);
-    bool RestoreScInfo(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
+    bool isEpochDataValid(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
+    bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
+    bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
     bool CheckQuality(const CScCertificate& cert)  const override;
     void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
     bool RestoreBackwardTransfers(const uint256& certHash, const std::vector<CTxInUndo>& outsToRestore);

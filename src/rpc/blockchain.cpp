@@ -1160,14 +1160,14 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
 
 bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool bVerbose)
 {
-    CSidechain scInfo;
+    CSidechain sidechain;
     CCoinsViewCache scView(pcoinsTip);
-    if (!scView.GetSidechain(scId, scInfo)) {
+    if (!scView.GetSidechain(scId, sidechain)) {
         LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scId.ToString() );
     }
     CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
 
-    return FillScRecordFromInfo(scId, scInfo, scState, scRecord, bOnlyAlive, bVerbose);
+    return FillScRecordFromInfo(scId, sidechain, scState, scRecord, bOnlyAlive, bVerbose);
 }
 
 int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, int to=-1)

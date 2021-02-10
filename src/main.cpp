@@ -2492,7 +2492,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                                            CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
             }
 
-            if (!view.RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
+            if (!view.RestoreSidechain(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
             {
                 LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
                 return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
@@ -2855,7 +2855,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (txIdx > 0)
         {
-            if (!view.UpdateScInfo(tx, block, pindex->nHeight) )
+            if (!view.UpdateSidechain(tx, block, pindex->nHeight) )
             {
                 return state.DoS(100, error("ConnectBlock(): could not add sidechain in view: tx[%s]", tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
@@ -2943,7 +2943,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (isBlockTopQualityCert)
         {
-            if (!view.UpdateScInfo(cert, blockundo) )
+            if (!view.UpdateSidechain(cert, blockundo) )
             {
                 return state.DoS(100, error("ConnectBlock(): could not add in scView: cert[%s]", cert.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-cert-not-updated");

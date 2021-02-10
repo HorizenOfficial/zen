@@ -39,7 +39,7 @@ public:
             switch (entry.second.flag) {
                 case CSidechainsCacheEntry::Flags::FRESH:
                 case CSidechainsCacheEntry::Flags::DIRTY:
-                    inMemoryMap[entry.first] = entry.second.scInfo;
+                    inMemoryMap[entry.first] = entry.second.sidechain;
                     break;
                 case CSidechainsCacheEntry::Flags::ERASED:
                     inMemoryMap.erase(entry.first);

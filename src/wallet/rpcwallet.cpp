@@ -5137,8 +5137,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     CCoinsViewCache scView(&dummy);
     CCoinsViewMemPool vm(pcoinsTip, mempool);
     scView.SetBackend(vm);
-    CSidechain scInfo;
-    if (!scView.GetSidechain(scId,scInfo))
+    CSidechain sidechain;
+    if (!scView.GetSidechain(scId,sidechain))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid does not exists: ") + scId.ToString());
@@ -5171,7 +5171,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // sanity check of the epoch number and epoch hash block: it must be a legal end-epoch hash and epoch number must
     // be consistent with the current epoch (no old epoch certificates allowed)
-    if (!scView.isEpochDataValid(scInfo, epochNumber, endEpochBlockHash) )
+    if (!scView.isEpochDataValid(sidechain, epochNumber, endEpochBlockHash) )
     {
         LogPrintf("ERROR: epochNumber[%d]/endEpochBlockHash[%s] are not legal\n", epochNumber, endEpochBlockHash.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid epoch data"));
@@ -5273,15 +5273,15 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     int nMinDepth = 0; //1; 
 
     CAmount delta = 0;
-    if (epochNumber == scInfo.lastTopQualityCertReferencedEpoch)
+    if (epochNumber == sidechain.lastTopQualityCertReferencedEpoch)
     {
-        delta = scInfo.lastTopQualityCertBwtAmount;
+        delta = sidechain.lastTopQualityCertBwtAmount;
     }
 
-    if (nTotalOut > scInfo.balance+delta)
+    if (nTotalOut > sidechain.balance+delta)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance+delta), FormatMoney(nTotalOut) );
+            __func__, __LINE__, scId.ToString(), FormatMoney(sidechain.balance+delta), FormatMoney(nTotalOut) );
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
 

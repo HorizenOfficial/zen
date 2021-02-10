@@ -155,7 +155,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed
 
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, creationHeight);
+    sidechainsView.UpdateSidechain(scTx, aBlock, creationHeight);
     sidechainsView.SetBestBlock(pcoinsTip->GetBestBlock()); //do not alter BestBlock, as set in test fixture
     sidechainsView.Flush();
 
@@ -197,7 +197,7 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
 
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, creationHeight);
+    sidechainsView.UpdateSidechain(scTx, aBlock, creationHeight);
     sidechainsView.SetBestBlock(pcoinsTip->GetBestBlock()); //do not alter BestBlock, as set in test fixture
     sidechainsView.Flush();
 
@@ -443,7 +443,7 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCertRemovalFromMempool) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.UpdateSidechain(scTx, aBlock, /*height*/int(1789));
     sidechainsView.Flush();
 
     //load certificate in mempool
@@ -468,7 +468,7 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.UpdateSidechain(scTx, aBlock, /*height*/int(1789));
     sidechainsView.Flush();
 
     //load a certificate in mempool
@@ -495,7 +495,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertConnectionDropAllBtrForReferencedScId) 
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.UpdateSidechain(scTx, aBlock, /*height*/int(1789));
     sidechainsView.Flush();
 
     // place btrs in mempool
@@ -527,7 +527,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffe
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.UpdateSidechain(scTx, aBlock, /*height*/int(1789));
     sidechainsView.Flush();
 
     //load a fwt in mempool
@@ -561,7 +561,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.UpdateSidechain(scTx, aBlock, /*height*/int(1789));
     sidechainsView.Flush();
 
     //load a fwd in mempool
@@ -595,7 +595,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertsCannotSpendHigherQualityCerts) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(401));
+    sidechainsView.UpdateSidechain(scTx, aBlock, /*height*/int(401));
     sidechainsView.Flush();
 
     CBlockUndo dummyBlockUndo;
@@ -646,7 +646,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(401));
+    sidechainsView.UpdateSidechain(scTx, aBlock, /*height*/int(401));
     sidechainsView.Flush();
 
     CBlockUndo dummyBlockUndo;
