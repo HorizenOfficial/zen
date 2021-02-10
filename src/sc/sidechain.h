@@ -75,15 +75,16 @@ public:
     // We can not serialize a pointer value to block index, but can retrieve it from chainActive if we have height
     int creationBlockHeight;
 
+    // hash of the tx who created it
     uint256 creationTxHash;
 
     // Data for previous epoch top quality cert confirmed in blockchain
     uint256 pastEpochTopQualityCertDataHash;
-    int pastEpochTopQualityReferencedEpoch;
+    int32_t pastEpochTopQualityReferencedEpoch;
 
     // Data for latest top quality cert confirmed in blockchain
     uint256 lastTopQualityCertHash;
-    int lastTopQualityCertReferencedEpoch;
+    int32_t lastTopQualityCertReferencedEpoch;
     int64_t lastTopQualityCertQuality;
     CAmount lastTopQualityCertBwtAmount;
     uint256 lastTopQualityCertDataHash;
@@ -115,7 +116,7 @@ public:
     {
         READWRITE(sidechainVersion);
         READWRITE(creationBlockHash);
-        READWRITE(creationBlockHeight);
+        READWRITE(VARINT(creationBlockHeight));
         READWRITE(creationTxHash);
         READWRITE(pastEpochTopQualityCertDataHash);
         READWRITE(pastEpochTopQualityReferencedEpoch);
