@@ -223,7 +223,8 @@ TEST_F(SidechainMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataChe
 
     CSidechain revertedSidechain;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,revertedSidechain));
-    EXPECT_TRUE(initialScState == revertedSidechain);
+    EXPECT_TRUE(initialScState == revertedSidechain)<<
+    		initialScState.ToString()<<revertedSidechain.ToString();
 }
 
 TEST_F(SidechainMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDataCheck) {

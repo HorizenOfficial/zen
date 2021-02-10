@@ -158,6 +158,7 @@ public:
     const std::vector<JSDescription>&         GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                            GetScId()       const          {return scId;};
     const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
+    const uint256&                            GetDataHash() const { static const uint256 dummyCertDataHash; return dummyCertDataHash;}
     //END OF GETTERS
 
     bool IsBackwardTransfer(int pos) const override final;

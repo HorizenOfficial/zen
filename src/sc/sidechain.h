@@ -46,9 +46,10 @@ public:
     CSidechain():
         sidechainVersion(0), creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
         pastEpochTopQualityCertDataHash(), pastEpochTopQualityReferencedEpoch(CScCertificate::EPOCH_NULL),
-        lastTopQualityCertHash(), lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
+        lastTopQualityCertDataHash(), lastTopQualityCertHash(),
+        lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
-        lastTopQualityCertDataHash(), balance(0) {}
+        balance(0) {}
 
     bool IsNull() const
     {
@@ -58,11 +59,12 @@ public:
              creationTxHash.IsNull()                                          &&
              pastEpochTopQualityCertDataHash.IsNull()                         &&
              pastEpochTopQualityReferencedEpoch == CScCertificate::EPOCH_NULL &&
+             lastTopQualityCertDataHash.IsNull()                              &&
              lastTopQualityCertHash.IsNull()                                  &&
              lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL  &&
              lastTopQualityCertQuality == CScCertificate::QUALITY_NULL        &&
              lastTopQualityCertBwtAmount == 0                                 &&
-             lastTopQualityCertDataHash.IsNull()  && balance == 0             &&
+             balance == 0                                                     &&
              creationData.IsNull()                                            &&
              mImmatureAmounts.empty());
     }
@@ -78,16 +80,16 @@ public:
     // hash of the tx who created it
     uint256 creationTxHash;
 
-    // Data for previous epoch top quality cert confirmed in blockchain
+    // Cert data hash section
     uint256 pastEpochTopQualityCertDataHash;
     int32_t pastEpochTopQualityReferencedEpoch;
+    uint256 lastTopQualityCertDataHash;
 
     // Data for latest top quality cert confirmed in blockchain
     uint256 lastTopQualityCertHash;
     int32_t lastTopQualityCertReferencedEpoch;
     int64_t lastTopQualityCertQuality;
     CAmount lastTopQualityCertBwtAmount;
-    uint256 lastTopQualityCertDataHash;
 
     // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
@@ -120,11 +122,11 @@ public:
         READWRITE(creationTxHash);
         READWRITE(pastEpochTopQualityCertDataHash);
         READWRITE(pastEpochTopQualityReferencedEpoch);
+        READWRITE(lastTopQualityCertDataHash);
         READWRITE(lastTopQualityCertHash);
         READWRITE(lastTopQualityCertReferencedEpoch);
         READWRITE(lastTopQualityCertQuality);
         READWRITE(lastTopQualityCertBwtAmount);
-        READWRITE(lastTopQualityCertDataHash);
         READWRITE(balance);
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
@@ -138,11 +140,11 @@ public:
                (this->creationTxHash                     == rhs.creationTxHash)                     &&
                (this->pastEpochTopQualityCertDataHash    == rhs.pastEpochTopQualityCertDataHash)    &&
                (this->pastEpochTopQualityReferencedEpoch == rhs.pastEpochTopQualityReferencedEpoch) &&
+               (this->lastTopQualityCertDataHash         == rhs.lastTopQualityCertDataHash)         &&
                (this->lastTopQualityCertHash             == rhs.lastTopQualityCertHash)             &&
                (this->lastTopQualityCertReferencedEpoch  == rhs.lastTopQualityCertReferencedEpoch)  &&
                (this->lastTopQualityCertQuality          == rhs.lastTopQualityCertQuality)          &&
                (this->lastTopQualityCertBwtAmount        == rhs.lastTopQualityCertBwtAmount)        &&
-               (this->lastTopQualityCertDataHash         == rhs.lastTopQualityCertDataHash)         &&
                (this->balance                            == rhs.balance)                            &&
                (this->creationData                       == rhs.creationData)                       &&
                (this->mImmatureAmounts                   == rhs.mImmatureAmounts);
