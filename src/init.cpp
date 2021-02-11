@@ -65,6 +65,7 @@
 #endif
 
 #include "librustzcash.h"
+#include "zen/websocket_server.h"
 
 using namespace std;
 
@@ -403,6 +404,8 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-tlskeypwd=<password>", _("Password for a private key encryption (default: not set, i.e. private key will be stored unencrypted)"));
     strUsage += HelpMessageOpt("-tlscertpath=<path>", _("Full path to a certificate"));
     strUsage += HelpMessageOpt("-tlstrustdir=<path>", _("Full path to a trusted certificates directory"));
+    strUsage += HelpMessageOpt("-websocket=<0 or 1>", _("If set to 1 opens a websocket channel listening for client connections on localhost (default: 0)"));
+    strUsage += HelpMessageOpt("-wsport=<port>", _("If websocket=1, listen for ws connections at this ip port on localhost (default: 8888)"));
 #ifdef USE_UPNP
 #if USE_UPNP
     strUsage += HelpMessageOpt("-upnp", _("Use UPnP to map the listening port (default: 1 when listening and no -proxy)"));
@@ -514,7 +517,7 @@ std::string HelpMessage(HelpMessageMode mode)
 
     strUsage += HelpMessageOpt("-cbhsafedepth=<n>",
         "regtest/testnet only - Set safe depth for skipping checkblockatheight in txout scripts (default depends on regtest/testnet params)");
-        
+
     strUsage += HelpMessageOpt("-cbhminage=<n>",
         "regtest/testnet only - Set the minimum legal age of the referenced block for checkblockatheight in txout scripts (default depends on regtest/testnet params)");
 
@@ -795,6 +798,8 @@ bool AppInitServers(boost::thread_group& threadGroup)
     if (GetBoolArg("-rest", false) && !StartREST())
         return false;
     if (!StartHTTPServer())
+        return false;
+    if (GetBoolArg("-websocket", false) && !StartWsServer())
         return false;
     return true;
 }
