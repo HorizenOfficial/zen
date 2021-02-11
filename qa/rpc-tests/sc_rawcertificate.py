@@ -374,8 +374,7 @@ class sc_rawcert(BitcoinTestFramework):
         "sc1", epn, eph, pebh,
         quality, constant, pks, amounts)
 
-        #raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
-        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": None, "withdrawalEpochNumber": epn}
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
 
         # generate a certificate with some backward transfer, several vin vout and a fee
         try:
@@ -391,7 +390,6 @@ class sc_rawcert(BitcoinTestFramework):
 
         self.sync_all()
         decoded_cert_post = self.nodes[0].getrawcertificate(cert, 1)
-        return
 
         mark_logs("check that cert contents are as expected", self.nodes, DEBUG_MODE)
         assert_equal(decoded_cert_post['certid'], cert)
