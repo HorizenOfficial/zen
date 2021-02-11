@@ -1020,6 +1020,21 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
         return;
 
     UniValue ia(UniValue::VARR);
+    if (mempool.hasSidechainCreationTx(scId))
+    {
+        const uint256& hash = mempool.mapSidechains.at(scId).scCreationTxHash;
+        const CTransaction & scCrTx = mempool.mapTx.at(hash).GetTx();
+        for (const auto& scCrAmount : scCrTx.GetVscCcOut())
+        {
+            if (scId == scCrAmount.GetScId())
+            {
+                 UniValue o(UniValue::VOBJ);
+                 o.push_back(Pair("unconf amount", ValueFromAmount(scCrAmount.nValue)));
+                 ia.push_back(o);
+             }
+        }
+    }
+
     for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
     {
         const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
@@ -1028,11 +1043,26 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
             if (scId == fwdAmount.scId)
             {
                  UniValue o(UniValue::VOBJ);
-                 o.push_back(Pair("unconf amount", ValueFromAmount(fwdAmount.nValue)));
+                 o.push_back(Pair("unconf amount", ValueFromAmount(fwdAmount.GetScValue())));
                  ia.push_back(o);
              }
         }
     }
+
+    for (const auto& mbtrHash: mempool.mapSidechains.at(scId).mcBtrSet)
+    {
+        const CTransaction & mbtrTx = mempool.mapTx.at(mbtrHash).GetTx();
+        for (const auto& mbtrAmount : mbtrTx.GetVBwtRequestOut())
+        {
+            if (scId == mbtrAmount.scId)
+            {
+                 UniValue o(UniValue::VOBJ);
+                 o.push_back(Pair("unconf amount", ValueFromAmount(mbtrAmount.GetScValue())));
+                 ia.push_back(o);
+             }
+        }
+    }
+
     if (ia.size() > 0)
         sc.push_back(Pair("unconf immature amounts", ia));
 
@@ -1126,13 +1156,11 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
                     info.creationData.wMbtrVk = scCreation.wMbtrVk;
-                    info.mImmatureAmounts[-1] = scCreation.GetScValue();
                     break;
                 }
             }
 
             sc.push_back(Pair("unconf creating tx hash", info.creationTxHash.GetHex()));
-            sc.push_back(Pair("unconf creation amount", ValueFromAmount(info.mImmatureAmounts[-1])));
             sc.push_back(Pair("unconf withdrawalEpochLength", info.creationData.withdrawalEpochLength));
 
             if (bVerbose)

@@ -140,7 +140,7 @@ class sc_bwt_request(BitcoinTestFramework):
         # 1.  wrong scid
         outputs = [{'scUtxoId':fe1, 'scFee':SC_FEE, 'scid':"abcd", 'scProof':p1, 'pubkeyhash':pkh1 }]
         try:
-            self.nodes[1].retrieve_from_sidechain(outputs, {});
+            self.nodes[1].request_transfer_from_sidechain(outputs, {});
             assert_true(False)
         except JSONRPCException, e:
             mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
@@ -148,7 +148,7 @@ class sc_bwt_request(BitcoinTestFramework):
         # 2.  wrong pkh
         outputs = [{'scUtxoId':fe1, 'scFee':SC_FEE, 'scid':scid1, 'scProof':p1, 'pubkeyhash':scid1 }]
         try:
-            self.nodes[1].retrieve_from_sidechain(outputs, {});
+            self.nodes[1].request_transfer_from_sidechain(outputs, {});
             assert_true(False)
         except JSONRPCException, e:
             mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
@@ -156,7 +156,7 @@ class sc_bwt_request(BitcoinTestFramework):
         # 3.  negative scfee
         outputs = [{'scUtxoId':fe1, 'scFee':Decimal("-0.2"), 'scid':scid1, 'scProof':p1, 'pubkeyhash':pkh1 }]
         try:
-            self.nodes[1].retrieve_from_sidechain(outputs, {});
+            self.nodes[1].request_transfer_from_sidechain(outputs, {});
             assert_true(False)
         except JSONRPCException, e:
             mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
@@ -164,7 +164,7 @@ class sc_bwt_request(BitcoinTestFramework):
         # 4. not including one of the mandatory param
         outputs = [{'scFee':SC_FEE, 'scid':scid1, 'scProof':p1, 'pubkeyhash':pkh1 }]
         try:
-            self.nodes[1].retrieve_from_sidechain(outputs, {});
+            self.nodes[1].request_transfer_from_sidechain(outputs, {});
             assert_true(False)
         except JSONRPCException, e:
             mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
@@ -172,7 +172,7 @@ class sc_bwt_request(BitcoinTestFramework):
         # 5.  wrong field element
         outputs = [{'scUtxoId':"abcd", 'scFee':SC_FEE, 'scid':scid1, 'scProof':p1, 'pubkeyhash':pkh1 }]
         try:
-            self.nodes[1].retrieve_from_sidechain(outputs, {});
+            self.nodes[1].request_transfer_from_sidechain(outputs, {});
             assert_true(False)
         except JSONRPCException, e:
             mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
@@ -189,7 +189,7 @@ class sc_bwt_request(BitcoinTestFramework):
         cmdParms = { "minconf":0, "fee":TX_FEE}
 
         try:
-            bwt1 = self.nodes[1].retrieve_from_sidechain(outputs, cmdParms);
+            bwt1 = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
             mark_logs("  --> bwt_tx_1 = {}.".format(bwt1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -212,7 +212,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         mark_logs("Node1 creates a tx with the same single bwt request for sc", self.nodes, DEBUG_MODE)
         try:
-            bwt2 = self.nodes[1].retrieve_from_sidechain(outputs, cmdParms);
+            bwt2 = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
             mark_logs("  --> bwt_tx_2 = {}.".format(bwt2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -230,7 +230,7 @@ class sc_bwt_request(BitcoinTestFramework):
         outputs = [{'scUtxoId':fe1, 'scFee':Decimal("0.0"), 'scid':scid1, 'scProof' :p1, 'pubkeyhash':pkh1 }]
         cmdParms = {"fee":0.0}
         try:
-            bwt3 = self.nodes[0].retrieve_from_sidechain(outputs, cmdParms);
+            bwt3 = self.nodes[0].request_transfer_from_sidechain(outputs, cmdParms);
             mark_logs("  --> bwt_tx_3 = {}.".format(bwt3), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -257,7 +257,7 @@ class sc_bwt_request(BitcoinTestFramework):
         ]
         cmdParms = {"minconf":0, "fee":TX_FEE}
         try:
-            bwt4 = self.nodes[1].retrieve_from_sidechain(outputs, cmdParms);
+            bwt4 = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
             mark_logs("  --> bwt_tx_4 = {}.".format(bwt4), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -411,7 +411,7 @@ class sc_bwt_request(BitcoinTestFramework):
         cmdParms = { "minconf":0, "fee":0.0}
         mark_logs("Node0 creates a tx with a bwt request for a sc with null balance", self.nodes, DEBUG_MODE)
         try:
-            bwt7 = self.nodes[1].retrieve_from_sidechain(outputs, cmdParms);
+            bwt7 = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
             mark_logs("  --> bwt_tx_7 = {}.".format(bwt7), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -434,7 +434,7 @@ class sc_bwt_request(BitcoinTestFramework):
         cmdParms = {'minconf':0, 'fee':TX_FEE}
         mark_logs("Node0 creates a tx with a bwt request for a ceased sc (should fail)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].retrieve_from_sidechain(outputs, cmdParms);
+            self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']

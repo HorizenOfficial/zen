@@ -1367,14 +1367,14 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
 }
 
 // request a backward transfer (BWT)
-UniValue retrieve_from_sidechain(const UniValue& params, bool fHelp)
+UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || (params.size() != 1 && params.size() != 2))
         throw runtime_error(
-            "retrieve_from_sidechain {TODO}\n"
+            "request_transfer_from_sidechain {TODO}\n"
             "\nArguments:\n"
             "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
             "[{\n"
@@ -1397,7 +1397,7 @@ UniValue retrieve_from_sidechain(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"    (string) The resulting transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("retrieve_from_sidechain", "'{TODO}]'")
+            + HelpExampleCli("request_transfer_from_sidechain", "'{TODO}]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
