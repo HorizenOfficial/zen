@@ -45,8 +45,7 @@ class CSidechain {
 public:
     CSidechain():
         sidechainVersion(0), creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
-        pastEpochTopQualityCertDataHash(), pastEpochTopQualityReferencedEpoch(CScCertificate::EPOCH_NULL),
-        lastTopQualityCertDataHash(), lastTopQualityCertHash(),
+        pastEpochTopQualityCertDataHash(), lastTopQualityCertDataHash(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
         balance(0) {}
@@ -58,7 +57,6 @@ public:
              creationBlockHeight == -1                                        &&
              creationTxHash.IsNull()                                          &&
              pastEpochTopQualityCertDataHash.IsNull()                         &&
-             pastEpochTopQualityReferencedEpoch == CScCertificate::EPOCH_NULL &&
              lastTopQualityCertDataHash.IsNull()                              &&
              lastTopQualityCertHash.IsNull()                                  &&
              lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL  &&
@@ -82,7 +80,6 @@ public:
 
     // Cert data hash section
     uint256 pastEpochTopQualityCertDataHash;
-    int32_t pastEpochTopQualityReferencedEpoch;
     uint256 lastTopQualityCertDataHash;
 
     // Data for latest top quality cert confirmed in blockchain
@@ -121,7 +118,6 @@ public:
         READWRITE(VARINT(creationBlockHeight));
         READWRITE(creationTxHash);
         READWRITE(pastEpochTopQualityCertDataHash);
-        READWRITE(pastEpochTopQualityReferencedEpoch);
         READWRITE(lastTopQualityCertDataHash);
         READWRITE(lastTopQualityCertHash);
         READWRITE(lastTopQualityCertReferencedEpoch);
@@ -139,7 +135,6 @@ public:
                (this->creationBlockHeight                == rhs.creationBlockHeight)                &&
                (this->creationTxHash                     == rhs.creationTxHash)                     &&
                (this->pastEpochTopQualityCertDataHash    == rhs.pastEpochTopQualityCertDataHash)    &&
-               (this->pastEpochTopQualityReferencedEpoch == rhs.pastEpochTopQualityReferencedEpoch) &&
                (this->lastTopQualityCertDataHash         == rhs.lastTopQualityCertDataHash)         &&
                (this->lastTopQualityCertHash             == rhs.lastTopQualityCertHash)             &&
                (this->lastTopQualityCertReferencedEpoch  == rhs.lastTopQualityCertReferencedEpoch)  &&

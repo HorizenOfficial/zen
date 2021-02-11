@@ -1127,17 +1127,9 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     if (cert.epochNumber == (currentSc.lastTopQualityCertReferencedEpoch+1))
     {
         //Lazy update of pastEpochTopQualityCertDataHash
-        if ((currentSc.pastEpochTopQualityReferencedEpoch != CScCertificate::EPOCH_NULL) &&
-            (cert.epochNumber != currentSc.pastEpochTopQualityReferencedEpoch+2))
-        {
-            return error("%s():%d - ERROR: pastEpochTopQualityReferencedEpoch %d is not two epochs before current cert epoch %d\n",
-                    __func__, __LINE__, currentSc.pastEpochTopQualityReferencedEpoch+2, cert.epochNumber);
-        }
-        scUndoData.pastEpochTopQualityReferencedEpoch = currentSc.pastEpochTopQualityReferencedEpoch;
         scUndoData.pastEpochTopQualityCertDataHash = currentSc.pastEpochTopQualityCertDataHash;
         scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA;
 
-        currentSc.pastEpochTopQualityReferencedEpoch = currentSc.lastTopQualityCertReferencedEpoch;
         currentSc.pastEpochTopQualityCertDataHash = currentSc.lastTopQualityCertDataHash;
     } else if (cert.epochNumber == currentSc.lastTopQualityCertReferencedEpoch)
     {
@@ -1282,10 +1274,8 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     if (certToRevert.epochNumber == (sidechainUndo.prevTopCommittedCertReferencedEpoch+1))
     {
         assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA);
-        currentSc.lastTopQualityCertReferencedEpoch = currentSc.pastEpochTopQualityReferencedEpoch;
         currentSc.lastTopQualityCertDataHash = currentSc.pastEpochTopQualityCertDataHash;
 
-        currentSc.pastEpochTopQualityReferencedEpoch = sidechainUndo.pastEpochTopQualityReferencedEpoch;
         currentSc.pastEpochTopQualityCertDataHash = sidechainUndo.pastEpochTopQualityCertDataHash;
     } else if (certToRevert.epochNumber == sidechainUndo.prevTopCommittedCertReferencedEpoch)
     {

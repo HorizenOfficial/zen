@@ -147,7 +147,6 @@ struct CSidechainUndoData
 
     // CROSS_EPOCH_CERT_DATA section
     uint256 pastEpochTopQualityCertDataHash;
-    int32_t pastEpochTopQualityReferencedEpoch;
 
     // ANY_EPOCH_CERT_DATA section
     uint256 prevTopCommittedCertHash;
@@ -164,7 +163,6 @@ struct CSidechainUndoData
 
     CSidechainUndoData(): sidechainUndoDataVersion(0), contentBitMask(AvailableSections::UNDEFINED),
         appliedMaturedAmount(0), pastEpochTopQualityCertDataHash(),
-        pastEpochTopQualityReferencedEpoch(CScCertificate::EPOCH_NULL),
         prevTopCommittedCertHash(), prevTopCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         prevTopCommittedCertQuality(CScCertificate::QUALITY_NULL), prevTopCommittedCertBwtAmount(0),
         lastTopQualityCertDataHash(), lowQualityBwts(), ceasedBwts() {}
@@ -180,7 +178,6 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
             totalSize += ::GetSerializeSize(pastEpochTopQualityCertDataHash,     nType, nVersion);
-            totalSize += ::GetSerializeSize(pastEpochTopQualityReferencedEpoch,  nType, nVersion);
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -213,7 +210,6 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
             ::Serialize(s, pastEpochTopQualityCertDataHash,     nType, nVersion);
-            ::Serialize(s, pastEpochTopQualityReferencedEpoch,  nType, nVersion);
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -246,7 +242,6 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
             ::Unserialize(s, pastEpochTopQualityCertDataHash,     nType, nVersion);
-            ::Unserialize(s, pastEpochTopQualityReferencedEpoch,  nType, nVersion);
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -277,7 +272,6 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
             res += strprintf("pastEpochTopQualityCertDataHash=%s\n", pastEpochTopQualityCertDataHash.ToString());
-            res += strprintf("pastEpochTopQualityReferencedEpoch=%d\n", pastEpochTopQualityReferencedEpoch);
             res += strprintf("prevTopCommittedCertHash=%s\n", prevTopCommittedCertHash.ToString());
             res += strprintf("prevTopCommittedCertReferencedEpoch=%d\n", prevTopCommittedCertReferencedEpoch);
             res += strprintf("prevTopCommittedCertQuality=%d\n", prevTopCommittedCertQuality);
