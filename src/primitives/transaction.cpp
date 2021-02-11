@@ -644,7 +644,7 @@ bool CTransaction::IsValidVersion(CValidationState &state) const
     return true;
 }
 
-bool CTransaction::CheckNonEmpty(CValidationState &state) const
+bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
 {
     // Transactions can contain empty `vin` and `vout` so long as
     // `vjoinsplit` is non-empty.

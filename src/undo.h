@@ -146,14 +146,14 @@ struct CSidechainUndoData
     CAmount appliedMaturedAmount;
 
     // CROSS_EPOCH_CERT_DATA section
-    uint256 pastEpochTopQualityCertDataHash;
+    libzendoomc::ScFieldElement pastEpochTopQualityCertDataHash;
 
     // ANY_EPOCH_CERT_DATA section
     uint256 prevTopCommittedCertHash;
     int32_t prevTopCommittedCertReferencedEpoch;
     int64_t prevTopCommittedCertQuality;
     CAmount prevTopCommittedCertBwtAmount;
-    uint256 lastTopQualityCertDataHash;
+    libzendoomc::ScFieldElement lastTopQualityCertDataHash;
 
     // LOW_QUALITY_CERT_DATA
     std::vector<CTxInUndo> lowQualityBwts;
@@ -269,14 +269,16 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::MATURED_AMOUNTS)
              res += strprintf("appliedMaturedAmount=%d.%08d\n", appliedMaturedAmount / COIN, appliedMaturedAmount % COIN);
 
+//        if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
+//        	res += strprintf("pastEpochTopQualityCertDataHash=%s\n", pastEpochTopQualityCertDataHash.ToString());
+
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
-            res += strprintf("pastEpochTopQualityCertDataHash=%s\n", pastEpochTopQualityCertDataHash.ToString());
             res += strprintf("prevTopCommittedCertHash=%s\n", prevTopCommittedCertHash.ToString());
             res += strprintf("prevTopCommittedCertReferencedEpoch=%d\n", prevTopCommittedCertReferencedEpoch);
             res += strprintf("prevTopCommittedCertQuality=%d\n", prevTopCommittedCertQuality);
             res += strprintf("prevTopCommittedCertBwtAmount=%d.%08d\n", prevTopCommittedCertBwtAmount / COIN, prevTopCommittedCertBwtAmount % COIN);
-            res += strprintf("lastTopQualityCertDataHash=%s\n", lastTopQualityCertDataHash.ToString());
+            // res += strprintf("lastTopQualityCertDataHash=%s\n", lastTopQualityCertDataHash.ToString());
         }
 
         res += strprintf("ceasedBwts.size()=%u\n", ceasedBwts.size());

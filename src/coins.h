@@ -594,7 +594,7 @@ public:
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
 
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
-    uint256 GetActiveCertDataHash(const uint256& scId);
+    libzendoomc::ScFieldElement GetActiveCertDataHash(const uint256& scId) const;
 
     bool Flush();
 
