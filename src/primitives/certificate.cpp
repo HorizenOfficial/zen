@@ -84,7 +84,7 @@ bool CScCertificate::IsVersionStandard(int nHeight) const
     return true;
 }
 
-bool CScCertificate::CheckNonEmpty(CValidationState &state) const
+bool CScCertificate::CheckInputsOutputsNonEmpty(CValidationState &state) const
 {
     // Certificates can not contain empty `vin` 
     if (GetVin().empty())

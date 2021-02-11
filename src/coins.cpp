@@ -1132,7 +1132,8 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
         }
 
         // Verify mainchain bwt request proof
-        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData, mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk))
+        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
+        		mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk, this->GetActiveCertDataHash(mbtr.scId)))
             return error("%s():%d - ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
                     __func__, __LINE__, mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
 
@@ -1835,12 +1836,12 @@ CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int hei
     return  CSidechain::State::ALIVE;
 }
 
-uint256 CCoinsViewCache::GetActiveCertDataHash(const uint256& scId)
+libzendoomc::ScFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256& scId) const
 {
     const CSidechain* const pSidechain = this->AccessSidechain(scId);
 
     if (pSidechain == nullptr)
-        return uint256{};
+        return libzendoomc::ScFieldElement{};
 
     int currentHeight = this->GetHeight();
     int currentEpochSafeguard = pSidechain->StartHeightForEpoch(pSidechain->EpochFor(currentHeight)) + pSidechain->SafeguardMargin();

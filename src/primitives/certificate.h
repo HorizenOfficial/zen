@@ -154,11 +154,11 @@ public:
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
     //GETTERS
-    const uint256&                            GetJoinSplitPubKey() const override { static const uint256 nullKey; return nullKey;}
-    const std::vector<JSDescription>&         GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
-    const uint256&                            GetScId()       const          {return scId;};
-    const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
-    const uint256&                            GetDataHash() const { static const uint256 dummyCertDataHash; return dummyCertDataHash;}
+    const uint256&                     GetJoinSplitPubKey() const override { static const uint256 nullKey; return nullKey;}
+    const std::vector<JSDescription>&  GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
+    const uint256&                     GetScId()       const          {return scId;};
+    const uint32_t&                    GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
+    const libzendoomc::ScFieldElement& GetDataHash() const { static const libzendoomc::ScFieldElement dummy; return dummy;}
     //END OF GETTERS
 
     bool IsBackwardTransfer(int pos) const override final;
@@ -167,7 +167,7 @@ public:
     bool IsValidVersion   (CValidationState &state) const override;
     bool IsVersionStandard(int nHeight) const override;
     bool CheckAmounts     (CValidationState &state) const override;
-    bool CheckNonEmpty(CValidationState &state) const override;
+    bool CheckInputsOutputsNonEmpty(CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
     //END OF CHECK FUNCTIONS

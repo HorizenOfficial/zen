@@ -79,8 +79,8 @@ public:
     uint256 creationTxHash;
 
     // Cert data hash section
-    uint256 pastEpochTopQualityCertDataHash;
-    uint256 lastTopQualityCertDataHash;
+    libzendoomc::ScFieldElement pastEpochTopQualityCertDataHash;
+    libzendoomc::ScFieldElement lastTopQualityCertDataHash;
 
     // Data for latest top quality cert confirmed in blockchain
     uint256 lastTopQualityCertHash;

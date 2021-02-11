@@ -689,7 +689,7 @@ public:
 
     bool CheckSerializedSize (CValidationState &state) const;
     virtual bool CheckAmounts(CValidationState &state) const = 0;
-    virtual bool CheckNonEmpty(CValidationState &state) const = 0;
+    virtual bool CheckInputsOutputsNonEmpty(CValidationState &state) const = 0;
     bool CheckInputsDuplication(CValidationState &state) const;
     virtual bool CheckInputsInteraction(CValidationState &state) const = 0;
 
@@ -864,7 +864,7 @@ public:
     {
         bool ret = vin.empty() && vout.empty();
         if (IsScVersion())
-            ret &= ccIsNull();
+            ret = ret && ccIsNull();
 
         return ret;
     }
@@ -894,7 +894,7 @@ public:
     bool IsValidVersion   (CValidationState &state) const override;
     bool IsVersionStandard(int nHeight) const override;
     bool CheckAmounts     (CValidationState &state) const override;
-    bool CheckNonEmpty    (CValidationState &state) const override;
+    bool CheckInputsOutputsNonEmpty    (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
     //END OF CHECK FUNCTIONS

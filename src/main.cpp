@@ -905,7 +905,7 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
     if (!cert.IsValidVersion(state))
         return false;
 
-    if (!cert.CheckNonEmpty(state))
+    if (!cert.CheckInputsOutputsNonEmpty(state))
         return false;
 
     if (!cert.CheckSerializedSize(state))
@@ -1042,7 +1042,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     if (!tx.IsValidVersion(state))
         return false;
 
-    if (!tx.CheckNonEmpty(state))
+    if (!tx.CheckInputsOutputsNonEmpty(state))
         return false;
 
     if (!tx.CheckSerializedSize(state))
