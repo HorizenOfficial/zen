@@ -46,8 +46,7 @@ public:
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap,
-                    CSidechainEventsMap& mapSidechainEvents, CCswNullifiersMap& cswNullifiers,
-                    CCertDataHashMap& certDataHashes) override
+                    CSidechainEventsMap& mapSidechainEvents, CCswNullifiersMap& cswNullifiers) override
     {
         for (auto& entry : sidechainMap)
             switch (entry.second.flag) {
@@ -248,7 +247,6 @@ TEST_F(SidechainTestSuite, ValidCSWTx) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
-    csw.nEpoch = 1;
     csw.nullifier = libzendoomc::ScFieldElement();
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -265,7 +263,6 @@ TEST_F(SidechainTestSuite, CSWTxInvalidAmount) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = -1;
-    csw.nEpoch = 1;
     csw.nullifier = libzendoomc::ScFieldElement();
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -284,7 +281,6 @@ TEST_F(SidechainTestSuite, CSWTxInvalidEpoch) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
-    csw.nEpoch = -1;
     csw.nullifier = libzendoomc::ScFieldElement();
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -303,7 +299,6 @@ TEST_F(SidechainTestSuite, CSWTxInvalidNullifier) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
-    csw.nEpoch = 1;
     csw.nullifier = libzendoomc::ScFieldElement({std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')});
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -322,7 +317,6 @@ TEST_F(SidechainTestSuite, CSWTxInvalidProof) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
-    csw.nEpoch = 1;
     csw.nullifier = libzendoomc::ScFieldElement();
     csw.scProof = libzendoomc::ScProof({std::vector<unsigned char>(size_t(SC_PROOF_SIZE), 'a')});
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -599,7 +593,7 @@ TEST_F(SidechainTestSuite, CertificateUpdatesTopCommittedCertHash) {
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertReferencedEpoch == -1);
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertHash.IsNull());
 }
-
+// TODO: update test
 TEST_F(SidechainTestSuite, CertificateUpdatesCertHashData) {
     //Prerequisites
     int scCreationHeight = 1987;
@@ -611,13 +605,13 @@ TEST_F(SidechainTestSuite, CertificateUpdatesCertHashData) {
     CBlockUndo blockUndo;
     CScCertificate cert_A = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
         /*changeTotalAmount*/CAmount(3),/*numChangeOut*/2, /*bwtAmount*/CAmount(1), /*numBwt*/2);
-    sidechainsView->UpdateCertDataHash(cert_A,blockUndo);
+    //sidechainsView->UpdateCertDataHash(cert_A,blockUndo);
 
     CScCertificate cert_B = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
         /*changeTotalAmount*/CAmount(3),/*numChangeOut*/2, /*bwtAmount*/CAmount(1), /*numBwt*/2, /*quality*/5);
 
     // test
-    sidechainsView->UpdateCertDataHash(cert_B,blockUndo);
+    //sidechainsView->UpdateCertDataHash(cert_B,blockUndo);
 
     //check
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertDataHash == libzendoomc::CalculateCertDataHash(cert_A));
@@ -634,7 +628,6 @@ TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
     CNullifiersMap mapNullifiers;
     CSidechainEventsMap mapCeasingScs;
     CCswNullifiersMap cswNullifiers;
-    CCertDataHashMap certDataHashes;
 
     uint256 scId = uint256S("aaaa");
     CSidechainsMap mapToWrite;
@@ -645,7 +638,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write new sidechain when backing view doesn't know about it
-    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers, certDataHashes);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers);
 
     //checks
     EXPECT_TRUE(res);
@@ -660,7 +653,6 @@ TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCach
     CNullifiersMap mapNullifiers;
     CSidechainEventsMap mapCeasingScs;
     CCswNullifiersMap cswNullifiers;
-    CCertDataHashMap certDataHashes;
 
     //Prefill backing cache with sidechain
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
@@ -675,7 +667,7 @@ TEST_F(SidechainTestSuite, FRESHSidechainsCanBeWrittenOnlyIfUnknownToBackingCach
 
     mapToWrite[scId] = entry;
 
-    ASSERT_DEATH(sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite,mapCeasingScs, cswNullifiers, certDataHashes),"");
+    ASSERT_DEATH(sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite,mapCeasingScs, cswNullifiers),"");
 }
 
 TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
@@ -686,7 +678,6 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
     CNullifiersMap mapNullifiers;
     CSidechainEventsMap mapCeasingScs;
     CCswNullifiersMap cswNullifiers;
-    CCertDataHashMap certDataHashes;
 
 
     uint256 scId = uint256S("aaaa");
@@ -698,7 +689,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsAreStoredInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view doesn't know about it
-    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers, certDataHashes);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers);
 
     //checks
     EXPECT_TRUE(res);
@@ -713,7 +704,6 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
     CNullifiersMap mapNullifiers;
     CSidechainEventsMap mapCeasingScs;
     CCswNullifiersMap cswNullifiers;
-    CCertDataHashMap certDataHashes;
 
 
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
@@ -730,7 +720,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsUpdatesDirtyOnesInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view already knows about it
-    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers, certDataHashes);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers);
 
     //checks
     EXPECT_TRUE(res);
@@ -747,7 +737,6 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
     CNullifiersMap mapNullifiers;
     CSidechainEventsMap mapCeasingScs;
     CCswNullifiersMap cswNullifiers;
-    CCertDataHashMap certDataHashes;
 
 
     //Create sidechain...
@@ -769,7 +758,7 @@ TEST_F(SidechainTestSuite, DIRTYSidechainsOverwriteErasedOnesInBackingCache) {
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers, certDataHashes);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers);
 
     //checks
     EXPECT_TRUE(res);
@@ -786,7 +775,6 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
     CNullifiersMap mapNullifiers;
     CSidechainEventsMap mapCeasingScs;
     CCswNullifiersMap cswNullifiers;
-    CCertDataHashMap certDataHashes;
 
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
@@ -802,7 +790,7 @@ TEST_F(SidechainTestSuite, ERASEDSidechainsSetExistingOnesInBackingCacheasErased
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers, certDataHashes);
+    bool res = sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers);
 
     //checks
     EXPECT_TRUE(res);
@@ -817,7 +805,6 @@ TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUn
     CNullifiersMap mapNullifiers;
     CSidechainEventsMap mapCeasingScs;
     CCswNullifiersMap cswNullifiers;
-    CCertDataHashMap certDataHashes;
 
     CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
@@ -833,7 +820,7 @@ TEST_F(SidechainTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfUn
     mapToWrite[scId] = entry;
 
     //write dirty sidechain when backing view have it erased
-    ASSERT_DEATH(sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers, certDataHashes),"");
+    ASSERT_DEATH(sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs, cswNullifiers),"");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -987,9 +974,8 @@ TEST_F(SidechainTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
     CSidechainsMap emptySidechainsMap;
     CSidechainEventsMap mapCeasingScs;
     CCswNullifiersMap cswNullifiers;
-    CCertDataHashMap certDataHashes;
 
-    sidechainsView->BatchWrite(mapCoins, uint256(), uint256(), emptyAnchorsMap, emptyNullifiersMap, emptySidechainsMap, mapCeasingScs, cswNullifiers, certDataHashes);
+    sidechainsView->BatchWrite(mapCoins, uint256(), uint256(), emptyAnchorsMap, emptyNullifiersMap, emptySidechainsMap, mapCeasingScs, cswNullifiers);
 
     //flush both the coin and the sidechain to the tmp chainstatedb
     ASSERT_TRUE(sidechainsView->Flush());

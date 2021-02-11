@@ -1073,7 +1073,6 @@ public:
         // Serialize all CSW input fields except redeemScript
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nValue, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scId, nType, nVersion);
-        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nEpoch, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nullifier, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].pubKeyHash, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scProof, nType, nVersion);

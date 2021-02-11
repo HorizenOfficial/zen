@@ -81,41 +81,6 @@ namespace libzendoomc{
         return certDataHash;
     }
 
-    bool CalculateCumulativeCertDataHash(const ScFieldElement& prevCumulativeHash, const ScFieldElement& prevCertHash, ScFieldElement& CumulativeHashOutput) {
-        field_t* prevCumulativeHashInput = zendoo_deserialize_field(prevCumulativeHash.begin());
-        if (prevCumulativeHashInput == nullptr) {
-            LogPrint("zendoo_mc_cryptolib",
-                    "%s():%d - failed to deserialize \"constant\": %s \n",
-                    __func__, __LINE__, ToString(zendoo_get_last_error()));
-            zendoo_clear_error();
-
-            return false;
-        }
-
-        field_t* prevCertHashInput = zendoo_deserialize_field(prevCertHash.begin());
-        if (prevCertHashInput == nullptr) {
-            LogPrint("zendoo_mc_cryptolib",
-                    "%s():%d - failed to deserialize \"constant\": %s \n",
-                    __func__, __LINE__, ToString(zendoo_get_last_error()));
-            zendoo_clear_error();
-
-            zendoo_field_free(prevCumulativeHashInput);
-            return false;
-        }
-
-        const field_t* hashInput[] = {prevCumulativeHashInput, prevCertHashInput};
-
-        field_t* cumulativeHash = zendoo_compute_poseidon_hash(hashInput, 2);
-
-        zendoo_serialize_field(cumulativeHash, CumulativeHashOutput.begin());
-
-        zendoo_field_free(prevCumulativeHashInput);
-        zendoo_field_free(prevCertHashInput);
-        zendoo_field_free(cumulativeHash);
-
-        return true;
-    }
-
     // Let's define a struct to hold the inputs, with a function to free the memory Rust-side
     struct WCertVerifierInputs {
         std::vector<backward_transfer_t> bt_list;
@@ -258,9 +223,7 @@ namespace libzendoomc{
     }
 
     bool CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput(
-        const ScFieldElement& prevCumulativeCertDataHash,
-        const ScFieldElement& currentCertDataHash,
-        const ScFieldElement& lastCumulativeCertDataHash,
+        const ScFieldElement& certDataHash,
         const ScVk& wCeasedVk,
         const CTxCeasedSidechainWithdrawalInput& csw
     ) const
@@ -268,6 +231,6 @@ namespace libzendoomc{
         if(!perform_verification)
             return true;
         else // TODO: emit rust implementation.
-            return true;// CswProofVerification().verifyCsw(prevCumulativeCertDataHash, currentCertDataHash, lastCumulativeCertDataHash, wCeasedVk, csw);
+            return true;// CswProofVerification().verifyCsw(certDataHash, wCeasedVk, csw);
     }
 }

@@ -358,15 +358,14 @@ class CTxCeasedSidechainWithdrawalInput
 public:
     CAmount nValue;
     uint256 scId;
-    int32_t nEpoch;
     libzendoomc::ScFieldElement nullifier;
     uint160 pubKeyHash;
     libzendoomc::ScProof scProof;
     CScript redeemScript;
 
-    CTxCeasedSidechainWithdrawalInput(): nValue(-1), scId(), nEpoch(-1), nullifier(), pubKeyHash(), scProof(), redeemScript() {}
+    CTxCeasedSidechainWithdrawalInput(): nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript() {}
 
-    explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn, int32_t nEpochIn,
+    explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                const libzendoomc::ScFieldElement& nullifierIn, const uint160& pubKeyHashIn,
                                                const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn);
 
@@ -376,7 +375,6 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nValue);
         READWRITE(scId);
-        READWRITE(nEpoch);
         READWRITE(nullifier);
         READWRITE(pubKeyHash);
         READWRITE(scProof);
@@ -387,7 +385,6 @@ public:
     {
         return (a.nValue        == b.nValue &&
                 a.scId          == b.scId &&
-                a.nEpoch        == b.nEpoch &&
                 a.nullifier     == b.nullifier &&
                 a.pubKeyHash    == b.pubKeyHash &&
                 a.scProof       == b.scProof &&

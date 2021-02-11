@@ -30,7 +30,6 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("value", ValueFromAmount(csw.nValue)));
         o.push_back(Pair("scId", csw.scId.GetHex()));
-        o.push_back(Pair("epoch", csw.nEpoch));
         o.push_back(Pair("nullifier", HexStr(csw.nullifier)));
 
         UniValue spk(UniValue::VOBJ);
@@ -187,25 +186,6 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
         uint256 scId;
         scId.SetHex(scIdString);
 
-        // parse epoch number
-        const UniValue& epoch_v = find_value(o, "epoch");
-        if (epoch_v.isNull())
-        {
-            error = "Missing mandatory parameter \"epoch\" for the ceased sidechain withdrawal input";
-            return false;
-        }
-        if (!epoch_v.isNum())
-        {
-            error = "Invalid ceased sidechain withdrawal input parameter \"epoch\": integer value expected";
-            return false;
-        }
-        int epoch = epoch_v.get_int();
-        if (epoch < 0)
-        {
-            error = "Invalid ceased sidechain withdrawal input parameter \"epoch\": value must be positive";
-            return false;
-        }
-
         // parse nullifier
         const UniValue& nullifier_v = find_value(o, "nullifier");
         if (nullifier_v.isNull())
@@ -252,7 +232,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 
-        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, epoch, nullifier, pubKeyHash, scProof, CScript());
+        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, nullifier, pubKeyHash, scProof, CScript());
         rawTx.vcsw_ccin.push_back(csw_input);
     }
 

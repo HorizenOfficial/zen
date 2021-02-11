@@ -35,9 +35,8 @@ public:
         CSidechainsMap mapSidechains;
         CSidechainEventsMap mapSidechainEvents;
         CCswNullifiersMap cswNullifiers;
-        CCertDataHashMap certDataHashes;
 
-        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents, cswNullifiers, certDataHashes);
+        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents, cswNullifiers);
     }
 };
 
@@ -91,7 +90,7 @@ protected:
     CTxMemPool aMempool;
     CTransaction GenerateScTx(const CAmount & creationTxAmount, int epochLenght = -1, bool ceasedVkDefined = true);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
-    CTxCeasedSidechainWithdrawalInput GenerateCSWInput(const uint256& scId, int32_t epoch, const std::string& nullifierHex, CAmount amount);
+    CTxCeasedSidechainWithdrawalInput GenerateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount);
     CTransaction GenerateCSWTx(const std::vector<CTxCeasedSidechainWithdrawalInput>& csws);
     CTransaction GenerateCSWTx(const CTxCeasedSidechainWithdrawalInput& csw);
     CScCertificate GenerateCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
@@ -615,7 +614,7 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainIsAccepted) {
     txCreationUtils::storeCertDataHash(*pcoinsTip, scId, sidechain.prevBlockTopQualityCertReferencedEpoch-1);
 
     CAmount cswTxCoins = sidechain.balance/2;
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId,/*epoch*/0, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CValidationState dummyState;
@@ -635,7 +634,7 @@ TEST_F(SidechainsInMempoolTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRej
     txCreationUtils::storeCertDataHash(*pcoinsTip, scId, 0);
 
     CAmount cswTxCoins = sidechain.balance*2;
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId,/*epoch*/0, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CValidationState dummyState;
@@ -648,7 +647,7 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToUnknownSidechainIsRefused) {
     ASSERT_FALSE(pcoinsTip->HaveSidechain(unknownScId));
     CAmount cswTxCoins = 10;
     ASSERT_TRUE(cswTxCoins > 0);
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(unknownScId,/*epoch*/0, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(unknownScId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CValidationState dummyState;
@@ -666,7 +665,7 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToActiveSidechainIsRefused) {
     txCreationUtils::storeSidechain(*pcoinsTip, scId, sidechain, dummyCeasingMap);
 
     CAmount cswTxCoins = 10;
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId,/*epoch*/0, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CValidationState dummyState;
@@ -677,7 +676,7 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToActiveSidechainIsRefused) {
 TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected) {
     uint256 scId = uint256S("aaa");
     CAmount cswTxCoins = 10;
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId,/*epoch*/0, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -772,7 +771,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAr
 
     // Create and add CSW Tx
     CAmount cswTxCoins = sidechain.balance; // csw coins = total sc mature coins
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId,/*epoch*/0, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -787,7 +786,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAr
 
     // Add without checks another CSW tx to the same sidechain
     CAmount cswTxCoins2 = 1;
-    CTxCeasedSidechainWithdrawalInput cswInput2 = GenerateCSWInput(scId,/*epoch*/0, "ddcc", cswTxCoins2);
+    CTxCeasedSidechainWithdrawalInput cswInput2 = GenerateCSWInput(scId, "ddcc", cswTxCoins2);
     CTransaction cswTx2 = GenerateCSWTx(cswInput2);
     CTxMemPoolEntry cswEntry2(cswTx2, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     EXPECT_TRUE(mempool.addUnchecked(cswTx2.GetHash(), cswEntry2));
@@ -814,7 +813,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCswForAliveSidechainsAreRemovedF
 
     // Create and add CSW Tx
     CAmount cswTxCoins = sidechain.balance; // csw coins = total sc mature coins
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId,/*epoch*/0, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -853,7 +852,6 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCswRemovalFromMempool) {
 
     //load csw tx to mempool
     CAmount dummyAmount(1);
-    int32_t dummyEpoch(19);
     uint160 dummyPubKeyHash;
     libzendoomc::ScProof dummyScProof;
     CScript dummyRedeemScript;
@@ -861,8 +859,8 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCswRemovalFromMempool) {
     CMutableTransaction mutTx;
     libzendoomc::ScFieldElement nullfier_1{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
     libzendoomc::ScFieldElement nullfier_2{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, dummyEpoch, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, dummyEpoch, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
 
     CTransaction cswTx(mutTx);
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -914,7 +912,7 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainWithoutVK) {
     // Create and add CSW Tx
     CAmount cswTxCoins = scCoins / 4;
     assert(cswTxCoins > 0);
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, /*epoch*/0,"aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId,"aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CValidationState cswTxState;
@@ -934,7 +932,6 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
 
     //load csw tx to mempool
     CAmount dummyAmount(1);
-    int32_t dummyEpoch(19);
     uint160 dummyPubKeyHash;
     libzendoomc::ScProof dummyScProof;
     CScript dummyRedeemScript;
@@ -943,8 +940,8 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
     mutTx.nVersion = SC_TX_VERSION;
     libzendoomc::ScFieldElement nullfier_1{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
     libzendoomc::ScFieldElement nullfier_2{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, dummyEpoch, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, dummyEpoch, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
 
     CTransaction cswTx(mutTx);
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -955,7 +952,7 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
     std::list<CScCertificate> removedCerts;
 
     CMutableTransaction mutConfirmedTx;
-    mutConfirmedTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, dummyEpoch, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutConfirmedTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
     CTransaction cswConfirmedTx(mutConfirmedTx);
     ASSERT_TRUE(cswTx.GetHash() != cswConfirmedTx.GetHash());
     mempool.removeConflicts(cswConfirmedTx, removedTxs, removedCerts);
@@ -1221,9 +1218,8 @@ bool SidechainsInMempoolTestSuite::StoreCoins(const std::pair<uint256, CCoinsCac
     CSidechainsMap mapSidechains;
     CSidechainEventsMap mapCeasingScs;
     CCswNullifiersMap cswNullifiers;
-    CCertDataHashMap certDataHashes;
 
-    pcoinsTip->BatchWrite(tmpCoinsMap, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapCeasingScs, cswNullifiers, certDataHashes);
+    pcoinsTip->BatchWrite(tmpCoinsMap, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapCeasingScs, cswNullifiers);
 
     return view.HaveCoins(entryToStore.first) == true;
 }
@@ -1270,7 +1266,7 @@ CTransaction SidechainsInMempoolTestSuite::GenerateFwdTransferTx(const uint256 &
     return scTx;
 }
 
-CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput(const uint256& scId, int32_t epoch, const std::string& nullifierHex, CAmount amount)
+CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
 {
     libzendoomc::ScFieldElement nullifier;
     nullifier.SetHex(nullifierHex);
@@ -1279,7 +1275,7 @@ CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput
     libzendoomc::ScProof dummyScProof;
     CScript dummyRedeemScript;
 
-    return CTxCeasedSidechainWithdrawalInput(amount, scId, epoch, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript);
+    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript);
 }
 
 CTransaction SidechainsInMempoolTestSuite::GenerateCSWTx(const std::vector<CTxCeasedSidechainWithdrawalInput>& csws)

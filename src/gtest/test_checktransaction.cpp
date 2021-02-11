@@ -62,7 +62,6 @@ CMutableTransaction GetValidTransaction(int txVersion) {
         CTxCeasedSidechainWithdrawalInput csw_ccin;
         csw_ccin.nValue = 2.0 * COIN;
         csw_ccin.scId = GetRandHash();
-        csw_ccin.nEpoch = 10;
         GetRandBytes((unsigned char*)&csw_ccin.nullifier, csw_ccin.nullifier.size());
         GetRandBytes((unsigned char*)&csw_ccin.pubKeyHash, csw_ccin.pubKeyHash.size());
         GetRandBytes((unsigned char*)&csw_ccin.scProof, csw_ccin.scProof.size());

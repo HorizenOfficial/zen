@@ -390,8 +390,7 @@ public:
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapSidechainEvents,
-                    CCswNullifiersMap& cswNullifiers,
-                    CCertDataHashMap& certDataHashes) override
+                    CCswNullifiersMap& cswNullifiers) override
     {
         return false;
     }

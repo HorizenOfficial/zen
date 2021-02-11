@@ -96,7 +96,6 @@ CMutableTransaction BuildCSWInputSpendingTransaction(const CKeyID& pubKeyHash, c
     txSpend.vcsw_ccin.resize(1);
     txSpend.vcsw_ccin[0].nValue = 100;
     txSpend.vcsw_ccin[0].scId = uint256();
-    txSpend.vcsw_ccin[0].nEpoch = 1;
     txSpend.vcsw_ccin[0].nullifier = libzendoomc::ScFieldElement();
     txSpend.vcsw_ccin[0].pubKeyHash = pubKeyHash;
     txSpend.vcsw_ccin[0].scProof = libzendoomc::ScProof();

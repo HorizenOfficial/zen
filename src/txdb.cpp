@@ -119,18 +119,6 @@ void static BatchWriteCswNullifier(CLevelDBBatch &batch, const uint256 &scId, co
     }
 }
 
-void static BatchWriteCertDataHash(CLevelDBBatch &batch, const uint256 &scId, const int &epochId,
-                                   const libzendoomc::ScFieldElement& certDataHash, const libzendoomc::ScFieldElement& cumulativeCertData) {
-    std::pair<uint256, int> position = std::make_pair(scId, epochId);                                   
-    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> data = std::make_pair(cumulativeCertData, certDataHash);
-    batch.Write(make_pair(DB_CERT_DATA_HASH, position), data);
-}
-
-void static BatchRemoveCertDataHash(CLevelDBBatch &batch, const uint256 &scId, const int &epochId) {
-    std::pair<uint256, int> position = std::make_pair(scId, epochId);
-    batch.Erase(make_pair(DB_CERT_DATA_HASH, position));
-}
-
 CCoinsViewDB::CCoinsViewDB(std::string dbName, size_t nCacheSize, bool fMemory, bool fWipe) : db(GetDataDir() / dbName, nCacheSize, fMemory, fWipe) {
 }
 
@@ -227,13 +215,10 @@ bool CCoinsViewDB::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFi
     return db.Exists(make_pair(DB_CSW_NULLIFIER, position));
 }
 
-bool CCoinsViewDB::HaveCertDataHashes(const uint256& scId, const int epoch) const {
-    return db.Exists(make_pair(DB_CERT_DATA_HASH, std::make_pair(scId, epoch)));
-}
-
-bool CCoinsViewDB::GetCertDataHashes(const uint256& scId, const int epoch,
-                       std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement>& certDataHashes) const {
-    return db.Read(make_pair(DB_CERT_DATA_HASH, std::make_pair(scId, epoch)), certDataHashes);
+bool CCoinsViewDB::GetActiveCertDataHash(const uint256& scId, libzendoomc::ScFieldElement& certDataHash) const {
+    // TODO: method real implementation will be integrated later from the MBTR branch.
+    certDataHash = libzendoomc::ScFieldElement();
+    return true;
 }
 
 bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
@@ -243,8 +228,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
                               CNullifiersMap &mapNullifiers,
                               CSidechainsMap& mapSidechains,
                               CSidechainEventsMap& mapSidechainEvents,
-                              CCswNullifiersMap& cswNullifies,
-                              CCertDataHashMap& certDataHashes) {
+                              CCswNullifiersMap& cswNullifies) {
     CLevelDBBatch batch;
     size_t count = 0;
     size_t changed = 0;
@@ -293,28 +277,6 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
         BatchWriteCswNullifier(batch, position.first, position.second, it->second);
         CCswNullifiersMap::iterator itOld = it++;
         cswNullifies.erase(itOld);
-    }
-
-    // Store cert Data Hashes
-    for (CCertDataHashMap::iterator it = certDataHashes.begin(); it != certDataHashes.end();) {
-        const std::pair<uint256, int>& position = it->first;
-        uint256 scId = position.first;
-        int epochNumber = position.second;
-
-        switch(it->second.flag) {
-            case CCertDataHashCacheEntry::Flags::FRESH:
-            case CCertDataHashCacheEntry::Flags::DIRTY:
-                BatchWriteCertDataHash(batch, scId, epochNumber, it->second.certDataHash, it->second.prevEpochCumulativeCertDataHash);
-                break;
-            case CCertDataHashCacheEntry::Flags::ERASED:
-                BatchRemoveCertDataHash(batch, scId, epochNumber);
-                break;
-            default:
-                break;
-        }
-
-        CCertDataHashMap::iterator itOld = it++;
-        certDataHashes.erase(itOld);
     }
 
     if (!hashBlock.IsNull())
