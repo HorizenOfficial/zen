@@ -2554,7 +2554,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
-            view.RemoveCswNullifier(cswIn.scId, cswIn.nullifier);
+            if (!view.RemoveCswNullifier(cswIn.scId, cswIn.nullifier)) {
+                LogPrint("sc", "%s():%d - ERROR removing csw nullifier\n", __func__, __LINE__);
+                return error("DisconnectBlock(): nullifiers cannot be reverted: data inconsistent");
+            }
         }
 
         for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
@@ -2891,9 +2894,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
             
             for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
-                if (!view.HaveCswNullifier(cswIn.scId, cswIn.nullifier)) {
-                    view.AddCswNullifier(cswIn.scId, cswIn.nullifier);
-                } else {
+                if (!view.AddCswNullifier(cswIn.scId, cswIn.nullifier)) {
                     return state.DoS(100, error("ConnectBlock(): try to use existed nullifier Tx [%s]", tx.GetHash().ToString()),
                              REJECT_INVALID, "bad-txns-csw-input-nullifier");
                 }
@@ -2950,8 +2951,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
         if (!view.IsCertApplicableToState(cert, pindex->nHeight, state, scVerifier) ) {
-            LogPrint("sc", "%s():%d - ERROR: cert=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
-            return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
+            return state.DoS(100, error("%s():%d - ERROR: invalid cert=%s\n", __func__, __LINE__, cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
         }
 
@@ -3323,15 +3323,9 @@ bool static DisconnectTip(CValidationState &state) {
         // in which case we don't want to evict from the mempool yet!
         mempool.removeWithAnchor(anchorBeforeDisconnect);
     }
-    mempool.removeImmatureExpenditures(pcoinsTip, pindexDelete->nHeight);
 
-    // remove CSW which Sc state is not CEASED anymore, remove FT which Sc state is not ACTIVE/UNCONFIRMED anymore.
-    dummyTxs.clear();
-    dummyCerts.clear();
-    mempool.onDisconnectRemoveOutdatedCrosschainData(pcoinsTip, dummyTxs, dummyCerts);
-
-    // remove any certificate, and possible dependancies, that refers to this block as end epoch
-    mempool.removeOutOfEpochCertificates(pindexDelete);
+    mempool.removeStaleTransactions(pcoinsTip, pindexDelete->nHeight, dummyTxs, dummyCerts);
+    mempool.removeStaleCertificates(pcoinsTip, pindexDelete->GetBlockHash(), pindexDelete->nHeight, dummyCerts);
 
     mempool.check(pcoinsTip);
     // Update chainActive and related variables.
@@ -3419,14 +3413,11 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     std::list<CScCertificate> removedCerts;
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
-
-    // remove group of CSWs which try to withdraw more coins than belongs to the specific sidechain
-    // and remove FT which Sc state is not ACTIVE anymore.
-    mempool.onConnectRemoveOutdatedCrosschainData(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeStaleTransactions(pcoinsTip, pindexNew->nHeight, removedTxs, removedCerts);
 
     mempool.check(pcoinsTip);
-    // Update chainActive & related variables.
-    UpdateTip(pindexNew);
+
+    UpdateTip(pindexNew); // Update chainActive & related variables.
 
     // Tell wallet about transactions and certificates that went from mempool to conflicted:
     for(const CTransaction &tx: removedTxs) {

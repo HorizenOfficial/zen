@@ -1278,6 +1278,27 @@ int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, in
     return vec.size(); 
 }
 
+void FillCertDataHash(const uint256& scid, int epoch, UniValue& ret)
+{
+    CCoinsViewCache scView(pcoinsTip);
+
+    if (!scView.HaveSidechain(scid))
+    {
+        LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scid.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
+    }
+
+    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> certDataHashes;
+    if (!scView.GetCertDataHashes(scid, epoch, certDataHashes))
+    {
+        LogPrint("sc", "%s():%d - scid[%s]/epoch[%d] cert data hash not in db\n", __func__, __LINE__, scid.ToString(), epoch);
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing cert data hash for required scid/epoch"));
+    }
+
+    ret.push_back(Pair("certDataHash", HexStr(certDataHashes.first)));
+    ret.push_back(Pair("prevEpochCumCertDataHash", HexStr(certDataHashes.second)));
+}
+
 UniValue getscinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() == 0 || params.size() > 5)
@@ -1396,6 +1417,47 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     }
 
     ret.push_back(Pair("items", scItems));
+    return ret;
+}
+
+UniValue getcertdatahash(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "getcertdatahash (\"scid\")\n"
+			"\nArguments:\n"
+			"1. \"scid\"   (string, mandatory)  Retrive information about specified scid\n"
+			"2. \"epoch\"  (numeric, mandatory) Retrive information about specified epoch number\n"
+            "\nReturns the certificate data hash info for the given scid/epoch pair.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"certDataHash\":              xxxxx,   (string)  A hex string representation of the field element containing the hash of certificate data for the specified epoch\n"
+            "  \"prevEpochCumCertDataHash\":  xxxxx,   (string)  A hex string representation of the field element containing the cumulative hash of the cert data updated at the previous epoch\n"
+            "}\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("getcertdatahash", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 33")
+        );
+
+    string inputString = params[0].get_str();
+    {
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+    }
+
+    int epoch = params[1].get_int();
+    if (epoch < 0)
+    {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid negative epoch value");
+    }
+
+    UniValue ret(UniValue::VOBJ);
+ 
+    uint256 scId;
+    scId.SetHex(inputString);
+
+    FillCertDataHash(scId, epoch, ret);
+ 
     return ret;
 }
 

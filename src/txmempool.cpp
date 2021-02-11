@@ -479,8 +479,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
  
 }
 
-inline bool CTxMemPool::checkTxImmatureExpenditures(
-    const CTransaction& tx, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight) 
+inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight)
 {
     for(const CTxIn& txin: tx.GetVin())
     {
@@ -534,8 +533,7 @@ inline bool CTxMemPool::checkTxImmatureExpenditures(
     return true;
 }
 
-inline bool CTxMemPool::checkCertImmatureExpenditures(
-    const CScCertificate& cert, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight)
+inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight)
 {
     for(const CTxIn& txin: cert.GetVin())
     {
@@ -585,132 +583,10 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(
     return true;
 }
 
-void CTxMemPool::removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight)
-{
-    // Remove transactions spending a coinbase or a certificate output which are now immature
-    LOCK(cs);
-    std::list<CTransaction> transactionsToRemove;
-    for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
-        const CTransaction& tx = it->second.GetTx();
-
-        if (!checkTxImmatureExpenditures(tx, pcoins, nMemPoolHeight))
-        {
-            transactionsToRemove.push_back(tx);
-        }
-    }
-
-    // the same for certificates
-    std::list<CScCertificate> certificatesToRemove;
-    for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator it = mapCertificate.begin(); it != mapCertificate.end(); it++) {
-        const CScCertificate& cert = it->second.GetCertificate();
-
-        if (!checkCertImmatureExpenditures(cert, pcoins, nMemPoolHeight))
-        {
-            certificatesToRemove.push_back(cert);
-        }
-    }
-
-    std::list<CTransaction> removedTxs;
-    std::list<CScCertificate> removedCerts;
-    for(const CTransaction& tx: transactionsToRemove) {
-        remove(tx, removedTxs, removedCerts, true);
-    }
-    for(const CScCertificate& cert: certificatesToRemove) {
-        remove(cert, removedTxs, removedCerts, true);
-    }
-}
-
-void CTxMemPool::onConnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins, std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts)
+void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsView, const uint256& disconnectedBlockHash, unsigned int nMemPoolHeight,
+                                         std::list<CScCertificate>& outdatedCerts)
 {
     LOCK(cs);
-    std::list<CTransaction> transactionsToRemove;
-
-
-    // Remove CSWs that try to withdraw more coins than belongs to the sidechain.
-    // Note: if there is a CSW values conflict (may occur only if CSW circuit is broken or malicious) -> remove all CSWs for given sidechain.
-    for(std::map<uint256, CSidechainMemPoolEntry>::const_iterator sIt = mapSidechains.begin(); sIt != mapSidechains.end(); sIt++)
-    {
-        const CSidechainMemPoolEntry& sidechainEntry = sIt->second;
-        // check if there is CSWs for given SC
-        if(sidechainEntry.cswTotalAmount > 0)
-        {
-            CSidechain scInfo;
-            assert(pcoins->GetSidechain(sIt->first, scInfo));
-            if(sidechainEntry.cswTotalAmount > scInfo.balance)
-            {
-                for(auto nIt = sidechainEntry.cswNullifiers.begin(); nIt != sidechainEntry.cswNullifiers.end(); nIt++)
-                {
-                    const uint256& txHash = nIt->second;
-                    const CTransaction& tx = mapTx[txHash].GetTx();
-                    transactionsToRemove.push_back(tx);
-                }
-            }
-        }
-    }
-
-    // Sidechain may become CEASED, so remove related FTs
-    for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++)
-    {
-        const CTransaction& tx = it->second.GetTx();
-
-        for(const CTxForwardTransferOut& ft: tx.GetVftCcOut())
-        {
-            const CSidechain::State s = pcoins->GetSidechainState(ft.scId);
-            if(s == CSidechain::State::CEASED)
-            {
-                transactionsToRemove.push_back(tx);
-                break;
-            }
-        }
-    }
-
-    for(const CTransaction& tx: transactionsToRemove) {
-        remove(tx, outdatedTxs, outdatedCerts, true);
-    }
-}
-
-void CTxMemPool::onDisconnectRemoveOutdatedCrosschainData(const CCoinsViewCache *pcoins, std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts)
-{
-    LOCK(cs);
-    std::list<CTransaction> transactionsToRemove;
-
-    for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++)
-    {
-        const CTransaction& tx = it->second.GetTx();
-
-        // Sidechain may become ACTIVE, so remove related CSWs
-        for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
-        {
-            const CSidechain::State s = pcoins->GetSidechainState(csw.scId);
-            if(s != CSidechain::State::CEASED)
-            {
-                transactionsToRemove.push_back(tx);
-                break;
-            }
-        }
-
-        // Sidechain may become NOT_APPLICABLE, so remove related FTs if there is no corresponding SC creation in the mempool.
-        // May occur if for some reason Tx with SC creation output was not applied back to the mempool.
-        for(const CTxForwardTransferOut& ft: tx.GetVftCcOut())
-        {
-            const CSidechain::State s = pcoins->GetSidechainState(ft.scId);
-            if(s != CSidechain::State::ALIVE && !hasSidechainCreationTx(ft.scId))
-            {
-                transactionsToRemove.push_back(tx);
-                break;
-            }
-        }
-    }
-
-    for(const CTransaction& tx: transactionsToRemove) {
-        remove(tx, outdatedTxs, outdatedCerts, true);
-    }
-}
-
-void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
-{
-    LOCK(cs);
-    assert(pindexDelete);
 
     std::set<uint256> certsToRemove;
 
@@ -718,30 +594,31 @@ void CTxMemPool::removeOutOfEpochCertificates(const CBlockIndex* pindexDelete)
     for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.begin(); itCert != mapCertificate.end(); itCert++)
     {
         const CScCertificate& cert = itCert->second.GetCertificate();
+        if (!checkCertImmatureExpenditures(cert, pCoinsView, nMemPoolHeight))
+        {
+            certsToRemove.insert(cert.GetHash());
+            continue;
+        }
 
-        if (cert.endEpochBlockHash == pindexDelete->GetBlockHash() )
+        if (cert.endEpochBlockHash == disconnectedBlockHash)
         {
             LogPrint("mempool", "%s():%d - adding cert [%s] to list for removing (endEpochBlockHash %s)\n",
-                __func__, __LINE__, cert.GetHash().ToString(), pindexDelete->GetBlockHash().ToString());
+                __func__, __LINE__, cert.GetHash().ToString(), disconnectedBlockHash.ToString());
             certsToRemove.insert(cert.GetHash());
         }
     }
 
-    if (certsToRemove.empty())
-        return;
-
     std::list<CTransaction> dummyTxs;
-    std::list<CScCertificate> dummyCerts;
-    for(const auto hash: certsToRemove)
+    for(const auto& hash: certsToRemove)
     {
         // there can be dependancy also between certs, so check that a cert is still in map during the loop
         if (mapCertificate.count(hash))
         {
             const CScCertificate& cert = mapCertificate.at(hash).GetCertificate();
-            remove(cert, dummyTxs, dummyCerts, true);
+            remove(cert, dummyTxs, outdatedCerts, true);
         }
     }
-    LogPrint("mempool", "%s():%d - removed %d certs and %d txes", __func__, __LINE__, dummyCerts.size(), dummyTxs.size());
+    LogPrint("mempool", "%s():%d - removed %d certs and %d txes", __func__, __LINE__, outdatedCerts.size(), dummyTxs.size());
 }
 
 
@@ -771,50 +648,136 @@ void CTxMemPool::removeWithAnchor(const uint256 &invalidRoot)
     }
 }
 
+void CTxMemPool::removeOutOfScBalanceCsw(const CCoinsViewCache * const pCoinsView, std::list<CTransaction> &removedTxs, std::list<CScCertificate> &removedCerts)
+{
+    // Remove CSWs that try to withdraw more coins than belongs to the sidechain.
+    // Note: if there is a CSW values conflict (may occur only if CSW circuit is broken or malicious) -> remove all CSWs for given sidechain.
+    std::set<uint256> txesToRemove;
+    for (std::map<uint256, CSidechainMemPoolEntry>::const_iterator sIt = mapSidechains.begin(); sIt != mapSidechains.end(); sIt++)
+    {
+        const CSidechainMemPoolEntry &sidechainEntry = sIt->second;
+        if (sidechainEntry.cswTotalAmount == 0) //how about < 0?
+            continue;//no csw that could reduce sc balance
+
+        CSidechain sidechain;
+        assert(pCoinsView->GetSidechain(sIt->first, sidechain));
+        if (sidechainEntry.cswTotalAmount <= sidechain.balance)
+            continue; //enough Sc balance to accomodate for all unconfirmed csw
+
+        for (auto nIt = sidechainEntry.cswNullifiers.begin(); nIt != sidechainEntry.cswNullifiers.end(); nIt++)
+        {
+            const uint256 &txHash = nIt->second;
+            const CTransaction &tx = mapTx[txHash].GetTx();
+            txesToRemove.insert(tx.GetHash());
+        }
+    }
+
+    for(const auto& hash: txesToRemove)
+    {
+        // there can be dependancy also between txes, so check that a tx is still in map during the loop
+        if (mapTx.count(hash))
+        {
+            const CTransaction& tx = mapTx.at(hash).GetTx();
+            remove(tx, removedTxs, removedCerts, true);
+        }
+    }
+}
+
 void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts)
 {
-    // Remove transactions which depend on inputs of tx, recursively
-    // not used
     LOCK(cs);
-    for(const CTxIn &txin: tx.GetVin()) {
+
+    for(const CTxIn &txin: tx.GetVin())
+    {
         std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(txin.prevout);
-        if (it != mapNextTx.end()) {
-            const CTransactionBase &txConflict = *it->second.ptx;
-            if (txConflict != tx)
-            {
-                remove(txConflict, removedTxs, removedCerts, true);
-            }
-        }
+        if (it == mapNextTx.end())
+            continue;
+
+        const CTransactionBase &txConflict = *it->second.ptx;
+        if (txConflict != tx)
+            remove(txConflict, removedTxs, removedCerts, true);
     }
 
-    for(const JSDescription &joinsplit: tx.GetVjoinsplit()) {
-        for(const uint256 &nf: joinsplit.nullifiers) {
+    for(const JSDescription &joinsplit: tx.GetVjoinsplit())
+    {
+        for(const uint256 &nf: joinsplit.nullifiers)
+        {
             std::map<uint256, const CTransaction*>::iterator it = mapNullifiers.find(nf);
-            if (it != mapNullifiers.end()) {
-                const CTransactionBase &txConflict = *it->second;
-                if (txConflict != tx)
-                {
-                    remove(txConflict, removedTxs, removedCerts, true);
-                }
+            if (it == mapNullifiers.end())
+                continue;
+
+            const CTransactionBase &txConflict = *it->second;
+            if (txConflict != tx)
+                remove(txConflict, removedTxs, removedCerts, true);
+
+        }
+    }
+
+    for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+    {
+        if (mapSidechains.count(csw.scId) == 0)
+            continue;
+
+        const auto& cswNullifierTx = mapSidechains.at(csw.scId).cswNullifiers.find(csw.nullifier);
+        if(cswNullifierTx == mapSidechains.at(csw.scId).cswNullifiers.end())
+            continue;
+
+        const uint256& txHash = cswNullifierTx->second;
+        const auto& it = mapTx.find(txHash);
+        // If CSW nullifier was present in cswNullifers, the containing tx must be present in the mempool.
+        assert(it != mapTx.end());
+
+        const CTransaction &txConflict = it->second.GetTx();
+        if (txConflict != tx)
+            remove(txConflict, removedTxs, removedCerts, true);
+    }
+
+    removeOutOfScBalanceCsw(pcoinsTip, removedTxs, removedCerts);
+}
+
+void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsView, unsigned int nMemPoolHeight,
+                                         std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts)
+{
+    LOCK(cs);
+    std::set<uint256> txesToRemove;
+
+    // Sidechain may become CEASED, so remove related FTs
+    for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++)
+    {
+        const CTransaction& tx = it->second.GetTx();
+
+        if (!checkTxImmatureExpenditures(tx, pCoinsView, nMemPoolHeight))
+        {
+            txesToRemove.insert(tx.GetHash());
+            continue;
+        }
+
+        for(const CTxForwardTransferOut& ft: tx.GetVftCcOut())
+        {
+            if(pCoinsView->GetSidechainState(ft.scId) != CSidechain::State::ALIVE && !hasSidechainCreationTx(ft.scId))
+            {
+                txesToRemove.insert(tx.GetHash());
+                continue;
+            }
+        }
+
+        for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+        {
+            if(pCoinsView->GetSidechainState(csw.scId) != CSidechain::State::CEASED)
+            {
+                txesToRemove.insert(tx.GetHash());
+                continue;
             }
         }
     }
 
-    for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
-        if (mapSidechains.count(csw.scId)) {
-            const auto& cswNullifierPos = mapSidechains.at(csw.scId).cswNullifiers.find(csw.nullifier);
-            if(cswNullifierPos != mapSidechains.at(csw.scId).cswNullifiers.end()) {
-                const uint256& txHash = cswNullifierPos->second;
-                const auto& it = mapTx.find(txHash);
-                // If CSW nullifier was present in cswNullifers, the containing tx must be present in the mempool.
-                assert(it != mapTx.end());
-
-                const CTransaction &txConflict = it->second.GetTx();
-                if (txConflict != tx)
-                {
-                    remove(txConflict, removedTxs, removedCerts, true);
-                }
-            }
+    for(const auto& hash: txesToRemove)
+    {
+        // there can be dependancy also between txes, so check that a tx is still in map during the loop
+        if (mapTx.count(hash))
+        {
+            const CTransaction& tx = mapTx.at(hash).GetTx();
+            remove(tx, outdatedTxs, outdatedCerts, true);
         }
     }
 }
@@ -848,7 +811,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
     minerPolicyEstimator->processBlock(nBlockHeight, entries, fCurrentEstimate);
 }
 
-void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts) {
+void CTxMemPool::removeConflicts(const CScCertificate &cert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts) {
     LOCK(cs);
     BOOST_FOREACH(const CTxIn &txin, cert.GetVin()) {
         std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(txin.prevout);
@@ -868,7 +831,7 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
 
     // cert has been confirmed in a block, therefore any other cert in mempool for this scid
     // with equal or lower quality is deemed conflicting and must be removed
-    std::list<CScCertificate> vLowerQualCerts;
+    std::set<uint256> lowerQualCerts;
     for (auto entry :  mapSidechains.at(cert.GetScId()).mBackwardCertificates)
     {
         const uint256& memPoolCertHash = entry.second;
@@ -878,13 +841,18 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert,std::list<CTransacti
         {
             LogPrint("mempool", "%s():%d - mempool cert[%s] q=%d conflicting with cert[%s] q=%d\n",
                 __func__, __LINE__, memPoolCertHash.ToString(), memPoolCert.quality, cert.GetHash().ToString(), cert.quality);
-            vLowerQualCerts.push_back(memPoolCert);
+            lowerQualCerts.insert(memPoolCert.GetHash());
         }
     }
 
-    for (auto& conflictingCert : vLowerQualCerts)
+    for(const auto& hash: lowerQualCerts)
     {
-        remove(conflictingCert, removedTxs, removedCerts, true);
+        // there can be dependancy also between certs, so check that a cert is still in map during the loop
+        if (mapCertificate.count(hash))
+        {
+            const CScCertificate& cert = mapCertificate.at(hash).GetCertificate();
+            remove(cert, removedTxs, removedCerts, true);
+        }
     }
 }
 
@@ -1196,9 +1164,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
 bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
 {
-	LOCK(cs);
+    LOCK(cs);
 
-	const uint256& hash = incomingTx.GetHash();
+    const uint256& hash = incomingTx.GetHash();
     if (mapTx.count(hash) != 0) {
         LogPrint("mempool", "Dropping txid %s : already in mempool\n", hash.ToString());
         return false;
@@ -1237,7 +1205,7 @@ bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
     // Check if this tx does CSW with the nullifier already present in the mempool
     for(const CTxCeasedSidechainWithdrawalInput& csw: incomingTx.GetVcswCcIn())
     {
-        if (mapSidechains.count(csw.scId) != 0 && mapSidechains.at(csw.scId).cswNullifiers.count(csw.nullifier) != 0) {
+        if (HaveCswNullifier(csw.scId, csw.nullifier)) {
             LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another CSW input nullifier in mempool\n",
                     __func__, __LINE__, hash.ToString());
             return false;
@@ -1251,7 +1219,7 @@ bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) 
 {
     LOCK(cs);
 
-	const uint256& certHash = incomingCert.GetHash();
+    const uint256& certHash = incomingCert.GetHash();
     if (mapCertificate.count(certHash) != 0) {
         return error("Dropping cert %s : already in mempool\n", certHash.ToString());
     }
@@ -1289,7 +1257,7 @@ bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) 
         if (certDep.quality >= incomingCert.quality)
         {
             return error("%s():%d - cert %s depends on worse-quality ancestorCert %s\n", __func__, __LINE__,
-            		incomingCert.GetHash().ToString(), certDep.GetHash().ToString());
+                    incomingCert.GetHash().ToString(), certDep.GetHash().ToString());
         }
     }
 
@@ -1308,7 +1276,7 @@ void CTxMemPool::queryHashes(std::vector<uint256>& vtxid)
         vtxid.push_back((*mi).first);
 }
 
-bool CTxMemPool::lookup(uint256 hash, CTransaction& result) const
+bool CTxMemPool::lookup(const uint256& hash, CTransaction& result) const
 {
     LOCK(cs);
     std::map<uint256, CTxMemPoolEntry>::const_iterator i = mapTx.find(hash);
@@ -1317,7 +1285,7 @@ bool CTxMemPool::lookup(uint256 hash, CTransaction& result) const
     return true;
 }
 
-bool CTxMemPool::lookup(uint256 hash, CScCertificate& result) const
+bool CTxMemPool::lookup(const uint256& hash, CScCertificate& result) const
 {
     LOCK(cs);
     std::map<uint256, CCertificateMemPoolEntry>::const_iterator i = mapCertificate.find(hash);
@@ -1531,6 +1499,11 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
 
 bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
     return mempool.hasSidechainCreationTx(scId) || base->HaveSidechain(scId);
+}
+
+bool CCoinsViewMemPool::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const
+{
+	return mempool.HaveCswNullifier(scId, nullifier) || base->HaveCswNullifier(scId, nullifier);
 }
 
 size_t CTxMemPool::DynamicMemoryUsage() const {

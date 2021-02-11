@@ -692,7 +692,7 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected)
     EXPECT_FALSE(mempool.checkIncomingTxConflicts(duplicatedCswTx));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, onConnectRemoveOutdatedCrosschainData_FT) {
+TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToCeasedSidechainsAreRemovedFromMempool) {
     uint256 scId = uint256S("aaa");
     CSidechain sidechain;
     sidechain.balance = CAmount(1000);
@@ -708,7 +708,8 @@ TEST_F(SidechainsInMempoolTestSuite, onConnectRemoveOutdatedCrosschainData_FT) {
     // Sidechain State is Active. No removed Txs and Certs expected.
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.onConnectRemoveOutdatedCrosschainData(pcoinsTip, removedTxs, removedCerts);
+    int dummyHeight{1815};
+    mempool.removeStaleTransactions(pcoinsTip, dummyHeight, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 0);
     EXPECT_TRUE(removedCerts.size() == 0);
 
@@ -719,13 +720,48 @@ TEST_F(SidechainsInMempoolTestSuite, onConnectRemoveOutdatedCrosschainData_FT) {
     // Sidechain State is Ceased. FT expected to be removed.
     removedTxs.clear();
     removedCerts.clear();
-    mempool.onConnectRemoveOutdatedCrosschainData(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeStaleTransactions(pcoinsTip, dummyHeight, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 1);
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), fwtTx) != removedTxs.end());
     EXPECT_TRUE(removedCerts.size() == 0);
 }
 
-TEST_F(SidechainsInMempoolTestSuite, onConnectRemoveOutdatedCrosschainData_CSW) {
+TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToRevertedSidechainsAreRemovedFromMempool) {
+    uint256 scId = uint256S("aaa");
+    CSidechain sidechain;
+    sidechain.balance = CAmount(1000);
+    sidechain.currentState = (uint8_t)CSidechain::State::ALIVE;
+
+    CSidechainEventsMap dummyCeasingMap;
+    txCreationUtils::storeSidechain(*pcoinsTip, scId, sidechain, dummyCeasingMap);
+
+    CTransaction fwtTx = GenerateFwdTransferTx(scId, CAmount(10));
+    CTxMemPoolEntry fwtEntry(fwtTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    EXPECT_TRUE(mempool.addUnchecked(fwtTx.GetHash(), fwtEntry));
+
+    // Sidechain State is Active. No removed Txs and Certs expected.
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    int dummyHeight{1848};
+    mempool.removeStaleTransactions(pcoinsTip, dummyHeight, removedTxs, removedCerts);
+    EXPECT_TRUE(removedTxs.size() == 0);
+    EXPECT_TRUE(removedCerts.size() == 0);
+
+    // revert sidechain state to NOT_APPLICABLE
+    sidechain.currentState = (uint8_t)CSidechain::State::NOT_APPLICABLE;
+    txCreationUtils::storeSidechain(*pcoinsTip, scId, sidechain, dummyCeasingMap);
+
+    // Sidechain State is NOT_APPLICABLE. FT expected to be removed.
+    removedTxs.clear();
+    removedCerts.clear();
+    mempool.removeStaleTransactions(pcoinsTip, dummyHeight, removedTxs, removedCerts);
+    EXPECT_TRUE(removedTxs.size() == 1);
+    EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), fwtTx) != removedTxs.end());
+    EXPECT_TRUE(removedCerts.size() == 0);
+}
+
+TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAreRemovedFromMempool) {
+    // This can happen upon faulty/malicious circuits
     uint256 scId = uint256S("aaa");
     CSidechain sidechain;
     sidechain.balance = CAmount(1000);
@@ -745,7 +781,7 @@ TEST_F(SidechainsInMempoolTestSuite, onConnectRemoveOutdatedCrosschainData_CSW) 
     // Sidechain State is Ceased and there is no Sidechain balance conflicts in the mempool. No removed Txs and Certs expected.
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.onConnectRemoveOutdatedCrosschainData(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeOutOfScBalanceCsw(pcoinsTip, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 0);
     EXPECT_TRUE(removedCerts.size() == 0);
 
@@ -759,47 +795,15 @@ TEST_F(SidechainsInMempoolTestSuite, onConnectRemoveOutdatedCrosschainData_CSW) 
     // Mempool CSW Txs total withdrawal amount is greater than Sidechain mature balance -> both Txs expected to be removed.
     removedTxs.clear();
     removedCerts.clear();
-    mempool.onConnectRemoveOutdatedCrosschainData(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeOutOfScBalanceCsw(pcoinsTip, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 2);
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), cswTx) != removedTxs.end());
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), cswTx2) != removedTxs.end());
     EXPECT_TRUE(removedCerts.size() == 0);
 }
 
-TEST_F(SidechainsInMempoolTestSuite, onDisconnectRemoveOutdatedCrosschainData_FT) {
-    uint256 scId = uint256S("aaa");
-    CSidechain sidechain;
-    sidechain.balance = CAmount(1000);
-    sidechain.currentState = (uint8_t)CSidechain::State::ALIVE;
-
-    CSidechainEventsMap dummyCeasingMap;
-    txCreationUtils::storeSidechain(*pcoinsTip, scId, sidechain, dummyCeasingMap);
-
-    CTransaction fwtTx = GenerateFwdTransferTx(scId, CAmount(10));
-    CTxMemPoolEntry fwtEntry(fwtTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    EXPECT_TRUE(mempool.addUnchecked(fwtTx.GetHash(), fwtEntry));
-
-    // Sidechain State is Active. No removed Txs and Certs expected.
-    std::list<CTransaction> removedTxs;
-    std::list<CScCertificate> removedCerts;
-    mempool.onDisconnectRemoveOutdatedCrosschainData(pcoinsTip, removedTxs, removedCerts);
-    EXPECT_TRUE(removedTxs.size() == 0);
-    EXPECT_TRUE(removedCerts.size() == 0);
-
-    // revert sidechain state to NOT_APPLICABLE
-    sidechain.currentState = (uint8_t)CSidechain::State::NOT_APPLICABLE;
-    txCreationUtils::storeSidechain(*pcoinsTip, scId, sidechain, dummyCeasingMap);
-
-    // Sidechain State is NOT_APPLICABLE. FT expected to be removed.
-    removedTxs.clear();
-    removedCerts.clear();
-    mempool.onDisconnectRemoveOutdatedCrosschainData(pcoinsTip, removedTxs, removedCerts);
-    EXPECT_TRUE(removedTxs.size() == 1);
-    EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), fwtTx) != removedTxs.end());
-    EXPECT_TRUE(removedCerts.size() == 0);
-}
-
-TEST_F(SidechainsInMempoolTestSuite, onDisconnectRemoveOutdatedCrosschainData_CSW) {
+TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCswForAliveSidechainsAreRemovedFromMempool) {
+    //This can happen upon reverting end-of-epoch block
     uint256 scId = uint256S("aaa");
     CSidechain sidechain;
     sidechain.balance = CAmount(1000);
@@ -816,10 +820,12 @@ TEST_F(SidechainsInMempoolTestSuite, onDisconnectRemoveOutdatedCrosschainData_CS
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     EXPECT_TRUE(mempool.addUnchecked(cswTx.GetHash(), cswEntry));
 
-    // Sidechain State is Ceased and there is no Sidechain balance conflicts in the mempool. No removed Txs and Certs expected.
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.onConnectRemoveOutdatedCrosschainData(pcoinsTip, removedTxs, removedCerts);
+    int dummyHeight{1789};
+    // Sidechain State is Ceased and there is no Sidechain balance conflicts in the mempool. No removed Txs and Certs expected.
+    mempool.removeStaleTransactions(pcoinsTip, dummyHeight, removedTxs, removedCerts);
+    mempool.removeOutOfScBalanceCsw(pcoinsTip, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 0);
     EXPECT_TRUE(removedCerts.size() == 0);
 
@@ -830,7 +836,7 @@ TEST_F(SidechainsInMempoolTestSuite, onDisconnectRemoveOutdatedCrosschainData_CS
     // Mempool CSW Txs total withdrawal amount is greater than Sidechain mature balance -> both Txs expected to be removed.
     removedTxs.clear();
     removedCerts.clear();
-    mempool.onDisconnectRemoveOutdatedCrosschainData(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeStaleTransactions(pcoinsTip, dummyHeight, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 1);
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), cswTx) != removedTxs.end());
     EXPECT_TRUE(removedCerts.size() == 0);
@@ -996,11 +1002,16 @@ TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
     EXPECT_FALSE(pcoinsTip->AccessCoins(coinBase.GetHash())->isOutputMature(0, chainActive.Height()));
 
     //test
-    mempool.removeImmatureExpenditures(pcoinsTip, chainActive.Height());
+    std::list<CTransaction> outdatedTxs;
+    std::list<CScCertificate> outdatedCerts;
+    mempool.removeStaleTransactions(pcoinsTip, chainActive.Height(), outdatedTxs, outdatedCerts);
 
     //Check
     EXPECT_FALSE(mempool.exists(mempoolTx1.GetHash()));
+    EXPECT_TRUE(std::find(outdatedTxs.begin(), outdatedTxs.end(), mempoolTx1) != outdatedTxs.end());
+
     EXPECT_FALSE(mempool.exists(mempoolTx2.GetHash()));
+    EXPECT_TRUE(std::find(outdatedTxs.begin(), outdatedTxs.end(), mempoolTx2) != outdatedTxs.end());
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DependenciesInEmptyMempool) {

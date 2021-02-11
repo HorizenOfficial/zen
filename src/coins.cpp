@@ -579,39 +579,36 @@ void CCoinsViewCache::SetBestBlock(const uint256 &hashBlockIn) {
     hashBlock = hashBlockIn;
 }
 
-void CCoinsViewCache::AddCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier) {
-    std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
-    std::pair<CCswNullifiersMap::iterator, bool> ret = cacheCswNullifiers.insert(std::make_pair(position, CCswNullifiersCacheEntry()));
-    ret.first->second.flag = CCswNullifiersCacheEntry::FRESH;
-}
+bool CCoinsViewCache::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const {
+    std::pair<uint256, libzendoomc::ScFieldElement> key = std::make_pair(scId, nullifier);
 
-void CCoinsViewCache::RemoveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier) {
-    std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
-    std::pair<CCswNullifiersMap::iterator, bool> ret = cacheCswNullifiers.insert(std::make_pair(position, CCswNullifiersCacheEntry()));
-    ret.first->second.flag = CCswNullifiersCacheEntry::ERASED;
-}
-
-bool CCoinsViewCache::HaveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier) const {
-    std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
-    
-    CCswNullifiersMap::iterator it = cacheCswNullifiers.find(position);
+    CCswNullifiersMap::iterator it = cacheCswNullifiers.find(key);
     if (it != cacheCswNullifiers.end())
-        return (it->second.flag == CCswNullifiersCacheEntry::ERASED);
+        return (it->second.flag != CCswNullifiersCacheEntry::Flags::ERASED);
 
-    bool tmp = base->HaveCswNullifier(scId, nullifier);
+    if (!base->HaveCswNullifier(scId, nullifier))
+        return false;
 
-    if (tmp) {
-        CCswNullifiersCacheEntry entry;
-        entry.flag = CCswNullifiersCacheEntry::DEFAULT;
-        cacheCswNullifiers.insert(std::make_pair(position, entry));
-    }
-
-    return tmp;
+    cacheCswNullifiers.insert(std::make_pair(key, CCswNullifiersCacheEntry{CCswNullifiersCacheEntry::Flags::DEFAULT}));
+    return true;
 }
 
+bool CCoinsViewCache::AddCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) {
+    if (HaveCswNullifier(scId, nullifier))
+        return false;
+
+    std::pair<uint256, libzendoomc::ScFieldElement> key = std::make_pair(scId, nullifier);
+    cacheCswNullifiers.insert(std::make_pair(key, CCswNullifiersCacheEntry{CCswNullifiersCacheEntry::Flags::FRESH}));
+    return true;
+}
+
+bool CCoinsViewCache::RemoveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) {
+    if (!HaveCswNullifier(scId, nullifier))
+        return false;
+
+    cacheCswNullifiers.at(std::make_pair(scId, nullifier)).flag = CCswNullifiersCacheEntry::Flags::ERASED;
+    return true;
+}
 
 bool CCoinsViewCache::HaveCertDataHashes(const uint256& scId, const int epoch) const {
     CCertDataHashMap::const_iterator it = FetchCertDataEntry(scId, epoch);
@@ -782,113 +779,24 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
         mapNullifiers.erase(itOld);
     }
 
-    for (auto& entryToWrite : mapSidechains) {
-        CSidechainsMap::iterator itLocalCacheEntry = cacheSidechains.find(entryToWrite.first);
+    // Sidechain related section
+    for (auto& entryToWrite : mapSidechains)
+    	WriteMutableEntry(entryToWrite.first, entryToWrite.second, cacheSidechains);
 
-        switch (entryToWrite.second.flag) {
-            case CSidechainsCacheEntry::Flags::FRESH:
-                assert(
-                    itLocalCacheEntry == cacheSidechains.end() ||
-                    itLocalCacheEntry->second.flag == CSidechainsCacheEntry::Flags::ERASED
-                ); //A fresh entry should not exist in localCache or be already erased
-                cacheSidechains[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CSidechainsCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
-                cacheSidechains[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CSidechainsCacheEntry::Flags::ERASED:
-                if (itLocalCacheEntry != cacheSidechains.end())
-                    itLocalCacheEntry->second.flag = CSidechainsCacheEntry::Flags::ERASED;
-                break;
-            case CSidechainsCacheEntry::Flags::DEFAULT:
-                assert(itLocalCacheEntry != cacheSidechains.end());
-                assert(itLocalCacheEntry->second.scInfo == entryToWrite.second.scInfo); //entry declared default is indeed different from backed value
-                break; //nothing to do. entry is already persisted and has not been modified
-            default:
-                assert(false);
-        }
-    }
+    for (auto& entryToWrite : mapSidechainEvents)
+    	WriteMutableEntry(entryToWrite.first, entryToWrite.second, cacheSidechainEvents);
+
+    for (auto& entryToWrite : cswNullifiers)
+    	WriteImmutableEntry(entryToWrite.first, entryToWrite.second, cacheCswNullifiers);
+
+    for (auto& entryToWrite : certDataHashes)
+    	WriteMutableEntry(entryToWrite.first, entryToWrite.second, cacheCertDataHashes);
+
     mapSidechains.clear();
-
-    for (auto& entryToWrite : mapSidechainEvents) {
-        CSidechainEventsMap::iterator itLocalCacheEntry = cacheSidechainEvents.find(entryToWrite.first);
-
-        switch (entryToWrite.second.flag) {
-            case CSidechainEventsCacheEntry::Flags::FRESH:
-                assert(
-                    itLocalCacheEntry == cacheSidechainEvents.end() ||
-                    itLocalCacheEntry->second.flag == CSidechainEventsCacheEntry::Flags::ERASED
-                ); //A fresh entry should not exist in localCache or be already erased
-                cacheSidechainEvents[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CSidechainEventsCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
-                cacheSidechainEvents[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CSidechainEventsCacheEntry::Flags::ERASED:
-                if (itLocalCacheEntry != cacheSidechainEvents.end())
-                    itLocalCacheEntry->second.flag = CSidechainEventsCacheEntry::Flags::ERASED;
-                break;
-            case CSidechainEventsCacheEntry::Flags::DEFAULT:
-                assert(itLocalCacheEntry != cacheSidechainEvents.end());
-                assert(itLocalCacheEntry->second.scEvents == entryToWrite.second.scEvents); //entry declared default is indeed different from backed value
-                break; //nothing to do. entry is already persisted and has not been modified
-            default:
-                assert(false);
-        }
-    }
     mapSidechainEvents.clear();
-
-    for (auto& entryToWrite : cswNullifiers) {
-        CCswNullifiersMap::iterator itLocalCacheEntry = cacheCswNullifiers.find(entryToWrite.first);
-
-        switch (entryToWrite.second.flag) {
-            case CCswNullifiersCacheEntry::FRESH:
-                assert(
-                    itLocalCacheEntry == cacheCswNullifiers.end() ||
-                    itLocalCacheEntry->second.flag == CCswNullifiersCacheEntry::ERASED
-                ); //A fresh entry should not exist in localCache or be already erased
-                cacheCswNullifiers[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CCswNullifiersCacheEntry::ERASED:
-                if (itLocalCacheEntry != cacheCswNullifiers.end())
-                    itLocalCacheEntry->second.flag = CCswNullifiersCacheEntry::ERASED;
-                break;
-            case CCswNullifiersCacheEntry::DEFAULT:
-                assert(itLocalCacheEntry != cacheCswNullifiers.end());
-                break;
-            default:
-                assert(false);
-        }
-    }
     cswNullifiers.clear();
-
-    for (auto& entryToWrite : certDataHashes) {
-        CCertDataHashMap::iterator itLocalCacheEntry = cacheCertDataHashes.find(entryToWrite.first);
-
-        switch (entryToWrite.second.flag) {
-            case CCertDataHashCacheEntry::Flags::FRESH:
-                assert(
-                    itLocalCacheEntry == cacheCertDataHashes.end() ||
-                    itLocalCacheEntry->second.flag == CCertDataHashCacheEntry::Flags::ERASED
-                ); //A fresh entry should not exist in localCache or be already erased
-                cacheCertDataHashes[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CCertDataHashCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
-                cacheCertDataHashes[entryToWrite.first] = entryToWrite.second;
-                break;
-            case CCertDataHashCacheEntry::Flags::ERASED:
-                if (itLocalCacheEntry != cacheCertDataHashes.end())
-                    itLocalCacheEntry->second.flag = CCertDataHashCacheEntry::Flags::ERASED;
-                break;
-            case CCertDataHashCacheEntry::Flags::DEFAULT:
-                assert(itLocalCacheEntry != cacheCertDataHashes.end());
-                assert(itLocalCacheEntry->second.certDataHash == entryToWrite.second.certDataHash); //entry declared default is indeed different from backed value
-                break; //nothing to do. entry is already persisted and has not been modified
-            default:
-                assert(false);
-        }
-    }
     certDataHashes.clear();
+    // End of sidechain related section
 
     hashAnchor = hashAnchorIn;
     hashBlock = hashBlockIn;
@@ -1219,7 +1127,7 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
         cswTotalBalances[csw.scId] += csw.nValue;
 
         for(const CTxCeasedSidechainWithdrawalInput& cswIn : tx.GetVcswCcIn()) {
-            if (pcoinsTip->HaveCswNullifier(csw.scId, cswIn.nullifier)) {
+            if (this->HaveCswNullifier(csw.scId, cswIn.nullifier)) {
                 return state.Invalid(error("csw input had been already used"),
                      REJECT_INVALID, "tx-csw-input-used-nullifier");                
             }
@@ -1260,8 +1168,8 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
         GetSidechain(totalBalance.first, scInfo);
         if(totalBalance.second > scInfo.balance)
         {
-            LogPrintf("ERROR: tx[%s] CSW inputs total amount is greater than sidechain [%s] total amount\n",
-                tx.ToString(), totalBalance.first.ToString());
+            LogPrintf("ERROR: tx[%s] CSW inputs total amount[%s] > sc[%s] total balance[%s]\n",
+                tx.ToString(), FormatMoney(totalBalance.second), totalBalance.first.ToString(), FormatMoney(scInfo.balance));
             return state.Invalid(error("CSW inputs total amount is greater than sidechain total amount"),
                          REJECT_INVALID, "tx-csw-inputs-amount-greater-than-sc-balance");
         }
