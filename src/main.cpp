@@ -1116,15 +1116,15 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
     return nMinFee;
 }
 
-bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
-                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee, bool fVerifyCert)
+bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
+    eLimitFree fLimitFree, bool* pfMissingInputs, eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
         *pfMissingInputs = false;
 
     int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
-    if (disconnecting)
+    if (disconnecting == eDisconnecting::ON)
         nextBlockHeight -= 1;
 
     if (!cert.CheckInputsLimit())
@@ -1219,7 +1219,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 return false;
             }
 
-            auto scVerifier = fVerifyCert ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
             if (!view.IsCertApplicableToState(cert, nextBlockHeight, scVerifier))
             {
                 return state.DoS(0, error("%s(): certificate not applicable", __func__),
@@ -1243,7 +1243,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             if (!view.HaveInputs(cert))
             {
                 LogPrintf("%s():%d - ERROR: cert[%s]\n", __func__, __LINE__, certHash.ToString());
-                return state.Invalid(error("AcceptCertToMemoryPool: inputs already spent"),
+                return state.Invalid(error("%s():d - inputs already spent", __func__, __LINE__),
                                      REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
             }
 
@@ -1287,7 +1287,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
 
         LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
-        if (fLimitFree && nFees < txMinFee)
+        if (fLimitFree == eLimitFree::ON && nFees < txMinFee)
             return state.DoS(0, error("%s(): not enough fees %s, %d < %d",
                                     __func__, certHash.ToString(), nFees, txMinFee),
                             REJECT_INSUFFICIENTFEE, "insufficient fee");
@@ -1300,7 +1300,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         // Continuously rate-limit free (really, very-low-fee) transactions
         // This mitigates 'penny-flooding' -- sending thousands of free transactions just to
         // be annoying or make others' transactions take longer to confirm.
-        if (fLimitFree && nFees < ::minRelayTxFee.GetFee(nSize))
+        if (fLimitFree == eLimitFree::ON && nFees < ::minRelayTxFee.GetFee(nSize))
         {
             static CCriticalSection csFreeLimiter;
             static double dFreeCount;
@@ -1321,7 +1321,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             dFreeCount += nSize;
         }
 
-        if (fRejectAbsurdFee && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
+        if (fRejectAbsurdFee == eRejectAbsurdFee::ON && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
         {
             LogPrintf("%s():%d - absurdly high fees cert[%s], %d > %d\n", __func__, __LINE__, certHash.ToString(),
                          nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
@@ -1360,15 +1360,15 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 }
 
 
-bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee, bool fVerifyBwtRequests)
+bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, eLimitFree fLimitFree,
+                        bool* pfMissingInputs,  eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
         *pfMissingInputs = false;
 
     int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
-    if (disconnecting)
+    if (disconnecting == eDisconnecting::ON)
         nextBlockHeight -= 1;
 
     if (!tx.CheckInputsLimit())
@@ -1492,7 +1492,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                                      REJECT_DUPLICATE, "bad-txns-inputs-spent");
             }
 
-            auto scVerifier = fVerifyBwtRequests? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
             if (!view.IsScTxApplicableToState(tx, nextBlockHeight, scVerifier))
             {
                 return state.DoS(0, error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString()),
@@ -1547,7 +1547,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             // Don't accept it if it can't get into a block
             CAmount txMinFee = GetMinRelayFee(tx, nSize, true);
             LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
-            if (fLimitFree && nFees < txMinFee)
+            if (fLimitFree == eLimitFree::ON && nFees < txMinFee)
                 return state.DoS(0, error("%s(): not enough fees %s, %d < %d",
                                         __func__, hash.ToString(), nFees, txMinFee),
                                 REJECT_INSUFFICIENTFEE, "insufficient fee");
@@ -1561,7 +1561,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         // Continuously rate-limit free (really, very-low-fee) transactions
         // This mitigates 'penny-flooding' -- sending thousands of free transactions just to
         // be annoying or make others' transactions take longer to confirm.
-        if (fLimitFree && nFees < ::minRelayTxFee.GetFee(nSize))
+        if (fLimitFree == eLimitFree::ON && nFees < ::minRelayTxFee.GetFee(nSize))
         {
             static CCriticalSection csFreeLimiter;
             static double dFreeCount;
@@ -1582,7 +1582,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             dFreeCount += nSize;
         }
 
-        if (fRejectAbsurdFee && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
+        if (fRejectAbsurdFee == eRejectAbsurdFee::ON && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
         {
             LogPrint("mempool", "%s(): absurdly high fees tx[%s], %d > %d", __func__, hash.ToString(),
                          nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
@@ -1617,8 +1617,8 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
     return true;
 }
 
-bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase, bool fLimitFree,
-                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee)
+bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
+    eLimitFree fLimitFree, bool* pfMissingInputs,  eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee)
 {
     try
     {
@@ -3272,7 +3272,8 @@ bool static DisconnectTip(CValidationState &state) {
             LogPrint("sc", "%s():%d - resurrecting tx [%s] to mempool\n", __func__, __LINE__, tx.GetHash().ToString());
         }
 
-        if (tx.IsCoinBase() || !AcceptTxToMemoryPool(mempool, stateDummy, tx, false, NULL, /*disconnecting*/true, /*fRejectAbsurdFee*/false)) {
+        if (tx.IsCoinBase() ||
+            !AcceptTxToMemoryPool(mempool, stateDummy, tx, eLimitFree::OFF, NULL, eDisconnecting::ON, eRejectAbsurdFee::OFF)) {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
             mempool.remove(tx, dummyTxs, dummyCerts, true);
@@ -3285,7 +3286,8 @@ bool static DisconnectTip(CValidationState &state) {
         // ignore validation errors in resurrected certificates
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
-        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert, false, NULL, /*disconnecting*/true, /*fRejectAbsurdFee*/false)) {
+        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
+                eLimitFree::OFF, NULL, eDisconnecting::ON, eRejectAbsurdFee::OFF)) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
@@ -5571,7 +5573,8 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     pfrom->setAskFor.erase(inv.hash);
     mapAlreadyAskedFor.erase(inv);
 
-    if (!AlreadyHave(inv) && AcceptTxBaseToMemoryPool(mempool, state, txBase, true, &fMissingInputs, /*disconnecting*/false))
+    if (!AlreadyHave(inv) &&
+        AcceptTxBaseToMemoryPool(mempool, state, txBase, eLimitFree::ON, &fMissingInputs, eDisconnecting::OFF, eRejectAbsurdFee::OFF))
     {
         mempool.check(pcoinsTip);
         txBase.Relay();
@@ -5604,7 +5607,8 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
 
                 if (setMisbehaving.count(fromPeer))
                     continue;
-                if (AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx, true, &fMissingInputs2, /*disconnecting*/false))
+                if (AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
+                        eLimitFree::ON, &fMissingInputs2, eDisconnecting::OFF, eRejectAbsurdFee::OFF))
                 {
                     LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
                     orphanTx.Relay();
