@@ -58,22 +58,22 @@ std::string CSidechain::ToString() const
 {
     std::string str;
     str = strprintf("\n CSidechain(version=%d\n creationBlockHash=%s\n creationBlockHeight=%d\n"
-    		          " creationTxHash=%s\n pastEpochTopQualityCertDataHash=%s\n pastEpochTopQualityReferencedEpoch=%d\n"
-    		          " lastTopQualityCertDataHash=%s\n lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
-    		          " lastTopQualityCertQuality=%d\n lastTopQualityCertBwtAmount=%d\n balance=%d\n"
-    		          " creationData=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
+                      " creationTxHash=%s\n pastEpochTopQualityCertDataHash=%s\n pastEpochTopQualityReferencedEpoch=%d\n"
+                      " lastTopQualityCertDataHash=%s\n lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
+                      " lastTopQualityCertQuality=%d\n lastTopQualityCertBwtAmount=%d\n balance=%d\n"
+                      " creationData=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
         sidechainVersion
-		, creationBlockHash.ToString()
-		, creationBlockHeight
-		, creationTxHash.ToString()
-		, pastEpochTopQualityCertDataHash.ToString()
-		, pastEpochTopQualityReferencedEpoch
-		, lastTopQualityCertDataHash.ToString()
-		, lastTopQualityCertHash.ToString()
-		, lastTopQualityCertReferencedEpoch
-		, lastTopQualityCertQuality
-		, lastTopQualityCertBwtAmount
-		, balance
+        , creationBlockHash.ToString()
+        , creationBlockHeight
+        , creationTxHash.ToString()
+        , pastEpochTopQualityCertDataHash.ToString()
+        , pastEpochTopQualityReferencedEpoch
+        , lastTopQualityCertDataHash.ToString()
+        , lastTopQualityCertHash.ToString()
+        , lastTopQualityCertReferencedEpoch
+        , lastTopQualityCertQuality
+        , lastTopQualityCertBwtAmount
+        , balance
     );
 
     return str;

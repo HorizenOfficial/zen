@@ -1135,7 +1135,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
         }
         scUndoData.pastEpochTopQualityReferencedEpoch = currentSc.pastEpochTopQualityReferencedEpoch;
         scUndoData.pastEpochTopQualityCertDataHash = currentSc.pastEpochTopQualityCertDataHash;
-        scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::PAST_CERT_DATA_HASH;
+        scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA;
 
         currentSc.pastEpochTopQualityReferencedEpoch = currentSc.lastTopQualityCertReferencedEpoch;
         currentSc.pastEpochTopQualityCertDataHash = currentSc.lastTopQualityCertDataHash;
@@ -1164,7 +1164,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     scUndoData.prevTopCommittedCertQuality         = currentSc.lastTopQualityCertQuality;
     scUndoData.prevTopCommittedCertBwtAmount       = currentSc.lastTopQualityCertBwtAmount;
     scUndoData.lastTopQualityCertDataHash          = currentSc.lastTopQualityCertDataHash;
-    scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::SIDECHAIN_STATE;
+    scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::ANY_EPOCH_CERT_DATA;
 
     currentSc.lastTopQualityCertHash            = certHash;
     currentSc.lastTopQualityCertReferencedEpoch = cert.epochNumber;
@@ -1281,7 +1281,7 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
 
     if (certToRevert.epochNumber == (sidechainUndo.prevTopCommittedCertReferencedEpoch+1))
     {
-    	assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::PAST_CERT_DATA_HASH);
+        assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA);
         currentSc.lastTopQualityCertReferencedEpoch = currentSc.pastEpochTopQualityReferencedEpoch;
         currentSc.lastTopQualityCertDataHash = currentSc.pastEpochTopQualityCertDataHash;
 
@@ -1296,10 +1296,10 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
         currentSc.balance -= sidechainUndo.prevTopCommittedCertBwtAmount;
     } else
     {
-    	return false;  //Inconsistent data
+        return false;  //Inconsistent data
     }
 
-    assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::SIDECHAIN_STATE);
+    assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::ANY_EPOCH_CERT_DATA);
     currentSc.lastTopQualityCertHash            = sidechainUndo.prevTopCommittedCertHash;
     currentSc.lastTopQualityCertReferencedEpoch = sidechainUndo.prevTopCommittedCertReferencedEpoch;
     currentSc.lastTopQualityCertQuality         = sidechainUndo.prevTopCommittedCertQuality;
@@ -1629,7 +1629,7 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         LogPrint("sc", "%s():%d - set voidedCertHash[%s], ceasingScId = %s\n",
             __func__, __LINE__, sidechain.lastTopQualityCertHash.ToString(), ceasingScId.ToString());
 
-        blockUndo.scUndoDatabyScId[ceasingScId].contentBitMask |= CSidechainUndoData::AvailableSections::CEASED_CERTIFICATE_DATA;
+        blockUndo.scUndoDatabyScId[ceasingScId].contentBitMask |= CSidechainUndoData::AvailableSections::CEASED_CERT_DATA;
         if (sidechain.lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL) {
             assert(sidechain.lastTopQualityCertHash.IsNull());
             continue;
@@ -1703,7 +1703,7 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
     // Reverting ceasing sidechains
     for (auto it = blockUndo.scUndoDatabyScId.begin(); it != blockUndo.scUndoDatabyScId.end(); ++it)
     {
-        if ((it->second.contentBitMask & CSidechainUndoData::AvailableSections::CEASED_CERTIFICATE_DATA) == 0)
+        if ((it->second.contentBitMask & CSidechainUndoData::AvailableSections::CEASED_CERT_DATA) == 0)
             continue;
 
         const uint256& scId = it->first;
