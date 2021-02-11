@@ -182,6 +182,7 @@ class sc_bwt_request(BitcoinTestFramework):
         #--- end of negative tests --------------------------------------------------
 
         mark_logs("Node1 creates a tx with a single bwt request for sc", self.nodes, DEBUG_MODE)
+        totScFee = Decimal("0.0")
 
         TX_FEE = Decimal("0.000123")
         outputs = [{'scUtxoId':fe1, 'scFee':SC_FEE, 'scid':scid1, 'scProof':p1, 'pubkeyhash':pkh1 }]
@@ -194,6 +195,8 @@ class sc_bwt_request(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
+
+        totScFee = totScFee + SC_FEE
 
         n1_net_bal = n1_net_bal - SC_FEE - TX_FEE 
 
@@ -217,6 +220,8 @@ class sc_bwt_request(BitcoinTestFramework):
             assert_true(False)
 
         self.sync_all()
+
+        totScFee = totScFee + SC_FEE
 
         n1_net_bal = n1_net_bal - SC_FEE - TX_FEE 
      
@@ -263,6 +268,7 @@ class sc_bwt_request(BitcoinTestFramework):
         decoded_tx = self.nodes[0].getrawtransaction(bwt4, 1)
         assert_equal(len(decoded_tx['vmbtr_out']), 3)
 
+        totScFee = totScFee + 3*SC_FEE
         n1_net_bal = n1_net_bal - 3*SC_FEE -TX_FEE
 
         # verify all bwts are in mempool
@@ -275,11 +281,23 @@ class sc_bwt_request(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
+        curh = self.nodes[0].getblockcount()
+
         vtx = self.nodes[1].getblock(blocks[-1], True)['tx']
         assert_true(bwt1, bwt2 in vtx)
         assert_true(bwt2 in vtx)
         assert_true(bwt3 in vtx)
         assert_true(bwt4 in vtx)
+
+        sc_info = self.nodes[0].getscinfo(scid1)['items'][0]
+
+        mark_logs("Check creation and bwt requests contributed to immature amount of SC", self.nodes, DEBUG_MODE)
+        # check immature amounts, both cr and btrs 
+        ima = Decimal("0.0")
+        for x in sc_info['immature amounts']:
+            ima = ima + x['amount']
+            assert_equal(x['maturityHeight'], curh + 3) 
+        assert_equal(ima, totScFee + creation_amount1)
 
         #  create one more sc
         ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount2, vk2, "", c2, mbtrVk2);
@@ -333,6 +351,8 @@ class sc_bwt_request(BitcoinTestFramework):
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
 
+        totScFee = totScFee + Decimal("0.13")
+
         self.sync_all()
         decoded_tx = self.nodes[0].decoderawtransaction(signed_tx['hex'])
         assert_equal(len(decoded_tx['vsc_ccout']), 1)
@@ -366,7 +386,7 @@ class sc_bwt_request(BitcoinTestFramework):
             "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             0, c1, [pkh2], [bwt_amount])
 
-        mark_logs("Node1 sends a cert withdrawing all the available sc balance", self.nodes, DEBUG_MODE)
+        mark_logs("Node1 sends a cert withdrawing the contribution of the creation amount to the sc balance", self.nodes, DEBUG_MODE)
         try:
             cert_epoch_0 = self.nodes[1].send_certificate(scid1, epoch_number, 0, epoch_block_hash, proof, amounts, CERT_FEE)
             mark_logs("Node 1 sent a cert with bwd transfer of {} coins to Node0 pkh via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
@@ -383,9 +403,9 @@ class sc_bwt_request(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        mark_logs("Checking Sc balance is null", self.nodes, DEBUG_MODE)
+        mark_logs("Checking Sc balance is nothing but sc fees of the various mbtr", self.nodes, DEBUG_MODE)
         sc_post_bwd = self.nodes[0].getscinfo(scid1)['items'][0]
-        assert_equal(sc_post_bwd["balance"], Decimal("0.0"))
+        assert_equal(sc_post_bwd["balance"], totScFee)
 
         outputs = [{'scUtxoId':fe1, 'scFee':SC_FEE, 'scid':scid1, 'scProof' :p1, 'pubkeyhash':pkh3 }]
         cmdParms = { "minconf":0, "fee":0.0}
@@ -399,6 +419,7 @@ class sc_bwt_request(BitcoinTestFramework):
             assert_true(False)
 
         self.sync_all()
+        totScFee = totScFee + SC_FEE
         n1_net_bal = n1_net_bal - SC_FEE 
         assert_equal(n1_net_bal, self.nodes[1].getbalance())
 
@@ -419,12 +440,17 @@ class sc_bwt_request(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
+        sc_pre_restart = self.nodes[0].getscinfo(scid1)['items'][0]
+        assert_equal(sc_pre_restart["balance"], totScFee)
+
         mark_logs("Checking data persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
         wait_bitcoinds()
         self.setup_network(False)
 
         assert_equal(n1_net_bal, self.nodes[1].getbalance())
+        sc_post_restart = self.nodes[0].getscinfo(scid1)['items'][0]
+        assert_equal(sc_pre_restart, sc_post_restart)
 
 
 if __name__ == '__main__':

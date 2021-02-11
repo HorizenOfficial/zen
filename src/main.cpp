@@ -2547,7 +2547,12 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
-        // a bwt request carries no events to revert, nothing to be done for tx.GetVBwtRequestOut() 
+        for (const CBwtRequestOut& mbtrOut: tx.GetVBwtRequestOut()) {
+            if (!view.CancelSidechainEvent(mbtrOut, pindex->nHeight)) {
+                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
+                return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
+            }
+        }
 
         for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
             if (!view.CancelSidechainEvent(fwdTransfer, pindex->nHeight)) {
@@ -2879,7 +2884,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 }
             }
 
-            // a bwt request carries no events to schedule, nothing to be done for tx.GetVBwtRequestOut() 
+            for (const CBwtRequestOut& mbtrOut: tx.GetVBwtRequestOut()) {
+                if (!view.ScheduleSidechainEvent(mbtrOut, pindex->nHeight))
+                {
+                    LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
+                    return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", mbtrOut.GetScId().ToString()),
+                                     REJECT_INVALID, "bad-fwd-not-recorded");
+                }
+            }
         }
 
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
