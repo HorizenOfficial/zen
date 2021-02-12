@@ -389,8 +389,19 @@ public:
             READWRITE(nSproutValue);
         }
 
-        if (nVersion == BLOCK_VERSION_SC_SUPPORT) {
+        if (this->nVersion == BLOCK_VERSION_SC_SUPPORT) {
             READWRITE(scCumTreeHash);
+#if 0
+            std::cout << "Height[" << nHeight << "], ";
+            if (ser_action.ForRead())
+            {
+                std::cout << "R - " << scCumTreeHash.ToString() << std::endl; 
+            }
+            else
+            {
+                std::cout << "W - " << scCumTreeHash.ToString() << std::endl; 
+            }
+#endif
         }
     }
 

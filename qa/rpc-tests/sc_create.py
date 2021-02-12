@@ -398,7 +398,8 @@ class SCCreateTest(BitcoinTestFramework):
         wait_bitcoinds()
         self.setup_network(False)
 
-        assert_equal(scgeninfo, self.nodes[0].getscgenesisinfo(scid))
+        scgeninfoPost = self.nodes[0].getscgenesisinfo(scid)
+        assert_equal(scgeninfo, scgeninfoPost)
 
 
 if __name__ == '__main__':
