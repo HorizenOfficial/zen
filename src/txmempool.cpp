@@ -687,7 +687,6 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
     LOCK(cs);
     std::set<uint256> txesToRemove;
 
-    // Sidechain may become CEASED, so remove related FTs
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++)
     {
         const CTransaction& tx = it->second.GetTx();
@@ -697,6 +696,27 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             txesToRemove.insert(tx.GetHash());
             continue;
         }
+    }
+
+    // mbtr will be removed if sidechain is beyond safeguard
+    for (auto it = mapSidechains.begin(); it != mapSidechains.end(); it++)
+    {
+        if (it->second.mcBtrSet.empty())
+            continue;
+
+        CSidechain sidechain;
+        if (!pCoinsView->GetSidechain(it->first, sidechain))
+        {
+        	assert(hasSidechainCreationTx(it->first));
+        	continue;  //scCreation in mempool, nothing to do
+        }
+
+        int currentHeight = pCoinsView->GetHeight();
+        int currentEpochSafeguard = sidechain.StartHeightForEpoch(sidechain.EpochFor(currentHeight)) +
+                sidechain.SafeguardMargin();
+
+        if (currentHeight >= currentEpochSafeguard)
+            txesToRemove.insert(it->second.mcBtrSet.begin(), it->second.mcBtrSet.end());
     }
 
     for(const auto& hash: txesToRemove)

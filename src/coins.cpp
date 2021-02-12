@@ -1133,7 +1133,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
 
         // Verify mainchain bwt request proof
         if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
-        		mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk, this->GetActiveCertDataHash(mbtr.scId)))
+                mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk, this->GetActiveCertDataHash(mbtr.scId)))
             return error("%s():%d - ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
                     __func__, __LINE__, mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
 
