@@ -44,9 +44,6 @@ namespace libzendoomc{
     /* Calculate certificate data hash for given certificate. */
     ScFieldElement CalculateCertDataHash(const CScCertificate& cert);
 
-    /* Calculate cumulative certificate data hash by given cunulative data hash and data hash of previous certificate. */
-    bool CalculateCumulativeCertDataHash(const ScFieldElement& prevCumulativeHash, const ScFieldElement& prevCertHash, ScFieldElement& CumulativeHashOutput);
-
     /* Support class for WCert SNARK proof verification. */
     class CScWCertProofVerification {
         public:
@@ -131,9 +128,7 @@ namespace libzendoomc{
             // Returns false if proof verification has failed or deserialization of CSW's elements
             // into libzendoomc's elements has failed.
             bool verifyCTxCeasedSidechainWithdrawalInput(
-                const ScFieldElement& prevCumulativeCertDataHash,
-                const ScFieldElement& currentCertDataHash,
-                const ScFieldElement& lastCumulativeCertDataHash,
+                const ScFieldElement& certDataHash,
                 const ScVk& wCeasedVk,
                 const CTxCeasedSidechainWithdrawalInput& csw
             ) const;

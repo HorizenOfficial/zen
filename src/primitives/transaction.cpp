@@ -211,13 +211,12 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn, int32_t nEpochIn,
+CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                                      const libzendoomc::ScFieldElement& nullifierIn, const uint160& pubKeyHashIn,
                                                                      const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn)
 {
     nValue = nValueIn;
     scId = scIdIn;
-    nEpoch = nEpochIn;
     nullifier = nullifierIn;
     pubKeyHash = pubKeyHashIn;
     scProof = scProofIn;
@@ -226,8 +225,8 @@ CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmou
 
 std::string CTxCeasedSidechainWithdrawalInput::ToString() const
 {
-    return strprintf("CTxCeasedSidechainWithdrawalInput(nValue=%d.%08d, scId=%s, nEpoch=%d, nullifier=%s, pubKeyHash=%s, scProof=%s, redeemScript=%s)",
-                     nValue / COIN, nValue % COIN, scId.ToString(), nEpoch, HexStr(nullifier).substr(0, 10),
+    return strprintf("CTxCeasedSidechainWithdrawalInput(nValue=%d.%08d, scId=%s, nullifier=%s, pubKeyHash=%s, scProof=%s, redeemScript=%s)",
+                     nValue / COIN, nValue % COIN, scId.ToString(), HexStr(nullifier).substr(0, 10),
                      pubKeyHash.ToString(), HexStr(scProof).substr(0, 10), HexStr(redeemScript).substr(0, 24));
 }
 

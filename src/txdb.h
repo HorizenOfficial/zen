@@ -50,10 +50,9 @@ public:
     bool HaveCswNullifier(const uint256& scId,
                           const libzendoomc::ScFieldElement& nullifier)  const override;
 
-    bool HaveCertDataHashes(const uint256& scId, const int epoch)        const override;
-    bool GetCertDataHashes(const uint256& scId, const int epoch,
-                           std::pair<libzendoomc::ScFieldElement,
-                           libzendoomc::ScFieldElement>& certDataHashes) const override;
+    bool GetActiveCertDataHash(const uint256& scId,
+                          libzendoomc::ScFieldElement& certDataHash)     const override;
+
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
@@ -61,9 +60,8 @@ public:
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapSidechainEvents,
-                    CCswNullifiersMap& cswNullifies,
-                    CCertDataHashMap& certDataHashes)                        override;
-    bool GetStats(CCoinsStats &stats)                                  const override;
+                    CCswNullifiersMap& cswNullifies)                           override;
+    bool GetStats(CCoinsStats &stats)                                    const override;
     void Dump_info() const;
 };
 

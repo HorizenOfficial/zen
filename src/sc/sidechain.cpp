@@ -164,14 +164,6 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                 __func__), REJECT_INVALID, "sidechain-cswinput-value-not-valid");
         }
 
-        if (csw.nEpoch < 0)
-        {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : CSW epoch %d is non-positive\n",
-                __func__, __LINE__, txHash.ToString(), csw.nEpoch);
-            return state.DoS(100, error("%s: CSW epoch is not valid",
-                __func__), REJECT_INVALID, "sidechain-cswinput-epoch-not-valid");
-        }
-
         if(!libzendoomc::IsValidScFieldElement(csw.nullifier))
         {
             LogPrint("sc", "%s():%d - Invalid tx[%s] : invalid CSW nullifier\n",

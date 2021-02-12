@@ -314,7 +314,6 @@ class RawTransactionsTest(BitcoinTestFramework):
             "amount": sc_csw_amount,
             "senderAddress": csw_mc_address,
             "scId": scid,
-            "epoch": 0,
             "nullifier": generate_random_field_element_hex(),
             # Temp hardcoded proof with valid structure
             # TODO: generate a real valid CSW proof
@@ -336,7 +335,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_equal(len(decoded_tx['vcsw_ccin']), 1)
         assert_equal(decoded_tx['vcsw_ccin'][0]['value'], sc_csws[0]['amount'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['scId'], sc_csws[0]['scId'])
-        assert_equal(decoded_tx['vcsw_ccin'][0]['epoch'], sc_csws[0]['epoch'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['nullifier'], sc_csws[0]['nullifier'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['scriptPubKey']['addresses'][0], sc_csws[0]['senderAddress'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['scProof'], sc_csws[0]['scProof'])
@@ -349,7 +347,6 @@ class RawTransactionsTest(BitcoinTestFramework):
             "amount": sc_csw_amount,
             "senderAddress": csw_mc_address,
             "scId": scid,
-            "epoch": 0,
             "nullifier": generate_random_field_element_hex(),
             # Temp hardcoded proof with valid structure
             # TODO: generate a real vali CSW proof
@@ -434,7 +431,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_equal(len(decoded_tx['vcsw_ccin']), 1)
         assert_equal(decoded_tx['vcsw_ccin'][0]['value'], sc_csws[0]['amount'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['scId'], sc_csws[0]['scId'])
-        assert_equal(decoded_tx['vcsw_ccin'][0]['epoch'], sc_csws[0]['epoch'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['nullifier'], sc_csws[0]['nullifier'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['scriptPubKey']['addresses'][0], sc_csws[0]['senderAddress'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['scProof'], sc_csws[0]['scProof'])
@@ -473,7 +469,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_equal(len(decoded_tx['vcsw_ccin']), 1)
         assert_equal(decoded_tx['vcsw_ccin'][0]['value'], sc_csws[0]['amount'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['scId'], sc_csws[0]['scId'])
-        assert_equal(decoded_tx['vcsw_ccin'][0]['epoch'], sc_csws[0]['epoch'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['nullifier'], sc_csws[0]['nullifier'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['scriptPubKey']['addresses'][0], sc_csws[0]['senderAddress'])
         assert_equal(decoded_tx['vcsw_ccin'][0]['scProof'], sc_csws[0]['scProof'])

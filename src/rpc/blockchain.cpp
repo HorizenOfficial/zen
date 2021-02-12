@@ -1278,7 +1278,7 @@ int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, in
     return vec.size(); 
 }
 
-void FillCertDataHash(const uint256& scid, int epoch, UniValue& ret)
+void FillCertDataHash(const uint256& scid, UniValue& ret)
 {
     CCoinsViewCache scView(pcoinsTip);
 
@@ -1288,15 +1288,14 @@ void FillCertDataHash(const uint256& scid, int epoch, UniValue& ret)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
     }
 
-    std::pair<libzendoomc::ScFieldElement, libzendoomc::ScFieldElement> certDataHashes;
-    if (!scView.GetCertDataHashes(scid, epoch, certDataHashes))
+    libzendoomc::ScFieldElement certDataHash;
+    if (!scView.GetActiveCertDataHash(scid, certDataHash))
     {
-        LogPrint("sc", "%s():%d - scid[%s]/epoch[%d] cert data hash not in db\n", __func__, __LINE__, scid.ToString(), epoch);
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing cert data hash for required scid/epoch"));
+        LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing active cert data hash for required scid"));
     }
 
-    ret.push_back(Pair("certDataHash", HexStr(certDataHashes.first)));
-    ret.push_back(Pair("prevEpochCumCertDataHash", HexStr(certDataHashes.second)));
+    ret.push_back(Pair("certDataHash", HexStr(certDataHash)));
 }
 
 UniValue getscinfo(const UniValue& params, bool fHelp)
@@ -1420,43 +1419,35 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     return ret;
 }
 
-UniValue getcertdatahash(const UniValue& params, bool fHelp)
+UniValue getactivecertdatahash(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getcertdatahash (\"scid\")\n"
-			"\nArguments:\n"
-			"1. \"scid\"   (string, mandatory)  Retrive information about specified scid\n"
-			"2. \"epoch\"  (numeric, mandatory) Retrive information about specified epoch number\n"
-            "\nReturns the certificate data hash info for the given scid/epoch pair.\n"
+            "getactivecertdatahash (\"scid\")\n"
+            "\nArgument:\n"
+            "   \"scid\"   (string, mandatory)  Retrive information about specified scid\n"
+            "\nReturns the certificate recent data hash info for the given scid.\n"
             "\nResult:\n"
             "{\n"
-            "  \"certDataHash\":              xxxxx,   (string)  A hex string representation of the field element containing the hash of certificate data for the specified epoch\n"
-            "  \"prevEpochCumCertDataHash\":  xxxxx,   (string)  A hex string representation of the field element containing the cumulative hash of the cert data updated at the previous epoch\n"
+            "  \"certDataHash\":              xxxxx,   (string)  A hex string representation of the field element containing the recent active certificate data hash for the specified scid.\n"
             "}\n"
 
             "\nExamples\n"
-            + HelpExampleCli("getcertdatahash", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 33")
+            + HelpExampleCli("getactivecertdatahash", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
         );
 
-    string inputString = params[0].get_str();
+    string scIdString = params[0].get_str();
     {
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
-    }
-
-    int epoch = params[1].get_int();
-    if (epoch < 0)
-    {
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid negative epoch value");
     }
 
     UniValue ret(UniValue::VOBJ);
  
     uint256 scId;
-    scId.SetHex(inputString);
+    scId.SetHex(scIdString);
 
-    FillCertDataHash(scId, epoch, ret);
+    FillCertDataHash(scId, ret);
  
     return ret;
 }

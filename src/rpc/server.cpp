@@ -264,7 +264,7 @@ static const CRPCCommand vRPCCommands[] =
     { "control",            "dbg_log",                &dbg_log,                true  },
     { "control",            "dbg_do",                 &dbg_do,                 true  },
     { "control",            "getscinfo",              &getscinfo,              true  },
-    { "control",            "getcertdatahash",        &getcertdatahash,        true  },
+    { "control",            "getactivecertdatahash",  &getactivecertdatahash,  true  },
     { "control",            "getscgenesisinfo",       &getscgenesisinfo,       true  },
 
     /* P2P networking */

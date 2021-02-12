@@ -2492,12 +2492,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                                            CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
             }
 
-            if (!view.RestoreCertDataHash(cert, blockUndo))
-            {
-                LogPrint("sc", "%s():%d - ERROR undoing certHashData\n", __func__, __LINE__);
-                return error("DisconnectBlock(): certHashData for certificate can not be reverted: data inconsistent");
-            }
-
             if (!view.RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
             {
                 LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
@@ -2967,12 +2961,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             {
                 return state.DoS(100, error("ConnectBlock(): could not add in scView: cert[%s]", cert.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-cert-not-updated");
-            }
-
-            if (!view.UpdateCertDataHash(cert, blockundo))
-            {
-                return state.DoS(100, error("ConnectBlock(): Error updating cert data hashes with certificate [%s]", cert.GetHash().ToString()),
-                                 REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
 
             if (!prevBlockTopQualityCertHash.IsNull())

@@ -135,13 +135,10 @@ class CswNullifierTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        # check we have cert data hash for both epocs
+        # check we have cert data hash for the last active certificate
         mark_logs("\nCheck we have expected cert data hashes", self.nodes, DEBUG_MODE)
         try:
-            assert_true(self.nodes[0].getcertdatahash(scid, 0)['certDataHash'])
-            assert_true(self.nodes[0].getcertdatahash(scid, 0)['prevEpochCumCertDataHash'])
-            assert_true(self.nodes[0].getcertdatahash(scid, 1)['certDataHash'])
-            assert_true(self.nodes[0].getcertdatahash(scid, 1)['prevEpochCumCertDataHash'])
+            assert_true(self.nodes[0].getactivecertdatahash(scid)['certDataHash'])
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
@@ -525,16 +522,12 @@ class CswNullifierTest(BitcoinTestFramework):
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
 
 
-        # check we have all cert data hash for both sidechains
+        # check we have all cert data hash for both sc ids
         mark_logs("\nCheck we have expected cert data hashes for both sidechains", self.nodes, DEBUG_MODE)
         try:
-            assert_true(self.nodes[1].getcertdatahash(scid, 0)['certDataHash'])
-            assert_true(self.nodes[1].getcertdatahash(scid, 0)['prevEpochCumCertDataHash'])
-            assert_true(self.nodes[1].getcertdatahash(scid, 1)['certDataHash'])
-            assert_true(self.nodes[1].getcertdatahash(scid, 1)['prevEpochCumCertDataHash'])
+            assert_true(self.nodes[1].getactivecertdatahash(scid)['certDataHash'])
 
-            assert_true(self.nodes[1].getcertdatahash(scid2, 0)['certDataHash'])
-            assert_true(self.nodes[1].getcertdatahash(scid2, 0)['prevEpochCumCertDataHash'])
+            assert_true(self.nodes[1].getactivecertdatahash(scid2)['certDataHash'])
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)

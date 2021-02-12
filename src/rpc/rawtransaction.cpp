@@ -294,7 +294,6 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "     {\n"
             "       \"value\": x.xxx,             (numeric) The value in " + CURRENCY_UNIT + "\n"
             "       \"scId\": \"hex\",            (string) The sidechain id\n"
-            "       \"epoch\": n,                 (numeric) Withdrawal epoch number to be referenced to\n"
             "       \"nullifier\": \"hex\",       (string) Withdrawal nullifier\n"
             "       \"scriptPubKey\" : {          (json object)\n"
             "         \"asm\" : \"asm\",          (string) the asm\n"
@@ -689,7 +688,6 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "         \"amount\": x.xxx,              (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
             "         \"senderAddress\": \"address\", (string, required) The sender Horizen address\n"
             "         \"scId\": \"hex\",              (string, required) The ceased sidechain id\n"
-            "         \"epoch\": n,                   (numeric, required) Withdrawal epoch number to be referenced to\n"
             "         \"nullifier\": \"hex\",         (string, required) Withdrawal nullifier\n"
             "         \"scProof\": \"hex\"            (string, required) SNARK proof whose verification key was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + "bytes \n"
             "       }\n"
@@ -728,7 +726,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "\nExamples\n"
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"address\\\":0.01}\"")
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":0.01}\"")
-            + HelpExampleRpc("createrawtransaction", "\"[]\", \"{\\\"address\\\":0.01}\" \"[{\\\"amount\\\": 0.02, \\\"scId\\\": \\\"myscid\\\", \\\"epoch\\\": 25, \\\"nullifier\\\": \\\"mynullifier\\\", \\\"scProof\\\": \\\"proof\\\"}]\"")
+            + HelpExampleRpc("createrawtransaction", "\"[]\", \"{\\\"address\\\":0.01}\" \"[{\\\"amount\\\": 0.02, \\\"scId\\\": \\\"myscid\\\", \\\"nullifier\\\": \\\"mynullifier\\\", \\\"scProof\\\": \\\"proof\\\"}]\"")
             + HelpExampleRpc("createrawtransaction", "\"[]\" \"{}\" \"[{\\\"epoch_length\\\" :300}]\" \"{\\\"address\\\": \\\"myaddress\\\", \\\"amount\\\": 4.0, \\\"scid\\\": \\\"myscid\\\"}]\"")
         );
 
@@ -823,7 +821,6 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "     {\n"
             "       \"value\": x.xxx,             (numeric) The value in " + CURRENCY_UNIT + "\n"
             "       \"scId\": \"hex\",            (string) The sidechain id\n"
-            "       \"epoch\": n,                 (numeric) Withdrawal epoch number to be referenced to\n"
             "       \"nullifier\": \"hex\",       (string) Withdrawal nullifier\n"
             "       \"scriptPubKey\" : {          (json object)\n"
             "         \"asm\" : \"asm\",          (string) the asm\n"

@@ -321,7 +321,6 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
           RandomPubKeyHash(csw_in.pubKeyHash);
           csw_in.nValue = insecure_rand() % 100000000;
           csw_in.scId = libzcash::random_uint256();
-          csw_in.nEpoch = insecure_rand() % 100;
           RandomScFieldElement(csw_in.nullifier);
           RandomScProof(csw_in.scProof);
 

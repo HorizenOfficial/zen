@@ -211,17 +211,17 @@ void txCreationUtils::storeSidechain(CCoinsViewCache& targetView, const uint256&
     CAnchorsMap dummyAnchors;
     dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
     CCswNullifiersMap dummyCswNullifiers;
-    CCertDataHashMap dummyCertDataHashes;
 
     targetView.BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
                           dummyNullifiers, mapSidechain, sidechainEventsMap,
-                          dummyCswNullifiers, dummyCertDataHashes);
+                          dummyCswNullifiers);
 
     return;
 }
-
+// TODO: update method
 void txCreationUtils::storeCertDataHash(CCoinsViewCache& targetView, const uint256& scId, uint32_t epochNumber)
 {
+    /*
     CSidechainsMap      dummySidechainMap;
     CSidechainEventsMap dummyScEventsMap;
     CCoinsMap           dummyCoins;
@@ -247,6 +247,7 @@ void txCreationUtils::storeCertDataHash(CCoinsViewCache& targetView, const uint2
     targetView.BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
                           dummyNullifiers, dummySidechainMap, dummyScEventsMap,
                           dummyCswNullifiers, certDataHashes);
+    */
 }
 
 void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)
