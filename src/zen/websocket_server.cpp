@@ -20,6 +20,8 @@
 #include "consensus/validation.h"
 #include <univalue.h>
 #include "uint256.h"
+#include "core_io.h"
+
 
 extern CAmount AmountFromValue(const UniValue& value);
 
@@ -96,6 +98,8 @@ public:
         GET_SINGLE_BLOCK = 0,
         GET_MULTIPLE_BLOCK_HASHES = 1,
         GET_NEW_BLOCK_HASHES = 2,
+		GET_MEMPOOL_TXS = 4,
+        GET_RAW_MEMPOOL = 5,
         REQ_UNDEFINED = 0xff
     };
 
@@ -190,6 +194,56 @@ private:
         rv->push_back(Pair("responsePayload", rspPayload));
         wsq.push(wse);
     }
+
+    void sendMempool(int size, std::list<uint256>& listHashes,
+    		WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+    {
+        // Send a message to the client:  type = responseType
+        WsEvent* wse = new WsEvent(msgType);
+        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
+        UniValue rspPayload(UniValue::VOBJ);
+        rspPayload.push_back(Pair("size", size));
+
+        UniValue txHashes(UniValue::VARR);
+        UniValue certHashes(UniValue::VARR);
+
+        for(std::list<uint256>::const_iterator it = listHashes.begin(); it != listHashes.end(); ++it) {
+        	txHashes.push_back(it->GetHex());
+        }
+        rspPayload.push_back(Pair("transactions", txHashes));
+        rspPayload.push_back(Pair("certificates", certHashes));
+
+        UniValue* rv = wse->getPayload();
+        if (!clientRequestId.empty())
+            rv->push_back(Pair("requestId", clientRequestId));
+        rv->push_back(Pair("responsePayload", rspPayload));
+        wsq.push(wse);
+    }
+
+    void sendTxs(std::list<std::string> listHex,
+    		WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+    {
+        // Send a message to the client:  type = responseType
+        WsEvent* wse = new WsEvent(msgType);
+        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
+        UniValue rspPayload(UniValue::VOBJ);
+
+        UniValue txHex(UniValue::VARR);
+
+        for(std::list<std::string>::const_iterator it = listHex.begin(); it != listHex.end(); ++it) {
+        	UniValue value;
+        	bool res = value.setStr(*it);
+        	txHex.push_back(value);
+        }
+        rspPayload.push_back(Pair("hex", txHex));
+        UniValue* rv = wse->getPayload();
+        if (!clientRequestId.empty())
+            rv->push_back(Pair("requestId", clientRequestId));
+        rv->push_back(Pair("responsePayload", rspPayload));
+        wsq.push(wse);
+
+    }
+
 
     int getHashByHeight(std::string height, std::string& strHash)
     {
@@ -381,6 +435,43 @@ private:
             }
         }
         sendHashes(listBlock.front()->nHeight, listBlock, WsEvent::MSG_RESPONSE, clientRequestId);
+        return OK;
+    }
+
+    int sendRawMempool(const std::string& clientRequestId) {
+        LOCK(mempool.cs);
+
+        std::list<uint256> hashes;
+        BOOST_FOREACH(const PAIRTYPE(uint256, CTxMemPoolEntry)& entry, mempool.mapTx)
+        {
+           hashes.push_back(entry.first);
+        }
+        sendMempool(hashes.size(), hashes, WsEvent::MSG_RESPONSE, clientRequestId);
+        return OK;
+
+    }
+
+    int sendMempoolTxs(const UniValue& hashes, const std::string& clientRequestId) {
+        LOCK(mempool.cs);
+
+        std::list<std::string> txs;
+        for(const UniValue& hash : hashes.getValues()) {
+            if (hash.isObject())
+            {
+                LogPrint("ws", "%s():%d - invalid obj\n", __func__, __LINE__);
+                return INVALID_PARAMETER;
+            }
+            uint256 txid(uint256S(hash.get_str()));
+            auto entry = mempool.mapTx.find(txid);
+            if (entry != mempool.mapTx.end()) {
+                txs.push_back(EncodeHexTx(
+                		static_cast<CTransaction>(entry->second.GetTx())));
+            } else {
+                LogPrint("ws", "%s():%d - mempool transaction not found!\n", txid.ToString(), __LINE__);
+            }
+
+        }
+        sendTxs(txs, WsEvent::MSG_RESPONSE, clientRequestId);
         return OK;
     }
 
@@ -582,7 +673,45 @@ private:
                 }
                 return sendHashFromLocator(hashes, strLen, clientRequestId);
             }
+            if (requestType == std::to_string(WsEvent::GET_RAW_MEMPOOL))
+            {
+                reqType = WsEvent::GET_RAW_MEMPOOL;
+                if (clientRequestId.empty()) {
+                    LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_REQID;
+                }
+                const UniValue& reqPayload = find_value(request, "requestPayload");
+                if (reqPayload.isNull()) {
+                    LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
+                    return INVALID_JSON_FORMAT;
+                }
 
+                return sendRawMempool(clientRequestId);
+            }
+            if (requestType == std::to_string(WsEvent::GET_MEMPOOL_TXS))
+            {
+                reqType = WsEvent::GET_MEMPOOL_TXS;
+                if (clientRequestId.empty()) {
+                    LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_REQID;
+                }
+                const UniValue& reqPayload = find_value(request, "requestPayload");
+                if (reqPayload.isNull()) {
+                    LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
+                    return INVALID_JSON_FORMAT;
+                }
+                const UniValue&  hashArray = find_value(reqPayload, "hash");
+                if (hashArray.isNull()) {
+                    LogPrint("ws", "%s():%d - locatorHash empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_PARAMETER;
+                }
+                const UniValue& hashes = hashArray.get_array();
+                if (hashes.size()==0) {
+                    LogPrint("ws", "%s():%d - hash array empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_PARAMETER;
+                }
+                return sendMempoolTxs(hashes,clientRequestId);
+            }
 
             // if we are here that means it is no valid request type, and reqType is an enum defaulting to 255
             *((int*)(&reqType)) = std::stoi(requestType);
