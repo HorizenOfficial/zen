@@ -34,7 +34,7 @@ RUN set -euxo pipefail \
     && unset GNUPGHOME \
     && chmod +x /usr/local/bin/gosu \
     && gosu nobody true \
-    && BASEURL=$(curl -s https://api.github.com/repos/ipfs/go-ipfs/releases | grep browser_download_url | awk 'FNR <= 1' | cut -d '"' -f 4 | sed 's:/[^/]*$::') \
+    && BASEURL=$(curl -s https://api.github.com/repos/ipfs/go-ipfs/releases | grep browser_download_url | grep -v 'rc[0-9]/go' | awk 'FNR <= 1' | cut -d '"' -f 4 | sed 's:/[^/]*$::') \
     && IPFS_VERSION=$(echo -n $BASEURL | sed 's:.*/::') \
     && TMP="$(mktemp -d)" \
     && curl -SLo "$TMP/go-ipfs_${IPFS_VERSION}_linux-${DPKG_ARCH}.tar.gz" "${BASEURL}/go-ipfs_${IPFS_VERSION}_linux-${DPKG_ARCH}.tar.gz" \
