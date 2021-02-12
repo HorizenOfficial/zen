@@ -389,7 +389,7 @@ public:
             READWRITE(nSproutValue);
         }
 
-        if (nVersion >= SC_TX_VERSION) {
+        if (nVersion == BLOCK_VERSION_SC_SUPPORT) {
             READWRITE(scCumTreeHash);
         }
     }
