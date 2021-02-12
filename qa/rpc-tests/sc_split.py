@@ -125,8 +125,8 @@ class ScSplitTest(BitcoinTestFramework):
         mark_logs("\nNode0 generating 1 honest block", self.nodes, DEBUG_MODE)
 
         blocks.extend(self.nodes[0].generate(1))
-        ownerBlock = blocks[-1]
         self.sync_all()
+        ownerBlockHeight = self.nodes[0].getblockcount()
 
         # Node 1 creates a FT of 4.0 coins and Node 0 generates 1 block
         mark_logs("\nNode 1 performs a fwd transfer of " + str(fwt_amount_1) + " coins ...", self.nodes, DEBUG_MODE)
@@ -154,7 +154,7 @@ class ScSplitTest(BitcoinTestFramework):
         mark_logs("Node 1: " + str(scinfoNode1), self.nodes, DEBUG_MODE)
 
         assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
-        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["created in block"], ownerBlock)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["created at block height"], ownerBlockHeight)
         assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["creating tx hash"], creating_tx)
         assert_equal(0, self.nodes[2].getscinfo(scid)['totalItems'])
 
@@ -192,7 +192,8 @@ class ScSplitTest(BitcoinTestFramework):
         mark_logs("\nNode1 generating 1 honest block and restoring the SC creation...", self.nodes, DEBUG_MODE)
 
         blocks.extend(self.nodes[1].generate(1))
-        secondOwnerBlock = blocks[-1]
+        self.sync_all()
+        secondOwnerBlockHeight = self.nodes[1].getblockcount()
 
         mark_logs("\nNode1 generating 1 honest block more and restoring all of SC funds...", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[1].generate(1))
@@ -216,7 +217,7 @@ class ScSplitTest(BitcoinTestFramework):
         assert_equal(scinfoNode0, scinfoNode1)
         assert_equal(scinfoNode0, scinfoNode2)
         assert_equal(self.nodes[2].getscinfo(scid)['items'][0]["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
-        assert_equal(self.nodes[2].getscinfo(scid)['items'][0]["created in block"], secondOwnerBlock)
+        assert_equal(self.nodes[2].getscinfo(scid)['items'][0]["created at block height"], secondOwnerBlockHeight)
         assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["creating tx hash"], creating_tx)
 
 

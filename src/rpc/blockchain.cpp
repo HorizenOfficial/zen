@@ -1297,7 +1297,6 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"state\":                   xxxxx,   (string)  state of the sidechain at the current chain height\n"
             "     \"ceasing height\":          xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
             "     \"creating tx hash\":        xxxxx,   (string)  txid of the creating transaction\n"
-            "     \"created in block\":        xxxxx,   (string)  hash of the block containing the creatimg tx\n"
             "     \"created at block height\": xxxxx,   (numeric) height of the above block\n"
             "     \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
             "     \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
