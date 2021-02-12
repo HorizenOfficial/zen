@@ -406,6 +406,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-tlstrustdir=<path>", _("Full path to a trusted certificates directory"));
     strUsage += HelpMessageOpt("-websocket=<0 or 1>", _("If set to 1 opens a websocket channel listening for client connections on localhost (default: 0)"));
     strUsage += HelpMessageOpt("-wsport=<port>", _("If websocket=1, listen for ws connections at this ip port on localhost (default: 8888)"));
+    strUsage += HelpMessageOpt("-wsaddress=<address>", _("If websocket=1, listen for ws connections at this ip (default: 127.0.0.1)"));
 #ifdef USE_UPNP
 #if USE_UPNP
     strUsage += HelpMessageOpt("-upnp", _("Use UPnP to map the listening port (default: 1 when listening and no -proxy)"));

@@ -1044,8 +1044,7 @@ bool StartWsServer()
     try
     {
         // ip address is not configurable as of now, it is locahost mandatorily
-        //std::string strAddress = GetArg("-wsaddress", "127.0.0.1");
-        std::string strAddress = "127.0.0.1";
+        std::string strAddress = GetArg("-wsaddress", "127.0.0.1");
         int port = GetArg("-wsport", 8888);
 
         ws_thread = boost::thread(ws_main, strAddress, port);
