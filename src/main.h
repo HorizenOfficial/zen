@@ -286,15 +286,19 @@ void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
 void PruneAndFlush();
 
+enum class eLimitFree       { ON, OFF };
+enum class eDisconnecting   { ON, OFF };
+enum class eRejectAbsurdFee { ON, OFF };
+
 /** (try to) add transaction to memory pool **/
-bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase, bool fLimitFree,
-                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee=false);
+bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
+    eLimitFree fLimitFree, bool* pfMissingInputs,  eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee);
 
-bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs, bool disconnecting, bool fRejectAbsurdFee=false, bool fVerifyBwtRequests = true);
+bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
+    eLimitFree fLimitFree, bool* pfMissingInputs, eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee);
 
-bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
-                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee=false, bool verifyCert = true);
+bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
+    eLimitFree fLimitFree, bool* pfMissingInputs, eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee);
 
 struct CNodeStateStats {
     int nMisbehavior;
@@ -562,13 +566,6 @@ extern CCoinsViewCache *pcoinsTip;
 
 /** Global variable that points to the active block tree (protected by cs_main) */
 extern CBlockTreeDB *pblocktree;
-
-/**
- * Return the spend height, which is one more than the inputs.GetBestBlock().
- * While checking, GetBestBlock() refers to the parent block. (protected by cs_main)
- * This is also true for mempool checks.
- */
-int GetSpendHeight(const CCoinsViewCache& inputs);
 
 /**
  * Check if the output nIn is CF Reward

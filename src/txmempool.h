@@ -149,11 +149,8 @@ private:
     uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
-    bool checkTxImmatureExpenditures(
-        const CTransaction& tx, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
-
-    bool checkCertImmatureExpenditures(
-        const CScCertificate& cert, const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
+    bool checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight);
+    bool checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight);
 
     std::map<uint256, std::shared_ptr<CTransactionBase> > mapRecentlyAddedTxBase;
     uint64_t nRecentlyAddedSequence = 0;
@@ -200,16 +197,23 @@ public:
 
     void removeWithAnchor(const uint256 &invalidRoot);
 
-    void removeImmatureExpenditures(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight);
-
-    void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    // UNCONFIRMED TRANSACTIONS CLEANUP METHODS
     void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
                         std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
+    void removeConflicts(const CTransaction &tx,
+                         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    void removeStaleTransactions(const CCoinsViewCache * const pCoinsView, unsigned int nMemPoolHeight,
+                                 std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts);
+    // END OF UNCONFIRMED TRANSACTIONS CLEANUP METHODS
 
-    void removeConflicts(const CScCertificate &cert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
-    void removeOutOfEpochCertificates(const uint256& disconnectedBlockHash);
+    // UNCONFIRMED CERTIFICATES CLEANUP METHODS
     void removeForBlock(const std::vector<CScCertificate>& vcert, unsigned int nBlockHeight,
                         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    void removeConflicts(const CScCertificate &cert,
+                         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
+    void removeStaleCertificates(const CCoinsViewCache * const pCoinsView, const uint256& disconnectedBlockHash, unsigned int nMemPoolHeight,
+                                 std::list<CScCertificate>& outdatedCerts);
+    // END OF UNCONFIRMED CERTIFICATES CLEANUP METHODS
 
     void clear();
     void queryHashes(std::vector<uint256>& vtxid);
@@ -266,50 +270,49 @@ public:
         return (totalTxSize + totalCertificateSize);
     }
 
-    bool existsTx(uint256 hash) const
+    bool existsTx(const uint256& hash) const
     {
         LOCK(cs);
         return (mapTx.count(hash) != 0);
     }
 
-    bool existsCert(uint256 hash) const
+    bool existsCert(const uint256& hash) const
     {
         LOCK(cs);
         return (mapCertificate.count(hash) != 0);
     }
-
-    bool exists(uint256 hash) const
+    bool exists(const uint256& hash) const
     {
         LOCK(cs);
         return (mapCertificate.count(hash) != 0 || mapTx.count(hash) != 0);
     }
 
-    bool hasSidechainCertificate(uint256 scId) const
+    bool hasSidechainCertificate(const uint256& scId) const
     {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).mBackwardCertificates.empty());
     }
 
-    bool hasSidechainCreationTx(uint256 scId) const
+    bool hasSidechainCreationTx(const uint256& scId) const
     {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).scCreationTxHash.IsNull());
     }
 
-    bool hasSidechainBwtRequest(uint256 scId) const
+    bool hasSidechainBwtRequest(const uint256& scId) const
     {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).mcBtrSet.empty());
     }
 
-    bool hasSidechainFwt(uint256 scId) const
+    bool hasSidechainFwt(const uint256& scId) const
     {
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).fwdTransfersSet.empty());
     }
 
-    bool lookup(uint256 hash, CTransaction& result) const;
-    bool lookup(uint256 hash, CScCertificate& result) const;
+    bool lookup(const uint256& hash, CTransaction& result) const;
+    bool lookup(const uint256& hash, CScCertificate& result) const;
 
     /** Estimate fee rate needed to get into the next nBlocks */
     CFeeRate estimateFee(int nBlocks) const;
@@ -335,6 +338,7 @@ protected:
 
 public:
     CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn);
+
     bool GetNullifier(const uint256 &txid)                         const override;
     bool GetCoins(const uint256 &txid, CCoins &coins)              const override;
     bool HaveCoins(const uint256 &txid)                            const override;

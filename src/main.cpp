@@ -905,7 +905,7 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
     if (!cert.IsValidVersion(state))
         return false;
 
-    if (!cert.CheckNonEmpty(state))
+    if (!cert.CheckInputsOutputsNonEmpty(state))
         return false;
 
     if (!cert.CheckSerializedSize(state))
@@ -943,8 +943,8 @@ std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToConnect, cons
         if(!view.GetSidechain(itCert->GetScId(), sidechain))
             continue;
 
-        if (itCert->epochNumber == sidechain.prevBlockTopQualityCertReferencedEpoch)
-            res[itCert->GetHash()] = sidechain.prevBlockTopQualityCertHash;
+        if (itCert->epochNumber == sidechain.lastTopQualityCertReferencedEpoch)
+            res[itCert->GetHash()] = sidechain.lastTopQualityCertHash;
         else
             res[itCert->GetHash()] = uint256();
 
@@ -1042,7 +1042,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     if (!tx.IsValidVersion(state))
         return false;
 
-    if (!tx.CheckNonEmpty(state))
+    if (!tx.CheckInputsOutputsNonEmpty(state))
         return false;
 
     if (!tx.CheckSerializedSize(state))
@@ -1116,15 +1116,15 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
     return nMinFee;
 }
 
-bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
-                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee, bool fVerifyCert)
+bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
+    eLimitFree fLimitFree, bool* pfMissingInputs, eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
         *pfMissingInputs = false;
 
     int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
-    if (disconnecting)
+    if (disconnecting == eDisconnecting::ON)
         nextBlockHeight -= 1;
 
     if (!cert.CheckInputsLimit())
@@ -1219,10 +1219,9 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 return false;
             }
 
-            auto scVerifier = fVerifyCert ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-            if (!view.IsCertApplicableToState(cert, nextBlockHeight, state, scVerifier))
+            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
+            if (!view.IsCertApplicableToState(cert, nextBlockHeight, scVerifier))
             {
-                LogPrint("sc", "%s():%d - certificate [%s] is not applicable\n", __func__, __LINE__, certHash.ToString());
                 return state.DoS(0, error("%s(): certificate not applicable", __func__),
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
             }
@@ -1244,7 +1243,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             if (!view.HaveInputs(cert))
             {
                 LogPrintf("%s():%d - ERROR: cert[%s]\n", __func__, __LINE__, certHash.ToString());
-                return state.Invalid(error("AcceptCertToMemoryPool: inputs already spent"),
+                return state.Invalid(error("%s():d - inputs already spent", __func__, __LINE__),
                                      REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
             }
 
@@ -1288,7 +1287,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
 
         LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
-        if (fLimitFree && nFees < txMinFee)
+        if (fLimitFree == eLimitFree::ON && nFees < txMinFee)
             return state.DoS(0, error("%s(): not enough fees %s, %d < %d",
                                     __func__, certHash.ToString(), nFees, txMinFee),
                             REJECT_INSUFFICIENTFEE, "insufficient fee");
@@ -1301,7 +1300,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         // Continuously rate-limit free (really, very-low-fee) transactions
         // This mitigates 'penny-flooding' -- sending thousands of free transactions just to
         // be annoying or make others' transactions take longer to confirm.
-        if (fLimitFree && nFees < ::minRelayTxFee.GetFee(nSize))
+        if (fLimitFree == eLimitFree::ON && nFees < ::minRelayTxFee.GetFee(nSize))
         {
             static CCriticalSection csFreeLimiter;
             static double dFreeCount;
@@ -1322,7 +1321,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             dFreeCount += nSize;
         }
 
-        if (fRejectAbsurdFee && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
+        if (fRejectAbsurdFee == eRejectAbsurdFee::ON && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
         {
             LogPrintf("%s():%d - absurdly high fees cert[%s], %d > %d\n", __func__, __LINE__, certHash.ToString(),
                          nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
@@ -1361,15 +1360,15 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 }
 
 
-bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee, bool fVerifyBwtRequests)
+bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, eLimitFree fLimitFree,
+                        bool* pfMissingInputs,  eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
         *pfMissingInputs = false;
 
     int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
-    if (disconnecting)
+    if (disconnecting == eDisconnecting::ON)
         nextBlockHeight -= 1;
 
     if (!tx.CheckInputsLimit())
@@ -1493,11 +1492,10 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                                      REJECT_DUPLICATE, "bad-txns-inputs-spent");
             }
 
-            auto scVerifier = fVerifyBwtRequests? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-            if (!view.IsScTxApplicableToState(tx, nextBlockHeight, state, scVerifier))
+            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
+            if (!view.IsScTxApplicableToState(tx, nextBlockHeight, scVerifier))
             {
-                LogPrint("sc", "%s():%d - sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString());
-                return state.DoS(0, error("%s(): tx not applicable", __func__),
+                return state.DoS(0, error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
  
@@ -1549,7 +1547,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             // Don't accept it if it can't get into a block
             CAmount txMinFee = GetMinRelayFee(tx, nSize, true);
             LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
-            if (fLimitFree && nFees < txMinFee)
+            if (fLimitFree == eLimitFree::ON && nFees < txMinFee)
                 return state.DoS(0, error("%s(): not enough fees %s, %d < %d",
                                         __func__, hash.ToString(), nFees, txMinFee),
                                 REJECT_INSUFFICIENTFEE, "insufficient fee");
@@ -1563,7 +1561,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         // Continuously rate-limit free (really, very-low-fee) transactions
         // This mitigates 'penny-flooding' -- sending thousands of free transactions just to
         // be annoying or make others' transactions take longer to confirm.
-        if (fLimitFree && nFees < ::minRelayTxFee.GetFee(nSize))
+        if (fLimitFree == eLimitFree::ON && nFees < ::minRelayTxFee.GetFee(nSize))
         {
             static CCriticalSection csFreeLimiter;
             static double dFreeCount;
@@ -1584,7 +1582,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             dFreeCount += nSize;
         }
 
-        if (fRejectAbsurdFee && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
+        if (fRejectAbsurdFee == eRejectAbsurdFee::ON && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
         {
             LogPrint("mempool", "%s(): absurdly high fees tx[%s], %d > %d", __func__, hash.ToString(),
                          nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
@@ -1619,8 +1617,8 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
     return true;
 }
 
-bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase, bool fLimitFree,
-                        bool* pfMissingInputs,  bool disconnecting, bool fRejectAbsurdFee)
+bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
+    eLimitFree fLimitFree, bool* pfMissingInputs,  eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee)
 {
     try
     {
@@ -2150,13 +2148,6 @@ void CScriptCheck::swap(CScriptCheck &check) {
 
 ScriptError CScriptCheck::GetScriptError() const { return error; }
 
-int GetSpendHeight(const CCoinsViewCache& inputs)
-{
-    LOCK(cs_main);
-    CBlockIndex* pindexPrev = mapBlockIndex.find(inputs.GetBestBlock())->second;
-    return pindexPrev->nHeight + 1;
-}
-
 bool IsCommunityFund(const CCoins *coins, int nIn)
 {
     if(coins != NULL &&
@@ -2259,7 +2250,10 @@ bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, 
 {
     if (!tx.IsCoinBase())
     {
-        if (!Consensus::CheckTxInputs(tx, state, inputs, GetSpendHeight(inputs), consensusParams)) {
+        // While checking, GetHeight() is the height of the parent block.
+        // This is also true for mempool checks.
+        int spendHeight = inputs.GetHeight() + 1;
+        if (!Consensus::CheckTxInputs(tx, state, inputs, spendHeight, consensusParams)) {
             return false;
         }
 
@@ -2498,7 +2492,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                                            CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
             }
 
-            if (!view.RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
+            if (!view.RestoreSidechain(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
             {
                 LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
                 return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
@@ -2553,7 +2547,12 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             }
         }
 
-        // a bwt request carries no events to revert, nothing to be done for tx.GetVBwtRequestOut() 
+        for (const CBwtRequestOut& mbtrOut: tx.GetVBwtRequestOut()) {
+            if (!view.CancelSidechainEvent(mbtrOut, pindex->nHeight)) {
+                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
+                return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
+            }
+        }
 
         for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
             if (!view.CancelSidechainEvent(fwdTransfer, pindex->nHeight)) {
@@ -2825,9 +2824,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
  
             auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-            if (!view.IsScTxApplicableToState(tx, pindex->nHeight, state, scVerifier)) {
-                LogPrint("sc", "%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString());
-                return state.DoS(100, error("ConnectBlock(): invalid sc-related tx [%s]", tx.GetHash().ToString()),
+            if (!view.IsScTxApplicableToState(tx, pindex->nHeight, scVerifier))
+            {
+                return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
 
@@ -2861,7 +2860,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (txIdx > 0)
         {
-            if (!view.UpdateScInfo(tx, block, pindex->nHeight) )
+            if (!view.UpdateSidechain(tx, block, pindex->nHeight) )
             {
                 return state.DoS(100, error("ConnectBlock(): could not add sidechain in view: tx[%s]", tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
@@ -2885,7 +2884,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 }
             }
 
-            // a bwt request carries no events to schedule, nothing to be done for tx.GetVBwtRequestOut() 
+            for (const CBwtRequestOut& mbtrOut: tx.GetVBwtRequestOut()) {
+                if (!view.ScheduleSidechainEvent(mbtrOut, pindex->nHeight))
+                {
+                    LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
+                    return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", mbtrOut.GetScId().ToString()),
+                                     REJECT_INVALID, "bad-fwd-not-recorded");
+                }
+            }
         }
 
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
@@ -2937,8 +2943,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         control.Add(vChecks);
 
         auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-        if (!view.IsCertApplicableToState(cert, pindex->nHeight, state, scVerifier) ) {
-            LogPrint("sc", "%s():%d - ERROR: cert=%s\n", __func__, __LINE__, cert.GetHash().ToString() );
+        if (!view.IsCertApplicableToState(cert, pindex->nHeight, scVerifier) )
+        {
             return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
         }
@@ -2949,7 +2955,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (isBlockTopQualityCert)
         {
-            if (!view.UpdateScInfo(cert, blockundo) )
+            if (!view.UpdateSidechain(cert, blockundo) )
             {
                 return state.DoS(100, error("ConnectBlock(): could not add in scView: cert[%s]", cert.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-cert-not-updated");
@@ -3278,7 +3284,8 @@ bool static DisconnectTip(CValidationState &state) {
             LogPrint("sc", "%s():%d - resurrecting tx [%s] to mempool\n", __func__, __LINE__, tx.GetHash().ToString());
         }
 
-        if (tx.IsCoinBase() || !AcceptTxToMemoryPool(mempool, stateDummy, tx, false, NULL, /*disconnecting*/true, /*fRejectAbsurdFee*/false)) {
+        if (tx.IsCoinBase() ||
+            !AcceptTxToMemoryPool(mempool, stateDummy, tx, eLimitFree::OFF, NULL, eDisconnecting::ON, eRejectAbsurdFee::OFF)) {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
             mempool.remove(tx, dummyTxs, dummyCerts, true);
@@ -3291,7 +3298,8 @@ bool static DisconnectTip(CValidationState &state) {
         // ignore validation errors in resurrected certificates
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
-        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert, false, NULL, /*disconnecting*/true, /*fRejectAbsurdFee*/false)) {
+        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
+                eLimitFree::OFF, NULL, eDisconnecting::ON, eRejectAbsurdFee::OFF)) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
@@ -3304,10 +3312,9 @@ bool static DisconnectTip(CValidationState &state) {
         // in which case we don't want to evict from the mempool yet!
         mempool.removeWithAnchor(anchorBeforeDisconnect);
     }
-    mempool.removeImmatureExpenditures(pcoinsTip, pindexDelete->nHeight);
 
-    // remove any certificate, and possible dependancies, that refers to this block as end epoch
-    mempool.removeOutOfEpochCertificates(pindexDelete->GetBlockHash());
+    mempool.removeStaleTransactions(pcoinsTip, pindexDelete->nHeight, dummyTxs, dummyCerts);
+    mempool.removeStaleCertificates(pcoinsTip, pindexDelete->GetBlockHash(), pindexDelete->nHeight, dummyCerts);
 
     mempool.check(pcoinsTip);
     // Update chainActive and related variables.
@@ -3395,10 +3402,11 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     std::list<CScCertificate> removedCerts;
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
+    mempool.removeStaleTransactions(pcoinsTip, pindexNew->nHeight, removedTxs, removedCerts);
 
     mempool.check(pcoinsTip);
-    // Update chainActive & related variables.
-    UpdateTip(pindexNew);
+
+    UpdateTip(pindexNew); // Update chainActive & related variables.
 
     // Tell wallet about transactions and certificates that went from mempool to conflicted:
     for(const CTransaction &tx: removedTxs) {
@@ -5577,7 +5585,8 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     pfrom->setAskFor.erase(inv.hash);
     mapAlreadyAskedFor.erase(inv);
 
-    if (!AlreadyHave(inv) && AcceptTxBaseToMemoryPool(mempool, state, txBase, true, &fMissingInputs, /*disconnecting*/false))
+    if (!AlreadyHave(inv) &&
+        AcceptTxBaseToMemoryPool(mempool, state, txBase, eLimitFree::ON, &fMissingInputs, eDisconnecting::OFF, eRejectAbsurdFee::OFF))
     {
         mempool.check(pcoinsTip);
         txBase.Relay();
@@ -5610,7 +5619,8 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
 
                 if (setMisbehaving.count(fromPeer))
                     continue;
-                if (AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx, true, &fMissingInputs2, /*disconnecting*/false))
+                if (AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
+                        eLimitFree::ON, &fMissingInputs2, eDisconnecting::OFF, eRejectAbsurdFee::OFF))
                 {
                     LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
                     orphanTx.Relay();

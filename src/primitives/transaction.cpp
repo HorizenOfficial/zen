@@ -303,23 +303,23 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
 
 CBwtRequestOut::CBwtRequestOut(
     const uint256& scIdIn, const uint160& pkhIn, const Sidechain::ScBwtRequestParameters& paramsIn):
-    scId(scIdIn), scUtxoId(paramsIn.scUtxoId), mcDestinationAddress(pkhIn),
+    scId(scIdIn), scRequestData(paramsIn.scUtxoId), mcDestinationAddress(pkhIn),
     scFee(paramsIn.scFee), scProof(paramsIn.scProof) {}
 
 
 std::string CBwtRequestOut::ToString() const
 {
     return strprintf("CBwtRequestOut(scId=%s, scUtxoId=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
-        scId.ToString(), HexStr(scUtxoId).substr(0, 30), mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
+        scId.ToString(), HexStr(scRequestData).substr(0, 30), mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
         HexStr(scProof).substr(0, 30));
 }
 
 CBwtRequestOut& CBwtRequestOut::operator=(const CBwtRequestOut &out) {
-    scId     = out.scId;
-    scUtxoId = out.scUtxoId;
+    scId                 = out.scId;
+    scRequestData        = out.scRequestData;
     mcDestinationAddress = out.mcDestinationAddress;
-    scFee   = out.scFee;
-    scProof  = out.scProof;
+    scFee                = out.scFee;
+    scProof              = out.scProof;
     return *this;
 }
 
@@ -644,7 +644,7 @@ bool CTransaction::IsValidVersion(CValidationState &state) const
     return true;
 }
 
-bool CTransaction::CheckNonEmpty(CValidationState &state) const
+bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
 {
     // Transactions can contain empty `vin` and `vout` so long as
     // `vjoinsplit` is non-empty.

@@ -2094,9 +2094,9 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(scId, sidechain));
                 if (fUpdate)
-                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.prevBlockTopQualityCertHash,
-                                                                      sidechain.prevBlockTopQualityCertReferencedEpoch,
-                                                                      sidechain.prevBlockTopQualityCertQuality,
+                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.lastTopQualityCertHash,
+                                                                      sidechain.lastTopQualityCertReferencedEpoch,
+                                                                      sidechain.lastTopQualityCertQuality,
                                                                       CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
             }
         }
@@ -2134,7 +2134,8 @@ void CWallet::ReacceptWalletTransactions()
     {
         CWalletTransactionBase& wtx = *(item.second);
         LOCK(mempool.cs);
-        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(), false, nullptr, /* disconnecting */false, /*fRejectAbsurdFee*/ true);
+        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(),
+            eLimitFree::OFF, nullptr, eDisconnecting::OFF, eRejectAbsurdFee::ON);
     }
 }
 
@@ -3596,7 +3597,8 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
         {
             // Broadcast
             CValidationState stateDummy;
-            if (!AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtxNew.getTxBase(), false, nullptr, /* disconnecting */false, /*fRejectAbsurdFee*/ true))
+            if (!AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtxNew.getTxBase(),
+                    eLimitFree::OFF, nullptr, eDisconnecting::OFF, eRejectAbsurdFee::ON))
             {
                 // This must not fail. The transaction has already been signed and recorded.
                 LogPrintf("CommitTransaction(): Error: Transaction not valid\n");
