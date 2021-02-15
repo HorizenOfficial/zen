@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import initialize_chain_clean, assert_equal, assert_true, \
+from test_framework.util import initialize_chain_clean, assert_equal, assert_true, assert_false, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs
 from test_framework.mc_test.mc_test import *
@@ -34,8 +34,9 @@ class sc_bwt_request(BitcoinTestFramework):
             pass  # Just open then close to create zero-length file
 
     def setup_network(self, split=False):
-        self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib',  '-logtimemicros=1', '-zapwallettxes=2']] * NUMB_OF_NODES )
+        self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args= [['-blockprioritysize=0',
+            '-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib',
+            '-logtimemicros=1']] * NUMB_OF_NODES )
 
         for idx, _ in enumerate(self.nodes):
             if idx < (NUMB_OF_NODES-1):
@@ -50,7 +51,9 @@ class sc_bwt_request(BitcoinTestFramework):
 
         '''
         Node1 creates a sc1 and, after a few negative tests, some bwt requests are sent for that sc1.
-        All the relevant txes (creation included) are accepted in the mempool and then mined in a block.
+        All the relevant txes (creation included) are accepted in the mempool and then mined in a block,
+        with the exception of the txes with zero fee, since we started the node with the -blockprioritysize=0 option.
+        Such zero fee mbtr txes are removed from the mempool whenever the safeguard of the epoch is crossed.
         A second sc is created and bwt request are sent for a zero balance sc (accepted) and a ceased sc (rejected)
         Both high level and raw versions of the command are tested.
         '''
@@ -123,10 +126,10 @@ class sc_bwt_request(BitcoinTestFramework):
         fe3 = generate_random_field_element_hex()
         fe4 = generate_random_field_element_hex()
 
-        pkh1 = self.nodes[1].getnewaddress("", True)
-        pkh2 = self.nodes[1].getnewaddress("", True)
-        pkh3 = self.nodes[1].getnewaddress("", True)
-        pkh4 = self.nodes[1].getnewaddress("", True)
+        pkh1 = self.nodes[0].getnewaddress("", True)
+        pkh2 = self.nodes[0].getnewaddress("", True)
+        pkh3 = self.nodes[0].getnewaddress("", True)
+        pkh4 = self.nodes[0].getnewaddress("", True)
 
         p1 = mcTest.create_test_proof("sc1", 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
         p2 = mcTest.create_test_proof("sc2", 0, blocks[-2], blocks[-1], 1, fe2, [pkh2], []) 
@@ -271,7 +274,8 @@ class sc_bwt_request(BitcoinTestFramework):
         totScFee = totScFee + 3*SC_FEE
         n1_net_bal = n1_net_bal - 3*SC_FEE -TX_FEE
 
-        # verify all bwts are in mempool
+        # verify all bwts are in mempool together with sc creation
+        assert_true(cr_tx1 in self.nodes[0].getrawmempool())
         assert_true(bwt1 in self.nodes[0].getrawmempool())
         assert_true(bwt2 in self.nodes[0].getrawmempool())
         assert_true(bwt3 in self.nodes[1].getrawmempool())
@@ -286,8 +290,10 @@ class sc_bwt_request(BitcoinTestFramework):
         vtx = self.nodes[1].getblock(blocks[-1], True)['tx']
         assert_true(bwt1, bwt2 in vtx)
         assert_true(bwt2 in vtx)
-        assert_true(bwt3 in vtx)
         assert_true(bwt4 in vtx)
+
+        # zero fee txes are not included in the block since we started nodes with -blockprioritysize=0
+        assert_false(bwt3 in vtx)
 
         sc_info = self.nodes[0].getscinfo(scid1)['items'][0]
 
@@ -363,6 +369,7 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_equal(decoded_tx['vmbtr_out'][2]['scUtxoId'], fe4)
 
         # verify all bwts are in mempool
+        assert_true(bwt3 in self.nodes[0].getrawmempool())
         assert_true(bwt5 in self.nodes[0].getrawmempool())
         assert_true(bwt6 in self.nodes[0].getrawmempool())
 
@@ -375,6 +382,9 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Node0 generates {} blocks".format(EPOCH_LENGTH - 2), self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(EPOCH_LENGTH - 2))
         self.sync_all()
+
+        # the zero fee mbtr tx has been removed from empool since we reached epoch safe guard
+        assert_false(bwt3 in self.nodes[0].getrawmempool())
 
         epoch_block_hash, epoch_number = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
@@ -389,7 +399,7 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Node1 sends a cert withdrawing the contribution of the creation amount to the sc balance", self.nodes, DEBUG_MODE)
         try:
             cert_epoch_0 = self.nodes[1].send_certificate(scid1, epoch_number, 0, epoch_block_hash, proof, amounts, CERT_FEE)
-            mark_logs("Node 1 sent a cert with bwd transfer of {} coins to Node0 pkh via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
+            mark_logs("Node 1 sent a cert with bwd transfer of {} coins to Node1 pkh via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -404,8 +414,15 @@ class sc_bwt_request(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("Checking Sc balance is nothing but sc fees of the various mbtr", self.nodes, DEBUG_MODE)
-        sc_post_bwd = self.nodes[0].getscinfo(scid1)['items'][0]
+        sc_post_bwd = self.nodes[0].getscinfo(scid1, False, False)['items'][0]
         assert_equal(sc_post_bwd["balance"], totScFee)
+
+        ceasing_h = int(sc_post_bwd['ceasing height'])
+        current_h = self.nodes[0].getblockcount()
+
+        mark_logs("Node0 generates {} blocks moving on the ceasing limit".format(ceasing_h - current_h - 1), self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(ceasing_h - current_h - 1))
+        self.sync_all()
 
         outputs = [{'scUtxoId':fe1, 'scFee':SC_FEE, 'scid':scid1, 'scProof' :p1, 'pubkeyhash':pkh3 }]
         cmdParms = { "minconf":0, "fee":0.0}
@@ -419,20 +436,34 @@ class sc_bwt_request(BitcoinTestFramework):
             assert_true(False)
 
         self.sync_all()
-        totScFee = totScFee + SC_FEE
-        n1_net_bal = n1_net_bal - SC_FEE 
-        assert_equal(n1_net_bal, self.nodes[1].getbalance())
 
-        mark_logs("Node0 generates {} blocks, thus ceasing the scs".format(3*EPOCH_LENGTH), self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(3*EPOCH_LENGTH))
+        assert_true(bwt7 in self.nodes[0].getrawmempool());
+
+        # zero fee txes are not included in the block since we started nodes with -blockprioritysize=0
+        #totScFee = totScFee + SC_FEE
+        n1_net_bal = n1_net_bal - SC_FEE 
+        assert_equal(n1_net_bal, Decimal(self.nodes[1].z_gettotalbalance(0)['total']))
+
+        mark_logs("Node0 generates 1 block, thus ceasing the scs", self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
         assert_equal(self.nodes[0].getscinfo(scid1)['items'][0]["state"], "CEASED")
         assert_equal(self.nodes[0].getscinfo(scid2)['items'][0]["state"], "CEASED")
 
+        # check mbtr is not in the block just mined
+        vtx = self.nodes[0].getblock(blocks[-1], True)['tx']
+        assert_false(bwt7 in vtx)
+
+        # and not in the mempool either
+        assert_false(bwt7 in self.nodes[0].getrawmempool());
+
+        # the scFee contribution of the removed tx has been restored to the Node balance
+        n1_net_bal = n1_net_bal + SC_FEE 
+
         outputs = [{'scUtxoId':fe1, 'scFee':SC_FEE, 'scid':scid1, 'scProof' :p1, 'pubkeyhash':pkh1 }]
         cmdParms = {'minconf':0, 'fee':TX_FEE}
-        mark_logs("Node0 creates a tx with a bwt request for a ceased sc (should fail)", self.nodes, DEBUG_MODE)
+        mark_logs("Node1 creates a tx with a bwt request for a ceased sc (should fail)", self.nodes, DEBUG_MODE)
         try:
             self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
             assert_true(False)
@@ -448,7 +479,7 @@ class sc_bwt_request(BitcoinTestFramework):
         wait_bitcoinds()
         self.setup_network(False)
 
-        assert_equal(n1_net_bal, self.nodes[1].getbalance())
+        assert_equal(n1_net_bal, Decimal(self.nodes[1].z_gettotalbalance(0)['total']))
         sc_post_restart = self.nodes[0].getscinfo(scid1)['items'][0]
         assert_equal(sc_pre_restart, sc_post_restart)
 
