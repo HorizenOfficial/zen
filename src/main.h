@@ -286,19 +286,19 @@ void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
 void PruneAndFlush();
 
-enum class eLimitFree       { ON, OFF };
-enum class eDisconnecting   { ON, OFF };
-enum class eRejectAbsurdFee { ON, OFF };
+enum class LimitFreeFlag       { ON, OFF };
+enum class DisconnectingFlag   { ON, OFF };
+enum class RejectAbsurdFeeFlag { ON, OFF };
 
 /** (try to) add transaction to memory pool **/
 bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    eLimitFree fLimitFree, bool* pfMissingInputs,  eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee);
+    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee, DisconnectingFlag disconnecting);
 
 bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
-    eLimitFree fLimitFree, bool* pfMissingInputs, eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee);
+    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee, DisconnectingFlag disconnecting);
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    eLimitFree fLimitFree, bool* pfMissingInputs, eDisconnecting disconnecting, eRejectAbsurdFee fRejectAbsurdFee);
+    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee, DisconnectingFlag disconnecting);
 
 struct CNodeStateStats {
     int nMisbehavior;

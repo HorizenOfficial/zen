@@ -121,7 +121,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewSidechainIsAcceptedToMempool) {
     CValidationState txState;
     bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, txState, scTx, eLimitFree::OFF, &missingInputs, eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, txState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSidechainAreNotAllowed) {
@@ -130,7 +130,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSidechainAreNotAllowed
     CValidationState fwdTxState;
     bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, eLimitFree::OFF, &missingInputs, eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
 }
 
 //A proof that https://github.com/HorizenOfficial/zen/issues/215 is solved
@@ -139,12 +139,12 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnconfirmedSidechainsAreAllow
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
     bool missingInputs = false;
-    AcceptTxToMemoryPool(mempool, scTxState, scTx, eLimitFree::OFF, &missingInputs, eDisconnecting::OFF, eRejectAbsurdFee::OFF);
+    AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, eLimitFree::OFF, &missingInputs, eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed) {
@@ -164,7 +164,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed
     CValidationState fwdTxState;
     bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, eLimitFree::OFF, &missingInputs, eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, BtrToUnknownSidechainAreNotAllowed) {
@@ -173,7 +173,7 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToUnknownSidechainAreNotAllowed) {
     CValidationState btrTxState;
     bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, eLimitFree::OFF, &missingInputs, eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, BtrToUnconfirmedSidechainsAreAllowed) {
@@ -181,12 +181,12 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToUnconfirmedSidechainsAreAllowed) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
     bool missingInputs = false;
-    AcceptTxToMemoryPool(mempool, scTxState, scTx, eLimitFree::OFF, &missingInputs, eDisconnecting::OFF, eRejectAbsurdFee::OFF);
+    AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CValidationState btrTxState;
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, eLimitFree::OFF, &missingInputs, eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
@@ -206,7 +206,7 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
     CValidationState btrTxState;
     bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, eLimitFree::OFF, &missingInputs, eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
@@ -618,8 +618,8 @@ TEST_F(SidechainsInMempoolTestSuite, CertsCannotSpendHigherQualityCerts) {
         /*changeTotalAmount*/CAmount(400),/*numChangeOut*/1, /*bwtAmount*/CAmount(2000), /*numBwt*/2, /*quality*/3);
 
 #if 0 // TODO import fix for AcceptCertificateToMemoryPool UT
-    ASSERT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert1, eLimitFree::OFF, &missingInputs,
-        eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    ASSERT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert1, LimitFreeFlag::OFF, &missingInputs,
+        DisconnectingFlag::OFF, RejectAbsurdFeeFlag::OFF));
     int64_t topQuality = mempool.mapSidechains.at(scId).GetTopQualityCert()->first;
 
     // create a certificate with same quality than top but depending on top-quality cert in mempool
@@ -628,8 +628,8 @@ TEST_F(SidechainsInMempoolTestSuite, CertsCannotSpendHigherQualityCerts) {
         /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(90), /*numBwt*/2, /*quality*/topQuality,
         &cert1);
 
-    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert2, eLimitFree::OFF, &missingInputs,
-        eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert2, LimitFreeFlag::OFF, &missingInputs,
+        DisconnectingFlag::OFF, RejectAbsurdFeeFlag::OFF));
 
     // create a certificate with lower quality than top but depending on top-quality cert in mempool
     // and verify that it is not accepted to mempool since a clash in consensus rules would be achieved
@@ -638,8 +638,8 @@ TEST_F(SidechainsInMempoolTestSuite, CertsCannotSpendHigherQualityCerts) {
         /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(90), /*numBwt*/2, /*quality*/topQuality-1,
         &cert1);
 
-    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert3, eLimitFree::OFF, &missingInputs,
-        eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert3, LimitFreeFlag::OFF, &missingInputs,
+        DisconnectingFlag::OFF, RejectAbsurdFeeFlag::OFF));
 
     EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert1.GetHash());
 #endif
@@ -674,36 +674,36 @@ TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
         /*changeTotalAmount*/CAmount(400),/*numChangeOut*/1, /*bwtAmount*/CAmount(2000), /*numBwt*/2, /*quality*/3);
 
 #if 0 // TODO import fix for AcceptCertificateToMemoryPool UT
-    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert1, eLimitFree::OFF, &missingInputs,
-        eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert1, LimitFreeFlag::OFF, &missingInputs,
+        DisconnectingFlag::OFF, RejectAbsurdFeeFlag::OFF));
 
     //load a certificate in mempool (q=2, fee=150)
     CScCertificate cert2 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(300),
         /*changeTotalAmount*/CAmount(150),/*numChangeOut*/1, /*bwtAmount*/CAmount(30), /*numBwt*/2, /*quality*/2);
 
-    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert2, eLimitFree::OFF, &missingInputs,
-        eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert2, LimitFreeFlag::OFF, &missingInputs,
+        DisconnectingFlag::OFF, RejectAbsurdFeeFlag::OFF));
 
     //load a certificate in mempool (q=2, fee=150) ---> dropped because this fee is the same
     CScCertificate cert3 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(400),
         /*changeTotalAmount*/CAmount(250),/*numChangeOut*/1, /*bwtAmount*/CAmount(40), /*numBwt*/2, /*quality*/2);
 
-    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert3, eLimitFree::OFF, &missingInputs,
-        eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert3, LimitFreeFlag::OFF, &missingInputs,
+        DisconnectingFlag::OFF, RejectAbsurdFeeFlag::OFF));
 
     //load a certificate in mempool (q=2, fee=100) ---> dropped because this fee is lower
     CScCertificate cert3b = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(390),
         /*changeTotalAmount*/CAmount(290),/*numChangeOut*/1, /*bwtAmount*/CAmount(40), /*numBwt*/2, /*quality*/2);
 
-    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert3b, eLimitFree::OFF, &missingInputs,
-        eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert3b, LimitFreeFlag::OFF, &missingInputs,
+        DisconnectingFlag::OFF, RejectAbsurdFeeFlag::OFF));
 
     //load a certificate in mempool (q=4, fee=100)
     CScCertificate cert4 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(1500),
         /*changeTotalAmount*/CAmount(1400),/*numChangeOut*/2, /*bwtAmount*/CAmount(60), /*numBwt*/2, /*quality*/4);
 
-    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert4, eLimitFree::OFF, &missingInputs,
-        eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert4, LimitFreeFlag::OFF, &missingInputs,
+        DisconnectingFlag::OFF, RejectAbsurdFeeFlag::OFF));
 
     EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert1.GetHash()));
     EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert2.GetHash()));
@@ -737,8 +737,8 @@ TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
     CScCertificate cert6 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(600),
         /*changeTotalAmount*/CAmount(400),/*numChangeOut*/1, /*bwtAmount*/CAmount(30), /*numBwt*/2, /*quality*/tq);
 
-    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert6, eLimitFree::OFF, &missingInputs,
-        eDisconnecting::OFF, eRejectAbsurdFee::OFF));
+    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert6, LimitFreeFlag::OFF, &missingInputs,
+        DisconnectingFlag::OFF, RejectAbsurdFeeFlag::OFF));
     EXPECT_FALSE(mempool.mapSidechains.at(scId).HasCert(cert2.GetHash()));
     EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert6.GetHash());
 #endif
