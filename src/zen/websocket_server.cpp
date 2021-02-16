@@ -21,6 +21,8 @@
 #include <univalue.h>
 #include "uint256.h"
 #include "core_io.h"
+#include <clientversion.h>
+#include <rpc/server.h>
 
 
 extern CAmount AmountFromValue(const UniValue& value);
@@ -42,6 +44,8 @@ class WsHandler;
 static int getblock(const CBlockIndex *pindex, std::string& blockHexStr);
 static void ws_updatetip(const CBlockIndex *pindex);
 static void ws_updatemempool();
+
+double GetNetworkDifficulty(const CBlockIndex * pindex);
 
 static boost::shared_ptr<WsNotificationInterface> wsNotificationInterface;
 static std::list< boost::shared_ptr<WsHandler> > listWsHandler;
@@ -105,6 +109,8 @@ public:
         GET_NEW_BLOCK_HASHES = 2,
 		GET_MEMPOOL_TXS = 4,
         GET_RAW_MEMPOOL = 5,
+		GET_NODE_STATIC_CONFIG = 6,
+		GET_ESTIMATE_FEE = 7,
         REQ_UNDEFINED = 0xff
     };
 
@@ -141,7 +147,7 @@ private:
     boost::lockfree::queue<WsEvent*, boost::lockfree::capacity<1024>> wsq;
     std::atomic<bool> exit_rwhandler_thread_flag { false };
 
-    void sendBlockEvent(int height, const std::string& strHash, const std::string& blockHex, WsEvent::WsEventType eventType)
+    void sendBlockEvent(int height, const std::string& strHash, const std::string& blockHex, WsEvent::WsEventType eventType, const CBlockIndex * pindex)
     {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(WsEvent::MSG_EVENT);
@@ -150,6 +156,9 @@ private:
         rspPayload.push_back(Pair("height", height));
         rspPayload.push_back(Pair("hash", strHash));
         rspPayload.push_back(Pair("block", blockHex));
+        rspPayload.push_back(Pair("difficulty", std::to_string(GetNetworkDifficulty(pindex))));
+        rspPayload.push_back(Pair("verificationprogress", Checkpoints::GuessVerificationProgress(Params().Checkpoints(), chainActive.Tip())));
+
 
         UniValue* rv = wse->getPayload();
         rv->push_back(Pair("eventType", eventType));
@@ -270,6 +279,44 @@ private:
         rv->push_back(Pair("responsePayload", rspPayload));
         wsq.push(wse);
 
+    }
+
+    void sendNodeConf(int version, int protocolVersion, int timeoffset, int relayfee, std::string proxy,
+        WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+    {
+        // Send a message to the client:  type = responseType
+        WsEvent* wse = new WsEvent(msgType);
+        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
+        UniValue rspPayload(UniValue::VOBJ);
+
+        rspPayload.push_back(Pair("version", version));
+        rspPayload.push_back(Pair("protocolversion", protocolVersion));
+        rspPayload.push_back(Pair("timeoffset", timeoffset));
+        rspPayload.push_back(Pair("relayfee", relayfee));
+        rspPayload.push_back(Pair("proxy", proxy));
+
+        UniValue* rv = wse->getPayload();
+        if (!clientRequestId.empty())
+            rv->push_back(Pair("requestId", clientRequestId));
+        rv->push_back(Pair("responsePayload", rspPayload));
+        wsq.push(wse);
+    }
+
+    void sendFee(CAmount estimatedFee,
+        WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+    {
+        // Send a message to the client:  type = responseType
+        WsEvent* wse = new WsEvent(msgType);
+        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
+        UniValue rspPayload(UniValue::VOBJ);
+
+        rspPayload.push_back(Pair("feerate", estimatedFee));
+
+        UniValue* rv = wse->getPayload();
+        if (!clientRequestId.empty())
+            rv->push_back(Pair("requestId", clientRequestId));
+        rv->push_back(Pair("responsePayload", rspPayload));
+        wsq.push(wse);
     }
 
 
@@ -500,6 +547,44 @@ private:
 
         }
         sendTxs(txs, WsEvent::MSG_RESPONSE, clientRequestId);
+        return OK;
+    }
+
+    int sendNodeStaticConfiguration(const std::string& clientRequestId) {
+        int version = CLIENT_VERSION;
+        int protocolVersion = PROTOCOL_VERSION;
+        int timeoffset = 0;
+        int relayfee = minRelayTxFee.GetFeePerK();
+        proxyType p;
+        GetProxy(NET_IPV4, p);
+        std::string proxy = p.IsValid() ? p.proxy.ToStringIPPort() : std::string();
+
+        sendNodeConf(version, protocolVersion, timeoffset, relayfee, proxy, WsEvent::MSG_RESPONSE, clientRequestId);
+        return OK;
+    }
+
+    int sendEstimateFee(std::string strBlock, const std::string& clientRequestId) {
+        int nBlocks = -1;
+        try {
+            nBlocks = std::stoi(strBlock);
+        } catch (const std::exception &e) {
+            LogPrint("ws", "%s():%d - %s\n", __func__, __LINE__, e.what());
+            return INVALID_PARAMETER;
+        }
+
+        if (nBlocks < 1) {
+            nBlocks = 1;
+        }
+
+        CFeeRate feeRate = mempool.estimateFee(nBlocks);
+        CAmount estimatedFee;
+        if (feeRate == CFeeRate(0)) {
+            estimatedFee = -1.0;
+        } else {
+            estimatedFee = feeRate.GetFeePerK();
+        }
+
+        sendFee(estimatedFee, WsEvent::MSG_RESPONSE, clientRequestId);
         return OK;
     }
 
@@ -740,7 +825,42 @@ private:
                 }
                 return sendMempoolTxs(hashes,clientRequestId);
             }
+            if (requestType == std::to_string(WsEvent::GET_NODE_STATIC_CONFIG))
+            {
+                reqType = WsEvent::GET_NODE_STATIC_CONFIG;
+                if (clientRequestId.empty()) {
+                    LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_REQID;
+                }
+                const UniValue& reqPayload = find_value(request, "requestPayload");
+                if (reqPayload.isNull()) {
+                    LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
+                    return INVALID_JSON_FORMAT;
+                }
 
+                return sendNodeStaticConfiguration(clientRequestId);
+            }
+            if (requestType == std::to_string(WsEvent::GET_ESTIMATE_FEE))
+            {
+                reqType = WsEvent::GET_ESTIMATE_FEE;
+                if (clientRequestId.empty()) {
+                    LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_REQID;
+                }
+                const UniValue& reqPayload = find_value(request, "requestPayload");
+                if (reqPayload.isNull()) {
+                    LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
+                    return INVALID_JSON_FORMAT;
+                }
+
+                const std::string& strBlock = findFieldValue("block", reqPayload);
+                if (strBlock.empty()) {
+                    LogPrint("ws", "%s():%d - limit empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_PARAMETER;
+                }
+
+                return sendEstimateFee(strBlock, clientRequestId);
+            }
             // if we are here that means it is no valid request type, and reqType is an enum defaulting to 255
             *((int*)(&reqType)) = std::stoi(requestType);
 
@@ -803,7 +923,6 @@ private:
                 }
                 if (!outMsg.empty())
                     msgError += " - Details: " + outMsg;
-
                 // Send a message error to the client:  type = -1
                 WsEvent* wse = new WsEvent(WsEvent::MSG_ERROR);
                 LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
@@ -924,9 +1043,9 @@ public:
         }
     }
 
-    void send_tip_update(int height, const std::string& strHash, const std::string& blockHex)
+    void send_tip_update(int height, const std::string& strHash, const std::string& blockHex, const CBlockIndex * pindex)
     {
-        sendBlockEvent(height, strHash, blockHex, WsEvent::UPDATE_TIP);
+        sendBlockEvent(height, strHash, blockHex, WsEvent::UPDATE_TIP, pindex);
     }
 
     void send_mempool_update(int size, std::list<uint256>& listHashes)
@@ -991,7 +1110,7 @@ static void ws_updatetip(const CBlockIndex *pindex)
             while (it != listWsHandler.end())
             {
                 LogPrint("ws", "%s():%d - call wshandler_send_tip_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
-                (*it)->send_tip_update(pindex->nHeight, pindex->GetBlockHash().GetHex(), strHex);
+                (*it)->send_tip_update(pindex->nHeight, pindex->GetBlockHash().GetHex(), strHex, pindex);
                 ++it;
             }
         }
