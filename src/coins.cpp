@@ -888,6 +888,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-scid");
     }
 
+    // TODO Remove cert.endEpochBlockHash checks after changing of verification circuit.
     // check that epoch data are consistent
     if (!isEpochDataValid(scInfo, cert.epochNumber, cert.endEpochBlockHash) )
     {
@@ -941,25 +942,27 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
 
 
     // Retrieve previous end epoch block info for certificate proof verification
-    int prev_start_epoch_block_height = scInfo.StartHeightForEpoch(cert.epochNumber-1);
-    int prev_end_epoch_block_height   = scInfo.StartHeightForEpoch(cert.epochNumber) - 1;
+    int prev_end_epoch_block_height = scInfo.StartHeightForEpoch(cert.epochNumber) - 1;
+    int curr_end_epoch_block_height = scInfo.StartHeightForEpoch(cert.epochNumber + 1) - 1;
 
-    CBlockIndex* prev_start_epoch_block_index = chainActive[prev_start_epoch_block_height];
-    CBlockIndex* prev_end_epoch_block_index   = chainActive[prev_end_epoch_block_height];
+    CBlockIndex* prev_end_epoch_block_index = chainActive[prev_end_epoch_block_height];
+    CBlockIndex* curr_end_epoch_block_index = chainActive[curr_end_epoch_block_height];
 
-    assert(prev_start_epoch_block_index);
     assert(prev_end_epoch_block_index);
+    assert(curr_end_epoch_block_index);
 
     // TODO check that ithose are the correct heights for both scCumTreeHash objs
     // TODO add the cumulative committment tree hash objs to the verify call
-    CPoseidonHash scCumTreeHash_start = prev_start_epoch_block_index->scCumTreeHash;
+    CPoseidonHash scCumTreeHash_start = prev_end_epoch_block_index->scCumTreeHash;
     const libzendoomc::ScFieldElement& scCumTreeHash_start_Fe = scCumTreeHash_start.GetFieldElement();
 
-    CPoseidonHash scCumTreeHash_end   = prev_end_epoch_block_index->scCumTreeHash;
+    CPoseidonHash scCumTreeHash_end   = curr_end_epoch_block_index->scCumTreeHash;
     const libzendoomc::ScFieldElement& scCumTreeHash_end_Fe = scCumTreeHash_end.GetFieldElement();
 
+    // TODO Remove prev_end_epoch_block_hash after changing of verification circuit.
     uint256 prev_end_epoch_block_hash = prev_end_epoch_block_index->GetBlockHash();
 
+    // TODO Remove cert.endEpochBlockHash field, CCoinsViewCache::isEpochDataValid and CTxMemPool::removeOutOfEpochCertificates after changing of verification circuit.
     // Verify certificate proof
     if (!scVerifier.verifyCScCertificate(scInfo.creationData.constant, scInfo.creationData.wCertVk, prev_end_epoch_block_hash, cert)){
         LogPrintf("ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
