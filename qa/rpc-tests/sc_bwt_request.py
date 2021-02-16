@@ -20,6 +20,7 @@ EPOCH_LENGTH = 5
 CERT_FEE = Decimal("0.000123")
 SC_FEE = Decimal("0.000345")
 TX_FEE = Decimal("0.000567")
+SC_COINS_MAT = 2
 
 
 class sc_bwt_request(BitcoinTestFramework):
@@ -36,7 +37,7 @@ class sc_bwt_request(BitcoinTestFramework):
     def setup_network(self, split=False):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args= [['-blockprioritysize=0',
             '-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib',
-            '-logtimemicros=1']] * NUMB_OF_NODES )
+            '-logtimemicros=1', '-sccoinsmaturity=%d' % SC_COINS_MAT]] * NUMB_OF_NODES )
 
         for idx, _ in enumerate(self.nodes):
             if idx < (NUMB_OF_NODES-1):
@@ -56,6 +57,8 @@ class sc_bwt_request(BitcoinTestFramework):
         Such zero fee mbtr txes are removed from the mempool whenever the safeguard of the epoch is crossed.
         A second sc is created and bwt request are sent for a zero balance sc (accepted) and a ceased sc (rejected)
         Both high level and raw versions of the command are tested.
+        Finally, block disconnection is tested checking that a btr is removed from mempool if safeguard is passed
+        back, as well as a cert referring to an epoch that gets unfinished by a removal of a block
         '''
 
         # cross-chain transfer amount
@@ -302,11 +305,13 @@ class sc_bwt_request(BitcoinTestFramework):
         ima = Decimal("0.0")
         for x in sc_info['immature amounts']:
             ima = ima + x['amount']
-            assert_equal(x['maturityHeight'], curh + 3) 
+            assert_equal(x['maturityHeight'], curh + SC_COINS_MAT) 
         assert_equal(ima, totScFee + creation_amount1)
 
         #  create one more sc
-        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount2, vk2, "", c2, mbtrVk2);
+        prev_epoch_hash_2 = self.nodes[0].getbestblockhash()
+        epoch_len_2 = 10
+        ret = self.nodes[0].sc_create(epoch_len_2, "dada", creation_amount2, vk2, "", c2, mbtrVk2);
         scid2  = ret['scid']
         cr_tx2 = ret['txid']
         mark_logs("Node0 created the SC2 spending {} coins via tx {}.".format(creation_amount1, cr_tx2), self.nodes, DEBUG_MODE)
@@ -375,12 +380,19 @@ class sc_bwt_request(BitcoinTestFramework):
 
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
+
         vtx = self.nodes[1].getblock(blocks[-1], True)['tx']
         assert_true(bwt5 in vtx)
         assert_true(bwt6 in vtx)
 
-        mark_logs("Node0 generates {} blocks".format(EPOCH_LENGTH - 2), self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(EPOCH_LENGTH - 2))
+        mark_logs("Node0 generates 2 blocks maturing SC creation amount", self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(2))
+        self.sync_all()
+
+        ret_sc2 = self.nodes[0].getscinfo(scid2, False, False)['items'][0]
+
+        mark_logs("Node0 generates {} blocks reaching the safe guard height".format(EPOCH_LENGTH - 4), self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(EPOCH_LENGTH - 4))
         self.sync_all()
 
         # the zero fee mbtr tx has been removed from empool since we reached epoch safe guard
@@ -420,7 +432,7 @@ class sc_bwt_request(BitcoinTestFramework):
         ceasing_h = int(sc_post_bwd['ceasing height'])
         current_h = self.nodes[0].getblockcount()
 
-        mark_logs("Node0 generates {} blocks moving on the ceasing limit".format(ceasing_h - current_h - 1), self.nodes, DEBUG_MODE)
+        mark_logs("Node0 generates {} blocks moving on the ceasing limit of SC1".format(ceasing_h - current_h - 1), self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(ceasing_h - current_h - 1))
         self.sync_all()
 
@@ -444,12 +456,12 @@ class sc_bwt_request(BitcoinTestFramework):
         n1_net_bal = n1_net_bal - SC_FEE 
         assert_equal(n1_net_bal, Decimal(self.nodes[1].z_gettotalbalance(0)['total']))
 
-        mark_logs("Node0 generates 1 block, thus ceasing the scs", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 generates 1 block, thus ceasing SC 1", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
         assert_equal(self.nodes[0].getscinfo(scid1)['items'][0]["state"], "CEASED")
-        assert_equal(self.nodes[0].getscinfo(scid2)['items'][0]["state"], "CEASED")
+        assert_equal(self.nodes[0].getscinfo(scid2)['items'][0]["state"], "ALIVE")
 
         # check mbtr is not in the block just mined
         vtx = self.nodes[0].getblock(blocks[-1], True)['tx']
@@ -482,6 +494,88 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_equal(n1_net_bal, Decimal(self.nodes[1].z_gettotalbalance(0)['total']))
         sc_post_restart = self.nodes[0].getscinfo(scid1)['items'][0]
         assert_equal(sc_pre_restart, sc_post_restart)
+
+        assert_equal(self.nodes[0].getscinfo(scid1)['items'][0]["state"], "CEASED")
+        assert_equal(self.nodes[0].getscinfo(scid2)['items'][0]["state"], "ALIVE")
+
+        ret = self.nodes[0].getscinfo(scid2, False, False)['items'][0]
+
+        ceasing_h = int(ret['ceasing height'])
+        current_h = self.nodes[0].getblockcount()
+
+        mark_logs("Node0 generates {} blocks moving on the ceasing limit of SC1".format(ceasing_h - current_h - 1), self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(ceasing_h - current_h - 1))
+        self.sync_all()
+        print "Current height = ",  self.nodes[0].getblockcount()
+
+        # 1) send a cert
+        mark_logs("\nNode0 sends a certificate to SC2", self.nodes, DEBUG_MODE)
+        epoch_block_hash, epoch_number = get_epoch_data(scid2, self.nodes[0], epoch_len_2)
+
+        bt_amount = Decimal("1.0")
+        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        quality = 10
+ 
+        proof = mcTest.create_test_proof(
+            "sc2", epoch_number, epoch_block_hash, prev_epoch_hash_2,
+            quality, c2, [pkh_node1], [bt_amount])
+ 
+        amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
+        try:
+            cert_bad = self.nodes[0].send_certificate(scid2, epoch_number, quality, epoch_block_hash, proof, amount_cert, 0.01)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "Send certificate failed with reason {}".format(errorString)
+            assert(False)
+        self.sync_all()
+
+        mark_logs("Check cert {} is in mempool".format(cert_bad), self.nodes, DEBUG_MODE)
+        assert_true(cert_bad in self.nodes[0].getrawmempool()) 
+
+        # 2) generate a block crossing the sg
+        mark_logs("Node0 generates 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        # 3) add a mbwt. We use another node for avoiding dependancies between each other's txes and cert
+        mark_logs("Node1 creates a tx with a bwt request", self.nodes, DEBUG_MODE)
+        outputs = [{'scUtxoId':fe1, 'scFee':Decimal("0.001"), 'scid':scid2, 'scProof' :p1, 'pubkeyhash':pkh1 }]
+        cmdParms = { "minconf":0, "fee":0.0}
+        try:
+            tx_bwt = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true(False)
+        self.sync_all()
+
+        mark_logs("Check bwd tx {} is in mempool".format(tx_bwt), self.nodes, DEBUG_MODE)
+        assert_true(tx_bwt in self.nodes[0].getrawmempool()) 
+
+        # 4) invalidate
+        mark_logs("Node1 invalidates one block", self.nodes, DEBUG_MODE)
+        self.nodes[1].invalidateblock(self.nodes[1].getbestblockhash())
+        mark_logs("Check bwd tx {} is not in mempool anymore".format(tx_bwt), self.nodes, DEBUG_MODE)
+        #assert_false(tx_bwt in self.nodes[1].getrawmempool()) 
+        if tx_bwt in self.nodes[1].getrawmempool():
+            print "FIX FIX FIX!!! bwt is still in mempool" 
+            any_error = True
+
+        mark_logs("Node1 invalidates till to the previous epoch", self.nodes, DEBUG_MODE)
+        self.nodes[1].invalidateblock(epoch_block_hash)
+
+        mark_logs("Check cert {} is not in mempool anymore".format(cert_bad), self.nodes, DEBUG_MODE)
+        assert_false(cert_bad in self.nodes[1].getrawmempool()) 
+
+        ret = self.nodes[1].getscinfo(scid2, False, False)['items'][0]
+        assert_equal(ret, ret_sc2)
+
+        if any_error:
+            print" =========================> Test failed!!!"
+            assert(False)
+
+
+
 
 
 if __name__ == '__main__':
