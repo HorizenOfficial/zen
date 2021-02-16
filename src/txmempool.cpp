@@ -602,6 +602,13 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
             continue;
         }
 
+        auto s = pCoinsView->GetSidechainState(cert.GetScId());
+        if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
+        {
+        	certsToRemove.insert(cert.GetHash());
+            continue;
+        }
+
         if (cert.endEpochBlockHash == disconnectedBlockHash)
         {
             LogPrint("mempool", "%s():%d - adding cert [%s] to list for removing (endEpochBlockHash %s)\n",
@@ -695,6 +702,26 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
         {
             txesToRemove.insert(tx.GetHash());
             continue;
+        }
+
+        for(const CTxForwardTransferOut& ft: tx.GetVftCcOut())
+        {
+            auto s = pCoinsView->GetSidechainState(ft.scId);
+            if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
+            {
+                txesToRemove.insert(tx.GetHash());
+                continue;
+            }
+        }
+
+        for(const CBwtRequestOut& mbtr: tx.GetVBwtRequestOut())
+        {
+            auto s = pCoinsView->GetSidechainState(mbtr.scId);
+            if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
+            {
+                txesToRemove.insert(tx.GetHash());
+                continue;
+            }
         }
     }
 

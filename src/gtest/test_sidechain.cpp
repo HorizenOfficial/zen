@@ -316,7 +316,7 @@ TEST(SidechainAmounts, ScFeesLargerThanInputAreRejected)
 /////////////////////////// IsScTxApplicableToState ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-TEST_F(SidechainTestSuite, NewScCreationsIsApplicableToState) {
+TEST_F(SidechainTestSuite, NewScCreationIsApplicableToState) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
     libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
 
@@ -327,7 +327,7 @@ TEST_F(SidechainTestSuite, NewScCreationsIsApplicableToState) {
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
+TEST_F(SidechainTestSuite, ForwardTransferToExistingSCsIsApplicableToState) {
     int creationHeight = 1789;
     chainSettingUtils::ExtendChainActiveToHeight(creationHeight);
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
@@ -346,7 +346,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToState) {
+TEST_F(SidechainTestSuite, ForwardTransferToNonExistingSCsIsNotApplicableToState) {
     int fwdHeight = 1789;
     chainSettingUtils::ExtendChainActiveToHeight(fwdHeight);
 
@@ -356,25 +356,6 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToSta
 
     //test
     bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
-
-    //checks
-    EXPECT_FALSE(res);
-}
-
-TEST_F(SidechainTestSuite, McBwtRequestToUnknownSidechainAreNotApplicableToState) {
-    uint256 scId = uint256S("aaa");
-    ASSERT_FALSE(sidechainsView->HaveSidechain(scId));
-
-    CBwtRequestOut mcBwtReq;
-    mcBwtReq.scId = scId;
-    CMutableTransaction mutTx;
-    mutTx.nVersion = SC_TX_VERSION;
-    mutTx.vmbtr_out.push_back(mcBwtReq);
-
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
-
-    //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
 
     //checks
     EXPECT_FALSE(res);
@@ -405,11 +386,82 @@ TEST_F(SidechainTestSuite, McBwtRequestToAliveSidechainIsApplicableToState) {
     EXPECT_TRUE(res);
 }
 
+TEST_F(SidechainTestSuite, McBwtRequestToUnconfirmedSidechainIsApplicableToState) {
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::UNCONFIRMED);
+    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
+
+    // create mc Bwt request
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = scId;
+    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    CMutableTransaction mutTx;
+    mutTx.nVersion = SC_TX_VERSION;
+    mutTx.vmbtr_out.push_back(mcBwtReq);
+
+    //test
+    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
+
+    //checks
+    EXPECT_TRUE(res);
+}
+
+TEST_F(SidechainTestSuite, McBwtRequestToUnknownSidechainIsNotApplicableToState) {
+    uint256 scId = uint256S("aaa");
+    ASSERT_FALSE(sidechainsView->HaveSidechain(scId));
+
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = scId;
+    CMutableTransaction mutTx;
+    mutTx.nVersion = SC_TX_VERSION;
+    mutTx.vmbtr_out.push_back(mcBwtReq);
+
+    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
+
+    //test
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
+
+    //checks
+    EXPECT_FALSE(res);
+}
+
 TEST_F(SidechainTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicableToState) {
     // setup sidechain initial state
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
+    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+
+    CSidechain storedSc;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, storedSc));
+    ASSERT_TRUE(!storedSc.creationData.wMbtrVk.is_initialized());
+
+    // create mc Bwt request
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = scId;
+    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    CMutableTransaction mutTx;
+    mutTx.nVersion = SC_TX_VERSION;
+    mutTx.vmbtr_out.push_back(mcBwtReq);
+
+    //test
+    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
+
+    //checks
+    EXPECT_FALSE(res);
+}
+
+TEST_F(SidechainTestSuite, McBwtRequestToUnconfirmedSidechainWithoutKeyIsNotApplicableToState) {
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::UNCONFIRMED);
     txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
 
     CSidechain storedSc;

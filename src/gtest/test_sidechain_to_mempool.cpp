@@ -40,6 +40,23 @@ public:
     }
 };
 
+class CNakedCCoinsViewCache : public CCoinsViewCache
+{
+public:
+    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
+    {
+        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
+        this->hashAnchor = dummyAnchor;
+
+        CAnchorsCacheEntry dummyAnchorsEntry;
+        dummyAnchorsEntry.entered = true;
+        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
+        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
+
+    };
+    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
+};
+
 class SidechainsInMempoolTestSuite: public ::testing::Test {
 public:
     SidechainsInMempoolTestSuite():
@@ -744,7 +761,9 @@ TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
 #endif
 }
 
-TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
+TEST_F(SidechainsInMempoolTestSuite, UnconfirmedTxSpendingImmatureCoinbaseIsDropped) {
+    //This may happen in block disconnection, for instance
+
     //Create a coinbase
     CMutableTransaction mutCoinBase;
     mutCoinBase.vin.push_back(CTxIn(uint256(), -1));
@@ -790,6 +809,250 @@ TEST_F(SidechainsInMempoolTestSuite, ImmatureExpenditureRemoval) {
 
     EXPECT_FALSE(mempool.exists(mempoolTx2.GetHash()));
     EXPECT_TRUE(std::find(outdatedTxs.begin(), outdatedTxs.end(), mempoolTx2) != outdatedTxs.end());
+}
+
+TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwdsTowardUnconfirmedSidechainsAreNotDropped)
+{
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+
+    // create coinbase to finance fwt
+    int fwtHeight {201};
+    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(sidechainsView, fwtHeight-COINBASE_MATURITY);
+
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::UNCONFIRMED);
+    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, initialScState);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
+
+    //Add fwt to mempool
+    CMutableTransaction mutFwdTx = txCreationUtils::createFwdTransferTxWith(scId, /*fwdTxAmount*/CAmount(10));
+    mutFwdTx.vin.clear();
+    mutFwdTx.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
+    CTransaction fwdTx(mutFwdTx);
+    CTxMemPoolEntry mempoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/fwtHeight);
+    mempool.addUnchecked(fwdTx.GetHash(), mempoolEntry);
+
+    //test
+    std::list<CTransaction> outdatedTxs;
+    std::list<CScCertificate> outdatedCerts;
+    mempool.removeStaleTransactions(&sidechainsView, fwtHeight, outdatedTxs, outdatedCerts);
+
+    //checks
+    EXPECT_TRUE(mempool.exists(fwdTx.GetHash()));
+    EXPECT_FALSE(std::find(outdatedTxs.begin(), outdatedTxs.end(), fwdTx) != outdatedTxs.end());
+}
+
+TEST_F(SidechainsInMempoolTestSuite,UnconfirmedFwdsTowardAliveSidechainsAreNotDropped)
+{
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+
+    // create coinbase to finance fwt
+    int fwtHeight {201};
+    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(sidechainsView, fwtHeight-COINBASE_MATURITY);
+
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
+    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, initialScState);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+    //Add fwt to mempool
+    CMutableTransaction mutFwdTx = txCreationUtils::createFwdTransferTxWith(scId, /*fwdTxAmount*/CAmount(10));
+    mutFwdTx.vin.clear();
+    mutFwdTx.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
+    CTransaction fwdTx(mutFwdTx);
+    CTxMemPoolEntry mempoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/fwtHeight);
+    mempool.addUnchecked(fwdTx.GetHash(), mempoolEntry);
+
+    //test
+    std::list<CTransaction> outdatedTxs;
+    std::list<CScCertificate> outdatedCerts;
+    mempool.removeStaleTransactions(&sidechainsView, fwtHeight, outdatedTxs, outdatedCerts);
+
+    //checks
+    EXPECT_TRUE(mempool.exists(fwdTx.GetHash()));
+    EXPECT_FALSE(std::find(outdatedTxs.begin(), outdatedTxs.end(), fwdTx) != outdatedTxs.end());
+}
+
+TEST_F(SidechainsInMempoolTestSuite,UnconfirmedFwdsTowardCeasedSidechainsAreDropped)
+{
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+
+    // create coinbase to finance fwt
+    int fwtHeight {201};
+    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(sidechainsView, fwtHeight-COINBASE_MATURITY);
+
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::CEASED);
+    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, initialScState);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
+
+    //Add fwt to mempool
+    CMutableTransaction mutFwdTx = txCreationUtils::createFwdTransferTxWith(scId, /*fwdTxAmount*/CAmount(10));
+    mutFwdTx.vin.clear();
+    mutFwdTx.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
+    CTransaction fwdTx(mutFwdTx);
+    CTxMemPoolEntry mempoolEntry(fwdTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/fwtHeight);
+    mempool.addUnchecked(fwdTx.GetHash(), mempoolEntry);
+
+    //test
+    std::list<CTransaction> outdatedTxs;
+    std::list<CScCertificate> outdatedCerts;
+    mempool.removeStaleTransactions(&sidechainsView, fwtHeight, outdatedTxs, outdatedCerts);
+
+    //checks
+    EXPECT_FALSE(mempool.exists(fwdTx.GetHash()));
+    EXPECT_TRUE(std::find(outdatedTxs.begin(), outdatedTxs.end(), fwdTx) != outdatedTxs.end());
+}
+
+TEST_F(SidechainsInMempoolTestSuite,UnconfirmedMbtrTowardCeasedSidechainIsDropped)
+{
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+
+    // create coinbase to finance mbtr
+    int mbtrHeight {201};
+    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(sidechainsView, mbtrHeight-COINBASE_MATURITY);
+
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::CEASED);
+    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, initialScState);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
+
+    //Add mbtr to mempool
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = scId;
+    CMutableTransaction mutMbtrTx;
+    mutMbtrTx.nVersion = SC_TX_VERSION;
+    mutMbtrTx.vin.clear();
+    mutMbtrTx.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
+    mutMbtrTx.vmbtr_out.push_back(mcBwtReq);
+    CTransaction mbtrTx(mutMbtrTx);
+    CTxMemPoolEntry mempoolEntry(mbtrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/mbtrHeight);
+    mempool.addUnchecked(mbtrTx.GetHash(), mempoolEntry);
+
+    //test
+    std::list<CTransaction> outdatedTxs;
+    std::list<CScCertificate> outdatedCerts;
+    mempool.removeStaleTransactions(&sidechainsView, mbtrHeight, outdatedTxs, outdatedCerts);
+
+    //checks
+    EXPECT_FALSE(mempool.exists(mbtrTx.GetHash()));
+    EXPECT_TRUE(std::find(outdatedTxs.begin(), outdatedTxs.end(), mbtrTx) != outdatedTxs.end());
+}
+
+TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardUnconfirmedSidechainIsNotDropped)
+{
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+
+    // create coinbase to finance cert
+    int certHeight {201};
+    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(sidechainsView, certHeight-COINBASE_MATURITY);
+
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::UNCONFIRMED);
+    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, initialScState);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
+
+    //Add mbtr to mempool
+    uint256 dummyEndBlockHash = uint256S("aaa");
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*currentEpoch*/0, dummyEndBlockHash,
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
+    CScCertificate cert(mutCert);
+    CCertificateMemPoolEntry mempoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/certHeight);
+    mempool.addUnchecked(cert.GetHash(), mempoolEntry);
+
+    //test
+    std::list<CScCertificate> outdatedCerts;
+    uint256 dummyBlockHashToRm {};
+    mempool.removeStaleCertificates(&sidechainsView, dummyBlockHashToRm, certHeight, outdatedCerts);
+
+    //checks
+    EXPECT_TRUE(mempool.exists(cert.GetHash()));
+    EXPECT_FALSE(std::find(outdatedCerts.begin(), outdatedCerts.end(), cert) != outdatedCerts.end());
+}
+
+TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardAliveSidechainIsNotDropped)
+{
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+
+    // create coinbase to finance cert
+    int certHeight {201};
+    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(sidechainsView, certHeight-COINBASE_MATURITY);
+
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
+    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, initialScState);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+    //Add mbtr to mempool
+    uint256 dummyEndBlockHash = uint256S("aaa");
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*currentEpoch*/0, dummyEndBlockHash,
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
+    CScCertificate cert(mutCert);
+    CCertificateMemPoolEntry mempoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/certHeight);
+    mempool.addUnchecked(cert.GetHash(), mempoolEntry);
+
+    //test
+    std::list<CScCertificate> outdatedCerts;
+    uint256 dummyBlockHashToRm {};
+    mempool.removeStaleCertificates(&sidechainsView, dummyBlockHashToRm, certHeight, outdatedCerts);
+
+    //checks
+    EXPECT_TRUE(mempool.exists(cert.GetHash()));
+    EXPECT_FALSE(std::find(outdatedCerts.begin(), outdatedCerts.end(), cert) != outdatedCerts.end());
+}
+
+TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardCeasedSidechainIsDropped)
+{
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+
+    // create coinbase to finance cert
+    int certHeight {201};
+    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(sidechainsView, certHeight-COINBASE_MATURITY);
+
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::CEASED);
+    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, initialScState);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
+
+    //Add mbtr to mempool
+    uint256 dummyEndBlockHash = uint256S("aaa");
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*currentEpoch*/0, dummyEndBlockHash,
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
+    CScCertificate cert(mutCert);
+    CCertificateMemPoolEntry mempoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/certHeight);
+    mempool.addUnchecked(cert.GetHash(), mempoolEntry);
+
+    //test
+    std::list<CScCertificate> outdatedCerts;
+    uint256 dummyBlockHashToRm {};
+    mempool.removeStaleCertificates(&sidechainsView, dummyBlockHashToRm, certHeight, outdatedCerts);
+
+    //checks
+    EXPECT_FALSE(mempool.exists(cert.GetHash()));
+    EXPECT_TRUE(std::find(outdatedCerts.begin(), outdatedCerts.end(), cert) != outdatedCerts.end());
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DependenciesInEmptyMempool) {
