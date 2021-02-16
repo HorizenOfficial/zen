@@ -707,8 +707,8 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
         CSidechain sidechain;
         if (!pCoinsView->GetSidechain(it->first, sidechain))
         {
-        	assert(hasSidechainCreationTx(it->first));
-        	continue;  //scCreation in mempool, nothing to do
+            assert(hasSidechainCreationTx(it->first));
+            continue;  //scCreation in mempool, nothing to do
         }
 
         int currentHeight = pCoinsView->GetHeight();
@@ -1317,6 +1317,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationData.constant = scCreation.constant;
                 info.creationData.wCertVk = scCreation.wCertVk;
                 info.creationData.wMbtrVk = scCreation.wMbtrVk;
+                info.currentState = (uint8_t)CSidechain::State::UNCONFIRMED;
                 break;
             }
         }

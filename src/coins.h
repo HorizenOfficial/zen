@@ -336,7 +336,7 @@ struct CMutableSidechainCacheEntry
 template<typename KeyType, typename ValueType, template<typename...> class MapType, typename ... TOthers >
 void WriteMutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap)
 {
-	typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
+    typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
 
     switch (value.flag) {
         case CMutableSidechainCacheEntry::Flags::FRESH:
@@ -347,7 +347,7 @@ void WriteMutableEntry(const KeyType& key, const ValueType& value, MapType<KeyTy
             destinationMap[key] = value;
             break;
         case CMutableSidechainCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
-        	destinationMap[key] = value;
+            destinationMap[key] = value;
             break;
         case CMutableSidechainCacheEntry::Flags::ERASED:
             if (itLocalCacheEntry != destinationMap.end())
@@ -377,7 +377,7 @@ struct CImmutableSidechainCacheEntry
 template<typename KeyType, typename ValueType, template<typename...> class MapType, typename ... TOthers >
 void WriteImmutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap)
 {
-	typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
+    typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
 
     switch (value.flag) {
         case CImmutableSidechainCacheEntry::Flags::FRESH:
@@ -465,7 +465,7 @@ public:
     //! Just check whether we have data for a given sidechain id.
     virtual bool HaveSidechain(const uint256& scId) const;
 
-    //! Retrieve the Sidechain informations for a give sidechain id.
+    //! Retrieve the Sidechain informations for a given sidechain id.
     virtual bool GetSidechain(const uint256& scId, CSidechain& info) const;
 
     //! Just check whether we have ceasing sidechains at given height
@@ -583,7 +583,7 @@ protected:
 
 public:
     CCoinsViewCache(CCoinsView *baseIn);
-    CCoinsViewCache(const CCoinsViewCache &) = delete; //prevent accidental copies when one intends to create a cache on top of a base cache.
+    CCoinsViewCache(const CCoinsViewCache &) = delete; //we prevent accidentally using it when one intends to create a cache on top of a base cache.
     ~CCoinsViewCache();
 
     // Standard CCoinsView methods
@@ -642,6 +642,7 @@ public:
     bool IsScTxApplicableToState(const CTransaction& tx, int height, libzendoomc::CScProofVerifier& scVerifier) const;
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
+    int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, libzendoomc::CScProofVerifier& scVerifier) const;
@@ -669,8 +670,8 @@ public:
     bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
 
-    CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
     libzendoomc::ScFieldElement GetActiveCertDataHash(const uint256& scId) const;
+    CSidechain::State GetSidechainState(const uint256& scId) const;
 
     bool Flush();
 
@@ -704,16 +705,15 @@ public:
     friend class CCoinsModifier;
 
 private:
-    CCoinsMap::const_iterator      FetchCoins(const uint256 &txid)       const;
-    CCoinsMap::iterator            FetchCoins(const uint256 &txid);
-    CSidechainsMap::const_iterator FetchSidechains(const uint256& scId)  const;
-    CSidechainsMap::iterator       ModifySidechain(const uint256& scId);
-    const CSidechain* const        AccessSidechain(const uint256& scId)  const;
-    CSidechainEventsMap::const_iterator FetchSidechainEvents(int height) const;
-    CSidechainEventsMap::iterator  ModifySidechainEvents(int height);
+    CCoinsMap::const_iterator           FetchCoins(const uint256 &txid)       const;
+    CCoinsMap::iterator                 FetchCoins(const uint256 &txid);
+    CSidechainsMap::const_iterator      FetchSidechains(const uint256& scId)  const;
+    CSidechainsMap::iterator            ModifySidechain(const uint256& scId);
+    const CSidechain* const             AccessSidechain(const uint256& scId)  const;
+    CSidechainEventsMap::const_iterator FetchSidechainEvents(int height)      const;
+    CSidechainEventsMap::iterator       ModifySidechainEvents(int height);
 
     static int getInitScCoinsMaturity();
-    int getScCoinsMaturity();
 
     bool DecrementImmatureAmount(const uint256& scId, const CSidechainsMap::iterator& targetEntry, CAmount nValue, int maturityHeight);
     void Dump_info() const;

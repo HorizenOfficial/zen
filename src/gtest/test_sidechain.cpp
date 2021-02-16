@@ -70,6 +70,23 @@ private:
     mutable boost::unordered_map<uint256, CSidechain, ObjectHasher> inMemoryMap;
 };
 
+class CNakedCCoinsViewCache : public CCoinsViewCache
+{
+public:
+    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
+    {
+        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
+        this->hashAnchor = dummyAnchor;
+
+        CAnchorsCacheEntry dummyAnchorsEntry;
+        dummyAnchorsEntry.entered = true;
+        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
+        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
+
+    };
+    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
+};
+
 class SidechainTestSuite: public ::testing::Test {
 
 public:
@@ -83,7 +100,7 @@ public:
         SelectParams(CBaseChainParams::REGTEST);
 
         fakeChainStateDb   = new CInMemorySidechainDb();
-        sidechainsView     = new CCoinsViewCache(fakeChainStateDb);
+        sidechainsView     = new CNakedCCoinsViewCache(fakeChainStateDb);
     };
 
     void TearDown() override {
@@ -95,8 +112,8 @@ public:
     };
 
 protected:
-    CInMemorySidechainDb            *fakeChainStateDb;
-    CCoinsViewCache                 *sidechainsView;
+    CInMemorySidechainDb  *fakeChainStateDb;
+    CNakedCCoinsViewCache *sidechainsView;
 
     //Helpers
     CBlockUndo   createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash = uint256());
@@ -365,54 +382,80 @@ TEST_F(SidechainTestSuite, McBwtRequestToUnknownSidechainAreNotApplicableToState
 }
 
 TEST_F(SidechainTestSuite, McBwtRequestToAliveSidechainIsApplicableToState) {
-    // create sidechain
-    CBlock dummyBlock;
-    int scCreationHeight = 1789;
-    chainSettingUtils::ExtendChainActiveToHeight(scCreationHeight);
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
+    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
-    mcBwtReq.scId = scCreationTx.GetScIdFromScCcOut(0);
+    mcBwtReq.scId = scId;
     mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
-    int mcBwtReqHeight = scCreationHeight +2;
-    ASSERT_TRUE(sidechainsView->isCeasedAtHeight(mcBwtReq.scId, mcBwtReqHeight) == CSidechain::State::ALIVE);
-
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), mcBwtReqHeight, dummyScVerifier);
+    int dummyHeight{2020};
+    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyHeight, dummyScVerifier);
 
     //checks
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState) {
-    // create sidechain
-    CBlock dummyBlock;
-    int scCreationHeight = 1789;
-    int epochLength = 10;
-    chainSettingUtils::ExtendChainActiveToHeight(scCreationHeight);
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), epochLength);
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
+TEST_F(SidechainTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicableToState) {
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
+    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+
+    CSidechain storedSc;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, storedSc));
+    ASSERT_TRUE(!storedSc.creationData.wMbtrVk.is_initialized());
 
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
-    mcBwtReq.scId = scCreationTx.GetScIdFromScCcOut(0);
+    mcBwtReq.scId = scId;
+    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
-    int mcBwtReqHeight = scCreationHeight +2*epochLength;
-    ASSERT_TRUE(sidechainsView->isCeasedAtHeight(mcBwtReq.scId, mcBwtReqHeight) == CSidechain::State::CEASED);
-
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), mcBwtReqHeight, dummyScVerifier);
+    int dummyHeight{2020};
+    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyHeight, dummyScVerifier);
+
+    //checks
+    EXPECT_FALSE(res);
+}
+
+TEST_F(SidechainTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState) {
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::CEASED);
+    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
+
+
+    // create mc Bwt request
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = scId;
+    CMutableTransaction mutTx;
+    mutTx.nVersion = SC_TX_VERSION;
+    mutTx.vmbtr_out.push_back(mcBwtReq);
+
+    //test
+    int dummyHeight{2020};
+    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyHeight, dummyScVerifier);
 
     //checks
     EXPECT_FALSE(res);

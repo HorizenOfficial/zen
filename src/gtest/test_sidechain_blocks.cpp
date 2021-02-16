@@ -57,6 +57,24 @@ private:
     mutable boost::unordered_map<uint256, CSidechain, ObjectHasher> inMemoryMap;
 };
 
+class CNakedCCoinsViewCache : public CCoinsViewCache
+{
+public:
+    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
+    {
+        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
+        this->hashAnchor = dummyAnchor;
+
+        CAnchorsCacheEntry dummyAnchorsEntry;
+        dummyAnchorsEntry.entered = true;
+        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
+        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
+
+    };
+    CSidechainsMap&      getSidechainMap()    {return this->cacheSidechains; };
+    CSidechainEventsMap& getSidechainEvents() {return this->cacheSidechainEvents; };
+};
+
 class SidechainConnectCertsBlockTestSuite : public ::testing::Test {
 public:
     SidechainConnectCertsBlockTestSuite():
@@ -78,7 +96,7 @@ public:
         mGlobalForkTips.clear();
 
         fakeChainStateDb   = new CInMemorySidechainDb();
-        sidechainsView     = new CCoinsViewCache(fakeChainStateDb);
+        sidechainsView     = new CNakedCCoinsViewCache(fakeChainStateDb);
 
         dummyHash = dummyBlock.GetHash();
         dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
@@ -98,8 +116,8 @@ public:
     };
 
 protected:
-    CInMemorySidechainDb *fakeChainStateDb;
-    CCoinsViewCache      *sidechainsView;
+    CInMemorySidechainDb  *fakeChainStateDb;
+    CNakedCCoinsViewCache *sidechainsView;
 
     //helpers
     CBlock                                    dummyBlock;
@@ -112,7 +130,8 @@ protected:
 
     CSidechainEventsMap dummyScEvents;
 
-    uint256 storeSidechain(const uint256& scId, const CSidechain& sidechain, CSidechainEventsMap& sidechainEventsMap);
+    void storeSidechain(const uint256& scId, const CSidechain& sidechain);
+    void storeSidechainEvent(int eventHeight, const CSidechainEvents& scEvent);
     void fillBlockHeader(CBlock& blockToFill, const uint256& prevBlockHash);
 
     CAmount dummyFeeAmount;
@@ -146,12 +165,12 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
+    storeSidechain(scId, initialScState);
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
-    CSidechainEventsMap ceasingMap;
-    ceasingMap[205] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
-    storeSidechain(scId, initialScState, ceasingMap);
+    storeSidechainEvent(/*eventHeight*/204, event);
 
     // create block with certificate ...
     CMutableScCertificate singleCert;
@@ -215,12 +234,12 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpo
     initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
+    storeSidechain(scId, initialScState);
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
-    CSidechainEventsMap ceasingMap;
-    ceasingMap[205] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
-    storeSidechain(scId, initialScState, ceasingMap);
+    storeSidechainEvent(/*eventHeight*/204, event);
 
     // create block with certificate ...
     CMutableScCertificate singleCert;
@@ -285,12 +304,12 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
     initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
+    storeSidechain(scId, initialScState);
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
-    CSidechainEventsMap ceasingMap;
-    ceasingMap[205] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
-    storeSidechain(scId, initialScState, ceasingMap);
+    storeSidechainEvent(/*eventHeight*/204, event);
 
     // create block with certificates ...
     CMutableScCertificate lowQualityCert;
@@ -368,12 +387,12 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
     initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
+    storeSidechain(scId, initialScState);
 
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
-    CSidechainEventsMap ceasingMap;
-    ceasingMap[205] = CSidechainEventsCacheEntry(event, CSidechainEventsCacheEntry::Flags::FRESH);
-    storeSidechain(scId, initialScState, ceasingMap);
+    storeSidechainEvent(/*eventHeight*/204, event);
 
     // create block with certificates ...
     CMutableScCertificate lowQualityCert;
@@ -444,8 +463,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_In
     // setup sidechain initial state
     CSidechain dummyScState;
     uint256 dummyScId = uint256();
-    CSidechainEventsMap dummyCeasingMap;
-    storeSidechain(dummyScId, dummyScState, dummyCeasingMap); //Setup bestBlock
+    storeSidechain(dummyScId, dummyScState); //Setup bestBlock
 
     // create block with scCreation and mbtr ...
     CBlock block;
@@ -506,8 +524,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_In
     // setup sidechain initial state
     CSidechain dummyScState;
     uint256 dummyScId = uint256();
-    CSidechainEventsMap dummyCeasingMap;
-    storeSidechain(dummyScId, dummyScState, dummyCeasingMap); //Setup bestBlock
+    storeSidechain(dummyScId, dummyScState); //Setup bestBlock
 
     // create faulty block with mbtr before scCreation ...
     CBlock block;
@@ -554,11 +571,12 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_In
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// HELPERS ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-uint256 SidechainConnectCertsBlockTestSuite::storeSidechain(const uint256& scId, const CSidechain& sidechain, CSidechainEventsMap& sidechainEventsMap)
+void SidechainConnectCertsBlockTestSuite::storeSidechain(const uint256& scId, const CSidechain& sidechain)
 {
-    CSidechainsMap mapSidechain;
-    mapSidechain[scId] = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::FRESH);
+    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, sidechain);
 
+    CSidechainsMap      dummySidechains;
+    CSidechainEventsMap dummySidechainsEvents;
     CCoinsMap           dummyCoins;
     uint256             dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
     CNullifiersMap      dummyNullifiers;
@@ -571,9 +589,32 @@ uint256 SidechainConnectCertsBlockTestSuite::storeSidechain(const uint256& scId,
     dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
 
     sidechainsView->BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
-                               dummyNullifiers, mapSidechain, sidechainEventsMap);
+                               dummyNullifiers, dummySidechains, dummySidechainsEvents);
 
-    return scId;
+    return;
+}
+
+void SidechainConnectCertsBlockTestSuite::storeSidechainEvent(int eventHeight, const CSidechainEvents& scEvent)
+{
+    txCreationUtils::storeSidechainEvent(sidechainsView->getSidechainEvents(), eventHeight, scEvent);
+
+    CSidechainsMap      dummySidechains;
+    CSidechainEventsMap dummySidechainsEvents;
+    CCoinsMap           dummyCoins;
+    uint256             dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
+    CNullifiersMap      dummyNullifiers;
+
+    CAnchorsCacheEntry dummyAnchorsEntry;
+    dummyAnchorsEntry.entered = true;
+    dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
+
+    CAnchorsMap dummyAnchors;
+    dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
+
+    sidechainsView->BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
+                               dummyNullifiers, dummySidechains, dummySidechainsEvents);
+
+    return;
 }
 
 void SidechainConnectCertsBlockTestSuite::fillBlockHeader(CBlock& blockToFill, const uint256& prevBlockHash)

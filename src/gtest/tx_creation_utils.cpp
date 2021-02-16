@@ -197,6 +197,18 @@ uint256 txCreationUtils::CreateSpendableCoinAtHeight(CCoinsViewCache& targetView
     return inputTx.GetHash();
 }
 
+void txCreationUtils::storeSidechain(CSidechainsMap& mapToWriteInto, const uint256& scId, const CSidechain& sidechain)
+{
+    auto value = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::DIRTY);
+    WriteMutableEntry(scId, value, mapToWriteInto);
+}
+
+void txCreationUtils::storeSidechainEvent(CSidechainEventsMap& mapToWriteInto, int eventHeight, const CSidechainEvents& scEvent)
+{
+    auto value = CSidechainEventsCacheEntry(scEvent,CSidechainsCacheEntry::Flags::DIRTY);
+    WriteMutableEntry(eventHeight, value, mapToWriteInto);
+}
+
 void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)
 {
     if (chainActive.Height() > targetHeight)

@@ -1109,7 +1109,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
             sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
             if (info.creationData.wMbtrVk.is_initialized())
-            	sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
+                sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
             else
                 sc.push_back(Pair("wMbtrVk", std::string{"NOT INITIALIZED"}));
         }
@@ -1156,10 +1156,12 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
                     info.creationData.wMbtrVk = scCreation.wMbtrVk;
+                    info.currentState = (uint8_t)CSidechain::State::UNCONFIRMED;
                     break;
                 }
             }
 
+            sc.push_back(Pair("state", CSidechain::stateToString((CSidechain::State)info.currentState)));
             sc.push_back(Pair("unconf creating tx hash", info.creationTxHash.GetHex()));
             sc.push_back(Pair("unconf withdrawalEpochLength", info.creationData.withdrawalEpochLength));
 
@@ -1168,6 +1170,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
                 sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
                 sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
+
                 if (info.creationData.wMbtrVk.is_initialized())
                     sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
                 else
@@ -1193,7 +1196,7 @@ bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool
     if (!scView.GetSidechain(scId, sidechain)) {
         LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scId.ToString() );
     }
-    CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
+    CSidechain::State scState = scView.GetSidechainState(scId);
 
     return FillScRecordFromInfo(scId, sidechain, scState, scRecord, bOnlyAlive, bVerbose);
 }
