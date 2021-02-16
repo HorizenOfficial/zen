@@ -230,6 +230,14 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
                 REJECT_INVALID, "bad-cert-quality-negative");
     }
 
+    if (cert.epochNumber < 0 || cert.endEpochBlockHash.IsNull())
+    {
+        return state.DoS(100,
+                error("%s():%d - ERROR: Invalid cert[%s], negative epoch number or null endEpochBlockHash\n",
+                __func__, __LINE__, certHash.ToString()),
+                REJECT_INVALID, "bad-cert-invalid-epoch-data");;
+    }
+
     if(!libzendoomc::IsValidScProof(cert.scProof))
     {
         return state.DoS(100,

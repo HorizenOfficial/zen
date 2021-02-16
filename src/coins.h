@@ -640,13 +640,15 @@ public:
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
     bool IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const;
+    bool CheckScTxTiming(const uint256& scId) const;
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
     bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, libzendoomc::CScProofVerifier& scVerifier) const;
-    bool isEpochDataValid(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
+    bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
+    bool CheckCertTiming(const uint256& scId, int certHeight, int certEpoch) const;
     bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
     bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
     bool CheckQuality(const CScCertificate& cert)  const override;

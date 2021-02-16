@@ -580,7 +580,7 @@ class sc_cert_base(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("invalid epoch data" in errorString, True)
+        assert_equal("bad-sc-cert-not-applicable" in errorString, True)
 
 
 

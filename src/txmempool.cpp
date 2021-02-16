@@ -586,7 +586,7 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert
     return true;
 }
 
-void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsView, const uint256& disconnectedBlockHash, unsigned int nMemPoolHeight,
+void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsView, unsigned int nMemPoolHeight,
                                          std::list<CScCertificate>& outdatedCerts)
 {
     LOCK(cs);
@@ -602,18 +602,10 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
             continue;
         }
 
-        auto s = pCoinsView->GetSidechainState(cert.GetScId());
-        if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
+        if (!pCoinsView->CheckCertTiming(cert.GetScId(), nMemPoolHeight, cert.epochNumber))
         {
-        	certsToRemove.insert(cert.GetHash());
-            continue;
-        }
-
-        if (cert.endEpochBlockHash == disconnectedBlockHash)
-        {
-            LogPrint("mempool", "%s():%d - adding cert [%s] to list for removing (endEpochBlockHash %s)\n",
-                __func__, __LINE__, cert.GetHash().ToString(), disconnectedBlockHash.ToString());
             certsToRemove.insert(cert.GetHash());
+            continue;
         }
     }
 
@@ -706,8 +698,12 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
 
         for(const CTxForwardTransferOut& ft: tx.GetVftCcOut())
         {
-            auto s = pCoinsView->GetSidechainState(ft.scId);
-            if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
+            // pCoinsView does not encompass mempool.
+            // Hence we need to checks explicitly for unconfirmed scCreations
+            if (hasSidechainCreationTx(ft.scId))
+                continue;
+
+            if (!pCoinsView->CheckScTxTiming(ft.scId))
             {
                 txesToRemove.insert(tx.GetHash());
                 continue;
@@ -716,8 +712,12 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
 
         for(const CBwtRequestOut& mbtr: tx.GetVBwtRequestOut())
         {
-            auto s = pCoinsView->GetSidechainState(mbtr.scId);
-            if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
+            // pCoinsView does not encompass mempool.
+            // Hence we need to checks explicitly for unconfirmed scCreations
+            if (hasSidechainCreationTx(mbtr.scId))
+                continue;
+
+            if (!pCoinsView->CheckScTxTiming(mbtr.scId))
             {
                 txesToRemove.insert(tx.GetHash());
                 continue;

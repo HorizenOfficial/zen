@@ -5171,7 +5171,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // sanity check of the epoch number and epoch hash block: it must be a legal end-epoch hash and epoch number must
     // be consistent with the current epoch (no old epoch certificates allowed)
-    if (!scView.isEpochDataValid(sidechain, epochNumber, endEpochBlockHash) )
+    if (!scView.CheckEndEpochBlockHash(sidechain, epochNumber, endEpochBlockHash) )
     {
         LogPrintf("ERROR: epochNumber[%d]/endEpochBlockHash[%s] are not legal\n", epochNumber, endEpochBlockHash.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid epoch data"));

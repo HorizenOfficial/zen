@@ -872,7 +872,7 @@ int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
 std::string CSidechain::stateToString(State s) { return "";}
-bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
+bool CCoinsViewCache::CheckEndEpochBlockHash(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight,
                                               libzendoomc::CScProofVerifier& scVerifier) const {return true;}
 bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx,
@@ -887,6 +887,40 @@ int CCoinsViewCache::GetHeight() const
     BlockMap::const_iterator itBlockIdx = mapBlockIndex.find(this->GetBestBlock());
     CBlockIndex* pindexPrev = (itBlockIdx == mapBlockIndex.end()) ? nullptr : itBlockIdx->second;
     return pindexPrev->nHeight;
+}
+
+bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certHeight, int certEpoch) const
+{
+    CSidechain sidechain;
+    if (!GetSidechain(scId, sidechain))
+    {
+        return error("%s():%d - ERROR: certificate cannot be accepted, scId[%s] not yet created\n",
+                __func__, __LINE__, scId.ToString());
+    }
+
+    if (sidechain.currentState != static_cast<int8_t>(CSidechain::State::ALIVE))
+    {
+        return error("%s():%d - ERROR: certificate cannot be accepted, sidechain [%s] already ceased\n",
+                __func__, __LINE__, scId.ToString());
+    }
+
+    // Adding handling of quality, we can have also certificates for the same epoch of the last certificate
+    // The epoch number must be consistent with the sc certificate history (no old epoch allowed)
+    if (certEpoch != sidechain.lastTopQualityCertReferencedEpoch &&
+        certEpoch != sidechain.lastTopQualityCertReferencedEpoch + 1)
+    {
+        return error("%s():%d - ERROR: certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d or %d)\n",
+            __func__, __LINE__, certEpoch, sidechain.lastTopQualityCertReferencedEpoch, sidechain.lastTopQualityCertReferencedEpoch+1);
+    }
+
+    int certWindowStartHeight = sidechain.StartHeightForEpoch(certEpoch+1);
+    if ((certHeight < certWindowStartHeight) || (certHeight > certWindowStartHeight + sidechain.SafeguardMargin()))
+    {
+        return error("%s():%d - ERROR: certificate cannot be accepted, cert received outside safeguard\n",
+                __func__, __LINE__);
+    }
+
+    return true;
 }
 
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, libzendoomc::CScProofVerifier& scVerifier) const
@@ -904,23 +938,15 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     }
 
     // check that epoch data are consistent
-    if (!isEpochDataValid(sidechain, cert.epochNumber, cert.endEpochBlockHash) )
+    if (!CheckEndEpochBlockHash(sidechain, cert.epochNumber, cert.endEpochBlockHash) )
     {
         return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid epoch data\n",
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
-    int certWindowStartHeight = sidechain.StartHeightForEpoch(cert.epochNumber+1);
-    if (!((nHeight >= certWindowStartHeight) && (nHeight <= certWindowStartHeight + sidechain.SafeguardMargin())))
+    if (!CheckCertTiming(cert.GetScId(), nHeight, cert.epochNumber))
     {
-        return error("%s():%d - ERROR: invalid cert[%s], cert epoch not acceptable at this height\n",
-                __func__, __LINE__, certHash.ToString());
-    }
-
-    if (GetSidechainState(cert.GetScId()) != CSidechain::State::ALIVE)
-    {
-        return error("%s():%d - ERROR: certificate[%s] cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
-                __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString(), chainActive.Height());
+        return false;
     }
 
     if (!CheckQuality(cert))
@@ -960,27 +986,13 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     return true;
 }
 
-bool CCoinsViewCache::isEpochDataValid(const CSidechain& sidechain, int epochNumber, const uint256& endEpochBlockHash) const
+bool CCoinsViewCache::CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& endEpochBlockHash) const
 {
-    if (epochNumber < 0 || endEpochBlockHash.IsNull())
-    {
-        LogPrint("sc", "%s():%d - invalid epoch data %d/%s\n", __func__, __LINE__, epochNumber, endEpochBlockHash.ToString() );
-        return false;
-    }
+    //MOVED TO checkCertSemanticValidity
 
-    // Adding handling of quality, we can have also certificates for the same epoch of the last certificate
-    // 1. the epoch number must be consistent with the sc certificate history (no old epoch allowed)
-    if ( epochNumber != sidechain.lastTopQualityCertReferencedEpoch &&
-         epochNumber != sidechain.lastTopQualityCertReferencedEpoch + 1)
+    //MOVED TO CheckCertTiming
 
-    {
-        LogPrint("sc", "%s():%d - can not receive a certificate for epoch %d (expected: %d or %d)\n",
-            __func__, __LINE__, epochNumber,
-            sidechain.lastTopQualityCertReferencedEpoch, sidechain.lastTopQualityCertReferencedEpoch+1);
-        return false;
-    }
-
-    // 2. the referenced end-epoch block must be in active chain
+    // 1. the referenced end-epoch block must be in active chain
     LOCK(cs_main);
     if (mapBlockIndex.count(endEpochBlockHash) == 0)
     {
@@ -997,7 +1009,7 @@ bool CCoinsViewCache::isEpochDataValid(const CSidechain& sidechain, int epochNum
         return false;
     }
 
-    // 3. combination of epoch number and epoch length, specified in sc info, must point to that end-epoch block
+    // 2. combination of epoch number and epoch length, specified in sc info, must point to that end-epoch block
     int endEpochHeight = sidechain.StartHeightForEpoch(epochNumber+1) -1;
     pblockindex = chainActive[endEpochHeight];
 
@@ -1014,6 +1026,18 @@ bool CCoinsViewCache::isEpochDataValid(const CSidechain& sidechain, int epochNum
         LogPrint("sc", "%s():%d - bock hash mismatch: endEpochBlockHash[%s] / calculated[%s]\n",
             __func__, __LINE__, endEpochBlockHash.ToString(), hash.ToString());
         return false;
+    }
+
+    return true;
+}
+
+bool CCoinsViewCache::CheckScTxTiming(const uint256& scId) const
+{
+    auto s = GetSidechainState(scId);
+    if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
+    {
+        return error("%s():%d - ERROR: attempt to send scTx to scId[%s] in state[%s]\n",
+                __func__, __LINE__, scId.ToString(), CSidechain::stateToString(s));
     }
 
     return true;
@@ -1044,22 +1068,8 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
     for (const auto& ft: tx.GetVftCcOut())
     {
         const uint256& scId = ft.scId;
-        if (HaveSidechain(scId))
-        {
-            auto s = GetSidechainState(scId);
-            if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
-            {
-                return error("%s():%d - ERROR: tx[%s] tries to send funds to scId[%s] already ceased\n",
-                        __func__, __LINE__, txHash.ToString(), scId.ToString());
-            }
-        } else
-        {
-            if (!Sidechain::hasScCreationOutput(tx, scId))
-            {
-                return error("%s():%d - ERROR: tx [%s] tries to send funds to scId[%s] not yet created\n",
-                        __func__, __LINE__, txHash.ToString(), scId.ToString());
-            }
-        }
+        if (!CheckScTxTiming(scId))
+            return false;
 
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
@@ -1071,18 +1081,8 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         const CBwtRequestOut& mbtr = tx.GetVBwtRequestOut().at(idx);
         const uint256& scId = mbtr.scId;
 
-        if (!HaveSidechain(scId))
-        {
-            return error("%s():%d - ERROR: tx [%s] contains mainchain bwt request for scId[%s] not yet created\n",
-                    __func__, __LINE__, txHash.ToString(), scId.ToString());
-        }
-
-        auto s = GetSidechainState(scId);
-        if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
-        {
-            return error("%s():%d -  ERROR: tx[%s] contains mainchain bwt request for scId[%s] already ceased\n",
-                     __func__, __LINE__, txHash.ToString(), scId.ToString());
-        }
+        if (!CheckScTxTiming(scId))
+            return false;
 
         boost::optional<libzendoomc::ScVk> wMbtrVk = this->AccessSidechain(scId)->creationData.wMbtrVk;
 

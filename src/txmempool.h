@@ -211,7 +211,7 @@ public:
                         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
     void removeConflicts(const CScCertificate &cert,
                          std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
-    void removeStaleCertificates(const CCoinsViewCache * const pCoinsView, const uint256& disconnectedBlockHash, unsigned int nMemPoolHeight,
+    void removeStaleCertificates(const CCoinsViewCache * const pCoinsView, unsigned int nMemPoolHeight,
                                  std::list<CScCertificate>& outdatedCerts);
     // END OF UNCONFIRMED CERTIFICATES CLEANUP METHODS
 
