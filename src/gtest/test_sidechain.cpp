@@ -321,7 +321,7 @@ TEST_F(SidechainTestSuite, NewScCreationsIsApplicableToState) {
     libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, int(1789), dummyScVerifier);
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
 
     //checks
     EXPECT_TRUE(res);
@@ -340,13 +340,13 @@ TEST_F(SidechainTestSuite, ForwardTransfersToExistingSCsAreApplicableToState) {
     libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, creationHeight, dummyScVerifier);
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
 
     //checks
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreApplicableToState) {
+TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreNotApplicableToState) {
     int fwdHeight = 1789;
     chainSettingUtils::ExtendChainActiveToHeight(fwdHeight);
 
@@ -355,7 +355,7 @@ TEST_F(SidechainTestSuite, ForwardTransfersToNonExistingSCsAreApplicableToState)
     libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, fwdHeight, dummyScVerifier);
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
 
     //checks
     EXPECT_FALSE(res);
@@ -371,11 +371,10 @@ TEST_F(SidechainTestSuite, McBwtRequestToUnknownSidechainAreNotApplicableToState
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
-    int dummyHeight {1987};
     libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyHeight, dummyScVerifier);
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
 
     //checks
     EXPECT_FALSE(res);
@@ -399,9 +398,8 @@ TEST_F(SidechainTestSuite, McBwtRequestToAliveSidechainIsApplicableToState) {
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    int dummyHeight{2020};
     libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyHeight, dummyScVerifier);
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
 
     //checks
     EXPECT_TRUE(res);
@@ -427,9 +425,8 @@ TEST_F(SidechainTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicable
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    int dummyHeight{2020};
     libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyHeight, dummyScVerifier);
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
 
     //checks
     EXPECT_FALSE(res);
@@ -453,9 +450,8 @@ TEST_F(SidechainTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState) 
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    int dummyHeight{2020};
     libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyHeight, dummyScVerifier);
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
 
     //checks
     EXPECT_FALSE(res);

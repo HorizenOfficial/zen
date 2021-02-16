@@ -1493,7 +1493,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             }
 
             auto scVerifier = libzendoomc::CScProofVerifier::Strict();
-            if (!view.IsScTxApplicableToState(tx, nextBlockHeight, scVerifier))
+            if (!view.IsScTxApplicableToState(tx, scVerifier))
             {
                 return state.DoS(0, error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
@@ -2824,7 +2824,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
  
             auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-            if (!view.IsScTxApplicableToState(tx, pindex->nHeight, scVerifier))
+            if (!view.IsScTxApplicableToState(tx, scVerifier))
             {
                 return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");

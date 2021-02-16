@@ -875,7 +875,7 @@ std::string CSidechain::stateToString(State s) { return "";}
 bool CCoinsViewCache::isEpochDataValid(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight,
                                               libzendoomc::CScProofVerifier& scVerifier) const {return true;}
-bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height,
+bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx,
                                               libzendoomc::CScProofVerifier& scVerifier) const { return true;}
 size_t CSidechainEvents::DynamicMemoryUsage() const { return 0;}
 
@@ -1019,7 +1019,7 @@ bool CCoinsViewCache::isEpochDataValid(const CSidechain& sidechain, int epochNum
     return true;
 }
 
-bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height, libzendoomc::CScProofVerifier& scVerifier) const
+bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const
 {
     if (tx.IsCoinBase())
         return true;
@@ -1049,8 +1049,8 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
             auto s = GetSidechainState(scId);
             if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
             {
-                return error("%s():%d - ERROR: tx[%s] tries to send funds to scId[%s] already ceased at height = %d\n",
-                        __func__, __LINE__, txHash.ToString(), scId.ToString(), height);
+                return error("%s():%d - ERROR: tx[%s] tries to send funds to scId[%s] already ceased\n",
+                        __func__, __LINE__, txHash.ToString(), scId.ToString());
             }
         } else
         {
@@ -1080,8 +1080,8 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, int height
         auto s = GetSidechainState(scId);
         if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
         {
-            return error("%s():%d -  ERROR: tx[%s] contains mainchain bwt request for scId[%s] already ceased at height = %d\n",
-                     __func__, __LINE__, txHash.ToString(), scId.ToString(), height);
+            return error("%s():%d -  ERROR: tx[%s] contains mainchain bwt request for scId[%s] already ceased\n",
+                     __func__, __LINE__, txHash.ToString(), scId.ToString());
         }
 
         boost::optional<libzendoomc::ScVk> wMbtrVk = this->AccessSidechain(scId)->creationData.wMbtrVk;
