@@ -41,6 +41,7 @@ class WsHandler;
 
 static int getblock(const CBlockIndex *pindex, std::string& blockHexStr);
 static void ws_updatetip(const CBlockIndex *pindex);
+static void ws_updatemempool();
 
 static boost::shared_ptr<WsNotificationInterface> wsNotificationInterface;
 static std::list< boost::shared_ptr<WsHandler> > listWsHandler;
@@ -80,6 +81,9 @@ protected:
     virtual void UpdatedBlockTip(const CBlockIndex *pindex) {
         ws_updatetip(pindex);
     };
+    virtual void MempoolChanged() {
+        ws_updatemempool();
+    };
 public:
     ~WsNotificationInterface()
     {
@@ -92,6 +96,7 @@ class WsEvent
 public:
     enum WsEventType {
         UPDATE_TIP = 0,
+        UPDATE_MEMPOOL = 1,
         EVT_UNDEFINED = 0xff
     };
     enum WsRequestType {
@@ -217,6 +222,29 @@ private:
         if (!clientRequestId.empty())
             rv->push_back(Pair("requestId", clientRequestId));
         rv->push_back(Pair("responsePayload", rspPayload));
+        wsq.push(wse);
+    }
+
+    void sendMempoolEvent(int size, std::list<uint256>& listHashes, WsEvent::WsEventType eventType)
+    {
+        // Send a message to the client:  type = eventType
+        WsEvent* wse = new WsEvent(WsEvent::MSG_EVENT);
+        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
+        UniValue rspPayload(UniValue::VOBJ);
+        rspPayload.push_back(Pair("size", size));
+
+        UniValue txHashes(UniValue::VARR);
+        UniValue certHashes(UniValue::VARR);
+
+        for(std::list<uint256>::const_iterator it = listHashes.begin(); it != listHashes.end(); ++it) {
+            txHashes.push_back(it->GetHex());
+        }
+        rspPayload.push_back(Pair("transactions", txHashes));
+        rspPayload.push_back(Pair("certificates", certHashes));
+
+        UniValue* rv = wse->getPayload();
+        rv->push_back(Pair("eventType", eventType));
+        rv->push_back(Pair("eventPayload", rspPayload));
         wsq.push(wse);
     }
 
@@ -901,6 +929,11 @@ public:
         sendBlockEvent(height, strHash, blockHex, WsEvent::UPDATE_TIP);
     }
 
+    void send_mempool_update(int size, std::list<uint256>& listHashes)
+    {
+        sendMempoolEvent(size, listHashes, WsEvent::UPDATE_MEMPOOL);
+    }
+
     void shutdown()
     {
         try
@@ -969,6 +1002,34 @@ static void ws_updatetip(const CBlockIndex *pindex)
     }
 }
 
+static void ws_updatemempool()
+{
+    LOCK(mempool.cs);
+
+    std::list<uint256> hashes;
+    BOOST_FOREACH(const PAIRTYPE(uint256, CTxMemPoolEntry)& entry, mempool.mapTx)
+    {
+       hashes.push_back(entry.first);
+    }
+    {
+		std::unique_lock<std::mutex> lck(wsmtx);
+		if (listWsHandler.size() )
+		{
+			LogPrint("ws", "%s():%d - update mempool loop on ws clients\n", __func__, __LINE__);
+			auto it = listWsHandler.begin();
+			while (it != listWsHandler.end())
+			{
+				LogPrint("ws", "%s():%d - call wshandler_send_mempool_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
+				(*it)->send_mempool_update(hashes.size(), hashes);
+				++it;
+			}
+		}
+		else
+		{
+			LogPrint("ws", "%s():%d - there are no connected ws clients\n", __func__, __LINE__);
+		}
+    }
+}
 
 //------------------------------------------------------------------------------
 

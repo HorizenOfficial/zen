@@ -2758,6 +2758,7 @@ bool static DisconnectTip(CValidationState &state) {
     BOOST_FOREACH(const CTransaction &tx, block.vtx) {
         SyncWithWallets(tx, NULL);
     }
+    GetMainSignals().MempoolChanged();
     // Update cached incremental witnesses
     GetMainSignals().ChainTip(pindexDelete, &block, newTree, false);
     return true;
@@ -5569,6 +5570,8 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
             BOOST_FOREACH(uint256 hash, vEraseQueue)
                 EraseOrphanTx(hash);
+            GetMainSignals().MempoolChanged();
+
         }
         // TODO: currently, prohibit joinsplits from entering mapOrphans
         else if (fMissingInputs && tx.vjoinsplit.size() == 0)
