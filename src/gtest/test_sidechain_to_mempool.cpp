@@ -243,7 +243,9 @@ TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
     //Case 3: btr tx only in mempool
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrTxEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTxEntry.GetTx().GetHash(), btrTxEntry);
+    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    aMempool.addUnchecked(btrTxEntry.GetTx().GetHash(), btrTxEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
     res = aMempool.hasSidechainCreationTx(scId);
     EXPECT_FALSE(res);
 
@@ -276,7 +278,10 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScNonRecursiveRemo
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+
+    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
@@ -303,7 +308,9 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrsOnlyInMempool_FwdNonRecursiveRem
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
@@ -330,7 +337,9 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrsOnlyInMempool_BtrNonRecursiveRem
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
@@ -362,7 +371,9 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScRecursiveRemoval
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
@@ -390,7 +401,9 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrOnlyInMempool_ScRecursiveRemoval)
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
@@ -417,7 +430,9 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_FwdRecursiveRemova
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
@@ -444,7 +459,9 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_BtrRecursiveRemova
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    aMempool.addUnchecked(btrTx.GetHash(), btrEntry);
+    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
@@ -507,38 +524,6 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
     EXPECT_FALSE(mempool.existsCert(cert1.GetHash()));
 }
 
-TEST_F(SidechainsInMempoolTestSuite, CertConnectionDropAllBtrForReferencedScId) {
-    //Create and persist sidechain
-    CTransaction scTx = GenerateScTx(CAmount(10));
-    const uint256& scId = scTx.GetScIdFromScCcOut(0);
-    CBlock aBlock;
-    CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateSidechain(scTx, aBlock, /*height*/int(1789));
-    sidechainsView.Flush();
-
-    // place btrs in mempool
-    CTransaction btrTx1 = GenerateBtrTx(scId);
-    CTxMemPoolEntry btrTx1Entry(btrTx1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(btrTx1.GetHash(), btrTx1Entry);
-    ASSERT_TRUE(mempool.existsTx(btrTx1.GetHash()));
-
-    CTransaction btrTx2 = GenerateBtrTx(scId);
-    CTxMemPoolEntry btrTx2Entry(btrTx2, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    mempool.addUnchecked(btrTx2.GetHash(), btrTx2Entry);
-    ASSERT_TRUE(mempool.existsTx(btrTx2.GetHash()));
-
-    //Remove the certificate
-    std::list<CTransaction> removedTxs;
-    std::list<CScCertificate> removedCerts;
-    CMutableScCertificate certToRm;
-    certToRm.scId = scId;
-    mempool.removeConflicts(CScCertificate(certToRm), removedTxs, removedCerts);
-
-    EXPECT_TRUE(removedCerts.size() == 0);
-    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), btrTx1));
-    EXPECT_TRUE(std::count(removedTxs.begin(), removedTxs.end(), btrTx2));
-}
-
 TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffectFwt) {
     //Create and persist sidechain
     CTransaction scTx = GenerateScTx(CAmount(10));
@@ -569,7 +554,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffe
     EXPECT_FALSE(std::count(removedTxs.begin(), removedTxs.end(), fwdTx));
     EXPECT_TRUE(mempool.existsTx(fwdTx.GetHash()));
     ASSERT_TRUE(mempool.mapSidechains.count(scId));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).fwdTransfersSet.count(fwdTx.GetHash()));
+    EXPECT_TRUE(mempool.mapSidechains.at(scId).fwdTxHashes.count(fwdTx.GetHash()));
     EXPECT_TRUE(mempool.mapSidechains.at(scId).mBackwardCertificates.empty());
 }
 
@@ -603,7 +588,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
     EXPECT_FALSE(std::count(removedCerts.begin(), removedCerts.end(), cert));
     EXPECT_TRUE(mempool.existsCert(cert.GetHash()));
     ASSERT_TRUE(mempool.mapSidechains.count(scId));
-    EXPECT_FALSE(mempool.mapSidechains.at(scId).fwdTransfersSet.count(fwdTx.GetHash()));
+    EXPECT_FALSE(mempool.mapSidechains.at(scId).fwdTxHashes.count(fwdTx.GetHash()));
     EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert.GetHash()));
 }
 
@@ -943,7 +928,9 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedMbtrTowardCeasedSidechainIsDroppe
     mutMbtrTx.vmbtr_out.push_back(mcBwtReq);
     CTransaction mbtrTx(mutMbtrTx);
     CTxMemPoolEntry mempoolEntry(mbtrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/mbtrHeight);
-    mempool.addUnchecked(mbtrTx.GetHash(), mempoolEntry);
+    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    mempool.addUnchecked(mbtrTx.GetHash(), mempoolEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     //test
     std::list<CTransaction> outdatedTxs;

@@ -108,16 +108,20 @@ public:
 struct CSidechainMemPoolEntry
 {
     uint256 scCreationTxHash;
-    std::set<uint256> fwdTransfersSet; 
+    std::set<uint256> fwdTxHashes; 
     std::map<int64_t, uint256> mBackwardCertificates; //quality -> certHash
-    std::set<uint256> mcBtrSet;
+    std::set<uint256> mcBtrsTxHashes;
+    libzendoomc::ScFieldElement mcBtrsCertDataHash;
 
-    // Note: in fwdTransfersSet and mcBtrSet, a tx is registered only once,
+    // Note: in fwdTxHashes and mcBtrsTxHashes, a tx is registered only once,
     // even if sends multiple fwts/btrs founds to a sidechain.
     // Upon removal we will need to guard against potential double deletes.
     bool IsNull() const {
-        return  scCreationTxHash.IsNull() && fwdTransfersSet.empty() &&
-                mBackwardCertificates.empty() && mcBtrSet.empty();
+        return  scCreationTxHash.IsNull() &&
+                fwdTxHashes.empty() &&
+                mBackwardCertificates.empty() &&
+                mcBtrsTxHashes.empty() &&
+                mcBtrsCertDataHash.IsNull();
     }
 
     const std::map<int64_t, uint256>::const_reverse_iterator GetTopQualityCert() const;
@@ -184,7 +188,8 @@ public:
     std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality);
     bool RemoveCertAndSync(const uint256& certToRmHash);
 
-    bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
+    bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true,
+    		          const std::map<uint256, libzendoomc::ScFieldElement>& scIdToCertDataHash = std::map<uint256, libzendoomc::ScFieldElement>{});
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
     std::vector<uint256> mempoolDirectDependenciesFrom(const CTransactionBase& root) const;
@@ -302,13 +307,13 @@ public:
     bool hasSidechainBwtRequest(const uint256& scId) const
     {
         LOCK(cs);
-        return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).mcBtrSet.empty());
+        return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).mcBtrsTxHashes.empty());
     }
 
     bool hasSidechainFwt(const uint256& scId) const
     {
         LOCK(cs);
-        return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).fwdTransfersSet.empty());
+        return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).fwdTxHashes.empty());
     }
 
     bool lookup(const uint256& hash, CTransaction& result) const;

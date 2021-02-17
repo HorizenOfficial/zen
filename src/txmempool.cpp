@@ -165,7 +165,8 @@ void CTxMemPool::AddTransactionsUpdated(unsigned int n)
 }
 
 
-bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate)
+bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate,
+		                      const std::map<uint256, libzendoomc::ScFieldElement>& scIdToCertDataHash)
 {
     // Add to memory pool without checking anything.
     // Used by main.cpp AcceptToMemoryPool(), which DOES do
@@ -193,14 +194,16 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
 
     for(const auto& fwd: tx.GetVftCcOut()) {
         if (mapSidechains.count(fwd.scId) == 0)
-            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain [%s], fwdTransfersSet\n", __func__, __LINE__, hash.ToString(), fwd.scId.ToString());
-        mapSidechains[fwd.scId].fwdTransfersSet.insert(hash);
+            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain [%s], fwdTxHashes\n", __func__, __LINE__, hash.ToString(), fwd.scId.ToString());
+        mapSidechains[fwd.scId].fwdTxHashes.insert(hash);
     }
 
     for(const auto& btr: tx.GetVBwtRequestOut()) {
         if (mapSidechains.count(btr.scId) == 0)
-            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain [%s], mbBtrSet\n", __func__, __LINE__, hash.ToString(), btr.scId.ToString());
-        mapSidechains[btr.scId].mcBtrSet.insert(hash);
+            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain [%s], mcBtrsTxHashes\n", __func__, __LINE__, hash.ToString(), btr.scId.ToString());
+        mapSidechains[btr.scId].mcBtrsTxHashes.insert(hash);
+        if (mapSidechains[btr.scId].mcBtrsCertDataHash.IsNull())
+            mapSidechains[btr.scId].mcBtrsCertDataHash = scIdToCertDataHash.at(btr.scId);
     }
 
     nTransactionsUpdated++;
@@ -338,9 +341,9 @@ std::vector<uint256> CTxMemPool::mempoolDirectDependenciesOf(const CTransactionB
         {
             if (mapSidechains.count(sc.GetScId()) == 0)
                 continue;
-            for(const auto& fwdTxHash : mapSidechains.at(sc.GetScId()).fwdTransfersSet)
+            for(const auto& fwdTxHash : mapSidechains.at(sc.GetScId()).fwdTxHashes)
                 res.push_back(fwdTxHash);
-            for(const auto& mcBtrTxHash : mapSidechains.at(sc.GetScId()).mcBtrSet)
+            for(const auto& mcBtrTxHash : mapSidechains.at(sc.GetScId()).mcBtrsTxHashes)
                 res.push_back(mcBtrTxHash);
         }
     }
@@ -409,7 +412,8 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 
             for(const auto& btr: tx.GetVBwtRequestOut()) {
                 if (mapSidechains.count(btr.scId)) { //Guard against double-delete on multiple btrs toward the same sc in same tx
-                    mapSidechains.at(btr.scId).mcBtrSet.erase(tx.GetHash());
+                    mapSidechains.at(btr.scId).mcBtrsTxHashes.erase(tx.GetHash());
+                    mapSidechains.at(btr.scId).mcBtrsCertDataHash.SetNull();
 
                     if (mapSidechains.at(btr.scId).IsNull())
                     {
@@ -421,7 +425,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 
             for(const auto& fwd: tx.GetVftCcOut()) {
                 if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
-                    mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
+                    mapSidechains.at(fwd.scId).fwdTxHashes.erase(tx.GetHash());
 
                     if (mapSidechains.at(fwd.GetScId()).IsNull())
                     {
@@ -706,7 +710,6 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             if (!pCoinsView->CheckScTxTiming(ft.scId))
             {
                 txesToRemove.insert(tx.GetHash());
-                continue;
             }
         }
 
@@ -720,30 +723,17 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             if (!pCoinsView->CheckScTxTiming(mbtr.scId))
             {
                 txesToRemove.insert(tx.GetHash());
-                continue;
             }
         }
     }
 
-    // mbtr will be removed if sidechain is beyond safeguard
+    // mbtr will be removed if they target outdated CertDataHash
     for (auto it = mapSidechains.begin(); it != mapSidechains.end(); it++)
     {
-        if (it->second.mcBtrSet.empty())
-            continue;
-
-        CSidechain sidechain;
-        if (!pCoinsView->GetSidechain(it->first, sidechain))
-        {
-            assert(hasSidechainCreationTx(it->first));
-            continue;  //scCreation in mempool, nothing to do
-        }
-
-        int currentHeight = pCoinsView->GetHeight();
-        int currentEpochSafeguard = sidechain.StartHeightForEpoch(sidechain.EpochFor(currentHeight)) +
-                sidechain.SafeguardMargin();
-
-        if (currentHeight >= currentEpochSafeguard)
-            txesToRemove.insert(it->second.mcBtrSet.begin(), it->second.mcBtrSet.end());
+    	if (pCoinsView->GetActiveCertDataHash(it->first) != it->second.mcBtrsCertDataHash)
+    	{
+            txesToRemove.insert(it->second.mcBtrsTxHashes.begin(), it->second.mcBtrsTxHashes.end());
+    	}
     }
 
     for(const auto& hash: txesToRemove)
@@ -829,15 +819,6 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert, std::list<CTransact
             const CScCertificate& cert = mapCertificate.at(hash).GetCertificate();
             remove(cert, removedTxs, removedCerts, true);
         }
-    }
-
-    // Remove all btrs for scIds mentioned by the certificate.
-    // These btrs would reference outdated public inputs (CertificateDataCumulativeHash)
-    while ((mapSidechains.count(scId) != 0) && !mapSidechains.at(scId).mcBtrSet.empty())
-    {
-        auto entryToRm = mapSidechains.at(scId).mcBtrSet.begin();
-        const CTransaction& outdatedBtr = mapTx.at(*entryToRm).GetTx();
-        remove(outdatedBtr, removedTxs, removedCerts, true);
     }
 }
 
@@ -940,8 +921,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         for(const auto& fwd: tx.GetVftCcOut()) {
             //fwd must be duly recorded in mapSidechain
             assert(mapSidechains.count(fwd.scId) != 0);
-            const auto& fwdPos = mapSidechains.at(fwd.scId).fwdTransfersSet.find(tx.GetHash());
-            assert(fwdPos != mapSidechains.at(fwd.scId).fwdTransfersSet.end());
+            const auto& fwdPos = mapSidechains.at(fwd.scId).fwdTxHashes.find(tx.GetHash());
+            assert(fwdPos != mapSidechains.at(fwd.scId).fwdTxHashes.end());
 
             //there must be no dangling fwds, i.e. sc creation is either in mempool or in blockchain
             if (!mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
@@ -953,8 +934,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         for(const auto& btr: tx.GetVBwtRequestOut()) {
             //btrs must be duly recorded in mapSidechain
             assert(mapSidechains.count(btr.scId) != 0);
-            const auto& fwdPos = mapSidechains.at(btr.scId).mcBtrSet.find(tx.GetHash());
-            assert(fwdPos != mapSidechains.at(btr.scId).mcBtrSet.end());
+            const auto& btrPos = mapSidechains.at(btr.scId).mcBtrsTxHashes.find(tx.GetHash());
+            assert(btrPos != mapSidechains.at(btr.scId).mcBtrsTxHashes.end());
 
             //there must be no dangling btrs, i.e. sc creation is either in mempool or in blockchain
             if (!mapSidechains.at(btr.scId).scCreationTxHash.IsNull())

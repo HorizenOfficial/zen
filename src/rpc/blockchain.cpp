@@ -1035,7 +1035,7 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
         }
     }
 
-    for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
+    for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTxHashes)
     {
         const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
         for (const auto& fwdAmount : fwdTx.GetVftCcOut())
@@ -1049,7 +1049,7 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
         }
     }
 
-    for (const auto& mbtrHash: mempool.mapSidechains.at(scId).mcBtrSet)
+    for (const auto& mbtrHash: mempool.mapSidechains.at(scId).mcBtrsTxHashes)
     {
         const CTransaction & mbtrTx = mempool.mapTx.at(mbtrHash).GetTx();
         for (const auto& mbtrAmount : mbtrTx.GetVBwtRequestOut())

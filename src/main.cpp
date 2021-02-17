@@ -1611,7 +1611,13 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         }
 
         // Store transaction in memory
-        pool.addUnchecked(hash, entry, !IsInitialBlockDownload());
+        std::map<uint256, libzendoomc::ScFieldElement> scIdToCertDataHash;
+        for(const auto& btr: tx.GetVBwtRequestOut())
+        {
+        	scIdToCertDataHash[btr.scId] = view.GetActiveCertDataHash(btr.scId);
+        }
+
+        pool.addUnchecked(hash, entry, !IsInitialBlockDownload(), scIdToCertDataHash);
     }
 
     return true;
