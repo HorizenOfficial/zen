@@ -1322,8 +1322,8 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
         auto s = GetSidechainState(csw.scId);
         if (s != CSidechain::State::CEASED)
         {
-            return error("%s():%d - ERROR: attempt to spend csw input for scId[%s] in state[%s]\n",
-                    __func__, __LINE__, csw.scId.ToString(), CSidechain::stateToString(s));
+            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] cannot be accepted, sidechain is not ceased\n",
+            		__func__, __LINE__, tx.ToString(), csw.ToString());
         }
 
 
