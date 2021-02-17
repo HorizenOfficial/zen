@@ -1161,8 +1161,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.customData = scCreation.customData;
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
-		            info.creationData.wMbtrVk = scCreation.wMbtrVk;
-		            info.creationData.wCeasedVk = scCreation.wCeasedVk;
+                    info.creationData.wMbtrVk = scCreation.wMbtrVk;
+                    info.creationData.wCeasedVk = scCreation.wCeasedVk;
                     break;
                 }
             }
@@ -1285,7 +1285,7 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
     }
 
     libzendoomc::ScFieldElement certDataHash = scView.GetActiveCertDataHash(scid);
-    if (certDataHash.IsNull())
+    if (libzendoomc::IsValidScFieldElement(certDataHash))
     {
         LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing active cert data hash for required scid"));
@@ -1554,7 +1554,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
 UniValue checkcswnullifier(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() == 0 || params.size() > 2)
+    if (fHelp || params.size() != 2)
         throw runtime_error(
             "checkcswnullifier\n"
 			"\nArguments:\n"

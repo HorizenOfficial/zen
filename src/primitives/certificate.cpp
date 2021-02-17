@@ -239,6 +239,7 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
 
     return true;
 }
+
 //--------------------------------------------------------------------------------------------
 // binaries other than zend that are produced in the build, do not call these members and therefore do not
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose

@@ -286,8 +286,8 @@ public:
 class CCswNullifiersKeyHasher
 {
 private:
-    static const size_t BUF_LEN = 32 + SC_FIELD_SIZE;
-    uint32_t salt[BUF_LEN/4];
+    static const size_t BUF_LEN = (sizeof(uint256) + SC_FIELD_SIZE)/sizeof(uint32_t);
+    uint32_t salt[BUF_LEN];
 public:
     CCswNullifiersKeyHasher();
 
@@ -539,20 +539,20 @@ protected:
 
 public:
     CCoinsViewBacked(CCoinsView *viewIn);
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree)                          const override;
-    bool GetNullifier(const uint256 &nullifier)                                                 const override;
-    bool GetCoins(const uint256 &txid, CCoins &coins)                                           const override;
-    bool HaveCoins(const uint256 &txid)                                                         const override;
-    bool HaveSidechain(const uint256& scId)                                                     const override;
-    bool GetSidechain(const uint256& scId, CSidechain& info)                                    const override;
-    bool HaveSidechainEvents(int height)                                                        const override;
-    bool GetSidechainEvents(int height, CSidechainEvents& scEvents)                             const override;
-    void GetScIds(std::set<uint256>& scIdsList)                                                 const override;
-    bool CheckQuality(const CScCertificate& cert)                                               const override;
-    uint256 GetBestBlock()                                                                      const override;
-    uint256 GetBestAnchor()                                                                     const override;
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override;
+    bool GetNullifier(const uint256 &nullifier)                        const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)                  const override;
+    bool HaveCoins(const uint256 &txid)                                const override;
+    bool HaveSidechain(const uint256& scId)                            const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)           const override;
+    bool HaveSidechainEvents(int height)                               const override;
+    bool GetSidechainEvents(int height, CSidechainEvents& scEvents)    const override;
+    void GetScIds(std::set<uint256>& scIdsList)                        const override;
+    bool CheckQuality(const CScCertificate& cert)                      const override;
+    uint256 GetBestBlock()                                             const override;
+    uint256 GetBestAnchor()                                            const override;
     bool HaveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier)                          const override;
+                         const libzendoomc::ScFieldElement &nullifier) const override;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
@@ -561,10 +561,8 @@ public:
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapCeasedScs,
-                    CCswNullifiersMap& cswNullifiers)                          override;
-    bool GetStats(CCoinsStats &stats)                                    const override;
-
-
+                    CCswNullifiersMap& cswNullifiers)                  override;
+    bool GetStats(CCoinsStats &stats)                                  const override;
 };
 
 
@@ -635,7 +633,7 @@ public:
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapCeasedScs,
-                    CCswNullifiersMap& cswNullifiers)                        override;
+                    CCswNullifiersMap& cswNullifiers)                  override;
 
 
     // Adds the tree to mapAnchors and sets the current commitment
@@ -675,7 +673,6 @@ public:
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
     bool IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const;
-    bool IsTxCswApplicableToState(const CTransaction& tx, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
     bool CheckScTxTiming(const uint256& scId) const;
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);

@@ -420,19 +420,19 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 }
             }
 
-			for(const auto& btr: tx.GetVBwtRequestOut()) {
-				if (mapSidechains.count(btr.scId)) { //Guard against double-delete on multiple btrs toward the same sc in same tx
-					mapSidechains.at(btr.scId).mcBtrsTxHashes.erase(tx.GetHash());
-					if (mapSidechains.at(btr.scId).mcBtrsTxHashes.empty())
-						mapSidechains.at(btr.scId).mcBtrsCertDataHash.SetNull();
+            for(const auto& btr: tx.GetVBwtRequestOut()) {
+                if (mapSidechains.count(btr.scId)) { //Guard against double-delete on multiple btrs toward the same sc in same tx
+                    mapSidechains.at(btr.scId).mcBtrsTxHashes.erase(tx.GetHash());
+                    if (mapSidechains.at(btr.scId).mcBtrsTxHashes.empty())
+                        mapSidechains.at(btr.scId).mcBtrsCertDataHash.SetNull();
 
-					if (mapSidechains.at(btr.scId).IsNull())
-					{
-						LogPrint("mempool", "%s():%d - erasing btr from mapSidechain [%s]\n", __func__, __LINE__, btr.scId.ToString() );
-						mapSidechains.erase(btr.scId);
-					}
-				}
-			}
+                    if (mapSidechains.at(btr.scId).IsNull())
+                    {
+                        LogPrint("mempool", "%s():%d - erasing btr from mapSidechain [%s]\n", __func__, __LINE__, btr.scId.ToString() );
+                        mapSidechains.erase(btr.scId);
+                    }
+                }
+            }
 
             for(const auto& fwd: tx.GetVftCcOut()) {
                 if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
@@ -1579,7 +1579,7 @@ bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
 
 bool CCoinsViewMemPool::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const
 {
-	return mempool.HaveCswNullifier(scId, nullifier) || base->HaveCswNullifier(scId, nullifier);
+    return mempool.HaveCswNullifier(scId, nullifier) || base->HaveCswNullifier(scId, nullifier);
 }
 
 size_t CTxMemPool::DynamicMemoryUsage() const {

@@ -49,7 +49,6 @@ public:
     void SetHex(const char* psz);
     void SetHex(const std::string& str);
     std::string ToString() const;
-    uint64_t GetHash(const base_blob& salt) const;
 
     unsigned char* begin()
     {

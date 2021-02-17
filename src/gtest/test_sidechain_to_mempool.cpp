@@ -779,9 +779,8 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainIsAccepted) {
     CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
-    CValidationState dummyState;
     libzendoomc::CScProofVerifier verifier = libzendoomc::CScProofVerifier::Disabled();
-    EXPECT_TRUE(sidechainsView.IsTxCswApplicableToState(cswTx, dummyState, verifier));
+    EXPECT_TRUE(sidechainsView.IsScTxApplicableToState(cswTx, verifier));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
@@ -803,22 +802,24 @@ TEST_F(SidechainsInMempoolTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRej
     CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
-    CValidationState dummyState;
+    int height = pcoinsTip->GetHeight();
     libzendoomc::CScProofVerifier verifier = libzendoomc::CScProofVerifier::Disabled();
-    EXPECT_FALSE(sidechainsView.IsTxCswApplicableToState(cswTx, dummyState, verifier));
+
+    EXPECT_FALSE(pcoinsTip->IsScTxApplicableToState(cswTx, verifier));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, CSWsToUnknownSidechainIsRefused) {
     uint256 unknownScId = uint256S("aaa");
     ASSERT_FALSE(pcoinsTip->HaveSidechain(unknownScId));
+
     CAmount cswTxCoins = 10;
     ASSERT_TRUE(cswTxCoins > 0);
     CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(unknownScId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
-    CValidationState dummyState;
+    int height = pcoinsTip->GetHeight();
     libzendoomc::CScProofVerifier verifier = libzendoomc::CScProofVerifier::Disabled();
-    EXPECT_FALSE(pcoinsTip->IsTxCswApplicableToState(cswTx, dummyState, verifier));
+    EXPECT_FALSE(pcoinsTip->IsScTxApplicableToState(cswTx, verifier));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, CSWsToActiveSidechainIsRefused) {
@@ -840,9 +841,9 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToActiveSidechainIsRefused) {
     CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
-    CValidationState dummyState;
+    int height = pcoinsTip->GetHeight();
     libzendoomc::CScProofVerifier verifier = libzendoomc::CScProofVerifier::Disabled();
-    EXPECT_FALSE(pcoinsTip->IsTxCswApplicableToState(cswTx, dummyState, verifier));
+    EXPECT_FALSE(pcoinsTip->IsScTxApplicableToState(cswTx, verifier));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected) {

@@ -122,7 +122,7 @@ struct CSidechainMemPoolEntry
                 mBackwardCertificates.empty() &&
                 mcBtrsTxHashes.empty()        &&
                 mcBtrsCertDataHash.IsNull()   &&
-				cswNullifiers.empty()         &&
+                cswNullifiers.empty()         &&
                 cswTotalAmount == 0;
     }
 
@@ -313,8 +313,8 @@ public:
 
     bool HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const
     {
-    	LOCK(cs);
-    	return mapSidechains.count(scId) != 0 && mapSidechains.at(scId).cswNullifiers.count(nullifier) != 0;
+        LOCK(cs);
+        return mapSidechains.count(scId) != 0 && mapSidechains.at(scId).cswNullifiers.count(nullifier) != 0;
     }
 
     bool hasSidechainBwtRequest(const uint256& scId) const
@@ -357,14 +357,14 @@ protected:
 public:
     CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn);
 
-    bool GetNullifier(const uint256 &txid)                         const override;
-    bool GetCoins(const uint256 &txid, CCoins &coins)              const override;
-    bool HaveCoins(const uint256 &txid)                            const override;
-    bool GetSidechain(const uint256& scId, CSidechain& info)       const override;
-    bool HaveSidechain(const uint256& scId)                        const override;
-    void GetScIds(std::set<uint256>& scIdsList)                    const override;
+    bool GetNullifier(const uint256 &txid)                              const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)                   const override;
+    bool HaveCoins(const uint256 &txid)                                 const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)            const override;
+    bool HaveSidechain(const uint256& scId)                             const override;
+    void GetScIds(std::set<uint256>& scIdsList)                         const override;
     bool HaveCswNullifier(const uint256& scId,
-    		              const libzendoomc::ScFieldElement &nullifier) const override;
+                          const libzendoomc::ScFieldElement &nullifier) const override;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

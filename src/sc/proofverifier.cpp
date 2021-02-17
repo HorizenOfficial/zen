@@ -109,9 +109,8 @@ namespace libzendoomc{
         WCertVerifierInputs inputs;
 
         //Deserialize constant
-        if (constant.size() == 0){ //Constant can be optional
+        if (constant.size() == 0) { //Constant can be optional
             inputs.constant = nullptr;
-
         } else {
             
             inputs.constant = deserialize_field(constant.data()); 

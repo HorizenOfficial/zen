@@ -161,51 +161,6 @@ uint64_t uint256::GetHash(const uint256& salt) const
     return ((((uint64_t)b) << 32) | c);
 }
 
-template <>
-uint64_t base_blob<768>::GetHash(const base_blob<768>& salt) const
-{
-    uint32_t a, b, c;
-    const uint32_t *pn = (const uint32_t*)data;
-    const uint32_t *salt_pn = (const uint32_t*)salt.data;
-    a = b = c = 0xdeadbeef + WIDTH;
-
-    a += pn[0] ^ salt_pn[0];
-    b += pn[1] ^ salt_pn[1];
-    c += pn[2] ^ salt_pn[2];
-    HashMix(a, b, c);
-    a += pn[3] ^ salt_pn[3];
-    b += pn[4] ^ salt_pn[4];
-    c += pn[5] ^ salt_pn[5];
-    HashMix(a, b, c);
-    a += pn[6] ^ salt_pn[6];
-    b += pn[7] ^ salt_pn[7];
-    c += pn[8] ^ salt_pn[8];
-    HashMix(a, b, c);
-    a += pn[9] ^ salt_pn[9];
-    b += pn[10] ^ salt_pn[10];
-    c += pn[11] ^ salt_pn[11];
-    HashMix(a, b, c);
-    a += pn[12] ^ salt_pn[12];
-    b += pn[13] ^ salt_pn[13];
-    c += pn[14] ^ salt_pn[14];
-    HashMix(a, b, c);
-    a += pn[15] ^ salt_pn[15];
-    b += pn[16] ^ salt_pn[16];
-    c += pn[17] ^ salt_pn[17];
-    HashMix(a, b, c);
-    a += pn[18] ^ salt_pn[18];
-    b += pn[19] ^ salt_pn[19];
-    c += pn[20] ^ salt_pn[20];
-    HashMix(a, b, c);
-    a += pn[21] ^ salt_pn[21];
-    b += pn[22] ^ salt_pn[22];
-    c += pn[23] ^ salt_pn[23];
-    
-    HashFinal(a, b, c);
-
-    return ((((uint64_t)b) << 32) | c);
-}
-
 uint64_t CalculateHash(const uint32_t* const src, size_t length, const uint32_t* const salt)
 {
     uint32_t a, b, c;

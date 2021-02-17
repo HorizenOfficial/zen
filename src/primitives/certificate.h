@@ -224,8 +224,10 @@ struct CMutableScCertificate : public CMutableTransactionBase
 
     CMutableScCertificate();
     CMutableScCertificate(const CScCertificate& tx);
+    CMutableScCertificate(const CMutableScCertificate& tx) = default;
     operator CScCertificate() { return CScCertificate(*this); }
     CMutableScCertificate& operator=(const CMutableScCertificate& tx);
+    ~CMutableScCertificate() = default;
 
     ADD_SERIALIZE_METHODS;
 

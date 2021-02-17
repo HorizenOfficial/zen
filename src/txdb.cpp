@@ -33,7 +33,6 @@ static const char DB_BEST_ANCHOR = 'a';
 static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
 static const char DB_LAST_BLOCK = 'l';
-static const char DB_CERT_DATA_HASH = 'h';
 static const char DB_CSW_NULLIFIER = 'n';
 
 

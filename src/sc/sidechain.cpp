@@ -200,6 +200,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-creation-invalid-wceased-vk");
         }
     }
+
     // Note: no sence to check FT and ScCr amounts, because they were chacked before in `tx.CheckAmounts`
     for (const auto& ft : tx.GetVftCcOut())
     {
