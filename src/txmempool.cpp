@@ -745,6 +745,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             remove(tx, outdatedTxs, outdatedCerts, true);
         }
     }
+    LogPrint("mempool", "%s():%d - removed %d certs and %d txes", __func__, __LINE__, outdatedCerts.size(), outdatedTxs.size());
 }
 
 /**

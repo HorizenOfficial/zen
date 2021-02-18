@@ -105,6 +105,8 @@ class sc_bwt_request(BitcoinTestFramework):
             "wMbtrVk": mbtrVk1,
         }
 
+        print "Node0 Chain h = ", self.nodes[0].getblockcount()
+
         try:
             ret = self.nodes[1].create_sidechain(cmdInput)
         except JSONRPCException, e:
@@ -297,6 +299,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         # zero fee txes are not included in the block since we started nodes with -blockprioritysize=0
         assert_false(bwt3 in vtx)
+        assert_true(bwt3 in self.nodes[0].getrawmempool())
 
         sc_info = self.nodes[0].getscinfo(scid1)['items'][0]
 
@@ -392,11 +395,15 @@ class sc_bwt_request(BitcoinTestFramework):
         ret_sc2 = self.nodes[0].getscinfo(scid2, False, False)['items'][0]
 
         mark_logs("Node0 generates {} blocks reaching the safe guard height".format(EPOCH_LENGTH - 4), self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(EPOCH_LENGTH - 4))
+        blocks.extend(self.nodes[0].generate(EPOCH_LENGTH - 3))
         self.sync_all()
 
-        # the zero fee mbtr tx has been removed from empool since we reached epoch safe guard
-        assert_false(bwt3 in self.nodes[0].getrawmempool())
+        print "Node0 Chain h = ", self.nodes[0].getblockcount()
+
+        # the zero fee mbtr tx has not yet been removed from empool since we reached epoch safe guard but
+        # we are still in the epoch 0
+        mark_logs("Check btr is still in mempool", self.nodes, DEBUG_MODE)
+        assert_true(bwt3 in self.nodes[0].getrawmempool())
 
         epoch_block_hash, epoch_number = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
@@ -424,6 +431,10 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Node0 confirms cert generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
+
+        print "Node0 Chain h = ", self.nodes[0].getblockcount()
+        mark_logs("Check btr {} is removed from mempool".format(bwt3), self.nodes, DEBUG_MODE)
+        assert_false(bwt3 in self.nodes[0].getrawmempool())
 
         mark_logs("Checking Sc balance is nothing but sc fees of the various mbtr", self.nodes, DEBUG_MODE)
         sc_post_bwd = self.nodes[0].getscinfo(scid1, False, False)['items'][0]
@@ -507,6 +518,8 @@ class sc_bwt_request(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(ceasing_h - current_h - 1))
         self.sync_all()
         print "Current height = ",  self.nodes[0].getblockcount()
+
+        any_error = False
 
         # 1) send a cert
         mark_logs("\nNode0 sends a certificate to SC2", self.nodes, DEBUG_MODE)

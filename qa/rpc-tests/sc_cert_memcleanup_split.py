@@ -86,6 +86,8 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         prev_epoch_hash = self.nodes[0].getbestblockhash()
         block_1 = prev_epoch_hash
 
+        print "Node0 Chain h = ", self.nodes[0].getblockcount()
+
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
         sc_epoch_len = EPOCH_LENGTH
         sc_cr_amount = Decimal('12.00000000')
@@ -138,11 +140,13 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         ceas_height = self.nodes[0].getscinfo(scid, False, False)['items'][0]['ceasing height']
         numbBlocks = ceas_height - self.nodes[0].getblockcount() + sc_epoch_len - 1
+        print "Node0 Chain h = ", self.nodes[0].getblockcount()
 
         mark_logs("\nNode0 generates {} block reaching the sg for the next epoch".format(numbBlocks), self.nodes, DEBUG_MODE)
         self.nodes[0].generate(numbBlocks)
         self.sync_all()
-
+        print "Node0 Chain h = ", self.nodes[0].getblockcount()
+        
         bal_initial = self.nodes[0].getscinfo(scid, False, False)['items'][0]['balance']
 
         #============================================================================================
@@ -198,6 +202,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         mark_logs("              Check cert {} is in mempool".format(cert_bad), self.nodes, DEBUG_MODE)
         assert_true(cert_bad in self.nodes[0].getrawmempool()) 
+        print "Node0 Chain h = ", self.nodes[0].getblockcount()
 
         # Network part 2
         #------------------
@@ -223,11 +228,13 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         mark_logs("              Check cert {} is in mempool".format(cert), self.nodes, DEBUG_MODE)
         assert_true(cert in self.nodes[3].getrawmempool())
+        print "Node3 Chain h = ", self.nodes[3].getblockcount()
 
 
         mark_logs("Node3 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[3].generate(1)
         sync_mempools(self.nodes[3:4])
+        print "Node3 Chain h = ", self.nodes[3].getblockcount()
 
         #============================================================================================
         mark_logs("\nJoining network", self.nodes, DEBUG_MODE)
@@ -240,6 +247,8 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         mark_logs("Check fwd tx {} is still in mempool...".format(tx_fwd), self.nodes, DEBUG_MODE)
         assert_true(tx_fwd in self.nodes[0].getrawmempool()) 
+
+        any_error = False
 
         mark_logs("Check bwd tx {} is no more in mempool, since we crossed the epoch safeguard".format(tx_bwt), self.nodes, DEBUG_MODE)
         #assert_false(tx_bwt in self.nodes[0].getrawmempool()) 
@@ -262,6 +271,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         #assert_false(cert_bad in self.nodes[0].getrawmempool()) 
         if cert_bad in self.nodes[0].getrawmempool():
             print "FIX FIX FIX!!! cert is still in mempool" 
+            any_error = True
 
         mark_logs("And that no info are available too...", self.nodes, DEBUG_MODE)
         try:
@@ -283,10 +293,14 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         if any_error:
             print" =========================> Test failed!!!"
-            assert(False)
+            #assert(False)
+
+        for i in range(0,4):
+            pprint.pprint(self.nodes[i].getrawmempool())
 
         # if any_error this should fail
-        #self.nodes[0].generate(1)
+        self.nodes[0].generate(1)
+        self.sync_all()
 
 
 if __name__ == '__main__':

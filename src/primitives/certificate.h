@@ -158,7 +158,7 @@ public:
     const std::vector<JSDescription>&  GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                     GetScId()       const          {return scId;};
     const uint32_t&                    GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
-    const libzendoomc::ScFieldElement& GetDataHash() const { static const libzendoomc::ScFieldElement dummy; return dummy;}
+    libzendoomc::ScFieldElement GetDataHash() const;
     //END OF GETTERS
 
     bool IsBackwardTransfer(int pos) const override final;

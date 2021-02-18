@@ -3408,8 +3408,8 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     std::list<CScCertificate> removedCerts;
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
-    mempool.removeStaleTransactions(pcoinsTip, pindexNew->nHeight, removedTxs, removedCerts);
-    mempool.removeStaleCertificates(pcoinsTip, pindexNew->nHeight, removedCerts);
+    mempool.removeStaleTransactions(pcoinsTip, pindexNew->nHeight+1, removedTxs, removedCerts);
+    mempool.removeStaleCertificates(pcoinsTip, pindexNew->nHeight+1, removedCerts);
 
     mempool.check(pcoinsTip);
 

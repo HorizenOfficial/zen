@@ -240,6 +240,10 @@ std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
 {
     return std::shared_ptr<const CTransactionBase>();
 }
+libzendoomc::ScFieldElement CScCertificate::GetDataHash() const
+{
+     static const libzendoomc::ScFieldElement dummy; return dummy;
+}
 #else
 
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
@@ -252,6 +256,13 @@ void CScCertificate::Relay() const { ::Relay(*this); }
 std::shared_ptr<const CTransactionBase>
 CScCertificate::MakeShared() const {
     return std::shared_ptr<const CTransactionBase>(new CScCertificate(*this));
+}
+
+libzendoomc::ScFieldElement CScCertificate::GetDataHash() const
+{
+     libzendoomc::ScFieldElement dummy; 
+     dummy.SetHex(GetHash().GetHex());
+     return dummy;
 }
 #endif
 
