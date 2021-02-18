@@ -39,7 +39,7 @@ int CSidechain::GetCeasingHeight() const
 {
     if (!isCreationConfirmed()) //default value
         return -1;
-    return StartHeightForEpoch(lastTopQualityCertReferencedEpoch+2) + SafeguardMargin();
+    return StartHeightForEpoch(lastTopQualityCertReferencedEpoch+2) + SafeguardMargin() -1;
 }
 
 std::string CSidechain::stateToString(State s)

@@ -1782,7 +1782,7 @@ CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
     if (!sidechain.isCreationConfirmed())
     	return CSidechain::State::UNCONFIRMED;
 
-    if (this->GetHeight() > sidechain.GetCeasingHeight())
+    if (this->GetHeight() >= sidechain.GetCeasingHeight())
     	return CSidechain::State::CEASED;
     else
     	return CSidechain::State::ALIVE;
