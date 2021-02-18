@@ -942,8 +942,8 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
 
 
     // Retrieve previous end epoch block info for certificate proof verification
-    int prev_end_epoch_block_height = scInfo.StartHeightForEpoch(cert.epochNumber) - 1;
-    int curr_end_epoch_block_height = scInfo.StartHeightForEpoch(cert.epochNumber + 1) - 1;
+    int prev_end_epoch_block_height = scInfo.EndHeightForEpoch(cert.epochNumber - 1);
+    int curr_end_epoch_block_height = scInfo.EndHeightForEpoch(cert.epochNumber);
 
     CBlockIndex* prev_end_epoch_block_index = chainActive[prev_end_epoch_block_height];
     CBlockIndex* curr_end_epoch_block_index = chainActive[curr_end_epoch_block_height];
@@ -1012,7 +1012,7 @@ bool CCoinsViewCache::isEpochDataValid(const CSidechain& scInfo, int epochNumber
     }
 
     // 3. combination of epoch number and epoch length, specified in sc info, must point to that end-epoch block
-    int endEpochHeight = scInfo.StartHeightForEpoch(epochNumber+1) -1;
+    int endEpochHeight = scInfo.EndHeightForEpoch(epochNumber);
     pblockindex = chainActive[endEpochHeight];
 
     if (!pblockindex)

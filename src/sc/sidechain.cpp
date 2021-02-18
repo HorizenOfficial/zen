@@ -30,6 +30,14 @@ int CSidechain::StartHeightForEpoch(int targetEpoch) const
     return creationBlockHeight + targetEpoch * creationData.withdrawalEpochLength;
 }
 
+int CSidechain::EndHeightForEpoch(int targetEpoch) const
+{
+    if (creationBlockHeight == -1) //default value
+        return -1;
+
+    return creationBlockHeight + (targetEpoch + 1) * creationData.withdrawalEpochLength - 1;
+}
+
 int CSidechain::SafeguardMargin() const
 {
     if ( creationData.withdrawalEpochLength == -1) //default value

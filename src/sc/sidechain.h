@@ -135,6 +135,7 @@ public:
 
     int EpochFor(int targetHeight) const;
     int StartHeightForEpoch(int targetEpoch) const;
+    int EndHeightForEpoch(int targetEpoch) const;
     int SafeguardMargin() const;
     int GetCeasingHeight() const;
 

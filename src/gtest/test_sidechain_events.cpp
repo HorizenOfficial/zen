@@ -59,7 +59,7 @@ TEST_F(SidechainsEventsTestSuite, SidechainInItsFirstEpochIsNotCeased) {
     CSidechain scInfo;
     view->GetSidechain(scId, scInfo);
     int currentEpoch = scInfo.EpochFor(creationHeight);
-    int endEpochHeight = scInfo.StartHeightForEpoch(currentEpoch+1)-1;
+    int endEpochHeight = scInfo.EndHeightForEpoch(currentEpoch);
 
     for(int height = creationHeight; height <= endEpochHeight; ++height) {
         CSidechain::State state = view->isCeasedAtHeight(scId, height);
@@ -88,17 +88,18 @@ TEST_F(SidechainsEventsTestSuite, SidechainIsNotCeasedBeforeNextEpochSafeguard) 
 }
 
 TEST_F(SidechainsEventsTestSuite, SidechainIsCeasedAftereNextEpochSafeguard) {
-    uint256 scId = uint256S("aaa");
     int creationHeight = 1968;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10),/*epochLength*/100);
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
     CBlock creationBlock;
     view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
+    view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut().at(0), creationHeight);
 
     CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
+    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
     int currentEpoch = scInfo.EpochFor(creationHeight);
-    int nextEpochStart = scInfo.StartHeightForEpoch(currentEpoch+1);
-    int nextEpochEnd = scInfo.StartHeightForEpoch(currentEpoch+2)-1;
+    int nextEpochStart = scInfo.StartHeightForEpoch(currentEpoch + 1);
+    int nextEpochEnd = scInfo.EndHeightForEpoch(currentEpoch + 1);
 
     for(int height = nextEpochStart + scInfo.SafeguardMargin()+1; height <= nextEpochEnd; ++height) {
         CSidechain::State state = view->isCeasedAtHeight(scId, height);
