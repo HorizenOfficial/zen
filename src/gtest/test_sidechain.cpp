@@ -462,10 +462,10 @@ TEST_F(SidechainsTestSuite, ForwardTransferToCeasedSCsIsApplicableToState) {
 }
 
 TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToState) {
-	//setup blockchain
-	int viewHeight {1963};
-	chainSettingUtils::ExtendChainActiveToHeight(viewHeight);
-	sidechainsView->SetBestBlock(*(chainActive.Tip()->phashBlock));
+    //setup blockchain
+    int viewHeight {1963};
+    chainSettingUtils::ExtendChainActiveToHeight(viewHeight);
+    sidechainsView->SetBestBlock(*(chainActive.Tip()->phashBlock));
 
     // setup sidechain initial state
     CSidechain initialScState;
@@ -489,13 +489,17 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
 
     //checks
     EXPECT_TRUE(res);
+
+    //cleanup blockchain
+    chainActive.SetTip(nullptr);
+    mapBlockIndex.clear();
 }
 
 TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicableToState) {
-	//setup blockchain
-	int viewHeight {1963};
-	chainSettingUtils::ExtendChainActiveToHeight(viewHeight);
-	sidechainsView->SetBestBlock(*(chainActive.Tip()->phashBlock));
+    //setup blockchain
+    int viewHeight {1963};
+    chainSettingUtils::ExtendChainActiveToHeight(viewHeight);
+    sidechainsView->SetBestBlock(*(chainActive.Tip()->phashBlock));
 
     // setup sidechain initial state
     CSidechain initialScState;
@@ -519,6 +523,10 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
 
     //checks
     EXPECT_TRUE(res);
+
+    //cleanup blockchain
+    chainActive.SetTip(nullptr);
+    mapBlockIndex.clear();
 }
 
 TEST_F(SidechainsTestSuite, McBwtRequestToUnknownSidechainIsNotApplicableToState) {
