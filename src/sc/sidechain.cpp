@@ -16,7 +16,7 @@
 
 int CSidechain::EpochFor(int targetHeight) const
 {
-    if (creationBlockHeight == -1) //default value
+    if (!isCreationConfirmed()) //default value
         return CScCertificate::EPOCH_NULL;
 
     return (targetHeight - creationBlockHeight) / creationData.withdrawalEpochLength;
@@ -24,7 +24,7 @@ int CSidechain::EpochFor(int targetHeight) const
 
 int CSidechain::StartHeightForEpoch(int targetEpoch) const
 {
-    if (creationBlockHeight == -1) //default value
+    if (!isCreationConfirmed()) //default value
         return -1;
 
     return creationBlockHeight + targetEpoch * creationData.withdrawalEpochLength;
@@ -32,14 +32,12 @@ int CSidechain::StartHeightForEpoch(int targetEpoch) const
 
 int CSidechain::SafeguardMargin() const
 {
-    if ( creationData.withdrawalEpochLength == -1) //default value
-        return -1;
     return creationData.withdrawalEpochLength/5;
 }
 
 int CSidechain::GetCeasingHeight() const
 {
-    if ( creationData.withdrawalEpochLength == -1) //default value
+    if (!isCreationConfirmed()) //default value
         return -1;
     return StartHeightForEpoch(lastTopQualityCertReferencedEpoch+2) + SafeguardMargin();
 }

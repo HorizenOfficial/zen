@@ -48,7 +48,7 @@ public:
         pastEpochTopQualityCertDataHash(), lastTopQualityCertDataHash(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
-        balance(0), currentState((uint8_t)State::NOT_APPLICABLE) {}
+        balance(0) {}
 
     bool IsNull() const
     {
@@ -64,8 +64,7 @@ public:
              lastTopQualityCertBwtAmount == 0                                 &&
              balance == 0                                                     &&
              creationData.IsNull()                                            &&
-             mImmatureAmounts.empty()                                         &&
-             currentState == static_cast<uint8_t>(State::NOT_APPLICABLE));
+             mImmatureAmounts.empty());
     }
 
     int32_t sidechainVersion;
@@ -100,13 +99,13 @@ public:
     // value = the immature amount
     std::map<int, CAmount> mImmatureAmounts;
 
+
     enum class State : uint8_t {
         NOT_APPLICABLE = 0,
         UNCONFIRMED,
         ALIVE,
         CEASED
     };
-    uint8_t currentState;
 
     static std::string stateToString(State s);
 
@@ -130,7 +129,6 @@ public:
         READWRITE(balance);
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
-        READWRITE(currentState);
     }
 
     inline bool operator==(const CSidechain& rhs) const
@@ -147,8 +145,7 @@ public:
                (this->lastTopQualityCertBwtAmount        == rhs.lastTopQualityCertBwtAmount)        &&
                (this->balance                            == rhs.balance)                            &&
                (this->creationData                       == rhs.creationData)                       &&
-               (this->mImmatureAmounts                   == rhs.mImmatureAmounts)                   &&
-               (this->currentState                       == rhs.currentState);
+               (this->mImmatureAmounts                   == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
@@ -156,6 +153,10 @@ public:
     int StartHeightForEpoch(int targetEpoch) const;
     int SafeguardMargin() const;
     int GetCeasingHeight() const;
+
+    bool isCreationConfirmed() const {
+    	return this->creationBlockHeight != -1;
+    }
 
     // Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;

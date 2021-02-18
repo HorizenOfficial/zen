@@ -722,7 +722,6 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.creationData.wCertVk = cr.wCertVk;
         scIt->second.sidechain.creationData.wMbtrVk = cr.wMbtrVk;
         scIt->second.sidechain.mImmatureAmounts[maturityHeight] = cr.nValue;
-        scIt->second.sidechain.currentState = (uint8_t)CSidechain::State::ALIVE;
 
         scIt->second.flag = CSidechainsCacheEntry::Flags::FRESH;
 
@@ -873,7 +872,7 @@ int CSidechain::SafeguardMargin() const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
 std::string CSidechain::stateToString(State s) { return "";}
 bool CCoinsViewCache::CheckEndEpochBlockHash(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight,
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool fIncludeOnNextHeight,
                                               libzendoomc::CScProofVerifier& scVerifier) const {return true;}
 bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx,
                                               libzendoomc::CScProofVerifier& scVerifier) const { return true;}
@@ -889,7 +888,7 @@ int CCoinsViewCache::GetHeight() const
     return pindexPrev->nHeight;
 }
 
-bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certHeight, int certEpoch) const
+bool CCoinsViewCache::CheckCertTiming(const uint256& scId, bool fIncludeOnNextHeight, int certEpoch) const
 {
     CSidechain sidechain;
     if (!GetSidechain(scId, sidechain))
@@ -898,7 +897,7 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certHeight, int c
                 __func__, __LINE__, scId.ToString());
     }
 
-    if (sidechain.currentState != static_cast<int8_t>(CSidechain::State::ALIVE))
+    if (this->GetSidechainState(scId) != CSidechain::State::ALIVE)
     {
         return error("%s():%d - ERROR: certificate cannot be accepted, sidechain [%s] already ceased\n",
                 __func__, __LINE__, scId.ToString());
@@ -914,7 +913,9 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certHeight, int c
     }
 
     int certWindowStartHeight = sidechain.StartHeightForEpoch(certEpoch+1);
-    if ((certHeight < certWindowStartHeight) || (certHeight > certWindowStartHeight + sidechain.SafeguardMargin()))
+    int inclusionHeight = this->GetHeight();
+    if (fIncludeOnNextHeight) ++inclusionHeight;
+    if ((inclusionHeight < certWindowStartHeight) || (inclusionHeight > certWindowStartHeight + sidechain.SafeguardMargin()))
     {
         return error("%s():%d - ERROR: certificate cannot be accepted, cert received outside safeguard\n",
                 __func__, __LINE__);
@@ -923,12 +924,13 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certHeight, int c
     return true;
 }
 
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nHeight, libzendoomc::CScProofVerifier& scVerifier) const
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool fIncludeOnNextHeight, libzendoomc::CScProofVerifier& scVerifier) const
 {
     const uint256& certHash = cert.GetHash();
+    int nHeight = fIncludeOnNextHeight? this->GetHeight()+1: this->GetHeight();
 
     LogPrint("cert", "%s():%d - called: cert[%s], scId[%s], height[%d]\n",
-        __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString(), nHeight );
+        __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString(), nHeight);
 
     CSidechain sidechain;
     if (!GetSidechain(cert.GetScId(), sidechain))
@@ -944,7 +946,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
-    if (!CheckCertTiming(cert.GetScId(), nHeight, cert.epochNumber))
+    if (!CheckCertTiming(cert.GetScId(), fIncludeOnNextHeight, cert.epochNumber))
     {
         return false;
     }
@@ -1665,9 +1667,6 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         LogPrint("sc", "%s():%d - set voidedCertHash[%s], ceasingScId = %s\n",
             __func__, __LINE__, sidechain.lastTopQualityCertHash.ToString(), ceasingScId.ToString());
 
-        CSidechainsMap::iterator scIt = ModifySidechain(ceasingScId);
-        scIt->second.sidechain.currentState = (uint8_t)CSidechain::State::CEASED;
-        scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
         blockUndo.scUndoDatabyScId[ceasingScId].contentBitMask |= CSidechainUndoData::AvailableSections::CEASED_CERT_DATA;
 
         if (sidechain.lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL) {
@@ -1762,9 +1761,6 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
         }
 
         recreatedScEvent.ceasingScs.insert(scId);
-        CSidechainsMap::iterator scIt = ModifySidechain(scId);
-        scIt->second.sidechain.currentState = (uint8_t)CSidechain::State::ALIVE;
-        scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
     }
 
     if (!recreatedScEvent.IsNull())
@@ -1779,15 +1775,17 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
 
 CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
 {
-    if (!HaveSidechain(scId))
+	CSidechain sidechain;
+    if (!GetSidechain(scId, sidechain))
         return CSidechain::State::NOT_APPLICABLE;
 
-    CSidechain sidechain;
-    GetSidechain(scId, sidechain);
+    if (!sidechain.isCreationConfirmed())
+    	return CSidechain::State::UNCONFIRMED;
 
-    LogPrint("cert", "%s.%s():%d sc %s state is %s\n", __FILE__, __func__, __LINE__, scId.ToString(),
-        CSidechain::stateToString((CSidechain::State)sidechain.currentState));
-    return (CSidechain::State)sidechain.currentState;
+    if (this->GetHeight() > sidechain.GetCeasingHeight())
+    	return CSidechain::State::CEASED;
+    else
+    	return CSidechain::State::ALIVE;
 }
 
 libzendoomc::ScFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256& scId) const

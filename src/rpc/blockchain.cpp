@@ -1156,12 +1156,11 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
                     info.creationData.wMbtrVk = scCreation.wMbtrVk;
-                    info.currentState = (uint8_t)CSidechain::State::UNCONFIRMED;
                     break;
                 }
             }
 
-            sc.push_back(Pair("state", CSidechain::stateToString((CSidechain::State)info.currentState)));
+            sc.push_back(Pair("state", CSidechain::stateToString(CSidechain::State::UNCONFIRMED)));
             sc.push_back(Pair("unconf creating tx hash", info.creationTxHash.GetHex()));
             sc.push_back(Pair("unconf withdrawalEpochLength", info.creationData.withdrawalEpochLength));
 

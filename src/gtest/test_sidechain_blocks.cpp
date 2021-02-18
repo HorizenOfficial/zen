@@ -165,7 +165,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
     storeSidechain(scId, initialScState);
 
     CSidechainEvents event;
@@ -234,7 +233,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
     storeSidechain(scId, initialScState);
 
     CSidechainEvents event;
@@ -304,7 +302,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
     storeSidechain(scId, initialScState);
 
     CSidechainEvents event;
@@ -387,7 +384,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
     storeSidechain(scId, initialScState);
 
     CSidechainEvents event;

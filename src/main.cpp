@@ -1169,7 +1169,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             }
 
             auto scVerifier = libzendoomc::CScProofVerifier::Strict();
-            if (!view.IsCertApplicableToState(cert, nextBlockHeight, scVerifier))
+            bool fIncludeOnNextHeight = disconnecting == DisconnectingFlag::ON? false : true;
+            if (!view.IsCertApplicableToState(cert, fIncludeOnNextHeight, scVerifier))
             {
                 return state.DoS(0, error("%s(): certificate not applicable", __func__),
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
@@ -2859,7 +2860,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         control.Add(vChecks);
 
         auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-        if (!view.IsCertApplicableToState(cert, pindex->nHeight, scVerifier) )
+        if (!view.IsCertApplicableToState(cert, /*fIncludeOnNextHeight*/false, scVerifier) )
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");

@@ -646,9 +646,9 @@ public:
     int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, libzendoomc::CScProofVerifier& scVerifier) const;
+    bool IsCertApplicableToState(const CScCertificate& cert, bool fIncludeOnNextHeight, libzendoomc::CScProofVerifier& scVerifier) const;
     bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
-    bool CheckCertTiming(const uint256& scId, int certHeight, int certEpoch) const;
+    bool CheckCertTiming(const uint256& scId, bool fIncludeOnNextHeight, int certEpoch) const;
     bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
     bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
     bool CheckQuality(const CScCertificate& cert)  const override;

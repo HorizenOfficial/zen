@@ -595,7 +595,7 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
             continue;
         }
 
-        if (!pCoinsView->CheckCertTiming(cert.GetScId(), nMemPoolHeight, cert.epochNumber))
+        if (!pCoinsView->CheckCertTiming(cert.GetScId(), /*fIncludeOnNextHeight*/true, cert.epochNumber))
         {
             certsToRemove.insert(cert.GetHash());
             continue;
@@ -1407,7 +1407,6 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationData.constant = scCreation.constant;
                 info.creationData.wCertVk = scCreation.wCertVk;
                 info.creationData.wMbtrVk = scCreation.wMbtrVk;
-                info.currentState = (uint8_t)CSidechain::State::UNCONFIRMED;
                 break;
             }
         }
