@@ -3877,11 +3877,6 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
         const CPoseidonHash& prevScCumTreeHash = (pindexNew->pprev->nVersion == BLOCK_VERSION_SC_SUPPORT) ? pindexNew->pprev->scCumTreeHash : CPoseidonHash();
         pindexNew->scCumTreeHash = CPoseidonHash::ComputeHash(prevScCumTreeHash, block.hashScTxsCommitment); 
     }
-    else
-    {
-        pindexNew->scCumTreeHash = CPoseidonHash();
-    }
-
 
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
     if (pindexBestHeader == NULL || (pindexBestHeader->nChainWork < pindexNew->nChainWork && pindexNew->nChainDelay==0))
