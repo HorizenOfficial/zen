@@ -1614,7 +1614,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         std::map<uint256, libzendoomc::ScFieldElement> scIdToCertDataHash;
         for(const auto& btr: tx.GetVBwtRequestOut())
         {
-        	scIdToCertDataHash[btr.scId] = view.GetActiveCertDataHash(btr.scId);
+            scIdToCertDataHash[btr.scId] = view.GetActiveCertDataHash(btr.scId);
         }
 
         pool.addUnchecked(hash, entry, !IsInitialBlockDownload(), scIdToCertDataHash);
@@ -2763,14 +2763,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     {
         const CCoins* coins = view.AccessCoins(tx.GetHash());
         if (coins && !coins->IsPruned())
-            return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"),
+            return state.DoS(100, error("%s():%d: tried to overwrite transaction",__func__, __LINE__),
                              REJECT_INVALID, "bad-txns-BIP30");
     }
     for(const CScCertificate& cert: block.vcert)
     {
         const CCoins* coins = view.AccessCoins(cert.GetHash());
         if (coins && !coins->IsPruned())
-            return state.DoS(100, error("ConnectBlock(): tried to overwrite certificate"),
+            return state.DoS(100, error("%s():%d: tried to overwrite certificate",__func__, __LINE__),
                              REJECT_INVALID, "bad-txns-BIP30");
     }
 
@@ -2820,13 +2820,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         nInputs += tx.GetVin().size();
         nSigOps += GetLegacySigOpCount(tx);
         if (nSigOps > MAX_BLOCK_SIGOPS)
-            return state.DoS(100, error("ConnectBlock(): too many sigops"),
+            return state.DoS(100, error("%s():%d: too many sigops",__func__, __LINE__),
                              REJECT_INVALID, "bad-blk-sigops");
 
         if (!tx.IsCoinBase())
         {
             if (!view.HaveInputs(tx))
-                return state.DoS(100, error("ConnectBlock(): tx inputs missing/spent"),
+                return state.DoS(100, error("%s():%d: tx inputs missing/spent",__func__, __LINE__),
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
  
             auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
@@ -2838,7 +2838,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
             // are the JoinSplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
-                return state.DoS(100, error("ConnectBlock(): JoinSplit requirements not met"),
+                return state.DoS(100, error("%s():%d: JoinSplit requirements not met",__func__, __LINE__),
                                  REJECT_INVALID, "bad-txns-joinsplit-requirements-not-met");
 
             // Add in sigops done by pay-to-script-hash inputs;
@@ -2846,7 +2846,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             // an incredibly-expensive-to-validate block.
             nSigOps += GetP2SHSigOpCount(tx, view);
             if (nSigOps > MAX_BLOCK_SIGOPS)
-                return state.DoS(100, error("ConnectBlock(): too many sigops"),
+                return state.DoS(100, error("%s():%d: too many sigops",__func__, __LINE__),
                                  REJECT_INVALID, "bad-blk-sigops");
 
             nFees += tx.GetFeeAmount(view.GetValueIn(tx));
@@ -2868,24 +2868,25 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         {
             if (!view.UpdateSidechain(tx, block, pindex->nHeight) )
             {
-                return state.DoS(100, error("ConnectBlock(): could not add sidechain in view: tx[%s]", tx.GetHash().ToString()),
+                return state.DoS(100, error("%s():%d: could not add sidechain in view: tx[%s]",
+                                            __func__, __LINE__, tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
 
             for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
                 if (!view.ScheduleSidechainEvent(scCreation, pindex->nHeight))
                 {
-                    LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
-                    return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", scCreation.GetScId().ToString()),
-                                                         REJECT_INVALID, "bad-sc-not-recorded");
+                    return state.DoS(100, error("%s():%d - SIDECHAIN-EVENT:: error scheduling maturing height for sidechain [%s]",
+                                                __func__, __LINE__, scCreation.GetScId().ToString()),
+                                     REJECT_INVALID, "bad-sc-not-recorded");
                 }
             }
 
             for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
                 if (!view.ScheduleSidechainEvent(fwdTransfer, pindex->nHeight))
                 {
-                    LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
-                    return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", fwdTransfer.GetScId().ToString()),
+                    return state.DoS(100, error("%s():%d - SIDECHAIN-EVENT: error scheduling maturing height for sidechain [%s]",
+                                                __func__, __LINE__, fwdTransfer.GetScId().ToString()),
                                      REJECT_INVALID, "bad-fwd-not-recorded");
                 }
             }
@@ -2893,8 +2894,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             for (const CBwtRequestOut& mbtrOut: tx.GetVBwtRequestOut()) {
                 if (!view.ScheduleSidechainEvent(mbtrOut, pindex->nHeight))
                 {
-                    LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
-                    return state.DoS(100, error("ConnectBlock(): error scheduling maturing height for sidechain [%s]", mbtrOut.GetScId().ToString()),
+                    return state.DoS(100, error("%s():%d: error scheduling maturing height for sidechain [%s]",
+                                                __func__, __LINE__, mbtrOut.GetScId().ToString()),
                                      REJECT_INVALID, "bad-fwd-not-recorded");
                 }
             }
@@ -2925,11 +2926,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         const CScCertificate &cert = block.vcert[certIdx];
         nSigOps += GetLegacySigOpCount(cert);
         if (nSigOps > MAX_BLOCK_SIGOPS)
-            return state.DoS(100, error("ConnectBlock(): too many sigops"),
+            return state.DoS(100, error("%s():%d: too many sigops",__func__, __LINE__),
                              REJECT_INVALID, "bad-blk-sigops");
 
         if (!view.HaveInputs(cert))
-            return state.DoS(100, error("ConnectBlock(): certificate inputs missing/spent"),
+            return state.DoS(100, error("%s():%d: certificate inputs missing/spent",__func__, __LINE__),
                                  REJECT_INVALID, "bad-cert-inputs-missingorspent");
 
         // Add in sigops done by pay-to-script-hash inputs;
@@ -2937,7 +2938,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         // an incredibly-expensive-to-validate block.
         nSigOps += GetP2SHSigOpCount(cert, view);
         if (nSigOps > MAX_BLOCK_SIGOPS)
-            return state.DoS(100, error("ConnectBlock(): too many sigops"),
+            return state.DoS(100, error("%s():%d: too many sigops",__func__, __LINE__),
                              REJECT_INVALID, "bad-blk-sigops");
 
         nFees += cert.GetFeeAmount(view.GetValueIn(cert));
@@ -2951,7 +2952,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
         if (!view.IsCertApplicableToState(cert, pindex->nHeight, scVerifier) )
         {
-            return state.DoS(100, error("ConnectBlock(): invalid sc certificate [%s]", cert.GetHash().ToString()),
+            return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
         }
 
@@ -2963,7 +2964,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         {
             if (!view.UpdateSidechain(cert, blockundo) )
             {
-                return state.DoS(100, error("ConnectBlock(): could not add in scView: cert[%s]", cert.GetHash().ToString()),
+                return state.DoS(100, error("%s():%d: could not add in scView: cert[%s]",__func__, __LINE__, cert.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-cert-not-updated");
             }
 
@@ -2982,8 +2983,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
             if (!view.ScheduleSidechainEvent(cert))
             {
-                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed scheduling event\n", __func__, __LINE__);
-                return state.DoS(100, error("ConnectBlock(): Error updating ceasing heights with certificate [%s]", cert.GetHash().ToString()),
+                return state.DoS(100, error("%s():%d - SIDECHAIN-EVENT: Error updating ceasing heights with certificate [%s]",
+                                            __func__, __LINE__, cert.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
 
@@ -3017,8 +3018,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pCertsStateInfo))
     {
-        LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed handling scheduled event\n", __func__, __LINE__);
-        return state.DoS(100, error("ConnectBlock(): could not handle scheduled event"),
+        return state.DoS(100, error("%s():%d - SIDECHAIN-EVENT: could not handle scheduled event",__func__, __LINE__),
                                  REJECT_INVALID, "bad-sc-events-handling");
     }
 
@@ -3037,9 +3037,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (block.vtx[0].GetValueOut() > blockReward)
         return state.DoS(100,
-                         error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
-                               block.vtx[0].GetValueOut(), blockReward),
-                               REJECT_INVALID, "bad-cb-amount");
+                         error("%s():%d: coinbase pays too much (actual=%d vs limit=%d)",
+                                 __func__, __LINE__, block.vtx[0].GetValueOut(), blockReward),
+                        REJECT_INVALID, "bad-cb-amount");
 
     if (fCheckScTxesCommitment)
     {
@@ -3050,9 +3050,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             // If this check fails, we return validation state obj with a state.corruptionPossible=false attribute,
             // which will mark this header as failed. This is because the previous check on merkel root was successful,
             // that means sc txes/cert are verified, and yet their contribution to scTxsCommittment is not
-            LogPrint("cert", "%s():%d - failed verifying SCTxsCommitment: block[%s] vs computed[%s]\n",
-                __func__, __LINE__, block.hashScTxsCommitment.ToString(), scTxsCommittment.ToString());
-            return state.DoS(100, error("ConnectBlock(): SCTxsCommitment verification failed"),
+            return state.DoS(100, error("%s():%d: SCTxsCommitment verification failed; block[%s] vs computed[%s]",__func__, __LINE__,
+                                        block.hashScTxsCommitment.ToString(), scTxsCommittment.ToString()),
                                REJECT_INVALID, "bad-sc-txs-committment");
         }
         LogPrint("cert", "%s():%d - Successfully verified SCTxsCommitment %s\n",
@@ -3076,7 +3075,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (pindex->GetUndoPos().IsNull()) {
             CDiskBlockPos pos;
             if (!FindUndoPos(state, pindex->nFile, pos, ::GetSerializeSize(blockundo, SER_DISK, CLIENT_VERSION) + 40))
-                return error("ConnectBlock(): FindUndoPos failed");
+                return error("%s():%d: FindUndoPos failed",__func__, __LINE__);
             if (!UndoWriteToDisk(blockundo, pos, pindex->pprev->GetBlockHash(), chainparams.MessageStart()))
                 return AbortNode(state, "Failed to write undo data");
 
