@@ -1857,39 +1857,6 @@ bool CCoinsViewCache::DecrementImmatureAmount(const uint256& scId, const CSidech
     return true;
 }
 
-void CCoinsViewCache::Dump_info() const
-{
-    std::set<uint256> scIdsList;
-    GetScIds(scIdsList);
-    LogPrint("sc", "-- number of side chains found [%d] ------------------------\n", scIdsList.size());
-    for(const auto& scId: scIdsList)
-    {
-        LogPrint("sc", "-- side chain [%s] ------------------------\n", scId.ToString());
-        CSidechain info;
-        if (!GetSidechain(scId, info))
-        {
-            LogPrint("sc", "===> No such side chain\n");
-            return;
-        }
-
-        LogPrint("sc", "  created in block[%s] (h=%d)\n", info.creationBlockHash.ToString(), info.creationBlockHeight );
-        LogPrint("sc", "  creationTx[%s]\n", info.creationTxHash.ToString());
-        LogPrint("sc", "  prevBlockTopQualityCertReferencedEpoch[%d]\n", info.lastTopQualityCertReferencedEpoch);
-        LogPrint("sc", "  prevBlockTopQualityCertHash[%s]\n",            info.lastTopQualityCertHash.ToString());
-        LogPrint("sc", "  prevBlockTopQualityCertQuality[%d]\n",         info.lastTopQualityCertQuality);
-        LogPrint("sc", "  prevBlockTopQualityCertBwtAmount[%s]\n",       FormatMoney(info.lastTopQualityCertBwtAmount));
-        LogPrint("sc", "  balance[%s]\n", FormatMoney(info.balance));
-        LogPrint("sc", "  ----- creation data:\n");
-        LogPrint("sc", "      withdrawalEpochLength[%d]\n", info.creationData.withdrawalEpochLength);
-        LogPrint("sc", "      customData[%s]\n", HexStr(info.creationData.customData));
-        LogPrint("sc", "      constant[%s]\n", HexStr(info.creationData.constant));
-        LogPrint("sc", "      wCertVk[%s]\n", HexStr(info.creationData.wCertVk));
-        LogPrint("sc", "  immature amounts size[%d]\n", info.mImmatureAmounts.size());
-    }
-
-    return;
-}
-
 unsigned int CCoinsViewCache::GetCacheSize() const {
     return cacheCoins.size();
 }

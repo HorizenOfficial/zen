@@ -44,11 +44,6 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTransaction& _tx, const CAmount& _nFee,
     nUsageSize = RecursiveDynamicUsage(tx);
 }
 
-CTxMemPoolEntry::CTxMemPoolEntry(const CTxMemPoolEntry& other)
-{
-    *this = other;
-}
-
 double CTxMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
     CAmount nValueIn = tx.GetValueOut()+nFee;
@@ -72,13 +67,7 @@ CCertificateMemPoolEntry::CCertificateMemPoolEntry(const CScCertificate& _cert, 
     nUsageSize = RecursiveDynamicUsage(cert);
 }
 
-CCertificateMemPoolEntry::CCertificateMemPoolEntry(const CCertificateMemPoolEntry& other)
-{
-    *this = other;
-}
-
-double
-CCertificateMemPoolEntry::GetPriority(unsigned int currentHeight) const
+double CCertificateMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
 #if 1
     // certificates have max priority

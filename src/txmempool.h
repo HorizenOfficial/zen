@@ -64,7 +64,6 @@ private:
 public:
     CTxMemPoolEntry(const CTransaction& _tx, const CAmount& _nFee, int64_t _nTime, double _dPriority, unsigned int _nHeight, bool poolHasNoInputsOf = false);
     CTxMemPoolEntry();
-    CTxMemPoolEntry(const CTxMemPoolEntry& other);
 
     const CTransaction& GetTx() const { return this->tx; }
     double GetPriority(unsigned int currentHeight) const override;
@@ -82,7 +81,6 @@ public:
     CCertificateMemPoolEntry(
         const CScCertificate& _cert, const CAmount& _nFee, int64_t _nTime, double _dPriority, unsigned int _nHeight);
     CCertificateMemPoolEntry();
-    CCertificateMemPoolEntry(const CCertificateMemPoolEntry& other);
 
     const CScCertificate& GetCertificate() const { return this->cert; }
     double GetPriority(unsigned int currentHeight) const override;

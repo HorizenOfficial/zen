@@ -62,7 +62,7 @@ std::string CSidechain::ToString() const
                       " creationTxHash=%s\n pastEpochTopQualityCertDataHash=%s\n"
                       " lastTopQualityCertDataHash=%s\n"
                       " lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
-                      " lastTopQualityCertQuality=%d\n lastTopQualityCertBwtAmount=%d\n balance=%d\n"
+                      " lastTopQualityCertQuality=%d\n lastTopQualityCertBwtAmount=%s\n balance=%s\n"
                       " creationData=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
         sidechainVersion
         , creationBlockHash.ToString()
@@ -73,8 +73,8 @@ std::string CSidechain::ToString() const
         , lastTopQualityCertHash.ToString()
         , lastTopQualityCertReferencedEpoch
         , lastTopQualityCertQuality
-        , lastTopQualityCertBwtAmount
-        , balance
+        , FormatMoney(lastTopQualityCertBwtAmount)
+        , FormatMoney(balance)
     );
 
     return str;

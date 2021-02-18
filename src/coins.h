@@ -718,7 +718,6 @@ private:
     static int getInitScCoinsMaturity();
 
     bool DecrementImmatureAmount(const uint256& scId, const CSidechainsMap::iterator& targetEntry, CAmount nValue, int maturityHeight);
-    void Dump_info() const;
 };
 
 #endif // BITCOIN_COINS_H
