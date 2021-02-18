@@ -3228,8 +3228,8 @@ bool static DisconnectTip(CValidationState &state) {
         mempool.removeWithAnchor(anchorBeforeDisconnect);
     }
 
-    mempool.removeStaleTransactions(pcoinsTip, pindexDelete->nHeight, dummyTxs, dummyCerts);
-    mempool.removeStaleCertificates(pcoinsTip, pindexDelete->nHeight, dummyCerts);
+    mempool.removeStaleTransactions(pcoinsTip, dummyTxs, dummyCerts);
+    mempool.removeStaleCertificates(pcoinsTip, dummyCerts);
 
     mempool.check(pcoinsTip);
     // Update chainActive and related variables.
@@ -3317,8 +3317,8 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     std::list<CScCertificate> removedCerts;
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
-    mempool.removeStaleTransactions(pcoinsTip, pindexNew->nHeight+1, removedTxs, removedCerts);
-    mempool.removeStaleCertificates(pcoinsTip, pindexNew->nHeight+1, removedCerts);
+    mempool.removeStaleTransactions(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeStaleCertificates(pcoinsTip, removedCerts);
 
     mempool.check(pcoinsTip);
 

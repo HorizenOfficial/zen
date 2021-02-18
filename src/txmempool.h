@@ -151,8 +151,8 @@ private:
     uint64_t totalCertificateSize = 0; //! sum of all mempool tx' byte sizes
     uint64_t cachedInnerUsage; //! sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
-    bool checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight);
-    bool checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight);
+    bool checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins);
+    bool checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins);
 
     std::map<uint256, std::shared_ptr<CTransactionBase> > mapRecentlyAddedTxBase;
     uint64_t nRecentlyAddedSequence = 0;
@@ -208,7 +208,7 @@ public:
                         std::list<CTransaction>& conflictingTxs, std::list<CScCertificate>& removedCerts, bool fCurrentEstimate = true);
     void removeConflicts(const CTransaction &tx,
                          std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
-    void removeStaleTransactions(const CCoinsViewCache * const pCoinsView, unsigned int nMemPoolHeight,
+    void removeStaleTransactions(const CCoinsViewCache * const pCoinsView,
                                  std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts);
     // END OF UNCONFIRMED TRANSACTIONS CLEANUP METHODS
 
@@ -217,7 +217,7 @@ public:
                         std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
     void removeConflicts(const CScCertificate &cert,
                          std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts);
-    void removeStaleCertificates(const CCoinsViewCache * const pCoinsView, unsigned int nMemPoolHeight,
+    void removeStaleCertificates(const CCoinsViewCache * const pCoinsView,
                                  std::list<CScCertificate>& outdatedCerts);
     // END OF UNCONFIRMED CERTIFICATES CLEANUP METHODS
 
