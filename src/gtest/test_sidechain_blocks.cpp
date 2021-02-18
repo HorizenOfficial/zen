@@ -75,9 +75,9 @@ public:
     CSidechainEventsMap& getSidechainEvents() {return this->cacheSidechainEvents; };
 };
 
-class SidechainConnectCertsBlockTestSuite : public ::testing::Test {
+class SidechainsConnectCertsBlockTestSuite : public ::testing::Test {
 public:
-    SidechainConnectCertsBlockTestSuite():
+    SidechainsConnectCertsBlockTestSuite():
         fakeChainStateDb(nullptr), sidechainsView(nullptr),
         dummyBlock(), dummyHash(), dummyCertStatusUpdateInfo(), dummyScriptPubKey(),
         dummyState(), dummyChain(), dummyScEvents(), dummyFeeAmount(), dummyCoinbaseScript(),
@@ -86,7 +86,7 @@ public:
         dummyScriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     }
 
-    ~SidechainConnectCertsBlockTestSuite() = default;
+    ~SidechainsConnectCertsBlockTestSuite() = default;
 
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
@@ -146,7 +146,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// ConnectBlock ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_CertCoinHasBwt)
+TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_CertCoinHasBwt)
 {
     // create coinbase to finance certificate submission (just in view)
     int certBlockHeight {201};
@@ -215,7 +215,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_Ce
     EXPECT_TRUE(certCoin.IsAvailable(0));
 }
 
-TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpoch_CertCoinHasBwt)
+TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpoch_CertCoinHasBwt)
 {
     // create coinbase to finance certificate submission (just in view)
     int certBlockHeight {201};
@@ -284,7 +284,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpo
     EXPECT_TRUE(certCoin.IsAvailable(0));
 }
 
-TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch_LowQualityCertCoinHasNotBwt)
+TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch_LowQualityCertCoinHasNotBwt)
 {
     // create coinbase to finance certificate submission (just in view)
     int certBlockHeight {201};
@@ -367,7 +367,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch
     EXPECT_TRUE(highQualityCertCoin.IsAvailable(0));
 }
 
-TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_DifferentEpoch_LowQualityCertCoinHasNotBwt)
+TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_DifferentEpoch_LowQualityCertCoinHasNotBwt)
 {
     // create coinbase to finance certificate submission (just in view)
     int certBlockHeight {201};
@@ -450,7 +450,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Different
     EXPECT_TRUE(highQualityCertCoin.IsAvailable(0));
 }
 
-TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_InSameBlock)
+TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_InSameBlock)
 {
     // create coinbase to finance certificate submission (just in view)
     int certBlockHeight {201};
@@ -511,7 +511,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_In
     ASSERT_TRUE(sidechainsView->HaveSidechain(CTransaction(scCreation).GetScIdFromScCcOut(0)));
 }
 
-TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_InSameBlock)
+TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_InSameBlock)
 {
     // create coinbase to finance certificate submission (just in view)
     int certBlockHeight {201};
@@ -571,7 +571,7 @@ TEST_F(SidechainConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_In
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// HELPERS ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-void SidechainConnectCertsBlockTestSuite::storeSidechain(const uint256& scId, const CSidechain& sidechain)
+void SidechainsConnectCertsBlockTestSuite::storeSidechain(const uint256& scId, const CSidechain& sidechain)
 {
     txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, sidechain);
 
@@ -594,7 +594,7 @@ void SidechainConnectCertsBlockTestSuite::storeSidechain(const uint256& scId, co
     return;
 }
 
-void SidechainConnectCertsBlockTestSuite::storeSidechainEvent(int eventHeight, const CSidechainEvents& scEvent)
+void SidechainsConnectCertsBlockTestSuite::storeSidechainEvent(int eventHeight, const CSidechainEvents& scEvent)
 {
     txCreationUtils::storeSidechainEvent(sidechainsView->getSidechainEvents(), eventHeight, scEvent);
 
@@ -617,7 +617,7 @@ void SidechainConnectCertsBlockTestSuite::storeSidechainEvent(int eventHeight, c
     return;
 }
 
-void SidechainConnectCertsBlockTestSuite::fillBlockHeader(CBlock& blockToFill, const uint256& prevBlockHash)
+void SidechainsConnectCertsBlockTestSuite::fillBlockHeader(CBlock& blockToFill, const uint256& prevBlockHash)
 {
     blockToFill.nVersion = MIN_BLOCK_VERSION;
     blockToFill.hashPrevBlock = prevBlockHash;
@@ -634,7 +634,7 @@ void SidechainConnectCertsBlockTestSuite::fillBlockHeader(CBlock& blockToFill, c
     return;
 }
 
-void SidechainConnectCertsBlockTestSuite::CreateCheckpointAfter(CBlockIndex* blkIdx)
+void SidechainsConnectCertsBlockTestSuite::CreateCheckpointAfter(CBlockIndex* blkIdx)
 {
     assert(blkIdx != nullptr);
 
@@ -651,15 +651,15 @@ void SidechainConnectCertsBlockTestSuite::CreateCheckpointAfter(CBlockIndex* blk
 ///////////////////////////////////////////////////////////////////////////////
 #include <algorithm>
 
-class SidechainBlockFormationTestSuite : public ::testing::Test {
+class SidechainsBlockFormationTestSuite : public ::testing::Test {
 public:
-    SidechainBlockFormationTestSuite():
+    SidechainsBlockFormationTestSuite():
         fakeChainStateDb(nullptr), blockchainView(nullptr),
         vecPriority(), orphanList(), mapDependers(),
         dummyHeight(1987), dummyLockTimeCutoff(0),
         dummyAmount(10), dummyScript(), dummyOut(dummyAmount, dummyScript) {}
 
-    ~SidechainBlockFormationTestSuite() = default;
+    ~SidechainsBlockFormationTestSuite() = default;
 
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
@@ -696,7 +696,7 @@ protected:
     CTxOut dummyOut;
 };
 
-TEST_F(SidechainBlockFormationTestSuite, EmptyMempoolOrdering)
+TEST_F(SidechainsBlockFormationTestSuite, EmptyMempoolOrdering)
 {
     ASSERT_TRUE(mempool.size() == 0);
 
@@ -708,7 +708,7 @@ TEST_F(SidechainBlockFormationTestSuite, EmptyMempoolOrdering)
     EXPECT_TRUE(mapDependers.size() == 0);
 }
 
-TEST_F(SidechainBlockFormationTestSuite, SingleTxes_MempoolOrdering)
+TEST_F(SidechainsBlockFormationTestSuite, SingleTxes_MempoolOrdering)
 {
     uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
     uint256 inputCoinHash_2 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight-1);
@@ -743,7 +743,7 @@ TEST_F(SidechainBlockFormationTestSuite, SingleTxes_MempoolOrdering)
     EXPECT_TRUE(vecPriority.back().get<2>()->GetHash() == tx_highFee.GetHash());
 }
 
-TEST_F(SidechainBlockFormationTestSuite, DifferentScIdCerts_FeesAndPriorityOnlyContributeToMempoolOrdering)
+TEST_F(SidechainsBlockFormationTestSuite, DifferentScIdCerts_FeesAndPriorityOnlyContributeToMempoolOrdering)
 {
     LOCK(mempool.cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
     uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
@@ -781,7 +781,7 @@ TEST_F(SidechainBlockFormationTestSuite, DifferentScIdCerts_FeesAndPriorityOnlyC
     EXPECT_TRUE(vecPriority.back().get<2>()->GetHash() == cert_highFee.GetHash());
 }
 
-TEST_F(SidechainBlockFormationTestSuite, SameScIdCerts_HighwQualityCertsSpedingLowQualityOnesAreAccepted)
+TEST_F(SidechainsBlockFormationTestSuite, SameScIdCerts_HighwQualityCertsSpedingLowQualityOnesAreAccepted)
 {
     LOCK(mempool.cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
     uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
@@ -812,7 +812,7 @@ TEST_F(SidechainBlockFormationTestSuite, SameScIdCerts_HighwQualityCertsSpedingL
     EXPECT_TRUE(*dynamic_cast<const CScCertificate*>(orphanList.back().ptx) == CScCertificate(cert_highQuality));
 }
 
-TEST_F(SidechainBlockFormationTestSuite, SameScIdCerts_LowQualityCertsSpedingHighQualityOnesAreRejected)
+TEST_F(SidechainsBlockFormationTestSuite, SameScIdCerts_LowQualityCertsSpedingHighQualityOnesAreRejected)
 {
     LOCK(mempool.cs); //needed when compiled with --enable-debug, which activates ASSERT_HELD
     uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
@@ -842,7 +842,7 @@ TEST_F(SidechainBlockFormationTestSuite, SameScIdCerts_LowQualityCertsSpedingHig
     EXPECT_TRUE(orphanList.size() == 0) << "cert_lowQuality should not be counted since it's wrong dependency";
 }
 
-TEST_F(SidechainBlockFormationTestSuite, Unconfirmed_Mbtr_scCreation_DulyOrdered)
+TEST_F(SidechainsBlockFormationTestSuite, Unconfirmed_Mbtr_scCreation_DulyOrdered)
 {
     uint256 inputCoinHash_1 = txCreationUtils::CreateSpendableCoinAtHeight(*blockchainView, dummyHeight);
 
