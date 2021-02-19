@@ -742,7 +742,7 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
 				__func__, __LINE__, cr.GetScId().ToString(), maturityHeight);
 
 		// Schedule Ceasing Sidechains
-		int nextCeasingHeight = scIt->second.sidechain.GetStartHeightForEpoch(1) + scIt->second.sidechain.GetCertSubmissionWindowLength();
+		int nextCeasingHeight = scIt->second.sidechain.GetScheduledCeasingHeight();
 
 		CSidechainEventsMap::iterator scCeasingEventIt = ModifySidechainEvents(nextCeasingHeight);
 		if (scCeasingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
@@ -909,6 +909,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         }
 
         CSidechainsMap::iterator scIt = ModifySidechain(scId);
+        int ceasingHeightToErase = scIt->second.sidechain.GetScheduledCeasingHeight();
         if (!DecrementImmatureAmount(scId, scIt, entry.nValue, maturityHeight) )
         {
             // should not happen
@@ -945,16 +946,13 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 				__func__, __LINE__, entry.GetScId().ToString(), maturityHeight);
 
 
-		//remove current ceasing Height
-		int currentCeasingHeight = scIt->second.sidechain.GetStartHeightForEpoch(1) + scIt->second.sidechain.GetCertSubmissionWindowLength();
-
-		// Cancel Ceasing Sidechains
-		if (!HaveSidechainEvents(currentCeasingHeight)) {
+		// Cancel Ceasing Sidechains Event
+		if (!HaveSidechainEvents(ceasingHeightToErase)) {
 			return error("%s():%d - ERROR-SIDECHAIN-EVENT: scId[%s] misses current ceasing height; expected value was [%d]\n",
-				__func__, __LINE__, entry.GetScId().ToString(), currentCeasingHeight);
+				__func__, __LINE__, entry.GetScId().ToString(), ceasingHeightToErase);
 		}
 
-		CSidechainEventsMap::iterator scCurCeasingEventIt = ModifySidechainEvents(currentCeasingHeight);
+		CSidechainEventsMap::iterator scCurCeasingEventIt = ModifySidechainEvents(ceasingHeightToErase);
 		scCurCeasingEventIt->second.scEvents.ceasingScs.erase(entry.GetScId());
 		if (!scCurCeasingEventIt->second.scEvents.IsNull())
 			scCurCeasingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
@@ -962,7 +960,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 			scCurCeasingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::ERASED;
 
 		LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: undo of creation removes currentCeasingHeight [%d]\n",
-				__func__, __LINE__, entry.GetScId().ToString(), currentCeasingHeight);
+				__func__, __LINE__, entry.GetScId().ToString(), ceasingHeightToErase);
     }
     return true;
 }

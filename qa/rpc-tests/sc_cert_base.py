@@ -583,7 +583,5 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
 
 
-
-
 if __name__ == '__main__':
     sc_cert_base().main()
