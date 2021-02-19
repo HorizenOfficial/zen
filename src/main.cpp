@@ -2033,7 +2033,7 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     CSidechain sidechain;
     assert(inputs.GetSidechain(cert.GetScId(), sidechain));
     int currentEpoch = sidechain.EpochFor(nHeight);
-    int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
+    int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.CertSubmissionWindowLength();
     inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight, isBlockTopQualityCert);
     return;
 }
@@ -2353,7 +2353,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             CSidechain sidechain;
             assert(view.GetSidechain(cert.GetScId(), sidechain));
             int currentEpoch = sidechain.EpochFor(pindex->nHeight);
-            int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin();
+            int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.CertSubmissionWindowLength();
             CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight, isBlockTopQualityCert);
 
             // The CCoins serialization does not serialize negative numbers.
@@ -2383,14 +2383,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
 
             // cancels scEvents only if cert is first in its epoch, i.e. if it won't restore any other cert
-            if (prevBlockTopQualityCertHash.IsNull())
-            {
-                if (!view.CancelSidechainEvent(cert))
-                {
-                    LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
-                    return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
-                }
-            } else
+            if (!prevBlockTopQualityCertHash.IsNull())
             {
                 // resurrect prevBlockTopQualityCertHash bwts
                 assert(blockUndo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask & CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA);
@@ -2460,27 +2453,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 view.SetNullifier(nf, false);
-            }
-        }
-
-        for (const CBwtRequestOut& mbtrOut: tx.GetVBwtRequestOut()) {
-            if (!view.CancelSidechainEvent(mbtrOut, pindex->nHeight)) {
-                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
-                return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
-            }
-        }
-
-        for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
-            if (!view.CancelSidechainEvent(fwdTransfer, pindex->nHeight)) {
-                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
-                return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
-            }
-        }
-
-        for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
-            if (!view.CancelSidechainEvent(scCreation, pindex->nHeight)) {
-                LogPrint("cert", "%s():%d - SIDECHAIN-EVENT: failed cancelling scheduled event\n", __func__, __LINE__);
-                return error("DisconnectBlock(): ceasing height cannot be reverted: data inconsistent");
             }
         }
 
@@ -2782,33 +2754,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                             __func__, __LINE__, tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
-
-            for (const CTxScCreationOut& scCreation: tx.GetVscCcOut()) {
-                if (!view.ScheduleSidechainEvent(scCreation, pindex->nHeight))
-                {
-                    return state.DoS(100, error("%s():%d - SIDECHAIN-EVENT:: error scheduling maturing height for sidechain [%s]",
-                                                __func__, __LINE__, scCreation.GetScId().ToString()),
-                                     REJECT_INVALID, "bad-sc-not-recorded");
-                }
-            }
-
-            for (const CTxForwardTransferOut& fwdTransfer: tx.GetVftCcOut()) {
-                if (!view.ScheduleSidechainEvent(fwdTransfer, pindex->nHeight))
-                {
-                    return state.DoS(100, error("%s():%d - SIDECHAIN-EVENT: error scheduling maturing height for sidechain [%s]",
-                                                __func__, __LINE__, fwdTransfer.GetScId().ToString()),
-                                     REJECT_INVALID, "bad-fwd-not-recorded");
-                }
-            }
-
-            for (const CBwtRequestOut& mbtrOut: tx.GetVBwtRequestOut()) {
-                if (!view.ScheduleSidechainEvent(mbtrOut, pindex->nHeight))
-                {
-                    return state.DoS(100, error("%s():%d: error scheduling maturing height for sidechain [%s]",
-                                                __func__, __LINE__, mbtrOut.GetScId().ToString()),
-                                     REJECT_INVALID, "bad-fwd-not-recorded");
-                }
-            }
         }
 
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
@@ -2889,13 +2834,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                             blockundo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertQuality,
                                             CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
                 // if prevBlockTopQualityCertHash has to be voided, it has same scId/epochNumber as cert
-            }
-
-            if (!view.ScheduleSidechainEvent(cert))
-            {
-                return state.DoS(100, error("%s():%d - SIDECHAIN-EVENT: Error updating ceasing heights with certificate [%s]",
-                                            __func__, __LINE__, cert.GetHash().ToString()),
-                                 REJECT_INVALID, "bad-sc-cert-not-recorded");
             }
 
             if (pCertsStateInfo != nullptr)
@@ -3343,7 +3281,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         CSidechain sidechain;
         assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
         int currentEpoch = sidechain.EpochFor(chainActive.Height());
-        int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.SafeguardMargin() - chainActive.Height();
+        int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.CertSubmissionWindowLength() - chainActive.Height();
         LogPrint("cert", "%s():%d - sync with wallet confirmed cert[%s], bwtMaturityDepth[%d]\n",
             __func__, __LINE__, cert.GetHash().ToString(), bwtMaturityDepth);
         SyncWithWallets(cert, pblock, bwtMaturityDepth);

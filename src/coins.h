@@ -659,16 +659,6 @@ public:
     bool HaveSidechainEvents(int height)                            const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;
 
-    bool ScheduleSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
-    bool ScheduleSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
-    bool ScheduleSidechainEvent(const CBwtRequestOut& mbtrOut, int mbtrHeight);
-    bool ScheduleSidechainEvent(const CScCertificate& cert);
-
-    bool CancelSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
-    bool CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
-    bool CancelSidechainEvent(const CBwtRequestOut& mbtrOut, int mbtrHeight);
-    bool CancelSidechainEvent(const CScCertificate& cert);
-
     bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
 

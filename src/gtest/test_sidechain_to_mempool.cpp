@@ -969,7 +969,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardAliveSidechainIsNotDrop
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch + 1;
     int certHeight = initialScState.StartHeightForEpoch(certEpoch+1) + 1;
     ASSERT_TRUE(certHeight >= initialScState.StartHeightForEpoch(initialScState.lastTopQualityCertReferencedEpoch+2));
-    ASSERT_TRUE(certHeight <= initialScState.StartHeightForEpoch(initialScState.lastTopQualityCertReferencedEpoch+2) + initialScState.SafeguardMargin());
+    ASSERT_TRUE(certHeight <= initialScState.StartHeightForEpoch(initialScState.lastTopQualityCertReferencedEpoch+2) + initialScState.CertSubmissionWindowLength());
 
     // create coinbase to finance cert
     uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(sidechainsView, certHeight-COINBASE_MATURITY);
