@@ -1084,7 +1084,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
  
         sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
         sc.push_back(Pair("epoch", currentEpoch));
-        sc.push_back(Pair("end epoch height", info.GetStartHeightForEpoch(currentEpoch +1) - 1));
+        sc.push_back(Pair("end epoch height", info.GetEndHeightForEpoch(currentEpoch)));
         sc.push_back(Pair("state", CSidechain::stateToString(scState)));
         sc.push_back(Pair("ceasing height", info.GetScheduledCeasingHeight()));
  

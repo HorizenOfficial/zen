@@ -155,6 +155,7 @@ public:
     int GetCertSubmissionWindowStart(int certEpoch) const;
     int GetCertSubmissionWindowEnd(int certEpoch) const;
     int GetCertSubmissionWindowLength() const;
+    int GetCertMaturityHeight(int certEpoch) const;
     int GetScheduledCeasingHeight() const;
 
     bool isCreationConfirmed() const {

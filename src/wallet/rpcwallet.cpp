@@ -163,20 +163,10 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     {
         const uint256& scid = dynamic_cast<const CScCertificate*>(tx.getTxBase())->GetScId();
         entry.push_back(Pair("scid", scid.GetHex()));
-        if (conf > 0) {
-            bwtMaturityHeight = tx.bwtMaturityDepth - conf + chainActive.Height() + 1;
-        } else
-        if (conf == 0) {
-            // no info in tx because the block has yet to be mined
+        if (conf >= 0) {
             CSidechain sidechain;
-            int nHeight = chainActive.Height() + 1;
             assert(pcoinsTip->GetSidechain(scid, sidechain));
-            int currentEpoch = sidechain.EpochFor(nHeight);
-            int bwtMaturityDepth = sidechain.GetStartHeightForEpoch(currentEpoch+1) +
-                sidechain.GetCertSubmissionWindowLength() - nHeight;
-            bwtMaturityHeight = bwtMaturityDepth + nHeight;
-        } else {
-            // if conf < 0 we can not tell
+            bwtMaturityHeight = sidechain.GetCertMaturityHeight(dynamic_cast<const CScCertificate*>(tx.getTxBase())->epochNumber);
         }
     }
 

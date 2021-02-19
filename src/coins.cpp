@@ -1075,10 +1075,6 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
-    sidechain.GetEndHeightForEpoch(cert.epochNumber);
-    //creationBlockHeight + (targetEpoch + 1)* creationData.withdrawalEpochLength - 1;
-
-    //creationBlockHeight + targetEpoch * creationData.withdrawalEpochLength - 1;
     // Retrieve previous end epoch block hash for certificate proof verification
     int targetHeight =  sidechain.GetStartHeightForEpoch(cert.epochNumber) - 1;
     uint256 prev_end_epoch_block_hash = chainActive[targetHeight] -> GetBlockHash();
