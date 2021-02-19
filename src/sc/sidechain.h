@@ -151,7 +151,8 @@ public:
 
     int EpochFor(int targetHeight) const;
     int StartHeightForEpoch(int targetEpoch) const;
-    int CertSubmissionWindowLength() const;
+    int GetCertSubmissionWindowStart(int certEpoch) const;
+    int GetCertSubmissionWindowLength() const;
     int GetScheduledCeasingHeight() const;
 
     bool isCreationConfirmed() const {

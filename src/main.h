@@ -292,13 +292,13 @@ enum class RejectAbsurdFeeFlag { ON, OFF };
 
 /** (try to) add transaction to memory pool **/
 bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee, DisconnectingFlag disconnecting);
+    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
 
 bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee, DisconnectingFlag disconnecting);
+    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee, DisconnectingFlag disconnecting);
+    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
 
 struct CNodeStateStats {
     int nMisbehavior;

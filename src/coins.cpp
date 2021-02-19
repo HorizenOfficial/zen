@@ -742,7 +742,7 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
 				__func__, __LINE__, cr.GetScId().ToString(), maturityHeight);
 
 		// Schedule Ceasing Sidechains
-		int nextCeasingHeight = scIt->second.sidechain.StartHeightForEpoch(1) + scIt->second.sidechain.CertSubmissionWindowLength();
+		int nextCeasingHeight = scIt->second.sidechain.StartHeightForEpoch(1) + scIt->second.sidechain.GetCertSubmissionWindowLength();
 
 		CSidechainEventsMap::iterator scCeasingEventIt = ModifySidechainEvents(nextCeasingHeight);
 		if (scCeasingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
@@ -946,7 +946,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
 
 		//remove current ceasing Height
-		int currentCeasingHeight = scIt->second.sidechain.StartHeightForEpoch(1) + scIt->second.sidechain.CertSubmissionWindowLength();
+		int currentCeasingHeight = scIt->second.sidechain.StartHeightForEpoch(1) + scIt->second.sidechain.GetCertSubmissionWindowLength();
 
 		// Cancel Ceasing Sidechains
 		if (!HaveSidechainEvents(currentCeasingHeight)) {
@@ -972,7 +972,7 @@ int CCoinsViewCache::GetHeight() const {return -1;}
 std::string CSidechain::ToString() const {return std::string{};}
 int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_NULL; }
 int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
-int CSidechain::CertSubmissionWindowLength() const { return -1; }
+int CSidechain::GetCertSubmissionWindowLength() const { return -1; }
 int CSidechain::GetScheduledCeasingHeight()  const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
 std::string CSidechain::stateToString(State s) { return "";}
@@ -993,7 +993,7 @@ int CCoinsViewCache::GetHeight() const
     return pindexPrev->nHeight;
 }
 
-bool CCoinsViewCache::CheckCertTiming(const uint256& scId, bool fIncludeOnNextHeight, int certEpoch) const
+bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certEpoch) const
 {
     CSidechain sidechain;
     if (!GetSidechain(scId, sidechain))
@@ -1017,10 +1017,9 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, bool fIncludeOnNextHe
             __func__, __LINE__, certEpoch, sidechain.lastTopQualityCertReferencedEpoch, sidechain.lastTopQualityCertReferencedEpoch+1);
     }
 
-    int certWindowStartHeight = sidechain.StartHeightForEpoch(certEpoch+1);
-    int inclusionHeight = this->GetHeight();
-    if (fIncludeOnNextHeight) ++inclusionHeight;
-    if ((inclusionHeight < certWindowStartHeight) || (inclusionHeight > certWindowStartHeight + sidechain.CertSubmissionWindowLength()))
+    int certWindowStartHeight = sidechain.GetCertSubmissionWindowStart(certEpoch);
+    int inclusionHeight = this->GetHeight() + 1;
+    if ((inclusionHeight < certWindowStartHeight) || (inclusionHeight > certWindowStartHeight + sidechain.GetCertSubmissionWindowLength()))
     {
         return error("%s():%d - ERROR: certificate cannot be accepted, cert received outside safeguard\n",
                 __func__, __LINE__);
@@ -1029,13 +1028,12 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, bool fIncludeOnNextHe
     return true;
 }
 
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool fIncludeOnNextHeight, libzendoomc::CScProofVerifier& scVerifier) const
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const
 {
     const uint256& certHash = cert.GetHash();
-    int nHeight = fIncludeOnNextHeight? this->GetHeight()+1: this->GetHeight();
 
-    LogPrint("cert", "%s():%d - called: cert[%s], scId[%s], height[%d]\n",
-        __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString(), nHeight);
+    LogPrint("cert", "%s():%d - called: cert[%s], scId[%s]\n",
+        __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
 
     CSidechain sidechain;
     if (!GetSidechain(cert.GetScId(), sidechain))
@@ -1051,7 +1049,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool f
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
-    if (!CheckCertTiming(cert.GetScId(), fIncludeOnNextHeight, cert.epochNumber))
+    if (!CheckCertTiming(cert.GetScId(), cert.epochNumber))
     {
         return false;
     }
@@ -1700,7 +1698,7 @@ libzendoomc::ScFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256
         return libzendoomc::ScFieldElement{};
 
     int currentHeight = this->GetHeight();
-    int currentEpochSafeguard = pSidechain->StartHeightForEpoch(pSidechain->EpochFor(currentHeight)) + pSidechain->CertSubmissionWindowLength();
+    int currentEpochSafeguard = pSidechain->StartHeightForEpoch(pSidechain->EpochFor(currentHeight)) + pSidechain->GetCertSubmissionWindowLength();
 
     if (currentHeight < currentEpochSafeguard)
         return pSidechain->pastEpochTopQualityCertDataHash;

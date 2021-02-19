@@ -595,7 +595,7 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
             continue;
         }
 
-        if (!pCoinsView->CheckCertTiming(cert.GetScId(), /*fIncludeOnNextHeight*/true, cert.epochNumber))
+        if (!pCoinsView->CheckCertTiming(cert.GetScId(), cert.epochNumber))
         {
             certsToRemove.insert(cert.GetHash());
             continue;

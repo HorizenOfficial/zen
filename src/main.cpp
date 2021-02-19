@@ -1117,15 +1117,15 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
 }
 
 bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee, DisconnectingFlag disconnecting)
+    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
         *pfMissingInputs = false;
 
-    int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
-    if (disconnecting == DisconnectingFlag::ON)
-        nextBlockHeight -= 1;
+	//we retrieve the current height from the pcoinsTip and not from chainActive because on DisconnectTip the Accept*ToMemoryPool
+	// is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
+	int nextBlockHeight = pcoinsTip->GetHeight() + 1;
 
     if (!cert.CheckInputsLimit())
         return false;
@@ -1169,8 +1169,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             }
 
             auto scVerifier = libzendoomc::CScProofVerifier::Strict();
-            bool fIncludeOnNextHeight = disconnecting == DisconnectingFlag::ON? false : true;
-            if (!view.IsCertApplicableToState(cert, fIncludeOnNextHeight, scVerifier))
+            if (!view.IsCertApplicableToState(cert, scVerifier))
             {
                 return state.DoS(0, error("%s(): certificate not applicable", __func__),
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
@@ -1311,15 +1310,15 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
 
 bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, LimitFreeFlag fLimitFree,
-                        bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee, DisconnectingFlag disconnecting)
+                        bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
     if (pfMissingInputs)
         *pfMissingInputs = false;
 
-    int nextBlockHeight = chainActive.Height() + 1; // OR chainActive.Tip()->nHeight
-    if (disconnecting == DisconnectingFlag::ON)
-        nextBlockHeight -= 1;
+    //we retrieve the current height from the pcoinsTip and not from chainActive because on DisconnectTip the Accept*ToMemoryPool
+    // is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
+    int nextBlockHeight = pcoinsTip->GetHeight() + 1;
 
     if (!tx.CheckInputsLimit())
         return false;
@@ -1534,19 +1533,19 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
 }
 
 bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee, DisconnectingFlag disconnecting)
+    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee)
 {
     try
     {
         if (txBase.IsCertificate())
         {
             return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree,
-                pfMissingInputs, fRejectAbsurdFee, disconnecting);
+                pfMissingInputs, fRejectAbsurdFee);
         }
         else
         {
             return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree,
-                pfMissingInputs, fRejectAbsurdFee, disconnecting);
+                pfMissingInputs, fRejectAbsurdFee);
         }
     }
     catch (...)
@@ -2033,7 +2032,7 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     CSidechain sidechain;
     assert(inputs.GetSidechain(cert.GetScId(), sidechain));
     int currentEpoch = sidechain.EpochFor(nHeight);
-    int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.CertSubmissionWindowLength();
+    int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.GetCertSubmissionWindowLength();
     inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight, isBlockTopQualityCert);
     return;
 }
@@ -2353,7 +2352,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             CSidechain sidechain;
             assert(view.GetSidechain(cert.GetScId(), sidechain));
             int currentEpoch = sidechain.EpochFor(pindex->nHeight);
-            int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.CertSubmissionWindowLength();
+            int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.GetCertSubmissionWindowLength();
             CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight, isBlockTopQualityCert);
 
             // The CCoins serialization does not serialize negative numbers.
@@ -2805,7 +2804,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         control.Add(vChecks);
 
         auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-        if (!view.IsCertApplicableToState(cert, /*fIncludeOnNextHeight*/false, scVerifier) )
+        if (!view.IsCertApplicableToState(cert, scVerifier) )
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
@@ -3138,7 +3137,7 @@ bool static DisconnectTip(CValidationState &state) {
         }
 
         if (tx.IsCoinBase() ||
-            !AcceptTxToMemoryPool(mempool, stateDummy, tx, LimitFreeFlag::OFF, NULL, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::ON)) {
+            !AcceptTxToMemoryPool(mempool, stateDummy, tx, LimitFreeFlag::OFF, NULL, RejectAbsurdFeeFlag::OFF)) {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
             mempool.remove(tx, dummyTxs, dummyCerts, true);
@@ -3152,7 +3151,7 @@ bool static DisconnectTip(CValidationState &state) {
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
         if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
-                LimitFreeFlag::OFF, NULL, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::ON)) {
+                LimitFreeFlag::OFF, NULL, RejectAbsurdFeeFlag::OFF)) {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
@@ -3281,7 +3280,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         CSidechain sidechain;
         assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
         int currentEpoch = sidechain.EpochFor(chainActive.Height());
-        int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.CertSubmissionWindowLength() - chainActive.Height();
+        int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.GetCertSubmissionWindowLength() - chainActive.Height();
         LogPrint("cert", "%s():%d - sync with wallet confirmed cert[%s], bwtMaturityDepth[%d]\n",
             __func__, __LINE__, cert.GetHash().ToString(), bwtMaturityDepth);
         SyncWithWallets(cert, pblock, bwtMaturityDepth);
@@ -5440,7 +5439,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     mapAlreadyAskedFor.erase(inv);
 
     if (!AlreadyHave(inv) &&
-        AcceptTxBaseToMemoryPool(mempool, state, txBase, LimitFreeFlag::ON, &fMissingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF))
+        AcceptTxBaseToMemoryPool(mempool, state, txBase, LimitFreeFlag::ON, &fMissingInputs, RejectAbsurdFeeFlag::OFF))
     {
         mempool.check(pcoinsTip);
         txBase.Relay();
@@ -5474,7 +5473,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
                 if (setMisbehaving.count(fromPeer))
                     continue;
                 if (AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
-                        LimitFreeFlag::ON, &fMissingInputs2, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF))
+                        LimitFreeFlag::ON, &fMissingInputs2, RejectAbsurdFeeFlag::OFF))
                 {
                     LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
                     orphanTx.Relay();
