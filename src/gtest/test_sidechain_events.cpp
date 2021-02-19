@@ -66,7 +66,7 @@ TEST_F(SidechainsEventsTestSuite, SidechainInItsFirstEpochIsNotCeased) {
     CSidechain sidechain;
     view->GetSidechain(scId, sidechain);
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int endEpochHeight = sidechain.StartHeightForEpoch(currentEpoch+1)-1;
+    int endEpochHeight = sidechain.GetStartHeightForEpoch(currentEpoch+1)-1;
 
     for(int height = creationHeight; height <= endEpochHeight; ++height)
     {
@@ -90,7 +90,7 @@ TEST_F(SidechainsEventsTestSuite, SidechainIsNotCeasedBeforeNextEpochSafeguard) 
     CSidechain sidechain;
     view->GetSidechain(scId, sidechain);
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int nextEpochStart = sidechain.StartHeightForEpoch(currentEpoch+1);
+    int nextEpochStart = sidechain.GetStartHeightForEpoch(currentEpoch+1);
 
     for(int height = nextEpochStart; height < nextEpochStart + sidechain.GetCertSubmissionWindowLength(); ++height)
     {
@@ -114,8 +114,8 @@ TEST_F(SidechainsEventsTestSuite, SidechainIsCeasedAtNextEpochSafeguard) {
     CSidechain sidechain;
     view->GetSidechain(scId, sidechain);
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int nextEpochStart = sidechain.StartHeightForEpoch(currentEpoch+1);
-    int nextEpochEnd = sidechain.StartHeightForEpoch(currentEpoch+2)-1;
+    int nextEpochStart = sidechain.GetStartHeightForEpoch(currentEpoch+1);
+    int nextEpochEnd = sidechain.GetStartHeightForEpoch(currentEpoch+2)-1;
 
     for(int height = nextEpochStart + sidechain.GetCertSubmissionWindowLength(); height <= nextEpochEnd; ++height)
     {
@@ -146,7 +146,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertMovesSidechainTerminationToNextEpochSa
     CSidechain sidechain;
     view->GetSidechain(scId, sidechain);
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int nextEpochStart = sidechain.StartHeightForEpoch(currentEpoch+1);
+    int nextEpochStart = sidechain.GetStartHeightForEpoch(currentEpoch+1);
     int nextEpochSafeguard = nextEpochStart + sidechain.GetCertSubmissionWindowLength();
     int certReceptionHeight = nextEpochSafeguard-1;
 
@@ -178,7 +178,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCertificateMovesSidechainTerminationToN
     CSidechain sidechain;
     view->GetSidechain(scId, sidechain);
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int nextEpochStart = sidechain.StartHeightForEpoch(currentEpoch+1);
+    int nextEpochStart = sidechain.GetStartHeightForEpoch(currentEpoch+1);
     int nextEpochSafeguard = nextEpochStart + sidechain.GetCertSubmissionWindowLength();
     int certReceptionHeight = nextEpochSafeguard-1;
 
@@ -210,7 +210,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificateMovesSidechainTerminationToNex
     CSidechain sidechain;
     view->GetSidechain(scId, sidechain);
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int nextEpochStart = sidechain.StartHeightForEpoch(currentEpoch+1);
+    int nextEpochStart = sidechain.GetStartHeightForEpoch(currentEpoch+1);
     int nextEpochSafeguard = nextEpochStart + sidechain.GetCertSubmissionWindowLength();
     int certReceptionHeight = nextEpochSafeguard-1;
 
@@ -243,7 +243,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificateMovesSidechainTerminationToNex
     CSidechain sidechain;
     view->GetSidechain(scId, sidechain);
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int nextEpochStart = sidechain.StartHeightForEpoch(currentEpoch+1);
+    int nextEpochStart = sidechain.GetStartHeightForEpoch(currentEpoch+1);
     int nextEpochSafeguard = nextEpochStart + sidechain.GetCertSubmissionWindowLength();
     int certReceptionHeight = nextEpochSafeguard-1;
 
@@ -274,7 +274,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForScCreation) {
     //Checks
     CSidechain sidechain;
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
-    int ceasingHeight = sidechain.StartHeightForEpoch(1)+sidechain.GetCertSubmissionWindowLength();
+    int ceasingHeight = sidechain.GetStartHeightForEpoch(1)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents ceasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(ceasingHeight, ceasingScIds));
     EXPECT_TRUE(ceasingScIds.ceasingScs.count(scId) != 0);
@@ -294,7 +294,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForFullCert) {
     CSidechain sidechain;
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int initialCeasingHeight = sidechain.StartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
+    int initialCeasingHeight = sidechain.GetStartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents initialCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
     EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
@@ -311,7 +311,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForFullCert) {
 
     //Checks
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
-    int newCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int newCeasingHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents updatedCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
@@ -331,7 +331,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForPureBwtCert) {
     CSidechain sidechain;
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int initialCeasingHeight = sidechain.StartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
+    int initialCeasingHeight = sidechain.GetStartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents initialCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
     EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
@@ -348,7 +348,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForPureBwtCert) {
 
     //Checks
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
-    int newCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int newCeasingHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents updatedCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
@@ -369,7 +369,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForNoBwtCert) {
     CSidechain sidechain;
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int initialCeasingHeight = sidechain.StartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
+    int initialCeasingHeight = sidechain.GetStartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents initialCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
     EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
@@ -386,7 +386,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForNoBwtCert) {
 
     //Checks
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
-    int newCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int newCeasingHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents updatedCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
@@ -406,7 +406,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForEmptyCertificate) {
     CSidechain sidechain;
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int initialCeasingHeight = sidechain.StartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
+    int initialCeasingHeight = sidechain.GetStartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents initialCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
     EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
@@ -423,7 +423,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForEmptyCertificate) {
 
     //Checks
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
-    int newCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int newCeasingHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents updatedCeasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
@@ -460,7 +460,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     view->GetSidechain(scId, sidechain);
 
     //test
-    int minimalCeaseHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int minimalCeaseHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, dummyUndo, &dummyInfo));
     EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
 
@@ -505,7 +505,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     //test
     CSidechain sidechain;
     view->GetSidechain(scId, sidechain);
-    int minimalCeaseHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int minimalCeaseHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
 
     CBlockUndo coinsBlockUndo;
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
@@ -561,7 +561,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     //test
     CSidechain sidechain;
     view->GetSidechain(scId, sidechain);
-    int minimalCeaseHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int minimalCeaseHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
 
     CBlockUndo coinsBlockUndo;
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
@@ -607,7 +607,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     //test
     CSidechain sidechain;
     view->GetSidechain(scId, sidechain);
-    int minimalCeaseHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int minimalCeaseHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
 
     CBlockUndo coinsBlockUndo;
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
@@ -647,12 +647,12 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
     //Generate coin from certificate
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, sidechain.StartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
+    UpdateCoins(cert, *view, txundo, sidechain.GetStartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
     //Make the sidechain cease, nulling the coin
-    int minimalCeaseHeight = sidechain.StartHeightForEpoch(2)+sidechain.GetCertSubmissionWindowLength();
+    int minimalCeaseHeight = sidechain.GetStartHeightForEpoch(2)+sidechain.GetCertSubmissionWindowLength();
     CBlockUndo coinsBlockUndo;
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
     EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
@@ -700,12 +700,12 @@ TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
     //Generate coin from certificate
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, sidechain.StartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
+    UpdateCoins(cert, *view, txundo, sidechain.GetStartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
     //Make the sidechain cease, nulling the coin
-    int minimalCeaseHeight = sidechain.StartHeightForEpoch(2)+sidechain.GetCertSubmissionWindowLength();
+    int minimalCeaseHeight = sidechain.GetStartHeightForEpoch(2)+sidechain.GetCertSubmissionWindowLength();
     CBlockUndo coinsBlockUndo;
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
     EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
@@ -750,12 +750,12 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
     //Generate coin from certificate
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, sidechain.StartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
+    UpdateCoins(cert, *view, txundo, sidechain.GetStartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
     //Make the sidechain cease, nulling the coin
-    int minimalCeaseHeight = sidechain.StartHeightForEpoch(2)+sidechain.GetCertSubmissionWindowLength();
+    int minimalCeaseHeight = sidechain.GetStartHeightForEpoch(2)+sidechain.GetCertSubmissionWindowLength();
     CBlockUndo coinsBlockUndo;
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
     EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
@@ -802,11 +802,11 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
     //Generate coin from certificate
     CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, sidechain.StartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
+    UpdateCoins(cert, *view, txundo, sidechain.GetStartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
 
     //Make the sidechain cease, nulling the coin
-    int minimalCeaseHeight = sidechain.StartHeightForEpoch(2)+sidechain.GetCertSubmissionWindowLength();
+    int minimalCeaseHeight = sidechain.GetStartHeightForEpoch(2)+sidechain.GetCertSubmissionWindowLength();
     CBlockUndo coinsBlockUndo;
     EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
     EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
@@ -833,7 +833,7 @@ TEST_F(SidechainsEventsTestSuite, CancelSidechainEvent) {
 
     CSidechain sidechain;
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
-    int ceasingHeight = sidechain.StartHeightForEpoch(1)+sidechain.GetCertSubmissionWindowLength();
+    int ceasingHeight = sidechain.GetStartHeightForEpoch(1)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents ceasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(ceasingHeight, ceasingScIds));
     EXPECT_TRUE(ceasingScIds.ceasingScs.count(scId) != 0);
@@ -861,7 +861,7 @@ TEST_F(SidechainsEventsTestSuite, UndoFullCertUpdatesToCeasingScs) {
     CSidechain sidechain;
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int initialCeasingHeight = sidechain.StartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
+    int initialCeasingHeight = sidechain.GetStartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents initialCeasingScIds;
     ASSERT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
     ASSERT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
@@ -875,7 +875,7 @@ TEST_F(SidechainsEventsTestSuite, UndoFullCertUpdatesToCeasingScs) {
 
     //Checks
     view->GetSidechain(scId, sidechain);
-    int newCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int newCeasingHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents updatedCeasingScIds;
     ASSERT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
     ASSERT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
@@ -909,7 +909,7 @@ TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
     CSidechain sidechain;
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int initialCeasingHeight = sidechain.StartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
+    int initialCeasingHeight = sidechain.GetStartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
 
     CSidechainEvents initialCeasingScIds;
     ASSERT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
@@ -924,7 +924,7 @@ TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
 
     //Checks
     view->GetSidechain(scId, sidechain);
-    int newCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int newCeasingHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents updatedCeasingScIds;
     ASSERT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
     ASSERT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
@@ -959,7 +959,7 @@ TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
     CSidechain sidechain;
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int initialCeasingHeight = sidechain.StartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
+    int initialCeasingHeight = sidechain.GetStartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
 
     CSidechainEvents initialCeasingScIds;
     ASSERT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
@@ -974,7 +974,7 @@ TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
 
     //Checks
     view->GetSidechain(scId, sidechain);
-    int newCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int newCeasingHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents updatedCeasingScIds;
     ASSERT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
     ASSERT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
@@ -1009,7 +1009,7 @@ TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
     CSidechain sidechain;
     ASSERT_TRUE(view->GetSidechain(scId, sidechain));
     int currentEpoch = sidechain.EpochFor(creationHeight);
-    int initialCeasingHeight = sidechain.StartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
+    int initialCeasingHeight = sidechain.GetStartHeightForEpoch(currentEpoch+1)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents initialCeasingScIds;
     ASSERT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
     ASSERT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
@@ -1023,7 +1023,7 @@ TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
 
     //Checks
     view->GetSidechain(scId, sidechain);
-    int newCeasingHeight = sidechain.StartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
+    int newCeasingHeight = sidechain.GetStartHeightForEpoch(cert.epochNumber+2)+sidechain.GetCertSubmissionWindowLength();
     CSidechainEvents updatedCeasingScIds;
     ASSERT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
     ASSERT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);

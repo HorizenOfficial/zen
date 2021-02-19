@@ -172,7 +172,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
             int nHeight = chainActive.Height() + 1;
             assert(pcoinsTip->GetSidechain(scid, sidechain));
             int currentEpoch = sidechain.EpochFor(nHeight);
-            int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
+            int bwtMaturityDepth = sidechain.GetStartHeightForEpoch(currentEpoch+1) +
                 sidechain.GetCertSubmissionWindowLength() - nHeight;
             bwtMaturityHeight = bwtMaturityDepth + nHeight;
         } else {

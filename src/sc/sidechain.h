@@ -150,8 +150,10 @@ public:
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
     int EpochFor(int targetHeight) const;
-    int StartHeightForEpoch(int targetEpoch) const;
+    int GetStartHeightForEpoch(int targetEpoch) const;
+    int GetEndHeightForEpoch(int targetEpoch) const;
     int GetCertSubmissionWindowStart(int certEpoch) const;
+    int GetCertSubmissionWindowEnd(int certEpoch) const;
     int GetCertSubmissionWindowLength() const;
     int GetScheduledCeasingHeight() const;
 
@@ -170,3 +172,4 @@ namespace Sidechain {
 }; // end of namespace
 
 #endif // _SIDECHAIN_CORE_H
+

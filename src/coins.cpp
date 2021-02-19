@@ -742,7 +742,7 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
 				__func__, __LINE__, cr.GetScId().ToString(), maturityHeight);
 
 		// Schedule Ceasing Sidechains
-		int nextCeasingHeight = scIt->second.sidechain.StartHeightForEpoch(1) + scIt->second.sidechain.GetCertSubmissionWindowLength();
+		int nextCeasingHeight = scIt->second.sidechain.GetStartHeightForEpoch(1) + scIt->second.sidechain.GetCertSubmissionWindowLength();
 
 		CSidechainEventsMap::iterator scCeasingEventIt = ModifySidechainEvents(nextCeasingHeight);
 		if (scCeasingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
@@ -946,7 +946,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
 
 		//remove current ceasing Height
-		int currentCeasingHeight = scIt->second.sidechain.StartHeightForEpoch(1) + scIt->second.sidechain.GetCertSubmissionWindowLength();
+		int currentCeasingHeight = scIt->second.sidechain.GetStartHeightForEpoch(1) + scIt->second.sidechain.GetCertSubmissionWindowLength();
 
 		// Cancel Ceasing Sidechains
 		if (!HaveSidechainEvents(currentCeasingHeight)) {
@@ -971,7 +971,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 int CCoinsViewCache::GetHeight() const {return -1;}
 std::string CSidechain::ToString() const {return std::string{};}
 int CSidechain::EpochFor(int targetHeight) const { return CScCertificate::EPOCH_NULL; }
-int CSidechain::StartHeightForEpoch(int targetEpoch) const { return -1; }
+int CSidechain::GetStartHeightForEpoch(int targetEpoch) const { return -1; }
 int CSidechain::GetCertSubmissionWindowLength() const { return -1; }
 int CSidechain::GetScheduledCeasingHeight()  const { return -1; }
 size_t CSidechain::DynamicMemoryUsage() const { return 0; }
@@ -1077,8 +1077,12 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
+    sidechain.GetEndHeightForEpoch(cert.epochNumber);
+    //creationBlockHeight + (targetEpoch + 1)* creationData.withdrawalEpochLength - 1;
+
+    //creationBlockHeight + targetEpoch * creationData.withdrawalEpochLength - 1;
     // Retrieve previous end epoch block hash for certificate proof verification
-    int targetHeight = sidechain.StartHeightForEpoch(cert.epochNumber) - 1;
+    int targetHeight =  sidechain.GetStartHeightForEpoch(cert.epochNumber) - 1;
     uint256 prev_end_epoch_block_hash = chainActive[targetHeight] -> GetBlockHash();
 
     // Verify certificate proof
@@ -1115,7 +1119,7 @@ bool CCoinsViewCache::CheckEndEpochBlockHash(const CSidechain& sidechain, int ep
     }
 
     // 2. combination of epoch number and epoch length, specified in sc info, must point to that end-epoch block
-    int endEpochHeight = sidechain.StartHeightForEpoch(epochNumber+1) -1;
+    int endEpochHeight = sidechain.GetEndHeightForEpoch(epochNumber);
     pblockindex = chainActive[endEpochHeight];
 
     if (!pblockindex)
@@ -1697,10 +1701,9 @@ libzendoomc::ScFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256
     if (pSidechain == nullptr)
         return libzendoomc::ScFieldElement{};
 
-    int currentHeight = this->GetHeight();
-    int currentEpochSafeguard = pSidechain->StartHeightForEpoch(pSidechain->EpochFor(currentHeight)) + pSidechain->GetCertSubmissionWindowLength();
+    int currentEpochSafeguard = pSidechain->GetCertSubmissionWindowEnd(pSidechain->EpochFor(this->GetHeight())) - pSidechain->creationData.withdrawalEpochLength;
 
-    if (currentHeight < currentEpochSafeguard)
+    if (GetHeight() < currentEpochSafeguard)
         return pSidechain->pastEpochTopQualityCertDataHash;
     else
         return pSidechain->lastTopQualityCertDataHash;

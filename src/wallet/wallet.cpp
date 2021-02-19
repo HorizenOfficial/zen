@@ -2051,7 +2051,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(itCert->GetScId(), sidechain));
                 int currentEpoch = sidechain.EpochFor(nHeight);
-                int bwtMaxDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
+                int bwtMaxDepth = sidechain.GetStartHeightForEpoch(currentEpoch+1) +
                                   sidechain.GetCertSubmissionWindowLength() - nHeight;
 
                 if (AddToWalletIfInvolvingMe(*itCert, &block, bwtMaxDepth, fUpdate))

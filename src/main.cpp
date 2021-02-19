@@ -2032,7 +2032,7 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     CSidechain sidechain;
     assert(inputs.GetSidechain(cert.GetScId(), sidechain));
     int currentEpoch = sidechain.EpochFor(nHeight);
-    int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.GetCertSubmissionWindowLength();
+    int bwtMaturityHeight = sidechain.GetStartHeightForEpoch(currentEpoch+1) + sidechain.GetCertSubmissionWindowLength();
     inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight, isBlockTopQualityCert);
     return;
 }
@@ -2352,7 +2352,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             CSidechain sidechain;
             assert(view.GetSidechain(cert.GetScId(), sidechain));
             int currentEpoch = sidechain.EpochFor(pindex->nHeight);
-            int bwtMaturityHeight = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.GetCertSubmissionWindowLength();
+            int bwtMaturityHeight = sidechain.GetStartHeightForEpoch(currentEpoch+1) + sidechain.GetCertSubmissionWindowLength();
             CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight, isBlockTopQualityCert);
 
             // The CCoins serialization does not serialize negative numbers.
@@ -3280,7 +3280,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         CSidechain sidechain;
         assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
         int currentEpoch = sidechain.EpochFor(chainActive.Height());
-        int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) + sidechain.GetCertSubmissionWindowLength() - chainActive.Height();
+        int bwtMaturityDepth = sidechain.GetStartHeightForEpoch(currentEpoch+1) + sidechain.GetCertSubmissionWindowLength() - chainActive.Height();
         LogPrint("cert", "%s():%d - sync with wallet confirmed cert[%s], bwtMaturityDepth[%d]\n",
             __func__, __LINE__, cert.GetHash().ToString(), bwtMaturityDepth);
         SyncWithWallets(cert, pblock, bwtMaturityDepth);

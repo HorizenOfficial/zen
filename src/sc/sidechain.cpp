@@ -22,7 +22,7 @@ int CSidechain::EpochFor(int targetHeight) const
     return (targetHeight - creationBlockHeight) / creationData.withdrawalEpochLength;
 }
 
-int CSidechain::StartHeightForEpoch(int targetEpoch) const
+int CSidechain::GetStartHeightForEpoch(int targetEpoch) const
 {
     if (!isCreationConfirmed()) //default value
         return -1;
@@ -30,9 +30,28 @@ int CSidechain::StartHeightForEpoch(int targetEpoch) const
     return creationBlockHeight + targetEpoch * creationData.withdrawalEpochLength;
 }
 
+int CSidechain::GetEndHeightForEpoch(int targetEpoch) const
+{
+    if (!isCreationConfirmed()) //default value
+        return -1;
+
+    return creationBlockHeight + (targetEpoch + 1)* creationData.withdrawalEpochLength - 1;
+}
+
 int CSidechain::GetCertSubmissionWindowStart(int certEpoch) const
 {
-	return StartHeightForEpoch(certEpoch+1);
+    if (!isCreationConfirmed()) //default value
+        return -1;
+
+	return GetStartHeightForEpoch(certEpoch+1);
+}
+
+int CSidechain::GetCertSubmissionWindowEnd(int certEpoch) const
+{
+    if (!isCreationConfirmed()) //default value
+        return -1;
+
+	return GetCertSubmissionWindowStart(certEpoch) + GetCertSubmissionWindowLength() - 1;
 }
 
 int CSidechain::GetCertSubmissionWindowLength() const
@@ -42,9 +61,7 @@ int CSidechain::GetCertSubmissionWindowLength() const
 
 int CSidechain::GetScheduledCeasingHeight() const
 {
-    if (!isCreationConfirmed()) //default value
-        return -1;
-    return StartHeightForEpoch(lastTopQualityCertReferencedEpoch+2) + GetCertSubmissionWindowLength() -1;
+	return GetCertSubmissionWindowEnd(lastTopQualityCertReferencedEpoch+1);
 }
 
 std::string CSidechain::stateToString(State s)
