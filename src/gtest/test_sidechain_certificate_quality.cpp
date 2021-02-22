@@ -291,37 +291,47 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataCh
             initialScState.ToString()<<revertedSidechain.ToString();
 }
 
-//TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDataCheck) {
-//    uint256 scId = uint256S("aaa");
-//
-//    CSidechain initialScState;
-//    initialScState.lastTopQualityCertHash = uint256S("cccc");
-//    initialScState.lastTopQualityCertQuality = 100;
-//    initialScState.lastTopQualityCertReferencedEpoch = 1987;
-//    initialScState.lastTopQualityCertBwtAmount = 50;
-//    initialScState.balance = CAmount(100);
-//    storeSidechain(scId, initialScState);
-//
-//    //Insert next epoch Certificate
-//    CMutableScCertificate nextEpochCert;
-//    nextEpochCert.scId        = scId;
-//    nextEpochCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1;
-//    nextEpochCert.quality     = initialScState.lastTopQualityCertQuality / 2;
-//    nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
-//
-//    CBlockUndo blockUndo;
-//    ASSERT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, blockUndo));
-//
-//    //test
-//    EXPECT_TRUE(sidechainsView->RestoreSidechain(nextEpochCert, blockUndo.scUndoDatabyScId.at(scId)));
-//
-//    CSidechain revertedSidechain;
-//    ASSERT_TRUE(sidechainsView->GetSidechain(scId,revertedSidechain));
-//    EXPECT_TRUE(initialScState == revertedSidechain);
-//}
-/////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////// CheckQuality ////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////
+TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDataCheck) {
+    uint256 scId = uint256S("aaa");
+
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    initialScState.creationBlockHeight = 400;
+    initialScState.lastTopQualityCertHash = uint256S("cccc");
+    initialScState.lastTopQualityCertQuality = 100;
+    initialScState.lastTopQualityCertReferencedEpoch = 1987;
+    initialScState.lastTopQualityCertBwtAmount = 50;
+    initialScState.balance = CAmount(100);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(sidechainsView->getScEventsMap(), initialScheduledHeight, scEvent);
+
+    //Insert next epoch Certificate
+    CMutableScCertificate nextEpochCert;
+    nextEpochCert.scId        = scId;
+    nextEpochCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1;
+    nextEpochCert.quality     = initialScState.lastTopQualityCertQuality / 2;
+    nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+
+    CBlockUndo blockUndo;
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, blockUndo));
+
+    //test
+    EXPECT_TRUE(sidechainsView->RestoreSidechain(nextEpochCert, blockUndo.scUndoDatabyScId.at(scId)));
+
+    CSidechain revertedSidechain;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,revertedSidechain));
+    EXPECT_TRUE(initialScState == revertedSidechain);
+}
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////// CheckQuality ////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsMultipleCertsTestSuite, CheckQualityRejectsLowerQualityCertsInSameEpoch) {
     CSidechain initialScState;
     initialScState.balance = CAmount(10);

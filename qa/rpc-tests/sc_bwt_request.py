@@ -397,7 +397,7 @@ class sc_bwt_request(BitcoinTestFramework):
         ret_sc1 = self.nodes[0].getscinfo(scid1, False, False)['items'][0]
         ret_sc2 = self.nodes[0].getscinfo(scid2, False, False)['items'][0]
 
-        # get the submissin window limit for SC1
+        # get the submission window limit for SC1
         sc1_cr_height=ret_sc1['created at block height']
         sc1_ceas_h = ret_sc1['ceasing height']
         sc1_ceas_limit_delta = sc1_ceas_h - cur_h - 1

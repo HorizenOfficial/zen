@@ -306,7 +306,7 @@ class quality_nodes(BitcoinTestFramework):
         mined = self.nodes[0].generate(1)[0]
         self.sync_all()
        
-        # not in the block just minde and not in the mempool either
+        # not in the block just mined and not in the mempool either
         assert_false(cert_2_epoch_1 in self.nodes[1].getblock(mined, True)['cert'])
         assert_false(cert_2_epoch_1 in self.nodes[1].getrawmempool())
 
