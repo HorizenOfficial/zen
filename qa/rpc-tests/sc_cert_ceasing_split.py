@@ -141,6 +141,14 @@ class CeasingSplitTest(BitcoinTestFramework):
         self.nodes[0].generate(numbBlocks)
         self.sync_all()
 
+        cur_h = self.nodes[0].getblockcount()
+        ret=self.nodes[0].getscinfo(scid, True, False)['items'][0]
+        cr_height=ret['created at block height']
+        ceas_h = ret['ceasing height']
+        mark_logs("epoch number={}, current height={}, creation height={}, ceasing height={}, epoch_len={}"
+            .format(epoch_number, cur_h, cr_height, ceas_h, sc_epoch_len), self.nodes, DEBUG_MODE)
+        print
+
         bal_initial = self.nodes[0].getscinfo(scid, False, False)['items'][0]['balance']
 
         #============================================================================================

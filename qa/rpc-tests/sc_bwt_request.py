@@ -388,14 +388,24 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_true(bwt5 in vtx)
         assert_true(bwt6 in vtx)
 
-        mark_logs("Node0 generates 2 blocks maturing SC creation amount", self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(2))
+        mark_logs("Node0 generates {} blocks maturing SC2 creation amount".format(SC_COINS_MAT), self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(SC_COINS_MAT))
         self.sync_all()
 
+        cur_h = self.nodes[0].getblockcount()
+
+        ret_sc1 = self.nodes[0].getscinfo(scid1, False, False)['items'][0]
         ret_sc2 = self.nodes[0].getscinfo(scid2, False, False)['items'][0]
 
-        mark_logs("Node0 generates {} blocks reaching the safe guard height".format(EPOCH_LENGTH - 4), self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(EPOCH_LENGTH - 3))
+        # get the submissin window limit for SC1
+        sc1_cr_height=ret_sc1['created at block height']
+        sc1_ceas_h = ret_sc1['ceasing height']
+        sc1_ceas_limit_delta = sc1_ceas_h - cur_h - 1
+        mark_logs("current height={}, creation height={}, ceasing height={}, ceas_limit_delta={}, epoch_len={}"
+            .format(cur_h, sc1_cr_height, sc1_ceas_h, sc1_ceas_limit_delta, EPOCH_LENGTH), self.nodes, DEBUG_MODE)
+
+        mark_logs("Node0 generates {} blocks reaching the submission window height for SC1".format(sc1_ceas_limit_delta), self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(sc1_ceas_limit_delta))
         self.sync_all()
 
         print "Node0 Chain h = ", self.nodes[0].getblockcount()
@@ -436,7 +446,7 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Check btr {} is removed from mempool".format(bwt3), self.nodes, DEBUG_MODE)
         assert_false(bwt3 in self.nodes[0].getrawmempool())
 
-        mark_logs("Checking Sc balance is nothing but sc fees of the various mbtr", self.nodes, DEBUG_MODE)
+        mark_logs("Checking SC1 balance is nothing but sc fees of the various mbtr", self.nodes, DEBUG_MODE)
         sc_post_bwd = self.nodes[0].getscinfo(scid1, False, False)['items'][0]
         assert_equal(sc_post_bwd["balance"], totScFee)
 
@@ -514,7 +524,7 @@ class sc_bwt_request(BitcoinTestFramework):
         ceasing_h = int(ret['ceasing height'])
         current_h = self.nodes[0].getblockcount()
 
-        mark_logs("Node0 generates {} blocks moving on the ceasing limit of SC1".format(ceasing_h - current_h - 1), self.nodes, DEBUG_MODE)
+        mark_logs("Node0 generates {} blocks moving on the ceasing limit of SC2".format(ceasing_h - current_h - 1), self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(ceasing_h - current_h - 1))
         self.sync_all()
         print "Current height = ",  self.nodes[0].getblockcount()
@@ -545,7 +555,7 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Check cert {} is in mempool".format(cert_bad), self.nodes, DEBUG_MODE)
         assert_true(cert_bad in self.nodes[0].getrawmempool()) 
 
-        # 2) generate a block crossing the sg
+        # 2) generate a block crossing the submission windows limit
         mark_logs("Node0 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
@@ -568,8 +578,9 @@ class sc_bwt_request(BitcoinTestFramework):
         # 4) invalidate
         mark_logs("Node1 invalidates one block", self.nodes, DEBUG_MODE)
         self.nodes[1].invalidateblock(self.nodes[1].getbestblockhash())
+
+        # check mbtr is not in the mempool because it refers to an invalid cert data hash
         mark_logs("Check bwd tx {} is not in mempool anymore".format(tx_bwt), self.nodes, DEBUG_MODE)
-        #assert_false(tx_bwt in self.nodes[1].getrawmempool()) 
         if tx_bwt in self.nodes[1].getrawmempool():
             print "FIX FIX FIX!!! bwt is still in mempool" 
             any_error = True
