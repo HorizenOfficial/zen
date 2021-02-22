@@ -156,8 +156,7 @@ private:
         rspPayload.push_back(Pair("height", height));
         rspPayload.push_back(Pair("hash", strHash));
         rspPayload.push_back(Pair("block", blockHex));
-        rspPayload.push_back(Pair("difficulty", std::to_string(GetNetworkDifficulty(pindex))));
-        rspPayload.push_back(Pair("verificationprogress", Checkpoints::GuessVerificationProgress(Params().Checkpoints(), chainActive.Tip())));
+        rspPayload.push_back(Pair("chainwork",  pindex->nChainWork.GetHex()));
 
 
         UniValue* rv = wse->getPayload();
@@ -166,7 +165,7 @@ private:
         wsq.push(wse);
     }
 
-    void sendBlock(int height, const std::string& strHash, const std::string& blockHex,
+    void sendBlock(int height, const std::string& strHash, const std::string& blockHex, const CBlockIndex* pblockindex,
             WsEvent::WsMsgType msgType, std::string clientRequestId = "")
     {
         // Send a message to the client:  type = eventType
@@ -176,6 +175,7 @@ private:
         rspPayload.push_back(Pair("height", height));
         rspPayload.push_back(Pair("hash", strHash));
         rspPayload.push_back(Pair("block", blockHex));
+        rspPayload.push_back(Pair("chainwork",  pblockindex->nChainWork.GetHex()));
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
@@ -192,6 +192,7 @@ private:
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
         rspPayload.push_back(Pair("height", height));
+        rspPayload.push_back(Pair("verificationprogress", Checkpoints::GuessVerificationProgress(Params().Checkpoints(), chainActive.Tip())));
 
         UniValue hashes(UniValue::VARR);
         std::list<CBlockIndex*>::iterator it = listBlock.begin();
@@ -281,7 +282,8 @@ private:
 
     }
 
-    void sendNodeConf(int version, int protocolVersion, int timeoffset, int relayfee, std::string proxy,
+    void sendNodeConf(int version, int protocolVersion, int timeoffset, int relayfee,
+            std::string proxy, std::string errors,int blocks, int connections, bool testnet, double difficulty, double networkDifficulty,
         WsEvent::WsMsgType msgType, std::string clientRequestId = "")
     {
         // Send a message to the client:  type = responseType
@@ -294,6 +296,13 @@ private:
         rspPayload.push_back(Pair("timeoffset", timeoffset));
         rspPayload.push_back(Pair("relayfee", relayfee));
         rspPayload.push_back(Pair("proxy", proxy));
+        rspPayload.push_back(Pair("errors", errors));
+        rspPayload.push_back(Pair("blocks", blocks));
+        rspPayload.push_back(Pair("connections", connections));
+        rspPayload.push_back(Pair("testnet", testnet));
+        rspPayload.push_back(Pair("difficulty", difficulty));
+        rspPayload.push_back(Pair("networkDifficulty", networkDifficulty));
+
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
@@ -373,7 +382,7 @@ private:
         {
             return ret;
         }
-        sendBlock(pblockindex->nHeight, strHash, block, WsEvent::MSG_RESPONSE, clientRequestId);
+        sendBlock(pblockindex->nHeight, strHash, block, pblockindex, WsEvent::MSG_RESPONSE, clientRequestId);
         return OK;
     }
 
@@ -558,8 +567,14 @@ private:
         proxyType p;
         GetProxy(NET_IPV4, p);
         std::string proxy = p.IsValid() ? p.proxy.ToStringIPPort() : std::string();
+        std::string errors = GetWarnings("statusbar");
+        int blocks = (int)chainActive.Height();
+        int connections = (int)vNodes.size();
+        bool testnet = Params().TestnetToBeDeprecatedFieldRPC();
+        double difficulty = (double)GetDifficulty();
+        double networkDifficulty = (double)GetNetworkDifficulty();
 
-        sendNodeConf(version, protocolVersion, timeoffset, relayfee, proxy, WsEvent::MSG_RESPONSE, clientRequestId);
+        sendNodeConf(version, protocolVersion, timeoffset, relayfee, proxy, errors, blocks, connections, testnet, difficulty, networkDifficulty, WsEvent::MSG_RESPONSE, clientRequestId);
         return OK;
     }
 
