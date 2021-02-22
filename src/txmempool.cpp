@@ -402,7 +402,8 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             for(const auto& btr: tx.GetVBwtRequestOut()) {
                 if (mapSidechains.count(btr.scId)) { //Guard against double-delete on multiple btrs toward the same sc in same tx
                     mapSidechains.at(btr.scId).mcBtrsTxHashes.erase(tx.GetHash());
-                    mapSidechains.at(btr.scId).mcBtrsCertDataHash.SetNull();
+                    if (mapSidechains.at(btr.scId).mcBtrsTxHashes.empty())
+                        mapSidechains.at(btr.scId).mcBtrsCertDataHash.SetNull();
 
                     if (mapSidechains.at(btr.scId).IsNull())
                     {
