@@ -9,21 +9,51 @@
 #include <main.h>
 #include <consensus/validation.h>
 
+class CNakedCCoinsViewCache : public CCoinsViewCache
+{
+public:
+    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
+    {
+        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
+        this->hashAnchor = dummyAnchor;
+
+        CAnchorsCacheEntry dummyAnchorsEntry;
+        dummyAnchorsEntry.entered = true;
+        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
+        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
+
+    };
+    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
+    CSidechainEventsMap& getScEventsMap() {return this->cacheSidechainEvents; };
+};
+
 class CInMemorySidechainDb final: public CCoinsView {
 public:
     CInMemorySidechainDb()  = default;
     virtual ~CInMemorySidechainDb() = default;
 
-    bool HaveSidechain(const uint256& scId) const override { return inMemoryMap.count(scId); }
+    bool HaveSidechain(const uint256& scId) const override {
+        return sidechainsInMemoryMap.count(scId) && sidechainsInMemoryMap.at(scId).flag != CSidechainsCacheEntry::Flags::ERASED;
+    }
     bool GetSidechain(const uint256& scId, CSidechain& info) const override {
-        if(!inMemoryMap.count(scId))
+        if(!HaveSidechain(scId))
             return false;
-        info = inMemoryMap[scId];
+        info = sidechainsInMemoryMap.at(scId).sidechain;
+        return true;
+    }
+
+    bool HaveSidechainEvents(int height)  const override {
+        return eventsInMemoryMap.count(height) && eventsInMemoryMap.at(height).flag != CSidechainEventsCacheEntry::Flags::ERASED;
+    }
+    bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override {
+        if(!HaveSidechainEvents(height))
+            return false;
+        scEvents = eventsInMemoryMap.at(height).scEvents;
         return true;
     }
 
     virtual void GetScIds(std::set<uint256>& scIdsList) const override {
-        for (auto& entry : inMemoryMap)
+        for (auto& entry : sidechainsInMemoryMap)
             scIdsList.insert(entry.first);
         return;
     }
@@ -32,26 +62,20 @@ public:
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CSidechainEventsMap& mapSidechainEvents) override
     {
-        for (auto& entry : sidechainMap)
-            switch (entry.second.flag) {
-                case CSidechainsCacheEntry::Flags::FRESH:
-                case CSidechainsCacheEntry::Flags::DIRTY:
-                    inMemoryMap[entry.first] = entry.second.sidechain;
-                    break;
-                case CSidechainsCacheEntry::Flags::ERASED:
-                    inMemoryMap.erase(entry.first);
-                    break;
-                case CSidechainsCacheEntry::Flags::DEFAULT:
-                    break;
-                default:
-                    return false;
-            }
+        for (auto& entryToWrite : sidechainMap)
+            WriteMutableEntry(entryToWrite.first, entryToWrite.second, sidechainsInMemoryMap);
+
+        for (auto& entryToWrite : mapSidechainEvents)
+            WriteMutableEntry(entryToWrite.first, entryToWrite.second, eventsInMemoryMap);
+
         sidechainMap.clear();
+        mapSidechainEvents.clear();
         return true;
     }
 
 private:
-    mutable boost::unordered_map<uint256, CSidechain, ObjectHasher> inMemoryMap;
+    mutable boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> sidechainsInMemoryMap;
+    mutable boost::unordered_map<int, CSidechainEventsCacheEntry> eventsInMemoryMap;
 };
 
 class SidechainsMultipleCertsTestSuite : public ::testing::Test {
@@ -68,7 +92,7 @@ public:
         SelectParams(CBaseChainParams::REGTEST);
 
         fakeChainStateDb   = new CInMemorySidechainDb();
-        sidechainsView     = new CCoinsViewCache(fakeChainStateDb);
+        sidechainsView     = new CNakedCCoinsViewCache(fakeChainStateDb);
     };
 
     void TearDown() override {
@@ -79,8 +103,8 @@ public:
         fakeChainStateDb = nullptr;
     };
 protected:
-    CInMemorySidechainDb *fakeChainStateDb;
-    CCoinsViewCache      *sidechainsView;
+    CInMemorySidechainDb   *fakeChainStateDb;
+    CNakedCCoinsViewCache  *sidechainsView;
 
     //helpers
     CBlock                  dummyBlock;
@@ -98,7 +122,7 @@ protected:
 
     CValidationState    dummyState;
 
-    uint256 storeSidechain(const uint256& scId, const CSidechain& sidechain);
+    void storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -107,13 +131,23 @@ protected:
 TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainIsUpdated) {
     uint256 scId = uint256S("aaa");
 
+    // setup sidechain initial state...
     CSidechain initialScState;
+    initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 1987;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    storeSidechain(scId, initialScState);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(sidechainsView->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Insert high quality Certificate
     CMutableScCertificate highQualityCert;
@@ -138,13 +172,23 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
 TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainIsNOTUpdated) {
     uint256 scId = uint256S("aaa");
 
+    // setup sidechain initial state...
     CSidechain initialScState;
+    initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 1987;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    storeSidechain(scId, initialScState);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(sidechainsView->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Insert low quality Certificate
     CMutableScCertificate lowQualityCert;
@@ -168,13 +212,23 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
 TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_SidechainIsUpdated) {
     uint256 scId = uint256S("aaa");
 
+    // setup sidechain initial state...
     CSidechain initialScState;
+    initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 1987;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    storeSidechain(scId, initialScState);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(sidechainsView->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Insert next epoch Certificate
     CMutableScCertificate nextEpochCert;
@@ -199,13 +253,23 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_Sidech
 TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataCheck) {
     uint256 scId = uint256S("aaa");
 
+    // setup sidechain initial state...
     CSidechain initialScState;
+    initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 1987;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    storeSidechain(scId, initialScState);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(sidechainsView->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Insert high quality Certificate and generate undo data
     CMutableScCertificate highQualityCert;
@@ -227,37 +291,37 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataCh
             initialScState.ToString()<<revertedSidechain.ToString();
 }
 
-TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDataCheck) {
-    uint256 scId = uint256S("aaa");
-
-    CSidechain initialScState;
-    initialScState.lastTopQualityCertHash = uint256S("cccc");
-    initialScState.lastTopQualityCertQuality = 100;
-    initialScState.lastTopQualityCertReferencedEpoch = 1987;
-    initialScState.lastTopQualityCertBwtAmount = 50;
-    initialScState.balance = CAmount(100);
-    storeSidechain(scId, initialScState);
-
-    //Insert next epoch Certificate
-    CMutableScCertificate nextEpochCert;
-    nextEpochCert.scId        = scId;
-    nextEpochCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1;
-    nextEpochCert.quality     = initialScState.lastTopQualityCertQuality / 2;
-    nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
-
-    CBlockUndo blockUndo;
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, blockUndo));
-
-    //test
-    EXPECT_TRUE(sidechainsView->RestoreSidechain(nextEpochCert, blockUndo.scUndoDatabyScId.at(scId)));
-
-    CSidechain revertedSidechain;
-    ASSERT_TRUE(sidechainsView->GetSidechain(scId,revertedSidechain));
-    EXPECT_TRUE(initialScState == revertedSidechain);
-}
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////// CheckQuality ////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+//TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDataCheck) {
+//    uint256 scId = uint256S("aaa");
+//
+//    CSidechain initialScState;
+//    initialScState.lastTopQualityCertHash = uint256S("cccc");
+//    initialScState.lastTopQualityCertQuality = 100;
+//    initialScState.lastTopQualityCertReferencedEpoch = 1987;
+//    initialScState.lastTopQualityCertBwtAmount = 50;
+//    initialScState.balance = CAmount(100);
+//    storeSidechain(scId, initialScState);
+//
+//    //Insert next epoch Certificate
+//    CMutableScCertificate nextEpochCert;
+//    nextEpochCert.scId        = scId;
+//    nextEpochCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1;
+//    nextEpochCert.quality     = initialScState.lastTopQualityCertQuality / 2;
+//    nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+//
+//    CBlockUndo blockUndo;
+//    ASSERT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, blockUndo));
+//
+//    //test
+//    EXPECT_TRUE(sidechainsView->RestoreSidechain(nextEpochCert, blockUndo.scUndoDatabyScId.at(scId)));
+//
+//    CSidechain revertedSidechain;
+//    ASSERT_TRUE(sidechainsView->GetSidechain(scId,revertedSidechain));
+//    EXPECT_TRUE(initialScState == revertedSidechain);
+//}
+/////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////// CheckQuality ////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsMultipleCertsTestSuite, CheckQualityRejectsLowerQualityCertsInSameEpoch) {
     CSidechain initialScState;
     initialScState.balance = CAmount(10);
@@ -266,7 +330,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckQualityRejectsLowerQualityCertsInS
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
     uint256 scId = uint256S("aaa");
-    storeSidechain(scId, initialScState);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
     CMutableScCertificate lowQualityCert;
     lowQualityCert.scId = scId;
@@ -284,7 +348,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckQualityRejectsEqualQualityCertsInS
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
     uint256 scId = uint256S("aaa");
-    storeSidechain(scId, initialScState);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
     CMutableScCertificate equalQualityCert;
     equalQualityCert.scId = scId;
@@ -302,7 +366,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckQualityAcceptsHigherQualityCertsIn
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
     uint256 scId = uint256S("aaa");
-    storeSidechain(scId, initialScState);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
     CMutableScCertificate highQualityCert;
     highQualityCert.scId = scId;
@@ -320,7 +384,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckAcceptsLowerQualityCertsInDifferen
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
     uint256 scId = uint256S("aaa");
-    storeSidechain(scId, initialScState);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
     CMutableScCertificate highQualityCert;
     highQualityCert.scId = scId;
@@ -341,7 +405,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckInMempoolDelegateToBackingView) {
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
     uint256 scId = uint256S("aaa");
-    storeSidechain(scId, initialScState);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
     CMutableScCertificate cert;
     cert.scId = scId;
@@ -378,7 +442,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CertsInMempoolDoNotAffectCheckQuality) 
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
     uint256 scId = uint256S("aaa");
-    storeSidechain(scId, initialScState);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
     // add certificate to mempool
     CMutableScCertificate mempoolCert;
@@ -412,9 +476,9 @@ TEST_F(SidechainsMultipleCertsTestSuite, CertsInMempoolDoNotAffectCheckQuality) 
     EXPECT_TRUE(viewMempool.CheckQuality(trialCert));
 }
 
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////// CheckCertificatesOrdering //////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+/////////////////////////// CheckCertificatesOrdering //////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST(SidechainsMultipleCerts, BlocksWithCertsOfDifferentEpochsAreRejected) {
     CMutableScCertificate cert_1;
     cert_1.scId = uint256S("aaa");
@@ -504,17 +568,18 @@ TEST(SidechainsMultipleCerts, BlocksWithSameEpochCertssOrderedByIncreasingQualit
     EXPECT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 }
 
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////// HighQualityCertData /////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////// HighQualityCertData /////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsMultipleCertsTestSuite, HighQualityCertData_EmptyBlock)
 {
     CSidechain sidechain;
+    sidechain.creationBlockHeight = 10;
     sidechain.lastTopQualityCertQuality = 100;
     sidechain.lastTopQualityCertHash = uint256S("999");
     sidechain.lastTopQualityCertReferencedEpoch = 15;
     uint256 scId = uint256S("aaa");
-    storeSidechain(scId, sidechain);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
 
     CBlock emptyBlock;
     EXPECT_TRUE(HighQualityCertData(emptyBlock, *sidechainsView).empty());
@@ -523,11 +588,12 @@ TEST_F(SidechainsMultipleCertsTestSuite, HighQualityCertData_EmptyBlock)
 TEST_F(SidechainsMultipleCertsTestSuite, HighQualityCertData_FirstCert)
 {
     CSidechain sidechain;
+    sidechain.creationBlockHeight = 11;
     sidechain.lastTopQualityCertQuality = 100;
     sidechain.lastTopQualityCertHash = uint256S("aaa");
     sidechain.lastTopQualityCertReferencedEpoch = -1;
     uint256 scId = uint256S("aaa");
-    storeSidechain(scId, sidechain);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
 
     CMutableScCertificate firstCert;
     firstCert.scId = scId;
@@ -543,11 +609,12 @@ TEST_F(SidechainsMultipleCertsTestSuite, HighQualityCertData_FirstCert)
 TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_SameScId_DifferentEpoch)
 {
     CSidechain sidechain;
+    sidechain.creationBlockHeight = 1;
     sidechain.lastTopQualityCertQuality = 100;
     sidechain.lastTopQualityCertHash = uint256S("aaa");
     sidechain.lastTopQualityCertReferencedEpoch = 15;
     uint256 scId = uint256S("aaa");
-    storeSidechain(scId, sidechain);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
 
     CMutableScCertificate lowQualityCert;
     lowQualityCert.scId = scId;
@@ -570,11 +637,12 @@ TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_SameScId_DifferentEpoch
 TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_SameScId_SameEpoch)
 {
     CSidechain sidechain;
+    sidechain.creationBlockHeight = 5;
     sidechain.lastTopQualityCertQuality = 10;
     sidechain.lastTopQualityCertHash = uint256S("aaa");
     sidechain.lastTopQualityCertReferencedEpoch = 15;
     uint256 scId = uint256S("aaa");
-    storeSidechain(scId, sidechain);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
 
     CMutableScCertificate lowQualityCert;
     lowQualityCert.scId = scId;
@@ -596,19 +664,23 @@ TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_SameScId_SameEpoch)
 
 TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_MultipleScIds)
 {
+	int allScsCreationBlockHeight = 22;
+
     CSidechain sidechain_A;
+    sidechain_A.creationBlockHeight = allScsCreationBlockHeight;
     sidechain_A.lastTopQualityCertHash = uint256S("aaa");
     sidechain_A.lastTopQualityCertQuality = 10;
     sidechain_A.lastTopQualityCertReferencedEpoch = 15;
     uint256 scId_A = uint256S("aaa");
-    storeSidechain(scId_A, sidechain_A);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId_A, sidechain_A, allScsCreationBlockHeight);
 
     CSidechain sidechain_B;
+    sidechain_A.creationBlockHeight = allScsCreationBlockHeight;
     sidechain_B.lastTopQualityCertHash = uint256S("bbb");
     sidechain_B.lastTopQualityCertQuality = 2;
     sidechain_B.lastTopQualityCertReferencedEpoch = 200;
     uint256 scId_B = uint256S("bbb");
-    storeSidechain(scId_B, sidechain_B);
+    storeSidechainWithCurrentHeight(*sidechainsView, scId_B, sidechain_B, allScsCreationBlockHeight);
 
     CMutableScCertificate cert_A_1;
     cert_A_1.scId = scId_A;
@@ -650,13 +722,9 @@ TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_MultipleScIds)
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// HELPERS ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-uint256 SidechainsMultipleCertsTestSuite::storeSidechain(const uint256& scId, const CSidechain& sidechain)
+void SidechainsMultipleCertsTestSuite::storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight)
 {
-    CSidechainsMap mapSidechain;
-    mapSidechain[scId] = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::FRESH);
-
-    sidechainsView->BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
-                               dummyNullifiers, mapSidechain, dummyScEvents);
-
-    return scId;
+    chainSettingUtils::ExtendChainActiveToHeight(chainActiveHeight);
+    view.SetBestBlock(chainActive.Tip()->GetBlockHash());
+    txCreationUtils::storeSidechain(view.getSidechainMap(), scId, sidechain);
 }
