@@ -1123,9 +1123,9 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     if (pfMissingInputs)
         *pfMissingInputs = false;
 
-	//we retrieve the current height from the pcoinsTip and not from chainActive because on DisconnectTip the Accept*ToMemoryPool
-	// is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
-	int nextBlockHeight = pcoinsTip->GetHeight() + 1;
+    //we retrieve the current height from the pcoinsTip and not from chainActive because on DisconnectTip the Accept*ToMemoryPool
+    // is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
+    int nextBlockHeight = pcoinsTip->GetHeight() + 1;
 
     if (!cert.CheckInputsLimit())
         return false;

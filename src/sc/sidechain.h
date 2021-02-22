@@ -159,7 +159,7 @@ public:
     int GetScheduledCeasingHeight() const;
 
     bool isCreationConfirmed() const {
-    	return this->creationBlockHeight != -1;
+        return this->creationBlockHeight != -1;
     }
 
     // Calculate the size of the cache (in bytes)

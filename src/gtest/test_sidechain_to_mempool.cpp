@@ -138,7 +138,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewSidechainIsAcceptedToMempool) {
     CValidationState txState;
     bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, txState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, txState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSidechainAreNotAllowed) {
@@ -147,7 +147,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSidechainAreNotAllowed
     CValidationState fwdTxState;
     bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
 }
 
 //A proof that https://github.com/HorizenOfficial/zen/issues/215 is solved
@@ -156,12 +156,12 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnconfirmedSidechainsAreAllow
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
     bool missingInputs = false;
-    AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF);
+    AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed) {
@@ -181,7 +181,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed
     CValidationState fwdTxState;
     bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, BtrToUnknownSidechainAreNotAllowed) {
@@ -190,7 +190,7 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToUnknownSidechainAreNotAllowed) {
     CValidationState btrTxState;
     bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, BtrToUnconfirmedSidechainsAreAllowed) {
@@ -198,12 +198,12 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToUnconfirmedSidechainsAreAllowed) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
     bool missingInputs = false;
-    AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF);
+    AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CValidationState btrTxState;
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
@@ -223,7 +223,7 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
     CValidationState btrTxState;
     bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
@@ -795,7 +795,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedTxSpendingImmatureCoinbaseIsDrop
     //test
     std::list<CTransaction> outdatedTxs;
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleTransactions(pcoinsTip, chainActive.Height(), outdatedTxs, outdatedCerts);
+    mempool.removeStaleTransactions(pcoinsTip, outdatedTxs, outdatedCerts);
 
     //Check
     EXPECT_FALSE(mempool.exists(mempoolTx1.GetHash()));
@@ -837,7 +837,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwdsTowardUnconfirmedSidechainsA
     //test
     std::list<CTransaction> outdatedTxs;
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, fwtHeight, outdatedTxs, outdatedCerts);
+    mempool.removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
 
     //checks
     EXPECT_TRUE(mempool.exists(fwdTx.GetHash()));
@@ -871,7 +871,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedFwdsTowardAliveSidechainsAreNotDr
     //test
     std::list<CTransaction> outdatedTxs;
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, fwtHeight, outdatedTxs, outdatedCerts);
+    mempool.removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
 
     //checks
     EXPECT_TRUE(mempool.exists(fwdTx.GetHash()));
@@ -905,7 +905,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedFwdsTowardCeasedSidechainsAreDrop
     //test
     std::list<CTransaction> outdatedTxs;
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, fwtHeight, outdatedTxs, outdatedCerts);
+    mempool.removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
 
     //checks
     EXPECT_FALSE(mempool.exists(fwdTx.GetHash()));
@@ -944,7 +944,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedMbtrTowardCeasedSidechainIsDroppe
     //test
     std::list<CTransaction> outdatedTxs;
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleTransactions(&sidechainsView, mbtrHeight, outdatedTxs, outdatedCerts);
+    mempool.removeStaleTransactions(&sidechainsView, outdatedTxs, outdatedCerts);
 
     //checks
     EXPECT_FALSE(mempool.exists(mbtrTx.GetHash()));
@@ -986,7 +986,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardAliveSidechainIsNotDrop
 
     //test
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleCertificates(&sidechainsView, certHeight, outdatedCerts);
+    mempool.removeStaleCertificates(&sidechainsView, outdatedCerts);
 
     //checks
     EXPECT_TRUE(mempool.exists(cert.GetHash()));
@@ -1020,7 +1020,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardCeasedSidechainIsDroppe
 
     //test
     std::list<CScCertificate> outdatedCerts;
-    mempool.removeStaleCertificates(&sidechainsView, certHeight, outdatedCerts);
+    mempool.removeStaleCertificates(&sidechainsView, outdatedCerts);
 
     //checks
     EXPECT_FALSE(mempool.exists(cert.GetHash()));
