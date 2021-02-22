@@ -664,7 +664,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_SameScId_SameEpoch)
 
 TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_MultipleScIds)
 {
-	int allScsCreationBlockHeight = 22;
+    int allScsCreationBlockHeight = 22;
 
     CSidechain sidechain_A;
     sidechain_A.creationBlockHeight = allScsCreationBlockHeight;
