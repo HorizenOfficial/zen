@@ -16,32 +16,60 @@
 
 int CSidechain::EpochFor(int targetHeight) const
 {
-    if (creationBlockHeight == -1) //default value
+    if (!isCreationConfirmed()) //default value
         return CScCertificate::EPOCH_NULL;
 
     return (targetHeight - creationBlockHeight) / creationData.withdrawalEpochLength;
 }
 
-int CSidechain::StartHeightForEpoch(int targetEpoch) const
+int CSidechain::GetStartHeightForEpoch(int targetEpoch) const
 {
-    if (creationBlockHeight == -1) //default value
+    if (!isCreationConfirmed()) //default value
         return -1;
 
     return creationBlockHeight + targetEpoch * creationData.withdrawalEpochLength;
 }
 
-int CSidechain::SafeguardMargin() const
+int CSidechain::GetEndHeightForEpoch(int targetEpoch) const
 {
-    if ( creationData.withdrawalEpochLength == -1) //default value
+    if (!isCreationConfirmed()) //default value
         return -1;
-    return creationData.withdrawalEpochLength/5;
+
+    return GetStartHeightForEpoch(targetEpoch) + creationData.withdrawalEpochLength - 1;
 }
 
-int CSidechain::GetCeasingHeight() const
+int CSidechain::GetCertSubmissionWindowStart(int certEpoch) const
 {
-    if ( creationData.withdrawalEpochLength == -1) //default value
+    if (!isCreationConfirmed()) //default value
         return -1;
-    return StartHeightForEpoch(lastTopQualityCertReferencedEpoch+2) + SafeguardMargin();
+
+    return GetStartHeightForEpoch(certEpoch+1);
+}
+
+int CSidechain::GetCertSubmissionWindowEnd(int certEpoch) const
+{
+    if (!isCreationConfirmed()) //default value
+        return -1;
+
+    return GetCertSubmissionWindowStart(certEpoch) + GetCertSubmissionWindowLength() - 1;
+}
+
+int CSidechain::GetCertSubmissionWindowLength() const
+{
+    return std::max(2,creationData.withdrawalEpochLength/5);
+}
+
+int CSidechain::GetCertMaturityHeight(int certEpoch) const
+{
+    if (!isCreationConfirmed()) //default value
+        return -1;
+
+    return GetCertSubmissionWindowEnd(certEpoch+1);
+}
+
+int CSidechain::GetScheduledCeasingHeight() const
+{
+    return GetCertSubmissionWindowEnd(lastTopQualityCertReferencedEpoch+1);
 }
 
 std::string CSidechain::stateToString(State s)

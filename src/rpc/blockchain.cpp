@@ -1080,13 +1080,13 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     {
         int currentEpoch = (scState == CSidechain::State::ALIVE)?
                 info.EpochFor(chainActive.Height()):
-                info.EpochFor(info.GetCeasingHeight());
+                info.EpochFor(info.GetScheduledCeasingHeight());
  
         sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
         sc.push_back(Pair("epoch", currentEpoch));
-        sc.push_back(Pair("end epoch height", info.StartHeightForEpoch(currentEpoch +1) - 1));
+        sc.push_back(Pair("end epoch height", info.GetEndHeightForEpoch(currentEpoch)));
         sc.push_back(Pair("state", CSidechain::stateToString(scState)));
-        sc.push_back(Pair("ceasing height", info.GetCeasingHeight()));
+        sc.push_back(Pair("ceasing height", info.GetScheduledCeasingHeight()));
  
         if (bVerbose)
         {
@@ -1156,12 +1156,11 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
                     info.creationData.wMbtrVk = scCreation.wMbtrVk;
-                    info.currentState = (uint8_t)CSidechain::State::UNCONFIRMED;
                     break;
                 }
             }
 
-            sc.push_back(Pair("state", CSidechain::stateToString((CSidechain::State)info.currentState)));
+            sc.push_back(Pair("state", CSidechain::stateToString(CSidechain::State::UNCONFIRMED)));
             sc.push_back(Pair("unconf creating tx hash", info.creationTxHash.GetHex()));
             sc.push_back(Pair("unconf withdrawalEpochLength", info.creationData.withdrawalEpochLength));
 

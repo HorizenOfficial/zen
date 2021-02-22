@@ -474,7 +474,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
     }
 }
 
-inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight)
+inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins)
 {
     for(const CTxIn& txin: tx.GetVin())
     {
@@ -509,12 +509,12 @@ inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, cons
  
         if (coins->IsCoinBase() || coins->IsFromCert() )
         {
-            if (!coins->isOutputMature(txin.prevout.n, nMemPoolHeight) )
+            if (!coins->isOutputMature(txin.prevout.n, pcoins->GetHeight()+1) )
             {
                 LogPrintf("%s():%d - Error: tx [%s] attempts to spend immature output [%d] of tx [%s]\n",
                         __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
                 LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
-                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nMemPoolHeight);
+                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, pcoins->GetHeight()+1);
                 if (coins->IsCoinBase()) {
                     LogPrint("mempool", "%s():%d - adding tx [%s] to list for removing since it spends immature coinbase [%s]\n",
                         __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
@@ -529,7 +529,7 @@ inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, cons
     return true;
 }
 
-inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight)
+inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins)
 {
     for(const CTxIn& txin: cert.GetVin())
     {
@@ -559,12 +559,12 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert
  
         if (coins->IsCoinBase() || coins->IsFromCert() )
         {
-            if (!coins->isOutputMature(txin.prevout.n, nMemPoolHeight) )
+            if (!coins->isOutputMature(txin.prevout.n, pcoins->GetHeight()+1) )
             {
                 LogPrintf("%s():%d - Error: cert[%s] attempts to spend immature output [%d] of [%s]\n",
                         __func__, __LINE__, cert.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
                 LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
-                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nMemPoolHeight);
+                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, pcoins->GetHeight()+1);
                 if (coins->IsCoinBase()) {
                     LogPrint("mempool", "%s():%d - adding cert [%s] to list for removing since it spends immature coinbase [%s]\n",
                         __func__, __LINE__, cert.GetHash().ToString(), txin.prevout.hash.ToString());
@@ -579,7 +579,7 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert
     return true;
 }
 
-void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsView, unsigned int nMemPoolHeight,
+void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsView,
                                          std::list<CScCertificate>& outdatedCerts)
 {
     LOCK(cs);
@@ -589,13 +589,13 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
     for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.begin(); itCert != mapCertificate.end(); itCert++)
     {
         const CScCertificate& cert = itCert->second.GetCertificate();
-        if (!checkCertImmatureExpenditures(cert, pCoinsView, nMemPoolHeight))
+        if (!checkCertImmatureExpenditures(cert, pCoinsView))
         {
             certsToRemove.insert(cert.GetHash());
             continue;
         }
 
-        if (!pCoinsView->CheckCertTiming(cert.GetScId(), nMemPoolHeight, cert.epochNumber))
+        if (!pCoinsView->CheckCertTiming(cert.GetScId(), cert.epochNumber))
         {
             certsToRemove.insert(cert.GetHash());
             continue;
@@ -673,7 +673,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
     }
 }
 
-void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsView, unsigned int nMemPoolHeight,
+void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsView,
                                          std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts)
 {
     LOCK(cs);
@@ -683,7 +683,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
     {
         const CTransaction& tx = it->second.GetTx();
 
-        if (!checkTxImmatureExpenditures(tx, pCoinsView, nMemPoolHeight))
+        if (!checkTxImmatureExpenditures(tx, pCoinsView))
         {
             txesToRemove.insert(tx.GetHash());
             continue;
@@ -1407,7 +1407,6 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationData.constant = scCreation.constant;
                 info.creationData.wCertVk = scCreation.wCertVk;
                 info.creationData.wMbtrVk = scCreation.wMbtrVk;
-                info.currentState = (uint8_t)CSidechain::State::UNCONFIRMED;
                 break;
             }
         }

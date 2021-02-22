@@ -12,51 +12,6 @@
 #include <miner.h>
 #include <gtest/libzendoo_test_files.h>
 
-class CInMemorySidechainDb final: public CCoinsView {
-public:
-    CInMemorySidechainDb()  = default;
-    virtual ~CInMemorySidechainDb() = default;
-
-    bool HaveSidechain(const uint256& scId) const override { return inMemoryMap.count(scId); }
-    bool GetSidechain(const uint256& scId, CSidechain& info) const override {
-        if(!inMemoryMap.count(scId))
-            return false;
-        info = inMemoryMap[scId];
-        return true;
-    }
-
-    virtual void GetScIds(std::set<uint256>& scIdsList) const override {
-        for (auto& entry : inMemoryMap)
-            scIdsList.insert(entry.first);
-        return;
-    }
-
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
-                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CSidechainEventsMap& mapSidechainEvents) override
-    {
-        for (auto& entry : sidechainMap)
-            switch (entry.second.flag) {
-                case CSidechainsCacheEntry::Flags::FRESH:
-                case CSidechainsCacheEntry::Flags::DIRTY:
-                    inMemoryMap[entry.first] = entry.second.sidechain;
-                    break;
-                case CSidechainsCacheEntry::Flags::ERASED:
-                    inMemoryMap.erase(entry.first);
-                    break;
-                case CSidechainsCacheEntry::Flags::DEFAULT:
-                    break;
-                default:
-                    return false;
-            }
-        sidechainMap.clear();
-        return true;
-    }
-
-private:
-    mutable boost::unordered_map<uint256, CSidechain, ObjectHasher> inMemoryMap;
-};
-
 class CNakedCCoinsViewCache : public CCoinsViewCache
 {
 public:
@@ -71,8 +26,59 @@ public:
         this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
 
     };
-    CSidechainsMap&      getSidechainMap()    {return this->cacheSidechains; };
-    CSidechainEventsMap& getSidechainEvents() {return this->cacheSidechainEvents; };
+    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
+    CSidechainEventsMap& getScEventsMap() {return this->cacheSidechainEvents; };
+};
+
+class CInMemorySidechainDb final: public CCoinsView {
+public:
+    CInMemorySidechainDb()  = default;
+    virtual ~CInMemorySidechainDb() = default;
+
+    bool HaveSidechain(const uint256& scId) const override {
+        return sidechainsInMemoryMap.count(scId) && sidechainsInMemoryMap.at(scId).flag != CSidechainsCacheEntry::Flags::ERASED;
+    }
+    bool GetSidechain(const uint256& scId, CSidechain& info) const override {
+        if(!HaveSidechain(scId))
+            return false;
+        info = sidechainsInMemoryMap.at(scId).sidechain;
+        return true;
+    }
+
+    bool HaveSidechainEvents(int height)  const override {
+        return eventsInMemoryMap.count(height) && eventsInMemoryMap.at(height).flag != CSidechainEventsCacheEntry::Flags::ERASED;
+    }
+    bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override {
+        if(!HaveSidechainEvents(height))
+            return false;
+        scEvents = eventsInMemoryMap.at(height).scEvents;
+        return true;
+    }
+
+    virtual void GetScIds(std::set<uint256>& scIdsList) const override {
+        for (auto& entry : sidechainsInMemoryMap)
+            scIdsList.insert(entry.first);
+        return;
+    }
+
+    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
+                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CSidechainEventsMap& mapSidechainEvents) override
+    {
+        for (auto& entryToWrite : sidechainMap)
+            WriteMutableEntry(entryToWrite.first, entryToWrite.second, sidechainsInMemoryMap);
+
+        for (auto& entryToWrite : mapSidechainEvents)
+            WriteMutableEntry(entryToWrite.first, entryToWrite.second, eventsInMemoryMap);
+
+        sidechainMap.clear();
+        mapSidechainEvents.clear();
+        return true;
+    }
+
+private:
+    mutable boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> sidechainsInMemoryMap;
+    mutable boost::unordered_map<int, CSidechainEventsCacheEntry> eventsInMemoryMap;
 };
 
 class SidechainsConnectCertsBlockTestSuite : public ::testing::Test {
@@ -148,29 +154,33 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_CertCoinHasBwt)
 {
-    // create coinbase to finance certificate submission (just in view)
-    int certBlockHeight {201};
-    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
-
-    // extend blockchain to right height
-    chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
-
-    // setup sidechain initial state
+    // setup sidechain initial state...
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
     initialScState.creationData.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
-    initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
+    initialScState.lastTopQualityCertReferencedEpoch = 7;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
     storeSidechain(scId, initialScState);
 
+    //... and initial ceasing event too
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
-    storeSidechainEvent(/*eventHeight*/204, event);
+    storeSidechainEvent(initialScState.GetScheduledCeasingHeight(), event);
+
+    // set relevant heights
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch;
+    int certBlockHeight = initialScState.GetCertSubmissionWindowStart(certEpoch)+1;
+
+    // create coinbase to finance certificate submission (just in view)
+    ASSERT_TRUE(certBlockHeight <= initialScState.GetCertSubmissionWindowEnd(certEpoch));
+    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
+
+    // extend blockchain to right height
+    chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
 
     // create block with certificate ...
     CMutableScCertificate singleCert;
@@ -217,29 +227,33 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
 
 TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEpoch_CertCoinHasBwt)
 {
-    // create coinbase to finance certificate submission (just in view)
-    int certBlockHeight {201};
-    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
-
-    // extend blockchain to right height
-    chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
-
-    // setup sidechain initial state
+    // setup sidechain initial state...
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
     initialScState.creationData.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
-    initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
+    initialScState.lastTopQualityCertReferencedEpoch = 7;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
     storeSidechain(scId, initialScState);
 
+    //... and initial ceasing event too
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
-    storeSidechainEvent(/*eventHeight*/204, event);
+    storeSidechainEvent(initialScState.GetScheduledCeasingHeight(), event);
+
+    // set relevant heights
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
+    int certBlockHeight = initialScState.GetCertSubmissionWindowStart(certEpoch)+1;
+
+    // create coinbase to finance certificate submission (just in view)
+    ASSERT_TRUE(certBlockHeight <= initialScState.GetCertSubmissionWindowEnd(certEpoch));
+    uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
+
+    // extend blockchain to right height
+    chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
 
     // create block with certificate ...
     CMutableScCertificate singleCert;
@@ -286,30 +300,34 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
 
 TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoch_LowQualityCertCoinHasNotBwt)
 {
-    // create coinbase to finance certificate submission (just in view)
-    int certBlockHeight {201};
-    uint256 inputLowQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
-    uint256 inputHighQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY-1);
-
-    // extend blockchain to right height
-    chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
-
-    // setup sidechain initial state
+    // setup sidechain initial state...
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
     initialScState.creationData.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
-    initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-1;
+    initialScState.lastTopQualityCertReferencedEpoch = 7;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
     storeSidechain(scId, initialScState);
 
+    //... and initial ceasing event too
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
-    storeSidechainEvent(/*eventHeight*/204, event);
+    storeSidechainEvent(initialScState.GetScheduledCeasingHeight(), event);
+
+    // set relevant heights
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch;
+    int certBlockHeight = initialScState.GetCertSubmissionWindowStart(certEpoch)+1;
+    ASSERT_TRUE(certBlockHeight <= initialScState.GetCertSubmissionWindowEnd(certEpoch));
+
+    // create coinbase to finance certificate submission (just in view)
+    uint256 inputLowQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
+    uint256 inputHighQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY-1);
+
+    // extend blockchain to right height
+    chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
 
     // create block with certificates ...
     CMutableScCertificate lowQualityCert;
@@ -369,30 +387,34 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
 
 TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_DifferentEpoch_LowQualityCertCoinHasNotBwt)
 {
-    // create coinbase to finance certificate submission (just in view)
-    int certBlockHeight {201};
-    uint256 inputLowQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
-    uint256 inputHighQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY-1);
-
-    // extend blockchain to right height
-    chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
-
-    // setup sidechain initial state
+    // setup sidechain initial state...
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
     initialScState.creationData.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
-    initialScState.lastTopQualityCertReferencedEpoch = initialScState.EpochFor(certBlockHeight)-2;
+    initialScState.lastTopQualityCertReferencedEpoch = 7;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
     storeSidechain(scId, initialScState);
 
+    //... and initial ceasing event too
     CSidechainEvents event;
     event.ceasingScs.insert(scId);
-    storeSidechainEvent(/*eventHeight*/204, event);
+    storeSidechainEvent(initialScState.GetScheduledCeasingHeight(), event);
+
+    // set relevant heights
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch + 1;
+    int certBlockHeight = initialScState.GetCertSubmissionWindowStart(certEpoch)+1;
+    ASSERT_TRUE(certBlockHeight <= initialScState.GetCertSubmissionWindowEnd(certEpoch));
+
+    // create coinbase to finance certificate submission (just in view)
+    uint256 inputLowQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY);
+    uint256 inputHighQCertHash = txCreationUtils::CreateSpendableCoinAtHeight(*sidechainsView, certBlockHeight-COINBASE_MATURITY-1);
+
+    // extend blockchain to right height
+    chainSettingUtils::ExtendChainActiveToHeight(certBlockHeight - 1);
 
     // create block with certificates ...
     CMutableScCertificate lowQualityCert;
@@ -596,7 +618,7 @@ void SidechainsConnectCertsBlockTestSuite::storeSidechain(const uint256& scId, c
 
 void SidechainsConnectCertsBlockTestSuite::storeSidechainEvent(int eventHeight, const CSidechainEvents& scEvent)
 {
-    txCreationUtils::storeSidechainEvent(sidechainsView->getSidechainEvents(), eventHeight, scEvent);
+    txCreationUtils::storeSidechainEvent(sidechainsView->getScEventsMap(), eventHeight, scEvent);
 
     CSidechainsMap      dummySidechains;
     CSidechainEventsMap dummySidechainsEvents;

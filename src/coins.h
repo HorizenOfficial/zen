@@ -646,9 +646,9 @@ public:
     int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, libzendoomc::CScProofVerifier& scVerifier) const;
+    bool IsCertApplicableToState(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const;
     bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
-    bool CheckCertTiming(const uint256& scId, int certHeight, int certEpoch) const;
+    bool CheckCertTiming(const uint256& scId, int certEpoch) const;
     bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
     bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
     bool CheckQuality(const CScCertificate& cert)  const override;
@@ -658,16 +658,6 @@ public:
     //SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;
-
-    bool ScheduleSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
-    bool ScheduleSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
-    bool ScheduleSidechainEvent(const CBwtRequestOut& mbtrOut, int mbtrHeight);
-    bool ScheduleSidechainEvent(const CScCertificate& cert);
-
-    bool CancelSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
-    bool CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
-    bool CancelSidechainEvent(const CBwtRequestOut& mbtrOut, int mbtrHeight);
-    bool CancelSidechainEvent(const CScCertificate& cert);
 
     bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);

@@ -30,16 +30,28 @@ public:
     CInMemorySidechainDb()  = default;
     virtual ~CInMemorySidechainDb() = default;
 
-    bool HaveSidechain(const uint256& scId) const override { return inMemoryMap.count(scId); }
+    bool HaveSidechain(const uint256& scId) const override {
+        return sidechainsInMemoryMap.count(scId) && sidechainsInMemoryMap.at(scId).flag != CSidechainsCacheEntry::Flags::ERASED;
+    }
     bool GetSidechain(const uint256& scId, CSidechain& info) const override {
-        if(!inMemoryMap.count(scId))
+        if(!HaveSidechain(scId))
             return false;
-        info = inMemoryMap[scId];
+        info = sidechainsInMemoryMap.at(scId).sidechain;
+        return true;
+    }
+
+    bool HaveSidechainEvents(int height)  const override {
+        return eventsInMemoryMap.count(height) && eventsInMemoryMap.at(height).flag != CSidechainEventsCacheEntry::Flags::ERASED;
+    }
+    bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override {
+        if(!HaveSidechainEvents(height))
+            return false;
+        scEvents = eventsInMemoryMap.at(height).scEvents;
         return true;
     }
 
     virtual void GetScIds(std::set<uint256>& scIdsList) const override {
-        for (auto& entry : inMemoryMap)
+        for (auto& entry : sidechainsInMemoryMap)
             scIdsList.insert(entry.first);
         return;
     }
@@ -48,26 +60,20 @@ public:
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CSidechainEventsMap& mapSidechainEvents) override
     {
-        for (auto& entry : sidechainMap)
-            switch (entry.second.flag) {
-                case CSidechainsCacheEntry::Flags::FRESH:
-                case CSidechainsCacheEntry::Flags::DIRTY:
-                    inMemoryMap[entry.first] = entry.second.sidechain;
-                    break;
-                case CSidechainsCacheEntry::Flags::ERASED:
-                    inMemoryMap.erase(entry.first);
-                    break;
-                case CSidechainsCacheEntry::Flags::DEFAULT:
-                    break;
-                default:
-                    return false;
-            }
+        for (auto& entryToWrite : sidechainMap)
+            WriteMutableEntry(entryToWrite.first, entryToWrite.second, sidechainsInMemoryMap);
+
+        for (auto& entryToWrite : mapSidechainEvents)
+            WriteMutableEntry(entryToWrite.first, entryToWrite.second, eventsInMemoryMap);
+
         sidechainMap.clear();
+        mapSidechainEvents.clear();
         return true;
     }
 
 private:
-    mutable boost::unordered_map<uint256, CSidechain, ObjectHasher> inMemoryMap;
+    mutable boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> sidechainsInMemoryMap;
+    mutable boost::unordered_map<int, CSidechainEventsCacheEntry> eventsInMemoryMap;
 };
 
 class CNakedCCoinsViewCache : public CCoinsViewCache
@@ -92,7 +98,8 @@ class SidechainsTestSuite: public ::testing::Test {
 public:
     SidechainsTestSuite():
           fakeChainStateDb(nullptr)
-        , sidechainsView(nullptr) {};
+        , sidechainsView(nullptr)
+        , dummyScVerifier(libzendoomc::CScProofVerifier::Disabled()) {};
 
     ~SidechainsTestSuite() = default;
 
@@ -109,6 +116,8 @@ public:
 
         delete fakeChainStateDb;
         fakeChainStateDb = nullptr;
+
+        UnloadBlockIndex();
     };
 
 protected:
@@ -116,7 +125,9 @@ protected:
     CNakedCCoinsViewCache *sidechainsView;
 
     //Helpers
-    CBlockUndo   createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash = uint256());
+    libzendoomc::CScProofVerifier dummyScVerifier;
+    CBlockUndo createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash = uint256());
+    void storeSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -321,8 +332,6 @@ TEST_F(SidechainsTestSuite, ScCreationIsApplicableToStateIfScDoesntNotExistYet) 
     uint256 scId = aTransaction.GetScIdFromScCcOut(0);
     ASSERT_FALSE(sidechainsView->HaveSidechain(scId));
 
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
-
     //test
     bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
 
@@ -331,20 +340,20 @@ TEST_F(SidechainsTestSuite, ScCreationIsApplicableToStateIfScDoesntNotExistYet) 
 }
 
 TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyUnconfirmed) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
+    //back sidechainsView with mempool
+    CCoinsViewCache dummyView(nullptr);
+    CCoinsViewMemPool viewMemPool(&dummyView, mempool);
+    sidechainsView->SetBackend(viewMemPool);
 
     // setup sidechain initial state
-    CSidechain initialScState;
-    uint256 scId = aTransaction.GetScIdFromScCcOut(0);
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::UNCONFIRMED);
-    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+    CTxMemPoolEntry scCreationPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
 
-
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
-
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
+    bool res = sidechainsView->IsScTxApplicableToState(scCreationTx, dummyScVerifier);
 
     //checks
     EXPECT_FALSE(res);
@@ -356,11 +365,12 @@ TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyAlive) 
     // setup sidechain initial state
     CSidechain initialScState;
     uint256 scId = aTransaction.GetScIdFromScCcOut(0);
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
-    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
-    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    int heightWhereAlive = initialScState.GetScheduledCeasingHeight() -1;
 
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     //test
     bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
@@ -375,11 +385,12 @@ TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyCeased)
     // setup sidechain initial state
     CSidechain initialScState;
     uint256 scId = aTransaction.GetScIdFromScCcOut(0);
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::CEASED);
-    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
-    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
+    initialScState.creationBlockHeight = 200;
+    initialScState.creationData.withdrawalEpochLength = 10;
+    int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
 
     //test
     bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
@@ -395,8 +406,6 @@ TEST_F(SidechainsTestSuite, ForwardTransferToUnknownSCsIsApplicableToState) {
 
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
 
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
-
     //test
     bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
 
@@ -405,19 +414,21 @@ TEST_F(SidechainsTestSuite, ForwardTransferToUnknownSCsIsApplicableToState) {
 }
 
 TEST_F(SidechainsTestSuite, ForwardTransferToUnconfirmedSCsIsApplicableToState) {
+    //back sidechainsView with mempool
+    CCoinsViewCache dummyView(nullptr);
+    CCoinsViewMemPool viewMemPool(&dummyView, mempool);
+    sidechainsView->SetBackend(viewMemPool);
+
     // setup sidechain initial state
-    CSidechain initialScState;
-    uint256 scId = uint256S("aaaa");
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::UNCONFIRMED);
-    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+    CTxMemPoolEntry scCreationPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
 
-    CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
-
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
-
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
+    bool res = sidechainsView->IsScTxApplicableToState(fwdTx, dummyScVerifier);
 
     //checks
     EXPECT_TRUE(res);
@@ -427,13 +438,14 @@ TEST_F(SidechainsTestSuite, ForwardTransferToAliveSCsIsApplicableToState) {
     // setup sidechain initial state
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
-    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    int heightWhereAlive = initialScState.GetScheduledCeasingHeight() -1;
+
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
-
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
 
     //test
     bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
@@ -442,17 +454,18 @@ TEST_F(SidechainsTestSuite, ForwardTransferToAliveSCsIsApplicableToState) {
     EXPECT_TRUE(res);
 }
 
-TEST_F(SidechainsTestSuite, ForwardTransferToCeasedSCsIsApplicableToState) {
+TEST_F(SidechainsTestSuite, ForwardTransferToCeasedSCsIsNotApplicableToState) {
     // setup sidechain initial state
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::CEASED);
-    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
+
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
 
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
-
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
 
     //test
     bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
@@ -462,17 +475,15 @@ TEST_F(SidechainsTestSuite, ForwardTransferToCeasedSCsIsApplicableToState) {
 }
 
 TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToState) {
-    //setup blockchain
-    int viewHeight {1963};
-    chainSettingUtils::ExtendChainActiveToHeight(viewHeight);
-    sidechainsView->SetBestBlock(*(chainActive.Tip()->phashBlock));
-
     // setup sidechain initial state
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
     initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+    int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
+
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     // create mc Bwt request
@@ -484,29 +495,29 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
     bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
 
     //checks
     EXPECT_TRUE(res);
-
-    //cleanup blockchain
-    chainActive.SetTip(nullptr);
-    mapBlockIndex.clear();
 }
 
 TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicableToState) {
-    //setup blockchain
+    //back sidechainsView with mempool
+    CCoinsViewCache dummyView(nullptr);
+    CCoinsViewMemPool viewMemPool(&dummyView, mempool);
+    sidechainsView->SetBackend(viewMemPool);
+
     int viewHeight {1963};
     chainSettingUtils::ExtendChainActiveToHeight(viewHeight);
     sidechainsView->SetBestBlock(*(chainActive.Tip()->phashBlock));
 
     // setup sidechain initial state
-    CSidechain initialScState;
-    uint256 scId = uint256S("aaaa");
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::UNCONFIRMED);
-    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+    CMutableTransaction mutScCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
+    mutScCreationTx.vsc_ccout.at(0).wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    CTransaction scCreationTx(mutScCreationTx);
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+    CTxMemPoolEntry scCreationPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, viewHeight);
+    mempool.addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
 
     // create mc Bwt request
@@ -518,15 +529,10 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
     bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
 
     //checks
     EXPECT_TRUE(res);
-
-    //cleanup blockchain
-    chainActive.SetTip(nullptr);
-    mapBlockIndex.clear();
 }
 
 TEST_F(SidechainsTestSuite, McBwtRequestToUnknownSidechainIsNotApplicableToState) {
@@ -539,8 +545,6 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnknownSidechainIsNotApplicableToState
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
-
     //test
     bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
 
@@ -552,8 +556,13 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicabl
     // setup sidechain initial state
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::ALIVE);
-    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    ASSERT_FALSE(initialScState.creationData.wMbtrVk.is_initialized());
+    int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
+
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     CSidechain storedSc;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, storedSc));
@@ -568,7 +577,6 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicabl
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
     bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
 
     //checks
@@ -576,15 +584,26 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicabl
 }
 
 TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithoutKeyIsNotApplicableToState) {
-    // setup sidechain initial state
-    CSidechain initialScState;
-    uint256 scId = uint256S("aaaa");
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::UNCONFIRMED);
-    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
+    //back sidechainsView with mempool
+    CCoinsViewCache dummyView(nullptr);
+    CCoinsViewMemPool viewMemPool(&dummyView, mempool);
+    sidechainsView->SetBackend(viewMemPool);
 
+    int viewHeight {1963};
+    chainSettingUtils::ExtendChainActiveToHeight(viewHeight);
+    sidechainsView->SetBestBlock(*(chainActive.Tip()->phashBlock));
+
+    // setup sidechain initial state
+    CMutableTransaction mutScCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
+    mutScCreationTx.vsc_ccout.at(0).wMbtrVk.reset();
+    CTransaction scCreationTx(mutScCreationTx);
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+    CTxMemPoolEntry scCreationPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, viewHeight);
+    mempool.addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
     CSidechain storedSc;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, storedSc));
-    ASSERT_TRUE(!storedSc.creationData.wMbtrVk.is_initialized());
+    ASSERT_FALSE(storedSc.creationData.wMbtrVk.is_initialized());
 
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
@@ -595,7 +614,6 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithoutKeyIsNotApp
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
     bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
 
     //checks
@@ -606,11 +624,13 @@ TEST_F(SidechainsTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState)
     // setup sidechain initial state
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
-    initialScState.currentState = static_cast<uint8_t>(CSidechain::State::CEASED);
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
     initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, initialScState);
-    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
+    int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
 
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
@@ -620,24 +640,24 @@ TEST_F(SidechainsTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState)
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    libzendoomc::CScProofVerifier dummyScVerifier = libzendoomc::CScProofVerifier::Disabled();
     bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
 
     //checks
     EXPECT_FALSE(res);
 }
-///////////////////////////////////////////////////////////////////////////////
-/////////////////////////////// RevertTxOutputs ///////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////// RevertTxOutputs ///////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsTestSuite, RevertingScCreationTxRemovesTheSc) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
-    int scCreationHeight = 1;
-    CBlock aBlock;
-    sidechainsView->UpdateSidechain(aTransaction, aBlock, scCreationHeight);
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
+    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
+    int dummyHeight {1};
+    CBlock dummyBlock;
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, dummyHeight));
+    ASSERT_TRUE(sidechainsView->HaveSidechain(scId));
 
     //test
-    bool res = sidechainsView->RevertTxOutputs(aTransaction, scCreationHeight);
+    bool res = sidechainsView->RevertTxOutputs(scCreationTx, dummyHeight);
 
     //checks
     EXPECT_TRUE(res);
@@ -645,96 +665,104 @@ TEST_F(SidechainsTestSuite, RevertingScCreationTxRemovesTheSc) {
 }
 
 TEST_F(SidechainsTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
-    int scCreationHeight = 1;
-    CBlock aBlock;
-    sidechainsView->UpdateSidechain(aTransaction, aBlock, scCreationHeight);
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
+    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
+    int scCreationHeight {1};
+    CBlock dummyBlock;
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
+    ASSERT_TRUE(sidechainsView->HaveSidechain(scId));
 
-    int fwdTxHeight = 5;
-    aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(7));
-    sidechainsView->UpdateSidechain(aTransaction, aBlock, fwdTxHeight);
+    int fwdTxHeight = scCreationHeight + 3;
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(7));
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(fwdTx, dummyBlock, fwdTxHeight));
+    CSidechain fwdTxSc;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, fwdTxSc));
+    ASSERT_TRUE(fwdTxSc.mImmatureAmounts.count(fwdTxHeight + sidechainsView->getScCoinsMaturity()));
 
     //test
-    bool res = sidechainsView->RevertTxOutputs(aTransaction, fwdTxHeight);
+    bool res = sidechainsView->RevertTxOutputs(fwdTx, fwdTxHeight);
 
     //checks
     EXPECT_TRUE(res);
-    CSidechain viewInfos;
-    ASSERT_TRUE(sidechainsView->GetSidechain(scId, viewInfos));
-    EXPECT_TRUE(viewInfos.mImmatureAmounts.count(fwdTxHeight + Params().ScCoinsMaturity()) == 0)
-        <<"resulting immature amount is "<< viewInfos.mImmatureAmounts.count(fwdTxHeight + Params().ScCoinsMaturity());
+    CSidechain revertedSc;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, revertedSc));
+    EXPECT_FALSE(revertedSc.mImmatureAmounts.count(fwdTxHeight + sidechainsView->getScCoinsMaturity()));
 }
 
 TEST_F(SidechainsTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreated) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(15));
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(15));
+    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
+    ASSERT_FALSE(sidechainsView->HaveSidechain(scId));
+    int dummyHeight {1};
 
     //test
-    bool res = sidechainsView->RevertTxOutputs(aTransaction, /*height*/int(1789));
+    bool res = sidechainsView->RevertTxOutputs(scCreationTx, dummyHeight);
 
     //checks
     EXPECT_FALSE(res);
 }
 
 TEST_F(SidechainsTestSuite, FwdTransferTxToUnexistingScCannotBeReverted) {
-    CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(uint256S("a1b2"), CAmount(999));
+    uint256 scId = uint256S("a1b2");
+    ASSERT_FALSE(sidechainsView->HaveSidechain(scId));
+    int dummyHeight {1};
+
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(999));
 
     //test
-    bool res = sidechainsView->RevertTxOutputs(aTransaction, /*height*/int(1789));
+    bool res = sidechainsView->RevertTxOutputs(fwdTx, dummyHeight);
 
     //checks
     EXPECT_FALSE(res);
 }
 
 TEST_F(SidechainsTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
-    int scCreationHeight = 1;
-    CBlock aBlock;
-    sidechainsView->UpdateSidechain(aTransaction, aBlock, scCreationHeight);
+    CAmount dummyAmount{10};
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(dummyAmount);
+    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
+    int scCreationHeight {1};
+    CBlock dummyBlock;
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
-    int fwdTxHeight = 5;
+    int fwdTxHeight = scCreationHeight + 5;
     CAmount fwdAmount = 7;
-    aTransaction = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
-    sidechainsView->UpdateSidechain(aTransaction, aBlock, fwdTxHeight);
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(fwdTx, dummyBlock, fwdTxHeight));
+    CSidechain fwdTxSc;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, fwdTxSc));
+    ASSERT_TRUE(fwdTxSc.mImmatureAmounts.count(fwdTxHeight + sidechainsView->getScCoinsMaturity()));
 
     //test
     int faultyHeight = fwdTxHeight -1;
-    bool res = sidechainsView->RevertTxOutputs(aTransaction, faultyHeight);
+    bool res = sidechainsView->RevertTxOutputs(fwdTx, faultyHeight);
 
     //checks
     EXPECT_FALSE(res);
-    CSidechain viewInfos;
-    ASSERT_TRUE(sidechainsView->GetSidechain(scId, viewInfos));
-    EXPECT_TRUE(viewInfos.mImmatureAmounts.at(fwdTxHeight + Params().ScCoinsMaturity()) == fwdAmount)
-        <<"Immature amount is "<<viewInfos.mImmatureAmounts.at(fwdTxHeight + Params().ScCoinsMaturity())
-        <<"instead of "<<fwdAmount;
+    CSidechain faultyRevertedView;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, faultyRevertedView));
+    EXPECT_TRUE(faultyRevertedView.mImmatureAmounts.at(fwdTxHeight + Params().ScCoinsMaturity()) == fwdAmount);
 }
 
 TEST_F(SidechainsTestSuite, RestoreSidechainRestoresLastCertHash) {
     //Create sidechain and mature it to generate first block undo
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(34));
-    const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
-    int scCreationHeight = 71;
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(34));
+    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
+    int scCreationHeight {71};
     CBlock dummyBlock;
-    sidechainsView->UpdateSidechain(aTransaction, dummyBlock, scCreationHeight);
+    sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight);
     CSidechain sidechainAtCreation;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainAtCreation));
 
     CBlockUndo dummyBlockUndo;
-    for(const CTxScCreationOut& scCreationOut: aTransaction.GetVscCcOut())
-        ASSERT_TRUE(sidechainsView->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
-
     std::vector<CScCertificateStatusUpdateInfo> dummy;
-    ASSERT_TRUE(sidechainsView->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
-
+    ASSERT_TRUE(sidechainsView->HandleSidechainEvents(scCreationHeight + sidechainsView->getScCoinsMaturity(), dummyBlockUndo, &dummy));
 
     //Update sc with cert and create the associate blockUndo
     int certEpoch = 0;
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
     CBlockUndo blockUndo;
-    sidechainsView->UpdateSidechain(cert, blockUndo);
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(cert, blockUndo));
     CSidechain sidechainPostCert;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainPostCert));
     EXPECT_TRUE(sidechainPostCert.lastTopQualityCertReferencedEpoch == certEpoch);
@@ -750,18 +778,19 @@ TEST_F(SidechainsTestSuite, RestoreSidechainRestoresLastCertHash) {
     EXPECT_TRUE(sidechainPostCertUndo.lastTopQualityCertHash == sidechainAtCreation.lastTopQualityCertHash);
     EXPECT_TRUE(sidechainPostCertUndo.lastTopQualityCertReferencedEpoch == sidechainAtCreation.lastTopQualityCertReferencedEpoch);
 }
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////// UpdateSidechain ////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////// UpdateSidechain ////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 
 TEST_F(SidechainsTestSuite, NewSCsAreRegistered) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(1));
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1));
 
-    const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
-    CBlock aBlock;
+    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
+    int dummyHeight {71};
+    CBlock dummyBlock;
 
     //test
-    bool res = sidechainsView->UpdateSidechain(aTransaction, aBlock, /*height*/int(1789));
+    bool res = sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, dummyHeight);
 
     //check
     EXPECT_TRUE(res);
@@ -770,11 +799,13 @@ TEST_F(SidechainsTestSuite, NewSCsAreRegistered) {
 
 TEST_F(SidechainsTestSuite, ForwardTransfersToNonExistentSCsAreRejected) {
     uint256 nonExistentId = uint256S("1492");
-    CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(nonExistentId, CAmount(10));
-    CBlock aBlock;
+    CAmount dummyAmount{10};
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(nonExistentId, dummyAmount);
+    int dummyHeight {71};
+    CBlock dummyBlock;
 
     //test
-    bool res = sidechainsView->UpdateSidechain(aTransaction, aBlock, /*height*/int(1789));
+    bool res = sidechainsView->UpdateSidechain(fwdTx, dummyBlock, dummyHeight);
 
     //check
     EXPECT_FALSE(res);
@@ -782,15 +813,17 @@ TEST_F(SidechainsTestSuite, ForwardTransfersToNonExistentSCsAreRejected) {
 }
 
 TEST_F(SidechainsTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(5));
-    const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
-    CBlock aBlock;
-    sidechainsView->UpdateSidechain(aTransaction, aBlock, /*height*/int(1789));
+    CAmount dummyAmount {5};
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(dummyAmount);
+    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
+    int dummyHeight {71};
+    CBlock dummyBlock;
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, dummyHeight));
 
-    aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(15));
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(15));
 
     //test
-    bool res = sidechainsView->UpdateSidechain(aTransaction, aBlock, /*height*/int(1789));
+    bool res = sidechainsView->UpdateSidechain(fwdTx, dummyBlock, dummyAmount);
 
     //check
     EXPECT_TRUE(res);
@@ -798,20 +831,18 @@ TEST_F(SidechainsTestSuite, ForwardTransfersToExistentSCsAreRegistered) {
 
 TEST_F(SidechainsTestSuite, CertificateUpdatesTopCommittedCertHash) {
     //Create Sc
-    int scCreationHeight = 1987;
+    int scCreationHeight {1987};
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(5));
     const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
     CBlock dummyBlock;
     ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
     CSidechain sidechain;
-    EXPECT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
-    EXPECT_TRUE(sidechain.lastTopQualityCertHash.IsNull());
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
+    ASSERT_TRUE(sidechain.lastTopQualityCertHash.IsNull());
 
     //Fully mature initial Sc balance
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        ASSERT_TRUE(sidechainsView->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
-    int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+    int coinMaturityHeight = scCreationHeight + sidechainsView->getScCoinsMaturity();
     CBlockUndo dummyBlockUndo;
     std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
@@ -828,9 +859,9 @@ TEST_F(SidechainsTestSuite, CertificateUpdatesTopCommittedCertHash) {
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertHash.IsNull());
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//////////////////////////////// BatchWrite ///////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// BatchWrite ///////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsTestSuite, FRESHSidechainsGetWrittenInBackingCache) {
     CCoinsMap mapCoins;
     const uint256 hashBlock;
@@ -1029,9 +1060,9 @@ TEST_F(SidechainsTestSuite, DEFAULTSidechainsCanBeWrittenInBackingCacheasOnlyIfU
     ASSERT_DEATH(sidechainsView->BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapToWrite, mapCeasingScs),"");
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////// Flush /////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////// Flush /////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsTestSuite, FlushPersistsNewSidechains) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(1000));
     const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
@@ -1073,13 +1104,16 @@ TEST_F(SidechainsTestSuite, FlushPersistsForwardTransfers) {
 }
 
 TEST_F(SidechainsTestSuite, FlushPersistsScErasureToo) {
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
-    CBlock aBlock;
-    sidechainsView->UpdateSidechain(aTransaction, aBlock, /*height*/int(1789));
-    sidechainsView->Flush();
+    CAmount dummyAmount {200};
+    int dummyHeight {71};
+    CBlock dummyBlock;
 
-    sidechainsView->RevertTxOutputs(aTransaction, /*height*/int(1789));
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(dummyAmount);
+    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, dummyHeight));
+    ASSERT_TRUE(sidechainsView->Flush());
+    ASSERT_TRUE(fakeChainStateDb->HaveSidechain(scId));
+    ASSERT_TRUE(sidechainsView->RevertTxOutputs(scCreationTx, dummyHeight));
 
     //test
     bool res = sidechainsView->Flush();
@@ -1113,26 +1147,29 @@ TEST_F(SidechainsTestSuite, FlushPersistsNewScsOnTopOfErasedOnes) {
     EXPECT_TRUE(res);
     EXPECT_TRUE(fakeChainStateDb->HaveSidechain(scId));
 }
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////// GetScIds //////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////// GetScIds //////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsTestSuite, GetScIdsReturnsNonErasedSidechains) {
-    CBlock aBlock;
+    CBlock dummyBlock;
+    CAmount dummyAmount {10};
 
-    int sc1CreationHeight(11);
-    CTransaction scTx1 = txCreationUtils::createNewSidechainTxWith(CAmount(1));
+    int sc1CreationHeight {11};
+    int epochLengthSc1 {15};
+    CTransaction scTx1 = txCreationUtils::createNewSidechainTxWith(dummyAmount, epochLengthSc1);
     uint256 scId1 = scTx1.GetScIdFromScCcOut(0);
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(scTx1, aBlock, sc1CreationHeight));
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(scTx1, dummyBlock, sc1CreationHeight));
     ASSERT_TRUE(sidechainsView->Flush());
 
-    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId1, CAmount(3));
-    int fwdTxHeight(22);
-    sidechainsView->UpdateSidechain(fwdTx, aBlock, fwdTxHeight);
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId1, dummyAmount);
+    int fwdTxHeight {22};
+    sidechainsView->UpdateSidechain(fwdTx, dummyBlock, fwdTxHeight);
 
-    int sc2CreationHeight(33);
-    CTransaction scTx2 = txCreationUtils::createNewSidechainTxWith(CAmount(2));
+    int sc2CreationHeight {20};
+    int epochLengthSc2 {10};
+    CTransaction scTx2 = txCreationUtils::createNewSidechainTxWith(dummyAmount, epochLengthSc2);
     uint256 scId2 = scTx2.GetScIdFromScCcOut(0);
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(scTx2, aBlock,sc2CreationHeight));
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(scTx2, dummyBlock, sc2CreationHeight));
     ASSERT_TRUE(sidechainsView->Flush());
 
     ASSERT_TRUE(sidechainsView->RevertTxOutputs(scTx2, sc2CreationHeight));
@@ -1197,9 +1234,9 @@ TEST_F(SidechainsTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
     boost::system::error_code ec;
     boost::filesystem::remove_all(pathTemp.string(), ec);
 }
-///////////////////////////////////////////////////////////////////////////////
-//////////////////////////////// GetSidechain /////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// GetSidechain /////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsTestSuite, GetSidechainForFwdTransfersInMempool) {
     CTxMemPool aMempool(CFeeRate(1));
 
@@ -1213,10 +1250,7 @@ TEST_F(SidechainsTestSuite, GetSidechainForFwdTransfersInMempool) {
     ASSERT_TRUE(sidechainsView->Flush());
 
     //Fully mature initial Sc balance
-    CBlockUndo anEmptyBlockUndo;
-    for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
-        ASSERT_TRUE(sidechainsView->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
-    int coinMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
+    int coinMaturityHeight = scCreationHeight + sidechainsView->getScCoinsMaturity();
     CBlockUndo dummyBlockUndo;
     std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
@@ -1279,9 +1313,9 @@ TEST_F(SidechainsTestSuite, GetSidechainForScCreationInMempool) {
     EXPECT_TRUE(retrievedInfo.mImmatureAmounts.size() == 0);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//////////////////////////////// UndoBlock versioning /////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// UndoBlock versioning /////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsTestSuite, CSidechainBlockUndoVersioning) {
     boost::filesystem::path pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path());
     boost::filesystem::create_directories(pathTemp);
@@ -1310,7 +1344,7 @@ TEST_F(SidechainsTestSuite, CSidechainBlockUndoVersioning) {
 
     unsigned long buov_sz = buov.GetSerializeSize(SER_DISK, CLIENT_VERSION);
     EXPECT_TRUE(len == buov_sz + sizeof(uint256));
-    
+
     // write a new version undo block to the same file
     //-----------------------------------------------
     CBlockUndo buon;
@@ -1332,7 +1366,7 @@ TEST_F(SidechainsTestSuite, CSidechainBlockUndoVersioning) {
 
     unsigned long buon_sz = buon.GetSerializeSize(SER_DISK, CLIENT_VERSION);
     EXPECT_TRUE(len2 == len + buon_sz + sizeof(uint256));
-    
+
     EXPECT_TRUE(buov_sz != buon_sz);
 
     fileout.fclose();
@@ -1382,3 +1416,9 @@ CBlockUndo SidechainsTestSuite::createBlockUndoWith(const uint256 & scId, int he
     return retVal;
 }
 
+void SidechainsTestSuite::storeSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight)
+{
+    chainSettingUtils::ExtendChainActiveToHeight(chainActiveHeight);
+    sidechainsView->SetBestBlock(chainActive.Tip()->GetBlockHash());
+    txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, sidechain);
+}
