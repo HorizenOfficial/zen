@@ -40,7 +40,7 @@ public:
         return true;
     }
 
-    bool HaveSidechainEvents(int height)                            const override {
+    bool HaveSidechainEvents(int height)  const override {
         return eventsInMemoryMap.count(height) && eventsInMemoryMap.at(height).flag != CSidechainEventsCacheEntry::Flags::ERASED;
     }
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override {
