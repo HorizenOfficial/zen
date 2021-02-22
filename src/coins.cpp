@@ -1018,7 +1018,7 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certEpoch) const
 
     int inclusionHeight = this->GetHeight() + 1;
      
-    if ((inclusionHeight < certWindowStartHeight) || (inclusionHeight > sidechain.GetCertSubmissionWindowEnd(certEpoch)))
+    if ((inclusionHeight < certWindowStartHeight) || (inclusionHeight > certWindowEndHeight))
     {
         return error("%s():%d - ERROR: certificate cannot be accepted, cert received outside safeguard\n",
                 __func__, __LINE__);
