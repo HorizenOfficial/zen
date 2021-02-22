@@ -1483,13 +1483,13 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     // block height
     ssBlock << pblockindex->nHeight;
 
-    // block hex data
-    ssBlock << block;
-
     // block scCommittmentTreeCumulativeHash
     ssBlock << pblockindex->scCumTreeHash;
     LogPrint("sc", "%s():%d - sc[%s], h[%d], cum[%s], bVers[0x%x]\n", __func__, __LINE__,
         scId.ToString(), pblockindex->nHeight, pblockindex->scCumTreeHash.ToString(), pblockindex->nVersion);
+
+    // block hex data
+    ssBlock << block;
 
     std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
     return strHex;
