@@ -44,11 +44,6 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTransaction& _tx, const CAmount& _nFee,
     nUsageSize = RecursiveDynamicUsage(tx);
 }
 
-CTxMemPoolEntry::CTxMemPoolEntry(const CTxMemPoolEntry& other)
-{
-    *this = other;
-}
-
 double CTxMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
     CAmount nValueIn = tx.GetValueOut()+nFee;
@@ -74,13 +69,7 @@ CCertificateMemPoolEntry::CCertificateMemPoolEntry(const CScCertificate& _cert, 
     nUsageSize = RecursiveDynamicUsage(cert);
 }
 
-CCertificateMemPoolEntry::CCertificateMemPoolEntry(const CCertificateMemPoolEntry& other)
-{
-    *this = other;
-}
-
-double
-CCertificateMemPoolEntry::GetPriority(unsigned int currentHeight) const
+double CCertificateMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
 #if 1
     // certificates have max priority
@@ -167,7 +156,8 @@ void CTxMemPool::AddTransactionsUpdated(unsigned int n)
 }
 
 
-bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate)
+bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate,
+                              const std::map<uint256, libzendoomc::ScFieldElement>& scIdToCertDataHash)
 {
     // Add to memory pool without checking anything.
     // Used by main.cpp AcceptToMemoryPool(), which DOES do
@@ -197,21 +187,28 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     }
 
     for(const auto& sc: tx.GetVscCcOut()) {
-        LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, sc.GetScId().ToString() );
+        LogPrint("mempool", "%s():%d - adding tx [%s] in mapSidechain [%s], scCreationTxHash\n", __func__, __LINE__, hash.ToString(), sc.GetScId().ToString());
         mapSidechains[sc.GetScId()].scCreationTxHash = hash;
     }
 
     for(const auto& fwd: tx.GetVftCcOut()) {
         if (mapSidechains.count(fwd.scId) == 0)
-            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
-        mapSidechains[fwd.scId].fwdTransfersSet.insert(hash);
+            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain [%s], fwdTxHashes\n", __func__, __LINE__, hash.ToString(), fwd.scId.ToString());
+        mapSidechains[fwd.scId].fwdTxHashes.insert(hash);
+    }
+
+    for(const auto& btr: tx.GetVBwtRequestOut()) {
+        if (mapSidechains.count(btr.scId) == 0)
+            LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain [%s], mcBtrsTxHashes\n", __func__, __LINE__, hash.ToString(), btr.scId.ToString());
+        mapSidechains[btr.scId].mcBtrsTxHashes.insert(hash);
+        if (mapSidechains[btr.scId].mcBtrsCertDataHash.IsNull())
+            mapSidechains[btr.scId].mcBtrsCertDataHash = scIdToCertDataHash.at(btr.scId);
     }
 
     nTransactionsUpdated++;
     totalTxSize += entry.GetTxSize();
     cachedInnerUsage += entry.DynamicMemoryUsage();
     minerPolicyEstimator->processTransaction(entry, fCurrentEstimate);
-    LogPrint("sc", "%s():%d - tx [%s] added in mempool\n", __func__, __LINE__, hash.ToString() );
 
     return true;
 }
@@ -255,7 +252,7 @@ std::vector<uint256> CTxMemPool::mempoolDirectDependenciesFrom(const CTransactio
             res.push_back(input.prevout.hash);
     }
 
-    //... and scCreations of all possible fwt
+    //... and scCreations of all possible fwt/btr
     if (!root.IsCertificate() )
     {
         const CTransaction* tx = dynamic_cast<const CTransaction*>(&root);
@@ -267,6 +264,11 @@ std::vector<uint256> CTxMemPool::mempoolDirectDependenciesFrom(const CTransactio
         for(const auto& fwt: tx->GetVftCcOut()) {
             if (mapSidechains.count(fwt.scId) && !mapSidechains.at(fwt.scId).scCreationTxHash.IsNull())
                 res.push_back(mapSidechains.at(fwt.scId).scCreationTxHash);
+        }
+
+        for(const auto& btr: tx->GetVBwtRequestOut()) {
+            if (mapSidechains.count(btr.scId) && !mapSidechains.at(btr.scId).scCreationTxHash.IsNull())
+                res.push_back(mapSidechains.at(btr.scId).scCreationTxHash);
         }
     }
 
@@ -323,7 +325,7 @@ std::vector<uint256> CTxMemPool::mempoolDirectDependenciesOf(const CTransactionB
         res.push_back(it->second.ptx->GetHash());
     }
 
-    // ... and, should root be a scCreationTx, also all fwds in mempool directed to sc created by root
+    // ... and, should root be a scCreationTx, also all fwds and btrs in mempool directed to sc created by root
     if (!root.IsCertificate() )
     {
         const CTransaction* tx = dynamic_cast<const CTransaction*>(&root);
@@ -338,8 +340,10 @@ std::vector<uint256> CTxMemPool::mempoolDirectDependenciesOf(const CTransactionB
         {
             if (mapSidechains.count(sc.GetScId()) == 0)
                 continue;
-            for(const auto& fwdTxHash : mapSidechains.at(sc.GetScId()).fwdTransfersSet)
+            for(const auto& fwdTxHash : mapSidechains.at(sc.GetScId()).fwdTxHashes)
                 res.push_back(fwdTxHash);
+            for(const auto& mcBtrTxHash : mapSidechains.at(sc.GetScId()).mcBtrsTxHashes)
+                res.push_back(mcBtrTxHash);
         }
     }
     return res;
@@ -416,13 +420,27 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 }
             }
 
+			for(const auto& btr: tx.GetVBwtRequestOut()) {
+				if (mapSidechains.count(btr.scId)) { //Guard against double-delete on multiple btrs toward the same sc in same tx
+					mapSidechains.at(btr.scId).mcBtrsTxHashes.erase(tx.GetHash());
+					if (mapSidechains.at(btr.scId).mcBtrsTxHashes.empty())
+						mapSidechains.at(btr.scId).mcBtrsCertDataHash.SetNull();
+
+					if (mapSidechains.at(btr.scId).IsNull())
+					{
+						LogPrint("mempool", "%s():%d - erasing btr from mapSidechain [%s]\n", __func__, __LINE__, btr.scId.ToString() );
+						mapSidechains.erase(btr.scId);
+					}
+				}
+			}
+
             for(const auto& fwd: tx.GetVftCcOut()) {
                 if (mapSidechains.count(fwd.scId)) { //Guard against double-delete on multiple fwds toward the same sc in same tx
-                    mapSidechains.at(fwd.scId).fwdTransfersSet.erase(tx.GetHash());
+                    mapSidechains.at(fwd.scId).fwdTxHashes.erase(tx.GetHash());
 
                     if (mapSidechains.at(fwd.GetScId()).IsNull())
                     {
-                        LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, fwd.scId.ToString() );
+                        LogPrint("mempool", "%s():%d - erasing fwt from mapSidechain [%s]\n", __func__, __LINE__, fwd.scId.ToString() );
                         mapSidechains.erase(fwd.scId);
                     }
                 }
@@ -434,7 +452,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 
                 if (mapSidechains.at(sc.GetScId()).IsNull())
                 {
-                    LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, sc.GetScId().ToString() );
+                    LogPrint("mempool", "%s():%d - erasing scCreation from mapSidechain [%s]\n", __func__, __LINE__, sc.GetScId().ToString() );
                     mapSidechains.erase(sc.GetScId());
                 }
             }
@@ -476,10 +494,9 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             nCertificatesUpdated++;
         }
     }
- 
 }
 
-inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight)
+inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, const CCoinsViewCache * const pcoins)
 {
     for(const CTxIn& txin: tx.GetVin())
     {
@@ -496,8 +513,9 @@ inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, cons
             // check this is the cert change
             assert(!it3->second.GetCertificate().IsBackwardTransfer(txin.prevout.n));
 
-                LogPrint("mempool", "%s():%d - adding tx[%s] to list for removing since spends output %d of cert[%s] in mempool\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
+            LogPrint("mempool", "%s():%d - adding tx[%s] to list for removing since spends output %d of cert[%s] in mempool\n",
+                __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
+
             return false;
         }
  
@@ -513,12 +531,12 @@ inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, cons
  
         if (coins->IsCoinBase() || coins->IsFromCert() )
         {
-            if (!coins->isOutputMature(txin.prevout.n, nMemPoolHeight) )
+            if (!coins->isOutputMature(txin.prevout.n, pcoins->GetHeight()+1) )
             {
                 LogPrintf("%s():%d - Error: tx [%s] attempts to spend immature output [%d] of tx [%s]\n",
                         __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
                 LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
-                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nMemPoolHeight);
+                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, pcoins->GetHeight()+1);
                 if (coins->IsCoinBase()) {
                     LogPrint("mempool", "%s():%d - adding tx [%s] to list for removing since it spends immature coinbase [%s]\n",
                         __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
@@ -533,7 +551,7 @@ inline bool CTxMemPool::checkTxImmatureExpenditures(const CTransaction& tx, cons
     return true;
 }
 
-inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins, unsigned int nMemPoolHeight)
+inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert, const CCoinsViewCache * const pcoins)
 {
     for(const CTxIn& txin: cert.GetVin())
     {
@@ -549,7 +567,7 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert
             // check this is the cert change
             assert(!it3->second.GetCertificate().IsBackwardTransfer(txin.prevout.n));
             continue;
-        }       
+        }
  
         // the cert input has not been found in the mempool, therefore must be in blockchain
         const CCoins *coins = pcoins->AccessCoins(txin.prevout.hash);
@@ -563,12 +581,12 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert
  
         if (coins->IsCoinBase() || coins->IsFromCert() )
         {
-            if (!coins->isOutputMature(txin.prevout.n, nMemPoolHeight) )
+            if (!coins->isOutputMature(txin.prevout.n, pcoins->GetHeight()+1) )
             {
                 LogPrintf("%s():%d - Error: cert[%s] attempts to spend immature output [%d] of [%s]\n",
                         __func__, __LINE__, cert.GetHash().ToString(), txin.prevout.n, txin.prevout.hash.ToString());
                 LogPrintf("%s():%d - Error: Immature coin info: coin creation height [%d], output maturity height [%d], spend height [%d]\n",
-                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nMemPoolHeight);
+                        __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, pcoins->GetHeight()+1);
                 if (coins->IsCoinBase()) {
                     LogPrint("mempool", "%s():%d - adding cert [%s] to list for removing since it spends immature coinbase [%s]\n",
                         __func__, __LINE__, cert.GetHash().ToString(), txin.prevout.hash.ToString());
@@ -583,28 +601,27 @@ inline bool CTxMemPool::checkCertImmatureExpenditures(const CScCertificate& cert
     return true;
 }
 
-void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsView, const uint256& disconnectedBlockHash, unsigned int nMemPoolHeight,
+void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsView,
                                          std::list<CScCertificate>& outdatedCerts)
 {
     LOCK(cs);
-
     std::set<uint256> certsToRemove;
 
     // Remove certificates referring to this block as end epoch
     for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.begin(); itCert != mapCertificate.end(); itCert++)
     {
         const CScCertificate& cert = itCert->second.GetCertificate();
-        if (!checkCertImmatureExpenditures(cert, pCoinsView, nMemPoolHeight))
+
+        if (!checkCertImmatureExpenditures(cert, pCoinsView))
         {
             certsToRemove.insert(cert.GetHash());
             continue;
         }
 
-        if (cert.endEpochBlockHash == disconnectedBlockHash)
+        if (!pCoinsView->CheckCertTiming(cert.GetScId(), cert.epochNumber))
         {
-            LogPrint("mempool", "%s():%d - adding cert [%s] to list for removing (endEpochBlockHash %s)\n",
-                __func__, __LINE__, cert.GetHash().ToString(), disconnectedBlockHash.ToString());
             certsToRemove.insert(cert.GetHash());
+            continue;
         }
     }
 
@@ -735,18 +752,17 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
     removeOutOfScBalanceCsw(pcoinsTip, removedTxs, removedCerts);
 }
 
-void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsView, unsigned int nMemPoolHeight,
+void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsView,
                                          std::list<CTransaction>& outdatedTxs, std::list<CScCertificate>& outdatedCerts)
 {
     LOCK(cs);
     std::set<uint256> txesToRemove;
 
-    // Sidechain may become CEASED, so remove related FTs
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++)
     {
         const CTransaction& tx = it->second.GetTx();
 
-        if (!checkTxImmatureExpenditures(tx, pCoinsView, nMemPoolHeight))
+        if (!checkTxImmatureExpenditures(tx, pCoinsView))
         {
             txesToRemove.insert(tx.GetHash());
             continue;
@@ -754,10 +770,27 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
 
         for(const CTxForwardTransferOut& ft: tx.GetVftCcOut())
         {
-            if(pCoinsView->GetSidechainState(ft.scId) != CSidechain::State::ALIVE && !hasSidechainCreationTx(ft.scId))
+            // pCoinsView does not encompass mempool.
+            // Hence we need to checks explicitly for unconfirmed scCreations
+            if (hasSidechainCreationTx(ft.scId))
+                continue;
+
+            if (!pCoinsView->CheckScTxTiming(ft.scId))
             {
                 txesToRemove.insert(tx.GetHash());
+            }
+        }
+
+        for(const CBwtRequestOut& mbtr: tx.GetVBwtRequestOut())
+        {
+            // pCoinsView does not encompass mempool.
+            // Hence we need to checks explicitly for unconfirmed scCreations
+            if (hasSidechainCreationTx(mbtr.scId))
                 continue;
+
+            if (!pCoinsView->CheckScTxTiming(mbtr.scId))
+            {
+                txesToRemove.insert(tx.GetHash());
             }
         }
 
@@ -780,6 +813,26 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             remove(tx, outdatedTxs, outdatedCerts, true);
         }
     }
+
+    // mbtr will be removed if they target outdated CertDataHash
+    for (auto it = mapSidechains.begin(); it != mapSidechains.end(); it++)
+    {
+        if (pCoinsView->GetActiveCertDataHash(it->first) != it->second.mcBtrsCertDataHash)
+        {
+            txesToRemove.insert(it->second.mcBtrsTxHashes.begin(), it->second.mcBtrsTxHashes.end());
+        }
+    }
+
+    for(const auto& hash: txesToRemove)
+    {
+        // there can be dependancy also between txes, so check that a tx is still in map during the loop
+        if (mapTx.count(hash))
+        {
+            const CTransaction& tx = mapTx.at(hash).GetTx();
+            remove(tx, outdatedTxs, outdatedCerts, true);
+        }
+    }
+    LogPrint("mempool", "%s():%d - removed %d certs and %d txes", __func__, __LINE__, outdatedCerts.size(), outdatedTxs.size());
 }
 
 /**
@@ -813,7 +866,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransaction>& vtx, unsigned i
 
 void CTxMemPool::removeConflicts(const CScCertificate &cert, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts) {
     LOCK(cs);
-    BOOST_FOREACH(const CTxIn &txin, cert.GetVin()) {
+    for(const CTxIn &txin: cert.GetVin()) {
         std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(txin.prevout);
         if (it != mapNextTx.end()) {
             const CTransactionBase &txConflict = *it->second.ptx;
@@ -826,7 +879,8 @@ void CTxMemPool::removeConflicts(const CScCertificate &cert, std::list<CTransact
         }
     }
 
-    if (!mapSidechains.count(cert.GetScId()) || (mapSidechains.at(cert.GetScId()).mBackwardCertificates.empty()) )
+    const uint256& scId = cert.GetScId();
+    if (mapSidechains.count(scId) == 0)
         return;
 
     // cert has been confirmed in a block, therefore any other cert in mempool for this scid
@@ -960,8 +1014,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         for(const auto& fwd: tx.GetVftCcOut()) {
             //fwd must be duly recorded in mapSidechain
             assert(mapSidechains.count(fwd.scId) != 0);
-            const auto& fwdPos = mapSidechains.at(fwd.scId).fwdTransfersSet.find(tx.GetHash());
-            assert(fwdPos != mapSidechains.at(fwd.scId).fwdTransfersSet.end());
+            const auto& fwdPos = mapSidechains.at(fwd.scId).fwdTxHashes.find(tx.GetHash());
+            assert(fwdPos != mapSidechains.at(fwd.scId).fwdTxHashes.end());
 
             //there must be no dangling fwds, i.e. sc creation is either in mempool or in blockchain (and not ceased)
             if (!mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
@@ -992,6 +1046,19 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(balanceInfo.second <= scInfo.balance);
             // Update global CSW balances counter
             cswsTotalBalances[balanceInfo.first] += balanceInfo.second;
+        }
+
+        for(const auto& btr: tx.GetVBwtRequestOut()) {
+            //btrs must be duly recorded in mapSidechain
+            assert(mapSidechains.count(btr.scId) != 0);
+            const auto& btrPos = mapSidechains.at(btr.scId).mcBtrsTxHashes.find(tx.GetHash());
+            assert(btrPos != mapSidechains.at(btr.scId).mcBtrsTxHashes.end());
+
+            //there must be no dangling btrs, i.e. sc creation is either in mempool or in blockchain
+            if (!mapSidechains.at(btr.scId).scCreationTxHash.IsNull())
+                assert(mapTx.count(mapSidechains.at(btr.scId).scCreationTxHash));
+            else
+                assert(pcoins->HaveSidechain(btr.scId));
         }
 
         boost::unordered_map<uint256, ZCIncrementalMerkleTree, CCoinsKeyHasher> intermediates;
@@ -1482,8 +1549,8 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationData.customData = scCreation.customData;
                 info.creationData.constant = scCreation.constant;
                 info.creationData.wCertVk = scCreation.wCertVk;
+                info.creationData.wMbtrVk = scCreation.wMbtrVk;
                 info.creationData.wCeasedVk = scCreation.wCeasedVk;
-                info.currentState = (uint8_t)CSidechain::State::UNCONFIRMED;
                 break;
             }
         }
@@ -1495,6 +1562,15 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
         info.balance -= mempool.mapSidechains.at(scId).cswTotalAmount;
 
     return true;
+}
+
+void CCoinsViewMemPool::GetScIds(std::set<uint256>& scIds) const {
+    base->GetScIds(scIds);
+    for (const auto& entry : mempool.mapSidechains)
+    {
+        if (!entry.second.scCreationTxHash.IsNull())
+            scIds.insert(entry.first);
+    }
 }
 
 bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {

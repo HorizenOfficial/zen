@@ -50,9 +50,6 @@ public:
     bool HaveCswNullifier(const uint256& scId,
                           const libzendoomc::ScFieldElement& nullifier)  const override;
 
-    bool GetActiveCertDataHash(const uint256& scId,
-                          libzendoomc::ScFieldElement& certDataHash)     const override;
-
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,

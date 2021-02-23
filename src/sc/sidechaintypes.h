@@ -43,16 +43,18 @@ struct ScCreationParameters
     std::vector<unsigned char> customData;
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
+    boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
 
     bool IsNull() const
     {
-        return (
+        return
             withdrawalEpochLength == -1 &&
             customData.empty()          &&
             constant.empty( )           &&
             wCertVk.IsNull()            &&
-            wCeasedVk == boost::none);
+			wMbtrVk == boost::none      &&
+            wCeasedVk == boost::none;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -62,6 +64,7 @@ struct ScCreationParameters
         READWRITE(customData);
         READWRITE(constant);
         READWRITE(wCertVk);
+        READWRITE(wMbtrVk);
         READWRITE(wCeasedVk);
     }
     ScCreationParameters() :withdrawalEpochLength(-1) {}
@@ -72,6 +75,7 @@ struct ScCreationParameters
                (customData == rhs.customData) &&
                (constant == rhs.constant) &&
                (wCertVk == rhs.wCertVk) &&
+			   (wMbtrVk == rhs.wMbtrVk);
                (wCeasedVk == rhs.wCeasedVk);
     }
     inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
@@ -81,7 +85,44 @@ struct ScCreationParameters
         customData = cp.customData;
         constant = cp.constant;
         wCertVk = cp.wCertVk;
+        wMbtrVk = cp.wMbtrVk;
         wCeasedVk = cp.wCeasedVk;
+        return *this;
+    }
+};
+
+struct ScBwtRequestParameters
+{
+    CAmount scFee;
+    libzendoomc::ScFieldElement scUtxoId;
+    libzendoomc::ScProof scProof;
+
+    bool IsNull() const
+    {
+        return ( scFee == 0 && scUtxoId.IsNull() && scProof.IsNull());
+    }
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(scFee);
+        READWRITE(scUtxoId);
+        READWRITE(scProof);
+    }
+    ScBwtRequestParameters() :scFee(0) {}
+
+    inline bool operator==(const ScBwtRequestParameters& rhs) const
+    {
+        return (scFee == rhs.scFee) &&
+               (scUtxoId == rhs.scUtxoId) &&
+               (scProof == rhs.scProof); 
+    }
+    inline bool operator!=(const ScBwtRequestParameters& rhs) const { return !(*this == rhs); }
+    inline ScBwtRequestParameters& operator=(const ScBwtRequestParameters& cp)
+    {
+        scFee = cp.scFee;
+        scUtxoId = cp.scUtxoId;
+        scProof = cp.scProof;
         return *this;
     }
 };
@@ -93,6 +134,7 @@ struct CRecipientCrossChainBase
 
     CRecipientCrossChainBase(): nValue(0) {};
     virtual ~CRecipientCrossChainBase() {}
+    CAmount GetScValue() const { return nValue; }
 };
 
 struct CRecipientScCreation : public CRecipientCrossChainBase
@@ -105,20 +147,14 @@ struct CRecipientForwardTransfer : public CRecipientCrossChainBase
     uint256 scId;
 };
 
-
-struct CRecipientBackwardTransfer
+struct CRecipientBwtRequest
 {
-    CScript scriptPubKey;
-    CAmount nValue;
-
-    CRecipientBackwardTransfer(): nValue(0) {};
+    uint256 scId;
+    uint160 mcDestinationAddress;
+    ScBwtRequestParameters bwtRequestData;
+    CRecipientBwtRequest(): bwtRequestData() {}
+    CAmount GetScValue() const { return bwtRequestData.scFee; }
 };
-
-typedef boost::variant<
-        CRecipientScCreation,
-        CRecipientForwardTransfer,
-        CRecipientBackwardTransfer
-    > CcRecipientVariant;
 
 static const int MAX_SC_DATA_LEN = 1024;
 

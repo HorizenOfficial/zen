@@ -1,11 +1,11 @@
+#include "tx_creation_utils.h"
+#include <gtest/libzendoo_test_files.h>
 #include <script/interpreter.h>
 #include <main.h>
 #include <pubkey.h>
-#include "tx_creation_utils.h"
 #include <miner.h>
 #include <undo.h>
 
-// TODO: fwdTxAmount never used. Check test cases.
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength)
 {
     CMutableTransaction mtx;
@@ -33,6 +33,7 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vsc_ccout.resize(1);
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
+    mtx.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
 
     return mtx;
 }
@@ -56,6 +57,21 @@ void txCreationUtils::signTx(CMutableTransaction& mtx)
     }
     // Add the signature
     assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL, dataToBeSigned.begin(), 32, joinSplitPrivKey ) == 0);
+}
+
+void txCreationUtils::signTx(CMutableScCertificate& mcert)
+{
+    // Compute the correct hSig.
+    // TODO: #966.
+    static const uint256 one(uint256S("1"));
+    // Empty output script.
+    CScript scriptCode;
+    CScCertificate signedCert(mcert);
+    uint256 dataToBeSigned = SignatureHash(scriptCode, signedCert, NOT_AN_INPUT, SIGHASH_ALL);
+    if (dataToBeSigned == one) {
+        throw std::runtime_error("SignatureHash failed");
+    }
+    // Add the signature
 }
 
 CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
@@ -140,19 +156,16 @@ CTransaction txCreationUtils::createSproutTx(bool ccIsNull)
     return CTransaction(mtx);
 }
 
-void txCreationUtils::extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount)
+void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount)
 {
     CMutableTransaction mtx = tx;
 
     mtx.nVersion = SC_TX_VERSION;
 
     CTxScCreationOut aSidechainCreationTx;
+    aSidechainCreationTx.nValue = scAmount;
+    aSidechainCreationTx.withdrawalEpochLength = 100;
     mtx.vsc_ccout.push_back(aSidechainCreationTx);
-
-    CTxForwardTransferOut aForwardTransferTx;
-    aForwardTransferTx.scId = scId;
-    aForwardTransferTx.nValue = amount;
-    mtx.vft_ccout.push_back(aForwardTransferTx);
 
     tx = mtx;
     return;
@@ -168,6 +181,10 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     res.endEpochBlockHash = endEpochBlockHash;
     res.quality = quality;
 
+    res.vin.resize(1);
+    res.vin[0].prevout.hash = uint256S("1");
+    res.vin[0].prevout.n = 0;
+    
     CScript dummyScriptPubKey =
             GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     for(unsigned int idx = 0; idx < numChangeOut; ++idx)
@@ -192,62 +209,16 @@ uint256 txCreationUtils::CreateSpendableCoinAtHeight(CCoinsViewCache& targetView
     return inputTx.GetHash();
 }
 
-void txCreationUtils::storeSidechain(CCoinsViewCache& targetView, const uint256& scId, const CSidechain& sidechain, CSidechainEventsMap& sidechainEventsMap)
+void txCreationUtils::storeSidechain(CSidechainsMap& mapToWriteInto, const uint256& scId, const CSidechain& sidechain)
 {
-    CSidechainsMap mapSidechain;
-    mapSidechain[scId] = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::DIRTY); //Instead of fresh to avoid asserts in BatchWrite
-
-    CCoinsMap           dummyCoins;
-    uint256             dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
-    CNullifiersMap      dummyNullifiers;
-
-    CBlock              dummyBlock;
-    uint256             dummyHash = dummyBlock.GetHash();
-
-    CAnchorsCacheEntry dummyAnchorsEntry;
-    dummyAnchorsEntry.entered = true;
-    dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
-
-    CAnchorsMap dummyAnchors;
-    dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
-    CCswNullifiersMap dummyCswNullifiers;
-
-    targetView.BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
-                          dummyNullifiers, mapSidechain, sidechainEventsMap,
-                          dummyCswNullifiers);
-
-    return;
+    auto value = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::DIRTY);
+    WriteMutableEntry(scId, value, mapToWriteInto);
 }
-// TODO: update method
-void txCreationUtils::storeCertDataHash(CCoinsViewCache& targetView, const uint256& scId, uint32_t epochNumber)
+
+void txCreationUtils::storeSidechainEvent(CSidechainEventsMap& mapToWriteInto, int eventHeight, const CSidechainEvents& scEvent)
 {
-    /*
-    CSidechainsMap      dummySidechainMap;
-    CSidechainEventsMap dummyScEventsMap;
-    CCoinsMap           dummyCoins;
-    uint256             dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
-    CNullifiersMap      dummyNullifiers;
-
-    CBlock              dummyBlock;
-    uint256             dummyHash = dummyBlock.GetHash();
-
-    CAnchorsCacheEntry dummyAnchorsEntry;
-    dummyAnchorsEntry.entered = true;
-    dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
-
-    CAnchorsMap dummyAnchors;
-    dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
-    CCswNullifiersMap dummyCswNullifiers;
-    CCertDataHashMap certDataHashes;
-
-    libzendoomc::ScFieldElement nullCertDataHash{};
-    CCertDataHashCacheEntry newEntry{std::make_pair(nullCertDataHash, nullCertDataHash),CCertDataHashCacheEntry::Flags::FRESH};
-    certDataHashes[std::make_pair(scId, epochNumber)] = newEntry;
-
-    targetView.BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
-                          dummyNullifiers, dummySidechainMap, dummyScEventsMap,
-                          dummyCswNullifiers, certDataHashes);
-    */
+    auto value = CSidechainEventsCacheEntry(scEvent,CSidechainsCacheEntry::Flags::DIRTY);
+    WriteMutableEntry(eventHeight, value, mapToWriteInto);
 }
 
 void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)

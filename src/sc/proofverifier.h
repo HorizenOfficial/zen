@@ -6,9 +6,9 @@
 #include "uint256.h"
 
 #include <string>
-#include <boost/foreach.hpp>
 #include <boost/variant.hpp>
 #include <boost/filesystem.hpp>
+#include <amount.h>
 
 class CSidechain;
 class CScCertificate;
@@ -17,7 +17,7 @@ class CTxCeasedSidechainWithdrawalInput;
 namespace libzendoomc{
     typedef base_blob<SC_FIELD_SIZE * 8> ScFieldElement;
 
-    /* Check if scFieldElement is a valid zendoo-mc-cryptolib's field */
+    /* Check if scFieldElement is a valid field, leveraging zendoo-mc-cryptolib' */
     bool IsValidScFieldElement(const ScFieldElement& scFieldElement);
 
     typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
@@ -47,7 +47,8 @@ namespace libzendoomc{
     /* Support class for WCert SNARK proof verification. */
     class CScWCertProofVerification {
         public:
-            CScWCertProofVerification(){ };
+            CScWCertProofVerification() = default;
+            virtual ~CScWCertProofVerification() = default;
 
             // Returns false if proof verification has failed or deserialization of certificate's elements
             // into libzendoomc's elements has failed.
@@ -132,8 +133,17 @@ namespace libzendoomc{
                 const ScVk& wCeasedVk,
                 const CTxCeasedSidechainWithdrawalInput& csw
             ) const;
-    };
 
+            bool verifyCBwtRequest(
+                const uint256& scId,
+                const libzendoomc::ScFieldElement& scUtxoId,
+                const uint160& mcDestinationAddress,
+                CAmount scFees,
+                const libzendoomc::ScProof& scProof,
+                const boost::optional<libzendoomc::ScVk>& wMbtrVk,
+				const libzendoomc::ScFieldElement& certDataHash
+            ) const;
+    };
 }
 
 #endif // _SC_PROOF_VERIFIER_H
