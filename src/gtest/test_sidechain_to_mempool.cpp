@@ -763,16 +763,19 @@ TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
 TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainIsAccepted) {
     CNakedCCoinsViewCache sidechainsView(pcoinsTip);
 
-    uint256 scId = uint256S("aaa");
-    CSidechain sidechain;
-    sidechain.balance = CAmount(100);
-    sidechain.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    sidechain.lastTopQualityCertReferencedEpoch = 10;
-    // sidechain.currentState = (uint8_t)CSidechain::State::CEASED; // TO_FIX
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.balance = CAmount{1000};
+    int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
-    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, sidechain);
+    storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
 
-    CAmount cswTxCoins = sidechain.balance/2;
+    CAmount cswTxCoins = initialScState.balance/2;
     CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
@@ -782,23 +785,27 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainIsAccepted) {
 }
 
 TEST_F(SidechainsInMempoolTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
-	CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
 
-    uint256 scId = uint256S("aaa");
-    CSidechain sidechain;
-    sidechain.balance = CAmount(100);
-    sidechain.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    // sidechain.currentState = (uint8_t)CSidechain::State::CEASED;  // TO_FIX
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.balance = CAmount{1000};
+    int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
-    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, sidechain);
+    storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
 
-    CAmount cswTxCoins = sidechain.balance*2;
+    CAmount cswTxCoins = initialScState.balance*2;
     CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CValidationState dummyState;
     libzendoomc::CScProofVerifier verifier = libzendoomc::CScProofVerifier::Disabled();
-    EXPECT_FALSE(pcoinsTip->IsTxCswApplicableToState(cswTx, dummyState, verifier));
+    EXPECT_FALSE(sidechainsView.IsTxCswApplicableToState(cswTx, dummyState, verifier));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, CSWsToUnknownSidechainIsRefused) {
@@ -815,14 +822,19 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToUnknownSidechainIsRefused) {
 }
 
 TEST_F(SidechainsInMempoolTestSuite, CSWsToActiveSidechainIsRefused) {
-	CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
 
-    uint256 scId = uint256S("aaa");
-    CSidechain sidechain;
-    sidechain.balance = CAmount(100);
-    // sidechain.currentState = (uint8_t)CSidechain::State::ALIVe;  // TO_FIX
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.balance = CAmount{1000};
+    int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
 
-    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, sidechain);
+    storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereAlive);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     CAmount cswTxCoins = 10;
     CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
@@ -852,14 +864,18 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected)
 }
 
 TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToCeasedSidechainsAreRemovedFromMempool) {
-	CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
 
-    uint256 scId = uint256S("aaa");
-    CSidechain sidechain;
-    sidechain.balance = CAmount(1000);
-    // sidechain.currentState = (uint8_t)CSidechain::State::ALIVE;  // TO_FIX
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    initialScState.balance = CAmount{1000};
+    int heightWhereAlive = initialScState.GetScheduledCeasingHeight() -1;
 
-    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, sidechain);
+    storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereAlive);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     CTransaction fwtTx = GenerateFwdTransferTx(scId, CAmount(10));
     CTxMemPoolEntry fwtEntry(fwtTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -869,52 +885,19 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToCeasedSidechainsAreRemove
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
     int dummyHeight{1815};
-    mempool.removeStaleTransactions(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 0);
     EXPECT_TRUE(removedCerts.size() == 0);
 
     // Cease sidechains
-    // sidechain.currentState = (uint8_t)CSidechain::State::CEASED;  // TO_FIX
-    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, sidechain);
+    chainSettingUtils::ExtendChainActiveToHeight(initialScState.GetScheduledCeasingHeight());
+    sidechainsView.SetBestBlock(chainActive.Tip()->GetBlockHash());
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
+
     // Sidechain State is Ceased. FT expected to be removed.
-
     removedTxs.clear();
     removedCerts.clear();
-    mempool.removeStaleTransactions(pcoinsTip, removedTxs, removedCerts);
-    EXPECT_TRUE(removedTxs.size() == 1);
-    EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), fwtTx) != removedTxs.end());
-    EXPECT_TRUE(removedCerts.size() == 0);
-}
-
-TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToRevertedSidechainsAreRemovedFromMempool) {
-	CNakedCCoinsViewCache sidechainsView(pcoinsTip);
-
-    uint256 scId = uint256S("aaa");
-    CSidechain sidechain;
-    sidechain.balance = CAmount(1000);
-    // sidechain.currentState = (uint8_t)CSidechain::State::ALIVE;  // TO_FIX
-    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, sidechain);
-
-    CTransaction fwtTx = GenerateFwdTransferTx(scId, CAmount(10));
-    CTxMemPoolEntry fwtEntry(fwtTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    EXPECT_TRUE(mempool.addUnchecked(fwtTx.GetHash(), fwtEntry));
-
-    // Sidechain State is Active. No removed Txs and Certs expected.
-    std::list<CTransaction> removedTxs;
-    std::list<CScCertificate> removedCerts;
-    int dummyHeight{1848};
-    mempool.removeStaleTransactions(pcoinsTip, removedTxs, removedCerts);
-    EXPECT_TRUE(removedTxs.size() == 0);
-    EXPECT_TRUE(removedCerts.size() == 0);
-
-    // revert sidechain state to NOT_APPLICABLE
-    // sidechain.currentState = (uint8_t)CSidechain::State::NOT_APPLICABLE;  // TO_FIX
-    txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, sidechain);
-
-    // Sidechain State is NOT_APPLICABLE. FT expected to be removed.
-    removedTxs.clear();
-    removedCerts.clear();
-    mempool.removeStaleTransactions(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 1);
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), fwtTx) != removedTxs.end());
     EXPECT_TRUE(removedCerts.size() == 0);
@@ -922,16 +905,22 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToRevertedSidechainsAreRemo
 
 TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAreRemovedFromMempool) {
     // This can happen upon faulty/malicious circuits
-    uint256 scId = uint256S("aaa");
-    CSidechain sidechain;
-    sidechain.balance = CAmount(1000);
-    sidechain.currentState = (uint8_t)CSidechain::State::CEASED;
 
-    CSidechainEventsMap dummyCeasingMap;
-    txCreationUtils::storeSidechain(*pcoinsTip, scId, sidechain, dummyCeasingMap);
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    initialScState.balance = CAmount{1000};
+    int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
+
+    storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
 
     // Create and add CSW Tx
-    CAmount cswTxCoins = sidechain.balance; // csw coins = total sc mature coins
+    CAmount cswTxCoins = initialScState.balance; // csw coins = total sc mature coins
     CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
@@ -941,7 +930,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAr
     // Sidechain State is Ceased and there is no Sidechain balance conflicts in the mempool. No removed Txs and Certs expected.
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    mempool.removeOutOfScBalanceCsw(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeOutOfScBalanceCsw(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 0);
     EXPECT_TRUE(removedCerts.size() == 0);
 
@@ -955,7 +944,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAr
     // Mempool CSW Txs total withdrawal amount is greater than Sidechain mature balance -> both Txs expected to be removed.
     removedTxs.clear();
     removedCerts.clear();
-    mempool.removeOutOfScBalanceCsw(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeOutOfScBalanceCsw(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 2);
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), cswTx) != removedTxs.end());
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), cswTx2) != removedTxs.end());
@@ -964,16 +953,22 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAr
 
 TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCswForAliveSidechainsAreRemovedFromMempool) {
     //This can happen upon reverting end-of-epoch block
-    uint256 scId = uint256S("aaa");
-    CSidechain sidechain;
-    sidechain.balance = CAmount(1000);
-    sidechain.currentState = (uint8_t)CSidechain::State::CEASED;
 
-    CSidechainEventsMap dummyCeasingMap;
-    txCreationUtils::storeSidechain(*pcoinsTip, scId, sidechain, dummyCeasingMap);
+    CNakedCCoinsViewCache sidechainsView(pcoinsTip);
+
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    initialScState.balance = CAmount{1000};
+    int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
+
+    storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::CEASED);
 
     // Create and add CSW Tx
-    CAmount cswTxCoins = sidechain.balance; // csw coins = total sc mature coins
+    CAmount cswTxCoins = initialScState.balance; // csw coins = total sc mature coins
     CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
@@ -984,19 +979,20 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCswForAliveSidechainsAreRemovedF
     std::list<CScCertificate> removedCerts;
     int dummyHeight{1789};
     // Sidechain State is Ceased and there is no Sidechain balance conflicts in the mempool. No removed Txs and Certs expected.
-    mempool.removeStaleTransactions(pcoinsTip, dummyHeight, removedTxs, removedCerts);
-    mempool.removeOutOfScBalanceCsw(pcoinsTip, removedTxs, removedCerts);
+    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+    mempool.removeOutOfScBalanceCsw(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 0);
     EXPECT_TRUE(removedCerts.size() == 0);
 
     // revert sidechain state to ACTIVE
-    sidechain.currentState = (uint8_t)CSidechain::State::ALIVE;
-    txCreationUtils::storeSidechain(*pcoinsTip, scId, sidechain, dummyCeasingMap);
+    chainSettingUtils::ExtendChainActiveToHeight(initialScState.GetScheduledCeasingHeight()-1);
+    sidechainsView.SetBestBlock(chainActive.Tip()->GetBlockHash());
+    ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     // Mempool CSW Txs total withdrawal amount is greater than Sidechain mature balance -> both Txs expected to be removed.
     removedTxs.clear();
     removedCerts.clear();
-    mempool.removeStaleTransactions(pcoinsTip, dummyHeight, removedTxs, removedCerts);
+    mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
     EXPECT_TRUE(removedTxs.size() == 1);
     EXPECT_TRUE(std::find(removedTxs.begin(), removedTxs.end(), cswTx) != removedTxs.end());
     EXPECT_TRUE(removedCerts.size() == 0);
@@ -1008,7 +1004,7 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCswRemovalFromMempool) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.UpdateSidechain(scTx, aBlock, /*height*/int(1789));
     sidechainsView.Flush();
 
     //load csw tx to mempool
@@ -1049,11 +1045,11 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainWithoutVK) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, creationHeight);
+    sidechainsView.UpdateSidechain(scTx, aBlock, creationHeight);
     sidechainsView.Flush();
-    for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
-        ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, creationHeight));
-    sidechainsView.Flush();
+//    for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
+//        ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, creationHeight));
+//    sidechainsView.Flush();
 
     // Make coins mature
     CBlockUndo dummyBlockUndo;
@@ -1079,7 +1075,7 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainWithoutVK) {
     CValidationState cswTxState;
     bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, cswTxState, cswTx, false, &missingInputs));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, cswTxState, cswTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
 }
 
 TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
@@ -1088,7 +1084,7 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateScInfo(scTx, aBlock, /*height*/int(1789));
+    sidechainsView.UpdateSidechain(scTx, aBlock, /*height*/int(1789));
     sidechainsView.Flush();
 
     //load csw tx to mempool
@@ -1634,8 +1630,8 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creation
     scTx.vsc_ccout[0].withdrawalEpochLength = (epochLenght < 0)?getScMinWithdrawalEpochLength(): epochLenght;
 
     scTx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk();
     scTx.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk();
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 

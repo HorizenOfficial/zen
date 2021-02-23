@@ -1326,8 +1326,13 @@ bool CCoinsViewCache::IsTxCswApplicableToState(const CTransaction& tx, CValidati
                  REJECT_INVALID, "tx-csw-input-scid-missed");
         }
 
-        if (!CheckScTxTiming(csw.scId))
-            return false;
+        auto s = GetSidechainState(csw.scId);
+        if (s != CSidechain::State::CEASED)
+        {
+            return error("%s():%d - ERROR: attempt to spend csw input for scId[%s] in state[%s]\n",
+                    __func__, __LINE__, csw.scId.ToString(), CSidechain::stateToString(s));
+        }
+
 
         if(!sidechain.creationData.wCeasedVk.is_initialized())
         {

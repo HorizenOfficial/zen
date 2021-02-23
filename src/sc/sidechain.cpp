@@ -194,10 +194,10 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
         if (sc.wCeasedVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
         {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : invalid wCeasedVk verification key\n",
-                __func__, __LINE__, txHash.ToString());
-            return state.DoS(100, error("%s: wCeasedVk is invalid",
-                __func__), REJECT_INVALID, "sidechain-sc-creation-invalid-wceased-vk");
+            return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    REJECT_INVALID, "sidechain-sc-creation-invalid-wceased-vk");
         }
     }
     // Note: no sence to check FT and ScCr amounts, because they were chacked before in `tx.CheckAmounts`
@@ -243,26 +243,23 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
     {
         if (csw.nValue <= 0)
         {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : CSW value %d is non-positive\n",
-                __func__, __LINE__, txHash.ToString(), csw.nValue);
-            return state.DoS(100, error("%s: CSW value is not valid",
-                __func__), REJECT_INVALID, "sidechain-cswinput-value-not-valid");
+            return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : CSW value %d is non-positive\n",
+                    __func__, __LINE__, txHash.ToString(), csw.nValue),
+                    REJECT_INVALID, "sidechain-cswinput-value-not-valid");
         }
 
         if(!libzendoomc::IsValidScFieldElement(csw.nullifier))
         {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : invalid CSW nullifier\n",
-                __func__, __LINE__, txHash.ToString());
-            return state.DoS(100, error("%s: CSW nullifier is invalid",
-                __func__), REJECT_INVALID, "sidechain-cswinput-invalid-nullifier");
+            return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW nullifier\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    REJECT_INVALID, "sidechain-cswinput-invalid-nullifier");
         }
 
         if(!libzendoomc::IsValidScProof(csw.scProof))
         {
-            LogPrint("sc", "%s():%d - Invalid tx[%s] : invalid CSW proof\n",
-                __func__, __LINE__, txHash.ToString());
-            return state.DoS(100, error("%s: CSW proof is invalid",
-                __func__), REJECT_INVALID, "sidechain-cswinput-invalid-proof");
+            return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW proof\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    REJECT_INVALID, "sidechain-cswinput-invalid-proof");
         }
     }
 

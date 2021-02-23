@@ -904,9 +904,6 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
     UpdateCoins(cert, *view, dummyTxundo, initialScState.creationBlockHeight,/*isBlockTopQualityCert*/true);
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, dummyTxundo, dummyHeight, /*isBlockTopQualityCert*/true);
-    CCoins originalCoins;
-    EXPECT_FALSE(view->GetCoins(cert.GetHash(),originalCoins));
 
     //Make the sidechain cease, nulling the coin
     CSidechain sidechain;

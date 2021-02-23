@@ -41,9 +41,6 @@ namespace libzendoomc{
     /* Write scVk to file in vkPath. Returns true if operation succeeds, false otherwise. */
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk);
 
-    /* Calculate certificate data hash for given certificate. */
-    ScFieldElement CalculateCertDataHash(const CScCertificate& cert);
-
     /* Support class for WCert SNARK proof verification. */
     class CScWCertProofVerification {
         public:

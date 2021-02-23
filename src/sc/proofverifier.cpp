@@ -74,13 +74,6 @@ namespace libzendoomc{
         return true;
     }
 
-    ScFieldElement CalculateCertDataHash(const CScCertificate& cert) {
-        // TODO Replace with hash of merkel tree supplied by SC.
-        ScFieldElement certDataHash;
-        certDataHash.SetHex(cert.GetHash().GetHex());
-        return certDataHash;
-    }
-
     // Let's define a struct to hold the inputs, with a function to free the memory Rust-side
     struct WCertVerifierInputs {
         std::vector<backward_transfer_t> bt_list;

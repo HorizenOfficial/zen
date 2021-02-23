@@ -287,7 +287,7 @@ TEST_F(SidechainsTestSuite, ValidCSWTx) {
     EXPECT_TRUE(txState.IsValid());
 }
 
-TEST_F(SidechainsTestSuite, CSWTxInvalidAmount) {
+TEST_F(SidechainsTestSuite, CSWTxNegativeAmount) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = -1;
@@ -305,7 +305,25 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidAmount) {
         <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
-TEST_F(SidechainsTestSuite, CSWTxInvalidEpoch) {
+TEST_F(SidechainsTestSuite, CSWTxHugeAmount) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = MAX_MONEY;
+    csw.nullifier = libzendoomc::ScFieldElement();
+    csw.scProof = libzendoomc::ScProof();
+    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
+    CValidationState txState;
+
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SidechainsTestSuite, CSWTxInvalidEpoch) { //TODO: why would this fail? Where is the wrong epoch?
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
@@ -948,29 +966,6 @@ TEST_F(SidechainsTestSuite, CertificateUpdatesTopCommittedCertHash) {
     EXPECT_TRUE(sidechain.lastTopQualityCertHash == aCertificate.GetHash());
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertReferencedEpoch == -1);
     EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).prevTopCommittedCertHash.IsNull());
-}
-// TODO: update test
-TEST_F(SidechainsTestSuite, CertificateUpdatesCertHashData) {
-    //Prerequisites
-    int scCreationHeight = 1987;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock dummyBlock;
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
-
-    CBlockUndo blockUndo;
-    CScCertificate cert_A = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(3),/*numChangeOut*/2, /*bwtAmount*/CAmount(1), /*numBwt*/2);
-    //sidechainsView->UpdateCertDataHash(cert_A,blockUndo);
-
-    CScCertificate cert_B = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(3),/*numChangeOut*/2, /*bwtAmount*/CAmount(1), /*numBwt*/2, /*quality*/5);
-
-    // test
-    //sidechainsView->UpdateCertDataHash(cert_B,blockUndo);
-
-    //check
-    EXPECT_TRUE(blockUndo.scUndoDatabyScId.at(scId).lastTopQualityCertDataHash == libzendoomc::CalculateCertDataHash(cert_A));
 }
 
 /////////////////////////////////////////////////////////////////////////////////
