@@ -845,7 +845,8 @@ TEST(CertificateCustomFields, DefaultConstructedFieldElementConfigCannotBeSerial
 TEST(CertificateCustomFields, ZeroHeightCompressedMerkleTreeConfigCanBeBuilt)
 {
     CompressedMerkleTreeConfig zeroHeightCompressedMtConfig{0};
-    EXPECT_TRUE(zeroHeightCompressedMtConfig.getBitSize() == 1);
+    // TODO the getBitSize() final implementation will use the rust lib, this test should be then updated
+    EXPECT_TRUE(zeroHeightCompressedMtConfig.getBitSize() == 1*CHAR_BIT);
 }
 
 TEST(CertificateCustomFields, NegativeHeightCompressedMerkleTreeConfigCannotBeBuilt)

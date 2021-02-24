@@ -320,7 +320,7 @@ TEST(ScTxCommitmentTree, TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("adc44e32603f4a406d2fe152d63cfa0140684e9f33b667cc9c62e77bfbbd3733"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("fc9de9cbf82cce2878ec6be6b4e3a665a79b22edcbff915698f817cf9db2e2d4"))
         <<scTxCommitmentHash.ToString();
 }
 
