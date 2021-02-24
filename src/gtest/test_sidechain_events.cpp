@@ -61,7 +61,114 @@ protected:
     void storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
 };
 
+/////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// GetActiveCertDataHash /////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+TEST_F(SidechainsEventsTestSuite, CertDataHash_PastEndOfSubMissionWindow_EndOfEpoch) {
+    CSidechain initialScState;
+    uint256 scId = uint256S("abab");
+    int initialEpochReferencedByCert = 0;
 
+    initialScState.creationBlockHeight = 1;
+    initialScState.creationData.withdrawalEpochLength = 5;
+    initialScState.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
+
+    initialScState.pastEpochTopQualityCertDataHash.SetHex(std::string("aaaa"));
+    initialScState.lastTopQualityCertDataHash.SetHex(std::string("bbbb"));
+
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.GetCertSubmissionWindowStart(initialEpochReferencedByCert));
+    ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+    // test
+    int currentWindowEnd = initialScState.GetCertSubmissionWindowEnd(initialEpochReferencedByCert);
+    int currentEpochEnd = initialScState.GetEndHeightForEpoch(initialEpochReferencedByCert+1);
+
+    for (int tipHeight = currentWindowEnd; tipHeight < currentEpochEnd; ++tipHeight)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(tipHeight);  // move sidechain ahead
+        view->SetBestBlock(chainActive.Tip()->GetBlockHash());    // this represents connecting the actual block
+        EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+        EXPECT_TRUE(view->GetActiveCertDataHash(scId) == initialScState.lastTopQualityCertDataHash)
+        <<"Connected block at height "<<tipHeight
+		<<" certDataHash is "<<view->GetActiveCertDataHash(scId).ToString()
+		<<" instead of "<<initialScState.lastTopQualityCertDataHash.ToString();
+    }
+}
+
+TEST_F(SidechainsEventsTestSuite, CertDataHash_StartOfSubMissionWindow_EndtOfSubMissionWindow_NoCert) {
+    CSidechain initialScState;
+    uint256 scId = uint256S("abab");
+    int initialCertEpoch = 0;
+
+    initialScState.creationBlockHeight = 1;
+    initialScState.creationData.withdrawalEpochLength = 100;
+    initialScState.lastTopQualityCertReferencedEpoch = initialCertEpoch;
+
+    initialScState.pastEpochTopQualityCertDataHash.SetHex(std::string("aaaa"));
+    initialScState.lastTopQualityCertDataHash.SetHex(std::string("bbbb"));
+
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.GetCertSubmissionWindowStart(initialCertEpoch));
+    ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+    // test
+    int currentEpochEnd = initialScState.GetCertSubmissionWindowStart(initialCertEpoch+1)-1;
+    int nextEpochWinEnd = initialScState.GetCertSubmissionWindowEnd(initialCertEpoch+1);
+
+    for (int tipHeight = currentEpochEnd; tipHeight < nextEpochWinEnd; ++tipHeight)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(tipHeight);  // move sidechain ahead
+        view->SetBestBlock(chainActive.Tip()->GetBlockHash());    // this represents connecting the actual block
+        EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+        EXPECT_TRUE(view->GetActiveCertDataHash(scId) == initialScState.lastTopQualityCertDataHash)
+        <<"Connected block at height "<<tipHeight
+		<<" certDataHash is "<<view->GetActiveCertDataHash(scId).ToString()
+		<<" instead of "<<initialScState.lastTopQualityCertDataHash.ToString();
+    }
+}
+
+TEST_F(SidechainsEventsTestSuite, CertDataHash_StartOfSubMissionWindow_EndtOfSubMissionWindow_WithCert) {
+    CSidechain sidechain;
+    uint256 scId = uint256S("abab");
+    int initialCertEpoch = 0;
+
+    sidechain.creationBlockHeight = 1;
+    sidechain.creationData.withdrawalEpochLength = 100;
+    sidechain.lastTopQualityCertReferencedEpoch = initialCertEpoch;
+
+    sidechain.pastEpochTopQualityCertDataHash.SetHex(std::string("aaaa"));
+    sidechain.lastTopQualityCertDataHash.SetHex(std::string("bbbb"));
+
+    storeSidechainWithCurrentHeight(*view, scId, sidechain, sidechain.GetCertSubmissionWindowStart(initialCertEpoch));
+    ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+    // test
+    int nextEpochWinStart = sidechain.GetCertSubmissionWindowStart(initialCertEpoch+1);
+    int nextEpochWinEnd = sidechain.GetCertSubmissionWindowEnd(initialCertEpoch+1);
+
+    for (int tipHeight = nextEpochWinStart-1; tipHeight < nextEpochWinEnd; ++tipHeight)
+    {
+        if (tipHeight == nextEpochWinStart-1)
+        {
+        	// simulate certificate reception, as it happens in UpdateSidechain
+        	sidechain.lastTopQualityCertReferencedEpoch += 1;
+        	sidechain.pastEpochTopQualityCertDataHash = sidechain.lastTopQualityCertDataHash; // rotate past certDataHash
+        	sidechain.lastTopQualityCertDataHash.SetHex(std::string("cccc"));
+        	storeSidechainWithCurrentHeight(*view, scId, sidechain, tipHeight+1);
+        } else
+        {
+            chainSettingUtils::ExtendChainActiveToHeight(tipHeight);  // move sidechain ahead
+            view->SetBestBlock(chainActive.Tip()->GetBlockHash());    // this represents connecting the actual block
+            EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+        }
+
+        EXPECT_TRUE(view->GetActiveCertDataHash(scId) == sidechain.pastEpochTopQualityCertDataHash)
+        <<"Connected block at height "<<tipHeight
+		<<" certDataHash is "<<view->GetActiveCertDataHash(scId).ToString()
+		<<" instead of "<<sidechain.pastEpochTopQualityCertDataHash.ToString();
+    }
+}
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// isSidechainCeased /////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
