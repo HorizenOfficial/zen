@@ -523,15 +523,24 @@ class CswNullifierTest(BitcoinTestFramework):
 
 
         # check we have all cert data hash for both sc ids
-        mark_logs("\nCheck we have expected cert data hashes for both sidechains", self.nodes, DEBUG_MODE)
+        mark_logs("Check we have an active cert data hashe for sidechain 1", self.nodes, DEBUG_MODE)
         try:
             assert_true(self.nodes[1].getactivecertdatahash(scid)['certDataHash'])
-
-            assert_true(self.nodes[1].getactivecertdatahash(scid2)['certDataHash'])
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
+
+        mark_logs("Check we do not have any active cert data hash for sidechain 2, which is ceased with just one certificate", self.nodes, DEBUG_MODE)
+        ret = self.nodes[0].getscinfo(scid2, False, True)['items'][0]
+        assert_equal(ret['state'], "CEASED")
+        assert_equal(ret['last certificate epoch'], 0)
+        try:
+            assert_true(self.nodes[1].getactivecertdatahash(scid2)['certDataHash'])
+            assert (False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
 
 
 if __name__ == '__main__':
