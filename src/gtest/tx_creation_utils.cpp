@@ -1,7 +1,8 @@
+#include "tx_creation_utils.h"
+#include <gtest/libzendoo_test_files.h>
 #include <script/interpreter.h>
 #include <main.h>
 #include <pubkey.h>
-#include "tx_creation_utils.h"
 #include <miner.h>
 #include <undo.h>
 
@@ -32,6 +33,7 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vsc_ccout.resize(1);
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
+    mtx.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
 
     return mtx;
 }
@@ -55,6 +57,21 @@ void txCreationUtils::signTx(CMutableTransaction& mtx)
     }
     // Add the signature
     assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL, dataToBeSigned.begin(), 32, joinSplitPrivKey ) == 0);
+}
+
+void txCreationUtils::signTx(CMutableScCertificate& mcert)
+{
+    // Compute the correct hSig.
+    // TODO: #966.
+    static const uint256 one(uint256S("1"));
+    // Empty output script.
+    CScript scriptCode;
+    CScCertificate signedCert(mcert);
+    uint256 dataToBeSigned = SignatureHash(scriptCode, signedCert, NOT_AN_INPUT, SIGHASH_ALL);
+    if (dataToBeSigned == one) {
+        throw std::runtime_error("SignatureHash failed");
+    }
+    // Add the signature
 }
 
 CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
@@ -127,19 +144,16 @@ CTransaction txCreationUtils::createSproutTx(bool ccIsNull)
     return CTransaction(mtx);
 }
 
-void txCreationUtils::extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount)
+void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount)
 {
     CMutableTransaction mtx = tx;
 
     mtx.nVersion = SC_TX_VERSION;
 
     CTxScCreationOut aSidechainCreationTx;
+    aSidechainCreationTx.nValue = scAmount;
+    aSidechainCreationTx.withdrawalEpochLength = 100;
     mtx.vsc_ccout.push_back(aSidechainCreationTx);
-
-    CTxForwardTransferOut aForwardTransferTx;
-    aForwardTransferTx.scId = scId;
-    aForwardTransferTx.nValue = amount;
-    mtx.vft_ccout.push_back(aForwardTransferTx);
 
     tx = mtx;
     return;
@@ -155,6 +169,10 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     res.endEpochBlockHash = endEpochBlockHash;
     res.quality = 3; //setup to non zero value
 
+    res.vin.resize(1);
+    res.vin[0].prevout.hash = uint256S("1");
+    res.vin[0].prevout.n = 0;
+    
     CScript dummyScriptPubKey =
             GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     for(unsigned int idx = 0; idx < numChangeOut; ++idx)
@@ -168,8 +186,8 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
 
 uint256 txCreationUtils::CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight)
 {
-	CAmount dummyFeeAmount;
-	CScript dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
+    CAmount dummyFeeAmount{0};
+    CScript dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
             << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
 
     CTransaction inputTx = createCoinbase(dummyCoinbaseScript, dummyFeeAmount, coinHeight);
@@ -177,6 +195,18 @@ uint256 txCreationUtils::CreateSpendableCoinAtHeight(CCoinsViewCache& targetView
     UpdateCoins(inputTx, targetView, dummyUndo, coinHeight);
     assert(targetView.HaveCoins(inputTx.GetHash()));
     return inputTx.GetHash();
+}
+
+void txCreationUtils::storeSidechain(CSidechainsMap& mapToWriteInto, const uint256& scId, const CSidechain& sidechain)
+{
+    auto value = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::DIRTY);
+    WriteMutableEntry(scId, value, mapToWriteInto);
+}
+
+void txCreationUtils::storeSidechainEvent(CSidechainEventsMap& mapToWriteInto, int eventHeight, const CSidechainEvents& scEvent)
+{
+    auto value = CSidechainEventsCacheEntry(scEvent,CSidechainsCacheEntry::Flags::DIRTY);
+    WriteMutableEntry(eventHeight, value, mapToWriteInto);
 }
 
 void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)

@@ -30,13 +30,11 @@ using namespace zen;
 
 #include "sc/sidechain.h"
 #include <univalue.h>
+#include "rpc/protocol.h"
 
 using namespace std;
 using namespace libzcash;
 using namespace Sidechain;
-
-extern void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
-extern UniValue ValueFromAmount(const CAmount& amount);
 
 /**
  * Settings
@@ -1676,7 +1674,6 @@ CAmount CWallet::GetChange(const CTransactionBase& txBase) const
     return nChange;
 }
 
-
 int CWalletTx::GetIndexInBlock(const CBlock& block)
 {
     // Locate the index of certificate
@@ -1894,8 +1891,11 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
     {
         if (nDebit > 0)
         {
+            // these has a valid sc address and an amount sent to that addr
             fillScSent(wrappedTx.GetVscCcOut(), listScSent);
             fillScSent(wrappedTx.GetVftCcOut(), listScSent);
+            // this has a null sc address and an amount which is a fee for a sc forger
+            fillScFees(wrappedTx.GetVBwtRequestOut(), listScSent);
         }
     }
 }
@@ -2050,9 +2050,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 int nHeight = pindex->nHeight;
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(itCert->GetScId(), sidechain));
-                int currentEpoch = sidechain.EpochFor(nHeight);
-                int bwtMaxDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
-                                  sidechain.SafeguardMargin() - nHeight;
+                int bwtMaxDepth = sidechain.GetCertMaturityHeight(itCert->epochNumber) - nHeight;
 
                 if (AddToWalletIfInvolvingMe(*itCert, &block, bwtMaxDepth, fUpdate))
                 {
@@ -2090,13 +2088,14 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
         pcoinsTip->GetScIds(allScIds);
         for(const auto& scId: allScIds)
         {
-            if (pcoinsTip->isCeasedAtHeight(scId, chainActive.Height()) != CSidechain::State::ALIVE) {
+            if (pcoinsTip->GetSidechainState(scId) != CSidechain::State::ALIVE)
+            {
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(scId, sidechain));
                 if (fUpdate)
-                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.prevBlockTopQualityCertHash,
-                                                                      sidechain.prevBlockTopQualityCertReferencedEpoch,
-                                                                      sidechain.prevBlockTopQualityCertQuality,
+                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.lastTopQualityCertHash,
+                                                                      sidechain.lastTopQualityCertReferencedEpoch,
+                                                                      sidechain.lastTopQualityCertQuality,
                                                                       CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
             }
         }
@@ -2134,7 +2133,8 @@ void CWallet::ReacceptWalletTransactions()
     {
         CWalletTransactionBase& wtx = *(item.second);
         LOCK(mempool.cs);
-        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(), false, nullptr, true);
+        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(),
+            LimitFreeFlag::OFF, nullptr, RejectAbsurdFeeFlag::ON);
     }
 }
 
@@ -2151,6 +2151,16 @@ bool CWalletTx::RelayWalletTransaction()
     }
     return false;
 }
+
+void CWalletTx::fillScFees(const std::vector<CBwtRequestOut>& vOuts, std::list<CScOutputEntry>& listScSent) const
+{
+    for(const auto& txccout : vOuts)
+    {
+        CScOutputEntry output = {uint256(), txccout.scFee};
+        listScSent.push_back(output);
+    }
+}
+
 
 void CWalletTransactionBase::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const
 {
@@ -2388,7 +2398,7 @@ CAmount CWalletTransactionBase::GetAvailableCredit(bool fUseCache) const
         if (!pwallet->IsSpent(getTxBase()->GetHash(), pos)) {
             nCredit += pwallet->GetCredit(getTxBase()->GetVout()[pos], ISMINE_SPENDABLE);
             if (!MoneyRange(nCredit))
-                throw std::runtime_error("CWalletTx::GetAvailableCredit() : value out of range");
+                throw std::runtime_error("CWalletTransactionBase::GetAvailableCredit() : value out of range");
         }
     }
 
@@ -2431,7 +2441,7 @@ CAmount CWalletTransactionBase::GetAvailableWatchOnlyCredit(const bool& fUseCach
             const CTxOut &txout = getTxBase()->GetVout()[pos];
             nCredit += pwallet->GetCredit(txout, ISMINE_WATCH_ONLY);
             if (!MoneyRange(nCredit))
-                throw std::runtime_error("CWalletTx::GetAvailableWatchOnlyCredit() : value out of range");
+                throw std::runtime_error("CWalletTTransactionBase:GetAvailableWatchOnlyCredit() : value out of range");
         }
     }
 
@@ -3143,8 +3153,10 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
     }
 
     // Turn the ccout set into a CcRecipientVariant vector
-    vector< Sidechain::CcRecipientVariant > vecCcSend;
-    Sidechain::fundCcRecipients(tx, vecCcSend);
+    vector<CRecipientScCreation> vecScSend;
+    vector<CRecipientForwardTransfer> vecFtSend;
+    vector<CRecipientBwtRequest> vecBwtRequest;
+    Sidechain::fundCcRecipients(tx, vecScSend, vecFtSend, vecBwtRequest);
     
     CCoinControl coinControl;
     coinControl.fAllowOtherInputs = true;
@@ -3153,7 +3165,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 
     CReserveKey reservekey(this);
     CWalletTx wtx;
-    if (!CreateTransaction(vecSend, vecCcSend, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false))
+    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false))
         return false;
 
     if (nChangePosRet != -1)
@@ -3179,8 +3191,27 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 }
 
 
+template <typename T>
+static bool checkAndAddCcOut(const std::vector<T>&  vccout, CAmount& nValue, std::string& strFailReason)
+{
+    for (const auto& entry : vccout)
+    {
+        CAmount amount = entry.GetScValue();
+        if (nValue < 0 || amount < 0)
+        {
+            strFailReason = _("Transaction cc out amounts must be positive");
+            return false;
+        }
+        nValue += amount;
+    }
+    return true;
+}
+
 bool CWallet::CreateTransaction(
-    const std::vector<CRecipient>& vecSend, const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
+    const std::vector<CRecipient>& vecSend,
+    const std::vector<CRecipientScCreation>& vecScSend,
+    const std::vector<CRecipientForwardTransfer>& vecFtSend,
+    const std::vector<CRecipientBwtRequest>& vecBwtRequest,
     CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
     int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign)
 {
@@ -3190,7 +3221,7 @@ bool CWallet::CreateTransaction(
     {
         if (nValue < 0 || recipient.nAmount < 0)
         {
-            strFailReason = _("Transaction amounts must be positive");
+            strFailReason = _("Transaction out amounts must be positive");
             return false;
         }
         nValue += recipient.nAmount;
@@ -3199,18 +3230,14 @@ bool CWallet::CreateTransaction(
             nSubtractFeeFromAmount++;
     }
 
-    BOOST_FOREACH (const auto& ccRecipient, vecCcSend)
-    {
-        CAmount amount = boost::apply_visitor(CcRecipientAmountVisitor(), ccRecipient);
-        if (nValue < 0 || amount < 0)
-        {
-            strFailReason = _("Transaction amounts must be positive");
-            return false;
-        }
-        nValue += amount;
-    }
+    if (!checkAndAddCcOut(vecScSend, nValue, strFailReason))
+        return false;
+    if (!checkAndAddCcOut(vecFtSend, nValue, strFailReason))
+        return false;
+    if (!checkAndAddCcOut(vecBwtRequest, nValue, strFailReason))
+        return false;
 
-    if ( (vecSend.empty() && vecCcSend.empty() ) || nValue < 0)
+    if ( (vecSend.empty() && vecScSend.empty() && vecFtSend.empty() && vecBwtRequest.empty() ) || nValue < 0)
     {
         strFailReason = _("Transaction amounts must be positive");
         return false;
@@ -3220,7 +3247,7 @@ bool CWallet::CreateTransaction(
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
 
-    if (!vecCcSend.empty() )
+    if (!vecScSend.empty() || !vecFtSend.empty() || !vecBwtRequest.empty() )
     {
         // set proper version
         txNew.nVersion = SC_TX_VERSION;
@@ -3258,6 +3285,7 @@ bool CWallet::CreateTransaction(
                 txNew.resizeOut(0);
                 txNew.vsc_ccout.clear();
                 txNew.vft_ccout.clear();
+                txNew.vmbtr_out.clear();
                 wtxNew.fFromMe = true;
                 nChangePosRet = -1;
                 bool fFirst = true;
@@ -3299,7 +3327,31 @@ bool CWallet::CreateTransaction(
                 }
 
                 // vccouts to the payees
-                Sidechain::FillCcOutput(txNew, vecCcSend, strFailReason);
+                for (const auto& entry : vecScSend)
+                {
+                    CTxScCreationOut txccout(entry.nValue, entry.address, entry.creationData);
+                    if (txccout.IsDust(::minRelayTxFee)) {
+                        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
+                    }
+                    txNew.add(txccout);
+                }
+
+                for (const auto& entry : vecFtSend)
+                {
+                    CTxForwardTransferOut txccout(entry.scId, entry.nValue, entry.address);
+                    if (txccout.IsDust(::minRelayTxFee)) {
+                        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
+                    }
+                    txNew.add(txccout);
+                }
+
+                for (const auto& entry : vecBwtRequest)
+                {
+                    CBwtRequestOut txccout(entry.scId, entry.mcDestinationAddress, entry.bwtRequestData);
+                    // we allow even 0 scFee, therefore no check for dust
+                    txNew.add(txccout);
+                }
+
 
                 // Choose coins to use
                 set<pair<const CWalletTransactionBase*,unsigned int> > setCoins;
@@ -3458,6 +3510,8 @@ bool CWallet::CreateTransaction(
                 // Limit size
                 if (nBytes >= MAX_TX_SIZE)
                 {
+                    LogPrintf("%s():%d - ERROR: tx size %d too large (max allowed = %d)\n",
+                        __func__, __LINE__, nBytes, MAX_TX_SIZE);
                     strFailReason = _("Transaction too large");
                     return false;
                 }
@@ -3542,7 +3596,8 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
         {
             // Broadcast
             CValidationState stateDummy;
-            if (!AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtxNew.getTxBase(), false, nullptr, true))
+            if (!AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtxNew.getTxBase(),
+                    LimitFreeFlag::OFF, nullptr, RejectAbsurdFeeFlag::ON))
             {
                 // This must not fail. The transaction has already been signed and recorded.
                 LogPrintf("CommitTransaction(): Error: Transaction not valid\n");

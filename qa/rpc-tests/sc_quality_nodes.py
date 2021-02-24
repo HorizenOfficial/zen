@@ -142,6 +142,10 @@ class quality_nodes(BitcoinTestFramework):
         mark_logs("Node0 generating more blocks to achieve end of withdrawal epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(EPOCH_LENGTH - 2)
         self.sync_all()
+        h = self.nodes[0].getblockcount()
+
+        mark_logs("Chain height={}".format(h), self.nodes, DEBUG_MODE)
+
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc balance has matured
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 
@@ -156,6 +160,8 @@ class quality_nodes(BitcoinTestFramework):
         amount_cert_0 = [{"pubkeyhash": pkh_node0, "amount": bwt_amount}]
 
         self.split_network()
+
+        #----------------------Network Part 1
 
         # Create Cert1 with quality 100 and place it in node0
         mark_logs("Height: {}. cration height {}".format(self.nodes[0].getblockcount(), sc_creating_height), self.nodes, DEBUG_MODE)
@@ -178,6 +184,8 @@ class quality_nodes(BitcoinTestFramework):
         assert_equal(True, cert_1_epoch_0 in self.nodes[0].getrawmempool())
         cert1_mined = self.nodes[0].generate(2)[0]
         assert_true(cert_1_epoch_0 in self.nodes[0].getblock(cert1_mined, True)['cert'])
+
+        #----------------------Network Part 2
 
         # Create Cert2 with quality 100 and place it in node1
         mark_logs("Create Cert2 with quality 100 and place it in node1", self.nodes, DEBUG_MODE)
@@ -213,12 +221,16 @@ class quality_nodes(BitcoinTestFramework):
         except JSONRPCException, e:
             mark_logs("Cert2 is not in blockchain", self.nodes, DEBUG_MODE)
 
+        # it is not even in any mempool since cert1 with quality 100 is already in block chain
         assert_false(cert_2_epoch_0 in self.nodes[0].getrawmempool())
+        assert_false(cert_2_epoch_0 in self.nodes[1].getrawmempool())
 
         self.nodes[0].generate(EPOCH_LENGTH - 2)
         self.sync_all()
 
         self.split_network()
+
+        #----------------------Network Part 1
 
         # Create Cert3 with quality 100 and place it in node0
         prev_epoch_block_hash = epoch_block_hash
@@ -242,8 +254,24 @@ class quality_nodes(BitcoinTestFramework):
 
         mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
         assert_equal(True, cert_1_epoch_1 in self.nodes[0].getrawmempool())
-        cert1_mined = self.nodes[0].generate(4)[0]
+
+        # generate 3 blocks thus reaching the end of the submission window
+        #   
+        #  <- - -     epoch N = 20          - - ->|<- - -     epoch N+1 = 20        - - ->
+        # |                                       |                                       |
+        # | sub wlen = 4  +                       | sub wlen = 4  +                       |
+        # |               !                       |               !                       |
+        # |               !                       |         X     !                       |
+        # |---|---|---|---|---  ...   ... ...  ---|---|---|---|---|---  ...   ... ...  ---|   
+        #
+        #  242         245                     261         264
+        #                                                   ^
+        #                                                   |
+        #  - - - - - - - - - - - - - - - - - - - - - - - - -+   
+        cert1_mined = self.nodes[0].generate(3)[0]
         assert_true(cert_1_epoch_1 in self.nodes[0].getblock(cert1_mined, True)['cert'])
+
+        #----------------------Network Part 2
 
         # Create Cert2 with quality 100 and place it in node1
         mark_logs("Create Cert2 with quality 100 and place it in node1", self.nodes, DEBUG_MODE)
@@ -269,7 +297,19 @@ class quality_nodes(BitcoinTestFramework):
         self.join_network()
 
         assert_true(cert_1_epoch_1 in self.nodes[0].getblock(cert1_mined, True)['cert'])
+
+        assert_false(cert_2_epoch_1 in self.nodes[0].getrawmempool())
         assert_true(cert_2_epoch_1 in self.nodes[1].getrawmempool())
+
+        # node0 mines another block, therefore the remaining cert in node1 mempool will be removed since it is now
+        # out of submission window 
+        mined = self.nodes[0].generate(1)[0]
+        self.sync_all()
+       
+        # not in the block just mined and not in the mempool either
+        assert_false(cert_2_epoch_1 in self.nodes[1].getblock(mined, True)['cert'])
+        assert_false(cert_2_epoch_1 in self.nodes[1].getrawmempool())
+
 
 if __name__ == '__main__':
     quality_nodes().main()

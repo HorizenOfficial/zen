@@ -11,6 +11,12 @@
 
 namespace libzendoomc{
 
+    bool IsValidScFieldElement(const ScFieldElement& scFieldElement)
+    {
+        // TODO
+        return true;
+    }
+
     bool IsValidScProof(const ScProof& scProof)
     {
         auto scProofDeserialized = zendoo_deserialize_sc_proof(scProof.begin());
@@ -204,5 +210,18 @@ namespace libzendoomc{
             return true;
         else
             return CScWCertProofVerification().verifyScCert(constant, wCertVk, prev_end_epoch_block_hash, cert);
+    }
+
+    bool CScProofVerifier::verifyCBwtRequest(
+        const uint256& scId,
+        const libzendoomc::ScFieldElement& scUtxoId,
+        const uint160& mcDestinationAddress,
+        CAmount scFees,
+        const libzendoomc::ScProof& scProof,
+        const boost::optional<libzendoomc::ScVk>& wMbtrVk,
+		const libzendoomc::ScFieldElement& certDataHash
+    ) const
+    {
+        return true; //Currently mocked
     }
 }

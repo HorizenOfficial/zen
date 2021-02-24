@@ -48,13 +48,43 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         const CTxForwardTransferOut& out = tx.GetVftCcOut()[i];
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("scid", out.scId.GetHex()));
-        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("n", (int64_t)nIdx));
+        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
         vfts.push_back(o);
         nIdx++;
     }
     parentObj.push_back(Pair("vft_ccout", vfts));
+
+    UniValue vbts(UniValue::VARR);
+    for (unsigned int i = 0; i < tx.GetVBwtRequestOut().size(); i++) {
+        const CBwtRequestOut& out = tx.GetVBwtRequestOut()[i];
+        UniValue o(UniValue::VOBJ);
+        o.push_back(Pair("scid", out.GetScId().GetHex()));
+        o.push_back(Pair("n", (int64_t)nIdx));
+
+        std::string taddrStr = "Invalid taddress";
+        uint160 pkeyValue;
+        pkeyValue.SetHex(out.mcDestinationAddress.GetHex());
+
+        CKeyID keyID(pkeyValue);
+        CBitcoinAddress taddr(keyID);
+        if (taddr.IsValid()) {
+            taddrStr = taddr.ToString();
+        }
+
+        UniValue mcAddr(UniValue::VOBJ);
+        mcAddr.push_back(Pair("pubkeyhash", out.mcDestinationAddress.GetHex()));
+        mcAddr.push_back(Pair("taddr", taddrStr));
+        
+        o.push_back(Pair("mcDestinationAddress", mcAddr));
+        o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
+        o.push_back(Pair("scUtxoId", HexStr(out.scRequestData)));
+        o.push_back(Pair("scProof", HexStr(out.scProof)));
+        vbts.push_back(o);
+        nIdx++;
+    }
+    parentObj.push_back(Pair("vmbtr_out", vbts));
 }
 
 
@@ -204,6 +234,25 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             }
         }
 
+        const UniValue& wMbtrVk = find_value(o, "wMbtrVk");
+        if (!wMbtrVk.isNull())
+        {
+            const std::string& inputString = wMbtrVk.get_str();
+            std::vector<unsigned char> wMbtrVkVec;
+            if (!AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+            {
+                error = "wMbtrVk: " + error;
+                return false;
+            }
+
+            sc.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
+            if (!libzendoomc::IsValidScVk(sc.wMbtrVk.get()))
+            {
+                error = "invalid wMbtrVkVec";
+                return false;
+            }
+        }
+
         CTxScCreationOut txccout(nAmount, address, sc);
 
         rawTx.vsc_ccout.push_back(txccout);
@@ -256,7 +305,118 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
     return true;
 }
 
-void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& vecCcSend)
+bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx, std::string& error)
+{
+    rawTx.nVersion = SC_TX_VERSION;
+
+    for (size_t j = 0; j < bwtreq.size(); j++)
+    {
+        ScBwtRequestParameters bwtData;
+
+        const UniValue& input = bwtreq[j];
+        const UniValue& o = input.get_obj();
+
+        //---------------------------------------------------------------------
+        const UniValue& scidVal = find_value(o, "scid");
+        if (scidVal.isNull())
+        {
+            error = "Missing mandatory parameter scid";
+            return false;
+        }
+        std::string inputString = scidVal.get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        {
+            error = "Invalid scid format: not an hex";
+            return false;
+        }
+
+        uint256 scId;
+        scId.SetHex(inputString);
+
+        //---------------------------------------------------------------------
+        const UniValue& pkhVal = find_value(o, "pubkeyhash");
+        if (pkhVal.isNull())
+        {
+            error = "Missing mandatory parameter pubkeyhash";
+            return false;
+        }
+        inputString = pkhVal.get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        {
+            error = "Invalid pubkeyhash format: not an hex";
+            return false;
+        }
+
+        uint160 pkh;
+        pkh.SetHex(inputString);
+
+        //---------------------------------------------------------------------
+        const UniValue& scFeeVal = find_value(o, "scFee");
+        CAmount scFee = AmountFromValue( scFeeVal );
+        if (scFee < 0)
+        {
+            error = "Invalid parameter, amount must be positive";
+            return false;
+        }
+        bwtData.scFee = scFee;
+
+        //---------------------------------------------------------------------
+        const UniValue& scUtxoIdVal = find_value(o, "scUtxoId");
+        if (scUtxoIdVal.isNull())
+        {
+            error = "Missing mandatory parameter scUtxoId";
+            return false;
+        }
+        inputString = scUtxoIdVal.get_str();
+        std::vector<unsigned char> scUtxoIdVec;
+        if (!AddScData(inputString, scUtxoIdVec, SC_FIELD_SIZE, true, error))
+        {
+            error = "scUtxoId: " + error;
+            return false;
+        }
+
+        bwtData.scUtxoId = libzendoomc::ScFieldElement(scUtxoIdVec);
+
+        if (!libzendoomc::IsValidScFieldElement(bwtData.scUtxoId))
+        {
+            error = "invalid scUtxoId";
+            return false;
+        }
+
+        //---------------------------------------------------------------------
+        const UniValue& scProofVal = find_value(o, "scProof");
+        if (scProofVal.isNull())
+        {
+            error = "Missing mandatory parameter scProof";
+            return false;
+        }
+        inputString = scProofVal.get_str();
+        std::vector<unsigned char> scProofVec;
+        if (!AddScData(inputString, scProofVec, SC_PROOF_SIZE, true, error))
+        {
+            error = "scProof: " + error;
+            return false;
+        }
+
+        bwtData.scProof = libzendoomc::ScProof(scProofVec);
+
+        if (!libzendoomc::IsValidScProof(bwtData.scProof))
+        {
+            error = "invalid scProof";
+            return false;
+        }
+
+
+        CBwtRequestOut txccout(scId, pkh, bwtData);
+        rawTx.vmbtr_out.push_back(txccout);
+    }
+
+    return true;
+}
+
+void fundCcRecipients(const CTransaction& tx,
+    std::vector<CRecipientScCreation >& vecScSend, std::vector<CRecipientForwardTransfer >& vecFtSend,
+    std::vector<CRecipientBwtRequest>& vecBwtRequest)
 {
     BOOST_FOREACH(const auto& entry, tx.GetVscCcOut())
     {
@@ -268,7 +428,7 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
         sc.creationData.customData = entry.customData;
         sc.creationData.constant = entry.constant;
 
-        vecCcSend.push_back(CcRecipientVariant(sc));
+        vecScSend.push_back(sc);
     }
 
     BOOST_FOREACH(const auto& entry, tx.GetVftCcOut())
@@ -278,75 +438,29 @@ void fundCcRecipients(const CTransaction& tx, std::vector<CcRecipientVariant >& 
         ft.address = entry.address;
         ft.nValue = entry.nValue;
 
-        vecCcSend.push_back(CcRecipientVariant(ft));
+        vecFtSend.push_back(ft);
+    }
+
+    BOOST_FOREACH(const auto& entry, tx.GetVBwtRequestOut())
+    {
+        CRecipientBwtRequest bt;
+        bt.scId = entry.scId;
+        bt.mcDestinationAddress = entry.mcDestinationAddress;
+        bt.bwtRequestData.scFee = entry.scFee;
+        bt.bwtRequestData.scUtxoId = entry.scRequestData;
+        bt.bwtRequestData.scProof = entry.scProof;
+
+        vecBwtRequest.push_back(bt);
     }
 }
 
 //--------------------------------------------------------------------------------------------
 // Cross chain outputs
 
-bool CRecipientHandler::visit(const CcRecipientVariant& rec)
-{
-    return boost::apply_visitor(CcRecipientVisitor(this), rec);
-};
-
-
-bool CRecipientHandler::handle(const CRecipientScCreation& r)
-{
-    CTxScCreationOut txccout(r.nValue, r.address, r.creationData);
-    // no dust can be found in sc creation
-    return txBase->add(txccout);
-};
-
-bool CRecipientHandler::handle(const CRecipientForwardTransfer& r)
-{
-    CTxForwardTransferOut txccout(r.scId, r.nValue, r.address);
-    if (txccout.IsDust(::minRelayTxFee))
-    {
-        err = _("Transaction amount too small");
-        return false;
-    }
-    return txBase->add(txccout);
-};
-
-bool CRecipientHandler::handle(const CRecipientBackwardTransfer& r)
-{
-    CTxOut txout(r.nValue, r.scriptPubKey);
-    return txBase->addBwt(txout);
-};
-
-bool FillCcOutput(CMutableTransaction& tx, std::vector<Sidechain::CcRecipientVariant> vecCcSend, std::string& strFailReason)
-{
-    for (const auto& ccRecipient: vecCcSend)
-    {
-        CRecipientHandler handler(&tx, strFailReason);
-        if (!handler.visit(ccRecipient) )
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool FillBackwardTransfer(CMutableScCertificate& tx, std::vector<Sidechain::CcRecipientVariant> vecCcSend, std::string& strFailReason)
-{
-    for (const auto& ccRecipient: vecCcSend)
-    {
-        CRecipientHandler handler(&tx, strFailReason);
-        if (!handler.visit(ccRecipient) )
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-
 ScRpcCmd::ScRpcCmd(
-        CMutableTransactionBase& tx,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee): 
-        _tx(tx), _fromMcAddress(fromaddress), _changeMcAddress(changeaddress), _minConf(minConf), _fee(nFee)
+        _fromMcAddress(fromaddress), _changeMcAddress(changeaddress), _minConf(minConf), _fee(nFee)
 {
     _totalOutputAmount = 0;
 
@@ -365,12 +479,6 @@ ScRpcCmd::ScRpcCmd(
 
 void ScRpcCmd::addInputs()
 {
-    if (_fee == 0)
-    {
-        LogPrint("sc", "%s():%d - No fee therefore no inputs are added to cert, exiting\n", __func__, __LINE__);
-        return;
-    }
-
     std::vector<COutput> vAvailableCoins;
     std::vector<SelectedUTXO> vInputUtxo;
 
@@ -473,7 +581,7 @@ void ScRpcCmd::addInputs()
         int vout = std::get<1>(t);
 
         CTxIn in(COutPoint(txid, vout));
-        _tx.vin.push_back(in);
+        addInput(in);
     }
 }
 
@@ -505,25 +613,26 @@ void ScRpcCmd::addChange()
             scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
         }
 
-        _tx.addOut(CTxOut(change, scriptPubKey));
+        addOutput(CTxOut(change, scriptPubKey));
     }
-}
-
-ScRpcCmdTx::ScRpcCmdTx(
-        CMutableTransaction& tx,
-        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
-        int minConf, const CAmount& nFee):
-        ScRpcCmd(tx, fromaddress, changeaddress, minConf, nFee)
-{
 }
 
 ScRpcCmdCert::ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee):
-        ScRpcCmd(cert, fromaddress, changeaddress, minConf, nFee),
-        _bwdParams(bwdParams)
+        ScRpcCmd(fromaddress, changeaddress, minConf, nFee),
+        _cert(cert),_bwdParams(bwdParams)
 {
+}
+
+void ScRpcCmdCert::execute()
+{
+    addInputs();
+    addChange();
+    addBackwardTransfers();
+    sign();
+    send();
 }
 
 void ScRpcCmdCert::sign()
@@ -531,7 +640,7 @@ void ScRpcCmdCert::sign()
     std::string rawcert;
     try
     {
-        CScCertificate toEncode((CMutableScCertificate&)_tx);
+        CScCertificate toEncode(_cert);
         rawcert = EncodeHexCert(toEncode);
         LogPrint("sc", "      toEncode[%s]\n", toEncode.GetHash().ToString());
         LogPrint("sc", "      toEncode: %s\n", toEncode.ToString());
@@ -572,11 +681,7 @@ void ScRpcCmdCert::sign()
     {
         throw JSONRPCError(RPC_WALLET_ENCRYPTION_FAILED, "Failed to parse certificate");
     }
-    LogPrint("sc", "      pre _tx[%s]\n", _tx.GetHash().ToString());
-    LogPrint("sc", "      pre _tx: %s\n", ((CMutableScCertificate&)_tx).ToString());
-    LogPrint("sc", "cert streamed[%s]\n", certStreamed.GetHash().ToString());
-    LogPrint("sc", "cert streamed: %s\n", certStreamed.ToString());
-    _tx = certStreamed;
+    _cert = certStreamed;
 }
 
 void ScRpcCmdCert::send()
@@ -594,22 +699,19 @@ void ScRpcCmdCert::send()
 
 void ScRpcCmdCert::addBackwardTransfers()
 {
-    std::vector<CcRecipientVariant> vecCcSend;
-
     for (const auto& entry : _bwdParams)
     {
-        CRecipientBackwardTransfer bt;
-        bt.scriptPubKey = entry._scriptPubKey;
-        bt.nValue = entry._nAmount;
-
-        vecCcSend.push_back(CcRecipientVariant(bt));
+        CTxOut txout(entry._nAmount, entry._scriptPubKey);
+        _cert.addBwt(txout);
     }
+}
 
-    std::string strFailReason;
-    if (!FillBackwardTransfer((CMutableScCertificate&)_tx, vecCcSend, strFailReason))
-    {
-        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build backward transfers! %s", strFailReason.c_str()));
-    }
+ScRpcCmdTx::ScRpcCmdTx(
+        CMutableTransaction& tx,
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee):
+        ScRpcCmd(fromaddress, changeaddress, minConf, nFee), _tx(tx)
+{
 }
 
 void ScRpcCmdTx::sign()
@@ -617,7 +719,7 @@ void ScRpcCmdTx::sign()
     std::string rawtxn;
     try
     {
-        rawtxn = EncodeHexTx((CMutableTransaction&)_tx);
+        rawtxn = EncodeHexTx(_tx);
     }
     catch(...)
     {
@@ -670,7 +772,16 @@ void ScRpcCmdTx::send()
     }
 }
 
-ScRpcCreationCmd::ScRpcCreationCmd(
+void ScRpcCmdTx::execute()
+{
+    addInputs();
+    addChange();
+    addCcOutputs();
+    sign();
+    send();
+}
+
+ScRpcCreationCmdTx::ScRpcCreationCmdTx(
         CMutableTransaction& tx, const std::vector<sCrOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee, const ScCreationParameters& cd):
@@ -682,7 +793,7 @@ ScRpcCreationCmd::ScRpcCreationCmd(
     }
 } 
 
-void ScRpcCreationCmd::addCcOutputs()
+void ScRpcCreationCmdTx::addCcOutputs()
 {
     if (_outParams.size() != 1)
     {
@@ -690,24 +801,14 @@ void ScRpcCreationCmd::addCcOutputs()
         throw JSONRPCError(RPC_WALLET_ERROR, strprintf("invalid number of output: %d!", _outParams.size()));
     }
 
-    std::vector<CcRecipientVariant> vecCcSend;
-
-    // creation output
-    CRecipientScCreation sc;
-    sc.address = _outParams[0]._toScAddress;
-    sc.nValue = _outParams[0]._nAmount;
-    sc.creationData = _creationData;
-
-    vecCcSend.push_back(CcRecipientVariant(sc));
-
-    std::string strFailReason;
-    if (!FillCcOutput((CMutableTransaction&)_tx, vecCcSend, strFailReason))
-    {
-        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output! %s", strFailReason.c_str()));
+    CTxScCreationOut txccout(_outParams[0]._nAmount, _outParams[0]._toScAddress, _creationData);
+    if (txccout.IsDust(::minRelayTxFee)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
     }
+    _tx.add(txccout);
 }
 
-ScRpcSendCmd::ScRpcSendCmd(
+ScRpcSendCmdTx::ScRpcSendCmdTx(
         CMutableTransaction& tx, const std::vector<sFtOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee):
@@ -720,7 +821,7 @@ ScRpcSendCmd::ScRpcSendCmd(
 } 
 
 
-void ScRpcSendCmd::addCcOutputs()
+void ScRpcSendCmdTx::addCcOutputs()
 {
     if (_outParams.size() == 0)
     {
@@ -728,22 +829,42 @@ void ScRpcSendCmd::addCcOutputs()
         throw JSONRPCError(RPC_WALLET_ERROR, "null number of output!");
     }
 
-    std::vector<CcRecipientVariant> vecCcSend;
+    for (const auto& entry : _outParams)
+    {
+        CTxForwardTransferOut txccout(entry._scid, entry._nAmount, entry._toScAddress);
+        if (txccout.IsDust(::minRelayTxFee)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
+        }
+        _tx.add(txccout);
+    }
+}
+
+ScRpcRetrieveCmdTx::ScRpcRetrieveCmdTx(
+        CMutableTransaction& tx, const std::vector<sBtOutParams>& outParams,
+        const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
+        int minConf, const CAmount& nFee):
+        ScRpcCmdTx(tx, fromaddress, changeaddress, minConf, nFee), _outParams(outParams)
+{
+    for (const auto& entry : _outParams)
+    {
+        _totalOutputAmount += entry._params.scFee;
+    }
+} 
+
+
+void ScRpcRetrieveCmdTx::addCcOutputs()
+{
+    if (_outParams.size() == 0)
+    {
+        // send cmd can not have empty output vector
+        throw JSONRPCError(RPC_WALLET_ERROR, "null number of output!");
+    }
 
     for (const auto& entry : _outParams)
     {
-        CRecipientForwardTransfer ft;
-        ft.address = entry._toScAddress;
-        ft.nValue = entry._nAmount;
-        ft.scId = entry._scid;
-
-        vecCcSend.push_back(CcRecipientVariant(ft));
-    }
-
-    std::string strFailReason;
-    if (!FillCcOutput((CMutableTransaction&)_tx, vecCcSend, strFailReason))
-    {
-        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output! %s", strFailReason.c_str()));
+        CBwtRequestOut txccout(entry._scid, entry._pkh, entry._params);
+        _tx.add(txccout);
     }
 }
+
 }  // end of namespace
