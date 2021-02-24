@@ -62,7 +62,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         #generate wCertVk and constant
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params('sc1')
-        constant = generate_random_field_element_hex()
+        constant1 = generate_random_field_element_hex()
 
         amount = 1.0
         fee = 0.000025
@@ -96,7 +96,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             assert_true("expected int" in errorString)
 
         #-------------------------------------------------------
-        too_large_array_values = [30, 31]
+        too_large_array_values = [30, 31] # 30 at most
         cmdInput = {'vCompressedMerkleTreeConfig': too_large_array_values, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with a vCompressedMerkleTreeConfig array with too large integers (expecting failure...)", self.nodes, DEBUG_MODE)
@@ -109,19 +109,32 @@ class sc_cert_customfields(BitcoinTestFramework):
             assert_true("must be in the range" in errorString)
 
         #-------------------------------------------------------
+        zero_values_array = [0, 0] 
+        cmdInput = {'vFieldElementConfig': zero_values_array, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
+
+        mark_logs("\nNode 1 create SC with a vFieldElementConfig array with zeroes (expecting failure...)", self.nodes, DEBUG_MODE)
+        try:
+            self.nodes[1].create_sidechain(cmdInput)
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true("must be strictly positive" in errorString)
+
+        #-------------------------------------------------------
         fee = 0.000025
         feCfg = []
         cmtCfg = []
 
-        # all certs must have custom FieldElements with exactly those values as size in byte 
-        feCfg.append([4, 6, 2])
+        # all certs must have custom FieldElements with exactly those values as size in bits 
+        feCfg.append([31, 48, 16])
 
-        # all certs must have custom CompressedMerkleTrees with size = 2^those value at most in byte (i.e 2^8 = 256, 2^3 = 2048)
+        # all certs must have custom CompressedMerkleTrees with size = 2^those value at most in bytes (i.e 2^8 = 256, 2^3 = 2048)
         cmtCfg.append([8, 3])
 
         cmdInput = {
             'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': fee,
-            'constant':constant , 'wCertVk': vk, 'toaddress':"cdcd",
+            'constant':constant1 , 'wCertVk': vk, 'toaddress':"cdcd",
             'vFieldElementConfig':feCfg[0], 'vCompressedMerkleTreeConfig':cmtCfg[0] }
 
         mark_logs("\nNode 1 create SC1 with valid vFieldElementConfig / vCompressedMerkleTreeConfig pair", self.nodes,DEBUG_MODE)
@@ -152,7 +165,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         constant2 = generate_random_field_element_hex()
         customData = "c0ffee"
         mbtrVk = ""     
-        feCfg.append([2])
+        feCfg.append([16])
         cmtCfg.append([])
 
         mark_logs("\nNode 1 create SC2 with valid vFieldElementConfig / vCompressedMerkleTreeConfig pair", self.nodes,DEBUG_MODE)
@@ -227,8 +240,8 @@ class sc_cert_customfields(BitcoinTestFramework):
         #-------------------------------------------------------
         # advance epoch
         certs = []
-        mark_logs("\nNode 0 generates 4 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(4)
+        mark_logs("\nNode 0 generates {} block".format(EPOCH_LENGTH-1), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(EPOCH_LENGTH - 1)
         self.sync_all()
 
         epoch_block_hash_1, epoch_number_1 = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
@@ -241,9 +254,9 @@ class sc_cert_customfields(BitcoinTestFramework):
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         bwt_amount = Decimal("0.1")
 
-        scProof1 = mcTest.create_test_proof(
-            'sc1', epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            10, constant, [pkh_node1], [bwt_amount])
+        scProof2 = mcTest.create_test_proof(
+            'sc2', epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
+            10, constant2, [pkh_node1], [bwt_amount])
 
         # get a UTXO
         utx, change = get_spendable(self.nodes[0], CERT_FEE)
@@ -252,10 +265,11 @@ class sc_cert_customfields(BitcoinTestFramework):
         outputs = { self.nodes[0].getnewaddress() : change }
         bwt_outs = {pkh_node1: bwt_amount}
 
+        # cfgs for SC2: [16], []
         mark_logs("\nCreate raw cert with wrong field element for the referred SC2 (expecting failure)...", self.nodes, DEBUG_MODE)
         vFe = ["abcd1234", "ccccddddeeee", "aaee"]
         vCmt = ["1111", "0660101a"]
-        params = {'scid': scid2, 'quality': 10, 'endEpochBlockHash': epoch_block_hash_1, 'scProof': scProof1,
+        params = {'scid': scid2, 'quality': 10, 'endEpochBlockHash': epoch_block_hash_1, 'scProof': scProof2,
                   'withdrawalEpochNumber': epoch_number_1, 'vFieldElement': vFe, 'vCompressedMerkleTree':vCmt}
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
@@ -268,9 +282,11 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         mark_logs("\nCreate raw cert with good custom field elements for SC2...", self.nodes, DEBUG_MODE)
+        '''
         scProof2 = mcTest.create_test_proof(
             'sc2', epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
             10, constant2, [pkh_node1], [bwt_amount])
+        '''
 
         vFe = ["abcd"]
         vCmt = []
@@ -290,13 +306,36 @@ class sc_cert_customfields(BitcoinTestFramework):
         certs.append(cert);
 
         #-------------------------------------------------------
-        mark_logs("\nCreate raw cert with good custom field elements for SC1...", self.nodes, DEBUG_MODE)
+        scProof1 = mcTest.create_test_proof(
+            'sc1', epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
+            10, constant1, [pkh_node1], [bwt_amount])
 
         # get another UTXO
         utx, change = get_spendable(self.nodes[0], CERT_FEE)
         inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         outputs = { self.nodes[0].getnewaddress() : change }
 
+        # cfgs for SC1: [31, 48, 16], [8, 3]
+        mark_logs("\nCreate raw cert with bad custom field elements for SC1...", self.nodes, DEBUG_MODE)
+
+        # In 0xcd there are no trailing null bits, therefore it is not OK
+        vFe = ["abde12cd", "ccccbbbbeeee", "cbbd"]
+        vCmt = ["1111", "0660101a"]
+        params = {'scid': scid1, 'quality': 10, 'endEpochBlockHash': epoch_block_hash_1, 'scProof': scProof1,
+                  'withdrawalEpochNumber': epoch_number_1, 'vFieldElement': vFe, 'vCompressedMerkleTree':vCmt}
+        try:
+            rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
+            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            assert (False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+
+        self.sync_all()
+        mark_logs("\nCreate raw cert with good custom field elements for SC1...", self.nodes, DEBUG_MODE)
+
+        # In 0x34 there are 2 trailing null bits, therefore it is OK
         vFe = ["abcd1234", "ccccddddeeee", "ccdd"]
         vCmt = ["1111", "0660101a"]
         params = {'scid': scid1, 'quality': 10, 'endEpochBlockHash': epoch_block_hash_1, 'scProof': scProof1,
@@ -354,9 +393,10 @@ class sc_cert_customfields(BitcoinTestFramework):
         prev_epoch_block_hash = epoch_block_hash_1
 
         #-------------------------------------------------------
+        # cfgs for SC1: [31, 48, 16], [8, 3]
         scProof1 = mcTest.create_test_proof(
             'sc1', epoch_number_2, epoch_block_hash_2, prev_epoch_block_hash,
-            5, constant, [], [])
+            5, constant1, [], [])
 
         mark_logs("\nCreate Cert without custom field elements (should fail)", self.nodes, DEBUG_MODE)
         try:
@@ -368,6 +408,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         mark_logs("\nCreate Cert with invalid custom field elements (should fail)", self.nodes, DEBUG_MODE)
+        # vFe[0]---> 256 bits (!= 31)
         vFe = ["06601c01528416d44682d41d979ded016d950924418ec354663f0bd761188da3", "0912f922dd37b01258eaf5311d68e723f8a8ced4a3c64471511b0020bf3fdcc9"]
         vCmt = ["6d950924418ec337b01258eaf5311d68e723f8a8ced4", "233311860324"]
         try:
@@ -381,12 +422,14 @@ class sc_cert_customfields(BitcoinTestFramework):
         mark_logs("\nCreate Cert with invalid custom field elements (should fail)", self.nodes, DEBUG_MODE)
         vFe = ["18ec3546", "12f922dd37b0", "dddd"]
         vCmt = ["6d950924418ec337b01258eaf5311d68e723f8a8ced4", "23331186032400aaff"]
+        # vCmt[1]---> 9 bytes (!= 2^3 * 8 = 64 bits)
         try:
             self.nodes[0].send_certificate(scid1, epoch_number_2, 5, epoch_block_hash_2, scProof1, [], CERT_FEE, vFe, vCmt)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
+        return
 
         #-------------------------------------------------------
         mark_logs("\nCreate Cert for SC1 with good custom field elements", self.nodes, DEBUG_MODE)

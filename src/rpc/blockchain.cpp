@@ -1082,7 +1082,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             	sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
             else
                 sc.push_back(Pair("wMbtrVk", std::string{"NOT INITIALIZED"}));
-            sc.push_back(Pair("vFieldElementConfig", VecToStr(info.creationData.vFieldElementConfig)));
+            sc.push_back(Pair("vCustomFieldConfig", VecToStr(info.creationData.vCustomFieldConfig)));
             sc.push_back(Pair("vCompressedMerkleTreeConfig", VecToStr(info.creationData.vCompressedMerkleTreeConfig) ));
         }
  
@@ -1128,7 +1128,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
                     info.creationData.wMbtrVk = scCreation.wMbtrVk;
-                    info.creationData.vFieldElementConfig = scCreation.vFieldElementConfig;
+                    info.creationData.vCustomFieldConfig = scCreation.vCustomFieldConfig;
                     info.creationData.vCompressedMerkleTreeConfig = scCreation.vCompressedMerkleTreeConfig;
                     info.mImmatureAmounts[-1] = scCreation.GetScValue();
                     break;
@@ -1148,7 +1148,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
                 else
                     sc.push_back(Pair("unconf wMbtrVk", std::string{"NOT INITIALIZED"}));
-                sc.push_back(Pair("unconf vFieldElementConfig", VecToStr(info.creationData.vFieldElementConfig)));
+                sc.push_back(Pair("unconf vCustomFieldConfig", VecToStr(info.creationData.vCustomFieldConfig)));
                 sc.push_back(Pair("unconf vCompressedMerkleTreeConfig", VecToStr(info.creationData.vCompressedMerkleTreeConfig)));
             }
 
@@ -1277,7 +1277,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"customData\":                  xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
             "     \"constant\":                    xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
             "     \"wMbtrVk\":                     xxxxx,   (string)  The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
-            "     \"vFieldElementConfig\":         xxxxx,   (string)  TODO  add description\n"
+            "     \"vCustomFieldConfig\":          xxxxx,   (string)  TODO  add description\n"
             "     \"vCompressedMerkleTreeConfig\": xxxxx,   (string)  TODO  add description\n"
             "     \"immature amounts\": [\n"
             "       {\n"

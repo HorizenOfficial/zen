@@ -28,6 +28,9 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj);
 // otherwise the check is relaxed to inputString.size()/2 <= vSize
 bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, unsigned int vSize, bool enforceStrictvSize, std::string& error);
 
+bool AddCustomFieldElement(const std::string& inputString, std::vector<unsigned char>& vBytes,
+    unsigned int vSize, std::string& errString);
+
 // read an array of int in input and fills the passed cfg obj.
 template <typename T> bool AddScData(const UniValue& intArray, std::vector<T>& vCfg);
 
@@ -135,13 +138,13 @@ class ScRpcCmdCert : public ScRpcCmd
 
     // cmd params
     std::vector<sBwdParams> _bwdParams;
-    std::vector<FieldElement> _vFe;
+    std::vector<CompressedFieldElement> _vFe;
     std::vector<CompressedMerkleTree> _vCmt;
 
     ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
-        const std::vector<FieldElement>& vFe, const std::vector<CompressedMerkleTree>& vCmt);
+        const std::vector<CompressedFieldElement>& vFe, const std::vector<CompressedMerkleTree>& vCmt);
 
     void execute() override;
 };

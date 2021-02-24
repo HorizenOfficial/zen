@@ -594,10 +594,10 @@ public:
     CSidechain::State isCeasedAtHeight(const uint256& scId, int height) const;
 
     bool GetScCertCustomFieldsConfig(const uint256 & scId,
-        std::vector<FieldElementConfig>& vFieldElementConfig,
+        std::vector<CompressedFieldElementConfig>& vCustomFieldConfig,
         std::vector<CompressedMerkleTreeConfig>& vCompressedMerkleTreeConfig) const;
 
-    bool CertCustomFieldsValid(const CSidechain& scInfo, const CScCertificate& cert) const;
+    bool CheckCertCustomFields(const CSidechain& scInfo, const CScCertificate& cert) const;
 
     bool Flush();
 

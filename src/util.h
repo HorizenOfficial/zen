@@ -285,4 +285,6 @@ std::string dbg_blk_unlinked();
 std::string dbg_blk_candidates();
 std::string dbg_blk_global_tips();
 
+int getTrailingZeroBitsInByte(unsigned char inputByte);
+int getBytesFromBits(int nbits, int& reminder);
 #endif // BITCOIN_UTIL_H

@@ -809,7 +809,7 @@ TEST(CertificateManipulation, ResizingCertificateChangeOutputs) {
 
 TEST(CertificateCustomFields, PositiveSizeFieldElementConfigCannotBeBuilt)
 {
-	FieldElementConfig positiveSizeFieldConfig{10};
+	CompressedFieldElementConfig positiveSizeFieldConfig{10};
     EXPECT_TRUE(positiveSizeFieldConfig.getBitSize() == 10);
 }
 
@@ -817,7 +817,7 @@ TEST(CertificateCustomFields, NegativeSizeFieldElementConfigCannotBeBuilt)
 {
     EXPECT_THROW(
     {
-        try { FieldElementConfig(-1); }
+        try { CompressedFieldElementConfig(-1); }
         catch( const std::invalid_argument& e ) { throw; }
     }, std::invalid_argument );
 }
@@ -826,14 +826,14 @@ TEST(CertificateCustomFields, ZeroSizeFieldElementConfigCannotBeBuilt)
 {
     EXPECT_THROW(
     {
-        try { FieldElementConfig(0); }
+        try { CompressedFieldElementConfig(0); }
         catch( const std::invalid_argument& e ) { throw; }
     }, std::invalid_argument );
 }
 
 TEST(CertificateCustomFields, DefaultConstructedFieldElementConfigCannotBeSerialized)
 {
-	FieldElementConfig cfgToWrite{};
+	CompressedFieldElementConfig cfgToWrite{};
     CDataStream cfgStream(SER_DISK, CLIENT_VERSION);
     EXPECT_THROW(
     {

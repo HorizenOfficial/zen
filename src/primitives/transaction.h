@@ -441,11 +441,6 @@ public:
         return 3*minRelayTxFee.GetFee(nSize);
     }
 
-    bool IsDust(const CFeeRate &minRelayTxFee) const
-    {
-        return (GetScValue() < GetDustThreshold(minRelayTxFee));
-    }
-
     virtual const uint256& GetScId() const = 0; 
 
     virtual std::string ToString() const = 0;
@@ -514,7 +509,7 @@ public:
     }
 };
 
-class FieldElementConfig;
+class CompressedFieldElementConfig;
 class CompressedMerkleTreeConfig;
 
 class CTxScCreationOut : public CTxCrosschainOut
@@ -532,7 +527,7 @@ public:
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
-    std::vector<FieldElementConfig> vFieldElementConfig;
+    std::vector<CompressedFieldElementConfig> vCustomFieldConfig;
     std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
 
     CTxScCreationOut():withdrawalEpochLength(-1) { }
@@ -551,7 +546,7 @@ public:
         READWRITE(constant);
         READWRITE(wCertVk);
         READWRITE(wMbtrVk);
-        READWRITE(vFieldElementConfig);
+        READWRITE(vCustomFieldConfig);
         READWRITE(vCompressedMerkleTreeConfig);
     }
 
@@ -569,7 +564,7 @@ public:
                  a.constant == b.constant &&
                  a.wCertVk == b.wCertVk &&
                  a.wMbtrVk == b.wMbtrVk &&
-                 a.vFieldElementConfig == b.vFieldElementConfig &&
+                 a.vCustomFieldConfig == b.vCustomFieldConfig &&
                  a.vCompressedMerkleTreeConfig == b.vCompressedMerkleTreeConfig );
     }
 

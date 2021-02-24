@@ -24,16 +24,16 @@ public:
     virtual int32_t getBitSize() const = 0;
 };
 
-class FieldElementConfig : public CustomFieldConfig
+class CompressedFieldElementConfig : public CustomFieldConfig
 {
 private:
     int32_t nBits;
     bool isBitsLenghtValid(); //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
 
 public:
-    FieldElementConfig(int32_t nBitsIn);
-    FieldElementConfig(): CustomFieldConfig(), nBits(0) {} //for serialization only, which requires the default ctor
-    ~FieldElementConfig() = default;
+    CompressedFieldElementConfig(int32_t nBitsIn);
+    CompressedFieldElementConfig(): CustomFieldConfig(), nBits(0) {} //for serialization only, which requires the default ctor
+    ~CompressedFieldElementConfig() = default;
 
     int32_t getBitSize() const override; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
 
@@ -43,18 +43,18 @@ public:
         READWRITE(nBits);
 
         if (!isBitsLenghtValid())
-            throw std::invalid_argument("FieldElementConfig size must be strictly positive");
+            throw std::invalid_argument("CompressedFieldElementConfig size must be strictly positive");
     }
 
-    bool operator==(const FieldElementConfig& rhs) const {
+    bool operator==(const CompressedFieldElementConfig& rhs) const {
         return (this->nBits == rhs.nBits);
     }
 
-    bool operator!=(const FieldElementConfig& rhs) const {
+    bool operator!=(const CompressedFieldElementConfig& rhs) const {
         return !(*this == rhs);
     }
 
-    friend std::ostream& operator<<(std::ostream& os, const FieldElementConfig& r) {
+    friend std::ostream& operator<<(std::ostream& os, const CompressedFieldElementConfig& r) {
         os << r.nBits;
         return os;
     }
@@ -105,7 +105,6 @@ class CustomField
 {
 protected:
     const std::vector<unsigned char> vRawField;
-    virtual void InitFieldElement() const = 0; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
 
 public:
     CustomField(const CustomFieldConfig& cfg): vRawField(cfg.getBitSize()) {};
@@ -117,20 +116,20 @@ public:
     const std::vector<unsigned char>& getVRawField() const { return vRawField; }
 };
 
-class FieldElement : public CustomField
+class CompressedFieldElement : public CustomField
 {
 private:
     const libzendoomc::ScFieldElement scFieldElement; // memory only, lazy-initialized by GetFieldElement call
 
 protected:
-    void InitFieldElement() const override;
+    void InitFieldElement() const; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
 
 public:
-    FieldElement(const FieldElementConfig& cfg = FieldElementConfig()); //default ctor for serialization and containers only
-    FieldElement(const std::vector<unsigned char>& rawBytes);
-    FieldElement(const FieldElement& rhs) = default;
-    FieldElement& operator=(const FieldElement& rhs);
-    ~FieldElement() = default;
+    CompressedFieldElement(const CompressedFieldElementConfig& cfg = CompressedFieldElementConfig()); //default ctor for serialization and containers only
+    CompressedFieldElement(const std::vector<unsigned char>& rawBytes);
+    CompressedFieldElement(const CompressedFieldElement& rhs) = default;
+    CompressedFieldElement& operator=(const CompressedFieldElement& rhs);
+    ~CompressedFieldElement() = default;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -149,7 +148,7 @@ private:
     const libzendoomc::ScFieldElement merkleRoot; // memory only, lazy-initialized by GetFieldElement call
 
 protected:
-    void InitFieldElement() const override;
+    void CalculateMerkleRoot() const; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
 
 public:
     CompressedMerkleTree(const CompressedMerkleTreeConfig& cfg = CompressedMerkleTreeConfig()); //default ctor for serialization and containers only
@@ -221,7 +220,7 @@ struct ScCreationParameters
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
-    std::vector<FieldElementConfig> vFieldElementConfig;
+    std::vector<CompressedFieldElementConfig> vCustomFieldConfig;
     std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
 
     bool IsNull() const
@@ -232,7 +231,7 @@ struct ScCreationParameters
             constant.empty( )                  &&
             wCertVk.IsNull()                   &&
             wMbtrVk == boost::none             &&
-            vFieldElementConfig.empty()        &&
+            vCustomFieldConfig.empty()        &&
             vCompressedMerkleTreeConfig.empty() );
     }
 
@@ -244,7 +243,7 @@ struct ScCreationParameters
         READWRITE(constant);
         READWRITE(wCertVk);
         READWRITE(wMbtrVk);
-        READWRITE(vFieldElementConfig);
+        READWRITE(vCustomFieldConfig);
         READWRITE(vCompressedMerkleTreeConfig);
     }
     ScCreationParameters() :withdrawalEpochLength(-1) {}
@@ -256,7 +255,7 @@ struct ScCreationParameters
                (constant == rhs.constant) &&
                (wCertVk == rhs.wCertVk)  &&
                (wMbtrVk == rhs.wMbtrVk)  &&
-               (vFieldElementConfig == rhs.vFieldElementConfig) &&
+               (vCustomFieldConfig == rhs.vCustomFieldConfig) &&
                (vCompressedMerkleTreeConfig == rhs.vCompressedMerkleTreeConfig);
     }
     inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
@@ -267,7 +266,7 @@ struct ScCreationParameters
         constant                    = cp.constant;
         wCertVk                     = cp.wCertVk;
         wMbtrVk                     = cp.wMbtrVk;
-        vFieldElementConfig         = cp.vFieldElementConfig;
+        vCustomFieldConfig          = cp.vCustomFieldConfig;
         vCompressedMerkleTreeConfig = cp.vCompressedMerkleTreeConfig;
         return *this;
     }

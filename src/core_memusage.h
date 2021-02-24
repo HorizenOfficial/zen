@@ -28,7 +28,7 @@ static inline size_t RecursiveDynamicUsage(const CTxOut& out) {
 static inline size_t RecursiveDynamicUsage(const CTxScCreationOut& ccout)
 {
     return memusage::DynamicUsage(ccout.customData) +
-           memusage::DynamicUsage(ccout.vFieldElementConfig) +
+           memusage::DynamicUsage(ccout.vCustomFieldConfig) +
            memusage::DynamicUsage(ccout.vCompressedMerkleTreeConfig);
 }
 

@@ -35,7 +35,7 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
         o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
-        o.push_back(Pair("vFieldElementConfig", VecToStr(out.vFieldElementConfig)));
+        o.push_back(Pair("vCustomFieldConfig", VecToStr(out.vCustomFieldConfig)));
         o.push_back(Pair("vCompressedMerkleTreeConfig", VecToStr(out.vCompressedMerkleTreeConfig)));
         o.push_back(Pair("customData", HexStr(out.customData)));
         o.push_back(Pair("constant", HexStr(out.constant)));
@@ -88,10 +88,39 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
     parentObj.push_back(Pair("vmbtr_out", vbts));
 }
 
+bool AddCustomFieldElement(const std::string& inputString, std::vector<unsigned char>& vBytes,
+    unsigned int nBytes, std::string& errString)
+{
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+    {
+        errString = std::string("Invalid format: not an hex");
+        return false;
+    }
+
+    unsigned int dataLen = inputString.length();
+
+    if (dataLen%2)
+    {
+        errString = strprintf("Invalid length %d, must be even (byte string)", dataLen);
+        return false;
+    }
+
+    unsigned int scDataLen = dataLen/2;
+
+    if(scDataLen > nBytes)
+    {
+        errString = strprintf("Invalid length %d, must be %d bytes at most", scDataLen, nBytes);
+        return false;
+    }
+
+    vBytes = ParseHex(inputString);
+    assert(vBytes.size() == scDataLen);
+
+    return true;
+}
 
 bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, unsigned int vSize, bool enforceStrictSize, std::string& error)
 { 
-
     if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
     {
         error = std::string("Invalid format: not an hex");
@@ -271,13 +300,13 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             }
         }
 
-        const UniValue& FeCfg = find_value(o, "vFieldElementConfig");
+        const UniValue& FeCfg = find_value(o, "vCustomFieldConfig");
         if (!FeCfg.isNull())
         {
             UniValue intArray = FeCfg.get_array();
-            if (!Sidechain::AddScData(intArray, sc.vFieldElementConfig))
+            if (!Sidechain::AddScData(intArray, sc.vCustomFieldConfig))
             {
-                error = "invalid vFieldElementConfig";
+                error = "invalid vCustomFieldConfig";
                 return false;
             }
         }
@@ -465,7 +494,7 @@ void fundCcRecipients(const CTransaction& tx,
         sc.address = entry.address;
         sc.creationData.withdrawalEpochLength       = entry.withdrawalEpochLength;
         sc.creationData.wCertVk                     = entry.wCertVk;
-        sc.creationData.vFieldElementConfig         = entry.vFieldElementConfig;
+        sc.creationData.vCustomFieldConfig         = entry.vCustomFieldConfig;
         sc.creationData.vCompressedMerkleTreeConfig = entry.vCompressedMerkleTreeConfig;
         sc.creationData.customData = entry.customData;
         sc.creationData.constant = entry.constant;
@@ -662,7 +691,7 @@ void ScRpcCmd::addChange()
 ScRpcCmdCert::ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
-        const std::vector<FieldElement>& vFe, const std::vector<CompressedMerkleTree>& vCmt):
+        const std::vector<CompressedFieldElement>& vFe, const std::vector<CompressedMerkleTree>& vCmt):
         ScRpcCmd(fromaddress, changeaddress, minConf, nFee),
         _cert(cert),_bwdParams(bwdParams), _vFe(vFe), _vCmt(vCmt)
 {
@@ -752,7 +781,7 @@ void ScRpcCmdCert::addBackwardTransfers()
 void ScRpcCmdCert::addCustomFields()
 {
     if (!_vFe.empty())
-        _cert.vFieldElement = _vFe;
+        _cert.vCustomField = _vFe;
     if (!_vCmt.empty())
         _cert.vCompressedMerkleTree = _vCmt;
 }
@@ -853,9 +882,6 @@ void ScRpcCreationCmdTx::addCcOutputs()
     }
 
     CTxScCreationOut txccout(_outParams[0]._nAmount, _outParams[0]._toScAddress, _creationData);
-    if (txccout.IsDust(::minRelayTxFee)) {
-        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
-    }
     _tx.add(txccout);
 }
 
@@ -883,9 +909,6 @@ void ScRpcSendCmdTx::addCcOutputs()
     for (const auto& entry : _outParams)
     {
         CTxForwardTransferOut txccout(entry._scid, entry._nAmount, entry._toScAddress);
-        if (txccout.IsDust(::minRelayTxFee)) {
-            throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
-        }
         _tx.add(txccout);
     }
 }
@@ -919,6 +942,6 @@ void ScRpcRetrieveCmdTx::addCcOutputs()
 }
 
 // explicit instantiations
-template bool AddScData<FieldElementConfig>(const UniValue& intArray, std::vector<FieldElementConfig>& vCfg);
+template bool AddScData<CompressedFieldElementConfig>(const UniValue& intArray, std::vector<CompressedFieldElementConfig>& vCfg);
 template bool AddScData<CompressedMerkleTreeConfig>(const UniValue& intArray, std::vector<CompressedMerkleTreeConfig>& vCfg);
 }  // end of namespace

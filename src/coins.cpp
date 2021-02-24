@@ -763,7 +763,7 @@ bool CCoinsViewCache::UpdateScInfo(const CTransaction& tx, const CBlock& block, 
         scIt->second.scInfo.creationData.constant = cr.constant;
         scIt->second.scInfo.creationData.wCertVk = cr.wCertVk;
         scIt->second.scInfo.creationData.wMbtrVk = cr.wMbtrVk;
-        scIt->second.scInfo.creationData.vFieldElementConfig = cr.vFieldElementConfig;
+        scIt->second.scInfo.creationData.vCustomFieldConfig = cr.vCustomFieldConfig;
         scIt->second.scInfo.creationData.vCompressedMerkleTreeConfig = cr.vCompressedMerkleTreeConfig;
         scIt->second.scInfo.mImmatureAmounts[maturityHeight] = cr.nValue;
         scIt->second.flag = CSidechainsCacheEntry::Flags::FRESH;
@@ -897,7 +897,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
              REJECT_INVALID, "sidechain-certificate-epoch");
     }
 
-    if (!CertCustomFieldsValid(scInfo, cert) )
+    if (!CheckCertCustomFields(scInfo, cert) )
     {
         LogPrint("sc", "%s():%d - invalid cert[%s], scId[%s], invalid custom data cfg\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString() );
@@ -962,12 +962,12 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, int nH
     return true;
 }
 
-bool CCoinsViewCache::CertCustomFieldsValid(const CSidechain& scInfo, const CScCertificate& cert) const
+bool CCoinsViewCache::CheckCertCustomFields(const CSidechain& scInfo, const CScCertificate& cert) const
 {
-    const std::vector<FieldElementConfig>& vFeCfg = scInfo.creationData.vFieldElementConfig;
+    const std::vector<CompressedFieldElementConfig>& vFeCfg = scInfo.creationData.vCustomFieldConfig;
     const std::vector<CompressedMerkleTreeConfig>& vCmtCfg = scInfo.creationData.vCompressedMerkleTreeConfig;
 
-    const std::vector<FieldElement>& vFe = cert.vFieldElement;
+    const std::vector<CompressedFieldElement>& vFe = cert.vCustomField;
     const std::vector<CompressedMerkleTree>& vCmt = cert.vCompressedMerkleTree;
 
     if ( vFeCfg.size() != vFe.size() || vCmtCfg.size() != vCmt.size() )
@@ -979,7 +979,7 @@ bool CCoinsViewCache::CertCustomFieldsValid(const CSidechain& scInfo, const CScC
 
     for (int i = 0; i < vFe.size(); i++)
     {
-        const FieldElement& fe = vFe.at(i);
+        const CompressedFieldElement& fe = vFe.at(i);
         if (!fe.checkCfg(vFeCfg.at(i)) )
         {
             LogPrint("sc", "%s():%d - invalid custom field cfg at pos %d\n", __func__, __LINE__, i);
@@ -1841,7 +1841,7 @@ CSidechain::State CCoinsViewCache::isCeasedAtHeight(const uint256& scId, int hei
 }
 
 bool CCoinsViewCache::GetScCertCustomFieldsConfig(const uint256 & scId,
-        std::vector<FieldElementConfig>& vFieldElementConfig,
+        std::vector<CompressedFieldElementConfig>& vCustomFieldConfig,
         std::vector<CompressedMerkleTreeConfig>& vCompressedMerkleTreeConfig) const
 {
     if (!HaveSidechain(scId))
@@ -1850,7 +1850,7 @@ bool CCoinsViewCache::GetScCertCustomFieldsConfig(const uint256 & scId,
     CSidechain scInfo;
     GetSidechain(scId, scInfo);
 
-    vFieldElementConfig         = scInfo.creationData.vFieldElementConfig;
+    vCustomFieldConfig         = scInfo.creationData.vCustomFieldConfig;
     vCompressedMerkleTreeConfig = scInfo.creationData.vCompressedMerkleTreeConfig;
 
     return true;
@@ -1934,7 +1934,7 @@ void CCoinsViewCache::Dump_info() const
         LogPrint("sc", "      customData[%s]\n", HexStr(info.creationData.customData));
         LogPrint("sc", "      constant[%s]\n", HexStr(info.creationData.constant));
         LogPrint("sc", "      wCertVk[%s]\n", HexStr(info.creationData.wCertVk));
-        LogPrint("sc", "      vFieldElementConfig[%s]\n", VecToStr(info.creationData.vFieldElementConfig));
+        LogPrint("sc", "      vCustomFieldConfig[%s]\n", VecToStr(info.creationData.vCustomFieldConfig));
         LogPrint("sc", "      vCompressedMerkleTreeConfig[%s]\n", VecToStr(info.creationData.vCompressedMerkleTreeConfig));
         LogPrint("sc", "  immature amounts size[%d]\n", info.mImmatureAmounts.size());
     }
