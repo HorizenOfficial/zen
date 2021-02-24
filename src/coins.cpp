@@ -1194,44 +1194,26 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
 
 bool CCoinsViewCache::CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& endEpochBlockHash) const
 {
-    //MOVED TO checkCertSemanticValidity
-
-    //MOVED TO CheckCertTiming
-
-    // 1. the referenced end-epoch block must be in active chain
     LOCK(cs_main);
-    if (mapBlockIndex.count(endEpochBlockHash) == 0)
-    {
-        LogPrint("sc", "%s():%d - endEpochBlockHash %s is not in block index map\n",
-            __func__, __LINE__, endEpochBlockHash.ToString() );
-        return false;
-    }
-
-    CBlockIndex* pblockindex = mapBlockIndex[endEpochBlockHash];
-    if (!chainActive.Contains(pblockindex))
-    {
-        LogPrint("sc", "%s():%d - endEpochBlockHash %s refers to a valid block but is not in active chain\n",
-            __func__, __LINE__, endEpochBlockHash.ToString() );
-        return false;
-    }
-
-    // 2. combination of epoch number and epoch length, specified in sc info, must point to that end-epoch block
     int endEpochHeight = sidechain.GetEndHeightForEpoch(epochNumber);
-    pblockindex = chainActive[endEpochHeight];
+    CBlockIndex* pblockindex = chainActive[endEpochHeight];
 
     if (!pblockindex)
     {
-        LogPrint("sc", "%s():%d - calculated height %d (createHeight=%d/epochNum=%d/epochLen=%d) is out of active chain\n",
-            __func__, __LINE__, endEpochHeight, sidechain.creationBlockHeight, epochNumber, sidechain.creationData.withdrawalEpochLength);
-        return false;
+        return error("%s():%d - ERROR: end height %d for certificate epoch %d is not in current chain active (height %d)\n",
+                __func__, __LINE__, endEpochHeight, epochNumber, chainActive.Height());
     }
 
     const uint256& hash = pblockindex->GetBlockHash();
     if (hash != endEpochBlockHash)
     {
-        LogPrint("sc", "%s():%d - bock hash mismatch: endEpochBlockHash[%s] / calculated[%s]\n",
-            __func__, __LINE__, endEpochBlockHash.ToString(), hash.ToString());
-        return false;
+        if (mapBlockIndex.count(endEpochBlockHash) != 0)
+        {
+            return error("%s():%d - ERROR: endEpochBlockHash %s at height %d is in fork\n",
+                    __func__, __LINE__, endEpochBlockHash.ToString(), endEpochHeight);
+        }
+
+        return error("%s():%d - ERROR: endEpochBlockHash is unknown\n", __func__, __LINE__);
     }
 
     return true;
@@ -1274,6 +1256,12 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
     for (const auto& ft: tx.GetVftCcOut())
     {
         const uint256& scId = ft.scId;
+
+        // While in principle we allow fts to be sent in the very same tx where scCreationOutput is
+        // in practice this is not feasible. This is because scId is created hashing the whole tx
+        // containing scCreationOutput and ft, so ft.scId cannot be specified before the whole tx
+        // has been created. Therefore here we do not bother checking whether tx contains scId creation
+
         if (!CheckScTxTiming(scId))
             return false;
 
@@ -1286,6 +1274,11 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
     {
         const CBwtRequestOut& mbtr = tx.GetVBwtRequestOut().at(idx);
         const uint256& scId = mbtr.scId;
+
+        // While in principle we allow mbtrs to be sent in the very same tx where scCreationOutput is
+        // in practice this is not feasible. This is because scId is created hashing the whole tx
+        // containing scCreationOutput and mbtr, so mbtr.scId cannot be specified before the whole tx
+        // has been created. Therefore here we do not bother checking whether tx contains scId creation
 
         if (!CheckScTxTiming(scId))
             return false;
@@ -1450,36 +1443,27 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
 
     scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
-    if(cert.epochNumber != scUndoData.prevTopCommittedCertReferencedEpoch) {
-
+    if(cert.epochNumber != scUndoData.prevTopCommittedCertReferencedEpoch)
+    {
         int nextCeasingHeight = currentSc.GetScheduledCeasingHeight();
 
-        //clear up current ceasing height, if any
-        if (HaveSidechainEvents(prevCeasingHeight))
+        //clear up current ceasing height
+        if (!HaveSidechainEvents(prevCeasingHeight))
         {
-            CSidechainEventsMap::iterator scPrevCeasingEventIt = ModifySidechainEvents(prevCeasingHeight);
-            scPrevCeasingEventIt->second.scEvents.ceasingScs.erase(cert.GetScId());
-            if (!scPrevCeasingEventIt->second.scEvents.IsNull()) //still other sc ceasing at that height or fwds maturing
-                scPrevCeasingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
-            else
-                scPrevCeasingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::ERASED;
-
-            LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] removes prevCeasingHeight [%d] (certEp=%d, currentEp=%d)\n",
-                    __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), prevCeasingHeight, cert.epochNumber,
-                    currentSc.lastTopQualityCertReferencedEpoch);
-        } else
-        {
-            if (!HaveSidechainEvents(nextCeasingHeight) )
-            {
-                return error("%s():%d - ERROR-SIDECHAIN-EVENT: scId[%s]: Could not find scheduling for current ceasing height [%d] nor next ceasing height [%d]\n",
+            return error("%s():%d - ERROR-SIDECHAIN-EVENT: scId[%s]: Could not find scheduling for current ceasing height [%d] nor next ceasing height [%d]\n",
                     __func__, __LINE__, cert.GetScId().ToString(), prevCeasingHeight, nextCeasingHeight);
-            }
-            LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] misses prevCeasingHeight [%d] to remove\n",
-                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), prevCeasingHeight);
-            LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: nextCeasingHeight already scheduled at[%d].\n",
-                __func__, __LINE__, cert.GetScId().ToString(), nextCeasingHeight);
-            return true;
         }
+
+        CSidechainEventsMap::iterator scPrevCeasingEventIt = ModifySidechainEvents(prevCeasingHeight);
+        scPrevCeasingEventIt->second.scEvents.ceasingScs.erase(cert.GetScId());
+        if (!scPrevCeasingEventIt->second.scEvents.IsNull()) //still other sc ceasing at that height or fwds maturing
+            scPrevCeasingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
+        else
+            scPrevCeasingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::ERASED;
+
+        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: cert [%s] removes prevCeasingHeight [%d] (certEp=%d, currentEp=%d)\n",
+                __func__, __LINE__, cert.GetScId().ToString(), cert.GetHash().ToString(), prevCeasingHeight, cert.epochNumber,
+                currentSc.lastTopQualityCertReferencedEpoch);
 
         //add next ceasing Height
         CSidechainEventsMap::iterator scNextCeasingEventIt = ModifySidechainEvents(nextCeasingHeight);
@@ -1629,24 +1613,15 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     LogPrint("cert", "%s():%d - updated sc state %s\n", __func__, __LINE__,currentSc.ToString());
 
     //we need to modify the ceasing height only if we removed the very first certificate of the epoch
-    if(certToRevert.epochNumber != currentSc.lastTopQualityCertReferencedEpoch) {
-
+    if(certToRevert.epochNumber != currentSc.lastTopQualityCertReferencedEpoch)
+    {
         int ceasingHeightToRestore = currentSc.GetScheduledCeasingHeight();
 
         //remove current ceasing Height
         if (!HaveSidechainEvents(ceasingHeightToErase))
         {
-           if (!HaveSidechainEvents(ceasingHeightToRestore) )
-           {
-               return error("%s():%d - ERROR-SIDECHAIN-EVENT: scId[%s]: Could not find scheduling for current ceasing height [%d] nor previous ceasing height [%d]\n",
-                   __func__, __LINE__, certToRevert.GetScId().ToString(), ceasingHeightToErase, ceasingHeightToRestore);
-           }
-           LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: misses current ceasing height [%d]\n",
-               __func__, __LINE__, certToRevert.GetScId().ToString(), ceasingHeightToErase);
-           LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: previousCeasingHeight already restored at[%d].\n",
-               __func__, __LINE__, certToRevert.GetScId().ToString(), ceasingHeightToRestore);
-
-           return true;
+            return error("%s():%d - ERROR-SIDECHAIN-EVENT: scId[%s]: Could not find scheduling for current ceasing height [%d] nor previous ceasing height [%d]\n",
+                    __func__, __LINE__, certToRevert.GetScId().ToString(), ceasingHeightToErase, ceasingHeightToRestore);
         }
 
         CSidechainEventsMap::iterator scCeasingEventToEraseIt = ModifySidechainEvents(ceasingHeightToErase);
@@ -1868,12 +1843,17 @@ libzendoomc::ScFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256
     if (pSidechain == nullptr)
         return libzendoomc::ScFieldElement{};
 
-    int currentEpochSafeguard = pSidechain->GetCertSubmissionWindowEnd(pSidechain->EpochFor(this->GetHeight())) - pSidechain->creationData.withdrawalEpochLength;
+    if (this->GetSidechainState(scId) == CSidechain::State::CEASED)
+    	return pSidechain->pastEpochTopQualityCertDataHash;
 
-    if (GetHeight() < currentEpochSafeguard)
-        return pSidechain->pastEpochTopQualityCertDataHash;
+    int certReferencedEpoch = pSidechain->EpochFor(this->GetHeight()+1 - pSidechain->GetCertSubmissionWindowLength()) - 1;
+
+    if (pSidechain->lastTopQualityCertReferencedEpoch == certReferencedEpoch)
+    	return pSidechain->lastTopQualityCertDataHash;
+    else if(pSidechain->lastTopQualityCertReferencedEpoch -1 == certReferencedEpoch)
+    	return pSidechain->pastEpochTopQualityCertDataHash;
     else
-        return pSidechain->lastTopQualityCertDataHash;
+        assert(false);
 }
 
 bool CCoinsViewCache::Flush() {

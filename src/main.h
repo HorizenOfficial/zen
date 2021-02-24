@@ -287,7 +287,6 @@ void FlushStateToDisk();
 void PruneAndFlush();
 
 enum class LimitFreeFlag       { ON, OFF };
-enum class DisconnectingFlag   { ON, OFF };
 enum class RejectAbsurdFeeFlag { ON, OFF };
 
 /** (try to) add transaction to memory pool **/
