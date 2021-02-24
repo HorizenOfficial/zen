@@ -175,7 +175,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
     sidechainsView.UpdateSidechain(scTx, aBlock, creationHeight);
-    sidechainsView.SetBestBlock(pcoinsTip->GetBestBlock()); //do not alter BestBlock, as set in test fixture
+    sidechainsView.SetBestBlock(chainActive.Tip()->GetBlockHash());
     sidechainsView.Flush();
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
@@ -217,7 +217,7 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
     CBlock aBlock;
     CCoinsViewCache sidechainsView(pcoinsTip);
     sidechainsView.UpdateSidechain(scTx, aBlock, creationHeight);
-    sidechainsView.SetBestBlock(pcoinsTip->GetBestBlock()); //do not alter BestBlock, as set in test fixture
+    sidechainsView.SetBestBlock(chainActive.Tip()->GetBlockHash());
     sidechainsView.Flush();
 
     CTransaction btrTx = GenerateBtrTx(scId);

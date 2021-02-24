@@ -1671,14 +1671,17 @@ libzendoomc::ScFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256
     if (pSidechain == nullptr)
         return libzendoomc::ScFieldElement{};
 
-    int currentEpoch = pSidechain->EpochFor(this->GetHeight()+1);
-    int currentEpochSafeguard = pSidechain->GetCertSubmissionWindowEnd(currentEpoch) - pSidechain->creationData.withdrawalEpochLength;
+    if (this->GetSidechainState(scId) == CSidechain::State::CEASED)
+    	return pSidechain->pastEpochTopQualityCertDataHash;
 
-    if (this->GetHeight() < currentEpochSafeguard &&
-        currentEpoch == (pSidechain->lastTopQualityCertReferencedEpoch + 1))
-        return pSidechain->pastEpochTopQualityCertDataHash;
+    int certReferencedEpoch = pSidechain->EpochFor(this->GetHeight()+1 - pSidechain->GetCertSubmissionWindowLength()) - 1;
+
+    if (pSidechain->lastTopQualityCertReferencedEpoch == certReferencedEpoch)
+    	return pSidechain->lastTopQualityCertDataHash;
+    else if(pSidechain->lastTopQualityCertReferencedEpoch -1 == certReferencedEpoch)
+    	return pSidechain->pastEpochTopQualityCertDataHash;
     else
-        return pSidechain->lastTopQualityCertDataHash;
+        assert(false);
 }
 
 bool CCoinsViewCache::Flush() {
