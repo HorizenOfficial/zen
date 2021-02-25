@@ -1176,13 +1176,15 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
                 sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
                 sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
-                if(info.creationData.wCeasedVk.is_initialized())
-                    sc.push_back(Pair("wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
-
                 if (info.creationData.wMbtrVk.is_initialized())
                     sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
                 else
                     sc.push_back(Pair("unconf wMbtrVk", std::string{"NOT INITIALIZED"}));
+
+                if(info.creationData.wCeasedVk.is_initialized())
+                    sc.push_back(Pair("unconf wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
+                else
+                    sc.push_back(Pair("unconf wCeasedVk", std::string{"NOT INITIALIZED"}));
             }
 
             addScUnconfCcData(scId, sc);
