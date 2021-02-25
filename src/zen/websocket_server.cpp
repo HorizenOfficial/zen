@@ -44,6 +44,7 @@ class WsHandler;
 static int getblock(const CBlockIndex *pindex, std::string& blockHexStr);
 static void ws_updatetip(const CBlockIndex *pindex);
 static void ws_updatemempool();
+static void ws_updatepeer();
 
 double GetNetworkDifficulty(const CBlockIndex * pindex);
 
@@ -88,6 +89,9 @@ protected:
     virtual void MempoolChanged() {
         ws_updatemempool();
     };
+    virtual void PeersChanged() {
+        ws_updatepeer();
+    };
 public:
     ~WsNotificationInterface()
     {
@@ -101,6 +105,7 @@ public:
     enum WsEventType {
         UPDATE_TIP = 0,
         UPDATE_MEMPOOL = 1,
+		UPDATE_PEER = 2,
         EVT_UNDEFINED = 0xff
     };
     enum WsRequestType {
@@ -258,6 +263,26 @@ private:
         wsq.push(wse);
     }
 
+    void sendPeerEvent(std::list<std::string> peers, WsEvent::WsEventType eventType)
+    {
+        // Send a message to the client:  type = eventType
+        WsEvent* wse = new WsEvent(WsEvent::MSG_EVENT);
+        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
+        UniValue rspPayload(UniValue::VOBJ);
+
+        UniValue peerList(UniValue::VARR);
+
+        for(std::list<std::string>::const_iterator it = peers.begin(); it != peers.end(); ++it) {
+            peerList.push_back(it->c_str());
+        }
+        rspPayload.push_back(Pair("peers", peerList));
+
+        UniValue* rv = wse->getPayload();
+        rv->push_back(Pair("eventType", eventType));
+        rv->push_back(Pair("eventPayload", rspPayload));
+        wsq.push(wse);
+    }
+
     void sendTxs(std::list<std::string> listHex,
     		WsEvent::WsMsgType msgType, std::string clientRequestId = "")
     {
@@ -283,7 +308,7 @@ private:
     }
 
     void sendNodeConf(int version, int protocolVersion, int timeoffset, int relayfee,
-            std::string proxy, std::string errors,int blocks, int connections, bool testnet, double difficulty, double networkDifficulty,
+            std::string proxy, std::string errors,int blocks, int connections, bool testnet, double difficulty, double networkDifficulty, std::list<std::string> peers,
         WsEvent::WsMsgType msgType, std::string clientRequestId = "")
     {
         // Send a message to the client:  type = responseType
@@ -303,6 +328,12 @@ private:
         rspPayload.push_back(Pair("difficulty", difficulty));
         rspPayload.push_back(Pair("networkDifficulty", networkDifficulty));
 
+        UniValue peerList(UniValue::VARR);
+
+        for(std::list<std::string>::const_iterator it = peers.begin(); it != peers.end(); ++it) {
+            peerList.push_back(it->c_str());
+        }
+        rspPayload.push_back(Pair("peers", peerList));
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
@@ -573,8 +604,16 @@ private:
         bool testnet = Params().TestnetToBeDeprecatedFieldRPC();
         double difficulty = (double)GetDifficulty();
         double networkDifficulty = (double)GetNetworkDifficulty();
+        LOCK(cs_vNodes);
+        std::list<std::string> peers;
+        BOOST_FOREACH(CNode* pnode, vNodes) {
+            CNodeStats stats;
+            pnode->copyStats(stats);
+            peers.push_back(stats.addrName);
+        }
 
-        sendNodeConf(version, protocolVersion, timeoffset, relayfee, proxy, errors, blocks, connections, testnet, difficulty, networkDifficulty, WsEvent::MSG_RESPONSE, clientRequestId);
+        sendNodeConf(version, protocolVersion, timeoffset, relayfee, proxy, errors, blocks, connections, testnet, difficulty, networkDifficulty,
+            peers, WsEvent::MSG_RESPONSE, clientRequestId);
         return OK;
     }
 
@@ -1068,6 +1107,11 @@ public:
         sendMempoolEvent(size, listHashes, WsEvent::UPDATE_MEMPOOL);
     }
 
+    void send_peer_update(std::list<std::string>& peers)
+    {
+        sendPeerEvent(peers, WsEvent::UPDATE_PEER);
+    }
+
     void shutdown()
     {
         try
@@ -1155,6 +1199,35 @@ static void ws_updatemempool()
 			{
 				LogPrint("ws", "%s():%d - call wshandler_send_mempool_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
 				(*it)->send_mempool_update(hashes.size(), hashes);
+				++it;
+			}
+		}
+		else
+		{
+			LogPrint("ws", "%s():%d - there are no connected ws clients\n", __func__, __LINE__);
+		}
+    }
+}
+
+static void ws_updatepeer()
+{
+    LOCK(cs_vNodes);
+    std::list<std::string> peers;
+    BOOST_FOREACH(CNode* pnode, vNodes) {
+        CNodeStats stats;
+        pnode->copyStats(stats);
+        peers.push_back(stats.addrName);
+    }
+    {
+		std::unique_lock<std::mutex> lck(wsmtx);
+		if (listWsHandler.size() )
+		{
+			LogPrint("ws", "%s():%d - update peer loop on ws clients\n", __func__, __LINE__);
+			auto it = listWsHandler.begin();
+			while (it != listWsHandler.end())
+			{
+				LogPrint("ws", "%s():%d - call wshandler_send_mempool_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
+				(*it)->send_peer_update(peers);
 				++it;
 			}
 		}

@@ -41,6 +41,7 @@ protected:
     virtual void ResendWalletTransactions(int64_t nBestBlockTime) {}
     virtual void BlockChecked(const CBlock&, const CValidationState&) {}
     virtual void MempoolChanged() {}
+    virtual void PeersChanged() {}
     friend void ::RegisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterValidationInterface(CValidationInterface*);
     friend void ::UnregisterAllValidationInterfaces();
@@ -67,6 +68,8 @@ struct CMainSignals {
     boost::signals2::signal<void (const CBlock&, const CValidationState&)> BlockChecked;
     /** Notifies listeners of a mempool change */
     boost::signals2::signal<void (void)> MempoolChanged;
+    /** Notifies listeners of a connected peer list change */
+    boost::signals2::signal<void (void)> PeersChanged;
 };
 
 CMainSignals& GetMainSignals();

@@ -17,6 +17,7 @@
 #include "ui_interface.h"
 #include "crypto/common.h"
 #include "zen/utiltls.h"
+#include "validationinterface.h"
 
 
 
@@ -513,6 +514,7 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
         {
             LOCK(cs_vNodes);
             vNodes.push_back(pnode);
+            GetMainSignals().PeersChanged();
         }
 
         pnode->nTimeConnected = GetTime();
@@ -1221,6 +1223,7 @@ static void AcceptConnection(const ListenSocket& hListenSocket) {
     {
         LOCK(cs_vNodes);
         vNodes.push_back(pnode);
+        GetMainSignals().PeersChanged();
     }
 }
 
@@ -1250,6 +1253,7 @@ void ThreadSocketHandler()
             LOCK(cs_vNodes);
             // Disconnect unused nodes
             vector<CNode*> vNodesCopy = vNodes;
+            int lenVNodes = vNodes.size();
             BOOST_FOREACH(CNode* pnode, vNodesCopy)
             {
                 if (pnode->fDisconnect ||
@@ -1269,6 +1273,10 @@ void ThreadSocketHandler()
                         pnode->Release();
                     vNodesDisconnected.push_back(pnode);
                 }
+            }
+            if (vNodes.size() != lenVNodes)
+            {
+                GetMainSignals().PeersChanged();
             }
         }
         {
