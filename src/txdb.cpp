@@ -65,7 +65,7 @@ void static BatchSidechains(CLevelDBBatch &batch, const uint256 &scId, const CSi
     switch (sidechain.flag) {
         case CSidechainsCacheEntry::Flags::FRESH:
         case CSidechainsCacheEntry::Flags::DIRTY:
-            batch.Write(make_pair(DB_SIDECHAINS, scId), sidechain.scInfo);
+            batch.Write(make_pair(DB_SIDECHAINS, scId), sidechain.sidechain);
             break;
         case CSidechainsCacheEntry::Flags::ERASED:
             batch.Erase(make_pair(DB_SIDECHAINS, scId));

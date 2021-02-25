@@ -81,8 +81,18 @@ bool CScCertificate::IsValidVersion(CValidationState &state) const
 
 bool CScCertificate::IsVersionStandard(int nHeight) const
 {
-    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
-        return false;
+    return true;
+}
+
+bool CScCertificate::CheckInputsOutputsNonEmpty(CValidationState &state) const
+{
+    // Certificates can not contain empty `vin` 
+    if (GetVin().empty())
+    {
+        LogPrint("sc", "%s():%d - Error: cert[%s]\n", __func__, __LINE__, GetHash().ToString() );
+        return state.DoS(10, error("%s(): vin empty", __func__),
+                         REJECT_INVALID, "bad-cert-vin-empty");
+    }
 
     return true;
 }
@@ -230,6 +240,10 @@ std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
 {
     return std::shared_ptr<const CTransactionBase>();
 }
+libzendoomc::ScFieldElement CScCertificate::GetDataHash() const
+{
+     static const libzendoomc::ScFieldElement dummy; return dummy;
+}
 #else
 
 std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
@@ -242,6 +256,13 @@ void CScCertificate::Relay() const { ::Relay(*this); }
 std::shared_ptr<const CTransactionBase>
 CScCertificate::MakeShared() const {
     return std::shared_ptr<const CTransactionBase>(new CScCertificate(*this));
+}
+
+libzendoomc::ScFieldElement CScCertificate::GetDataHash() const
+{
+     libzendoomc::ScFieldElement dummy; 
+     dummy.SetHex(GetHash().GetHex());
+     return dummy;
 }
 #endif
 
@@ -336,9 +357,6 @@ bool CMutableScCertificate::addBwt(const CTxOut& out) {
     vout.push_back(out);
     return true;
 }
-
-bool CMutableScCertificate::add(const CTxScCreationOut& out) {return false;}
-bool CMutableScCertificate::add(const CTxForwardTransferOut& out) {return false;}
 
 std::string CMutableScCertificate::ToString() const
 {

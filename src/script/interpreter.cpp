@@ -1099,6 +1099,11 @@ public:
                 ::WriteCompactSize(s, nCcOutputs);
                 for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
                     ::Serialize(s, txTo.GetVftCcOut()[nCcOutput], nType, nVersion);
+
+                nCcOutputs = fHashNone ? 0 : (txTo.GetVBwtRequestOut().size());
+                ::WriteCompactSize(s, nCcOutputs);
+                for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
+                    ::Serialize(s, txTo.GetVBwtRequestOut()[nCcOutput], nType, nVersion);
             }
  
             // Serialize nLockTime

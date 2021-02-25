@@ -32,6 +32,7 @@ static inline size_t RecursiveDynamicUsage(const CTxScCreationOut& ccout)
 
 // no dynamic fields
 static inline size_t RecursiveDynamicUsage(const CTxForwardTransferOut& ccout) { return 0; }
+static inline size_t RecursiveDynamicUsage(const CBwtRequestOut& ccout) { return 0; }
 
 static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
     size_t mem = 0;
@@ -48,8 +49,10 @@ static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
     for (std::vector<CTxScCreationOut>::const_iterator it = tx.GetVscCcOut().begin(); it != tx.GetVscCcOut().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
+
+    // no dynamic fields for ft and bt
     mem += memusage::DynamicUsage(tx.GetVftCcOut());
-    // no dynamic fields for ft
+    mem += memusage::DynamicUsage(tx.GetVBwtRequestOut());
     return mem;
 }
 

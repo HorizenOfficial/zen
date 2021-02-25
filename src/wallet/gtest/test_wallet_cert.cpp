@@ -8,10 +8,15 @@
 #include <wallet/walletdb.h>
 
 
-class SidechainCertInWalletTestSuite : public ::testing::Test {
+class SidechainsCertInWalletTestSuite : public ::testing::Test {
 public:
-    SidechainCertInWalletTestSuite(): walletName("wallet.dat"), walletDbLocation(), pWallet(nullptr), pWalletDb(nullptr) {}
-    ~SidechainCertInWalletTestSuite() = default;
+    SidechainsCertInWalletTestSuite():
+        walletName("wallet.dat"), walletDbLocation(),
+        pWallet(nullptr), pWalletDb(nullptr),
+        pCsWalletLock(nullptr),
+        csMainLock(cs_main, "cs_main", __FILE__, __LINE__) {}
+
+    ~SidechainsCertInWalletTestSuite() = default;
 
     void SetUp() override {
         //Setup environment
@@ -27,7 +32,9 @@ public:
             ASSERT_TRUE(false)<<"Could not create tmp wallet db for reason "<<e.what();
         }
 
-        UnloadBlockIndex();
+        pCsWalletLock = new CCriticalBlock(pWallet->cs_wallet, "cs_wallet", __FILE__, __LINE__);
+
+        UnloadBlockIndex(); // clear globals
     };
 
     void TearDown() override {
@@ -37,13 +44,16 @@ public:
             <<"Failed cleaning-up the wallet with return code" << nZapWalletRet
             <<". Isolation and independence of subsequent UTs cannot be guaranteed";
 
-        delete pWalletDb;
-        pWalletDb = nullptr;
+        delete pCsWalletLock;
+        pCsWalletLock = nullptr;
 
         delete pWallet;
         pWallet = nullptr;
 
-        UnloadBlockIndex();
+        delete pWalletDb;
+        pWalletDb = nullptr;
+
+        UnloadBlockIndex(); // clear globals
         ClearDatadirCache();
     };
 
@@ -52,6 +62,7 @@ protected:
     boost::filesystem::path walletDbLocation;
     CWallet* pWallet;
     CWalletDB* pWalletDb;
+    CCriticalBlock* pCsWalletLock;
 
     //helpers
     void SetLockingScriptFor(CTransaction& tx)
@@ -83,6 +94,10 @@ protected:
         cert = mutCert;
         return;
     }
+
+private:
+    //Critical sections below needed when compiled with --enable-debug, which activates ASSERT_HELD
+    CCriticalBlock csMainLock;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -139,7 +154,7 @@ TEST(Wallet, DocumentingWalletDbConstructionMachinery) {
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Wallet Cert Serialization //////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainCertInWalletTestSuite, WalletCertSerializationOps) {
+TEST_F(SidechainsCertInWalletTestSuite, WalletCertSerializationOps) {
     CWallet dummyWallet;
     CScCertificate cert =
             txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0, uint256S("bbb"),
@@ -157,7 +172,7 @@ TEST_F(SidechainCertInWalletTestSuite, WalletCertSerializationOps) {
     EXPECT_TRUE(walletCert == retrievedWalletCert);
 }
 
-TEST_F(SidechainCertInWalletTestSuite, WalletTxSerializationOps) {
+TEST_F(SidechainsCertInWalletTestSuite, WalletTxSerializationOps) {
     CWallet dummyWallet;
 
     CMutableTransaction mutTx;
@@ -179,7 +194,7 @@ TEST_F(SidechainCertInWalletTestSuite, WalletTxSerializationOps) {
     EXPECT_TRUE(walletTx == retrievedWalletTx);
 }
 
-TEST_F(SidechainCertInWalletTestSuite, LoadWalletTxFromDb) {
+TEST_F(SidechainsCertInWalletTestSuite, LoadWalletTxFromDb) {
     //Create wallet transaction to be stored
     CMutableTransaction mutTx;
     mutTx.nVersion = TRANSPARENT_TX_VERSION;
@@ -199,7 +214,7 @@ TEST_F(SidechainCertInWalletTestSuite, LoadWalletTxFromDb) {
     EXPECT_TRUE(retrievedWalletTx == walletTx);
 }
 
-TEST_F(SidechainCertInWalletTestSuite, LoadWalletCertFromDb) {
+TEST_F(SidechainsCertInWalletTestSuite, LoadWalletCertFromDb) {
     //Create wallet cert to be stored
     CScCertificate cert =
             txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0, uint256S("bbb"),
@@ -221,7 +236,7 @@ TEST_F(SidechainCertInWalletTestSuite, LoadWalletCertFromDb) {
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////////// IsOutputMature ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_TransparentTx_InBlockChain) {
+TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_TransparentTx_InBlockChain) {
     //Create a transparent tx
     CTransaction transparentTx = txCreationUtils::createTransparentTx();
 
@@ -245,7 +260,7 @@ TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_TransparentTx_InBlockChain
         <<"txMaturity is "<<int(txMaturity);
 }
 
-TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_CoinBase_InBlockChain) {
+TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_CoinBase_InBlockChain) {
     //Create coinbase
     CAmount coinBaseAmount = 10;
     CTransaction coinBase = txCreationUtils::createCoinBase(coinBaseAmount);
@@ -286,7 +301,7 @@ TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_CoinBase_InBlockChain) {
         <<"coinBaseMaturity is "<<int(coinBaseMaturity);
 }
 
-TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_Certificate_InBlockChain) {
+TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_Certificate_InBlockChain) {
     //Create certificate
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12, /*endEpochBlockHash*/uint256S("ccc"),
         /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
@@ -347,7 +362,7 @@ TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_Certificate_InBlockChain) 
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_TransparentTx_InMemoryPool) {
+TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_TransparentTx_InMemoryPool) {
     //Create a transparent tx
     CTransaction transparentTx = txCreationUtils::createTransparentTx();
 
@@ -370,7 +385,7 @@ TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_TransparentTx_InMemoryPool
         <<"txMaturity is "<<int(txMaturity);
 }
 
-TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_Certificate_InMemoryPool) {
+TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_Certificate_InMemoryPool) {
     //Create certificate
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12, /*endEpochBlockHash*/uint256S("ccc"),
         /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
@@ -401,7 +416,7 @@ TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_Certificate_InMemoryPool) 
         <<"certMaturity is "<<int(bwtOutputMaturity);
 }
 
-TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_TransparentTx_Conflicted) {
+TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_TransparentTx_Conflicted) {
     //Create a transparent tx
     CTransaction transparentTx = txCreationUtils::createTransparentTx();
 
@@ -421,7 +436,7 @@ TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_TransparentTx_Conflicted) 
         <<"txMaturity is "<<int(txMaturity);
 }
 
-TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_CoinBase_Conflicted) {
+TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_CoinBase_Conflicted) {
     //Create coinbase
     CAmount coinBaseAmount = 10;
     CTransaction coinBase = txCreationUtils::createCoinBase(coinBaseAmount);
@@ -440,7 +455,7 @@ TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_CoinBase_Conflicted) {
         <<"coinBaseMaturity is "<<int(coinBaseMaturity);
 }
 
-TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_Certificate_Conflicted) {
+TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_Certificate_Conflicted) {
     //Create certificate
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12, /*endEpochBlockHash*/uint256S("ccc"),
         /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
@@ -470,7 +485,7 @@ TEST_F(SidechainCertInWalletTestSuite, IsOutputMature_Certificate_Conflicted) {
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////// GetCredit //////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainCertInWalletTestSuite, GetCredit_CoinBase)
+TEST_F(SidechainsCertInWalletTestSuite, GetCredit_CoinBase)
 {
     //Create coinbase
     CAmount coinBaseAmount = 10;
@@ -516,7 +531,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetCredit_CoinBase)
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetCredit_FullCertificate_NotVoided)
+TEST_F(SidechainsCertInWalletTestSuite, GetCredit_FullCertificate_NotVoided)
 {
     //Create certificate
     CAmount changeAmount = 20;
@@ -565,7 +580,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetCredit_FullCertificate_NotVoided)
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetCredit_BwtOnlyCertificate_NotVoided)
+TEST_F(SidechainsCertInWalletTestSuite, GetCredit_BwtOnlyCertificate_NotVoided)
 {
     //Create certificate
     CAmount changeAmount = 0;
@@ -614,7 +629,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetCredit_BwtOnlyCertificate_NotVoided)
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetCredit_NoBwtCertificate_NotVoided)
+TEST_F(SidechainsCertInWalletTestSuite, GetCredit_NoBwtCertificate_NotVoided)
 {
     //Create certificate
     CAmount changeAmount = 20;
@@ -663,7 +678,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetCredit_NoBwtCertificate_NotVoided)
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetCredit_FullCertificate_Voided)
+TEST_F(SidechainsCertInWalletTestSuite, GetCredit_FullCertificate_Voided)
 {
     //Create certificate
     CAmount changeAmount = 20;
@@ -713,7 +728,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetCredit_FullCertificate_Voided)
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetCredit_BwtOnlyCertificate_Voided)
+TEST_F(SidechainsCertInWalletTestSuite, GetCredit_BwtOnlyCertificate_Voided)
 {
     //Create certificate
     CAmount changeAmount = 0;
@@ -763,7 +778,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetCredit_BwtOnlyCertificate_Voided)
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetCredit_NoBwtCertificate_Voided)
+TEST_F(SidechainsCertInWalletTestSuite, GetCredit_NoBwtCertificate_Voided)
 {
     //Create certificate
     CAmount changeAmount = 20;
@@ -816,7 +831,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetCredit_NoBwtCertificate_Voided)
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// GetImmatureCredit //////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_CoinBase)
+TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_CoinBase)
 {
     //Create coinbase
     CAmount coinBaseAmount = 10;
@@ -862,7 +877,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_CoinBase)
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_FullCertificate_NotVoided)
+TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_FullCertificate_NotVoided)
 {
     //Create certificate
     CAmount changeAmount = 20;
@@ -911,7 +926,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_FullCertificate_NotVoid
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_BwtOnlyCertificate_NotVoided)
+TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_BwtOnlyCertificate_NotVoided)
 {
     //Create certificate
     CAmount changeAmount = 0;
@@ -960,7 +975,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_BwtOnlyCertificate_NotV
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_NoBwtCertificate_NotVoided)
+TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_NoBwtCertificate_NotVoided)
 {
     //Create certificate
     CAmount changeAmount = 20;
@@ -1009,7 +1024,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_NoBwtCertificate_NotVoi
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_FullCertificate_Voided)
+TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_FullCertificate_Voided)
 {
     //Create certificate
     CAmount changeAmount = 20;
@@ -1059,7 +1074,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_FullCertificate_Voided)
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_BwtOnlyCertificate_Voided)
+TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_BwtOnlyCertificate_Voided)
 {
     //Create certificate
     CAmount changeAmount = 0;
@@ -1109,7 +1124,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_BwtOnlyCertificate_Void
     }
 }
 
-TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_NoBwtCertificate_Voided)
+TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_NoBwtCertificate_Voided)
 {
     //Create certificate
     CAmount changeAmount = 20;
@@ -1162,7 +1177,7 @@ TEST_F(SidechainCertInWalletTestSuite, GetImmatureCredit_NoBwtCertificate_Voided
 /////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////// Sync Signals /////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////
-TEST_F(SidechainCertInWalletTestSuite, SyncCertificate)
+TEST_F(SidechainsCertInWalletTestSuite, SyncCertificate)
 {
     //Create certificate
     CAmount changeAmount = 20;
@@ -1177,6 +1192,8 @@ TEST_F(SidechainCertInWalletTestSuite, SyncCertificate)
     int bwtMaturityDepth = 10;
 
     // test
+    delete pCsWalletLock; //Do not hold lock here, it'll be taken by SyncCert
+    pCsWalletLock = nullptr;
     pWallet->SyncCertificate(cert, &certBlock, bwtMaturityDepth);
 
     // checks
@@ -1185,11 +1202,11 @@ TEST_F(SidechainCertInWalletTestSuite, SyncCertificate)
     EXPECT_TRUE(preRestartWalletCert.bwtMaturityDepth == bwtMaturityDepth);
 
     //Close and reopen wallet
-    delete pWalletDb;
-    pWalletDb = nullptr;
-
     delete pWallet;
     pWallet = nullptr;
+
+    delete pWalletDb;
+    pWalletDb = nullptr;
 
     pWallet = new CWallet("wallet.dat");
     try {  pWalletDb = new CWalletDB(pWallet->strWalletFile, "cr+"); }
@@ -1206,7 +1223,7 @@ TEST_F(SidechainCertInWalletTestSuite, SyncCertificate)
     EXPECT_TRUE(postRestartWalletCert.bwtMaturityDepth == bwtMaturityDepth);
 }
 
-TEST_F(SidechainCertInWalletTestSuite, SyncCertStatusInfo)
+TEST_F(SidechainsCertInWalletTestSuite, SyncCertStatusInfo)
 {
     //Create certificate
     CAmount changeAmount = 20;
@@ -1222,6 +1239,8 @@ TEST_F(SidechainCertInWalletTestSuite, SyncCertStatusInfo)
 
     // test
     CScCertificateStatusUpdateInfo certUpdateInfo(cert.GetScId(), cert.GetHash(), cert.epochNumber, cert.quality, CScCertificateStatusUpdateInfo::BwtState::BWT_OFF);
+    delete pCsWalletLock; //Do not hold lock here, it'll be taken by SyncCert
+    pCsWalletLock = nullptr;
     pWallet->SyncCertStatusInfo(certUpdateInfo);
 
     // checks
@@ -1230,11 +1249,11 @@ TEST_F(SidechainCertInWalletTestSuite, SyncCertStatusInfo)
     EXPECT_TRUE(preRestartWalletCert.bwtAreStripped == true);
 
     //Close and reopen wallet
-    delete pWalletDb;
-    pWalletDb = nullptr;
-
     delete pWallet;
     pWallet = nullptr;
+
+    delete pWalletDb;
+    pWalletDb = nullptr;
 
     pWallet = new CWallet("wallet.dat");
     try {  pWalletDb = new CWalletDB(pWallet->strWalletFile, "cr+"); }

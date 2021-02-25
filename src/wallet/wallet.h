@@ -70,6 +70,7 @@ class CReserveKey;
 class CScript;
 class CTxMemPool;
 class CWalletTx;
+class CBwtRequestOut;
 
 /** (client) version numbers for particular wallet features */
 enum WalletFeature
@@ -527,6 +528,8 @@ public:
             listScSent.push_back(output);
         }
     }
+    void fillScFees(const std::vector<CBwtRequestOut>& vOuts, std::list<CScOutputEntry>& listScSent) const;
+
     std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const override;
 };
 
@@ -1103,17 +1106,15 @@ public:
     CAmount GetImmatureWatchOnlyBalance() const;
     bool FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosRet, std::string& strFailReason);
     bool CreateTransaction(
-        const std::vector<CRecipient>& vecSend, const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
+        const std::vector<CRecipient>& vecSend,
+        const std::vector<Sidechain::CRecipientScCreation>& vecScSend,
+        const std::vector<Sidechain::CRecipientForwardTransfer>& vecFtSend,
+        const std::vector<Sidechain::CRecipientBwtRequest>& vecBwtRequest,
         CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
         std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
 
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 
-    bool CreateCertificate(
-        const uint256& scId,
-        const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
-        CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
-        std::string& strFailReason, bool sign = true);
     bool AddAccountingEntry(const CAccountingEntry&, CWalletDB & pwalletdb);
 
     static CFeeRate minTxFee;
