@@ -213,20 +213,6 @@ bool CScCertificate::CheckInputsLimit() const {
     return true;
 }
 
-void CScCertificate::AddToBlock(CBlock* pblock) const
-{
-    LogPrint("cert", "%s():%d - adding to block cert %s\n", __func__, __LINE__, GetHash().ToString());
-    pblock->vcert.push_back(*this);
-}
-
-void CScCertificate::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const
-{
-    LogPrint("cert", "%s():%d - adding to block templ cert %s, fee=%s, sigops=%u\n", __func__, __LINE__,
-        GetHash().ToString(), FormatMoney(fee), sigops);
-    pblocktemplate->vCertFees.push_back(fee);
-    pblocktemplate->vCertSigOps.push_back(sigops);
-}
-
 bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const 
 {
     bool areScSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
@@ -245,9 +231,6 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
 // in zen-tx binary build configuration
 #ifdef BITCOIN_TX
-bool CScCertificate::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-          const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-          std::vector<CScriptCheck> *pvChecks) const { return true; }
 bool CScCertificate::VerifyScript(
         const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
         bool cacheStore, ScriptError* serror) const { return true; }
@@ -262,13 +245,6 @@ libzendoomc::ScFieldElement CScCertificate::GetDataHash() const
      static const libzendoomc::ScFieldElement dummy; return dummy;
 }
 #else
-
-bool CScCertificate::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-          const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-          std::vector<CScriptCheck> *pvChecks) const
-{
-    return ::ContextualCheckCertInputs(*this, state, view, fScriptChecks, chain, flags, cacheStore, consensusParams, pvChecks);
-}
 
 bool CScCertificate::VerifyScript(
         const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,

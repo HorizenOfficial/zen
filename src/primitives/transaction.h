@@ -784,9 +784,6 @@ public:
     virtual std::string EncodeHex() const = 0;
     virtual std::string ToString() const = 0;
 
-    virtual void AddToBlock(CBlock* pblock) const = 0;
-    virtual void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const = 0;
-
     virtual bool VerifyScript(
         const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
         bool cacheStore, ScriptError* serror) const = 0;
@@ -802,10 +799,6 @@ public:
     virtual void AddJoinSplitToJSON(UniValue& entry) const { return; }
     virtual void AddCeasedSidechainWithdrawalInputsToJSON(UniValue& entry) const { return; }
     virtual void AddSidechainOutsToJSON(UniValue& entry) const { return; }
-
-    virtual bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-        const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-        std::vector<CScriptCheck> *pvChecks = NULL) const = 0;
 
     virtual const uint256& GetJoinSplitPubKey() const = 0;
 
@@ -1060,15 +1053,10 @@ public:
         }
     }
 
-    void AddToBlock(CBlock* pblock) const override;
-    void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const override;
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;
     void AddCeasedSidechainWithdrawalInputsToJSON(UniValue& entry) const override;
     void AddSidechainOutsToJSON(UniValue& entry) const override;
-    bool ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-                           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-                           std::vector<CScriptCheck> *pvChecks = NULL) const override;
 
     bool VerifyScript(
             const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,

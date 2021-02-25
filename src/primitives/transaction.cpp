@@ -875,15 +875,10 @@ bool CTransaction::CheckInputsLimit() const {
 bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int unused, int dosLevel) const { return true; }
 bool CTransaction::IsVersionStandard(int nHeight) const {return true;}
 
-void CTransaction::AddToBlock(CBlock* pblock) const { return; }
-void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CTransaction::AddCeasedSidechainWithdrawalInputsToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
-bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-          const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-          std::vector<CScriptCheck> *pvChecks) const { return true; }
 bool CTransaction::VerifyScript(
         const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
         bool cacheStore, ScriptError* serror) const { return true; }
@@ -959,20 +954,6 @@ bool CTransaction::IsVersionStandard(int nHeight) const {
     }
 
     return true;
-}
-
-void CTransaction::AddToBlock(CBlock* pblock) const 
-{
-    LogPrint("sc", "%s():%d - adding to block tx %s\n", __func__, __LINE__, GetHash().ToString());
-    pblock->vtx.push_back(*this);
-}
-
-void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const
-{
-    LogPrint("sc", "%s():%d - adding to block templ tx %s, fee=%s, sigops=%u\n", __func__, __LINE__,
-        GetHash().ToString(), FormatMoney(fee), sigops);
-    pblocktemplate->vTxFees.push_back(fee);
-    pblocktemplate->vTxSigOps.push_back(sigops);
 }
 
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const
@@ -1078,13 +1059,6 @@ bool CTransaction::VerifyScript(
     }
 
     return true;
-}
-
-bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-          const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-          std::vector<CScriptCheck> *pvChecks) const
-{
-    return ::ContextualCheckTxInputs(*this, state, view, fScriptChecks, chain, flags, cacheStore, consensusParams, pvChecks);
 }
 
 std::string CTransaction::EncodeHex() const
