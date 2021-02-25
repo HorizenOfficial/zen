@@ -100,6 +100,8 @@ testScripts=(
   'sc_cert_quality_wallet.py'
   'sc_bwt_request.py'
   'sc_cert_customfields.py'
+  'sc_cert_ceasing_split.py'
+  'sc_cert_memcleanup_split.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'

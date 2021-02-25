@@ -429,7 +429,7 @@ class CTxCrosschainOutBase
 public:
     virtual ~CTxCrosschainOutBase() {};
 
-    virtual bool IsNull() const = 0;
+    bool IsNull() const {return this->GetScValue() == -1; };
     virtual CAmount GetScValue() const = 0;
     virtual bool AllowedZeroScValue() const = 0;
 
@@ -459,11 +459,7 @@ public:
 
     CTxCrosschainOut():nValue(-1), address() {}
 
-    bool IsNull() const override
-    {
-        return (nValue == -1);
-    }
-    CAmount GetScValue() const override { return nValue; }
+    CAmount GetScValue()      const override { return nValue; }
     bool AllowedZeroScValue() const override { return false; }
 
     virtual uint256 GetHash() const = 0;
@@ -578,7 +574,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 {
   public:
     uint256 scId;
-    libzendoomc::ScFieldElement scUtxoId;
+    libzendoomc::ScFieldElement scRequestData;
     uint160 mcDestinationAddress;
     CAmount scFee;
     libzendoomc::ScProof scProof;
@@ -593,16 +589,10 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
         READWRITE(scId);
-        READWRITE(scUtxoId);
+        READWRITE(scRequestData);
         READWRITE(mcDestinationAddress);
         READWRITE(scFee);
         READWRITE(scProof);
-    }
-
-    bool IsNull() const override
-    {
-        // TODO
-        return (scFee == -1);
     }
 
     CAmount GetScValue() const override { return scFee; };
@@ -610,11 +600,11 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 
     friend bool operator==(const CBwtRequestOut& a, const CBwtRequestOut& b)
     {
-        return ( a.scId == b.scId &&
-                 a.scUtxoId == b.scUtxoId &&
+        return ( a.scId                 == b.scId                 &&
+                 a.scRequestData        == b.scRequestData        &&
                  a.mcDestinationAddress == b.mcDestinationAddress &&
-                 a.scFee == b.scFee &&
-                 a.scProof == b.scProof );
+                 a.scFee                == b.scFee                &&
+                 a.scProof              == b.scProof );
     }
 
     friend bool operator!=(const CBwtRequestOut& a, const CBwtRequestOut& b)
@@ -703,7 +693,7 @@ public:
 
     bool CheckSerializedSize (CValidationState &state) const;
     virtual bool CheckAmounts(CValidationState &state) const = 0;
-    virtual bool CheckNonEmpty(CValidationState &state) const = 0;
+    virtual bool CheckInputsOutputsNonEmpty(CValidationState &state) const = 0;
     bool CheckInputsDuplication(CValidationState &state) const;
     virtual bool CheckInputsInteraction(CValidationState &state) const = 0;
 
@@ -878,7 +868,7 @@ public:
     {
         bool ret = vin.empty() && vout.empty();
         if (IsScVersion())
-            ret &= ccIsNull();
+            ret = ret && ccIsNull();
 
         return ret;
     }
@@ -908,7 +898,7 @@ public:
     bool IsValidVersion   (CValidationState &state) const override;
     bool IsVersionStandard(int nHeight) const override;
     bool CheckAmounts     (CValidationState &state) const override;
-    bool CheckNonEmpty    (CValidationState &state) const override;
+    bool CheckInputsOutputsNonEmpty    (CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
     //END OF CHECK FUNCTIONS

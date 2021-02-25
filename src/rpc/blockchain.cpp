@@ -1020,7 +1020,22 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
         return;
 
     UniValue ia(UniValue::VARR);
-    for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
+    if (mempool.hasSidechainCreationTx(scId))
+    {
+        const uint256& hash = mempool.mapSidechains.at(scId).scCreationTxHash;
+        const CTransaction & scCrTx = mempool.mapTx.at(hash).GetTx();
+        for (const auto& scCrAmount : scCrTx.GetVscCcOut())
+        {
+            if (scId == scCrAmount.GetScId())
+            {
+                 UniValue o(UniValue::VOBJ);
+                 o.push_back(Pair("unconf amount", ValueFromAmount(scCrAmount.nValue)));
+                 ia.push_back(o);
+             }
+        }
+    }
+
+    for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTxHashes)
     {
         const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
         for (const auto& fwdAmount : fwdTx.GetVftCcOut())
@@ -1028,11 +1043,26 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
             if (scId == fwdAmount.scId)
             {
                  UniValue o(UniValue::VOBJ);
-                 o.push_back(Pair("unconf amount", ValueFromAmount(fwdAmount.nValue)));
+                 o.push_back(Pair("unconf amount", ValueFromAmount(fwdAmount.GetScValue())));
                  ia.push_back(o);
              }
         }
     }
+
+    for (const auto& mbtrHash: mempool.mapSidechains.at(scId).mcBtrsTxHashes)
+    {
+        const CTransaction & mbtrTx = mempool.mapTx.at(mbtrHash).GetTx();
+        for (const auto& mbtrAmount : mbtrTx.GetVBwtRequestOut())
+        {
+            if (scId == mbtrAmount.scId)
+            {
+                 UniValue o(UniValue::VOBJ);
+                 o.push_back(Pair("unconf amount", ValueFromAmount(mbtrAmount.GetScValue())));
+                 ia.push_back(o);
+             }
+        }
+    }
+
     if (ia.size() > 0)
         sc.push_back(Pair("unconf immature amounts", ia));
 
@@ -1050,13 +1080,13 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     {
         int currentEpoch = (scState == CSidechain::State::ALIVE)?
                 info.EpochFor(chainActive.Height()):
-                info.EpochFor(info.GetCeasingHeight());
+                info.EpochFor(info.GetScheduledCeasingHeight());
  
         sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
         sc.push_back(Pair("epoch", currentEpoch));
-        sc.push_back(Pair("end epoch height", info.StartHeightForEpoch(currentEpoch +1) - 1));
+        sc.push_back(Pair("end epoch height", info.GetEndHeightForEpoch(currentEpoch)));
         sc.push_back(Pair("state", CSidechain::stateToString(scState)));
-        sc.push_back(Pair("ceasing height", info.GetCeasingHeight()));
+        sc.push_back(Pair("ceasing height", info.GetScheduledCeasingHeight()));
  
         if (bVerbose)
         {
@@ -1065,10 +1095,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         }
  
         sc.push_back(Pair("created at block height", info.creationBlockHeight));
-        sc.push_back(Pair("last certificate epoch", info.prevBlockTopQualityCertReferencedEpoch));
-        sc.push_back(Pair("last certificate hash", info.prevBlockTopQualityCertHash.GetHex()));
-        sc.push_back(Pair("last certificate quality", info.prevBlockTopQualityCertQuality));
-        sc.push_back(Pair("last certificate amount", ValueFromAmount(info.prevBlockTopQualityCertBwtAmount)));
+        sc.push_back(Pair("last certificate epoch", info.lastTopQualityCertReferencedEpoch));
+        sc.push_back(Pair("last certificate hash", info.lastTopQualityCertHash.GetHex()));
+        sc.push_back(Pair("last certificate quality", info.lastTopQualityCertQuality));
+        sc.push_back(Pair("last certificate amount", ValueFromAmount(info.lastTopQualityCertBwtAmount)));
  
         // creation parameters
         sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
@@ -1079,7 +1109,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
             sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
             if (info.creationData.wMbtrVk.is_initialized())
-            	sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
+                sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
             else
                 sc.push_back(Pair("wMbtrVk", std::string{"NOT INITIALIZED"}));
             sc.push_back(Pair("vCustomFieldConfig", VecToStr(info.creationData.vCustomFieldConfig)));
@@ -1135,8 +1165,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 }
             }
 
+            sc.push_back(Pair("state", CSidechain::stateToString(CSidechain::State::UNCONFIRMED)));
             sc.push_back(Pair("unconf creating tx hash", info.creationTxHash.GetHex()));
-            sc.push_back(Pair("unconf creation amount", ValueFromAmount(info.mImmatureAmounts[-1])));
             sc.push_back(Pair("unconf withdrawalEpochLength", info.creationData.withdrawalEpochLength));
 
             if (bVerbose)
@@ -1144,6 +1174,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
                 sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
                 sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
+
                 if (info.creationData.wMbtrVk.is_initialized())
                     sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
                 else
@@ -1166,14 +1197,14 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
 
 bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool bVerbose)
 {
-    CSidechain scInfo;
+    CSidechain sidechain;
     CCoinsViewCache scView(pcoinsTip);
-    if (!scView.GetSidechain(scId, scInfo)) {
+    if (!scView.GetSidechain(scId, sidechain)) {
         LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scId.ToString() );
     }
-    CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
+    CSidechain::State scState = scView.GetSidechainState(scId);
 
-    return FillScRecordFromInfo(scId, scInfo, scState, scRecord, bOnlyAlive, bVerbose);
+    return FillScRecordFromInfo(scId, sidechain, scState, scRecord, bOnlyAlive, bVerbose);
 }
 
 int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, int to=-1)

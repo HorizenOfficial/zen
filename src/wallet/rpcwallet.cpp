@@ -163,20 +163,10 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     {
         const uint256& scid = dynamic_cast<const CScCertificate*>(tx.getTxBase())->GetScId();
         entry.push_back(Pair("scid", scid.GetHex()));
-        if (conf > 0) {
-            bwtMaturityHeight = tx.bwtMaturityDepth - conf + chainActive.Height() + 1;
-        } else
-        if (conf == 0) {
-            // no info in tx because the block has yet to be mined
+        if (conf >= 0) {
             CSidechain sidechain;
-            int nHeight = chainActive.Height() + 1;
             assert(pcoinsTip->GetSidechain(scid, sidechain));
-            int currentEpoch = sidechain.EpochFor(nHeight);
-            int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
-                sidechain.SafeguardMargin() - nHeight;
-            bwtMaturityHeight = bwtMaturityDepth + nHeight;
-        } else {
-            // if conf < 0 we can not tell
+            bwtMaturityHeight = sidechain.GetCertMaturityHeight(dynamic_cast<const CScCertificate*>(tx.getTxBase())->epochNumber);
         }
     }
 
@@ -1417,14 +1407,14 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
 }
 
 // request a backward transfer (BWT)
-UniValue retrieve_from_sidechain(const UniValue& params, bool fHelp)
+UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || (params.size() != 1 && params.size() != 2))
         throw runtime_error(
-            "retrieve_from_sidechain {TODO}\n"
+            "request_transfer_from_sidechain {TODO}\n"
             "\nArguments:\n"
             "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
             "[{\n"
@@ -1447,7 +1437,7 @@ UniValue retrieve_from_sidechain(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"    (string) The resulting transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("retrieve_from_sidechain", "'{TODO}]'")
+            + HelpExampleCli("request_transfer_from_sidechain", "'{TODO}]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -5195,8 +5185,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     CCoinsViewCache scView(&dummy);
     CCoinsViewMemPool vm(pcoinsTip, mempool);
     scView.SetBackend(vm);
-    CSidechain scInfo;
-    if (!scView.GetSidechain(scId,scInfo))
+    CSidechain sidechain;
+    if (!scView.GetSidechain(scId,sidechain))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid does not exists: ") + scId.ToString());
@@ -5229,13 +5219,13 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // sanity check of the epoch number and epoch hash block: it must be a legal end-epoch hash and epoch number must
     // be consistent with the current epoch (no old epoch certificates allowed)
-    if (!scView.isEpochDataValid(scInfo, epochNumber, endEpochBlockHash) )
+    if (!scView.CheckEndEpochBlockHash(sidechain, epochNumber, endEpochBlockHash) )
     {
         LogPrintf("ERROR: epochNumber[%d]/endEpochBlockHash[%s] are not legal\n", epochNumber, endEpochBlockHash.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid epoch data"));
     }
 
-    if (scView.isCeasedAtHeight(scId, chainActive.Height()+1)!= CSidechain::State::ALIVE) {
+    if (scView.GetSidechainState(scId)!= CSidechain::State::ALIVE) {
         LogPrintf("ERROR: certificate cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
             scId.ToString(), chainActive.Height());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
@@ -5406,15 +5396,15 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     int nMinDepth = 0; //1; 
 
     CAmount delta = 0;
-    if (epochNumber == scInfo.prevBlockTopQualityCertReferencedEpoch)
+    if (epochNumber == sidechain.lastTopQualityCertReferencedEpoch)
     {
-        delta = scInfo.prevBlockTopQualityCertBwtAmount;
+        delta = sidechain.lastTopQualityCertBwtAmount;
     }
 
-    if (nTotalOut > scInfo.balance+delta)
+    if (nTotalOut > sidechain.balance+delta)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance+delta), FormatMoney(nTotalOut) );
+            __func__, __LINE__, scId.ToString(), FormatMoney(sidechain.balance+delta), FormatMoney(nTotalOut) );
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
 

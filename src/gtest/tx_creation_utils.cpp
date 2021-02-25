@@ -9,6 +9,7 @@
 #include <undo.h>
 #include "tx_creation_utils.h"
 #include <pow.h>
+#include <coins.h>
 
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, const CAmount & fwdTxAmount, int epochLength)
 {
@@ -199,6 +200,18 @@ uint256 txCreationUtils::CreateSpendableCoinAtHeight(CCoinsViewCache& targetView
     UpdateCoins(inputTx, targetView, dummyUndo, coinHeight);
     assert(targetView.HaveCoins(inputTx.GetHash()));
     return inputTx.GetHash();
+}
+
+void txCreationUtils::storeSidechain(CSidechainsMap& mapToWriteInto, const uint256& scId, const CSidechain& sidechain)
+{
+    auto value = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::DIRTY);
+    WriteMutableEntry(scId, value, mapToWriteInto);
+}
+
+void txCreationUtils::storeSidechainEvent(CSidechainEventsMap& mapToWriteInto, int eventHeight, const CSidechainEvents& scEvent)
+{
+    auto value = CSidechainEventsCacheEntry(scEvent,CSidechainsCacheEntry::Flags::DIRTY);
+    WriteMutableEntry(eventHeight, value, mapToWriteInto);
 }
 
 void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)

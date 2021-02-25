@@ -1592,6 +1592,8 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         fOverrideFees = params[1].get_bool();
 
+    RejectAbsurdFeeFlag fRejectAbsurdFee = fOverrideFees? RejectAbsurdFeeFlag::OFF : RejectAbsurdFeeFlag::ON;
+
     CCoinsViewCache &view = *pcoinsTip;
     const CCoins* existingCoins = view.AccessCoins(hashTx);
     bool fHaveMempool = mempool.exists(hashTx);
@@ -1600,7 +1602,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
         // push to local node and sync with wallets
         CValidationState state;
         bool fMissingInputs;
-        if (!AcceptTxToMemoryPool(mempool, state, tx, false, &fMissingInputs, /*disconnecting */false, !fOverrideFees)) {
+        if (!AcceptTxToMemoryPool(mempool, state, tx, LimitFreeFlag::OFF, &fMissingInputs, fRejectAbsurdFee)) {
             if (state.IsInvalid()) {
                 throw JSONRPCError(RPC_TRANSACTION_REJECTED, strprintf("%i: %s", state.GetRejectCode(), state.GetRejectReason()));
             } else {
@@ -1649,6 +1651,7 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
     {
         fOverrideFees = params[1].get_bool();
     }
+    RejectAbsurdFeeFlag fRejectAbsurdFee = fOverrideFees? RejectAbsurdFeeFlag::OFF : RejectAbsurdFeeFlag::ON;
 
     // check that we do not have it already somewhere
     CCoinsViewCache &view = *pcoinsTip;
@@ -1662,8 +1665,8 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
         // push to local node and sync with wallets
         CValidationState state;
         bool fMissingInputs;
-        if (!AcceptCertificateToMemoryPool(mempool, state, cert, /*fLimitFree*/false, &fMissingInputs,
-                /*disconnecting*/false, !fOverrideFees))
+        if (!AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, &fMissingInputs,
+                fRejectAbsurdFee))
         {
             LogPrintf("%s():%d - cert[%s] not accepted in mempool\n", __func__, __LINE__, hashCertificate.ToString());
             if (state.IsInvalid())

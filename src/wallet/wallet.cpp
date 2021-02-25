@@ -2050,9 +2050,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 int nHeight = pindex->nHeight;
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(itCert->GetScId(), sidechain));
-                int currentEpoch = sidechain.EpochFor(nHeight);
-                int bwtMaxDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
-                                  sidechain.SafeguardMargin() - nHeight;
+                int bwtMaxDepth = sidechain.GetCertMaturityHeight(itCert->epochNumber) - nHeight;
 
                 if (AddToWalletIfInvolvingMe(*itCert, &block, bwtMaxDepth, fUpdate))
                 {
@@ -2090,13 +2088,14 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
         pcoinsTip->GetScIds(allScIds);
         for(const auto& scId: allScIds)
         {
-            if (pcoinsTip->isCeasedAtHeight(scId, chainActive.Height()) != CSidechain::State::ALIVE) {
+            if (pcoinsTip->GetSidechainState(scId) != CSidechain::State::ALIVE)
+            {
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(scId, sidechain));
                 if (fUpdate)
-                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.prevBlockTopQualityCertHash,
-                                                                      sidechain.prevBlockTopQualityCertReferencedEpoch,
-                                                                      sidechain.prevBlockTopQualityCertQuality,
+                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.lastTopQualityCertHash,
+                                                                      sidechain.lastTopQualityCertReferencedEpoch,
+                                                                      sidechain.lastTopQualityCertQuality,
                                                                       CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
             }
         }
@@ -2134,7 +2133,8 @@ void CWallet::ReacceptWalletTransactions()
     {
         CWalletTransactionBase& wtx = *(item.second);
         LOCK(mempool.cs);
-        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(), false, nullptr, /* disconnecting */false, /*fRejectAbsurdFee*/ true);
+        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(),
+            LimitFreeFlag::OFF, nullptr, RejectAbsurdFeeFlag::ON);
     }
 }
 
@@ -3590,7 +3590,8 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
         {
             // Broadcast
             CValidationState stateDummy;
-            if (!AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtxNew.getTxBase(), false, nullptr, /* disconnecting */false, /*fRejectAbsurdFee*/ true))
+            if (!AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtxNew.getTxBase(),
+                    LimitFreeFlag::OFF, nullptr, RejectAbsurdFeeFlag::ON))
             {
                 // This must not fail. The transaction has already been signed and recorded.
                 LogPrintf("CommitTransaction(): Error: Transaction not valid\n");

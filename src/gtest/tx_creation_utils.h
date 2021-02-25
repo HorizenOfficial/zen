@@ -10,6 +10,10 @@ class CMutableScCertificate;
 class uint256;
 class CBlock;
 class CCoinsViewCache;
+class CSidechainsMap;
+class CSidechainEventsMap;
+class CSidechainEvents;
+class CSidechain;
 
 namespace txCreationUtils
 {
@@ -34,6 +38,9 @@ CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint2
                                  CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/);
 
 uint256 CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight);
+
+void storeSidechain(CSidechainsMap& mapToWriteInto, const uint256& scId, const CSidechain& sidechain);
+void storeSidechainEvent(CSidechainEventsMap& mapToWriteInto, int eventHeight, const CSidechainEvents& scEvent);
 } // end of namespace
 
 namespace chainSettingUtils

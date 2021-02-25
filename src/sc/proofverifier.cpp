@@ -217,7 +217,8 @@ namespace libzendoomc{
         const uint160& mcDestinationAddress,
         CAmount scFees,
         const libzendoomc::ScProof& scProof,
-        const boost::optional<libzendoomc::ScVk>& wMbtrVk
+        const boost::optional<libzendoomc::ScVk>& wMbtrVk,
+		const libzendoomc::ScFieldElement& certDataHash
     ) const
     {
         return true; //Currently mocked
