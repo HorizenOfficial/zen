@@ -33,7 +33,6 @@ static const char DB_BEST_ANCHOR = 'a';
 static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
 static const char DB_LAST_BLOCK = 'l';
-static const char DB_CERT_DATA_HASH = 'h';
 static const char DB_CSW_NULLIFIER = 'n';
 
 
@@ -67,7 +66,7 @@ void static BatchSidechains(CLevelDBBatch &batch, const uint256 &scId, const CSi
     switch (sidechain.flag) {
         case CSidechainsCacheEntry::Flags::FRESH:
         case CSidechainsCacheEntry::Flags::DIRTY:
-            batch.Write(make_pair(DB_SIDECHAINS, scId), sidechain.scInfo);
+            batch.Write(make_pair(DB_SIDECHAINS, scId), sidechain.sidechain);
             break;
         case CSidechainsCacheEntry::Flags::ERASED:
             batch.Erase(make_pair(DB_SIDECHAINS, scId));
@@ -213,12 +212,6 @@ uint256 CCoinsViewDB::GetBestAnchor() const {
 bool CCoinsViewDB::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const {
     std::pair<uint256, libzendoomc::ScFieldElement> position = std::make_pair(scId, nullifier);
     return db.Exists(make_pair(DB_CSW_NULLIFIER, position));
-}
-
-bool CCoinsViewDB::GetActiveCertDataHash(const uint256& scId, libzendoomc::ScFieldElement& certDataHash) const {
-    // TODO: method real implementation will be integrated later from the MBTR branch.
-    certDataHash = libzendoomc::ScFieldElement();
-    return true;
 }
 
 bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,

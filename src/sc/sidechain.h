@@ -43,25 +43,28 @@ public:
 
 class CSidechain {
 public:
-    CSidechain() : sidechainVersion(0), creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
-                   prevBlockTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
-                   prevBlockTopQualityCertHash(), prevBlockTopQualityCertQuality(CScCertificate::QUALITY_NULL),
-                   prevBlockTopQualityCertBwtAmount(0), balance(0), currentState((uint8_t)State::NOT_APPLICABLE) {}
+    CSidechain():
+        sidechainVersion(0), creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
+        pastEpochTopQualityCertDataHash(), lastTopQualityCertDataHash(), lastTopQualityCertHash(),
+        lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
+        lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
+        balance(0) {}
 
     bool IsNull() const
     {
         return (
-             creationBlockHash.IsNull()                                           &&
-             creationBlockHeight == -1                                            &&
-             creationTxHash.IsNull()                                              &&
-             prevBlockTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL &&
-             prevBlockTopQualityCertHash.IsNull()                                 &&
-             prevBlockTopQualityCertQuality == CScCertificate::QUALITY_NULL       &&
-             prevBlockTopQualityCertBwtAmount == 0                                &&
-             balance == 0                                                         &&
-             creationData.IsNull()                                                &&
-             mImmatureAmounts.empty()                                             &&
-             currentState == (uint8_t)State::NOT_APPLICABLE);
+             creationBlockHash.IsNull()                                       &&
+             creationBlockHeight == -1                                        &&
+             creationTxHash.IsNull()                                          &&
+             pastEpochTopQualityCertDataHash.IsNull()                         &&
+             lastTopQualityCertDataHash.IsNull()                              &&
+             lastTopQualityCertHash.IsNull()                                  &&
+             lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL  &&
+             lastTopQualityCertQuality == CScCertificate::QUALITY_NULL        &&
+             lastTopQualityCertBwtAmount == 0                                 &&
+             balance == 0                                                     &&
+             creationData.IsNull()                                            &&
+             mImmatureAmounts.empty());
     }
 
     int32_t sidechainVersion;
@@ -75,17 +78,15 @@ public:
     // hash of the tx who created it
     uint256 creationTxHash;
 
-    // last epoch for which a certificate have been received
-    int prevBlockTopQualityCertReferencedEpoch;
+    // Cert data hash section
+    libzendoomc::ScFieldElement pastEpochTopQualityCertDataHash;
+    libzendoomc::ScFieldElement lastTopQualityCertDataHash;
 
-    // hash of the best quality certificate received for this sidechain
-    uint256 prevBlockTopQualityCertHash;
-
-    // quality of the certificate
-    int64_t prevBlockTopQualityCertQuality;
-
-    // total bwt amount of the certificate
-    CAmount prevBlockTopQualityCertBwtAmount;
+    // Data for latest top quality cert confirmed in blockchain
+    uint256 lastTopQualityCertHash;
+    int32_t lastTopQualityCertReferencedEpoch;
+    int64_t lastTopQualityCertQuality;
+    CAmount lastTopQualityCertBwtAmount;
 
     // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
@@ -104,7 +105,6 @@ public:
         ALIVE,
         CEASED
     };
-    uint8_t currentState;
 
     static std::string stateToString(State s);
 
@@ -117,39 +117,49 @@ public:
     {
         READWRITE(sidechainVersion);
         READWRITE(creationBlockHash);
-        READWRITE(creationBlockHeight);
+        READWRITE(VARINT(creationBlockHeight));
         READWRITE(creationTxHash);
-        READWRITE(prevBlockTopQualityCertReferencedEpoch);
-        READWRITE(prevBlockTopQualityCertHash);
-        READWRITE(prevBlockTopQualityCertQuality);
-        READWRITE(prevBlockTopQualityCertBwtAmount);
+        READWRITE(pastEpochTopQualityCertDataHash);
+        READWRITE(lastTopQualityCertDataHash);
+        READWRITE(lastTopQualityCertHash);
+        READWRITE(lastTopQualityCertReferencedEpoch);
+        READWRITE(lastTopQualityCertQuality);
+        READWRITE(lastTopQualityCertBwtAmount);
         READWRITE(balance);
         READWRITE(creationData);
         READWRITE(mImmatureAmounts);
-        READWRITE(currentState);
     }
 
     inline bool operator==(const CSidechain& rhs) const
     {
-        return (this->sidechainVersion                        == rhs.sidechainVersion)                       &&
-               (this->creationBlockHash                       == rhs.creationBlockHash)                      &&
-               (this->creationBlockHeight                     == rhs.creationBlockHeight)                    &&
-               (this->creationTxHash                          == rhs.creationTxHash)                         &&
-               (this->prevBlockTopQualityCertReferencedEpoch  == rhs.prevBlockTopQualityCertReferencedEpoch) &&
-               (this->prevBlockTopQualityCertHash             == rhs.prevBlockTopQualityCertHash)            &&
-               (this->prevBlockTopQualityCertQuality          == rhs.prevBlockTopQualityCertQuality)         &&
-               (this->prevBlockTopQualityCertBwtAmount        == rhs.prevBlockTopQualityCertBwtAmount)       &&
-               (this->balance                                 == rhs.balance)                                &&
-               (this->creationData                            == rhs.creationData)                           &&
-               (this->mImmatureAmounts                        == rhs.mImmatureAmounts)                       &&
-               (this->currentState                            == rhs.currentState);
+        return (this->sidechainVersion                   == rhs.sidechainVersion)                   &&
+               (this->creationBlockHash                  == rhs.creationBlockHash)                  &&
+               (this->creationBlockHeight                == rhs.creationBlockHeight)                &&
+               (this->creationTxHash                     == rhs.creationTxHash)                     &&
+               (this->pastEpochTopQualityCertDataHash    == rhs.pastEpochTopQualityCertDataHash)    &&
+               (this->lastTopQualityCertDataHash         == rhs.lastTopQualityCertDataHash)         &&
+               (this->lastTopQualityCertHash             == rhs.lastTopQualityCertHash)             &&
+               (this->lastTopQualityCertReferencedEpoch  == rhs.lastTopQualityCertReferencedEpoch)  &&
+               (this->lastTopQualityCertQuality          == rhs.lastTopQualityCertQuality)          &&
+               (this->lastTopQualityCertBwtAmount        == rhs.lastTopQualityCertBwtAmount)        &&
+               (this->balance                            == rhs.balance)                            &&
+               (this->creationData                       == rhs.creationData)                       &&
+               (this->mImmatureAmounts                   == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
     int EpochFor(int targetHeight) const;
-    int StartHeightForEpoch(int targetEpoch) const;
-    int SafeguardMargin() const;
-    int GetCeasingHeight() const;
+    int GetStartHeightForEpoch(int targetEpoch) const;
+    int GetEndHeightForEpoch(int targetEpoch) const;
+    int GetCertSubmissionWindowStart(int certEpoch) const;
+    int GetCertSubmissionWindowEnd(int certEpoch) const;
+    int GetCertSubmissionWindowLength() const;
+    int GetCertMaturityHeight(int certEpoch) const;
+    int GetScheduledCeasingHeight() const;
+
+    bool isCreationConfirmed() const {
+        return this->creationBlockHeight != -1;
+    }
 
     // Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;
@@ -162,3 +172,4 @@ namespace Sidechain {
 }; // end of namespace
 
 #endif // _SIDECHAIN_CORE_H
+

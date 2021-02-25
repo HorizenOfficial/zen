@@ -661,7 +661,12 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() > 5)
         throw runtime_error(
-            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} ( [{\"amount\": value, \"senderAddress\":\"address\", ...}, ...] ( [{\"epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr},...] ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id}] ) ) )\n"
+            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} (\n"
+            "    [{\"amount\": value, \"senderAddress\":\"address\", ...}, ...] (\n"
+            "    [{\"epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr},...]\n"
+            "    ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id},...]\n"
+			"    ( [{\"scid\":\"scid\", \"scUtxoId\":\"scUtxoId\", \"pubkeyhash\":\"pubkeyhash\", \"scFee\":\"scFee\", \"scProof\":\"scProof\"},...]\n"
+			") ) )\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
             "Note that the transaction's inputs are not signed, and\n"
@@ -714,8 +719,20 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "     [\n"
             "       {\n"
             "         \"address\":\"address\",  (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value to transfer to SC\n"
             "         \"scid\":side chain ID    (string, required) The uint256 side chain ID\n"
+            "       }\n"
+            "       ,...\n"
+            "     ]\n"
+            "5. \"backward transfer requests\"   (string, optional) A json array of json objects\n"
+            "     [\n"
+            "       {\n"
+            "         \"scid\":side chain ID       (string, required) The uint256 side chain ID\n"
+            "         \"scUtxoId\":hexstr          (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "         \"pubkeyhash\":pkh           (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
+            "         \"scFee\":amount,            (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
+            "         \"scProof\":hexstr,          (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"
@@ -786,6 +803,22 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             }
         }
     }
+
+    // bwt requests 
+    if (params.size() > 4 && !params[4].isNull())
+    {
+        UniValue bwtreq = params[4].get_array();
+
+        if (bwtreq.size())
+        {
+            std::string errString;
+            if (!Sidechain::AddSidechainBwtRequestOutputs(bwtreq, rawTx, errString) )
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, errString);
+            }
+        }
+    }
+
 
     return EncodeHexTx(rawTx);
 }
@@ -1674,6 +1707,8 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         fOverrideFees = params[1].get_bool();
 
+    RejectAbsurdFeeFlag fRejectAbsurdFee = fOverrideFees? RejectAbsurdFeeFlag::OFF : RejectAbsurdFeeFlag::ON;
+
     CCoinsViewCache &view = *pcoinsTip;
     const CCoins* existingCoins = view.AccessCoins(hashTx);
     bool fHaveMempool = mempool.exists(hashTx);
@@ -1682,7 +1717,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
         // push to local node and sync with wallets
         CValidationState state;
         bool fMissingInputs;
-        if (!AcceptTxToMemoryPool(mempool, state, tx, false, &fMissingInputs, !fOverrideFees)) {
+        if (!AcceptTxToMemoryPool(mempool, state, tx, LimitFreeFlag::OFF, &fMissingInputs, fRejectAbsurdFee)) {
             if (state.IsInvalid()) {
                 throw JSONRPCError(RPC_TRANSACTION_REJECTED, strprintf("%i: %s", state.GetRejectCode(), state.GetRejectReason()));
             } else {
@@ -1731,6 +1766,7 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
     {
         fOverrideFees = params[1].get_bool();
     }
+    RejectAbsurdFeeFlag fRejectAbsurdFee = fOverrideFees? RejectAbsurdFeeFlag::OFF : RejectAbsurdFeeFlag::ON;
 
     // check that we do not have it already somewhere
     CCoinsViewCache &view = *pcoinsTip;
@@ -1744,7 +1780,8 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
         // push to local node and sync with wallets
         CValidationState state;
         bool fMissingInputs;
-        if (!AcceptCertificateToMemoryPool(mempool, state, cert, false, &fMissingInputs, !fOverrideFees))
+        if (!AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, &fMissingInputs,
+                fRejectAbsurdFee))
         {
             LogPrintf("%s():%d - cert[%s] not accepted in mempool\n", __func__, __LINE__, hashCertificate.ToString());
             if (state.IsInvalid())

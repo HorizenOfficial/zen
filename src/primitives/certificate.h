@@ -33,7 +33,7 @@ public:
     bool IsNull() const { return (nValue == -1);  }
 };
 
-class CScCertificate : virtual public CTransactionBase
+class CScCertificate : public CTransactionBase
 {
     /** Memory only. */
     void UpdateHash() const override;
@@ -103,6 +103,16 @@ public:
         READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
 
+        //  - in the in-memory representation, ordinary outputs and backward transfer outputs are contained
+        //    in the same vout vector which is parted in two segments.
+        //    The first segment contains ordinary outputs (if any) and nFirstBwtPos is a positional index
+        //    in vout pointing at the first backward transfer entry (if any).
+        //
+        //  - when serializing a certificate, ordinary outputs and backward transfer outputs are splitted
+        //    in two separate vectors:
+        //       vout_ser      - ordinary outputs, CTxOut objects
+        //       vbt_ccout_ser - backward transfer outputs, CBackwardTransferOut objects 
+        //    
         if (ser_action.ForRead())
         {
             // reading from data stream to memory
@@ -117,7 +127,6 @@ public:
         else
         {
             // reading from memory and writing to data stream
-            // we must not modify vout
             std::vector<CTxOut> vout_ser;
             for(int pos = 0; pos < nFirstBwtPos; ++pos)
                 vout_ser.push_back(vout[pos]);
@@ -145,10 +154,11 @@ public:
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
     //GETTERS
-    const uint256&                            GetJoinSplitPubKey() const override { static const uint256 nullKey; return nullKey;}
-    const std::vector<JSDescription>&         GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
-    const uint256&                            GetScId()       const          {return scId;};
-    const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
+    const uint256&                     GetJoinSplitPubKey() const override { static const uint256 nullKey; return nullKey;}
+    const std::vector<JSDescription>&  GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
+    const uint256&                     GetScId()       const          {return scId;};
+    const uint32_t&                    GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
+    libzendoomc::ScFieldElement GetDataHash() const;
     //END OF GETTERS
 
     bool IsBackwardTransfer(int pos) const override final;
@@ -157,6 +167,7 @@ public:
     bool IsValidVersion   (CValidationState &state) const override;
     bool IsVersionStandard(int nHeight) const override;
     bool CheckAmounts     (CValidationState &state) const override;
+    bool CheckInputsOutputsNonEmpty(CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
     bool CheckInputsLimit() const override;
@@ -213,8 +224,10 @@ struct CMutableScCertificate : public CMutableTransactionBase
 
     CMutableScCertificate();
     CMutableScCertificate(const CScCertificate& tx);
+    CMutableScCertificate(const CMutableScCertificate& tx) = default;
     operator CScCertificate() { return CScCertificate(*this); }
     CMutableScCertificate& operator=(const CMutableScCertificate& tx);
+    ~CMutableScCertificate() = default;
 
     ADD_SERIALIZE_METHODS;
 
@@ -274,8 +287,6 @@ struct CMutableScCertificate : public CMutableTransactionBase
     void resizeBwt(unsigned int newSize)                  override final;
     bool addOut(const CTxOut& out)                        override final;
     bool addBwt(const CTxOut& out)                        override final;
-    bool add(const CTxScCreationOut& out)                 override final;
-    bool add(const CTxForwardTransferOut& out)            override final;
 
     std::string ToString() const;
 };

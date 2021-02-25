@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
+from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
     dump_ordered_tips, mark_logs, disconnect_nodes
 from test_framework.mc_test.mc_test import *
@@ -15,7 +15,7 @@ import time
 
 NUMB_OF_NODES = 3
 DEBUG_MODE = 1
-SC_COINS_MAT = 2
+SC_FEE = Decimal("0.00001")
 
 
 class ScInvalidateTest(BitcoinTestFramework):
@@ -32,7 +32,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-                                 extra_args=[["-sccoinsmaturity=%d" % SC_COINS_MAT, '-logtimemicros=1', '-debug=sc',
+                                 extra_args=[['-logtimemicros=1', '-debug=sc', '-debug=cert'
                                               '-debug=py', '-debug=mempool', '-debug=net',
                                               '-debug=bench']] * NUMB_OF_NODES)
 
@@ -64,7 +64,7 @@ class ScInvalidateTest(BitcoinTestFramework):
 
     def run_test(self):
         ''' This test creates a Sidechain and forwards funds to it and then verifies
-          after a fork that reverts the Sidechain creation, the forward transfer transactions to it
+          after a fork that reverts the Sidechain creation, the forward and mbtr transfer transactions to it
           are not in mempool
         '''
         # network topology: (0)--(1)--(2)
@@ -90,7 +90,6 @@ class ScInvalidateTest(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(220))
         self.sync_all()
 
-        txes = []
 
         tx_amount = Decimal('10.00000000')
         # ---------------------------------------------------------------------------------------
@@ -103,6 +102,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         self.sync_all()
 
         blocks.extend(self.nodes[0].generate(2))
+        prev_epoch_block_hash = blocks[-1]
 
         self.sync_all()
 
@@ -123,9 +123,18 @@ class ScInvalidateTest(BitcoinTestFramework):
         #generate wCertVk and constant
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
+        mbtrVk = mcTest.generate_params("sc1_mbtrVk")
         constant = generate_random_field_element_hex()
 
-        sc = [{"epoch_length": sc_epoch, "amount": sc_cr_amount, "address": sc_address, "wCertVk": vk, "constant": constant}]
+        sc = [{
+            "epoch_length": sc_epoch,
+            "amount": sc_cr_amount,
+            "address": sc_address,
+            "wCertVk": vk,
+            "wMbtrVk": mbtrVk,
+            "constant": constant
+        }]
+
         inputs = [{'txid': txid, 'vout': vout['n']}]
         sc_ft = []
 
@@ -145,24 +154,45 @@ class ScInvalidateTest(BitcoinTestFramework):
         mark_logs("The network is split: 0-1 .. 2", self.nodes, DEBUG_MODE)
 
         # Node 0 send the SC creation transaction and generate 1 block to create it
-        mark_logs("\nNode 0 send the SC creation transaction and generate 1 block to create it", self.nodes, DEBUG_MODE)
-        finalTx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
-        txes.append(finalTx)
+        mark_logs("\nNode0 send the SC creation transaction", self.nodes, DEBUG_MODE)
+        crTx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
         self.sync_all()
 
-        decoded_tx = self.nodes[0].getrawtransaction(finalTx, 1)
+        decoded_tx = self.nodes[0].getrawtransaction(crTx, 1)
         scid = decoded_tx['vsc_ccout'][0]['scid']
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
-        blocks.extend(self.nodes[0].generate(1))
+        # Node 1 creates a BWT
+        mark_logs("Node1 creates a tx with a single bwt request for sc", self.nodes, DEBUG_MODE)
+        totScFee = Decimal("0.0")
+
+        fe1 = generate_random_field_element_hex()
+        pkh1 = self.nodes[1].getnewaddress("", True)
+        p1 = mcTest.create_test_proof("sc1", 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
+        TX_FEE = Decimal("0.000123")
+        outputs = [{'scUtxoId':fe1, 'scFee':SC_FEE, 'scid':scid, 'scProof':p1, 'pubkeyhash':pkh1 }]
+        cmdParms = { "minconf":0, "fee":TX_FEE}
+
+        try:
+            mbtrTx = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
+            mark_logs("  --> mbtrTx = {}.".format(mbtrTx), self.nodes, DEBUG_MODE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true(False)
+
+        totScFee = totScFee + SC_FEE
         self.sync_all()
 
         # Node 1 creates a FT of 1.0 coin and Node 0 generates 1 block
-        mark_logs("\nNode 1 sends " + str(fwt_amount_1) + " coins to SC", self.nodes, DEBUG_MODE)
+        mark_logs("\nNode1 sends " + str(fwt_amount_1) + " coins to SC", self.nodes, DEBUG_MODE)
 
         ftTx = self.nodes[1].sc_send("abcd", fwt_amount_1, scid)
-        txes.append(ftTx)
         self.sync_all()
+
+        assert_true(crTx in self.nodes[0].getrawmempool())
+        assert_true(mbtrTx in self.nodes[0].getrawmempool())
+        assert_true(ftTx in self.nodes[0].getrawmempool())
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
@@ -198,8 +228,8 @@ class ScInvalidateTest(BitcoinTestFramework):
         for i in range(0, NUMB_OF_NODES):
             assert_equal(0, self.nodes[i].getscinfo(scid)['totalItems'])
 
-        # The FT transaction should not be in mempool
-        mark_logs("\nThe FT transaction should not be in mempool...", self.nodes, DEBUG_MODE)
+        # The transactions should not be in mempool
+        mark_logs("\nThe FT and MBTR transactions should not be in mempool anymore...", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
             txmem = self.nodes[i].getrawmempool()
             assert_equal(len(txmem), 0)

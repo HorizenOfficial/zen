@@ -286,8 +286,8 @@ public:
 class CCswNullifiersKeyHasher
 {
 private:
-    static const size_t BUF_LEN = 32 + SC_FIELD_SIZE;
-    uint32_t salt[BUF_LEN/4];
+    static const size_t BUF_LEN = (sizeof(uint256) + SC_FIELD_SIZE)/sizeof(uint32_t);
+    uint32_t salt[BUF_LEN];
 public:
     CCswNullifiersKeyHasher();
 
@@ -331,7 +331,6 @@ struct CNullifiersCacheEntry
     unsigned char flags;
 
     enum Flags {
-        DEFAULT = 0,
         DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
     };
 
@@ -353,7 +352,7 @@ struct CMutableSidechainCacheEntry
 template<typename KeyType, typename ValueType, template<typename...> class MapType, typename ... TOthers >
 void WriteMutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap)
 {
-	typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
+    typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
 
     switch (value.flag) {
         case CMutableSidechainCacheEntry::Flags::FRESH:
@@ -364,7 +363,7 @@ void WriteMutableEntry(const KeyType& key, const ValueType& value, MapType<KeyTy
             destinationMap[key] = value;
             break;
         case CMutableSidechainCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
-        	destinationMap[key] = value;
+            destinationMap[key] = value;
             break;
         case CMutableSidechainCacheEntry::Flags::ERASED:
             if (itLocalCacheEntry != destinationMap.end())
@@ -394,7 +393,7 @@ struct CImmutableSidechainCacheEntry
 template<typename KeyType, typename ValueType, template<typename...> class MapType, typename ... TOthers >
 void WriteImmutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap)
 {
-	typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
+    typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
 
     switch (value.flag) {
         case CImmutableSidechainCacheEntry::Flags::FRESH:
@@ -419,14 +418,14 @@ void WriteImmutableEntry(const KeyType& key, const ValueType& value, MapType<Key
 
 struct CSidechainsCacheEntry: public CMutableSidechainCacheEntry
 {
-    CSidechain scInfo;
+    CSidechain sidechain;
 
-    CSidechainsCacheEntry(): CMutableSidechainCacheEntry(Flags::DEFAULT), scInfo() {}
-    CSidechainsCacheEntry(const CSidechain & _scInfo, Flags _flag):
-        CMutableSidechainCacheEntry(_flag), scInfo(_scInfo) {}
+    CSidechainsCacheEntry(): CMutableSidechainCacheEntry(Flags::DEFAULT), sidechain() {}
+    CSidechainsCacheEntry(const CSidechain & _sidechain, Flags _flag):
+        CMutableSidechainCacheEntry(_flag), sidechain(_sidechain) {}
 
     // Not an equality operator since we want to neglect flag
-    bool ContentCheck(const CSidechainsCacheEntry& rhs) {return this->scInfo == rhs.scInfo;}
+    bool ContentCheck(const CSidechainsCacheEntry& rhs) {return this->sidechain == rhs.sidechain;}
 };
 
 struct CSidechainEventsCacheEntry: public CMutableSidechainCacheEntry
@@ -513,9 +512,6 @@ public:
     virtual bool HaveCswNullifier(const uint256& scId,
                                   const libzendoomc::ScFieldElement& nullifier) const;
 
-    //! Retrive CertDataHash value for the most recent active Certificate fpr a govem sidechain id.
-    virtual bool GetActiveCertDataHash(const uint256& scId, libzendoomc::ScFieldElement& certDataHash) const;
-
     //! Do a bulk modification (multiple CCoins changes + BestBlock change).
     //! The passed mapCoins can be modified.
     virtual bool BatchWrite(CCoinsMap &mapCoins,
@@ -543,22 +539,20 @@ protected:
 
 public:
     CCoinsViewBacked(CCoinsView *viewIn);
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree)                          const override;
-    bool GetNullifier(const uint256 &nullifier)                                                 const override;
-    bool GetCoins(const uint256 &txid, CCoins &coins)                                           const override;
-    bool HaveCoins(const uint256 &txid)                                                         const override;
-    bool HaveSidechain(const uint256& scId)                                                     const override;
-    bool GetSidechain(const uint256& scId, CSidechain& info)                                    const override;
-    bool HaveSidechainEvents(int height)                                                        const override;
-    bool GetSidechainEvents(int height, CSidechainEvents& scEvents)                             const override;
-    void GetScIds(std::set<uint256>& scIdsList)                                                 const override;
-    bool CheckQuality(const CScCertificate& cert)                                               const override;
-    uint256 GetBestBlock()                                                                      const override;
-    uint256 GetBestAnchor()                                                                     const override;
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override;
+    bool GetNullifier(const uint256 &nullifier)                        const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)                  const override;
+    bool HaveCoins(const uint256 &txid)                                const override;
+    bool HaveSidechain(const uint256& scId)                            const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)           const override;
+    bool HaveSidechainEvents(int height)                               const override;
+    bool GetSidechainEvents(int height, CSidechainEvents& scEvents)    const override;
+    void GetScIds(std::set<uint256>& scIdsList)                        const override;
+    bool CheckQuality(const CScCertificate& cert)                      const override;
+    uint256 GetBestBlock()                                             const override;
+    uint256 GetBestAnchor()                                            const override;
     bool HaveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier)                          const override;
-    bool GetActiveCertDataHash(const uint256& scId, libzendoomc::ScFieldElement& certDataHash)  const override;
-
+                         const libzendoomc::ScFieldElement &nullifier) const override;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
@@ -567,10 +561,8 @@ public:
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapCeasedScs,
-                    CCswNullifiersMap& cswNullifiers)                          override;
-    bool GetStats(CCoinsStats &stats)                                    const override;
-
-
+                    CCswNullifiersMap& cswNullifiers)                  override;
+    bool GetStats(CCoinsStats &stats)                                  const override;
 };
 
 
@@ -632,6 +624,7 @@ public:
     bool HaveCoins(const uint256 &txid)                                const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
+    int GetHeight() const; // Return view height, which is inputs.GetBestBlock() (aka parent block) one.
     void SetBestBlock(const uint256 &hashBlock);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
@@ -640,7 +633,7 @@ public:
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapCeasedScs,
-                    CCswNullifiersMap& cswNullifiers)                        override;
+                    CCswNullifiersMap& cswNullifiers)                  override;
 
 
     // Adds the tree to mapAnchors and sets the current commitment
@@ -676,21 +669,21 @@ public:
 
     //SIDECHAIN RELATED PUBLIC MEMBERS
     bool HaveSidechain(const uint256& scId)                           const override;
-    bool GetSidechain(const uint256 & scId, CSidechain& targetScInfo) const override;
+    bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
-    bool HaveScRequirements(const CTransaction& tx);
-    bool UpdateScInfo(const CTransaction& tx, const CBlock&, int nHeight);
+
+    bool IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const;
+    bool CheckScTxTiming(const uint256& scId) const;
+    bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     int getScCoinsMaturity();
 
-    //CSW INPUTS RELATED PUBLIC MEMBERS
-    bool IsTxCswApplicableToState(const CTransaction& tx, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
-
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToState(const CScCertificate& cert, int nHeight, CValidationState& state, libzendoomc::CScProofVerifier& scVerifier) const;
-    bool isEpochDataValid(const CSidechain& scInfo, int epochNumber, const uint256& epochBlockHash) const;
-    bool UpdateScInfo(const CScCertificate& cert, CBlockUndo& blockUndo);
-    bool RestoreScInfo(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
+    bool IsCertApplicableToState(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const;
+    bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
+    bool CheckCertTiming(const uint256& scId, int certEpoch) const;
+    bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
+    bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
     bool CheckQuality(const CScCertificate& cert)  const override;
     void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
     bool RestoreBackwardTransfers(const uint256& certHash, const std::vector<CTxInUndo>& outsToRestore);
@@ -698,14 +691,6 @@ public:
     //SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;
-
-    bool ScheduleSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
-    bool ScheduleSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
-    bool ScheduleSidechainEvent(const CScCertificate& cert);
-
-    bool CancelSidechainEvent(const CTxScCreationOut& scCreationOut, int creationHeight);
-    bool CancelSidechainEvent(const CTxForwardTransferOut& forwardOut, int fwdHeight);
-    bool CancelSidechainEvent(const CScCertificate& cert);
 
     bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
@@ -715,9 +700,8 @@ public:
     bool AddCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier);
     bool RemoveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier);
 
-    bool GetActiveCertDataHash(const uint256& scId, libzendoomc::ScFieldElement& certDataHash) const override;
-
-   CSidechain::State GetSidechainState(const uint256& scId) const;
+    libzendoomc::ScFieldElement GetActiveCertDataHash(const uint256& scId) const;
+    CSidechain::State GetSidechainState(const uint256& scId) const;
 
     bool Flush();
 
@@ -755,14 +739,13 @@ private:
     CCoinsMap::iterator                 FetchCoins(const uint256 &txid);
     CSidechainsMap::const_iterator      FetchSidechains(const uint256& scId)  const;
     CSidechainsMap::iterator            ModifySidechain(const uint256& scId);
-    const CSidechain* const             AccessSidechain(const uint256& scId);
+    const CSidechain* const             AccessSidechain(const uint256& scId)  const;
     CSidechainEventsMap::const_iterator FetchSidechainEvents(int height)      const;
     CSidechainEventsMap::iterator       ModifySidechainEvents(int height);
 
     static int getInitScCoinsMaturity();
 
     bool DecrementImmatureAmount(const uint256& scId, const CSidechainsMap::iterator& targetEntry, CAmount nValue, int maturityHeight);
-    void Dump_info() const;
 };
 
 #endif // BITCOIN_COINS_H

@@ -668,7 +668,7 @@ TEST(TransactionManipulation, ExtendingTransactionOuts) {
         EXPECT_FALSE(txBwtAttempt.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<"wrongly marked as bwt";
 }
 
-TEST(CertificateManipulation, EmptyCertTransformationToMutableIsNotReversible) {
+TEST(SidechainsCertificateManipulation, EmptyCertTransformationToMutableIsNotReversible) {
     // CopyCtor -> CopyCtor
     CScCertificate        EmptyOriginalCert;
     CMutableScCertificate mutByCopyCtor(EmptyOriginalCert);
@@ -700,7 +700,7 @@ TEST(CertificateManipulation, EmptyCertTransformationToMutableIsNotReversible) {
     EXPECT_TRUE(revertedTxByAssignOp.nFirstBwtPos == 0);
 }
 
-TEST(CertificateManipulation, NonEmptyCertTransformationToMutableIsReversible) {
+TEST(SidechainsCertificateManipulation, NonEmptyCertTransformationToMutableIsReversible) {
     //create non-empty transaction
     CMutableScCertificate helperMutCert;
     unsigned int OutNum = 10;
@@ -740,7 +740,7 @@ TEST(CertificateManipulation, NonEmptyCertTransformationToMutableIsReversible) {
         <<" revertedTxByAssignOp.GetHash() "<<revertedCertByAssignOp.GetHash().ToString();
 }
 
-TEST(CertificateManipulation, ExtendingCertificateOutsAndBwts) {
+TEST(SidechainsCertificateManipulation, ExtendingCertificateOutsAndBwts) {
     CMutableScCertificate mutCert;
     EXPECT_TRUE(mutCert.getVout().size() == 0);
 
@@ -784,7 +784,7 @@ TEST(CertificateManipulation, ExtendingCertificateOutsAndBwts) {
         EXPECT_TRUE(ExtraOutAndBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
 }
 
-TEST(CertificateManipulation, ResizingCertificateChangeOutputs) {
+TEST(SidechainsCertificateManipulation, ResizingCertificateChangeOutputs) {
     CMutableScCertificate mutCert;
     EXPECT_TRUE(mutCert.getVout().size() == 0);
 

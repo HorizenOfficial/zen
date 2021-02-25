@@ -237,6 +237,8 @@ void SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
     LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
     tx.fillCrosschainOutput(tx.GetVftCcOut(), nIdx, mScMerkleTreeLeavesFt, sScIds);
 
+    // TODO bwt requests
+
     LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, nIdx);
 }
 
