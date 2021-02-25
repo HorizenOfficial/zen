@@ -225,7 +225,7 @@ TEST(Mempool, SproutV3TxFailsAsExpected) {
     CValidationState state1;
     CTransaction tx1(mtx);
 
-    chainSettingUtils::ExtendChainActiveToHeight(200);
+    chainSettingUtils::ExtendChainActiveToHeight(100);
     pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
 
     EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
@@ -260,7 +260,7 @@ TEST(Mempool, SproutV3TxWhenGrothNotActive) {
     CMutableTransaction mtx = GetValidTransaction(GROTH_TX_VERSION);
     mtx.vjoinsplit.resize(0); // no joinsplits
 
-    chainSettingUtils::ExtendChainActiveToHeight(200);
+    chainSettingUtils::ExtendChainActiveToHeight(100);
     pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
 
     CValidationState state1;
@@ -291,7 +291,7 @@ TEST(Mempool, SproutNegativeVersionTx) {
     CCoinsViewDB* pChainStateDb = new CCoinsViewDB(chainStateDbSize, /*fWipe*/true);
     pcoinsTip = new CCoinsViewCache(pChainStateDb);
 
-    chainSettingUtils::ExtendChainActiveToHeight(200);
+    chainSettingUtils::ExtendChainActiveToHeight(100);
     pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
 
     CTxMemPool pool(::minRelayTxFee);
