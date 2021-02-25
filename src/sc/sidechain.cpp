@@ -242,9 +242,9 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
     for(const CTxCeasedSidechainWithdrawalInput& csw : tx.GetVcswCcIn())
     {
-        if (csw.nValue <= 0)
+        if (csw.nValue == 0 || !MoneyRange(csw.nValue))
         {
-            return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : CSW value %d is non-positive\n",
+            return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : CSW value %d is non-positive or out of range\n",
                     __func__, __LINE__, txHash.ToString(), csw.nValue),
                     REJECT_INVALID, "sidechain-cswinput-value-not-valid");
         }

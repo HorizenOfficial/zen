@@ -308,25 +308,7 @@ TEST_F(SidechainsTestSuite, CSWTxNegativeAmount) {
 TEST_F(SidechainsTestSuite, CSWTxHugeAmount) {
     CTxCeasedSidechainWithdrawalInput csw;
 
-    csw.nValue = MAX_MONEY;
-    csw.nullifier = libzendoomc::ScFieldElement();
-    csw.scProof = libzendoomc::ScProof();
-    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
-    CValidationState txState;
-
-    // test
-    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
-
-    EXPECT_FALSE(res);
-    EXPECT_FALSE(txState.IsValid());
-    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
-        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
-}
-
-TEST_F(SidechainsTestSuite, CSWTxInvalidEpoch) { //TODO: why would this fail? Where is the wrong epoch?
-    CTxCeasedSidechainWithdrawalInput csw;
-
-    csw.nValue = 100;
+    csw.nValue = MAX_MONEY + 1;
     csw.nullifier = libzendoomc::ScFieldElement();
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
