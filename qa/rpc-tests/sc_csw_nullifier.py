@@ -100,7 +100,7 @@ class CswNullifierTest(BitcoinTestFramework):
             "constant": constant
         })
 
-        rawtx = self.nodes[0].createrawtransaction([], {}, [], sc_cr, [])
+        rawtx = self.nodes[0].createrawtransaction([], {}, [], sc_cr)
         funded_tx = self.nodes[0].fundrawtransaction(rawtx)
         sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
         finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
@@ -180,7 +180,7 @@ class CswNullifierTest(BitcoinTestFramework):
         taddr_2 = self.nodes[2].getnewaddress()
         sc_csw_tx_outs = {taddr_2: sc_csw_amount}
 
-        rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
+        rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws)
         funded_tx = self.nodes[0].fundrawtransaction(rawtx)
         sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'], None, None, "NONE")
         finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
@@ -254,7 +254,7 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_csw_amount = sc_bal/4
         sc_csws[0]['amount'] = sc_csw_amount
         sc_csw_tx_outs = {taddr_2: sc_csw_amount}
-        rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
+        rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws)
         funded_tx = self.nodes[0].fundrawtransaction(rawtx)
         sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
         try:
@@ -272,7 +272,7 @@ class CswNullifierTest(BitcoinTestFramework):
         null2 = generate_random_field_element_hex()
         sc_csws[0]['nullifier'] = null2
         try:
-            rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
+            rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws)
             funded_tx = self.nodes[0].fundrawtransaction(rawtx)
             sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
             finalRawTx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
@@ -309,7 +309,7 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_csw_tx_outs_1 = {taddr_1: sc_csw_amount}
 
         try:
-            rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs_1, sc_csws, [], [])
+            rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs_1, sc_csws)
             funded_tx = self.nodes[0].fundrawtransaction(rawtx)
             sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
             tx_n1 = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
@@ -361,7 +361,7 @@ class CswNullifierTest(BitcoinTestFramework):
         csw_mc_address = self.nodes[2].getnewaddress()
         sc_csws[0]['senderAddress'] = csw_mc_address
         try:
-            rawtx = self.nodes[2].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
+            rawtx = self.nodes[2].createrawtransaction([], sc_csw_tx_outs, sc_csws)
             funded_tx = self.nodes[2].fundrawtransaction(rawtx)
             sigRawtx = self.nodes[2].signrawtransaction(funded_tx['hex'])
             tx_n2 = self.nodes[2].sendrawtransaction(sigRawtx['hex'])
@@ -509,7 +509,7 @@ class CswNullifierTest(BitcoinTestFramework):
 
         out_amount = sc_csw_amount / Decimal("2.0")
         sc_csw_tx_outs = {taddr_2: out_amount}
-        rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
+        rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws)
         funded_tx = self.nodes[0].fundrawtransaction(rawtx)
         sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
         try:

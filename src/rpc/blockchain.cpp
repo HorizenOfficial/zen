@@ -1285,7 +1285,7 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
     }
 
     libzendoomc::ScFieldElement certDataHash = scView.GetActiveCertDataHash(scid);
-    if (libzendoomc::IsValidScFieldElement(certDataHash))
+    if (!libzendoomc::IsValidScFieldElement(certDataHash) || certDataHash.IsNull() )
     {
         LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing active cert data hash for required scid"));

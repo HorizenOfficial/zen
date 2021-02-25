@@ -104,9 +104,9 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
         pprint.pprint(ret)
-        assert_equal(ret['ceasing height'], 233) # = 220 + epoch_len + sg + 1 ---> where sg=2 (20% epoch_len)
         assert_equal(ret['created at block height'], 221)
         assert_equal(ret['end epoch height'], 230)
+        assert_equal(ret['ceasing height'], 232) # = 221 + epoch_len + subm_window -1  ---> where subm_window=2 (20% epoch_len)
         assert_equal(ret['epoch'], 0)
         assert_equal(ret['scid'], scid)
         assert_equal(ret['withdrawalEpochLength'], EPOCH_LENGTH)
@@ -141,7 +141,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         print "ceasing height   =", ret['ceasing height']
         print "end epoch height =", ret['end epoch height']
         print "epoch number     =", ret['epoch']
-        assert_equal(ret['ceasing height'], 243) 
+        assert_equal(ret['ceasing height'], 242) 
         assert_equal(ret['end epoch height'], 240)
         assert_equal(ret['epoch'], 1)
         print "#### chain height=", self.nodes[0].getblockcount()
@@ -177,7 +177,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         print "ceasing height   =", ret['ceasing height']
         print "end epoch height =", ret['end epoch height']
         print "epoch number     =", ret['epoch']
-        assert_equal(ret['ceasing height'], 253) 
+        assert_equal(ret['ceasing height'], 252) 
         assert_equal(ret['end epoch height'], 250)
         assert_equal(ret['epoch'], 2)
         print "#### chain height=", self.nodes[0].getblockcount()
@@ -196,8 +196,8 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         print "----------------------------------------"
         print
 
-        mark_logs("Node0 generates 2 more blocks", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(2)
+        mark_logs("Node0 generates 1 more blocks reaching the end of the cert submission window", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
         self.sync_all()
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]

@@ -659,7 +659,7 @@ void AddOutputsToRawObject(CMutableTransactionBase& rawTxObj, const UniValue& se
 
 UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {   
-    if (fHelp || params.size() > 5)
+    if (fHelp || params.size() > 6)
         throw runtime_error(
             "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} (\n"
             "    [{\"amount\": value, \"senderAddress\":\"address\", ...}, ...] (\n"
@@ -724,7 +724,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "       }\n"
             "       ,...\n"
             "     ]\n"
-            "5. \"backward transfer requests\"   (string, optional) A json array of json objects\n"
+            "6. \"backward transfer requests\"   (string, optional) A json array of json objects\n"
             "     [\n"
             "       {\n"
             "         \"scid\":side chain ID       (string, required) The uint256 side chain ID\n"
@@ -749,7 +749,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of 
-        (UniValue::VARR)(UniValue::VOBJ)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR));
+        (UniValue::VARR)(UniValue::VOBJ)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR));
 
     UniValue inputs = params[0].get_array();
     UniValue sendTo = params[1].get_obj();
@@ -805,9 +805,9 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
     }
 
     // bwt requests 
-    if (params.size() > 4 && !params[4].isNull())
+    if (params.size() > 5 && !params[5].isNull())
     {
-        UniValue bwtreq = params[4].get_array();
+        UniValue bwtreq = params[5].get_array();
 
         if (bwtreq.size())
         {
