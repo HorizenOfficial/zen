@@ -377,7 +377,6 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidProof) {
         <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////// checkCcOutputAmounts /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -753,6 +752,77 @@ TEST_F(SidechainsTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState)
 
     //checks
     EXPECT_FALSE(res);
+}
+
+TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainIsAccepted) {
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.balance = CAmount{1000};
+    int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
+
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
+
+    CAmount cswTxCoins = initialScState.balance/2;
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins);
+    CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
+
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx, dummyScVerifier));
+}
+
+TEST_F(SidechainsTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.balance = CAmount{1000};
+    int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
+
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
+
+    CAmount cswTxCoins = initialScState.balance*2;
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins);
+    CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
+
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(cswTx, dummyScVerifier));
+}
+
+TEST_F(SidechainsTestSuite, CSWsToUnknownSidechainIsRefused) {
+    uint256 unknownScId = uint256S("aaa");
+    ASSERT_FALSE(sidechainsView->HaveSidechain(unknownScId));
+
+    CAmount cswTxCoins = 10;
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(unknownScId, "aabb", cswTxCoins);
+    CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
+
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(cswTx, dummyScVerifier));
+}
+
+TEST_F(SidechainsTestSuite, CSWsToActiveSidechainIsRefused) {
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.balance = CAmount{1000};
+    int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
+
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+    CAmount cswTxCoins = 10;
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins);
+    CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
+
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(cswTx, dummyScVerifier));
 }
 /////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// RevertTxOutputs ///////////////////////////////

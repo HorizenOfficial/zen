@@ -15,6 +15,7 @@ void signTx(CMutableScCertificate& mcert);
 
 CTransaction createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength = 15);
 CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
+CTxCeasedSidechainWithdrawalInput CreateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount);
 CTransaction createCSWTxWith(const CTxCeasedSidechainWithdrawalInput& csw);
 
 CTransaction createCoinBase(const CAmount& amount);

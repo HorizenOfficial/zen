@@ -103,6 +103,18 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
     return CTransaction(mtx);
 }
 
+CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
+{
+    libzendoomc::ScFieldElement nullifier;
+    nullifier.SetHex(nullifierHex);
+
+    uint160 dummyPubKeyHash {};
+    libzendoomc::ScProof dummyScProof;
+    CScript dummyRedeemScript;
+
+    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript);
+}
+
 CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawalInput& csw)
 {
     CMutableTransaction mtx;
