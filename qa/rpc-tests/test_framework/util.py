@@ -510,14 +510,6 @@ def get_epoch_data(scid, node, epochLen):
     epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
     return epoch_block_hash, epoch_number
 
-def disconnect_nodes(from_connection, node_num):
-    ip_port = "127.0.0.1:" + str(p2p_port(node_num))
-    from_connection.disconnectnode(ip_port)
-    # poll until version handshake complete to avoid race conditions
-    # with transaction relaying
-    while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
-        time.sleep(0.1)
-
 def get_spendable(node, min_amount):
     # get a UTXO in node's wallet with minimal amount
     utx = False

@@ -2,6 +2,7 @@
 #define TX_CREATION_UTILS_H
 
 #include <amount.h>
+#include <coins.h>
 
 class CTransaction;
 class CMutableTransaction;
@@ -9,11 +10,6 @@ class CScCertificate;
 class CMutableScCertificate;
 class uint256;
 class CBlock;
-class CCoinsViewCache;
-class CSidechainsMap;
-class CSidechainEventsMap;
-class CSidechainEvents;
-class CSidechain;
 
 namespace txCreationUtils
 {
