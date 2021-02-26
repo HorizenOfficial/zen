@@ -672,35 +672,35 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
                 if (tx.IsCertificate())
                 {
-                	const CScCertificate& castedCert = dynamic_cast<const CScCertificate&>(tx);
-                	ContextualCheckCertInputs(castedCert, dummyState, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus());
+                    const CScCertificate& castedCert = dynamic_cast<const CScCertificate&>(tx);
+                    ContextualCheckCertInputs(castedCert, dummyState, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus());
 
-                	UpdateCoins(castedCert, view, dummyUndo, nHeight, /*isBlockTopQualityCert*/true);
-                	pblock->vcert.push_back(castedCert);
-                	pblocktemplate.get()->vCertFees.push_back(nTxFees);
-                	pblocktemplate.get()->vCertSigOps.push_back(nTxSigOps);
+                    UpdateCoins(castedCert, view, dummyUndo, nHeight, /*isBlockTopQualityCert*/true);
+                    pblock->vcert.push_back(castedCert);
+                    pblocktemplate.get()->vCertFees.push_back(nTxFees);
+                    pblocktemplate.get()->vCertSigOps.push_back(nTxSigOps);
                 } else
                 {
-                	const CTransaction& castedTx = dynamic_cast<const CTransaction&>(tx);
-                	ContextualCheckTxInputs(castedTx, dummyState, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus());
+                    const CTransaction& castedTx = dynamic_cast<const CTransaction&>(tx);
+                    ContextualCheckTxInputs(castedTx, dummyState, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus());
 
-                	UpdateCoins(castedTx, view, dummyUndo, nHeight);
-                	pblock->vtx.push_back(castedTx);
-                	pblocktemplate.get()->vTxFees.push_back(nTxFees);
-                	pblocktemplate.get()->vTxSigOps.push_back(nTxSigOps);
+                    UpdateCoins(castedTx, view, dummyUndo, nHeight);
+                    pblock->vtx.push_back(castedTx);
+                    pblocktemplate.get()->vTxFees.push_back(nTxFees);
+                    pblocktemplate.get()->vTxSigOps.push_back(nTxSigOps);
                 }
 
                 nBlockSize += nTxSize;
-               ++nBlockTx;
-               nBlockSigOps += nTxSigOps;
-               nFees += nTxFees;
-               nBlockComplexity += nTxComplexity;
+                ++nBlockTx;
+                nBlockSigOps += nTxSigOps;
+                nFees += nTxFees;
+                nBlockComplexity += nTxComplexity;
 
-               if (fPrintPriority)
-               {
-                   LogPrintf("priority %.1f fee %d feeRate %s txid %s\n",
-                       dPriority, nTxFees, feeRate.ToString(), tx.GetHash().ToString());
-               }
+                if (fPrintPriority)
+                {
+                    LogPrintf("priority %.1f fee %d feeRate %s txid %s\n",
+                        dPriority, nTxFees, feeRate.ToString(), tx.GetHash().ToString());
+                }
 
             } catch (...) {
                 LogPrintf("%s():%d - ERROR: tx [%s] cast error\n",
