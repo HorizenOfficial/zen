@@ -1112,7 +1112,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
             else
                 sc.push_back(Pair("wMbtrVk", std::string{"NOT INITIALIZED"}));
-            sc.push_back(Pair("vCustomFieldConfig", VecToStr(info.creationData.vCustomFieldConfig)));
+            sc.push_back(Pair("vCompressedFieldElementConfig", VecToStr(info.creationData.vCompressedFieldElementConfig)));
             sc.push_back(Pair("vCompressedMerkleTreeConfig", VecToStr(info.creationData.vCompressedMerkleTreeConfig) ));
         }
  
@@ -1158,7 +1158,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
                     info.creationData.wMbtrVk = scCreation.wMbtrVk;
-                    info.creationData.vCustomFieldConfig = scCreation.vCustomFieldConfig;
+                    info.creationData.vCompressedFieldElementConfig = scCreation.vCompressedFieldElementConfig;
                     info.creationData.vCompressedMerkleTreeConfig = scCreation.vCompressedMerkleTreeConfig;
                     info.mImmatureAmounts[-1] = scCreation.GetScValue();
                     break;
@@ -1179,7 +1179,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
                 else
                     sc.push_back(Pair("unconf wMbtrVk", std::string{"NOT INITIALIZED"}));
-                sc.push_back(Pair("unconf vCustomFieldConfig", VecToStr(info.creationData.vCustomFieldConfig)));
+                sc.push_back(Pair("unconf vCompressedFieldElementConfig", VecToStr(info.creationData.vCompressedFieldElementConfig)));
                 sc.push_back(Pair("unconf vCompressedMerkleTreeConfig", VecToStr(info.creationData.vCompressedMerkleTreeConfig)));
             }
 
@@ -1292,24 +1292,24 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "  \"to\":                    xx,      (numeric) index of the ending item (excluded in result)\n"
             "  \"items\":[\n"
             "   {\n"
-            "     \"scid\":                        xxxxx,   (string)  sidechain ID\n"
-            "     \"balance\":                     xxxxx,   (numeric) available balance\n"
-            "     \"epoch\":                       xxxxx,   (numeric) current epoch for this sidechain\n"
-            "     \"end epoch height\":            xxxxx,   (numeric) height of the last block of the current epoch\n"
-            "     \"state\":                       xxxxx,   (string)  state of the sidechain at the current chain height\n"
-            "     \"ceasing height\":              xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
-            "     \"creating tx hash\":            xxxxx,   (string)  txid of the creating transaction\n"
-            "     \"created in block\":            xxxxx,   (string)  hash of the block containing the creatimg tx\n"
-            "     \"created at block height\":     xxxxx,   (numeric) height of the above block\n"
-            "     \"last certificate epoch\":      xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
-            "     \"last certificate hash\":       xxxxx,   (numeric) the hash of the last certificate that has been received\n"
-            "     \"withdrawalEpochLength\":       xxxxx,   (numeric) length of the withdrawal epoch\n"
-            "     \"wCertVk\":                     xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
-            "     \"customData\":                  xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
-            "     \"constant\":                    xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
-            "     \"wMbtrVk\":                     xxxxx,   (string)  The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
-            "     \"vCustomFieldConfig\":          xxxxx,   (string)  TODO  add description\n"
-            "     \"vCompressedMerkleTreeConfig\": xxxxx,   (string)  TODO  add description\n"
+            "     \"scid\":                          xxxxx,   (string)  sidechain ID\n"
+            "     \"balance\":                       xxxxx,   (numeric) available balance\n"
+            "     \"epoch\":                         xxxxx,   (numeric) current epoch for this sidechain\n"
+            "     \"end epoch height\":              xxxxx,   (numeric) height of the last block of the current epoch\n"
+            "     \"state\":                         xxxxx,   (string)  state of the sidechain at the current chain height\n"
+            "     \"ceasing height\":                xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
+            "     \"creating tx hash\":              xxxxx,   (string)  txid of the creating transaction\n"
+            "     \"created in block\":              xxxxx,   (string)  hash of the block containing the creatimg tx\n"
+            "     \"created at block height\":       xxxxx,   (numeric) height of the above block\n"
+            "     \"last certificate epoch\":        xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
+            "     \"last certificate hash\":         xxxxx,   (numeric) the hash of the last certificate that has been received\n"
+            "     \"withdrawalEpochLength\":         xxxxx,   (numeric) length of the withdrawal epoch\n"
+            "     \"wCertVk\":                       xxxxx,   (string) The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
+            "     \"customData\":                    xxxxx,   (string) The arbitrary byte string of custom data set at sc creation\n"
+            "     \"constant\":                      xxxxx,   (string) The arbitrary byte string of constant set at sc creation\n"
+            "     \"wMbtrVk\":                       xxxxx,   (string) The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
+            "     \"vCompressedFieldElementConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            "     \"vCompressedMerkleTreeConfig\"    xxxxx,   (string) A string representation of an array whose entries are mkl tree heights. Any certificate should have as many custom CompressedMerkleTree with the corresponding tree height\n"
             "     \"immature amounts\": [\n"
             "       {\n"
             "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"

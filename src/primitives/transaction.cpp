@@ -269,7 +269,7 @@ CTxScCreationOut::CTxScCreationOut(
     const Sidechain::ScCreationParameters& paramsIn)
     :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
      withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant),
-     wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), vCustomFieldConfig(paramsIn.vCustomFieldConfig),
+     wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), vCompressedFieldElementConfig(paramsIn.vCompressedFieldElementConfig),
      vCompressedMerkleTreeConfig(paramsIn.vCompressedMerkleTreeConfig) {}
 
 uint256 CTxScCreationOut::GetHash() const
@@ -280,9 +280,9 @@ uint256 CTxScCreationOut::GetHash() const
 std::string CTxScCreationOut::ToString() const
 {
     return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, "
-        "customData=[%s], constant=[%s], wCertVk=[%s], vCustomFieldConfig=[%s], vCompressedMerkleTreeConfig[%s]",
+        "customData=[%s], constant=[%s], wCertVk=[%s], vCompressedFieldElementConfig=[%s], vCompressedMerkleTreeConfig[%s]",
         generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30),
-        HexStr(customData), HexStr(constant), HexStr(wCertVk), VecToStr(vCustomFieldConfig), VecToStr(vCompressedMerkleTreeConfig) );
+        HexStr(customData), HexStr(constant), HexStr(wCertVk), VecToStr(vCompressedFieldElementConfig), VecToStr(vCompressedMerkleTreeConfig) );
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
@@ -304,7 +304,7 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     customData = ccout.customData;
     constant = ccout.constant;
     wCertVk = ccout.wCertVk;
-    vCustomFieldConfig = ccout.vCustomFieldConfig;
+    vCompressedFieldElementConfig = ccout.vCompressedFieldElementConfig;
     vCompressedMerkleTreeConfig = ccout.vCompressedMerkleTreeConfig;
     return *this;
 }

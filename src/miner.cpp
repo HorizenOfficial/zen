@@ -739,7 +739,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-        pblock->hashScTxsCommitment = CFakePoseidonHash(pblock->BuildScTxsCommitment());
+        pblock->hashScTxsCommitment = CPoseidonHash(pblock->BuildScTxsCommitment());
         UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
         pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, Params().GetConsensus());
         pblock->nSolution.clear();

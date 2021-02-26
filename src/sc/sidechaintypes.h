@@ -107,9 +107,10 @@ protected:
     const std::vector<unsigned char> vRawField;
 
 public:
-    CustomField(const CustomFieldConfig& cfg): vRawField(cfg.getBitSize()) {};
-    CustomField(const std::vector<unsigned char>& rawBytes): vRawField(rawBytes) {};
+    CustomField() = default;
+    CustomField(const std::vector<unsigned char>& rawBytes);
     virtual ~CustomField() = default;
+
     virtual const libzendoomc::ScFieldElement& GetFieldElement() const = 0; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
     virtual bool IsValid() const = 0; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
     virtual bool checkCfg(const CustomFieldConfig& cfg) const = 0;
@@ -125,7 +126,7 @@ protected:
     void InitFieldElement() const; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
 
 public:
-    CompressedFieldElement(const CompressedFieldElementConfig& cfg = CompressedFieldElementConfig()); //default ctor for serialization and containers only
+    CompressedFieldElement() = default; 
     CompressedFieldElement(const std::vector<unsigned char>& rawBytes);
     CompressedFieldElement(const CompressedFieldElement& rhs) = default;
     CompressedFieldElement& operator=(const CompressedFieldElement& rhs);
@@ -151,7 +152,7 @@ protected:
     void CalculateMerkleRoot() const; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
 
 public:
-    CompressedMerkleTree(const CompressedMerkleTreeConfig& cfg = CompressedMerkleTreeConfig()); //default ctor for serialization and containers only
+    CompressedMerkleTree() = default; 
     CompressedMerkleTree(const std::vector<unsigned char>& rawBytes);
     ~CompressedMerkleTree() = default;
     CompressedMerkleTree(const CompressedMerkleTree& rhs) = default;
@@ -170,16 +171,16 @@ public:
 ////////////////////////// End of Custom Field types ///////////////////////////
 
 
-class CFakePoseidonHash
+class CPoseidonHash 
 {
 public:
-    CFakePoseidonHash()  {SetNull();};
-    explicit CFakePoseidonHash(const uint256& sha256): innerHash(sha256) {} //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
-    ~CFakePoseidonHash() = default;
+    CPoseidonHash ()  {SetNull();};
+    explicit CPoseidonHash (const uint256& sha256): innerHash(sha256) {} //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
+    ~CPoseidonHash () = default;
 
     void SetNull() { innerHash.SetNull(); }
-    friend inline bool operator==(const CFakePoseidonHash& lhs, const CFakePoseidonHash& rhs) { return lhs.innerHash == rhs.innerHash; }
-    friend inline bool operator!=(const CFakePoseidonHash& lhs, const CFakePoseidonHash& rhs) { return !(lhs == rhs); }
+    friend inline bool operator==(const CPoseidonHash & lhs, const CPoseidonHash & rhs) { return lhs.innerHash == rhs.innerHash; }
+    friend inline bool operator!=(const CPoseidonHash & lhs, const CPoseidonHash & rhs) { return !(lhs == rhs); }
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -220,18 +221,18 @@ struct ScCreationParameters
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
-    std::vector<CompressedFieldElementConfig> vCustomFieldConfig;
+    std::vector<CompressedFieldElementConfig> vCompressedFieldElementConfig;
     std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
 
     bool IsNull() const
     {
         return (
-            withdrawalEpochLength == -1        &&
-            customData.empty()                 &&
-            constant.empty( )                  &&
-            wCertVk.IsNull()                   &&
-            wMbtrVk == boost::none             &&
-            vCustomFieldConfig.empty()        &&
+            withdrawalEpochLength == -1           &&
+            customData.empty()                    &&
+            constant.empty( )                     &&
+            wCertVk.IsNull()                      &&
+            wMbtrVk == boost::none                &&
+            vCompressedFieldElementConfig.empty() &&
             vCompressedMerkleTreeConfig.empty() );
     }
 
@@ -243,7 +244,7 @@ struct ScCreationParameters
         READWRITE(constant);
         READWRITE(wCertVk);
         READWRITE(wMbtrVk);
-        READWRITE(vCustomFieldConfig);
+        READWRITE(vCompressedFieldElementConfig);
         READWRITE(vCompressedMerkleTreeConfig);
     }
     ScCreationParameters() :withdrawalEpochLength(-1) {}
@@ -255,18 +256,18 @@ struct ScCreationParameters
                (constant == rhs.constant) &&
                (wCertVk == rhs.wCertVk)  &&
                (wMbtrVk == rhs.wMbtrVk)  &&
-               (vCustomFieldConfig == rhs.vCustomFieldConfig) &&
+               (vCompressedFieldElementConfig == rhs.vCompressedFieldElementConfig) &&
                (vCompressedMerkleTreeConfig == rhs.vCompressedMerkleTreeConfig);
     }
     inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
     inline ScCreationParameters& operator=(const ScCreationParameters& cp)
     {
-        withdrawalEpochLength       = cp.withdrawalEpochLength;
-        customData                  = cp.customData;
-        constant                    = cp.constant;
-        wCertVk                     = cp.wCertVk;
-        wMbtrVk                     = cp.wMbtrVk;
-        vCustomFieldConfig          = cp.vCustomFieldConfig;
+        withdrawalEpochLength         = cp.withdrawalEpochLength;
+        customData                    = cp.customData;
+        constant                      = cp.constant;
+        wCertVk                       = cp.wCertVk;
+        wMbtrVk                       = cp.wMbtrVk;
+        vCompressedFieldElementConfig = cp.vCompressedFieldElementConfig;
         vCompressedMerkleTreeConfig = cp.vCompressedMerkleTreeConfig;
         return *this;
     }

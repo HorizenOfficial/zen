@@ -167,6 +167,7 @@ public:
 };
 
 namespace Sidechain {
+    bool checkCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert);
     bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
     bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
     bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);

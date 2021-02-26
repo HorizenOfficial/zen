@@ -721,7 +721,7 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.creationData.constant = cr.constant;
         scIt->second.sidechain.creationData.wCertVk = cr.wCertVk;
         scIt->second.sidechain.creationData.wMbtrVk = cr.wMbtrVk;
-        scIt->second.sidechain.creationData.vCustomFieldConfig = cr.vCustomFieldConfig;
+        scIt->second.sidechain.creationData.vCompressedFieldElementConfig = cr.vCompressedFieldElementConfig;
         scIt->second.sidechain.creationData.vCompressedMerkleTreeConfig = cr.vCompressedMerkleTreeConfig;
         scIt->second.sidechain.mImmatureAmounts[maturityHeight] = cr.nValue;
 
@@ -1034,7 +1034,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
-    if (!CheckCertCustomFields(sidechain, cert) )
+    if (!Sidechain::checkCertCustomFields(sidechain, cert) )
     {
     	return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
@@ -1086,53 +1086,6 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
-    return true;
-}
-
-bool CCoinsViewCache::CheckCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert) const
-{
-    const std::vector<CompressedFieldElementConfig>& vFeCfg = sidechain.creationData.vCustomFieldConfig;
-    const std::vector<CompressedMerkleTreeConfig>& vCmtCfg = sidechain.creationData.vCompressedMerkleTreeConfig;
-
-    const std::vector<CompressedFieldElement>& vFe = cert.vCustomField;
-    const std::vector<CompressedMerkleTree>& vCmt = cert.vCompressedMerkleTree;
-
-    if ( vFeCfg.size() != vFe.size() || vCmtCfg.size() != vCmt.size() )
-    {
-        LogPrint("sc", "%s():%d - invalid custom field cfg sz: %d/%d - %d/%d\n", __func__, __LINE__,
-            vFeCfg.size(), vFe.size(), vCmtCfg.size(), vCmt.size() );
-        return false;
-    }
-
-    for (int i = 0; i < vFe.size(); i++)
-    {
-        const CompressedFieldElement& fe = vFe.at(i);
-        if (!fe.checkCfg(vFeCfg.at(i)) )
-        {
-            LogPrint("sc", "%s():%d - invalid custom field cfg at pos %d\n", __func__, __LINE__, i);
-            return false;
-        }
-        if (!fe.IsValid())
-        {
-            LogPrint("sc", "%s():%d - invalid custom field at pos %d\n", __func__, __LINE__, i);
-            return false;
-        }
-    }
-
-    for (int i = 0; i < vCmt.size(); i++)
-    {
-        const CompressedMerkleTree& cmt = vCmt.at(i);
-        if (!cmt.checkCfg(vCmtCfg.at(i)) )
-        {
-            LogPrint("sc", "%s():%d - invalid compr mkl tree field cfg at pos %d\n", __func__, __LINE__, i);
-            return false;
-        }
-        if (!cmt.IsValid())
-        {
-            LogPrint("sc", "%s():%d - invalid compr mkl tree field at pos %d\n", __func__, __LINE__, i);
-            return false;
-        }
-    }
     return true;
 }
 
@@ -1731,7 +1684,7 @@ libzendoomc::ScFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256
 }
 
 bool CCoinsViewCache::GetScCertCustomFieldsConfig(const uint256 & scId,
-        std::vector<CompressedFieldElementConfig>& vCustomFieldConfig,
+        std::vector<CompressedFieldElementConfig>& vCompressedFieldElementConfig,
         std::vector<CompressedMerkleTreeConfig>& vCompressedMerkleTreeConfig) const
 {
     if (!HaveSidechain(scId))
@@ -1740,8 +1693,8 @@ bool CCoinsViewCache::GetScCertCustomFieldsConfig(const uint256 & scId,
     CSidechain scInfo;
     GetSidechain(scId, scInfo);
 
-    vCustomFieldConfig         = scInfo.creationData.vCustomFieldConfig;
-    vCompressedMerkleTreeConfig = scInfo.creationData.vCompressedMerkleTreeConfig;
+    vCompressedFieldElementConfig = scInfo.creationData.vCompressedFieldElementConfig;
+    vCompressedMerkleTreeConfig   = scInfo.creationData.vCompressedMerkleTreeConfig;
 
     return true;
 }

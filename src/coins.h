@@ -666,10 +666,8 @@ public:
     CSidechain::State GetSidechainState(const uint256& scId) const;
 
     bool GetScCertCustomFieldsConfig(const uint256 & scId,
-        std::vector<CompressedFieldElementConfig>& vCustomFieldConfig,
+        std::vector<CompressedFieldElementConfig>& vCompressedFieldElementConfig,
         std::vector<CompressedMerkleTreeConfig>& vCompressedMerkleTreeConfig) const;
-
-    bool CheckCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert) const;
 
     bool Flush();
 

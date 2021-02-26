@@ -2890,7 +2890,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     {
         const uint256& scTxsCommittment = scCommitmentBuilder.getCommitment();
 
-        if (block.hashScTxsCommitment != CFakePoseidonHash(scTxsCommittment))
+        if (block.hashScTxsCommitment != CPoseidonHash (scTxsCommittment))
         {
             // If this check fails, we return validation state obj with a state.corruptionPossible=false attribute,
             // which will mark this header as failed. This is because the previous check on merkel root was successful,

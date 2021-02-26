@@ -523,7 +523,7 @@ public:
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
-    std::vector<CompressedFieldElementConfig> vCustomFieldConfig;
+    std::vector<CompressedFieldElementConfig> vCompressedFieldElementConfig;
     std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
 
     CTxScCreationOut():withdrawalEpochLength(-1) { }
@@ -542,7 +542,7 @@ public:
         READWRITE(constant);
         READWRITE(wCertVk);
         READWRITE(wMbtrVk);
-        READWRITE(vCustomFieldConfig);
+        READWRITE(vCompressedFieldElementConfig);
         READWRITE(vCompressedMerkleTreeConfig);
     }
 
@@ -560,7 +560,7 @@ public:
                  a.constant == b.constant &&
                  a.wCertVk == b.wCertVk &&
                  a.wMbtrVk == b.wMbtrVk &&
-                 a.vCustomFieldConfig == b.vCustomFieldConfig &&
+                 a.vCompressedFieldElementConfig == b.vCompressedFieldElementConfig &&
                  a.vCompressedMerkleTreeConfig == b.vCompressedMerkleTreeConfig );
     }
 

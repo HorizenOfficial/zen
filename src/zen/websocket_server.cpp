@@ -730,12 +730,12 @@ private:
                 }
 
                 // optional, can be null
-                const UniValue& fe = find_value(reqPayload, "vFieldElement");
-                if (!fe.isNull())
+                const UniValue& cfe = find_value(reqPayload, "vCompressedFieldElement");
+                if (!cfe.isNull())
                 {
-                    const UniValue& vFe = fe.get_array();
-                    LogPrint("ws", "%s():%d - adding vFieldElement, sz(%d): msg[%s]\n", __func__, __LINE__, vFe.size(), msg);
-                    cmdParams.push_back(vFe);
+                    const UniValue& vCfe = cfe.get_array();
+                    LogPrint("ws", "%s():%d - adding vCompressedFieldElement, sz(%d): msg[%s]\n", __func__, __LINE__, vCfe.size(), msg);
+                    cmdParams.push_back(vCfe);
                 }
 
                 // optional, can be null

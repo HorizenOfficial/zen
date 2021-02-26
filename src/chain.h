@@ -182,7 +182,7 @@ public:
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
-    CFakePoseidonHash hashScTxsCommitment;
+    CPoseidonHash  hashScTxsCommitment;
     unsigned int nTime;
     unsigned int nBits;
     uint256 nNonce;

@@ -35,7 +35,7 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
         o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
-        o.push_back(Pair("vCustomFieldConfig", VecToStr(out.vCustomFieldConfig)));
+        o.push_back(Pair("vCompressedFieldElementConfig", VecToStr(out.vCompressedFieldElementConfig)));
         o.push_back(Pair("vCompressedMerkleTreeConfig", VecToStr(out.vCompressedMerkleTreeConfig)));
         o.push_back(Pair("customData", HexStr(out.customData)));
         o.push_back(Pair("constant", HexStr(out.constant)));
@@ -300,13 +300,13 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             }
         }
 
-        const UniValue& FeCfg = find_value(o, "vCustomFieldConfig");
+        const UniValue& FeCfg = find_value(o, "vCompressedFieldElementConfig");
         if (!FeCfg.isNull())
         {
             UniValue intArray = FeCfg.get_array();
-            if (!Sidechain::AddScData(intArray, sc.vCustomFieldConfig))
+            if (!Sidechain::AddScData(intArray, sc.vCompressedFieldElementConfig))
             {
-                error = "invalid vCustomFieldConfig";
+                error = "invalid vCompressedFieldElementConfig";
                 return false;
             }
         }
@@ -492,12 +492,12 @@ void fundCcRecipients(const CTransaction& tx,
         CRecipientScCreation sc;
         sc.nValue = entry.nValue;
         sc.address = entry.address;
-        sc.creationData.withdrawalEpochLength       = entry.withdrawalEpochLength;
-        sc.creationData.wCertVk                     = entry.wCertVk;
-        sc.creationData.vCustomFieldConfig         = entry.vCustomFieldConfig;
-        sc.creationData.vCompressedMerkleTreeConfig = entry.vCompressedMerkleTreeConfig;
-        sc.creationData.customData = entry.customData;
-        sc.creationData.constant = entry.constant;
+        sc.creationData.withdrawalEpochLength         = entry.withdrawalEpochLength;
+        sc.creationData.wCertVk                       = entry.wCertVk;
+        sc.creationData.vCompressedFieldElementConfig = entry.vCompressedFieldElementConfig;
+        sc.creationData.vCompressedMerkleTreeConfig   = entry.vCompressedMerkleTreeConfig;
+        sc.creationData.customData                    = entry.customData;
+        sc.creationData.constant                      = entry.constant;
 
         vecScSend.push_back(sc);
     }
@@ -691,9 +691,9 @@ void ScRpcCmd::addChange()
 ScRpcCmdCert::ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
-        const std::vector<CompressedFieldElement>& vFe, const std::vector<CompressedMerkleTree>& vCmt):
+        const std::vector<CompressedFieldElement>& vCfe, const std::vector<CompressedMerkleTree>& vCmt):
         ScRpcCmd(fromaddress, changeaddress, minConf, nFee),
-        _cert(cert),_bwdParams(bwdParams), _vFe(vFe), _vCmt(vCmt)
+        _cert(cert),_bwdParams(bwdParams), _vCfe(vCfe), _vCmt(vCmt)
 {
 }
 
@@ -780,8 +780,8 @@ void ScRpcCmdCert::addBackwardTransfers()
 
 void ScRpcCmdCert::addCustomFields()
 {
-    if (!_vFe.empty())
-        _cert.vCustomField = _vFe;
+    if (!_vCfe.empty())
+        _cert.vCompressedFieldElement = _vCfe;
     if (!_vCmt.empty())
         _cert.vCompressedMerkleTree = _vCmt;
 }

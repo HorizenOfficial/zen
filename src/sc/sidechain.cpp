@@ -280,4 +280,51 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 
     return true;
 }
+
+bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert)
+{
+    const std::vector<CompressedFieldElementConfig>& vCfeCfg = sidechain.creationData.vCompressedFieldElementConfig;
+    const std::vector<CompressedMerkleTreeConfig>& vCmtCfg = sidechain.creationData.vCompressedMerkleTreeConfig;
+
+    const std::vector<CompressedFieldElement>& vCfe = cert.vCompressedFieldElement;
+    const std::vector<CompressedMerkleTree>& vCmt = cert.vCompressedMerkleTree;
+
+    if ( vCfeCfg.size() != vCfe.size() || vCmtCfg.size() != vCmt.size() )
+    {
+        LogPrint("sc", "%s():%d - invalid custom field cfg sz: %d/%d - %d/%d\n", __func__, __LINE__,
+            vCfeCfg.size(), vCfe.size(), vCmtCfg.size(), vCmt.size() );
+        return false;
+    }
+
+    for (int i = 0; i < vCfe.size(); i++)
+    {
+        const CompressedFieldElement& fe = vCfe.at(i);
+        if (!fe.checkCfg(vCfeCfg.at(i)) )
+        {
+            LogPrint("sc", "%s():%d - invalid custom field cfg at pos %d\n", __func__, __LINE__, i);
+            return false;
+        }
+        if (!fe.IsValid())
+        {
+            LogPrint("sc", "%s():%d - invalid custom field at pos %d\n", __func__, __LINE__, i);
+            return false;
+        }
+    }
+
+    for (int i = 0; i < vCmt.size(); i++)
+    {
+        const CompressedMerkleTree& cmt = vCmt.at(i);
+        if (!cmt.checkCfg(vCmtCfg.at(i)) )
+        {
+            LogPrint("sc", "%s():%d - invalid compr mkl tree field cfg at pos %d\n", __func__, __LINE__, i);
+            return false;
+        }
+        if (!cmt.IsValid())
+        {
+            LogPrint("sc", "%s():%d - invalid compr mkl tree field at pos %d\n", __func__, __LINE__, i);
+            return false;
+        }
+    }
+    return true;
+}
 #endif

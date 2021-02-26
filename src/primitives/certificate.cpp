@@ -31,12 +31,12 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
 
 CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
     scId(), epochNumber(EPOCH_NOT_INITIALIZED), quality(QUALITY_NULL),
-    endEpochBlockHash(), scProof(), vCustomField(), vCompressedMerkleTree(), nFirstBwtPos(0) {}
+    endEpochBlockHash(), scProof(), vCompressedFieldElement(), vCompressedMerkleTree(), nFirstBwtPos(0) {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
     endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof),
-    vCustomField(cert.vCustomField), vCompressedMerkleTree(cert.vCompressedMerkleTree), nFirstBwtPos(cert.nFirstBwtPos) {}
+    vCompressedFieldElement(cert.vCompressedFieldElement), vCompressedMerkleTree(cert.vCompressedMerkleTree), nFirstBwtPos(cert.nFirstBwtPos) {}
 
 CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 {
@@ -46,7 +46,7 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
     *const_cast<int64_t*>(&quality) = cert.quality;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<libzendoomc::ScProof*>(&scProof) = cert.scProof;
-    *const_cast<std::vector<CompressedFieldElement>*>(&vCustomField) = cert.vCustomField;
+    *const_cast<std::vector<CompressedFieldElement>*>(&vCompressedFieldElement) = cert.vCompressedFieldElement;
     *const_cast<std::vector<CompressedMerkleTree>*>(&vCompressedMerkleTree) = cert.vCompressedMerkleTree;
     *const_cast<int*>(&nFirstBwtPos) = cert.nFirstBwtPos;
     return *this;
@@ -55,7 +55,7 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
     endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof),
-    vCustomField(cert.vCustomField), vCompressedMerkleTree(cert.vCompressedMerkleTree), nFirstBwtPos(cert.nFirstBwtPos)
+    vCompressedFieldElement(cert.vCompressedFieldElement), vCompressedMerkleTree(cert.vCompressedMerkleTree), nFirstBwtPos(cert.nFirstBwtPos)
 {
     UpdateHash();
 }
@@ -291,12 +291,12 @@ CAmount CScCertificate::GetValueOfChange() const
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate(): CMutableTransactionBase(),
     scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
-    endEpochBlockHash(), scProof(), vCustomField(), vCompressedMerkleTree(), nFirstBwtPos(0) {}
+    endEpochBlockHash(), scProof(), vCompressedFieldElement(), vCompressedMerkleTree(), nFirstBwtPos(0) {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutableTransactionBase(),
     scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 
     endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), 
-    vCustomField(cert.vCustomField), vCompressedMerkleTree(cert.vCompressedMerkleTree), nFirstBwtPos(cert.nFirstBwtPos)
+    vCompressedFieldElement(cert.vCompressedFieldElement), vCompressedMerkleTree(cert.vCompressedMerkleTree), nFirstBwtPos(cert.nFirstBwtPos)
 {
     nVersion = cert.nVersion;
     vin  = cert.GetVin();
@@ -305,16 +305,16 @@ CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutab
 
 CMutableScCertificate& CMutableScCertificate::operator=(const CMutableScCertificate& rhs)
 {
-    nVersion              = rhs.nVersion;
-    vin                   = rhs.vin;
-    vout                  = rhs.vout;
-    scId                  = rhs.scId;
-    epochNumber           = rhs.epochNumber;
-    quality               = rhs.quality;
-    endEpochBlockHash     = rhs.endEpochBlockHash;
-    scProof               = rhs.scProof;
-    vCustomField         = rhs.vCustomField;
-    vCompressedMerkleTree = rhs.vCompressedMerkleTree;
+    nVersion                = rhs.nVersion;
+    vin                     = rhs.vin;
+    vout                    = rhs.vout;
+    scId                    = rhs.scId;
+    epochNumber             = rhs.epochNumber;
+    quality                 = rhs.quality;
+    endEpochBlockHash       = rhs.endEpochBlockHash;
+    scProof                 = rhs.scProof;
+    vCompressedFieldElement = rhs.vCompressedFieldElement;
+    vCompressedMerkleTree   = rhs.vCompressedMerkleTree;
     *const_cast<int*>(&nFirstBwtPos) = rhs.nFirstBwtPos;
 
     return *this;

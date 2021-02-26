@@ -1407,7 +1407,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationData.constant = scCreation.constant;
                 info.creationData.wCertVk = scCreation.wCertVk;
                 info.creationData.wMbtrVk = scCreation.wMbtrVk;
-                info.creationData.vCustomFieldConfig = scCreation.vCustomFieldConfig;
+                info.creationData.vCompressedFieldElementConfig = scCreation.vCompressedFieldElementConfig;
                 info.creationData.vCompressedMerkleTreeConfig = scCreation.vCompressedMerkleTreeConfig;
                 break;
             }

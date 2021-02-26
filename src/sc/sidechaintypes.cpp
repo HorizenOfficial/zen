@@ -2,7 +2,11 @@
 #include "util.h"
 
 ////////////////////////////// Custom Config types //////////////////////////////
-bool CompressedFieldElementConfig::isBitsLenghtValid() { return (nBits > 0); }
+bool CompressedFieldElementConfig::isBitsLenghtValid()
+{
+    //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
+    return (nBits > 0);
+}
 
 CompressedFieldElementConfig::CompressedFieldElementConfig(int32_t nBitsIn): CustomFieldConfig(), nBits(nBitsIn)
 {
@@ -12,11 +16,13 @@ CompressedFieldElementConfig::CompressedFieldElementConfig(int32_t nBitsIn): Cus
 
 int32_t CompressedFieldElementConfig::getBitSize() const
 {
+    //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
     return nBits;
 }
 
 //----------------------------------------------------------------------------------
 bool CompressedMerkleTreeConfig::isTreeHeightValid() {
+    //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
     return ((treeHeight >= 0) && (treeHeight < MAX_TREE_HEIGHT));
 }
 
@@ -30,15 +36,17 @@ CompressedMerkleTreeConfig::CompressedMerkleTreeConfig(int32_t treeHeightIn): Cu
 
 int32_t CompressedMerkleTreeConfig::getBitSize() const
 {
+    //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
     int nBytes = (treeHeight == -1)? 0: 1 << treeHeight;
     return nBytes * CHAR_BIT;
 }
 
 
 ////////////////////////////// Custom Field types //////////////////////////////
-CompressedFieldElement::CompressedFieldElement(const CompressedFieldElementConfig& cfg)
-    :CustomField(cfg) {}
+CustomField::CustomField(const std::vector<unsigned char>& rawBytes)
+    :vRawField(rawBytes) {};
 
+//----------------------------------------------------------------------------------------
 CompressedFieldElement::CompressedFieldElement(const std::vector<unsigned char>& rawBytes)
     :CustomField(rawBytes) {}
 
@@ -88,16 +96,8 @@ bool CompressedFieldElement::IsValid() const
 
 bool CompressedFieldElement::checkCfg(const CustomFieldConfig& cfg) const
 {
-#if 0
-    int bits = cfg.getBitSize();
-    int bytes = bits/CHAR_BIT;
-    unsigned char rem = bits % CHAR_BIT;
-    if (rem)
-        bytes++;
-#else
     int rem = 0;
     int bytes = getBytesFromBits(cfg.getBitSize(), rem);
-#endif
 
     if (vRawField.size() != bytes )
     {
@@ -123,9 +123,6 @@ bool CompressedFieldElement::checkCfg(const CustomFieldConfig& cfg) const
 };
 
 //----------------------------------------------------------------------------------
-CompressedMerkleTree::CompressedMerkleTree(const CompressedMerkleTreeConfig& cfg)
-    :CustomField(cfg) {}
-
 CompressedMerkleTree::CompressedMerkleTree(const std::vector<unsigned char>& rawBytes)
     :CustomField(rawBytes) {}
 
@@ -137,6 +134,15 @@ CompressedMerkleTree& CompressedMerkleTree::operator=(const CompressedMerkleTree
 
 void CompressedMerkleTree::CalculateMerkleRoot() const
 {
+    /*
+     *  TODO this is a dummy implementation, useful just for running preliminary tests
+     *  In the final version using rust lib the steps to cover would be:
+     *
+     *   1. Reconstruct MerkleTree from the compressed raw data of vRawField
+     *   2. Check for the MerkleTree validity
+     *   3. Calculate and store the root hash.
+     */
+
     if (merkleRoot.IsNull())
     {
         if (vRawField.size() > merkleRoot.size())
@@ -172,22 +178,8 @@ bool CompressedMerkleTree::IsValid() const
 
 bool CompressedMerkleTree::checkCfg(const CustomFieldConfig& cfg) const
 {
-#if 0
-    int bits = cfg.getBitSize();
-    int bytes = bits/CHAR_BIT;
-    unsigned char rem = bits % CHAR_BIT;
-    if (rem)
-        bytes++;
-//-------------------------
-    const auto ret = std::div(cfg.getBitSize(), CHAR_BIT);
-    int bytes = ret.quot;
-    int rem = ret.rem;
-    if (rem)
-        bytes++;
-#else
     int rem = 0;
     int bytes = getBytesFromBits(cfg.getBitSize(), rem);
-#endif
 
     if (vRawField.size() > bytes )
     {
