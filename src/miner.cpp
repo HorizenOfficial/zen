@@ -673,7 +673,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 if (tx.IsCertificate())
                 {
                     const CScCertificate& castedCert = dynamic_cast<const CScCertificate&>(tx);
-                    ContextualCheckCertInputs(castedCert, dummyState, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus());
+                    if(!ContextualCheckCertInputs(castedCert, dummyState, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
+                        continue;
 
                     UpdateCoins(castedCert, view, dummyUndo, nHeight, /*isBlockTopQualityCert*/true);
                     pblock->vcert.push_back(castedCert);
@@ -682,7 +683,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 } else
                 {
                     const CTransaction& castedTx = dynamic_cast<const CTransaction&>(tx);
-                    ContextualCheckTxInputs(castedTx, dummyState, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus());
+                    if (!ContextualCheckTxInputs(castedTx, dummyState, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
+                        continue;
 
                     UpdateCoins(castedTx, view, dummyUndo, nHeight);
                     pblock->vtx.push_back(castedTx);
