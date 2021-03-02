@@ -1683,22 +1683,6 @@ libzendoomc::ScFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256
         assert(false);
 }
 
-bool CCoinsViewCache::GetScCertCustomFieldsConfig(const uint256 & scId,
-        std::vector<CompressedFieldElementConfig>& vCompressedFieldElementConfig,
-        std::vector<CompressedMerkleTreeConfig>& vCompressedMerkleTreeConfig) const
-{
-    if (!HaveSidechain(scId))
-        return false;
-
-    CSidechain scInfo;
-    GetSidechain(scId, scInfo);
-
-    vCompressedFieldElementConfig = scInfo.creationData.vCompressedFieldElementConfig;
-    vCompressedMerkleTreeConfig   = scInfo.creationData.vCompressedMerkleTreeConfig;
-
-    return true;
-}
-
 bool CCoinsViewCache::Flush() {
     bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheSidechainEvents);
     cacheCoins.clear();

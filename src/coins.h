@@ -665,10 +665,6 @@ public:
     libzendoomc::ScFieldElement GetActiveCertDataHash(const uint256& scId) const;
     CSidechain::State GetSidechainState(const uint256& scId) const;
 
-    bool GetScCertCustomFieldsConfig(const uint256 & scId,
-        std::vector<CompressedFieldElementConfig>& vCompressedFieldElementConfig,
-        std::vector<CompressedMerkleTreeConfig>& vCompressedMerkleTreeConfig) const;
-
     bool Flush();
 
     //! Calculate the size of the cache (in number of transactions)

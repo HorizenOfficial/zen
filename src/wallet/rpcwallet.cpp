@@ -5310,19 +5310,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     // get fe cfg from creation params if any
-#if 0
-    std::vector<CompressedFieldElementConfig> vCompressedFieldElementConfig;
-    std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
-
-    CCoinsViewCache &view = *pcoinsTip;
-    if (!view.GetScCertCustomFieldsConfig(scId, vCompressedFieldElementConfig, vCompressedMerkleTreeConfig))
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not get custom field element cfg for sc");
-    }
-#else
     std::vector<CompressedFieldElementConfig> vCompressedFieldElementConfig = sidechain.creationData.vCompressedFieldElementConfig;
     std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig = sidechain.creationData.vCompressedMerkleTreeConfig;
-#endif
 
     std::vector<CompressedFieldElement> vCompressedFieldElement;
     UniValue feArray(UniValue::VARR);

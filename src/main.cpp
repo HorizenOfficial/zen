@@ -2113,11 +2113,11 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                         __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nSpendHeight);
                 if (coins->IsCoinBase())
                     return state.Invalid(
-                        error("CheckInputs(): tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight),
+                        error("%s(): tried to spend coinbase at depth %d", __func__, nSpendHeight - coins->nHeight),
                         REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
                 if (coins->IsFromCert())
                     return state.Invalid(
-                        error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
+                        error("%s(): tried to spend certificate before next epoch certificate is received", __func__),
                         REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
             }
         }
@@ -2135,7 +2135,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
             bool fDisableProtectionForFR = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(nSpendHeight);
             if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
                 return state.Invalid(
-                    error("CheckInputs(): tried to spend coinbase with transparent outputs"),
+                    error("%s(): tried to spend coinbase with transparent outputs", __func__),
                     REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                 }
             }
@@ -2144,13 +2144,13 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         // Check for negative or overflow input values
         nValueIn += coins->vout[prevout.n].nValue;
         if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
-            return state.DoS(100, error("CheckInputs(): txin values out of range"),
+            return state.DoS(100, error("%s(): txin values out of range", __func__),
                 REJECT_INVALID, "bad-txns-inputvalues-outofrange");
     }
 
     nValueIn += txBase.GetJoinSplitValueIn();
     if (!MoneyRange(nValueIn))
-        return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
+        return state.DoS(100, error("%s(): vpub_old values out of range", __func__),
                          REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
     if (!txBase.CheckFeeAmount(nValueIn, state))
