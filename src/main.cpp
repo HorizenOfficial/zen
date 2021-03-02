@@ -895,6 +895,7 @@ unsigned int GetLegacySigOpCount(const CTransactionBase& txBase)
         } catch(const bad_cast& e) {
             LogPrint("%s():%d - can't cast CTransactionBase (%s) to CTransaction when expected.\n",
                 __func__, __LINE__, txBase.GetHash().ToString());
+            assert(false);
         }
     }
 

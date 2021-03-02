@@ -1795,8 +1795,6 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
         }
 
         recreatedScEvent.ceasingScs.insert(scId);
-        CSidechainsMap::iterator scIt = ModifySidechain(scId);
-        scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
     }
 
     if (!recreatedScEvent.IsNull())

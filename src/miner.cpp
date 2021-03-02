@@ -293,7 +293,7 @@ bool AddToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view
 
             dPriority += (double)nValueIn * nConf;
         }
-        nTotalIn += txBase.GetJoinSplitValueIn();
+        nTotalIn += txBase.GetJoinSplitValueIn() + txBase.GetCSWValueIn();
 
         // Csw contribute zero to initial priority
 
@@ -439,7 +439,7 @@ void GetBlockTxPriorityDataOld(const CCoinsViewCache& view, int nHeight, int64_t
 
             dPriority += (double)nValueIn * nConf;
         }
-        nTotalIn += tx.GetJoinSplitValueIn();
+        nTotalIn += tx.GetJoinSplitValueIn() + tx.GetCSWValueIn();
 
         if (fMissingInputs) continue;
 
@@ -643,7 +643,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             }
 
             // Skip transaction if max block complexity reached.
-            int nTxComplexity = tx.GetVin().size() * tx.GetVin().size();
+            int nTxComplexity = tx.GetComplexity();
             if (!fDeprecatedGetBlockTemplate && nBlockMaxComplexitySize > 0 && nBlockComplexity + nTxComplexity >= nBlockMaxComplexitySize)
                 continue;
 

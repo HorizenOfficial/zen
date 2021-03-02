@@ -1045,7 +1045,7 @@ public:
             // Blank out other inputs' signatures
             ::Serialize(s, CScript(), nType, nVersion);
         else
-            SerializeScriptCode(s, nType, nVersion); // Q: during signrawtransaction we always make `scriptCodeIn` empty, what is the sence of having the special case for nIn?
+            SerializeScriptCode(s, nType, nVersion);
         // Serialize the nSequence
         if (nInput != nIn && (fHashSingle || fHashNone))
             // let the others update at will
@@ -1078,8 +1078,9 @@ public:
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scProof, nType, nVersion);
 
         // Serialize the script
-        assert(nCswInput != NOT_AN_INPUT);
-        if (nCswInput + txTo.GetVin().size() != nIn)
+        unsigned int nTotalInIdx = nCswInput + txTo.GetVin().size();
+        assert(nTotalInIdx != NOT_AN_INPUT);
+        if (nTotalInIdx != nIn)
             // Blank out other inputs' signatures
             ::Serialize(s, CScript(), nType, nVersion);
         else
@@ -1130,8 +1131,6 @@ public:
                 // Serialize vccouts
                 unsigned int nCcOutputs = 0;
  
-                // Q: In case of fHashSingle we also serialize all CC outputs. Is it correct?
-                // Seems or we need to ingore all CC outputs, or consider them in a unique joined index of(vouts + cc_outs)
                 nCcOutputs = fHashNone ? 0 : (txTo.GetVscCcOut().size());
                 ::WriteCompactSize(s, nCcOutputs);
                 for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)

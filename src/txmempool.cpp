@@ -804,16 +804,6 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
         }
     }
 
-    for(const auto& hash: txesToRemove)
-    {
-        // there can be dependancy also between txes, so check that a tx is still in map during the loop
-        if (mapTx.count(hash))
-        {
-            const CTransaction& tx = mapTx.at(hash).GetTx();
-            remove(tx, outdatedTxs, outdatedCerts, true);
-        }
-    }
-
     // mbtr will be removed if they target outdated CertDataHash
     for (auto it = mapSidechains.begin(); it != mapSidechains.end(); it++)
     {
@@ -1030,6 +1020,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(mapSidechains.count(csw.scId) != 0);
             const auto& cswNullifierPos = mapSidechains.at(csw.scId).cswNullifiers.find(csw.nullifier);
             assert(cswNullifierPos != mapSidechains.at(csw.scId).cswNullifiers.end());
+            assert(cswNullifierPos->second == tx.GetHash());
 
             //there must be no dangling CSWs, i.e. sidechain is ceased
             assert(pcoins->GetSidechainState(csw.scId) == CSidechain::State::CEASED);

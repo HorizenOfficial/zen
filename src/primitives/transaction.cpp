@@ -415,6 +415,17 @@ CAmount CTransactionBase::GetValueOut() const
     return nValueOut;
 }
 
+int CTransactionBase::GetComplexity() const
+{
+    return vin.size()*vin.size();
+}
+
+int CTransaction::GetComplexity() const
+{
+    int totalInputs = vin.size() + vcsw_ccin.size();
+    return totalInputs * totalInputs;
+}
+
 CAmount CTransactionBase::GetJoinSplitValueIn() const
 {
     CAmount nCumulatedValue = 0;

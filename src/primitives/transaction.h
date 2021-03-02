@@ -756,7 +756,7 @@ public:
     // Return sum of txouts.
     virtual CAmount GetValueOut() const;
 
-    int GetComplexity() const { return vin.size()*vin.size(); }
+    virtual int GetComplexity() const;
 
     // Compute modified tx size for priority calculation (optionally given tx size)
     unsigned int CalculateModifiedSize(unsigned int nTxSize=0) const;
@@ -961,6 +961,9 @@ public:
 
     // Return sum of txouts.
     CAmount GetValueOut() const override;
+
+    // Return Tx complexity considering both regular and CSW inputs
+    int GetComplexity() const override;
 
     // Return sum of CSW inputs
     CAmount GetCSWValueIn() const override;
