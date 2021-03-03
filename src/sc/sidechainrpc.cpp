@@ -67,6 +67,8 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("vCompressedMerkleTreeConfig", VecToStr(out.vCompressedMerkleTreeConfig)));
         o.push_back(Pair("customData", HexStr(out.customData)));
         o.push_back(Pair("constant", HexStr(out.constant)));
+        if(out.wMbtrVk.is_initialized())
+            o.push_back(Pair("wMbtrVk", HexStr(out.wMbtrVk.get())));
         if(out.wCeasedVk.is_initialized())
             o.push_back(Pair("wCeasedVk", HexStr(out.wCeasedVk.get())));
         vscs.push_back(o);
@@ -658,6 +660,7 @@ void fundCcRecipients(const CTransaction& tx,
         sc.address = entry.address;
         sc.creationData.withdrawalEpochLength         = entry.withdrawalEpochLength;
         sc.creationData.wCertVk                       = entry.wCertVk;
+        sc.creationData.wMbtrVk                       = entry.wMbtrVk;
         sc.creationData.wCeasedVk                     = entry.wCeasedVk;
         sc.creationData.vCompressedFieldElementConfig = entry.vCompressedFieldElementConfig;
         sc.creationData.vCompressedMerkleTreeConfig   = entry.vCompressedMerkleTreeConfig;

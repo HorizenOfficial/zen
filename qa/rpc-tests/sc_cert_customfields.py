@@ -165,12 +165,13 @@ class sc_cert_customfields(BitcoinTestFramework):
         constant2 = generate_random_field_element_hex()
         customData = "c0ffee"
         mbtrVk = ""     
+        cswVk  = ""
         feCfg.append([16])
         cmtCfg.append([])
 
         mark_logs("\nNode 1 create SC2 with valid vCompressedFieldElementConfig / vCompressedMerkleTreeConfig pair", self.nodes,DEBUG_MODE)
         try:
-            ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", amount, vk, customData, constant2, mbtrVk, feCfg[1], cmtCfg[1])
+            ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", amount, vk, customData, constant2, mbtrVk, cswVk, feCfg[1], cmtCfg[1])
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -194,7 +195,6 @@ class sc_cert_customfields(BitcoinTestFramework):
         vk = mcTest.generate_params("sc3")
         constant3 = generate_random_field_element_hex()
         customData = "c0ffee"
-        mbtrVk = ""     
         feCfg.append([])
         cmtCfg.append([3])
 
@@ -204,7 +204,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 0 create SC3 with valid vCompressedFieldElementConfig / vCompressedMerkleTreeConfig pair", self.nodes,DEBUG_MODE)
         try:
-            rawtx=self.nodes[0].createrawtransaction([],{},sc_cr)
+            rawtx=self.nodes[0].createrawtransaction([],{},[],sc_cr)
             funded_tx = self.nodes[0].fundrawtransaction(rawtx)
             sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
             creating_tx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])

@@ -777,7 +777,7 @@ static void ScHandleTransaction(CWalletTx& wtx, std::vector<CRecipientScCreation
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
 }
-// TODO: description seems outdated
+
 UniValue sc_create(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -786,24 +786,23 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (fHelp ||  params.size() < 4 ) 
         throw runtime_error(
             "sc_create withdrawalEpochLength [{\"address\":... ,\"amount\":...,\"wCertVk\":...,\"customData\":...,\"constant\":...,...},...]\n"
-            "\nCreate a Side chain with the given id staring from the given block. A fixed amount is charged to the creator\n"
-            "\nIt also sends cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
+            "\nCreate a Side chain.\n"
             "\nArguments:\n"
-            "1. withdrawalEpochLength:        (numeric, required) Length of the withdrawal epochs. The minimum valid value for " +
-                                               Params().NetworkIDString() + " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
-            "2. \"address\"                     (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "3. amount:                       (numeric, required) The numeric amount in ZEN is the value\n"
-            "4. \"wCertVk\"                     (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                        hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            "5. \"customData\"                  (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                        hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
-            "6. \"constant\"                    (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                        hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
-            "7. \"wMbtrVk\"                     (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                        hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            "8. \"wCeasedVk\"              (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            "9. \"vCompressedFieldElementConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            " 1. withdrawalEpochLength:    (numeric, required) Length of the withdrawal epochs. The minimum valid value for " +
+                                            Params().NetworkIDString() + " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
+            " 2. \"address\"                 (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            " 3. amount:                   (numeric, required) The numeric amount in ZEN is the value\n"
+            " 4. \"wCertVk\"                 (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                     hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            " 5. \"customData\"              (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                     hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
+            " 6. \"constant\"                (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                     hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            " 7. \"wMbtrVk\"                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                     hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            " 8. \"wCeasedVk\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                 hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            " 9. \"vCompressedFieldElementConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
             "10. \"vCompressedMerkleTreeConfig\" (array, optional) An array whose entries are mkl tree heights. Any certificate should have as many custom CompressedMerkleTree with the corresponding tree height\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
@@ -856,31 +855,39 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if ((params.size() > 4) && (params[4].get_str().size() != 0))
     {
         const std::string& inputString = params[4].get_str();
-        if(!Sidechain::AddScData(inputString, sc.creationData.customData, MAX_SC_DATA_LEN, false, error))
+        // it is optional
+        if (!inputString.empty())
         {
-            throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
+            if(!Sidechain::AddScData(inputString, sc.creationData.customData, MAX_SC_DATA_LEN, false, error))
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
+            }
         }
     }
 
     if (params.size() > 5)
     {
         const std::string& inputString = params[5].get_str();
-        if (!Sidechain::AddScData(inputString, sc.creationData.constant, SC_FIELD_SIZE, true, error))
+        // it is optional
+        if (!inputString.empty())
         {
-            throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
-        }
-
-        if(!libzendoomc::IsValidScConstant(sc.creationData.constant))
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid constant");
+            if (!Sidechain::AddScData(inputString, sc.creationData.constant, SC_FIELD_SIZE, true, error))
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
+            }
+ 
+            if(!libzendoomc::IsValidScConstant(sc.creationData.constant))
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid constant");
+            }
         }
     }
 
     if (params.size() > 6)
     {
         const std::string& inputString = params[6].get_str();
-        std::vector<unsigned char> wMbtrVkVec;
-        if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+        // it is optional
+        if (!inputString.empty())
         {
             std::vector<unsigned char> wMbtrVkVec;
             if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
@@ -898,16 +905,20 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (params.size() > 7)
     {
         const std::string& inputString = params[7].get_str();
-        std::vector<unsigned char> wCeasedVkVec;
-        if (!Sidechain::AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
+        // it is optional
+        if (!inputString.empty())
         {
-            throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
-        }
-
-        sc.creationData.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
-        if (!libzendoomc::IsValidScVk(sc.creationData.wCeasedVk.get()))
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
+            std::vector<unsigned char> wCeasedVkVec;
+            if (!Sidechain::AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, string("wCeasedVk: ") + error);
+            }
+ 
+            sc.creationData.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
+            if (!libzendoomc::IsValidScVk(sc.creationData.wCeasedVk.get()))
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
+            }
         }
     }
 

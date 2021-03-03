@@ -309,9 +309,10 @@ uint256 CTxScCreationOut::GetHash() const
 std::string CTxScCreationOut::ToString() const
 {
     return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, "
-        "customData=[%s], constant=[%s], wCertVk=[%s], wCeasedVk=[%s], vCompressedFieldElementConfig=[%s], vCompressedMerkleTreeConfig[%s]",
+        "customData=[%s], constant=[%s], wCertVk=[%s], wMbtrVk=[%s], wCeasedVk=[%s], vCompressedFieldElementConfig=[%s], vCompressedMerkleTreeConfig[%s]",
         generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30),
-        HexStr(customData), HexStr(constant), HexStr(wCertVk), wCeasedVk ? HexStr(wCeasedVk.get()) : "", VecToStr(vCompressedFieldElementConfig), VecToStr(vCompressedMerkleTreeConfig) );
+        HexStr(customData), HexStr(constant), HexStr(wCertVk), wMbtrVk ? HexStr(wMbtrVk.get()) : "", wCeasedVk ? HexStr(wCeasedVk.get()) : "",
+        VecToStr(vCompressedFieldElementConfig), VecToStr(vCompressedMerkleTreeConfig) );
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
@@ -333,6 +334,7 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     customData = ccout.customData;
     constant = ccout.constant;
     wCertVk = ccout.wCertVk;
+    wMbtrVk = ccout.wMbtrVk;
     wCeasedVk = ccout.wCeasedVk;
     vCompressedFieldElementConfig = ccout.vCompressedFieldElementConfig;
     vCompressedMerkleTreeConfig = ccout.vCompressedMerkleTreeConfig;
