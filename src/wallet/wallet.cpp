@@ -1802,7 +1802,10 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
         for (const JSDescription & js : wrappedTx.GetVjoinsplit()) {
             nValueIn += js.vpub_new;
         }
-        nFee = nDebit - nValueOut + nValueIn;
+        // nDebit has only vin contribution, we must add the ceased sc with part if any
+        CAmount cswInTotAmount = wrappedTx.GetCSWValueIn();
+
+        nFee = (nDebit+cswInTotAmount) - nValueOut + nValueIn;
     }
 
     // Create output entry for vpub_old/new, if we sent utxos from this transaction
@@ -3160,12 +3163,19 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
     
     CCoinControl coinControl;
     coinControl.fAllowOtherInputs = true;
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    for (const CTxIn& txin: tx.vin)
         coinControl.Select(txin.prevout);
+
+    // if we have ceased sc withdrawl inputs, they must be taken into account when doing computations for funding input amount
+    CAmount cswInTotAmount = 0;
+    for(const CTxCeasedSidechainWithdrawalInput& cswIn: tx.vcsw_ccin)
+    {
+        cswInTotAmount += cswIn.nValue;
+    }
 
     CReserveKey reservekey(this);
     CWalletTx wtx;
-    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false))
+    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false, cswInTotAmount))
         return false;
 
     if (nChangePosRet != -1)
@@ -3213,35 +3223,38 @@ bool CWallet::CreateTransaction(
     const std::vector<CRecipientForwardTransfer>& vecFtSend,
     const std::vector<CRecipientBwtRequest>& vecBwtRequest,
     CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
-    int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign)
+    int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign, CAmount cswInTotAmount)
 {
-    CAmount nValue = 0;
+    CAmount totalOutputValue = 0;
     unsigned int nSubtractFeeFromAmount = 0;
     BOOST_FOREACH (const CRecipient& recipient, vecSend)
     {
-        if (nValue < 0 || recipient.nAmount < 0)
+        if (totalOutputValue < 0 || recipient.nAmount < 0)
         {
             strFailReason = _("Transaction out amounts must be positive");
             return false;
         }
-        nValue += recipient.nAmount;
+        totalOutputValue += recipient.nAmount;
 
         if (recipient.fSubtractFeeFromAmount)
             nSubtractFeeFromAmount++;
     }
 
-    if (!checkAndAddCcOut(vecScSend, nValue, strFailReason))
+    if (!checkAndAddCcOut(vecScSend, totalOutputValue, strFailReason))
         return false;
-    if (!checkAndAddCcOut(vecFtSend, nValue, strFailReason))
+    if (!checkAndAddCcOut(vecFtSend, totalOutputValue, strFailReason))
         return false;
-    if (!checkAndAddCcOut(vecBwtRequest, nValue, strFailReason))
+    if (!checkAndAddCcOut(vecBwtRequest, totalOutputValue, strFailReason))
         return false;
 
-    if ( (vecSend.empty() && vecScSend.empty() && vecFtSend.empty() && vecBwtRequest.empty() ) || nValue < 0)
+    if ( (vecSend.empty() && vecScSend.empty() && vecFtSend.empty() && vecBwtRequest.empty() ) || totalOutputValue < 0)
     {
         strFailReason = _("Transaction amounts must be positive");
         return false;
     }
+
+    // remove ceased sidechain withdrawal input value if any, since must not be fund by wallet coins
+    totalOutputValue -= cswInTotAmount;
 
     wtxNew.fTimeReceivedIsTxTime = true;
     wtxNew.BindWallet(this);
@@ -3282,6 +3295,7 @@ bool CWallet::CreateTransaction(
             while (true)
             {
                 txNew.vin.clear();
+                // do not modify vcsw_ccin
                 txNew.resizeOut(0);
                 txNew.vsc_ccout.clear();
                 txNew.vft_ccout.clear();
@@ -3290,7 +3304,7 @@ bool CWallet::CreateTransaction(
                 nChangePosRet = -1;
                 bool fFirst = true;
 
-                CAmount nTotalValue = nValue;
+                CAmount nTotalValue = totalOutputValue;
                 if (nSubtractFeeFromAmount == 0)
                     nTotalValue += nFeeRet;
                 double dPriority = 0;
@@ -3382,7 +3396,7 @@ bool CWallet::CreateTransaction(
                     dPriority += (double)nCredit * age;
                 }
 
-                CAmount nChange = nValueIn - nValue;
+                CAmount nChange = nValueIn - totalOutputValue;
                 if (nSubtractFeeFromAmount == 0)
                     nChange -= nFeeRet;
 
@@ -3484,9 +3498,9 @@ bool CWallet::CreateTransaction(
                     const CScript& scriptPubKey = coin.first->getTxBase()->GetVout()[coin.second].scriptPubKey;
                     CScript& scriptSigRes = txNew.vin[nIn].scriptSig;
                     if (sign)
-                        signSuccess = ProduceSignature(TransactionSignatureCreator(this, &txNewConst, nIn, SIGHASH_ALL), scriptPubKey, scriptSigRes);
+                        signSuccess = ProduceSignature(TransactionSignatureCreator(*this, txNewConst, nIn, SIGHASH_ALL), scriptPubKey, scriptSigRes);
                     else
-                        signSuccess = ProduceSignature(DummySignatureCreator(this), scriptPubKey, scriptSigRes);
+                        signSuccess = ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes);
 
                     if (!signSuccess)
                     {

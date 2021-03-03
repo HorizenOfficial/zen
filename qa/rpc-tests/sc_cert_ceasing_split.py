@@ -200,6 +200,7 @@ class CeasingSplitTest(BitcoinTestFramework):
             errorString = e.error['message']
             print "Send certificate failed with reason {}".format(errorString)
             assert(False)
+
         sync_mempools(self.nodes[0:3])
 
         mark_logs("              Check cert {} is in mempool".format(cert_bad), self.nodes, DEBUG_MODE)
@@ -231,10 +232,12 @@ class CeasingSplitTest(BitcoinTestFramework):
         assert_equal(ret['state'], "CEASED")
 
         mark_logs("Check fwd tx {} is no more in mempool...".format(tx_fwd), self.nodes, DEBUG_MODE)
+
         #assert_false(tx_fwd in self.nodes[0].getrawmempool()) 
         if tx_fwd in self.nodes[0].getrawmempool():
             print "FIX FIX FIX!!! fwt is still in mempool" 
             any_error = True
+
 
         mark_logs("And that no info are available too...".format(tx_fwd), self.nodes, DEBUG_MODE)
         try:
@@ -295,7 +298,6 @@ class CeasingSplitTest(BitcoinTestFramework):
 
         # if any_error this should fail
         #self.nodes[0].generate(1)
-
 
 
 if __name__ == '__main__':

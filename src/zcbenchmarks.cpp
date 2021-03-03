@@ -389,7 +389,8 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapSidechainEvents) override
+                    CSidechainEventsMap& mapSidechainEvents,
+                    CCswNullifiersMap& cswNullifiers) override
     {
         return false;
     }

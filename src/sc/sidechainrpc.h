@@ -21,7 +21,8 @@ namespace Sidechain
 {
 
 // used in get tx family of rpc commands
-void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj);
+void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& parentObj);
+void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj);
 
 // Parses an hex inputString and writes it into a vector vBytes of required size vSize. 
 // If enforceStrictvSize is set to true, it will be checked that inputString.size()/2 == vSize,
@@ -29,6 +30,7 @@ void AddSidechainOutsToJSON (const CTransaction& tx, UniValue& parentObj);
 bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, unsigned int vSize, bool enforceStrictvSize, std::string& error);
 
 // used when creating a raw transaction with cc outputs
+bool AddCeasedSidechainWithdrawalInputs(UniValue& csws, CMutableTransaction& rawTx, std::string& error);
 bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, std::string& error);
 bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std::string& error);
 bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx, std::string& error);

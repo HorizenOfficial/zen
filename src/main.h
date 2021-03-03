@@ -357,7 +357,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
  */
 bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& mapInputs);
 
-/** 
+/**
  * Count ECDSA signature operations the old-fashioned (pre-0.6) way
  * @return number of sigops this transaction's outputs will produce when spent
  * @see CTransaction::FetchInputs
@@ -375,11 +375,26 @@ unsigned int GetP2SHSigOpCount(const CTransactionBase& tx, const CCoinsViewCache
 
 
 /**
- * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
+ * Check whether the specified input (either regular or CSW) of this transaction has valid scripts & sigs.
  * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
  * instead of being performed inline.
  */
-bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+bool InputScriptCheck(const CScript& scriptPubKey, const CTransactionBase& tx, unsigned int nIn,
+                      const CChain& chain, unsigned int flags, bool cache,  CValidationState &state, std::vector<CScriptCheck> *pvChecks);
+/**
+ * Check whether all inputs (either regular and CSW) of this transaction are valid (no double spends, scripts & sigs, amounts)
+ * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
+ * instead of being performed inline.
+ */
+bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+                           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
+                           std::vector<CScriptCheck> *pvChecks = NULL);
+/**
+ * Check whether all inputs of this certificates are valid (no double spends, scripts & sigs, amounts)
+ * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
+ * instead of being performed inline.
+ */
+bool ContextualCheckCertInputs(const CScCertificate& cert, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL);
 
@@ -435,6 +450,7 @@ private:
 public:
     CScriptCheck();
     CScriptCheck(const CCoins& txFromIn, const CTransactionBase& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn);
+    CScriptCheck(const CScript& scriptPubKeyIn, const CTransactionBase& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn);
     bool operator()();
     void swap(CScriptCheck &check);
     ScriptError GetScriptError() const;

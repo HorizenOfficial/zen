@@ -77,7 +77,7 @@ TEST(ZendooLib, PoseidonHashTest)
 TEST(ZendooLib, PoseidonMerkleTreeTest)  {
 
     //Generate random leaves
-    int leaves_len = 16;
+    enum {leaves_len = 16};
     const field_t* leaves[leaves_len];
     for (int i = 0; i < leaves_len; i++){
         leaves[i] = zendoo_get_random_field();

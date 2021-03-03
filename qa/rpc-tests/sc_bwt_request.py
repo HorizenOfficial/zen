@@ -324,7 +324,7 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Node0 creates a tx with a bwt request using raw version of cmd", self.nodes, DEBUG_MODE)
         sc_bwt2_1 = [{'scUtxoId':fe2, 'scFee':SC_FEE, 'scid':scid2, 'scProof':p2, 'pubkeyhash':pkh2, "wMbtrVk": mbtrVk3 }]
         try:
-            raw_tx = self.nodes[0].createrawtransaction([], {}, [], [], sc_bwt2_1)
+            raw_tx = self.nodes[0].createrawtransaction([], {}, [], [], [], sc_bwt2_1)
             funded_tx = self.nodes[0].fundrawtransaction(raw_tx)
             signed_tx = self.nodes[0].signrawtransaction(funded_tx['hex'])
             bwt5 = self.nodes[0].sendrawtransaction(signed_tx['hex'])
@@ -355,7 +355,7 @@ class sc_bwt_request(BitcoinTestFramework):
             {'scUtxoId':fe4, 'scFee':Decimal("0.12"), 'scid':scid2, 'scProof':p4, 'pubkeyhash':pkh4 }
         ]
         try:
-            raw_tx = self.nodes[0].createrawtransaction([], outputs, sc_cr, sc_ft, sc_bwt3)
+            raw_tx = self.nodes[0].createrawtransaction([], outputs, [], sc_cr, sc_ft, sc_bwt3)
             funded_tx = self.nodes[0].fundrawtransaction(raw_tx)
             signed_tx = self.nodes[0].signrawtransaction(funded_tx['hex'])
             bwt6 = self.nodes[0].sendrawtransaction(signed_tx['hex'])

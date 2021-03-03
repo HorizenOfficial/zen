@@ -99,7 +99,6 @@ public:
     // value = the immature amount
     std::map<int, CAmount> mImmatureAmounts;
 
-
     enum class State : uint8_t {
         NOT_APPLICABLE = 0,
         UNCONFIRMED,

@@ -8,7 +8,6 @@
 #include "random.h"
 #include "version.h"
 #include "policy/fees.h"
-#include "sc/proofverifier.h"
 
 #include <assert.h>
 #include "utilmoneystr.h"
@@ -192,48 +191,67 @@ void CCoins::CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) con
     nBytes += nLastUsedByte;
 }
 
-bool CCoinsView::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const { return false; }
-bool CCoinsView::GetNullifier(const uint256 &nullifier)                        const { return false; }
-bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                  const { return false; }
-bool CCoinsView::HaveCoins(const uint256 &txid)                                const { return false; }
-bool CCoinsView::HaveSidechain(const uint256& scId)                            const { return false; }
-bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)           const { return false; }
-bool CCoinsView::HaveSidechainEvents(int height)                               const { return false; }
-bool CCoinsView::GetSidechainEvents(int height, CSidechainEvents& scEvent)     const { return false; }
-void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                        const { scIdsList.clear(); return; }
-bool CCoinsView::CheckQuality(const CScCertificate& cert)                      const { return false; }
-uint256 CCoinsView::GetBestBlock()                                             const { return uint256(); }
-uint256 CCoinsView::GetBestAnchor()                                            const { return uint256(); };
+bool CCoinsView::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree)  const { return false; }
+bool CCoinsView::GetNullifier(const uint256 &nullifier)                         const { return false; }
+bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins)                   const { return false; }
+bool CCoinsView::HaveCoins(const uint256 &txid)                                 const { return false; }
+bool CCoinsView::HaveSidechain(const uint256& scId)                             const { return false; }
+bool CCoinsView::GetSidechain(const uint256& scId, CSidechain& info)            const { return false; }
+bool CCoinsView::HaveSidechainEvents(int height)                                const { return false; }
+bool CCoinsView::GetSidechainEvents(int height, CSidechainEvents& scEvent)      const { return false; }
+void CCoinsView::GetScIds(std::set<uint256>& scIdsList)                         const { scIdsList.clear(); return; }
+bool CCoinsView::CheckQuality(const CScCertificate& cert)                       const { return false; }
+uint256 CCoinsView::GetBestBlock()                                              const { return uint256(); }
+uint256 CCoinsView::GetBestAnchor()                                             const { return uint256(); }
+bool CCoinsView::HaveCswNullifier(const uint256& scId,
+                                 const libzendoomc::ScFieldElement &nullifier)  const { return false; }
+
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                             const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
-                            CSidechainEventsMap& mapSidechainEvents)                 { return false; }
-bool CCoinsView::GetStats(CCoinsStats &stats)                                  const { return false; }
+                            CSidechainEventsMap& mapSidechainEvents,
+                            CCswNullifiersMap& cswNullifiers)                         { return false; }
+bool CCoinsView::GetStats(CCoinsStats &stats)                                   const { return false; }
 
 
 CCoinsViewBacked::CCoinsViewBacked(CCoinsView *viewIn) : base(viewIn) { }
 
-bool CCoinsViewBacked::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const { return base->GetAnchorAt(rt, tree); }
-bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier)                        const { return base->GetNullifier(nullifier); }
-bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins)                  const { return base->GetCoins(txid, coins); }
-bool CCoinsViewBacked::HaveCoins(const uint256 &txid)                                const { return base->HaveCoins(txid); }
-bool CCoinsViewBacked::HaveSidechain(const uint256& scId)                            const { return base->HaveSidechain(scId); }
-bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)           const { return base->GetSidechain(scId,info); }
-bool CCoinsViewBacked::HaveSidechainEvents(int height)                               const { return base->HaveSidechainEvents(height); }
-bool CCoinsViewBacked::GetSidechainEvents(int height, CSidechainEvents& scEvents)    const { return base->GetSidechainEvents(height, scEvents); }
-void CCoinsViewBacked::GetScIds(std::set<uint256>& scIdsList)                        const { return base->GetScIds(scIdsList); }
-bool CCoinsViewBacked::CheckQuality(const CScCertificate& cert)                      const { return base->CheckQuality(cert); }
-uint256 CCoinsViewBacked::GetBestBlock()                                             const { return base->GetBestBlock(); }
-uint256 CCoinsViewBacked::GetBestAnchor()                                            const { return base->GetBestAnchor(); }
+bool CCoinsViewBacked::GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree)   const { return base->GetAnchorAt(rt, tree); }
+bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier)                          const { return base->GetNullifier(nullifier); }
+bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins)                    const { return base->GetCoins(txid, coins); }
+bool CCoinsViewBacked::HaveCoins(const uint256 &txid)                                  const { return base->HaveCoins(txid); }
+bool CCoinsViewBacked::HaveSidechain(const uint256& scId)                              const { return base->HaveSidechain(scId); }
+bool CCoinsViewBacked::GetSidechain(const uint256& scId, CSidechain& info)             const { return base->GetSidechain(scId,info); }
+bool CCoinsViewBacked::HaveSidechainEvents(int height)                                 const { return base->HaveSidechainEvents(height); }
+bool CCoinsViewBacked::GetSidechainEvents(int height, CSidechainEvents& scEvents)      const { return base->GetSidechainEvents(height, scEvents); }
+void CCoinsViewBacked::GetScIds(std::set<uint256>& scIdsList)                          const { return base->GetScIds(scIdsList); }
+bool CCoinsViewBacked::CheckQuality(const CScCertificate& cert)                        const { return base->CheckQuality(cert); }
+uint256 CCoinsViewBacked::GetBestBlock()                                               const { return base->GetBestBlock(); }
+uint256 CCoinsViewBacked::GetBestAnchor()                                              const { return base->GetBestAnchor(); }
+
+bool CCoinsViewBacked::HaveCswNullifier(const uint256& scId,
+                                        const libzendoomc::ScFieldElement &nullifier)  const { return base->HaveCswNullifier(scId,nullifier); }
+
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
 bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                                   const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
                                   CNullifiersMap &mapNullifiers, CSidechainsMap& mapSidechains,
-                                  CSidechainEventsMap& mapSidechainEvents) { return base->BatchWrite(mapCoins, hashBlock, hashAnchor,
-                                                                                          mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents); }
+                                  CSidechainEventsMap& mapSidechainEvents,
+                                  CCswNullifiersMap& cswNullifiers) { return base->BatchWrite(mapCoins, hashBlock, hashAnchor,
+                                                                                              mapAnchors, mapNullifiers, mapSidechains,
+                                                                                              mapSidechainEvents, cswNullifiers); }
 bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                                  const { return base->GetStats(stats); }
 
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
+CCswNullifiersKeyHasher::CCswNullifiersKeyHasher() : salt() {GetRandBytes(reinterpret_cast<unsigned char*>(salt), BUF_LEN);}
+
+size_t CCswNullifiersKeyHasher::operator()(const std::pair<uint256, libzendoomc::ScFieldElement>& key) const {
+    uint32_t buf[BUF_LEN];
+    // note: we may consider buf as a raw data, so bytes size of buf is (BUF_LEN * 4)
+    memcpy(buf, key.first.begin(), sizeof(uint256));
+    memcpy((buf + sizeof(uint256)/sizeof(uint32_t)), key.second.begin(), SC_FIELD_SIZE);
+    return CalculateHash(buf, BUF_LEN, salt);
+}
 
 CCoinsViewCache::CCoinsViewCache(CCoinsView *baseIn) : CCoinsViewBacked(baseIn), hasModifier(false), cachedCoinsUsage(0) { }
 
@@ -248,6 +266,7 @@ size_t CCoinsViewCache::DynamicMemoryUsage() const {
            memusage::DynamicUsage(cacheNullifiers) +
            memusage::DynamicUsage(cacheSidechains) +
            memusage::DynamicUsage(cacheSidechainEvents) +
+           memusage::DynamicUsage(cacheCswNullifiers) +
            cachedCoinsUsage;
 }
 
@@ -506,13 +525,45 @@ void CCoinsViewCache::SetBestBlock(const uint256 &hashBlockIn) {
     hashBlock = hashBlockIn;
 }
 
+bool CCoinsViewCache::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const {
+    std::pair<uint256, libzendoomc::ScFieldElement> key = std::make_pair(scId, nullifier);
+
+    CCswNullifiersMap::iterator it = cacheCswNullifiers.find(key);
+    if (it != cacheCswNullifiers.end())
+        return (it->second.flag != CCswNullifiersCacheEntry::Flags::ERASED);
+
+    if (!base->HaveCswNullifier(scId, nullifier))
+        return false;
+
+    cacheCswNullifiers.insert(std::make_pair(key, CCswNullifiersCacheEntry{CCswNullifiersCacheEntry::Flags::DEFAULT}));
+    return true;
+}
+
+bool CCoinsViewCache::AddCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) {
+    if (HaveCswNullifier(scId, nullifier))
+        return false;
+
+    std::pair<uint256, libzendoomc::ScFieldElement> key = std::make_pair(scId, nullifier);
+    cacheCswNullifiers.insert(std::make_pair(key, CCswNullifiersCacheEntry{CCswNullifiersCacheEntry::Flags::FRESH}));
+    return true;
+}
+
+bool CCoinsViewCache::RemoveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) {
+    if (!HaveCswNullifier(scId, nullifier))
+        return false;
+
+    cacheCswNullifiers.at(std::make_pair(scId, nullifier)).flag = CCswNullifiersCacheEntry::Flags::ERASED;
+    return true;
+}
+
 bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  const uint256 &hashBlockIn,
                                  const uint256 &hashAnchorIn,
                                  CAnchorsMap &mapAnchors,
                                  CNullifiersMap &mapNullifiers,
                                  CSidechainsMap& mapSidechains,
-                                 CSidechainEventsMap& mapSidechainEvents) {
+                                 CSidechainEventsMap& mapSidechainEvents,
+                                 CCswNullifiersMap& cswNullifiers) {
     assert(!hasModifier);
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
@@ -601,8 +652,12 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
     for (auto& entryToWrite : mapSidechainEvents)
         WriteMutableEntry(entryToWrite.first, entryToWrite.second, cacheSidechainEvents);
 
+    for (auto& entryToWrite : cswNullifiers)
+        WriteImmutableEntry(entryToWrite.first, entryToWrite.second, cacheCswNullifiers);
+
     mapSidechains.clear();
     mapSidechainEvents.clear();
+    cswNullifiers.clear();
     // End of sidechain related section
 
     hashAnchor = hashAnchorIn;
@@ -699,12 +754,34 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
     static const int SC_COIN_MATURITY = getScCoinsMaturity();
     const int maturityHeight = blockHeight + SC_COIN_MATURITY;
 
+    // ceased sidechain withdrawal ccin
+    for (const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+    {
+        if (!HaveSidechain(csw.scId))
+        {
+            // should not happen
+            LogPrintf("ERROR: %s():%d - Can not update balance, could not find scId=%s\n",
+                __func__, __LINE__, csw.scId.ToString() );
+            return false;
+        }
+
+        CSidechainsMap::iterator scIt = ModifySidechain(csw.scId);
+
+        // decrease SC balance
+        scIt->second.sidechain.balance -= csw.nValue;
+        assert(scIt->second.sidechain.balance >= 0);
+        scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
+
+        LogPrint("sc", "%s():%d - sidechain balance decreased by CSW in scView csw_amount=%s scId=%s\n",
+            __func__, __LINE__, FormatMoney(csw.nValue), csw.scId.ToString());
+    }
+
     // creation ccout
     for (const auto& cr: tx.GetVscCcOut())
     {
         const uint256& scId = cr.GetScId();
         if (HaveSidechain(scId)) {
-            LogPrint("sc", "ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, scId.ToString() );
+            LogPrintf("ERROR: %s():%d - CR: scId=%s already in scView\n", __func__, __LINE__, scId.ToString() );
             return false;
         }
 
@@ -721,6 +798,7 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.creationData.constant = cr.constant;
         scIt->second.sidechain.creationData.wCertVk = cr.wCertVk;
         scIt->second.sidechain.creationData.wMbtrVk = cr.wMbtrVk;
+        scIt->second.sidechain.creationData.wCeasedVk = cr.wCeasedVk;
         scIt->second.sidechain.mImmatureAmounts[maturityHeight] = cr.nValue;
 
         scIt->second.flag = CSidechainsCacheEntry::Flags::FRESH;
@@ -962,6 +1040,30 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: undo of creation removes currentCeasingHeight [%d]\n",
                 __func__, __LINE__, entry.GetScId().ToString(), ceasingHeightToErase);
     }
+
+    // revert sidechain balances for CSWs
+    for (const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+    {
+        LogPrint("sc", "%s():%d - removing CSW for scId=%s\n", __func__, __LINE__, csw.scId.ToString());
+
+        if (!HaveSidechain(csw.scId))
+        {
+            // should not happen
+            LogPrintf("ERROR: %s():%d - Can not update balance, could not find scId=%s\n",
+                __func__, __LINE__, csw.scId.ToString() );
+            return false;
+        }
+
+        CSidechainsMap::iterator scIt = ModifySidechain(csw.scId);
+
+        // increase SC balance
+        scIt->second.sidechain.balance += csw.nValue;
+        scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
+
+        LogPrint("sc", "%s():%d - sidechain balance increased by CSW in scView csw_amount=%s scId=%s\n",
+            __func__, __LINE__, FormatMoney(csw.nValue), csw.scId.ToString());
+    }
+
     return true;
 }
 
@@ -1078,7 +1180,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
 
     // Retrieve previous end epoch block hash for certificate proof verification
     int targetHeight =  sidechain.GetStartHeightForEpoch(cert.epochNumber) - 1;
-    uint256 prev_end_epoch_block_hash = chainActive[targetHeight] -> GetBlockHash();
+    uint256 prev_end_epoch_block_hash = chainActive[targetHeight]->GetBlockHash();
 
     // Verify certificate proof
     if (!scVerifier.verifyCScCertificate(sidechain.creationData.constant, sidechain.creationData.wCertVk, prev_end_epoch_block_hash, cert))
@@ -1177,7 +1279,6 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         // in practice this is not feasible. This is because scId is created hashing the whole tx
         // containing scCreationOutput and mbtr, so mbtr.scId cannot be specified before the whole tx
         // has been created. Therefore here we do not bother checking whether tx contains scId creation
-
         if (!CheckScTxTiming(scId))
             return false;
 
@@ -1188,14 +1289,72 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
             return error("%s():%d - ERROR: mbtr not supported\n",  __func__, __LINE__);
         }
 
+        libzendoomc::ScFieldElement certDataHash = this->GetActiveCertDataHash(mbtr.scId);
+        if (!libzendoomc::IsValidScFieldElement(certDataHash))
+            return error("%s():%d - ERROR: Tx[%s] mbtr request [%s] has missing active cert data hash for required scId[%s]\n",
+                __func__, __LINE__, tx.ToString(), mbtr.ToString(), mbtr.scId.ToString());
+
         // Verify mainchain bwt request proof
         if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
-                mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk, this->GetActiveCertDataHash(mbtr.scId)))
+                mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk, certDataHash))
             return error("%s():%d - ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
                     __func__, __LINE__, mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
 
         LogPrint("sc", "%s():%d - OK: tx[%s] contains bwt transfer request for scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), scId.ToString());
+    }
+
+    // Check CSW inputs
+    // Key is Sc id, value - total amount of coins to be withdrawn by Tx CSWs for given sidechain
+    std::map<uint256, CAmount> cswTotalBalances;
+    for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+    {
+        CSidechain sidechain;
+        if (!GetSidechain(csw.scId, sidechain))
+        {
+            return error("%s():%d - ERROR: tx[%s] CSW input [%s] refers to unknown scId\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString());
+        }
+
+        auto s = this->GetSidechainState(csw.scId);
+        if (s != CSidechain::State::CEASED)
+        {
+            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] cannot be accepted, sidechain is not ceased\n",
+                    __func__, __LINE__, tx.ToString(), csw.ToString());
+        }
+
+        if(!sidechain.creationData.wCeasedVk.is_initialized())
+        {
+            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] refers to SC without CSW support\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString());
+        }
+
+        // add a new balance entry in the map or increment it if already there
+        cswTotalBalances[csw.scId] += csw.nValue;
+
+        // Check that SC CSW balances don't exceed the SC balance
+        if(cswTotalBalances[csw.scId] > sidechain.balance)
+        {
+            return error("%s():%d - ERROR: Tx[%s] CSW inputs total amount[%s] is greater than sc[%s] total balance[%s]\n",
+                __func__, __LINE__, tx.ToString(), FormatMoney(cswTotalBalances[csw.scId]), csw.scId.ToString(), FormatMoney(sidechain.balance));
+        }
+
+        if (this->HaveCswNullifier(csw.scId, csw.nullifier)) {
+            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] nullifier had been already used\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString());
+        }
+
+        libzendoomc::ScFieldElement certDataHash = this->GetActiveCertDataHash(csw.scId);
+        if (!libzendoomc::IsValidScFieldElement(certDataHash))
+            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] has missing active cert data hash for required scId[%s]\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString(), csw.scId.ToString());
+
+        // Verify CSW proof
+        if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.creationData.wCeasedVk.get(), csw))
+        {
+            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] cannot be accepted: proof verification failed\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString());
+        }
     }
 
     return true;
@@ -1439,7 +1598,6 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     currentSc.lastTopQualityCertDataHash        = sidechainUndo.lastTopQualityCertDataHash;
 
     scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
-
     LogPrint("cert", "%s():%d - updated sc state %s\n", __func__, __LINE__,currentSc.ToString());
 
     //we need to modify the ceasing height only if we removed the very first certificate of the epoch
@@ -1672,26 +1830,27 @@ libzendoomc::ScFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256
         return libzendoomc::ScFieldElement{};
 
     if (this->GetSidechainState(scId) == CSidechain::State::CEASED)
-    	return pSidechain->pastEpochTopQualityCertDataHash;
+        return pSidechain->pastEpochTopQualityCertDataHash;
 
     int certReferencedEpoch = pSidechain->EpochFor(this->GetHeight()+1 - pSidechain->GetCertSubmissionWindowLength()) - 1;
 
     if (pSidechain->lastTopQualityCertReferencedEpoch == certReferencedEpoch)
-    	return pSidechain->lastTopQualityCertDataHash;
+        return pSidechain->lastTopQualityCertDataHash;
     else if(pSidechain->lastTopQualityCertReferencedEpoch -1 == certReferencedEpoch)
-    	return pSidechain->pastEpochTopQualityCertDataHash;
+        return pSidechain->pastEpochTopQualityCertDataHash;
     else
         assert(false);
 }
 
 bool CCoinsViewCache::Flush() {
-    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheSidechainEvents);
+    bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashAnchor, cacheAnchors, cacheNullifiers, cacheSidechains, cacheSidechainEvents, cacheCswNullifiers);
     cacheCoins.clear();
     cacheSidechains.clear();
     cacheSidechainEvents.clear();
     cacheAnchors.clear();
     cacheNullifiers.clear();
     cachedCoinsUsage = 0;
+    cacheCswNullifiers.clear();
     return fOk;
 }
 
@@ -1755,7 +1914,7 @@ CAmount CCoinsViewCache::GetValueIn(const CTransactionBase& txBase) const
     for (const CTxIn& in : txBase.GetVin())
         nResult += GetOutputFor(in).nValue;
 
-    nResult += txBase.GetJoinSplitValueIn();
+    nResult += txBase.GetJoinSplitValueIn() + txBase.GetCSWValueIn();
 
     return nResult;
 }
@@ -1833,6 +1992,9 @@ double CCoinsViewCache::GetPriority(const CTransactionBase &tx, int nHeight) con
             dResult += coins->vout[txin.prevout.n].nValue * (nHeight-coins->nHeight);
         }
     }
+
+    // As per csw inputs, we assign them depth zero (i.e. their creation height matches containing tx height)
+    // They won't contribute to initial priority, but they will to priority in mempool
 
     return tx.ComputePriority(dResult);
 }

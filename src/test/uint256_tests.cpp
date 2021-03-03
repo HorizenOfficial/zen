@@ -266,4 +266,19 @@ BOOST_AUTO_TEST_CASE( conversion )
     BOOST_CHECK(R2L.GetHex() == UintToArith256(R2L).GetHex());
 }
 
+BOOST_AUTO_TEST_CASE( calculate_hash )
+{
+    uint256 salt = uint256S("00112233445566778899aabbccddeeff00");
+    uint32_t saltBuf[sizeof(uint256)/sizeof(uint32_t)];
+    memcpy(saltBuf, salt.begin(), sizeof(uint256));
+
+    uint32_t r1lBuf[sizeof(uint256)/sizeof(uint32_t)];
+    memcpy(r1lBuf, R1L.begin(), sizeof(uint256));
+    BOOST_CHECK(R1L.GetHash(salt) == CalculateHash(r1lBuf, sizeof(uint256)/sizeof(uint32_t), saltBuf));
+
+    uint32_t r2lBuf[sizeof(uint256)/sizeof(uint32_t)];
+    memcpy(r2lBuf, R2L.begin(), sizeof(uint256));
+    BOOST_CHECK(R2L.GetHash(salt) == CalculateHash(r2lBuf, sizeof(uint256)/sizeof(uint32_t), saltBuf));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
