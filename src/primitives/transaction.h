@@ -607,16 +607,16 @@ public:
 
     friend bool operator==(const CTxScCreationOut& a, const CTxScCreationOut& b)
     {
-        return (isBaseEqual(a, b) &&
+        return isBaseEqual(a, b) &&
                  a.generatedScId == b.generatedScId &&
                  a.withdrawalEpochLength == b.withdrawalEpochLength &&
                  a.customData == b.customData &&
                  a.constant == b.constant &&
                  a.wCertVk == b.wCertVk &&
                  a.wMbtrVk == b.wMbtrVk &&
-				 a.wCeasedVk == b.wCeasedVk &&
+                 a.wCeasedVk == b.wCeasedVk &&
                  a.vCompressedFieldElementConfig == b.vCompressedFieldElementConfig &&
-                 a.vCompressedMerkleTreeConfig == b.vCompressedMerkleTreeConfig );
+                 a.vCompressedMerkleTreeConfig == b.vCompressedMerkleTreeConfig;
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)
@@ -993,6 +993,7 @@ public:
         return nValueOut;
     }
 
+ public:
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
     void AddJoinSplitToJSON(UniValue& entry) const override;
     void AddCeasedSidechainWithdrawalInputsToJSON(UniValue& entry) const override;

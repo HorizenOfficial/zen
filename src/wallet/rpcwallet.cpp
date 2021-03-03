@@ -803,7 +803,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "                                        hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "8. \"wCeasedVk\"              (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                   hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-			"9. \"vCompressedFieldElementConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            "9. \"vCompressedFieldElementConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
             "10. \"vCompressedMerkleTreeConfig\" (array, optional) An array whose entries are mkl tree heights. Any certificate should have as many custom CompressedMerkleTree with the corresponding tree height\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
@@ -878,7 +878,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     if (params.size() > 6)
     {
-    	const std::string& inputString = params[6].get_str();
+        const std::string& inputString = params[6].get_str();
         std::vector<unsigned char> wMbtrVkVec;
         if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
         {
@@ -895,25 +895,25 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         }
     }
 
-	if (params.size() > 7)
-	{
-		const std::string& inputString = params[7].get_str();
-		std::vector<unsigned char> wCeasedVkVec;
-		if (!Sidechain::AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
-		{
-			throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
-		}
+    if (params.size() > 7)
+    {
+        const std::string& inputString = params[7].get_str();
+        std::vector<unsigned char> wCeasedVkVec;
+        if (!Sidechain::AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
+        }
 
-		sc.creationData.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
-		if (!libzendoomc::IsValidScVk(sc.creationData.wCeasedVk.get()))
-		{
-			throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
-		}
-	}
+        sc.creationData.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
+        if (!libzendoomc::IsValidScVk(sc.creationData.wCeasedVk.get()))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
+        }
+    }
 
     if (params.size() > 8)
     {
-        UniValue intArray = params[7].get_array();
+        UniValue intArray = params[8].get_array();
         if (!Sidechain::AddScData(intArray, sc.creationData.vCompressedFieldElementConfig))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
@@ -923,7 +923,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     if (params.size() > 9)
     {
-        UniValue intArray = params[8].get_array();
+        UniValue intArray = params[9].get_array();
         if (!Sidechain::AddScData(intArray, sc.creationData.vCompressedMerkleTreeConfig))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");

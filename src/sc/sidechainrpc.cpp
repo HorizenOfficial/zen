@@ -199,6 +199,7 @@ bool AddScData(const UniValue& intArray, std::vector<T>& vCfg)
             vCfg.push_back(o.get_int());
         }
     }
+    return true;
 }
 
 bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &rawTx, std::string &error)
