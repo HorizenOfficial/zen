@@ -70,8 +70,17 @@ BOOST_AUTO_TEST_CASE(rpc_rawparams)
     BOOST_CHECK_THROW(CallRPC("createrawtransaction not_array"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("createrawtransaction [] []"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("createrawtransaction {} {}"), runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [] {} not_array"), runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [] {} [] not_array"), runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [] {} [] [] not_array"), runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [] {} [] [] [] extra"), runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [] {} not_array [] []"), runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [] {} [] not_array []"), runtime_error);
+    BOOST_CHECK_THROW(CallRPC("createrawtransaction [] {} [] [] not_array"), runtime_error);
     BOOST_CHECK_NO_THROW(CallRPC("createrawtransaction [] {}"));
-    BOOST_CHECK_THROW(CallRPC("createrawtransaction [] {} extra"), runtime_error);
+    BOOST_CHECK_NO_THROW(CallRPC("createrawtransaction [] {} []"));
+    BOOST_CHECK_NO_THROW(CallRPC("createrawtransaction [] {} [] []"));
+    BOOST_CHECK_NO_THROW(CallRPC("createrawtransaction [] {} [] [] []"));
 
     BOOST_CHECK_THROW(CallRPC("decoderawtransaction"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("decoderawtransaction null"), runtime_error);

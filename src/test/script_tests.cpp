@@ -87,6 +87,27 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CMu
     return txSpend;
 }
 
+CMutableTransaction BuildCSWInputSpendingTransaction(const CKeyID& pubKeyHash, const CScript& redeemScript)
+{
+    CMutableTransaction txSpend;
+    txSpend.nVersion = SC_TX_VERSION;
+    txSpend.nLockTime = 0;
+
+    txSpend.vcsw_ccin.resize(1);
+    txSpend.vcsw_ccin[0].nValue = 100;
+    txSpend.vcsw_ccin[0].scId = uint256();
+    txSpend.vcsw_ccin[0].nullifier = libzendoomc::ScFieldElement();
+    txSpend.vcsw_ccin[0].pubKeyHash = pubKeyHash;
+    txSpend.vcsw_ccin[0].scProof = libzendoomc::ScProof();
+    txSpend.vcsw_ccin[0].redeemScript = redeemScript;
+
+    txSpend.resizeOut(1);
+    txSpend.getOut(0).scriptPubKey = CScript();
+    txSpend.getOut(0).nValue = 0;
+
+    return txSpend;
+}
+
 void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, int flags, bool expect, const std::string& message)
 {
     ScriptError err;
@@ -938,6 +959,74 @@ BOOST_AUTO_TEST_CASE(script_IsPushOnly_on_invalid_scripts)
     // the invalid push. Still, it doesn't hurt to test it explicitly.
     static const unsigned char direct[] = { 1 };
     BOOST_CHECK(!CScript(direct, direct+sizeof(direct)).IsPushOnly());
+}
+
+BOOST_AUTO_TEST_CASE(script_csw_inputs)
+{
+    // Test the CSW input signing
+    CBasicKeyStore keystore;
+    vector<CKey> keys;
+    vector<CPubKey> pubkeys;
+    for (int i = 0; i < 3; i++)
+    {
+        CKey key;
+        key.MakeNewKey(i%2 == 1);
+        keys.push_back(key);
+        pubkeys.push_back(key.GetPubKey());
+        keystore.AddKey(key);
+    }
+
+    CMutableTransaction cswTx = BuildCSWInputSpendingTransaction(keys[0].GetPubKey().GetID(), CScript());
+
+    const CScript scriptPubKey = cswTx.vcsw_ccin[0].scriptPubKey();
+    CScript& scriptSig = cswTx.vcsw_ccin[0].redeemScript;
+
+    unsigned int inputIndex = 0;
+    CScript empty;
+    CScript combined = CombineSignatures(scriptPubKey, cswTx, inputIndex, scriptSig, empty);
+    BOOST_CHECK(scriptSig == combined);
+    BOOST_CHECK(combined.empty());
+
+    // SIGHASH_ALL signature case:
+    // Note: scriptSig expected to be changed
+    BOOST_CHECK(SignSignature(keystore, scriptPubKey, cswTx, inputIndex, SIGHASH_ALL));
+
+    ScriptError serror = SCRIPT_ERR_OK;
+    BOOST_CHECK(VerifyScript(scriptSig, scriptPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
+                      MutableTransactionSignatureChecker(&cswTx, inputIndex), &serror));
+    BOOST_CHECK(serror == SCRIPT_ERR_OK);
+
+
+    // SIGHASH_SINGLE signature case:
+    // Note: scriptSig expected to be changed
+    scriptSig.clear();
+    BOOST_CHECK(SignSignature(keystore, scriptPubKey, cswTx, inputIndex, SIGHASH_SINGLE));
+
+    BOOST_CHECK(VerifyScript(scriptSig, scriptPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
+                      MutableTransactionSignatureChecker(&cswTx, inputIndex), &serror));
+    BOOST_CHECK(serror == SCRIPT_ERR_OK);
+
+
+    // SIGHASH_NONE signature case:
+    // Note: scriptSig expected to be changed
+    scriptSig.clear();
+    BOOST_CHECK(SignSignature(keystore, scriptPubKey, cswTx, inputIndex, SIGHASH_NONE));
+
+    BOOST_CHECK(VerifyScript(scriptSig, scriptPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
+                      MutableTransactionSignatureChecker(&cswTx, inputIndex), &serror));
+    BOOST_CHECK(serror == SCRIPT_ERR_OK);
+
+
+
+    // SIGHASH_SINGLE signature failure case: no corresponding output for given CSW input index
+    scriptSig.clear();
+    inputIndex = 1;
+    cswTx.vcsw_ccin.resize(2);
+    cswTx.vcsw_ccin[1] = cswTx.vcsw_ccin[0];
+    cswTx.vcsw_ccin[1].pubKeyHash = keys[1].GetPubKey().GetID();
+    BOOST_CHECK(!SignSignature(keystore, scriptPubKey, cswTx, inputIndex, SIGHASH_SINGLE));
+
+
 }
 
 BOOST_AUTO_TEST_SUITE_END()

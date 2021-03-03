@@ -11,7 +11,7 @@
 #include <pow.h>
 #include <coins.h>
 
-CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, const CAmount & fwdTxAmount, int epochLength)
+CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength)
 {
     CMutableTransaction mtx;
     mtx.nVersion = txVersion;
@@ -38,7 +38,9 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vsc_ccout.resize(1);
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
+    mtx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     mtx.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    mtx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
 
     return mtx;
 }
@@ -81,7 +83,7 @@ void txCreationUtils::signTx(CMutableScCertificate& mcert)
 
 CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, CAmount(0), epochLength);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, epochLength);
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vft_ccout.resize(0);
@@ -92,7 +94,7 @@ CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationT
 
 CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, CAmount(0), fwdTxAmount);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, fwdTxAmount);
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vsc_ccout.resize(0);
@@ -102,6 +104,28 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
     mtx.vft_ccout[0].nValue = fwdTxAmount;
 
     signTx(mtx);
+
+    return CTransaction(mtx);
+}
+
+CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
+{
+    libzendoomc::ScFieldElement nullifier;
+    nullifier.SetHex(nullifierHex);
+
+    uint160 dummyPubKeyHash {};
+    libzendoomc::ScProof dummyScProof;
+    CScript dummyRedeemScript;
+
+    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript);
+}
+
+CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawalInput& csw)
+{
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vcsw_ccin.resize(1);
+    mtx.vcsw_ccin[0] = csw;
 
     return CTransaction(mtx);
 }
@@ -123,6 +147,7 @@ CTransaction txCreationUtils::createTransparentTx(bool ccIsNull)
 
     if (ccIsNull)
     {
+        mtx.vcsw_ccin.resize(0);
         mtx.vsc_ccout.resize(0);
         mtx.vft_ccout.resize(0);
     }
@@ -138,6 +163,7 @@ CTransaction txCreationUtils::createSproutTx(bool ccIsNull)
     if (ccIsNull)
     {
         mtx = populateTx(PHGR_TX_VERSION);
+        mtx.vcsw_ccin.resize(0);
         mtx.vsc_ccout.resize(0);
         mtx.vft_ccout.resize(0);
     } else
@@ -166,13 +192,13 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
 
 CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
                                                   CAmount changeTotalAmount, unsigned int numChangeOut,
-                                                  CAmount bwtTotalAmount, unsigned int numBwt) {
+                                                  CAmount bwtTotalAmount, unsigned int numBwt, const int quality) {
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
-    res.quality = 3; //setup to non zero value
+    res.quality = quality;
 
     res.vin.resize(1);
     res.vin[0].prevout.hash = uint256S("1");

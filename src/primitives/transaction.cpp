@@ -212,6 +212,34 @@ std::string CTxIn::ToString() const
     return str;
 }
 
+CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
+                                                                     const libzendoomc::ScFieldElement& nullifierIn, const uint160& pubKeyHashIn,
+                                                                     const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn)
+{
+    nValue = nValueIn;
+    scId = scIdIn;
+    nullifier = nullifierIn;
+    pubKeyHash = pubKeyHashIn;
+    scProof = scProofIn;
+    redeemScript = redeemScriptIn;
+}
+
+std::string CTxCeasedSidechainWithdrawalInput::ToString() const
+{
+    return strprintf("CTxCeasedSidechainWithdrawalInput(nValue=%d.%08d, scId=%s, nullifier=%s, pubKeyHash=%s, scProof=%s, redeemScript=%s)",
+                     nValue / COIN, nValue % COIN, scId.ToString(), HexStr(nullifier).substr(0, 10),
+                     pubKeyHash.ToString(), HexStr(scProof).substr(0, 10), HexStr(redeemScript).substr(0, 24));
+}
+
+CScript CTxCeasedSidechainWithdrawalInput::scriptPubKey() const
+{
+    CScript scriptPubKey;
+    std::vector<unsigned char> pkh(pubKeyHash.begin(), pubKeyHash.end());
+    scriptPubKey << OP_DUP << OP_HASH160 << pkh << OP_EQUALVERIFY << OP_CHECKSIG;
+
+    return scriptPubKey;
+}
+
 CTxOut::CTxOut(const CBackwardTransferOut& btout) : nValue(btout.nValue), scriptPubKey()
 {
     if (!btout.IsNull())
@@ -269,7 +297,8 @@ CTxScCreationOut::CTxScCreationOut(
     const Sidechain::ScCreationParameters& paramsIn)
     :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
      withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant),
-     wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), vCompressedFieldElementConfig(paramsIn.vCompressedFieldElementConfig),
+     wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), wCeasedVk(paramsIn.wCeasedVk),
+     vCompressedFieldElementConfig(paramsIn.vCompressedFieldElementConfig),
      vCompressedMerkleTreeConfig(paramsIn.vCompressedMerkleTreeConfig) {}
 
 uint256 CTxScCreationOut::GetHash() const
@@ -280,9 +309,9 @@ uint256 CTxScCreationOut::GetHash() const
 std::string CTxScCreationOut::ToString() const
 {
     return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, "
-        "customData=[%s], constant=[%s], wCertVk=[%s], vCompressedFieldElementConfig=[%s], vCompressedMerkleTreeConfig[%s]",
+        "customData=[%s], constant=[%s], wCertVk=[%s], wCeasedVk=[%s], vCompressedFieldElementConfig=[%s], vCompressedMerkleTreeConfig[%s]",
         generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30),
-        HexStr(customData), HexStr(constant), HexStr(wCertVk), VecToStr(vCompressedFieldElementConfig), VecToStr(vCompressedMerkleTreeConfig) );
+        HexStr(customData), HexStr(constant), HexStr(wCertVk), wCeasedVk ? HexStr(wCeasedVk.get()) : "", VecToStr(vCompressedFieldElementConfig), VecToStr(vCompressedMerkleTreeConfig) );
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
@@ -304,6 +333,7 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     customData = ccout.customData;
     constant = ccout.constant;
     wCertVk = ccout.wCertVk;
+    wCeasedVk = ccout.wCeasedVk;
     vCompressedFieldElementConfig = ccout.vCompressedFieldElementConfig;
     vCompressedMerkleTreeConfig = ccout.vCompressedMerkleTreeConfig;
     return *this;
@@ -336,11 +366,12 @@ CMutableTransactionBase::CMutableTransactionBase():
     nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
 
 CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(),
-    vsc_ccout(), vft_ccout(), vmbtr_out(),  nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() {}
+    vcsw_ccin(), vsc_ccout(), vft_ccout(), vmbtr_out(),
+    nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() {}
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx): CMutableTransactionBase(),
-    vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()), vmbtr_out(tx.GetVBwtRequestOut()), nLockTime(tx.GetLockTime()),
-    vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+    vcsw_ccin(tx.GetVcswCcIn()), vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()), vmbtr_out(tx.GetVBwtRequestOut()),
+    nLockTime(tx.GetLockTime()), vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
     vin = tx.GetVin();
@@ -390,6 +421,17 @@ CAmount CTransactionBase::GetValueOut() const
     }
 
     return nValueOut;
+}
+
+int CTransactionBase::GetComplexity() const
+{
+    return vin.size()*vin.size();
+}
+
+int CTransaction::GetComplexity() const
+{
+    int totalInputs = vin.size() + vcsw_ccin.size();
+    return totalInputs * totalInputs;
 }
 
 CAmount CTransactionBase::GetJoinSplitValueIn() const
@@ -482,14 +524,28 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
     }
 
     // Ensure input values do not exceed MAX_MONEY
-    // We have not resolved the txin values at this stage, but we do know what the joinsplits claim to add
-    // to the value pool.
+    // We have not resolved the txin values at this stage, but we do know what the joinsplits
+    // and ceased sidechain withrawal inputs claim to add to the value pool.
     CAmount nCumulatedValueIn = 0;
     for(const JSDescription& joinsplit: GetVjoinsplit())
     {
         nCumulatedValueIn += joinsplit.vpub_new;
 
         if (!MoneyRange(joinsplit.vpub_new) || !MoneyRange(nCumulatedValueIn)) {
+            return state.DoS(100, error("CheckAmounts(): txin total out of range"),
+                             REJECT_INVALID, "bad-txns-txintotal-toolarge");
+        }
+    }
+
+    for(const CTxCeasedSidechainWithdrawalInput cswIn: GetVcswCcIn())
+    {
+        nCumulatedValueIn += cswIn.nValue;
+
+        if (!MoneyRange(cswIn.nValue)) {
+            return state.DoS(100, error("CheckAmounts(): txin total out of range"),
+                             REJECT_INVALID, "bad-txns-txcswin-invalid");
+        }
+        if (!MoneyRange(nCumulatedValueIn)) {
             return state.DoS(100, error("CheckAmounts(): txin total out of range"),
                              REJECT_INVALID, "bad-txns-txintotal-toolarge");
         }
@@ -527,6 +583,27 @@ bool CTransactionBase::CheckInputsDuplication(CValidationState &state) const
     return true;
 }
 
+bool CTransaction::CheckInputsDuplication(CValidationState &state) const
+{
+    bool res = CTransactionBase::CheckInputsDuplication(state);
+    if(!res)
+        return res;
+
+    // Check for duplicate ceased sidechain withdrawal inputs
+    // CSW nullifiers expected to be unique
+    std::set<libzendoomc::ScFieldElement> vNullifiers;
+    for(const CTxCeasedSidechainWithdrawalInput cswIn: GetVcswCcIn())
+    {
+        if(vNullifiers.count(cswIn.nullifier))
+            return state.DoS(100, error("CheckInputsDuplications(): duplicate ceased sidechain withdrawal inputs"),
+                             REJECT_INVALID, "bad-txns-csw-inputs-duplicate");
+
+        vNullifiers.insert(cswIn.nullifier);
+    }
+
+    return true;
+}
+
 bool CTransaction::CheckInputsInteraction(CValidationState &state) const
 {
     if (IsCoinBase())
@@ -543,6 +620,9 @@ bool CTransaction::CheckInputsInteraction(CValidationState &state) const
         if (vsc_ccout.size() != 0 || vft_ccout.size() != 0 || vmbtr_out.size() != 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase contains sidechains related outputs"),
                                          REJECT_INVALID, "bad-cb-destination");
+        if (vcsw_ccin.size() != 0)
+            return state.DoS(100, error("CheckInputsInteraction(): coinbase has CSW inputs"),
+                                         REJECT_INVALID, "bad-cb-has-cswinputs");
     }
     else
     {
@@ -551,23 +631,23 @@ bool CTransaction::CheckInputsInteraction(CValidationState &state) const
                 return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
                                  REJECT_INVALID, "bad-txns-prevout-null");
     }
-
     return true;
 }
 
 CTransaction::CTransaction(int nVersionIn): CTransactionBase(nVersionIn),
-    vjoinsplit(), nLockTime(0), vsc_ccout(), vft_ccout(), vmbtr_out(),
+    vjoinsplit(), nLockTime(0), vcsw_ccin(), vsc_ccout(), vft_ccout(), vmbtr_out(),
     joinSplitPubKey(), joinSplitSig() {}
 
 CTransaction::CTransaction(const CTransaction &tx) : CTransactionBase(tx),
     vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
-    vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
+    vcsw_ccin(tx.vcsw_ccin), vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
     joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig) {}
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     CTransactionBase::operator=(tx);
     *const_cast<std::vector<JSDescription>*>(&vjoinsplit)        = tx.vjoinsplit;
     *const_cast<uint32_t*>(&nLockTime)                           = tx.nLockTime;
+    *const_cast<std::vector<CTxCeasedSidechainWithdrawalInput>*>(&vcsw_ccin) = tx.vcsw_ccin;
     *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout)      = tx.vsc_ccout;
     *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
     *const_cast<std::vector<CBwtRequestOut>*>(&vmbtr_out)        = tx.vmbtr_out;
@@ -585,8 +665,8 @@ void CTransaction::UpdateHash() const
 }
 
 CTransaction::CTransaction(const CMutableTransaction &tx): CTransactionBase(tx),
-    vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime), vsc_ccout(tx.vsc_ccout),
-    vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
+    vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
+    vcsw_ccin(tx.vcsw_ccin), vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
     joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     UpdateHash();
@@ -654,9 +734,9 @@ bool CTransaction::IsValidVersion(CValidationState &state) const
 
 bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
 {
-    // Transactions can contain empty `vin` and `vout` so long as
+    // Transactions can contain empty (`vin`, `vcsw_ccin`) and `vout` so long as
     // `vjoinsplit` is non-empty.
-    if (GetVin().empty() && GetVjoinsplit().empty())
+    if (GetVin().empty() && GetVjoinsplit().empty() && GetVcswCcIn().empty())
     {
         LogPrint("sc", "%s():%d - Error: tx[%s]\n", __func__, __LINE__, GetHash().ToString() );
         return state.DoS(10, error("CheckNonEmpty(): vin empty"),
@@ -665,7 +745,7 @@ bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
 
     // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
     // when utxo reminder is only dust, which is added to fee leaving no change for the sender
-    if (GetVout().empty() && GetVjoinsplit().empty() && ccIsNull())
+    if (GetVout().empty() && GetVjoinsplit().empty() && ccOutIsNull())
     {
         return state.DoS(10, error("CheckNonEmpty(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
@@ -735,17 +815,31 @@ CAmount CTransaction::GetValueOut() const
     return nValueOut;
 }
 
+CAmount CTransaction::GetCSWValueIn() const
+{
+    CAmount nValueIn = 0;
+    for(const CTxCeasedSidechainWithdrawalInput& csw : GetVcswCcIn())
+    {
+        nValueIn += csw.nValue;
+
+        if (!MoneyRange(csw.nValue) || !MoneyRange(nValueIn))
+            throw std::runtime_error("CTransaction::GetCSWValueIn(): value out of range");
+    }
+    return nValueIn;
+}
+
 std::string CTransaction::ToString() const
 {
     std::string str;
 
     if (IsScVersion())
     {
-        str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, vsc_ccout.size=%u, vft_ccout.size=%u, nLockTime=%u)\n",
+        str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, vcsw_ccin.size=%u, vsc_ccout.size=%u, vft_ccout.size=%u, nLockTime=%u)\n",
             GetHash().ToString().substr(0,10),
             nVersion,
             vin.size(),
             vout.size(),
+            vcsw_ccin.size(),
             vsc_ccout.size(),
             vft_ccout.size(),
             nLockTime);
@@ -754,6 +848,8 @@ std::string CTransaction::ToString() const
             str += "    " + vin[i].ToString() + "\n";
         for (unsigned int i = 0; i < vout.size(); i++)
             str += "    " + vout[i].ToString() + "\n";
+        for (unsigned int i = 0; i < vcsw_ccin.size(); i++)
+            str += "    " + vcsw_ccin[i].ToString() + "\n";
         for (unsigned int i = 0; i < vsc_ccout.size(); i++)
             str += "    " + vsc_ccout[i].ToString() + "\n";
         for (unsigned int i = 0; i < vft_ccout.size(); i++)
@@ -775,6 +871,21 @@ std::string CTransaction::ToString() const
     return str;
 }
 
+bool CTransaction::CheckInputsLimit() const {
+    // Node operator can choose to reject tx by number of transparent inputs and csw inputs
+    static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
+    size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
+    if (limit > 0) {
+        size_t n = GetVin().size() + GetVcswCcIn().size();
+        if (n > limit) {
+            LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n",
+                    GetHash().ToString(), n, limit );
+            return false;
+        }
+    }
+    return true;
+}
+
 //--------------------------------------------------------------------------------------------
 // binaries other than zend that are produced in the build, do not call these members and therefore do not
 // need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
@@ -783,19 +894,14 @@ std::string CTransaction::ToString() const
 bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int unused, int dosLevel) const { return true; }
 bool CTransaction::IsVersionStandard(int nHeight) const {return true;}
 
-void CTransaction::AddToBlock(CBlock* pblock) const { return; }
-void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const {return; }
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return true; }
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const { return; }
+void CTransaction::AddCeasedSidechainWithdrawalInputsToJSON(UniValue& entry) const { return; }
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const { return; }
-bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-          const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-          std::vector<CScriptCheck> *pvChecks) const { return true;}
+bool CTransaction::VerifyScript(
+        const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+        bool cacheStore, ScriptError* serror) const { return true; }
 std::string CTransaction::EncodeHex() const { return ""; }
-std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
-{
-    return std::shared_ptr<BaseSignatureChecker>();
-}
 void CTransaction::Relay() const {}
 std::shared_ptr<const CTransactionBase> CTransaction::MakeShared() const
 {
@@ -867,35 +973,6 @@ bool CTransaction::IsVersionStandard(int nHeight) const {
     }
 
     return true;
-}
-
-bool CTransactionBase::CheckInputsLimit() const {
-    // Node operator can choose to reject tx by number of transparent inputs
-    static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
-    size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
-    if (limit > 0) {
-        size_t n = GetVin().size();
-        if (n > limit) {
-            LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n",
-                    GetHash().ToString(), n, limit );
-            return false;
-        }
-    }
-    return true;
-}
-
-void CTransaction::AddToBlock(CBlock* pblock) const 
-{
-    LogPrint("sc", "%s():%d - adding to block tx %s\n", __func__, __LINE__, GetHash().ToString());
-    pblock->vtx.push_back(*this);
-}
-
-void CTransaction::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const
-{
-    LogPrint("sc", "%s():%d - adding to block templ tx %s, fee=%s, sigops=%u\n", __func__, __LINE__,
-        GetHash().ToString(), FormatMoney(fee), sigops);
-    pblocktemplate->vTxFees.push_back(fee);
-    pblocktemplate->vTxSigOps.push_back(sigops);
 }
 
 bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const
@@ -970,42 +1047,37 @@ void CTransaction::AddJoinSplitToJSON(UniValue& entry) const
     entry.push_back(Pair("vjoinsplit", TxJoinSplitToJSON(*this)));
 }
 
+void CTransaction::AddCeasedSidechainWithdrawalInputsToJSON(UniValue& entry) const
+{
+    Sidechain::AddCeasedSidechainWithdrawalInputsToJSON(*this, entry);
+}
+
 void CTransaction::AddSidechainOutsToJSON(UniValue& entry) const
 {
     Sidechain::AddSidechainOutsToJSON(*this, entry);
 }
 
-bool CTransactionBase::VerifyScript(
+bool CTransaction::VerifyScript(
         const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
         bool cacheStore, ScriptError* serror) const
 {
-    if (nIn >= GetVin().size() )
-        return ::error("%s:%d can not verify Signature: nIn too large for vin size %d",
-                                       GetHash().ToString(), nIn, GetVin().size());
+    // For CTransaction we should consider both regular inputs and CSW inputs
+    unsigned int nTotalInputs = IsScVersion() ? GetVin().size() + GetVcswCcIn().size() : GetVin().size();
+    if (nIn >= nTotalInputs )
+        return ::error("%s:%d can not verify Signature: nIn too large for the total vin and vcsw_ccin size %d",
+                                       GetHash().ToString(), nIn, nTotalInputs);
 
-    const CScript &scriptSig = GetVin()[nIn].scriptSig;
+    bool isRegularInput = nIn < GetVin().size();
+    const CScript& scriptSig = isRegularInput ? GetVin()[nIn].scriptSig : GetVcswCcIn()[nIn - GetVin().size()].redeemScript;
 
     if (!::VerifyScript(scriptSig, scriptPubKey, nFlags,
-                      //CachingTransactionSignatureChecker(this, nIn, chain, cacheStore),
-                      *MakeSignatureChecker(nIn, chain, cacheStore),
+                      CachingTransactionSignatureChecker(this, nIn, chain, cacheStore),
                       serror))
     {
         return ::error("%s:%d VerifySignature failed: %s", GetHash().ToString(), nIn, ScriptErrorString(*serror));
     }
 
     return true;
-}
-
-std::shared_ptr<BaseSignatureChecker> CTransaction::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
-{
-    return std::shared_ptr<BaseSignatureChecker>(new CachingTransactionSignatureChecker(this, nIn, chain, cacheStore));
-}
-
-bool CTransaction::ContextualCheckInputs(CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-          const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
-          std::vector<CScriptCheck> *pvChecks) const
-{
-    return ::ContextualCheckInputs(*this, state, view, fScriptChecks, chain, flags, cacheStore, consensusParams, pvChecks);
 }
 
 std::string CTransaction::EncodeHex() const

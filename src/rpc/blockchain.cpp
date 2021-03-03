@@ -1108,10 +1108,15 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
             sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
             sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
+
             if (info.creationData.wMbtrVk.is_initialized())
                 sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
             else
                 sc.push_back(Pair("wMbtrVk", std::string{"NOT INITIALIZED"}));
+            if(info.creationData.wCeasedVk.is_initialized())
+                sc.push_back(Pair("wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
+            else
+                sc.push_back(Pair("wCeasedVk", std::string{"NOT INITIALIZED"}));
             sc.push_back(Pair("vCompressedFieldElementConfig", VecToStr(info.creationData.vCompressedFieldElementConfig)));
             sc.push_back(Pair("vCompressedMerkleTreeConfig", VecToStr(info.creationData.vCompressedMerkleTreeConfig) ));
         }
@@ -1158,9 +1163,9 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
                     info.creationData.wMbtrVk = scCreation.wMbtrVk;
+                    info.creationData.wCeasedVk = scCreation.wCeasedVk;
                     info.creationData.vCompressedFieldElementConfig = scCreation.vCompressedFieldElementConfig;
                     info.creationData.vCompressedMerkleTreeConfig = scCreation.vCompressedMerkleTreeConfig;
-                    info.mImmatureAmounts[-1] = scCreation.GetScValue();
                     break;
                 }
             }
@@ -1174,11 +1179,15 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
                 sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
                 sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
-
                 if (info.creationData.wMbtrVk.is_initialized())
                     sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
                 else
                     sc.push_back(Pair("unconf wMbtrVk", std::string{"NOT INITIALIZED"}));
+
+                if(info.creationData.wCeasedVk.is_initialized())
+                    sc.push_back(Pair("unconf wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
+                else
+                    sc.push_back(Pair("unconf wCeasedVk", std::string{"NOT INITIALIZED"}));
                 sc.push_back(Pair("unconf vCompressedFieldElementConfig", VecToStr(info.creationData.vCompressedFieldElementConfig)));
                 sc.push_back(Pair("unconf vCompressedMerkleTreeConfig", VecToStr(info.creationData.vCompressedMerkleTreeConfig)));
             }
@@ -1272,6 +1281,26 @@ int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, in
     return vec.size(); 
 }
 
+void FillCertDataHash(const uint256& scid, UniValue& ret)
+{
+    CCoinsViewCache scView(pcoinsTip);
+
+    if (!scView.HaveSidechain(scid))
+    {
+        LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scid.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
+    }
+
+    libzendoomc::ScFieldElement certDataHash = scView.GetActiveCertDataHash(scid);
+    if (!libzendoomc::IsValidScFieldElement(certDataHash) || certDataHash.IsNull() )
+    {
+        LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing active cert data hash for required scid"));
+    }
+
+    ret.push_back(Pair("certDataHash", HexStr(certDataHash)));
+}
+
 UniValue getscinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() == 0 || params.size() > 5)
@@ -1310,6 +1339,23 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"wMbtrVk\":                       xxxxx,   (string) The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
             "     \"vCompressedFieldElementConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
             "     \"vCompressedMerkleTreeConfig\"    xxxxx,   (string) A string representation of an array whose entries are mkl tree heights. Any certificate should have as many custom CompressedMerkleTree with the corresponding tree height\n"
+            "     \"scid\":                    xxxxx,   (string)  sidechain ID\n"
+            "     \"balance\":                 xxxxx,   (numeric) available balance\n"
+            "     \"epoch\":                   xxxxx,   (numeric) current epoch for this sidechain\n"
+            "     \"end epoch height\":        xxxxx,   (numeric) height of the last block of the current epoch\n"
+            "     \"state\":                   xxxxx,   (string)  state of the sidechain at the current chain height\n"
+            "     \"ceasing height\":          xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
+            "     \"creating tx hash\":        xxxxx,   (string)  txid of the creating transaction\n"
+            "     \"created in block\":        xxxxx,   (string)  hash of the block containing the creatimg tx\n"
+            "     \"created at block height\": xxxxx,   (numeric) height of the above block\n"
+            "     \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
+            "     \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
+            "     \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
+            "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
+            "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
+            "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
+            "     \"wMbtrVk\":                 xxxxx,   (string)  The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
+            "     \"wCeasedVk\":               xxxxx,   (string, optional)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
             "     \"immature amounts\": [\n"
             "       {\n"
             "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
@@ -1392,6 +1438,39 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     }
 
     ret.push_back(Pair("items", scItems));
+    return ret;
+}
+
+UniValue getactivecertdatahash(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getactivecertdatahash (\"scid\")\n"
+            "\nArgument:\n"
+            "   \"scid\"   (string, mandatory)  Retrive information about specified scid\n"
+            "\nReturns the certificate recent data hash info for the given scid.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"certDataHash\":              xxxxx,   (string)  A hex string representation of the field element containing the recent active certificate data hash for the specified scid.\n"
+            "}\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("getactivecertdatahash", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+        );
+
+    string scIdString = params[0].get_str();
+    {
+        if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+    }
+
+    UniValue ret(UniValue::VOBJ);
+ 
+    uint256 scId;
+    scId.SetHex(scIdString);
+
+    FillCertDataHash(scId, ret);
+ 
     return ret;
 }
 
@@ -1496,6 +1575,64 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
     return strHex;
 
+}
+
+UniValue checkcswnullifier(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "checkcswnullifier\n"
+			"\nArguments:\n"
+			"1. \"scid\"   (string, mandatory) scid of nullifier, \"*\" means all \n"
+			"2. nullifier (string, mandatory) Retrieve only information for nullifier\n"
+            "\nReturns True if nullifier exit in SC.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"data\":            xx,      (bool) existance of nullifier\n"
+            "}\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("checkcswnullifier", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\""
+                             "\"0f580d529516a8744de63c578ad83551304c3215f76d204e1a3e7ccbfd40c4e21a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a8740f580d529516a8744de63c578ad83551304c3215f76d204e1a3e7ccbfd40c4e2\"" ) 
+        );
+
+    string inputString = params[0].get_str();
+
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+
+    uint256 scId;
+    scId.SetHex(inputString);
+    
+    inputString = params[1].get_str();
+
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid nullifier format: not an hex");
+
+    std::string nullifierError;
+    std::vector<unsigned char> nullifierVec;
+    if (!AddScData(inputString, nullifierVec, SC_FIELD_SIZE, true, nullifierError))
+    {
+        std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": " + nullifierError;
+        throw JSONRPCError(RPC_TYPE_ERROR, error);
+    }
+
+    libzendoomc::ScFieldElement nullifier(nullifierVec);
+    if (!libzendoomc::IsValidScFieldElement(nullifier))
+    {
+        std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": invalid nullifier data";
+        throw JSONRPCError(RPC_TYPE_ERROR, error);
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    
+    if (pcoinsTip->HaveCswNullifier(scId, nullifier)) {
+        ret.push_back(Pair("data", "true"));
+    } else {
+        ret.push_back(Pair("data", "false"));
+    }
+
+    return ret;
 }
 
 UniValue getblockfinalityindex(const UniValue& params, bool fHelp)

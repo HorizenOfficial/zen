@@ -60,7 +60,8 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapSidechainEvents) override
+                    CSidechainEventsMap& mapSidechainEvents,
+                    CCswNullifiersMap& cswNullifiers) override
     {
         return false;
     }
@@ -149,6 +150,17 @@ TEST(Mempool, TxInputLimit) {
     // The -mempooltxinputlimit check doesn't set a reason
     EXPECT_EQ(state3.GetRejectReason(), "");
 
+    // Resize the transaction, add CSW inputs
+    mtx.vin.resize(10);
+    mtx.vcsw_ccin.resize(1);
+
+    // Check it now fails due to exceeding the total inputs limit
+    CValidationState state3csw;
+    CTransaction txWithCsw(mtx);
+    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state3csw, txWithCsw, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    // The -mempooltxinputlimit check doesn't set a reason
+    EXPECT_EQ(state3csw.GetRejectReason(), "");
+
     // Clear the limit
     mapArgs.erase("-mempooltxinputlimit");
 
@@ -156,7 +168,11 @@ TEST(Mempool, TxInputLimit) {
     CValidationState state4;
     EXPECT_FALSE(AcceptTxToMemoryPool(pool, state4, tx3, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
     EXPECT_EQ(state4.GetRejectReason(), "bad-txns-version-too-low");
-    
+
+    CValidationState state4csw;
+    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state4csw, txWithCsw, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_EQ(state4.GetRejectReason(), "bad-txns-version-too-low");
+
     delete pcoinsTip;
     pcoinsTip = nullptr;
     delete pChainStateDb;

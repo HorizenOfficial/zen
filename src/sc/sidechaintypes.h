@@ -10,6 +10,7 @@
 #include "amount.h"
 #include "serialize.h"
 #include <boost/unordered_map.hpp>
+#include <boost/variant.hpp>
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include<sc/proofverifier.h>
@@ -221,6 +222,7 @@ struct ScCreationParameters
     libzendoomc::ScConstant constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
+    boost::optional<libzendoomc::ScVk> wCeasedVk;
     std::vector<CompressedFieldElementConfig> vCompressedFieldElementConfig;
     std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
 
@@ -232,6 +234,7 @@ struct ScCreationParameters
             constant.empty( )                     &&
             wCertVk.IsNull()                      &&
             wMbtrVk == boost::none                &&
+			wCeasedVk == boost::none              &&
             vCompressedFieldElementConfig.empty() &&
             vCompressedMerkleTreeConfig.empty() );
     }
@@ -244,6 +247,7 @@ struct ScCreationParameters
         READWRITE(constant);
         READWRITE(wCertVk);
         READWRITE(wMbtrVk);
+        READWRITE(wCeasedVk);
         READWRITE(vCompressedFieldElementConfig);
         READWRITE(vCompressedMerkleTreeConfig);
     }
@@ -256,6 +260,7 @@ struct ScCreationParameters
                (constant == rhs.constant) &&
                (wCertVk == rhs.wCertVk)  &&
                (wMbtrVk == rhs.wMbtrVk)  &&
+			   (wCeasedVk == rhs.wCeasedVk) &&
                (vCompressedFieldElementConfig == rhs.vCompressedFieldElementConfig) &&
                (vCompressedMerkleTreeConfig == rhs.vCompressedMerkleTreeConfig);
     }
@@ -267,8 +272,9 @@ struct ScCreationParameters
         constant                      = cp.constant;
         wCertVk                       = cp.wCertVk;
         wMbtrVk                       = cp.wMbtrVk;
+        wCeasedVk                     = cp.wCeasedVk;
         vCompressedFieldElementConfig = cp.vCompressedFieldElementConfig;
-        vCompressedMerkleTreeConfig = cp.vCompressedMerkleTreeConfig;
+        vCompressedMerkleTreeConfig   = cp.vCompressedMerkleTreeConfig;
         return *this;
     }
 };
@@ -337,8 +343,6 @@ struct CRecipientBwtRequest
     CRecipientBwtRequest(): bwtRequestData() {}
     CAmount GetScValue() const { return bwtRequestData.scFee; }
 };
-
-
 
 static const int MAX_SC_DATA_LEN = 1024;
 

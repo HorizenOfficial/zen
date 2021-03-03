@@ -180,6 +180,8 @@ public:
     bool CheckInputsOutputsNonEmpty(CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
+    bool CheckInputsLimit() const override;
+
     //END OF CHECK FUNCTIONS
 
     void Relay() const override;
@@ -209,13 +211,11 @@ public:
     CAmount GetValueOfBackwardTransfers() const;
     CAmount GetValueOfChange() const;
 
-    void AddToBlock(CBlock* pblock) const override; 
-    void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
-
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
 
-    std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
-        unsigned int nIn, const CChain* chain, bool cacheStore) const override;
+    bool VerifyScript(
+            const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+            bool cacheStore, ScriptError* serror) const override;
 };
 
 /** A mutable version of CScCertificate. */
@@ -235,6 +235,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     CMutableScCertificate();
     CMutableScCertificate(const CScCertificate& tx);
     CMutableScCertificate(const CMutableScCertificate& tx) = default;
+    operator CScCertificate() { return CScCertificate(*this); }
     CMutableScCertificate& operator=(const CMutableScCertificate& tx);
     ~CMutableScCertificate() = default;
 

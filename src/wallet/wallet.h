@@ -1111,7 +1111,7 @@ public:
         const std::vector<Sidechain::CRecipientForwardTransfer>& vecFtSend,
         const std::vector<Sidechain::CRecipientBwtRequest>& vecBwtRequest,
         CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
-        std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
+        std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true, CAmount cswInTotAmount = 0);
 
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 

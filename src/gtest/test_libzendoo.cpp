@@ -87,7 +87,6 @@ TEST(ZendooLib, PoseidonHashTest)
 }
 
 TEST(ZendooLib, PoseidonMerkleTreeTest)  {
-
     size_t height = 5;
 
     // Deserialize root

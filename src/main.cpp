@@ -871,17 +871,34 @@ bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& ma
     return true;
 }
 
-unsigned int GetLegacySigOpCount(const CTransactionBase& tx)
+unsigned int GetLegacySigOpCount(const CTransactionBase& txBase)
 {
     unsigned int nSigOps = 0;
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
+    for(const CTxIn& txin: txBase.GetVin())
     {
         nSigOps += txin.scriptSig.GetSigOpCount(false);
     }
-    BOOST_FOREACH(const CTxOut& txout, tx.GetVout())
+    for(const CTxOut& txout: txBase.GetVout())
     {
         nSigOps += txout.scriptPubKey.GetSigOpCount(false);
     }
+
+    if(!txBase.IsCertificate())
+    {
+        try {
+            const CTransaction& tx = dynamic_cast<const CTransaction&>(txBase);
+            for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+            {
+                nSigOps += csw.scriptPubKey().GetSigOpCount(false);
+                nSigOps += csw.redeemScript.GetSigOpCount(false);
+            }
+        } catch(const bad_cast& e) {
+            LogPrint("%s():%d - can't cast CTransactionBase (%s) to CTransaction when expected.\n",
+                __func__, __LINE__, txBase.GetHash().ToString());
+            assert(false);
+        }
+    }
+
     return nSigOps;
 }
 
@@ -1279,7 +1296,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
-        if (!ContextualCheckInputs(cert, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        if (!ContextualCheckCertInputs(cert, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
             return error("%s(): ConnectInputs failed %s", __func__, certHash.ToString());
         }
@@ -1293,7 +1310,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
-        if (!ContextualCheckInputs(cert, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        if (!ContextualCheckCertInputs(cert, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
             return error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__, certHash.ToString());
         }
@@ -1404,10 +1421,10 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             auto scVerifier = libzendoomc::CScProofVerifier::Strict();
             if (!view.IsScTxApplicableToState(tx, scVerifier))
             {
-                return state.DoS(0, error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString()),
+                return state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
- 
+
             // are the joinsplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
                 return state.Invalid(error("%s(): joinsplit requirements not met", __func__),
@@ -1500,7 +1517,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
-        if (!ContextualCheckInputs(tx, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        if (!ContextualCheckTxInputs(tx, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
             return error("%s(): ConnectInputs failed %s", __func__, hash.ToString());
         }
@@ -1514,7 +1531,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         // There is a similar check in CreateNewBlock() to prevent creating
         // invalid blocks, however allowing such transactions into the mempool
         // can be exploited as a DoS attack.
-        if (!ContextualCheckInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
+        if (!ContextualCheckTxInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
             return error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__,  hash.ToString());
         }
@@ -2046,6 +2063,12 @@ CScriptCheck::CScriptCheck(const CCoins& txFromIn, const CTransactionBase& txToI
                             ptxTo(&txToIn), nIn(nInIn), chain(chainIn), nFlags(nFlagsIn),
                             cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR) { }
 
+CScriptCheck::CScriptCheck(const CScript& scriptPubKeyIn, const CTransactionBase& txToIn,
+                           unsigned int nInIn, const CChain* chainIn,
+                           unsigned int nFlagsIn, bool cacheIn):
+                            scriptPubKey(scriptPubKeyIn), ptxTo(&txToIn), nIn(nInIn), chain(chainIn),
+                            nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR) { }
+
 bool CScriptCheck::operator()() {
     return ptxTo->VerifyScript(scriptPubKey, nFlags, nIn, chain, cacheStore, &error); 
 }
@@ -2148,6 +2171,16 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                 REJECT_INVALID, "bad-txns-inputvalues-outofrange");
     }
 
+    try {
+        nValueIn += txBase.GetCSWValueIn();
+        if (!MoneyRange(nValueIn))
+            return state.DoS(100, error("CheckInputs(): Total inputs value out of range."),
+                REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+    } catch (const std::runtime_error& e) {
+        return state.DoS(100, error("CheckInputs(): tx csw input values out of range"),
+            REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+    }
+
     nValueIn += txBase.GetJoinSplitValueIn();
     if (!MoneyRange(nValueIn))
         return state.DoS(100, error("%s(): vpub_old values out of range", __func__),
@@ -2160,7 +2193,44 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
 }
 }// namespace Consensus
 
-bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
+bool InputScriptCheck(const CScript& scriptPubKey, const CTransactionBase& tx, unsigned int nIn,
+                      const CChain& chain, unsigned int flags, bool cacheStore,  CValidationState &state, std::vector<CScriptCheck> *pvChecks)
+{
+    // Verify signature
+    CScriptCheck check(scriptPubKey, tx, nIn, &chain, flags, cacheStore);
+    if (pvChecks) {
+        pvChecks->push_back(CScriptCheck());
+        check.swap(pvChecks->back());
+    } else if (!check()) {
+        if (check.GetScriptError() == SCRIPT_ERR_NOT_FINAL) {
+            return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
+        }
+        if (flags & STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS) {
+            // Check whether the failure was caused by a
+            // non-mandatory script verification check, such as
+            // non-standard DER encodings or non-null dummy
+            // arguments; if so, don't trigger DoS protection to
+            // avoid splitting the network between upgraded and
+            // non-upgraded nodes.
+            CScriptCheck check(scriptPubKey, tx, nIn, &chain,
+                    flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
+            if (check())
+                return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
+        }
+        // Failures of other flags indicate a transaction that is
+        // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
+        // such nodes as they are not following the protocol. That
+        // said during an upgrade careful thought should be taken
+        // as to the correct behavior - we may want to continue
+        // peering with non-upgraded nodes even after a soft-fork
+        // super-majority vote has passed.
+        return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+    }
+
+    return true;
+}
+
+bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsCoinBase())
     {
@@ -2172,7 +2242,7 @@ bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, 
         }
 
         if (pvChecks)
-            pvChecks->reserve(tx.GetVin().size());
+            pvChecks->reserve(tx.GetVin().size() + tx.GetVcswCcIn().size());
 
         // The first loop above does all the inexpensive checks.
         // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
@@ -2187,36 +2257,53 @@ bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, 
                 const CCoins* coins = inputs.AccessCoins(prevout.hash);
                 assert(coins);
 
-                // Verify signature
-                CScriptCheck check(*coins, tx, i, &chain, flags, cacheStore);
-                if (pvChecks) {
-                    pvChecks->push_back(CScriptCheck());
-                    check.swap(pvChecks->back());
-                } else if (!check()) {
-                    if (check.GetScriptError() == SCRIPT_ERR_NOT_FINAL) {
-                        return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
-                    }
-                    if (flags & STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS) {
-                        // Check whether the failure was caused by a
-                        // non-mandatory script verification check, such as
-                        // non-standard DER encodings or non-null dummy
-                        // arguments; if so, don't trigger DoS protection to
-                        // avoid splitting the network between upgraded and
-                        // non-upgraded nodes.
-                        CScriptCheck check(*coins, tx, i, &chain,
-                                flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
-                        if (check())
-                            return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
-                    }
-                    // Failures of other flags indicate a transaction that is
-                    // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
-                    // such nodes as they are not following the protocol. That
-                    // said during an upgrade careful thought should be taken
-                    // as to the correct behavior - we may want to continue
-                    // peering with non-upgraded nodes even after a soft-fork
-                    // super-majority vote has passed.
-                    return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+                const CScript& scriptPubKey = coins->vout[tx.GetVin()[i].prevout.n].scriptPubKey;
+                if(!InputScriptCheck(scriptPubKey, tx, i, chain, flags, cacheStore, state, pvChecks)) {
+                    return false;
                 }
+            }
+
+            unsigned int vinSize = tx.GetVin().size();
+            for (unsigned int i = 0; i < tx.GetVcswCcIn().size(); i++) {
+                const CScript& scriptPubKey = tx.GetVcswCcIn()[i].scriptPubKey();
+                if(!InputScriptCheck(scriptPubKey, tx, i + vinSize, chain, flags, cacheStore, state, pvChecks)) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+bool ContextualCheckCertInputs(const CScCertificate& cert, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams, std::vector<CScriptCheck> *pvChecks)
+{
+    // While checking, GetHeight() is the height of the parent block.
+    // This is also true for mempool checks.
+    int spendHeight = inputs.GetHeight() + 1;
+    if (!Consensus::CheckTxInputs(cert, state, inputs, spendHeight, consensusParams)) {
+        return false;
+    }
+
+    if (pvChecks)
+        pvChecks->reserve(cert.GetVin().size());
+
+    // The first loop above does all the inexpensive checks.
+    // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
+    // Helps prevent CPU exhaustion attacks.
+
+    // Skip ECDSA signature verification when connecting blocks
+    // before the last block chain checkpoint. This is safe because block merkle hashes are
+    // still computed and checked, and any change will be caught at the next checkpoint.
+    if (fScriptChecks) {
+        for (unsigned int i = 0; i < cert.GetVin().size(); i++) {
+            const COutPoint &prevout = cert.GetVin()[i].prevout;
+            const CCoins* coins = inputs.AccessCoins(prevout.hash);
+            assert(coins);
+
+            const CScript& scriptPubKey = coins->vout[cert.GetVin()[i].prevout.n].scriptPubKey;
+            if(!InputScriptCheck(scriptPubKey, cert, i, chain, flags, cacheStore, state, pvChecks)) {
+                return false;
             }
         }
     }
@@ -2450,6 +2537,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 view.SetNullifier(nf, false);
+            }
+        }
+
+        for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
+            if (!view.RemoveCswNullifier(cswIn.scId, cswIn.nullifier)) {
+                LogPrint("sc", "%s():%d - ERROR removing csw nullifier\n", __func__, __LINE__);
+                return error("DisconnectBlock(): nullifiers cannot be reverted: data inconsistent");
             }
         }
 
@@ -2696,7 +2790,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     {
         const CTransaction &tx = block.vtx[txIdx];
 
-        nInputs += tx.GetVin().size();
+        nInputs += tx.GetVin().size() + tx.GetVcswCcIn().size();
         nSigOps += GetLegacySigOpCount(tx);
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("%s():%d: too many sigops",__func__, __LINE__),
@@ -2707,7 +2801,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (!view.HaveInputs(tx))
                 return state.DoS(100, error("%s():%d: tx inputs missing/spent",__func__, __LINE__),
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
- 
+
             auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
             if (!view.IsScTxApplicableToState(tx, scVerifier))
             {
@@ -2731,7 +2825,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             nFees += tx.GetFeeAmount(view.GetValueIn(tx));
 
             std::vector<CScriptCheck> vChecks;
-            if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
+            if (!ContextualCheckTxInputs(tx, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
                 return false;
 
             control.Add(vChecks);
@@ -2750,6 +2844,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("%s():%d: could not add sidechain in view: tx[%s]",
                                             __func__, __LINE__, tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
+            }
+            
+            for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
+                if (!view.AddCswNullifier(cswIn.scId, cswIn.nullifier)) {
+                    return state.DoS(100, error("ConnectBlock(): try to use existed nullifier Tx [%s]", tx.GetHash().ToString()),
+                             REJECT_INVALID, "bad-txns-csw-input-nullifier");
+                }
             }
         }
 
@@ -2796,7 +2897,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         nFees += cert.GetFeeAmount(view.GetValueIn(cert));
 
         std::vector<CScriptCheck> vChecks;
-        if (!ContextualCheckInputs(cert, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
+        if (!ContextualCheckCertInputs(cert, state, view, fExpensiveChecks, chain, flags, false, chainparams.GetConsensus(), nScriptCheckThreads ? &vChecks : NULL))
             return false;
 
         control.Add(vChecks);
@@ -2823,6 +2924,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
             if (!prevBlockTopQualityCertHash.IsNull())
             {
+                // if prevBlockTopQualityCertHash is not null, it has same scId/epochNumber as cert
+
                 view.NullifyBackwardTransfers(prevBlockTopQualityCertHash, blockundo.scUndoDatabyScId.at(cert.GetScId()).lowQualityBwts);
                 blockundo.scUndoDatabyScId.at(cert.GetScId()).contentBitMask |= CSidechainUndoData::AvailableSections::SUPERSEDED_CERT_DATA;
                 if (pCertsStateInfo != nullptr)
@@ -2830,7 +2933,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                             cert.epochNumber,
                                             blockundo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertQuality,
                                             CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
-                // if prevBlockTopQualityCertHash has to be voided, it has same scId/epochNumber as cert
             }
 
             if (pCertsStateInfo != nullptr)
@@ -2841,7 +2943,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 pCertsStateInfo->push_back(CScCertificateStatusUpdateInfo(cert.GetScId(), cert.GetHash(),
                                         cert.epochNumber, cert.quality, CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
         }
-
 
         if (certIdx == 0) {
             // we are processing the first certificate, add the size of the vcert to the offset
@@ -3252,6 +3353,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     std::list<CScCertificate> removedCerts;
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, removedTxs,  removedCerts, !IsInitialBlockDownload());
     mempool.removeForBlock(pblock->vcert, pindexNew->nHeight, removedTxs, removedCerts);
+
     mempool.removeStaleTransactions(pcoinsTip, removedTxs, removedCerts);
     mempool.removeStaleCertificates(pcoinsTip, removedCerts);
 

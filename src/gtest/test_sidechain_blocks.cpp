@@ -63,7 +63,8 @@ public:
 
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CSidechainEventsMap& mapSidechainEvents) override
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap,
+                    CSidechainEventsMap& mapSidechainEvents, CCswNullifiersMap& cswNullifiers) override
     {
         for (auto& entryToWrite : sidechainMap)
             WriteMutableEntry(entryToWrite.first, entryToWrite.second, sidechainsInMemoryMap);
@@ -138,6 +139,7 @@ protected:
 
     void storeSidechain(const uint256& scId, const CSidechain& sidechain);
     void storeSidechainEvent(int eventHeight, const CSidechainEvents& scEvent);
+
     void fillBlockHeader(CBlock& blockToFill, const uint256& prevBlockHash);
 
     CAmount dummyFeeAmount;
@@ -610,8 +612,10 @@ void SidechainsConnectCertsBlockTestSuite::storeSidechain(const uint256& scId, c
     CAnchorsMap dummyAnchors;
     dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
 
+    CCswNullifiersMap dummyCswNullifiers;
+
     sidechainsView->BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
-                               dummyNullifiers, dummySidechains, dummySidechainsEvents);
+                               dummyNullifiers, dummySidechains, dummySidechainsEvents, dummyCswNullifiers);
 
     return;
 }
@@ -633,8 +637,10 @@ void SidechainsConnectCertsBlockTestSuite::storeSidechainEvent(int eventHeight, 
     CAnchorsMap dummyAnchors;
     dummyAnchors[dummyAnchor] = dummyAnchorsEntry;
 
+    CCswNullifiersMap dummyCswNullifiers;
+
     sidechainsView->BatchWrite(dummyCoins, dummyHash, dummyAnchor, dummyAnchors,
-                               dummyNullifiers, dummySidechains, dummySidechainsEvents);
+                               dummyNullifiers, dummySidechains, dummySidechainsEvents, dummyCswNullifiers);
 
     return;
 }

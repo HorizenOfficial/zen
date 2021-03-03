@@ -13,6 +13,10 @@ namespace libzendoomc{
 
     bool IsValidScFieldElement(const ScFieldElement& scFieldElement) //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
     {
+        auto scFieldElementDeserialized = zendoo_deserialize_field(scFieldElement.begin());
+        if (scFieldElementDeserialized == nullptr)
+            return false;
+        zendoo_field_free(scFieldElementDeserialized);
         return true;
     }
 
@@ -105,9 +109,8 @@ namespace libzendoomc{
         WCertVerifierInputs inputs;
 
         //Deserialize constant
-        if (constant.size() == 0){ //Constant can be optional
+        if (constant.size() == 0) { //Constant can be optional
             inputs.constant = nullptr;
-       
         } else {
             
             inputs.constant = deserialize_field(constant.data()); 
@@ -209,6 +212,18 @@ namespace libzendoomc{
             return true;
         else
             return CScWCertProofVerification().verifyScCert(constant, wCertVk, prev_end_epoch_block_hash, cert);
+    }
+
+    bool CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput(
+        const ScFieldElement& certDataHash,
+        const ScVk& wCeasedVk,
+        const CTxCeasedSidechainWithdrawalInput& csw
+    ) const
+    {
+        if(!perform_verification)
+            return true;
+        else // TODO: emit rust implementation.
+            return true;// CswProofVerification().verifyCsw(certDataHash, wCeasedVk, csw);
     }
 
     bool CScProofVerifier::verifyCBwtRequest(
