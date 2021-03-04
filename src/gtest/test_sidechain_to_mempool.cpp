@@ -248,8 +248,8 @@ TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
     //Case 3: btr tx only in mempool
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrTxEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    std::map<uint256, CSidechainField> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = CSidechainField{};
     aMempool.addUnchecked(btrTxEntry.GetTx().GetHash(), btrTxEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
     res = aMempool.hasSidechainCreationTx(scId);
     EXPECT_FALSE(res);
@@ -284,8 +284,8 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScNonRecursiveRemo
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
 
-    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    std::map<uint256, CSidechainField> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = CSidechainField{};
     aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
@@ -313,8 +313,8 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrsOnlyInMempool_FwdNonRecursiveRem
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    std::map<uint256, CSidechainField> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = CSidechainField{};
     aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
@@ -342,8 +342,8 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrsOnlyInMempool_BtrNonRecursiveRem
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    std::map<uint256, CSidechainField> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = CSidechainField{};
     aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
@@ -376,8 +376,8 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_ScRecursiveRemoval
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    std::map<uint256, CSidechainField> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = CSidechainField{};
     aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
@@ -406,8 +406,8 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndBtrOnlyInMempool_ScRecursiveRemoval)
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    std::map<uint256, CSidechainField> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = CSidechainField{};
     aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
@@ -435,8 +435,8 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_FwdRecursiveRemova
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    std::map<uint256, CSidechainField> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = CSidechainField{};
     aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
@@ -464,8 +464,8 @@ TEST_F(SidechainsInMempoolTestSuite, ScAndFwdsAndBtrInMempool_BtrRecursiveRemova
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CTxMemPoolEntry btrEntry(btrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
-    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    std::map<uint256, CSidechainField> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = CSidechainField{};
     aMempool.addUnchecked(btrTx.GetHash(), btrEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     std::list<CTransaction> removedTxs;
@@ -929,8 +929,8 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCswRemovalFromMempool) {
     CScript dummyRedeemScript;
 
     CMutableTransaction mutTx;
-    libzendoomc::ScFieldElement nullfier_1{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
-    libzendoomc::ScFieldElement nullfier_2{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
+    CSidechainField nullfier_1{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
+    CSidechainField nullfier_2{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
     mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
     mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
 
@@ -1010,8 +1010,8 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
 
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
-    libzendoomc::ScFieldElement nullfier_1{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
-    libzendoomc::ScFieldElement nullfier_2{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
+    CSidechainField nullfier_1{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
+    CSidechainField nullfier_2{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
     mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
     mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
 
@@ -1226,8 +1226,8 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedMbtrTowardCeasedSidechainIsDroppe
     mutMbtrTx.vmbtr_out.push_back(mcBwtReq);
     CTransaction mbtrTx(mutMbtrTx);
     CTxMemPoolEntry mempoolEntry(mbtrTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/mbtrHeight);
-    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    std::map<uint256, CSidechainField> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = CSidechainField{};
     mempool.addUnchecked(mbtrTx.GetHash(), mempoolEntry, /*fCurrentEstimate*/true, dummyCertDataHashInfo);
 
     //test
@@ -1600,8 +1600,10 @@ CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId) {
 
 CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
 {
-    libzendoomc::ScFieldElement nullifier;
-    nullifier.SetHex(nullifierHex);
+    CSidechainField nullifier{};
+    std::vector<unsigned char> tmp{nullifierHex.begin(), nullifierHex.end()};
+    tmp.resize(nullifier.size(), 0x0);
+    nullifier.SetByteArray(tmp);
 
     uint160 dummyPubKeyHash = coinsKey.GetPubKey().GetID();
     libzendoomc::ScProof dummyScProof;

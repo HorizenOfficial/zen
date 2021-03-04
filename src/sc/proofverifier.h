@@ -15,11 +15,6 @@ class CScCertificate;
 class CTxCeasedSidechainWithdrawalInput;
 
 namespace libzendoomc {
-    typedef base_blob<SC_FIELD_SIZE * 8> ScFieldElement;
-
-    /* Check if scFieldElement is a valid field, leveraging zendoo-mc-cryptolib' */
-    bool IsValidScFieldElement(const ScFieldElement& scFieldElement);
-
     typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
 
     /* Check if scProof is a valid zendoo-mc-cryptolib's sc_proof */
@@ -40,10 +35,48 @@ namespace libzendoomc {
 
     /* Write scVk to file in vkPath. Returns true if operation succeeds, false otherwise. */
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk);
+};
 
-    /* Calculate poseidon hash of the two inputs and return as out param. Return true if no errors occurred*/
-    bool CalculateHash(const ScFieldElement& inA, const ScFieldElement& inB, ScFieldElement& outHash);
+class CSidechainField
+{
+public:
+    CSidechainField();
+    explicit CSidechainField(const uint256& sha256); //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
+    uint256 GetLegacyHashTO_BE_REMOVED() const;
 
+    explicit CSidechainField(const std::vector<unsigned char>& _byteArray);
+    ~CSidechainField() = default;
+
+    void SetNull();
+    bool IsNull() const;
+
+    std::vector<unsigned char>  GetByteArray() const;
+    void SetByteArray(const std::vector<unsigned char>& _byteArray);
+    unsigned int size() const;
+
+    /* Check if scFieldElement is a valid field, leveraging zendoo-mc-cryptolib' */
+    static bool IsValid(const CSidechainField& scField);
+    friend inline bool operator==(const CSidechainField& lhs, const CSidechainField& rhs) { return lhs.byteArray == rhs.byteArray; }
+    friend inline bool operator!=(const CSidechainField& lhs, const CSidechainField& rhs) { return !(lhs == rhs); }
+    friend inline bool operator<(const CSidechainField& lhs, const CSidechainField& rhs)  { return lhs.byteArray < rhs.byteArray; } // FOR STD::MAP ONLY
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        // substitute with real field element serialization
+        READWRITE(byteArray);
+    }
+
+    std::string GetHex() const;
+    std::string ToString() const;
+
+    static CSidechainField ComputeHash(const CSidechainField& lhs, const CSidechainField& rhs);
+
+private:
+    base_blob<SC_FIELD_SIZE * 8> byteArray;
+};
+
+namespace libzendoomc {
     /* Support class for WCert SNARK proof verification. */
     class CScWCertProofVerification {
         public:
@@ -129,19 +162,19 @@ namespace libzendoomc {
             // Returns false if proof verification has failed or deserialization of CSW's elements
             // into libzendoomc's elements has failed.
             bool verifyCTxCeasedSidechainWithdrawalInput(
-                const ScFieldElement& certDataHash,
+                const CSidechainField& certDataHash,
                 const ScVk& wCeasedVk,
                 const CTxCeasedSidechainWithdrawalInput& csw
             ) const;
 
             bool verifyCBwtRequest(
                 const uint256& scId,
-                const libzendoomc::ScFieldElement& scUtxoId,
+                const CSidechainField& scUtxoId,
                 const uint160& mcDestinationAddress,
                 CAmount scFees,
                 const libzendoomc::ScProof& scProof,
                 const boost::optional<libzendoomc::ScVk>& wMbtrVk,
-				const libzendoomc::ScFieldElement& certDataHash
+				const CSidechainField& certDataHash
             ) const;
     };
 }

@@ -507,7 +507,7 @@ zen_tx_SOURCES = \
     bitcoin-tx.cpp \
     primitives/transaction.cpp \
     primitives/certificate.cpp \
-    sc/sidechaintypes.cpp \
+    sc/proofverifier.cpp \
     sc/sidechain.cpp \
     coins.cpp \
     script/interpreter.cpp \

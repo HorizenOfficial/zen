@@ -154,7 +154,7 @@ public:
     int64_t nChainDelay;
 
     //! Cumulative Hash Block Sidechain Transaction Commitment Tree
-    CPoseidonHash scCumTreeHash;
+    CSidechainField scCumTreeHash;
 
     //! Number of transactions in this block.
     //! Note: in a potential headers-first mode, this number cannot be relied upon
@@ -186,7 +186,7 @@ public:
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
-    CPoseidonHash hashScTxsCommitment;
+    CSidechainField hashScTxsCommitment;
     unsigned int nTime;
     unsigned int nBits;
     uint256 nNonce;

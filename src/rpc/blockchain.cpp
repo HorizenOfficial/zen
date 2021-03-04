@@ -1285,14 +1285,14 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
     }
 
-    libzendoomc::ScFieldElement certDataHash = scView.GetActiveCertDataHash(scid);
-    if (!libzendoomc::IsValidScFieldElement(certDataHash) || certDataHash.IsNull() )
+    CSidechainField certDataHash = scView.GetActiveCertDataHash(scid);
+    if (certDataHash.IsNull() || !CSidechainField::IsValid(certDataHash))
     {
         LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing active cert data hash for required scid"));
     }
 
-    ret.push_back(Pair("certDataHash", HexStr(certDataHash)));
+    ret.push_back(Pair("certDataHash", HexStr(certDataHash.GetByteArray())));
 }
 
 UniValue getscinfo(const UniValue& params, bool fHelp)
@@ -1596,8 +1596,8 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_TYPE_ERROR, error);
     }
 
-    libzendoomc::ScFieldElement nullifier(nullifierVec);
-    if (!libzendoomc::IsValidScFieldElement(nullifier))
+    CSidechainField nullifier(nullifierVec);
+    if (!CSidechainField::IsValid(nullifier))
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": invalid nullifier data";
         throw JSONRPCError(RPC_TYPE_ERROR, error);

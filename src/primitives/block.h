@@ -30,7 +30,7 @@ public:
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
-    CPoseidonHash hashScTxsCommitment;
+    CSidechainField hashScTxsCommitment;
     uint32_t nTime;
     uint32_t nBits;
     uint256 nNonce;

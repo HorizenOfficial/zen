@@ -1566,15 +1566,15 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scUtxoId\"" );
         }
-        libzendoomc::ScFieldElement scUtxoId = libzendoomc::ScFieldElement(scUtxoIdVec);
 
-        if(!libzendoomc::IsValidScFieldElement(scUtxoId))
+        CSidechainField scUtxoId {scUtxoIdVec};
+        if(!CSidechainField::IsValid(scUtxoId))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scUtxoId"));
 
         ScBwtRequestParameters bwtData;
         bwtData.scFee = scFee;
         bwtData.scProof = scProof;
-        bwtData.scUtxoId = scUtxoId;
+        bwtData.scRequestData = scUtxoId;
 
         vOutputs.push_back(ScRpcRetrieveCmdTx::sBtOutParams(scId, pkeyValue, bwtData));
     }

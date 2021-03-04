@@ -73,8 +73,8 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithoutCert
     initialScState.creationData.withdrawalEpochLength = 5;
     initialScState.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
 
-    initialScState.pastEpochTopQualityCertDataHash.SetHex(std::string("aaaa"));
-    initialScState.lastTopQualityCertDataHash.SetHex(std::string("bbbb"));
+    initialScState.pastEpochTopQualityCertDataHash = CSidechainField{std::vector<unsigned char>(SC_FIELD_SIZE, 'a')};
+    initialScState.lastTopQualityCertDataHash      = CSidechainField{std::vector<unsigned char>(SC_FIELD_SIZE, 'b')};
 
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.GetCertSubmissionWindowStart(initialEpochReferencedByCert));
     ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
@@ -83,7 +83,7 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithoutCert
     int currWindowEnd = initialScState.GetCertSubmissionWindowEnd(initialEpochReferencedByCert);
     int nextWindowEnd = initialScState.GetCertSubmissionWindowEnd(initialEpochReferencedByCert+1);
 
-    libzendoomc::ScFieldElement expectedActiveCertDataHash = initialScState.lastTopQualityCertDataHash;
+    CSidechainField expectedActiveCertDataHash = initialScState.lastTopQualityCertDataHash;
 
     for (int heightToInspect = currWindowEnd+1; heightToInspect <= nextWindowEnd; ++heightToInspect)
     {
@@ -107,13 +107,13 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
     sidechain.creationData.withdrawalEpochLength = 100;
     sidechain.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
 
-    sidechain.pastEpochTopQualityCertDataHash.SetHex(std::string("aaaa"));
-    sidechain.lastTopQualityCertDataHash.SetHex(std::string("bbbb"));
+    sidechain.pastEpochTopQualityCertDataHash = CSidechainField{std::vector<unsigned char>(SC_FIELD_SIZE, 'a')};
+    sidechain.lastTopQualityCertDataHash      = CSidechainField{std::vector<unsigned char>(SC_FIELD_SIZE, 'b')};
 
     storeSidechainWithCurrentHeight(*view, scId, sidechain, sidechain.GetCertSubmissionWindowStart(initialEpochReferencedByCert));
     ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
-    libzendoomc::ScFieldElement expectedActiveCertDataHash = sidechain.lastTopQualityCertDataHash;
+    CSidechainField expectedActiveCertDataHash = sidechain.lastTopQualityCertDataHash;
 
     // test
     int currWindowEnd = sidechain.GetCertSubmissionWindowEnd(initialEpochReferencedByCert);
@@ -148,7 +148,7 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
         	// simulate certificate reception, as it happens in UpdateSidechain
         	sidechain.lastTopQualityCertReferencedEpoch += 1;
         	sidechain.pastEpochTopQualityCertDataHash = sidechain.lastTopQualityCertDataHash; // rotate past certDataHash
-        	sidechain.lastTopQualityCertDataHash.SetHex(std::string("cccc"));
+        	sidechain.lastTopQualityCertDataHash = CSidechainField{std::vector<unsigned char>(SC_FIELD_SIZE, 'c')};
             txCreationUtils::storeSidechain(view->getSidechainMap(), scId, sidechain);
         } else
         {

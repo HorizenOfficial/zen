@@ -188,13 +188,13 @@ void static RandomPubKeyHash(uint160 &pubKeyHash) {
     pubKeyHash.SetHex(str);
 }
 
-void static RandomScFieldElement(libzendoomc::ScFieldElement &fe) {
-    std::string str;
-    for (unsigned int i = 0; i < sizeof(libzendoomc::ScFieldElement); i++)
+void static RandomSidechainField(CSidechainField &fe) {
+    std::vector<unsigned char> vec;
+    for (unsigned int i = 0; i < sizeof(CSidechainField); i++)
     {
-        str.push_back((unsigned char)(insecure_rand() % 0xff));
+    	 vec.push_back((unsigned char)(insecure_rand() % 0xff));
     }
-    fe.SetHex(str);
+    fe.SetByteArray(vec);
 }
 
 void static RandomScProof(libzendoomc::ScProof &proof) {
@@ -321,7 +321,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
           RandomPubKeyHash(csw_in.pubKeyHash);
           csw_in.nValue = insecure_rand() % 100000000;
           csw_in.scId = libzcash::random_uint256();
-          RandomScFieldElement(csw_in.nullifier);
+          RandomSidechainField(csw_in.nullifier);
           RandomScProof(csw_in.scProof);
 
           if(emptyInputScript) {

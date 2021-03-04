@@ -296,7 +296,7 @@ public:
      * unordered_map will behave unpredictably if the custom hasher returns a
      * uint64_t, resulting in failures when syncing the chain (#4634).
      */
-    size_t operator()(const std::pair<uint256, libzendoomc::ScFieldElement>& key) const;
+    size_t operator()(const std::pair<uint256, CSidechainField>& key) const;
 };
 
 struct CCoinsCacheEntry
@@ -451,7 +451,7 @@ typedef boost::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CN
 
 typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap;
 typedef boost::unordered_map<int, CSidechainEventsCacheEntry> CSidechainEventsMap;
-typedef boost::unordered_map<std::pair<uint256, libzendoomc::ScFieldElement>, CCswNullifiersCacheEntry, CCswNullifiersKeyHasher> CCswNullifiersMap;
+typedef boost::unordered_map<std::pair<uint256, CSidechainField>, CCswNullifiersCacheEntry, CCswNullifiersKeyHasher> CCswNullifiersMap;
 
 struct CCoinsStats
 {
@@ -510,7 +510,7 @@ public:
     
     //! Retrieve existance of CSW nullifier for specified Sidechain.
     virtual bool HaveCswNullifier(const uint256& scId,
-                                  const libzendoomc::ScFieldElement& nullifier) const;
+                                  const CSidechainField& nullifier) const;
 
     //! Do a bulk modification (multiple CCoins changes + BestBlock change).
     //! The passed mapCoins can be modified.
@@ -552,7 +552,7 @@ public:
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
     bool HaveCswNullifier(const uint256& scId,
-                         const libzendoomc::ScFieldElement &nullifier) const override;
+                         const CSidechainField &nullifier) const override;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
@@ -696,11 +696,11 @@ public:
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
 
     //CSW NULLIFIER PUBLIC MEMBERS
-    bool HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const override;
-    bool AddCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier);
-    bool RemoveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier);
+    bool HaveCswNullifier(const uint256& scId, const CSidechainField &nullifier) const override;
+    bool AddCswNullifier(const uint256& scId, const CSidechainField &nullifier);
+    bool RemoveCswNullifier(const uint256& scId, const CSidechainField &nullifier);
 
-    libzendoomc::ScFieldElement GetActiveCertDataHash(const uint256& scId) const;
+    CSidechainField GetActiveCertDataHash(const uint256& scId) const;
     CSidechain::State GetSidechainState(const uint256& scId) const;
 
     bool Flush();

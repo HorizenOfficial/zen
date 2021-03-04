@@ -147,14 +147,14 @@ struct CSidechainUndoData
     CAmount appliedMaturedAmount;
 
     // CROSS_EPOCH_CERT_DATA section
-    libzendoomc::ScFieldElement pastEpochTopQualityCertDataHash;
+    CSidechainField pastEpochTopQualityCertDataHash;
 
     // ANY_EPOCH_CERT_DATA section
     uint256 prevTopCommittedCertHash;
     int32_t prevTopCommittedCertReferencedEpoch;
     int64_t prevTopCommittedCertQuality;
     CAmount prevTopCommittedCertBwtAmount;
-    libzendoomc::ScFieldElement lastTopQualityCertDataHash;
+    CSidechainField lastTopQualityCertDataHash;
 
     // LOW_QUALITY_CERT_DATA
     std::vector<CTxInUndo> lowQualityBwts;

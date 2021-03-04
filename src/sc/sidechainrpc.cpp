@@ -30,7 +30,7 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("value", ValueFromAmount(csw.nValue)));
         o.push_back(Pair("scId", csw.scId.GetHex()));
-        o.push_back(Pair("nullifier", HexStr(csw.nullifier)));
+        o.push_back(Pair("nullifier", HexStr(csw.nullifier.GetByteArray())));
 
         UniValue spk(UniValue::VOBJ);
         ScriptPubKeyToJSON(csw.scriptPubKey(), spk, true);
@@ -109,7 +109,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         
         o.push_back(Pair("mcDestinationAddress", mcAddr));
         o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
-        o.push_back(Pair("scUtxoId", HexStr(out.scRequestData)));
+        o.push_back(Pair("scUtxoId", HexStr(out.scRequestData.GetByteArray())));
         o.push_back(Pair("scProof", HexStr(out.scProof)));
         vbts.push_back(o);
         nIdx++;
@@ -232,8 +232,8 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 
-        libzendoomc::ScFieldElement nullifier(nullifierVec);
-        if (!libzendoomc::IsValidScFieldElement(nullifier))
+        CSidechainField nullifier(nullifierVec);
+        if (!CSidechainField::IsValid(nullifier))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": invalid nullifier data";
             return false;
@@ -539,9 +539,8 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
             return false;
         }
 
-        bwtData.scUtxoId = libzendoomc::ScFieldElement(scUtxoIdVec);
-
-        if (!libzendoomc::IsValidScFieldElement(bwtData.scUtxoId))
+        bwtData.scRequestData = CSidechainField{scUtxoIdVec};
+        if (!CSidechainField::IsValid(bwtData.scRequestData))
         {
             error = "invalid scUtxoId";
             return false;
@@ -612,7 +611,7 @@ void fundCcRecipients(const CTransaction& tx,
         bt.scId = entry.scId;
         bt.mcDestinationAddress = entry.mcDestinationAddress;
         bt.bwtRequestData.scFee = entry.scFee;
-        bt.bwtRequestData.scUtxoId = entry.scRequestData;
+        bt.bwtRequestData.scRequestData = entry.scRequestData;
         bt.bwtRequestData.scProof = entry.scProof;
 
         vecBwtRequest.push_back(bt);

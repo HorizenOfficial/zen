@@ -62,7 +62,8 @@ CMutableTransaction GetValidTransaction(int txVersion) {
         CTxCeasedSidechainWithdrawalInput csw_ccin;
         csw_ccin.nValue = 2.0 * COIN;
         csw_ccin.scId = GetRandHash();
-        GetRandBytes((unsigned char*)&csw_ccin.nullifier, csw_ccin.nullifier.size());
+        std::vector<unsigned char> nullifierStr = csw_ccin.nullifier.GetByteArray();
+        GetRandBytes((unsigned char*)&nullifierStr, csw_ccin.nullifier.size());
         GetRandBytes((unsigned char*)&csw_ccin.pubKeyHash, csw_ccin.pubKeyHash.size());
         GetRandBytes((unsigned char*)&csw_ccin.scProof, csw_ccin.scProof.size());
         csw_ccin.redeemScript = CScript();

@@ -16,7 +16,7 @@ public:
 TEST_F(ScTxCumulativeHashTestSuite, CBlockIndexSerialization)
 {
     CBlockIndex originalpindex;
-    originalpindex.scCumTreeHash = CPoseidonHash(libzendoomc::ScFieldElement({std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')}));
+    originalpindex.scCumTreeHash = CSidechainField({std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')});
 
     CDataStream ssValue(SER_DISK, PROTOCOL_VERSION);
     ssValue << CDiskBlockIndex(&originalpindex);
@@ -32,7 +32,7 @@ TEST_F(ScTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
     SelectParams(CBaseChainParams::MAIN);
 
     // Previous block
-    CPoseidonHash prevCumulativeHash(libzendoomc::ScFieldElement({std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')}));
+    CSidechainField prevCumulativeHash{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
     CBlock prevBlock;
     prevBlock.nVersion = BLOCK_VERSION_SC_SUPPORT;
     prevBlock.hashScTxsCommitment = prevCumulativeHash;
@@ -42,7 +42,7 @@ TEST_F(ScTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
     EXPECT_TRUE(prevCumulativeHash == prevPindex->hashScTxsCommitment);
 
     // Current block
-    CPoseidonHash currentHash(libzendoomc::ScFieldElement({std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')}));
+    CSidechainField currentHash{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
     CBlock block;
     block.nVersion = BLOCK_VERSION_SC_SUPPORT;
     block.hashScTxsCommitment = currentHash;
@@ -52,7 +52,7 @@ TEST_F(ScTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
     EXPECT_TRUE(currentHash == pindex->hashScTxsCommitment);
     EXPECT_TRUE(pindex->pprev == prevPindex);
 
-    CPoseidonHash expectedHash = CPoseidonHash::ComputeHash(prevCumulativeHash, currentHash);
+    CSidechainField expectedHash = CSidechainField::ComputeHash(prevCumulativeHash, currentHash);
     EXPECT_TRUE(expectedHash == pindex->scCumTreeHash);
 
     CleanUpAll();

@@ -15,41 +15,6 @@
 
 #include<sc/proofverifier.h>
 
-//------------------------------------------------------------------------------------
-class CTxForwardTransferOut;
-
-class CPoseidonHash
-{
-public:
-    CPoseidonHash();
-    explicit CPoseidonHash(const uint256& sha256); //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
-    explicit CPoseidonHash(const libzendoomc::ScFieldElement& fe);
-    ~CPoseidonHash() = default;
-
-    void SetNull();
-    friend inline bool operator==(const CPoseidonHash& lhs, const CPoseidonHash& rhs) { return lhs.innerHash == rhs.innerHash; }
-    friend inline bool operator!=(const CPoseidonHash& lhs, const CPoseidonHash& rhs) { return !(lhs == rhs); }
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        // substitute with real field element serialization
-        READWRITE(innerHash);
-    }
-
-    std::string GetHex() const   {return innerHash.GetHex();}
-    std::string ToString() const {return innerHash.ToString();}
-
-    static CPoseidonHash ComputeHash(const CPoseidonHash& a, const CPoseidonHash& b);
-    static libzendoomc::ScFieldElement ComputeHash(const libzendoomc::ScFieldElement& a, const libzendoomc::ScFieldElement& b);
-
-    const libzendoomc::ScFieldElement& GetFieldElement() const { return innerFieldElement; }
-
-private:
-    uint256 innerHash; //Temporary, for backward compatibility with beta
-    libzendoomc::ScFieldElement innerFieldElement;
-};
-
 namespace Sidechain
 {
 
@@ -126,19 +91,19 @@ struct ScCreationParameters
 struct ScBwtRequestParameters
 {
     CAmount scFee;
-    libzendoomc::ScFieldElement scUtxoId;
+    CSidechainField scRequestData;
     libzendoomc::ScProof scProof;
 
     bool IsNull() const
     {
-        return ( scFee == 0 && scUtxoId.IsNull() && scProof.IsNull());
+        return ( scFee == 0 && scRequestData.IsNull() && scProof.IsNull());
     }
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(scFee);
-        READWRITE(scUtxoId);
+        READWRITE(scRequestData);
         READWRITE(scProof);
     }
     ScBwtRequestParameters() :scFee(0) {}
@@ -146,14 +111,14 @@ struct ScBwtRequestParameters
     inline bool operator==(const ScBwtRequestParameters& rhs) const
     {
         return (scFee == rhs.scFee) &&
-               (scUtxoId == rhs.scUtxoId) &&
+               (scRequestData == rhs.scRequestData) &&
                (scProof == rhs.scProof); 
     }
     inline bool operator!=(const ScBwtRequestParameters& rhs) const { return !(*this == rhs); }
     inline ScBwtRequestParameters& operator=(const ScBwtRequestParameters& cp)
     {
         scFee = cp.scFee;
-        scUtxoId = cp.scUtxoId;
+        scRequestData = cp.scRequestData;
         scProof = cp.scProof;
         return *this;
     }

@@ -11,15 +11,6 @@
 
 namespace libzendoomc{
 
-    bool IsValidScFieldElement(const ScFieldElement& scFieldElement)
-    {
-        auto scFieldElementDeserialized = zendoo_deserialize_field(scFieldElement.begin());
-        if (scFieldElementDeserialized == nullptr)
-            return false;
-        zendoo_field_free(scFieldElementDeserialized);
-        return true;
-    }
-
     bool IsValidScProof(const ScProof& scProof)
     {
         auto scProofDeserialized = zendoo_deserialize_sc_proof(scProof.begin());
@@ -98,6 +89,13 @@ namespace libzendoomc{
         }
     };
 
+#ifdef BITCOIN_TX
+    bool CScWCertProofVerification::verifyScCert(
+        const ScConstant& constant,
+        const ScVk& wCertVk,
+        const uint256& prev_end_epoch_block_hash,
+        const CScCertificate& scCert) const {return true;}
+#else
     bool CScWCertProofVerification::verifyScCert(                
         const ScConstant& constant,
         const ScVk& wCertVk,
@@ -200,7 +198,7 @@ namespace libzendoomc{
         }
         return true;
     }
-
+#endif
     bool CScProofVerifier::verifyCScCertificate(
         const ScConstant& constant,
         const ScVk& wCertVk,
@@ -215,7 +213,7 @@ namespace libzendoomc{
     }
 
     bool CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput(
-        const ScFieldElement& certDataHash,
+        const CSidechainField& certDataHash,
         const ScVk& wCeasedVk,
         const CTxCeasedSidechainWithdrawalInput& csw
     ) const
@@ -228,46 +226,109 @@ namespace libzendoomc{
 
     bool CScProofVerifier::verifyCBwtRequest(
         const uint256& scId,
-        const libzendoomc::ScFieldElement& scUtxoId,
+        const CSidechainField& scUtxoId,
         const uint160& mcDestinationAddress,
         CAmount scFees,
         const libzendoomc::ScProof& scProof,
         const boost::optional<libzendoomc::ScVk>& wMbtrVk,
-		const libzendoomc::ScFieldElement& certDataHash
+		const CSidechainField& certDataHash
     ) const
     {
         return true; //Currently mocked
     }
-
-    bool CalculateHash(const ScFieldElement& inA, const ScFieldElement& inB, ScFieldElement& out)
-    {
-        zendoo_clear_error();
-
-        field_t* aFe = zendoo_deserialize_field(inA.begin());
-        if (aFe == nullptr) {
-            LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, ToString(zendoo_get_last_error()));
-            zendoo_clear_error();
-            return false;
-        }
- 
-        field_t* bFe = zendoo_deserialize_field(inB.begin());
-        if (bFe == nullptr) {
-            LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, ToString(zendoo_get_last_error()));
-            zendoo_clear_error();
-            zendoo_field_free(aFe);
-            return false;
-        }
- 
-        const field_t* inputArrayFe[] = {aFe, bFe};
- 
-        field_t* outFe = zendoo_compute_poseidon_hash(inputArrayFe, 2);
- 
-        zendoo_serialize_field(outFe, out.begin());
- 
-        zendoo_field_free(aFe);
-        zendoo_field_free(bFe);
-        zendoo_field_free(outFe);
- 
-        return true;
-    }
 }
+
+
+CSidechainField::CSidechainField()
+{
+    SetNull();
+}
+
+//UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
+CSidechainField::CSidechainField(const uint256& sha256)
+{
+    byteArray.SetHex(sha256.GetHex());
+}
+
+uint256 CSidechainField::GetLegacyHashTO_BE_REMOVED() const
+{
+	std::vector<unsigned char> tmp(this->byteArray.end()-32, this->byteArray.end());
+	uint256 res(tmp);
+	return res;
+}
+
+CSidechainField::CSidechainField(const std::vector<unsigned char>& _byteArray) :byteArray(_byteArray)
+{
+    assert(_byteArray.size() == sizeof(uint8_t)*SC_FIELD_SIZE);
+}
+
+void CSidechainField::SetNull()
+{
+    byteArray.SetNull();
+}
+
+bool CSidechainField::IsNull() const { return byteArray.IsNull(); }
+
+std::vector<unsigned char>  CSidechainField::GetByteArray() const
+{
+    return std::vector<unsigned char>{byteArray.begin(), byteArray.end()};
+}
+void CSidechainField::SetByteArray(const std::vector<unsigned char>& _byteArray)
+{
+	byteArray.SetNull();
+	byteArray.SetHex(std::string{_byteArray.begin(), _byteArray.end()});
+	return;
+}
+unsigned int CSidechainField::size() const {return SC_FIELD_SIZE ; }
+
+std::string CSidechainField::GetHex() const   {return byteArray.GetHex();}
+std::string CSidechainField::ToString() const {return byteArray.ToString();}
+
+
+bool CSidechainField::IsValid(const CSidechainField& scField)
+{
+    auto scFieldElementDeserialized = zendoo_deserialize_field(scField.byteArray.begin());
+    if (scFieldElementDeserialized == nullptr)
+        return false;
+    zendoo_field_free(scFieldElementDeserialized);
+    return true;
+}
+
+#ifdef BITCOIN_TX
+CSidechainField CSidechainField::ComputeHash(const CSidechainField& lhs, const CSidechainField& rhs)
+{
+    return CSidechainField{};
+}
+#else
+CSidechainField CSidechainField::ComputeHash(const CSidechainField& lhs, const CSidechainField& rhs)
+{
+    zendoo_clear_error();
+
+    field_t* lhsFe = zendoo_deserialize_field(lhs.byteArray.begin());
+    if (lhsFe == nullptr) {
+        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
+        zendoo_clear_error();
+        throw std::runtime_error("Could not compute poseidon hash");
+    }
+
+    field_t* rhsFe = zendoo_deserialize_field(rhs.byteArray.begin());
+    if (rhsFe == nullptr) {
+        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
+        zendoo_clear_error();
+        zendoo_field_free(lhsFe);
+        throw std::runtime_error("Could not compute poseidon hash");
+    }
+
+    const field_t* inputArrayFe[] = {lhsFe, rhsFe};
+
+    field_t* outFe = zendoo_compute_poseidon_hash(inputArrayFe, 2);
+
+    CSidechainField res;
+    zendoo_serialize_field(outFe, res.byteArray.begin());
+
+    zendoo_field_free(lhsFe);
+    zendoo_field_free(rhsFe);
+    zendoo_field_free(outFe);
+    return res;
+}
+#endif
