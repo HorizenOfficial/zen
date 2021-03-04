@@ -136,6 +136,7 @@ class sc_getscinfo(BitcoinTestFramework):
 
         NUM_ALIVE = len(scids_alive)
 
+        a_ceased_scid = "*"
         # get a ceased scid
         for scid in scids_all:
             if scid not in scids_alive:

@@ -195,8 +195,17 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     __func__, __LINE__, txHash.ToString()),
                     REJECT_INVALID, "sidechain-sc-creation-invalid-w-mbtr-vk");
         }
+
+        if (sc.wCeasedVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
+        {
+            return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    REJECT_INVALID, "sidechain-sc-creation-invalid-wceased-vk");
+        }
     }
 
+    // Note: no sence to check FT and ScCr amounts, because they were chacked before in `tx.CheckAmounts`
     for (const auto& ft : tx.GetVftCcOut())
     {
         if (!ft.CheckAmountRange(cumulatedAmount) )
@@ -232,6 +241,30 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scUtxoId\n",
                     __func__, __LINE__, txHash.ToString()),
                     REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-utxo-id");
+        }
+    }
+
+    for(const CTxCeasedSidechainWithdrawalInput& csw : tx.GetVcswCcIn())
+    {
+        if (csw.nValue == 0 || !MoneyRange(csw.nValue))
+        {
+            return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : CSW value %d is non-positive or out of range\n",
+                    __func__, __LINE__, txHash.ToString(), csw.nValue),
+                    REJECT_INVALID, "sidechain-cswinput-value-not-valid");
+        }
+
+        if(!libzendoomc::IsValidScFieldElement(csw.nullifier))
+        {
+            return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW nullifier\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    REJECT_INVALID, "sidechain-cswinput-invalid-nullifier");
+        }
+
+        if(!libzendoomc::IsValidScProof(csw.scProof))
+        {
+            return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW proof\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    REJECT_INVALID, "sidechain-cswinput-invalid-proof");
         }
     }
 

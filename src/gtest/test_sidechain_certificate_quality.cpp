@@ -60,7 +60,8 @@ public:
 
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                     const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap, CSidechainEventsMap& mapSidechainEvents) override
+                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap,
+                    CSidechainEventsMap& mapSidechainEvents, CCswNullifiersMap& cswNullifiers) override
     {
         for (auto& entryToWrite : sidechainMap)
             WriteMutableEntry(entryToWrite.first, entryToWrite.second, sidechainsInMemoryMap);
@@ -119,6 +120,7 @@ protected:
     CNullifiersMap      dummyNullifiers;
     CSidechainsMap      dummySidechains;
     CSidechainEventsMap dummyScEvents;
+    CCswNullifiersMap   dummyCswNullifiers;
 
     CValidationState    dummyState;
 

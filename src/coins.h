@@ -283,6 +283,22 @@ public:
     }
 };
 
+class CCswNullifiersKeyHasher
+{
+private:
+    static const size_t BUF_LEN = (sizeof(uint256) + SC_FIELD_SIZE)/sizeof(uint32_t);
+    uint32_t salt[BUF_LEN];
+public:
+    CCswNullifiersKeyHasher();
+
+    /**
+     * This *must* return size_t. With Boost 1.46 on 32-bit systems the
+     * unordered_map will behave unpredictably if the custom hasher returns a
+     * uint64_t, resulting in failures when syncing the chain (#4634).
+     */
+    size_t operator()(const std::pair<uint256, libzendoomc::ScFieldElement>& key) const;
+};
+
 struct CCoinsCacheEntry
 {
     CCoins coins; // The actual cached data.
@@ -424,12 +440,18 @@ struct CSidechainEventsCacheEntry: public CMutableSidechainCacheEntry
     bool ContentCheck(const CSidechainEventsCacheEntry& rhs) {return this->scEvents == rhs.scEvents;}
 };
 
+struct CCswNullifiersCacheEntry: public CImmutableSidechainCacheEntry
+{
+    CCswNullifiersCacheEntry(Flags _flag = Flags::DEFAULT): CImmutableSidechainCacheEntry(_flag) {}
+};
+
 typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
 typedef boost::unordered_map<uint256, CAnchorsCacheEntry, CCoinsKeyHasher>    CAnchorsMap;
 typedef boost::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CNullifiersMap;
 
 typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap;
 typedef boost::unordered_map<int, CSidechainEventsCacheEntry> CSidechainEventsMap;
+typedef boost::unordered_map<std::pair<uint256, libzendoomc::ScFieldElement>, CCswNullifiersCacheEntry, CCswNullifiersKeyHasher> CCswNullifiersMap;
 
 struct CCoinsStats
 {
@@ -485,6 +507,10 @@ public:
 
     //! Get the current "tip" or the latest anchored tree root in the chain
     virtual uint256 GetBestAnchor() const;
+    
+    //! Retrieve existance of CSW nullifier for specified Sidechain.
+    virtual bool HaveCswNullifier(const uint256& scId,
+                                  const libzendoomc::ScFieldElement& nullifier) const;
 
     //! Do a bulk modification (multiple CCoins changes + BestBlock change).
     //! The passed mapCoins can be modified.
@@ -494,7 +520,8 @@ public:
                             CAnchorsMap &mapAnchors,
                             CNullifiersMap &mapNullifiers,
                             CSidechainsMap& mapSidechains,
-                            CSidechainEventsMap& mapCeasedScs);
+                            CSidechainEventsMap& mapCeasedScs,
+                            CCswNullifiersMap& cswNullifiers);
 
     //! Calculate statistics about the unspent transaction output set
     virtual bool GetStats(CCoinsStats &stats) const;
@@ -524,6 +551,8 @@ public:
     bool CheckQuality(const CScCertificate& cert)                      const override;
     uint256 GetBestBlock()                                             const override;
     uint256 GetBestAnchor()                                            const override;
+    bool HaveCswNullifier(const uint256& scId,
+                         const libzendoomc::ScFieldElement &nullifier) const override;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
@@ -531,7 +560,8 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapCeasedScs)                            override;
+                    CSidechainEventsMap& mapCeasedScs,
+                    CCswNullifiersMap& cswNullifiers)                  override;
     bool GetStats(CCoinsStats &stats)                                  const override;
 };
 
@@ -577,6 +607,7 @@ protected:
     mutable uint256        hashAnchor;
     mutable CAnchorsMap    cacheAnchors;
     mutable CNullifiersMap cacheNullifiers;
+    mutable CCswNullifiersMap cacheCswNullifiers;
 
     /* Cached dynamic memory usage for the inner CCoins objects. */
     mutable size_t cachedCoinsUsage;
@@ -601,7 +632,8 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapCeasedScs)                            override;
+                    CSidechainEventsMap& mapCeasedScs,
+                    CCswNullifiersMap& cswNullifiers)                  override;
 
 
     // Adds the tree to mapAnchors and sets the current commitment
@@ -639,6 +671,7 @@ public:
     bool HaveSidechain(const uint256& scId)                           const override;
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
+
     bool IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const;
     bool CheckScTxTiming(const uint256& scId) const;
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
@@ -661,6 +694,11 @@ public:
 
     bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
+
+    //CSW NULLIFIER PUBLIC MEMBERS
+    bool HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const override;
+    bool AddCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier);
+    bool RemoveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier);
 
     libzendoomc::ScFieldElement GetActiveCertDataHash(const uint256& scId) const;
     CSidechain::State GetSidechainState(const uint256& scId) const;

@@ -47,6 +47,8 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTransaction& _tx, const CAmount& _nFee,
 double CTxMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
     CAmount nValueIn = tx.GetValueOut()+nFee;
+    // tx.GetValueOut() + nFee indirectly account for csw inputs amounts too.
+
     double deltaPriority = ((double)(currentHeight-nHeight)*nValueIn)/nModSize;
     double dResult = dPriority + deltaPriority;
     LogPrint("mempool", "%s():%d - prioIn[%22.8f] + delta[%22.8f] = prioOut[%22.8f]\n",
@@ -174,6 +176,14 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
         for(const uint256 &nf: joinsplit.nullifiers) {
             mapNullifiers[nf] = &tx;
         }
+    }
+
+    for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
+        if (mapSidechains.count(csw.scId) == 0)
+            LogPrint("mempool", "%s():%d - adding tx [%s] in mapSidechain [%s], cswNullifiers\n",
+                     __func__, __LINE__, hash.ToString(), csw.scId.ToString());
+        mapSidechains[csw.scId].cswNullifiers[csw.nullifier] = tx.GetHash();
+        mapSidechains[csw.scId].cswTotalAmount += csw.nValue;
     }
 
     for(const auto& sc: tx.GetVscCcOut()) {
@@ -399,6 +409,17 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
                 }
             }
 
+            for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
+                mapSidechains.at(csw.scId).cswNullifiers.erase(csw.nullifier);
+                mapSidechains.at(csw.scId).cswTotalAmount -= csw.nValue;
+
+                if (mapSidechains.at(csw.scId).IsNull())
+                {
+                    LogPrint("mempool", "%s():%d - erasing [%s] from mapSidechain\n", __func__, __LINE__, csw.scId.ToString() );
+                    mapSidechains.erase(csw.scId);
+                }
+            }
+
             for(const auto& btr: tx.GetVBwtRequestOut()) {
                 if (mapSidechains.count(btr.scId)) { //Guard against double-delete on multiple btrs toward the same sc in same tx
                     mapSidechains.at(btr.scId).mcBtrsTxHashes.erase(tx.GetHash());
@@ -590,6 +611,7 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
     for (std::map<uint256, CCertificateMemPoolEntry>::const_iterator itCert = mapCertificate.begin(); itCert != mapCertificate.end(); itCert++)
     {
         const CScCertificate& cert = itCert->second.GetCertificate();
+
         if (!checkCertImmatureExpenditures(cert, pCoinsView))
         {
             certsToRemove.insert(cert.GetHash());
@@ -643,6 +665,41 @@ void CTxMemPool::removeWithAnchor(const uint256 &invalidRoot)
     }
 }
 
+void CTxMemPool::removeOutOfScBalanceCsw(const CCoinsViewCache * const pCoinsView, std::list<CTransaction> &removedTxs, std::list<CScCertificate> &removedCerts)
+{
+    // Remove CSWs that try to withdraw more coins than belongs to the sidechain.
+    // Note: if there is a CSW values conflict (may occur only if CSW circuit is broken or malicious) -> remove all CSWs for given sidechain.
+    std::set<uint256> txesToRemove;
+    for (std::map<uint256, CSidechainMemPoolEntry>::const_iterator sIt = mapSidechains.begin(); sIt != mapSidechains.end(); sIt++)
+    {
+        const CSidechainMemPoolEntry &sidechainEntry = sIt->second;
+        if (sidechainEntry.cswTotalAmount == 0) //how about < 0?
+            continue;//no csw that could reduce sc balance
+
+        CSidechain sidechain;
+        assert(pCoinsView->GetSidechain(sIt->first, sidechain));
+        if (sidechainEntry.cswTotalAmount <= sidechain.balance)
+            continue; //enough Sc balance to accomodate for all unconfirmed csw
+
+        for (auto nIt = sidechainEntry.cswNullifiers.begin(); nIt != sidechainEntry.cswNullifiers.end(); nIt++)
+        {
+            const uint256 &txHash = nIt->second;
+            const CTransaction &tx = mapTx[txHash].GetTx();
+            txesToRemove.insert(tx.GetHash());
+        }
+    }
+
+    for(const auto& hash: txesToRemove)
+    {
+        // there can be dependancy also between txes, so check that a tx is still in map during the loop
+        if (mapTx.count(hash))
+        {
+            const CTransaction& tx = mapTx.at(hash).GetTx();
+            remove(tx, removedTxs, removedCerts, true);
+        }
+    }
+}
+
 void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>& removedTxs, std::list<CScCertificate>& removedCerts)
 {
     LOCK(cs);
@@ -672,6 +729,27 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
 
         }
     }
+
+    for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+    {
+        if (mapSidechains.count(csw.scId) == 0)
+            continue;
+
+        const auto& cswNullifierTx = mapSidechains.at(csw.scId).cswNullifiers.find(csw.nullifier);
+        if(cswNullifierTx == mapSidechains.at(csw.scId).cswNullifiers.end())
+            continue;
+
+        const uint256& txHash = cswNullifierTx->second;
+        const auto& it = mapTx.find(txHash);
+        // If CSW nullifier was present in cswNullifers, the containing tx must be present in the mempool.
+        assert(it != mapTx.end());
+
+        const CTransaction &txConflict = it->second.GetTx();
+        if (txConflict != tx)
+            remove(txConflict, removedTxs, removedCerts, true);
+    }
+
+    removeOutOfScBalanceCsw(pcoinsTip, removedTxs, removedCerts);
 }
 
 void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsView,
@@ -713,6 +791,15 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             if (!pCoinsView->CheckScTxTiming(mbtr.scId))
             {
                 txesToRemove.insert(tx.GetHash());
+            }
+        }
+
+        for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
+        {
+            if(pCoinsView->GetSidechainState(csw.scId) != CSidechain::State::CEASED)
+            {
+                txesToRemove.insert(tx.GetHash());
+                continue;
             }
         }
     }
@@ -861,6 +948,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
     std::list<const CTxMemPoolEntry*> waitingOnDependantsTx;
 
+    std::map<uint256, CAmount> cswsTotalBalances;
     for (std::map<uint256, CTxMemPoolEntry>::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         unsigned int i = 0;
         checkTotal += it->second.GetTxSize();
@@ -907,6 +995,10 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
             //there cannot be no certificates for unconfirmed sidechains
             assert(mapSidechains.at(scCreation.GetScId()).mBackwardCertificates.empty());
+
+            //there cannot be no csw nullifiers for unconfirmed sidechains
+            assert(mapSidechains.at(scCreation.GetScId()).cswNullifiers.empty());
+            assert(mapSidechains.at(scCreation.GetScId()).cswTotalAmount == 0);
         }
 
         for(const auto& fwd: tx.GetVftCcOut()) {
@@ -915,11 +1007,36 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             const auto& fwdPos = mapSidechains.at(fwd.scId).fwdTxHashes.find(tx.GetHash());
             assert(fwdPos != mapSidechains.at(fwd.scId).fwdTxHashes.end());
 
-            //there must be no dangling fwds, i.e. sc creation is either in mempool or in blockchain
+            //there must be no dangling fwds, i.e. sc creation is either in mempool or in blockchain (and not ceased)
             if (!mapSidechains.at(fwd.scId).scCreationTxHash.IsNull())
                 assert(mapTx.count(mapSidechains.at(fwd.scId).scCreationTxHash));
             else
-                assert(pcoins->HaveSidechain(fwd.scId));
+                assert(pcoins->GetSidechainState(fwd.scId) == CSidechain::State::ALIVE);
+        }
+
+        std::map<uint256, CAmount> cswBalances;
+        for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
+            //CSW must be duly recorded in mapSidechain
+            assert(mapSidechains.count(csw.scId) != 0);
+            const auto& cswNullifierPos = mapSidechains.at(csw.scId).cswNullifiers.find(csw.nullifier);
+            assert(cswNullifierPos != mapSidechains.at(csw.scId).cswNullifiers.end());
+            assert(cswNullifierPos->second == tx.GetHash());
+
+            //there must be no dangling CSWs, i.e. sidechain is ceased
+            assert(pcoins->GetSidechainState(csw.scId) == CSidechain::State::CEASED);
+
+            // add a new balance entry in the map or increment it if already there
+            cswBalances[csw.scId] += csw.nValue;
+        }
+
+        // Check that CSW balances don't exceed the SC balance
+        for (auto const& balanceInfo: cswBalances)
+        {
+            CSidechain scInfo;
+            pcoins->GetSidechain(balanceInfo.first, scInfo);
+            assert(balanceInfo.second <= scInfo.balance);
+            // Update global CSW balances counter
+            cswsTotalBalances[balanceInfo.first] += balanceInfo.second;
         }
 
         for(const auto& btr: tx.GetVBwtRequestOut()) {
@@ -963,10 +1080,16 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         }
         else {
             CValidationState state;
-            assert(::ContextualCheckInputs(tx, state, mempoolDuplicateTx, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            assert(::ContextualCheckTxInputs(tx, state, mempoolDuplicateTx, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
             UpdateCoins(tx, mempoolDuplicateTx, dummyUndo, 1000000);
         }
+    }
+
+    // Check that total CSWs balances are consistent to the mempool values
+    for (auto const& totalBalanceInfo: cswsTotalBalances)
+    {
+        assert(totalBalanceInfo.second == mapSidechains.at(totalBalanceInfo.first).cswTotalAmount);
     }
 
     unsigned int stepsSinceLastRemoveTx = 0;
@@ -979,7 +1102,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             stepsSinceLastRemoveTx++;
             assert(stepsSinceLastRemoveTx < waitingOnDependantsTx.size());
         } else {
-            assert(::ContextualCheckInputs(entry->GetTx(), state, mempoolDuplicateTx, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            assert(::ContextualCheckTxInputs(entry->GetTx(), state, mempoolDuplicateTx, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
             UpdateCoins(entry->GetTx(), mempoolDuplicateTx, dummyUndo, 1000000);
             stepsSinceLastRemoveTx = 0;
@@ -1035,7 +1158,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         }
         else {
             CValidationState state;
-            assert(::ContextualCheckInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            assert(::ContextualCheckCertInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
             bool isTopQualityCert = mempool.mapSidechains.at(cert.GetScId()).GetTopQualityCert()->second == cert.GetHash();
             UpdateCoins(cert, mempoolDuplicateCert, dummyUndo, 1000000, isTopQualityCert);
@@ -1053,7 +1176,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(stepsSinceLastRemoveCert < waitingOnDependantsCert.size());
         } else {
             const CScCertificate& cert = entry->GetCertificate();
-            assert(::ContextualCheckInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
+            assert(::ContextualCheckCertInputs(cert, state, mempoolDuplicateCert, false, chainActive, 0, false, Params().GetConsensus(), NULL));
             CTxUndo dummyUndo;
             bool isTopQualityCert = mempool.mapSidechains.at(cert.GetScId()).GetTopQualityCert()->second == cert.GetHash();
             UpdateCoins(entry->GetCertificate(), mempoolDuplicateCert, dummyUndo, 1000000, isTopQualityCert);
@@ -1134,6 +1257,16 @@ bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
         for(const uint256 &nf: joinsplit.nullifiers) {
             if (mapNullifiers.count(nf))
                 return false;
+        }
+    }
+
+    // Check if this tx does CSW with the nullifier already present in the mempool
+    for(const CTxCeasedSidechainWithdrawalInput& csw: incomingTx.GetVcswCcIn())
+    {
+        if (HaveCswNullifier(csw.scId, csw.nullifier)) {
+            LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another CSW input nullifier in mempool\n",
+                    __func__, __LINE__, hash.ToString());
+            return false;
         }
     }
 
@@ -1408,11 +1541,16 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationData.constant = scCreation.constant;
                 info.creationData.wCertVk = scCreation.wCertVk;
                 info.creationData.wMbtrVk = scCreation.wMbtrVk;
+                info.creationData.wCeasedVk = scCreation.wCeasedVk;
                 break;
             }
         }
     } else if (!base->GetSidechain(scId, info))
         return false;
+
+    // Consider mempool Tx CSW amount for sidechain balance
+    if(mempool.mapSidechains.count(scId) > 0 && mempool.mapSidechains.at(scId).cswTotalAmount > 0)
+        info.balance -= mempool.mapSidechains.at(scId).cswTotalAmount;
 
     return true;
 }
@@ -1428,6 +1566,11 @@ void CCoinsViewMemPool::GetScIds(std::set<uint256>& scIds) const {
 
 bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
     return mempool.hasSidechainCreationTx(scId) || base->HaveSidechain(scId);
+}
+
+bool CCoinsViewMemPool::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const
+{
+    return mempool.HaveCswNullifier(scId, nullifier) || base->HaveCswNullifier(scId, nullifier);
 }
 
 size_t CTxMemPool::DynamicMemoryUsage() const {

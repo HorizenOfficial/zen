@@ -25,6 +25,11 @@ static inline size_t RecursiveDynamicUsage(const CTxOut& out) {
     return RecursiveDynamicUsage(out.scriptPubKey);
 }
 
+static inline size_t RecursiveDynamicUsage(const CTxCeasedSidechainWithdrawalInput& cswIn)
+{
+    return memusage::DynamicUsage(cswIn.redeemScript);
+}
+
 static inline size_t RecursiveDynamicUsage(const CTxScCreationOut& ccout)
 {
     return memusage::DynamicUsage(ccout.customData);
@@ -45,6 +50,11 @@ static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
         mem += RecursiveDynamicUsage(*it);
     }
 // what about shielded components???
+    mem += memusage::DynamicUsage(tx.GetVcswCcIn());
+    for (std::vector<CTxCeasedSidechainWithdrawalInput>::const_iterator it = tx.GetVcswCcIn().begin(); it != tx.GetVcswCcIn().end(); it++) {
+        mem += RecursiveDynamicUsage(*it);
+    }
+
     mem += memusage::DynamicUsage(tx.GetVscCcOut());
     for (std::vector<CTxScCreationOut>::const_iterator it = tx.GetVscCcOut().begin(); it != tx.GetVscCcOut().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
