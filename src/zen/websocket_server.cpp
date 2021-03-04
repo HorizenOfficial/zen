@@ -46,7 +46,7 @@ static void ws_updatetip(const CBlockIndex *pindex);
 static void ws_updatemempool();
 static void ws_updatepeer();
 
-double GetNetworkDifficulty(const CBlockIndex * pindex);
+extern double GetNetworkDifficulty(const CBlockIndex * pindex);
 
 static boost::shared_ptr<WsNotificationInterface> wsNotificationInterface;
 static std::list< boost::shared_ptr<WsHandler> > listWsHandler;
@@ -111,6 +111,7 @@ public:
     enum WsRequestType {
         GET_SINGLE_BLOCK = 0,
         GET_MULTIPLE_BLOCK_HASHES = 1,
+		//Request n.3 is alredy assigned to SEND_CERTIFICATE in zendoo
         GET_NEW_BLOCK_HASHES = 2,
 		GET_MEMPOOL_TXS = 4,
         GET_RAW_MEMPOOL = 5,
@@ -129,7 +130,7 @@ public:
 
     explicit WsEvent(WsMsgType xn): type(xn), payload(UniValue::VOBJ)
     {
-        payload.push_back(Pair("msgType", type));
+        payload.pushKV("msgType", type);
     }
     WsEvent & operator=(const WsEvent& ws) = delete;
     WsEvent(const WsEvent& ws) = delete;
@@ -152,52 +153,53 @@ private:
     boost::lockfree::queue<WsEvent*, boost::lockfree::capacity<1024>> wsq;
     std::atomic<bool> exit_rwhandler_thread_flag { false };
 
-    void sendBlockEvent(int height, const std::string& strHash, const std::string& blockHex, WsEvent::WsEventType eventType, const CBlockIndex * pindex)
+    void sendBlockEvent(int height, const std::string& strHash, const std::string& blockHex, WsEvent::WsEventType eventType, const std::string& chainwork)
     {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(WsEvent::MSG_EVENT);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        rspPayload.push_back(Pair("height", height));
-        rspPayload.push_back(Pair("hash", strHash));
-        rspPayload.push_back(Pair("block", blockHex));
-        rspPayload.push_back(Pair("chainwork",  pindex->nChainWork.GetHex()));
-
+        rspPayload.pushKV("height", height);
+        rspPayload.pushKV("hash", strHash);
+        rspPayload.pushKV("block", blockHex);
+        rspPayload.pushKV("chainwork",  chainwork);
 
         UniValue* rv = wse->getPayload();
-        rv->push_back(Pair("eventType", eventType));
-        rv->push_back(Pair("eventPayload", rspPayload));
+        rv->pushKV("eventType", eventType);
+        rv->pushKV("eventPayload", rspPayload);
         wsq.push(wse);
     }
 
     void sendBlock(int height, const std::string& strHash, const std::string& blockHex, const CBlockIndex* pblockindex,
-            WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+            WsEvent::WsMsgType msgType, const std::string clientRequestId = "")
     {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        rspPayload.push_back(Pair("height", height));
-        rspPayload.push_back(Pair("hash", strHash));
-        rspPayload.push_back(Pair("block", blockHex));
-        rspPayload.push_back(Pair("chainwork",  pblockindex->nChainWork.GetHex()));
+        rspPayload.pushKV("height", height);
+        rspPayload.pushKV("hash", strHash);
+        rspPayload.pushKV("block", blockHex);
+        if (pblockindex) {
+            rspPayload.pushKV("chainwork",  pblockindex->nChainWork.GetHex());
+        }
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
-        rv->push_back(Pair("responsePayload", rspPayload));
+            rv->pushKV("requestId", clientRequestId);
+        rv->pushKV("responsePayload", rspPayload);
         wsq.push(wse);
     }
 
     void sendHashes(int height, std::list<CBlockIndex*>& listBlock,
-            WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+            WsEvent::WsMsgType msgType, const std::string clientRequestId = "")
     {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        rspPayload.push_back(Pair("height", height));
-        rspPayload.push_back(Pair("verificationprogress", Checkpoints::GuessVerificationProgress(Params().Checkpoints(), chainActive.Tip())));
+        rspPayload.pushKV("height", height);
+        rspPayload.pushKV("verificationprogress", Checkpoints::GuessVerificationProgress(Params().Checkpoints(), chainActive.Tip()));
 
         UniValue hashes(UniValue::VARR);
         std::list<CBlockIndex*>::iterator it = listBlock.begin();
@@ -206,47 +208,48 @@ private:
             hashes.push_back(blockIndexIterator->GetBlockHash().GetHex());
             ++it;
         }
-        rspPayload.push_back(Pair("hashes", hashes));
+        rspPayload.pushKV("hashes", hashes);
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
-        rv->push_back(Pair("responsePayload", rspPayload));
+            rv->pushKV("requestId", clientRequestId);
+        rv->pushKV("responsePayload", rspPayload);
         wsq.push(wse);
     }
 
-    void sendMempool(int size, std::list<uint256>& listHashes,
-    		WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+    void sendMempool(int size, const std::list<uint256>& listHashes,
+    		WsEvent::WsMsgType msgType, const std::string clientRequestId = "")
     {
         // Send a message to the client:  type = responseType
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        rspPayload.push_back(Pair("size", size));
+        rspPayload.pushKV("size", size);
 
+        //Since the MC explorer is made from zendoo we need certificates field even if it will be empty
         UniValue txHashes(UniValue::VARR);
         UniValue certHashes(UniValue::VARR);
 
         for(std::list<uint256>::const_iterator it = listHashes.begin(); it != listHashes.end(); ++it) {
         	txHashes.push_back(it->GetHex());
         }
-        rspPayload.push_back(Pair("transactions", txHashes));
-        rspPayload.push_back(Pair("certificates", certHashes));
+        rspPayload.pushKV("transactions", txHashes);
+        rspPayload.pushKV("certificates", certHashes);
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
-        rv->push_back(Pair("responsePayload", rspPayload));
+            rv->pushKV("requestId", clientRequestId);
+        rv->pushKV("responsePayload", rspPayload);
         wsq.push(wse);
     }
 
-    void sendMempoolEvent(int size, std::list<uint256>& listHashes, WsEvent::WsEventType eventType)
+    void sendMempoolEvent(int size, const std::list<uint256>& listHashes, WsEvent::WsEventType eventType)
     {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(WsEvent::MSG_EVENT);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        rspPayload.push_back(Pair("size", size));
+        rspPayload.pushKV("size", size);
 
         UniValue txHashes(UniValue::VARR);
         UniValue certHashes(UniValue::VARR);
@@ -254,16 +257,16 @@ private:
         for(std::list<uint256>::const_iterator it = listHashes.begin(); it != listHashes.end(); ++it) {
             txHashes.push_back(it->GetHex());
         }
-        rspPayload.push_back(Pair("transactions", txHashes));
-        rspPayload.push_back(Pair("certificates", certHashes));
+        rspPayload.pushKV("transactions", txHashes);
+        rspPayload.pushKV("certificates", certHashes);
 
         UniValue* rv = wse->getPayload();
-        rv->push_back(Pair("eventType", eventType));
-        rv->push_back(Pair("eventPayload", rspPayload));
+        rv->pushKV("eventType", eventType);
+        rv->pushKV("eventPayload", rspPayload);
         wsq.push(wse);
     }
 
-    void sendPeerEvent(std::list<std::string> peers, WsEvent::WsEventType eventType)
+    void sendPeerEvent(const std::list<std::string> peers, WsEvent::WsEventType eventType)
     {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(WsEvent::MSG_EVENT);
@@ -275,16 +278,16 @@ private:
         for(std::list<std::string>::const_iterator it = peers.begin(); it != peers.end(); ++it) {
             peerList.push_back(it->c_str());
         }
-        rspPayload.push_back(Pair("peers", peerList));
+        rspPayload.pushKV("peers", peerList);
 
         UniValue* rv = wse->getPayload();
-        rv->push_back(Pair("eventType", eventType));
-        rv->push_back(Pair("eventPayload", rspPayload));
+        rv->pushKV("eventType", eventType);
+        rv->pushKV("eventPayload", rspPayload);
         wsq.push(wse);
     }
 
-    void sendTxs(std::list<std::string> listHex,
-    		WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+    void sendTxs(const std::list<std::string> listHex,
+    		WsEvent::WsMsgType msgType, const std::string clientRequestId = "")
     {
         // Send a message to the client:  type = responseType
         WsEvent* wse = new WsEvent(msgType);
@@ -294,73 +297,71 @@ private:
         UniValue txHex(UniValue::VARR);
 
         for(std::list<std::string>::const_iterator it = listHex.begin(); it != listHex.end(); ++it) {
-        	UniValue value;
-        	bool res = value.setStr(*it);
-        	txHex.push_back(value);
+        	txHex.push_back(*it);
         }
-        rspPayload.push_back(Pair("hex", txHex));
+        rspPayload.pushKV("hex", txHex);
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
-        rv->push_back(Pair("responsePayload", rspPayload));
+            rv->pushKV("requestId", clientRequestId);
+        rv->pushKV("responsePayload", rspPayload);
         wsq.push(wse);
 
     }
 
     void sendNodeConf(int version, int protocolVersion, int timeoffset, int relayfee,
-            std::string proxy, std::string errors,int blocks, int connections, bool testnet, double difficulty, double networkDifficulty, std::list<std::string> peers,
-        WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+            const std::string proxy, const std::string errors,int blocks, int connections, bool testnet, double difficulty, double networkDifficulty, const std::list<std::string> peers,
+        WsEvent::WsMsgType msgType, const std::string clientRequestId = "")
     {
         // Send a message to the client:  type = responseType
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
 
-        rspPayload.push_back(Pair("version", version));
-        rspPayload.push_back(Pair("protocolversion", protocolVersion));
-        rspPayload.push_back(Pair("timeoffset", timeoffset));
-        rspPayload.push_back(Pair("relayfee", relayfee));
-        rspPayload.push_back(Pair("proxy", proxy));
-        rspPayload.push_back(Pair("errors", errors));
-        rspPayload.push_back(Pair("blocks", blocks));
-        rspPayload.push_back(Pair("connections", connections));
-        rspPayload.push_back(Pair("testnet", testnet));
-        rspPayload.push_back(Pair("difficulty", difficulty));
-        rspPayload.push_back(Pair("networkDifficulty", networkDifficulty));
+        rspPayload.pushKV("version", version);
+        rspPayload.pushKV("protocolversion", protocolVersion);
+        rspPayload.pushKV("timeoffset", timeoffset);
+        rspPayload.pushKV("relayfee", relayfee);
+        rspPayload.pushKV("proxy", proxy);
+        rspPayload.pushKV("errors", errors);
+        rspPayload.pushKV("blocks", blocks);
+        rspPayload.pushKV("connections", connections);
+        rspPayload.pushKV("testnet", testnet);
+        rspPayload.pushKV("difficulty", difficulty);
+        rspPayload.pushKV("networkDifficulty", networkDifficulty);
 
         UniValue peerList(UniValue::VARR);
 
         for(std::list<std::string>::const_iterator it = peers.begin(); it != peers.end(); ++it) {
             peerList.push_back(it->c_str());
         }
-        rspPayload.push_back(Pair("peers", peerList));
+        rspPayload.pushKV("peers", peerList);
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
-        rv->push_back(Pair("responsePayload", rspPayload));
+            rv->pushKV("requestId", clientRequestId);
+        rv->pushKV("responsePayload", rspPayload);
         wsq.push(wse);
     }
 
     void sendFee(CAmount estimatedFee,
-        WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+        WsEvent::WsMsgType msgType, const std::string clientRequestId = "")
     {
         // Send a message to the client:  type = responseType
         WsEvent* wse = new WsEvent(msgType);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
 
-        rspPayload.push_back(Pair("feerate", estimatedFee));
+        rspPayload.pushKV("feerate", estimatedFee);
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
-        rv->push_back(Pair("responsePayload", rspPayload));
+            rv->pushKV("requestId", clientRequestId);
+        rv->pushKV("responsePayload", rspPayload);
         wsq.push(wse);
     }
 
 
-    int getHashByHeight(std::string height, std::string& strHash)
+    int getHashByHeight(const std::string height, std::string& strHash)
     {
         int nHeight = -1;
         try {
@@ -504,9 +505,9 @@ private:
         int lastH = 0;
         for (const UniValue& o : hashes.getValues())
         {
-            if (o.isObject())
+            if (!o.isStr())
             {
-                LogPrint("ws", "%s():%d - invalid obj\n", __func__, __LINE__);
+                LogPrint("ws", "%s():%d - invalid obj, it's not a string\n", __func__, __LINE__);
                 return INVALID_PARAMETER;
             }
             CBlockIndex* pblockindex = NULL;
@@ -571,19 +572,19 @@ private:
 
         std::list<std::string> txs;
         for(const UniValue& hash : hashes.getValues()) {
-            if (hash.isObject())
+            if (!hash.isStr())
             {
-                LogPrint("ws", "%s():%d - invalid obj\n", __func__, __LINE__);
+                LogPrint("ws", "%s():%d - invalid string\n", __func__, __LINE__);
                 return INVALID_PARAMETER;
             }
-            uint256 txid(uint256S(hash.get_str()));
-            auto entry = mempool.mapTx.find(txid);
-            if (entry != mempool.mapTx.end()) {
-                txs.push_back(EncodeHexTx(
-                		static_cast<CTransaction>(entry->second.GetTx())));
-            } else {
-                LogPrint("ws", "%s():%d - mempool transaction not found!\n", txid.ToString(), __LINE__);
-            }
+			uint256 txid(uint256S(hash.get_str()));
+			auto entry = mempool.mapTx.find(txid);
+			if (entry != mempool.mapTx.end()) {
+				txs.push_back(EncodeHexTx(
+						static_cast<CTransaction>(entry->second.GetTx())));
+			} else {
+				LogPrint("ws", "%s():%d - mempool transaction not found!\n", txid.ToString(), __LINE__);
+			}
 
         }
         sendTxs(txs, WsEvent::MSG_RESPONSE, clientRequestId);
@@ -604,14 +605,15 @@ private:
         bool testnet = Params().TestnetToBeDeprecatedFieldRPC();
         double difficulty = (double)GetDifficulty();
         double networkDifficulty = (double)GetNetworkDifficulty();
-        LOCK(cs_vNodes);
-        std::list<std::string> peers;
-        BOOST_FOREACH(CNode* pnode, vNodes) {
-            CNodeStats stats;
-            pnode->copyStats(stats);
-            peers.push_back(stats.addrName);
+		std::list<std::string> peers;
+        {
+			LOCK(cs_vNodes);
+			BOOST_FOREACH(CNode* pnode, vNodes) {
+				CNodeStats stats;
+				pnode->copyStats(stats);
+				peers.push_back(stats.addrName);
+			}
         }
-
         sendNodeConf(version, protocolVersion, timeoffset, relayfee, proxy, errors, blocks, connections, testnet, difficulty, networkDifficulty,
             peers, WsEvent::MSG_RESPONSE, clientRequestId);
         return OK;
@@ -869,7 +871,7 @@ private:
                 }
                 const UniValue&  hashArray = find_value(reqPayload, "hash");
                 if (hashArray.isNull()) {
-                    LogPrint("ws", "%s():%d - locatorHash empty: msg[%s]\n", __func__, __LINE__, msg);
+                    LogPrint("ws", "%s():%d - transaction hashes empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
                 }
                 const UniValue& hashes = hashArray.get_array();
@@ -909,7 +911,7 @@ private:
 
                 const std::string& strBlock = findFieldValue("block", reqPayload);
                 if (strBlock.empty()) {
-                    LogPrint("ws", "%s():%d - limit empty: msg[%s]\n", __func__, __LINE__, msg);
+                    LogPrint("ws", "%s():%d - block empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
                 }
 
@@ -982,9 +984,9 @@ private:
                 LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
                 UniValue* rv = wse->getPayload();
                 if (!clientRequestId.empty())
-                    rv->push_back(Pair("requestId", clientRequestId));
-                rv->push_back(Pair("errorCode", res));
-                rv->push_back(Pair("message", msgError));
+                    rv->pushKV("requestId", clientRequestId);
+                rv->pushKV("errorCode", res);
+                rv->pushKV("message", msgError);
                 wsq.push(wse);
             }
         }
@@ -1097,14 +1099,14 @@ public:
         }
     }
 
-    void send_tip_update(int height, const std::string& strHash, const std::string& blockHex, const CBlockIndex * pindex)
+    void send_tip_update(int height, const std::string& strHash, const std::string& blockHex, const std::string& chainwork)
     {
-        sendBlockEvent(height, strHash, blockHex, WsEvent::UPDATE_TIP, pindex);
+        sendBlockEvent(height, strHash, blockHex, WsEvent::UPDATE_TIP, chainwork);
     }
 
-    void send_mempool_update(int size, std::list<uint256>& listHashes)
+    void send_mempool_update(std::list<uint256>& listHashes)
     {
-        sendMempoolEvent(size, listHashes, WsEvent::UPDATE_MEMPOOL);
+        sendMempoolEvent(listHashes.size(), listHashes, WsEvent::UPDATE_MEMPOOL);
     }
 
     void send_peer_update(std::list<std::string>& peers)
@@ -1169,7 +1171,7 @@ static void ws_updatetip(const CBlockIndex *pindex)
             while (it != listWsHandler.end())
             {
                 LogPrint("ws", "%s():%d - call wshandler_send_tip_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
-                (*it)->send_tip_update(pindex->nHeight, pindex->GetBlockHash().GetHex(), strHex, pindex);
+                (*it)->send_tip_update(pindex->nHeight, pindex->GetBlockHash().GetHex(), strHex, pindex->nChainWork.GetHex());
                 ++it;
             }
         }
@@ -1182,60 +1184,63 @@ static void ws_updatetip(const CBlockIndex *pindex)
 
 static void ws_updatemempool()
 {
-    LOCK(mempool.cs);
+	std::list<uint256> hashes;
+    {
+        LOCK(mempool.cs);
+		BOOST_FOREACH(const PAIRTYPE(uint256, CTxMemPoolEntry)& entry, mempool.mapTx)
+		{
+		   hashes.push_back(entry.first);
+		}
+    }
 
-    std::list<uint256> hashes;
-    BOOST_FOREACH(const PAIRTYPE(uint256, CTxMemPoolEntry)& entry, mempool.mapTx)
-    {
-       hashes.push_back(entry.first);
-    }
-    {
-		std::unique_lock<std::mutex> lck(wsmtx);
-		if (listWsHandler.size() )
+	std::unique_lock<std::mutex> lck(wsmtx);
+	if (listWsHandler.size() )
+	{
+		LogPrint("ws", "%s():%d - update mempool loop on ws clients\n", __func__, __LINE__);
+		auto it = listWsHandler.begin();
+		while (it != listWsHandler.end())
 		{
-			LogPrint("ws", "%s():%d - update mempool loop on ws clients\n", __func__, __LINE__);
-			auto it = listWsHandler.begin();
-			while (it != listWsHandler.end())
-			{
-				LogPrint("ws", "%s():%d - call wshandler_send_mempool_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
-				(*it)->send_mempool_update(hashes.size(), hashes);
-				++it;
-			}
+			LogPrint("ws", "%s():%d - call wshandler_send_mempool_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
+			(*it)->send_mempool_update(hashes);
+			++it;
 		}
-		else
-		{
-			LogPrint("ws", "%s():%d - there are no connected ws clients\n", __func__, __LINE__);
-		}
-    }
+	}
+	else
+	{
+		LogPrint("ws", "%s():%d - there are no connected ws clients\n", __func__, __LINE__);
+	}
+
 }
 
 static void ws_updatepeer()
 {
-    LOCK(cs_vNodes);
-    std::list<std::string> peers;
-    BOOST_FOREACH(CNode* pnode, vNodes) {
-        CNodeStats stats;
-        pnode->copyStats(stats);
-        peers.push_back(stats.addrName);
-    }
-    {
-		std::unique_lock<std::mutex> lck(wsmtx);
-		if (listWsHandler.size() )
-		{
-			LogPrint("ws", "%s():%d - update peer loop on ws clients\n", __func__, __LINE__);
-			auto it = listWsHandler.begin();
-			while (it != listWsHandler.end())
-			{
-				LogPrint("ws", "%s():%d - call wshandler_send_mempool_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
-				(*it)->send_peer_update(peers);
-				++it;
-			}
+	std::list<std::string> peers;
+	{
+		LOCK(cs_vNodes);
+		BOOST_FOREACH(CNode* pnode, vNodes) {
+			CNodeStats stats;
+			pnode->copyStats(stats);
+			peers.push_back(stats.addrName);
 		}
-		else
+	}
+
+	std::unique_lock<std::mutex> lck(wsmtx);
+	if (listWsHandler.size() )
+	{
+		LogPrint("ws", "%s():%d - update peer loop on ws clients\n", __func__, __LINE__);
+		auto it = listWsHandler.begin();
+		while (it != listWsHandler.end())
 		{
-			LogPrint("ws", "%s():%d - there are no connected ws clients\n", __func__, __LINE__);
+			LogPrint("ws", "%s():%d - call wshandler_send_mempool_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
+			(*it)->send_peer_update(peers);
+			++it;
 		}
-    }
+	}
+	else
+	{
+		LogPrint("ws", "%s():%d - there are no connected ws clients\n", __func__, __LINE__);
+	}
+
 }
 
 //------------------------------------------------------------------------------
@@ -1311,7 +1316,7 @@ bool StartWsServer()
 {
     try
     {
-        // ip address is not configurable as of now, it is locahost mandatorily
+        // ip address was set to configurable as of now, just for explorer testing
         std::string strAddress = GetArg("-wsaddress", "127.0.0.1");
         int port = GetArg("-wsport", 8888);
 
