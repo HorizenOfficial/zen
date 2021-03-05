@@ -439,6 +439,7 @@ class sc_bwt_request(BitcoinTestFramework):
         n1_net_bal = n1_net_bal - CERT_FEE
 
         mark_logs("Node0 confirms cert generating 1 block", self.nodes, DEBUG_MODE)
+        raw_input("ABOUT TO CONNECT BLOCK WHICH WILL REMOVE MBTR")
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 

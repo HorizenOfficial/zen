@@ -236,7 +236,7 @@ public:
 
         nVersion       = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
-        hashScTxsCommitment = block.hashScTxsCommitment;
+        hashScTxsCommitment = CSidechainField{block.hashScTxsCommitment};
         nTime          = block.nTime;
         nBits          = block.nBits;
         nNonce         = block.nNonce;
@@ -268,7 +268,7 @@ public:
         if (pprev)
             block.hashPrevBlock = pprev->GetBlockHash();
         block.hashMerkleRoot = hashMerkleRoot;
-        block.hashScTxsCommitment   = hashScTxsCommitment;
+        block.hashScTxsCommitment   = hashScTxsCommitment.GetLegacyHashTO_BE_REMOVED();
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
@@ -400,7 +400,7 @@ public:
         block.nVersion        = nVersion;
         block.hashPrevBlock   = hashPrev;
         block.hashMerkleRoot  = hashMerkleRoot;
-        block.hashScTxsCommitment = hashScTxsCommitment;
+        block.hashScTxsCommitment = hashScTxsCommitment.GetLegacyHashTO_BE_REMOVED();
         block.nTime           = nTime;
         block.nBits           = nBits;
         block.nNonce          = nNonce;

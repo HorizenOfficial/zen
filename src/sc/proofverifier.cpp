@@ -247,13 +247,18 @@ CSidechainField::CSidechainField()
 //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
 CSidechainField::CSidechainField(const uint256& sha256)
 {
+    LogPrintf("CAZZO E: SHA RECEIVED [%s]\n", sha256.ToString());
     byteArray.SetHex(sha256.GetHex());
+    LogPrintf("CAZZO E: RESULTING BYTE-ARRAY [%s]\n", byteArray.ToString());
 }
 
 uint256 CSidechainField::GetLegacyHashTO_BE_REMOVED() const
 {
-	std::vector<unsigned char> tmp(this->byteArray.end()-32, this->byteArray.end());
+	LogPrintf("CAZZO E: BASE_BLOB[%s]\n", this->byteArray.ToString());
+	std::vector<unsigned char> tmp(this->byteArray.begin(), this->byteArray.begin()+32);
+	LogPrintf("CAZZO E: TMP[%s]\n", HexStr(tmp.begin(), tmp.end()));
 	uint256 res(tmp);
+	LogPrintf("CAZZO E: res as HASH [%s]\n", res.ToString());
 	return res;
 }
 
@@ -275,8 +280,7 @@ std::vector<unsigned char>  CSidechainField::GetByteArray() const
 }
 void CSidechainField::SetByteArray(const std::vector<unsigned char>& _byteArray)
 {
-	byteArray.SetNull();
-	byteArray.SetHex(std::string{_byteArray.begin(), _byteArray.end()});
+	*this = CSidechainField(_byteArray);
 	return;
 }
 unsigned int CSidechainField::size() const {return SC_FIELD_SIZE ; }
