@@ -35,7 +35,7 @@ TEST_F(ScTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
     CSidechainField prevCumulativeHash{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
     CBlock prevBlock;
     prevBlock.nVersion = BLOCK_VERSION_SC_SUPPORT;
-    prevBlock.hashScTxsCommitment = prevCumulativeHash;
+    prevBlock.hashScTxsCommitment = prevCumulativeHash.GetLegacyHashTO_BE_REMOVED();
 
     CBlockIndex* prevPindex = AddToBlockIndex(prevBlock);
     prevPindex->scCumTreeHash = prevCumulativeHash;
@@ -45,7 +45,7 @@ TEST_F(ScTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
     CSidechainField currentHash{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
     CBlock block;
     block.nVersion = BLOCK_VERSION_SC_SUPPORT;
-    block.hashScTxsCommitment = currentHash;
+    block.hashScTxsCommitment = currentHash.GetLegacyHashTO_BE_REMOVED();
     block.hashPrevBlock = prevBlock.GetHash();
 
     CBlockIndex* pindex = AddToBlockIndex(block);

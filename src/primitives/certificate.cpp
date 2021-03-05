@@ -275,16 +275,7 @@ CScCertificate::MakeShared() const {
 
 CSidechainField CScCertificate::GetDataHash() const
 {
-    CSidechainField res{};
-    LogPrintf("CERT-DATA-HASH: HASH [%s]\n", this->GetHash().ToString());
-    std::vector<unsigned char> tmp(this->GetHash().begin(), this->GetHash().end());
-    //tmp.resize(res.size(), 0x0);
-    //std::vector<unsigned char> pad(res.size()-tmp.size(),'0x0')
-    //tmp.insert(tmp.begin(), pad.begin(), pad.end());
-    LogPrintf("CERT-DATA-HASH: TMP [%s]\n", HexStr(tmp));
-    res.SetByteArray(tmp);
-    LogPrintf("CERT-DATA-HASH: RES [%s]\n", res.ToString());
-    return res;
+    return CSidechainField(GetHash());
 }
 #endif
 
