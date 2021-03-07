@@ -50,7 +50,7 @@ struct ScCreationParameters
             customData.empty()          &&
             constant.empty( )           &&
             wCertVk.IsNull()            &&
-			wMbtrVk == boost::none      &&
+            wMbtrVk == boost::none      &&
             wCeasedVk == boost::none;
     }
 
@@ -72,7 +72,7 @@ struct ScCreationParameters
                (customData == rhs.customData) &&
                (constant == rhs.constant) &&
                (wCertVk == rhs.wCertVk) &&
-			   (wMbtrVk == rhs.wMbtrVk);
+               (wMbtrVk == rhs.wMbtrVk);
                (wCeasedVk == rhs.wCeasedVk);
     }
     inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }

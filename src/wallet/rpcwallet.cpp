@@ -876,7 +876,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     if (params.size() > 6)
     {
-    	const std::string& inputString = params[6].get_str();
+        const std::string& inputString = params[6].get_str();
         std::vector<unsigned char> wMbtrVkVec;
         if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
         {
@@ -892,7 +892,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     if (params.size() > 7)
     {
-    	const std::string& inputString = params[7].get_str();
+        const std::string& inputString = params[7].get_str();
         std::vector<unsigned char> wCeasedVkVec;
         if (!Sidechain::AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
         {

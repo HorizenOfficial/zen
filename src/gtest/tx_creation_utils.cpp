@@ -105,8 +105,9 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
 
 CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
 {
-    CSidechainField nullifier;
-    nullifier.SetByteArray(std::vector<unsigned char>{nullifierHex.begin(), nullifierHex.end()});
+    std::vector<unsigned char> tmp(nullifierHex.begin(), nullifierHex.end());
+    tmp.resize(CSidechainField::ByteSize());
+    CSidechainField nullifier{tmp};
 
     uint160 dummyPubKeyHash {};
     libzendoomc::ScProof dummyScProof;

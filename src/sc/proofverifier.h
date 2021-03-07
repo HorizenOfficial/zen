@@ -52,7 +52,7 @@ public:
 
     std::vector<unsigned char>  GetByteArray() const;
     void SetByteArray(const std::vector<unsigned char>& _byteArray);
-    unsigned int size() const;
+    static unsigned int ByteSize();
 
     /* Check if scFieldElement is a valid field, leveraging zendoo-mc-cryptolib' */
     static bool IsValid(const CSidechainField& scField);
@@ -174,7 +174,7 @@ namespace libzendoomc {
                 CAmount scFees,
                 const libzendoomc::ScProof& scProof,
                 const boost::optional<libzendoomc::ScVk>& wMbtrVk,
-				const CSidechainField& certDataHash
+                const CSidechainField& certDataHash
             ) const;
     };
 }

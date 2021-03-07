@@ -611,7 +611,7 @@ public:
                  a.customData == b.customData &&
                  a.constant == b.constant &&
                  a.wCertVk == b.wCertVk &&
-				 a.wMbtrVk == b.wMbtrVk &&
+                 a.wMbtrVk == b.wMbtrVk &&
                  a.wCeasedVk == b.wCeasedVk);
     }
 

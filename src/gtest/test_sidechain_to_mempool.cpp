@@ -1602,7 +1602,7 @@ CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput
 {
     CSidechainField nullifier{};
     std::vector<unsigned char> tmp{nullifierHex.begin(), nullifierHex.end()};
-    tmp.resize(nullifier.size(), 0x0);
+    tmp.resize(CSidechainField::ByteSize(), 0x0);
     nullifier.SetByteArray(tmp);
 
     uint160 dummyPubKeyHash = coinsKey.GetPubKey().GetID();

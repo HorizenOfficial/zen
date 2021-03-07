@@ -293,8 +293,8 @@ bool CTxCrosschainOutBase::CheckAmountRange(CAmount& cumulatedAmount) const
 
 CTxScCreationOut::CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn,const Sidechain::ScCreationParameters& paramsIn)
     :CTxCrosschainOut(nValueIn, addressIn), generatedScId(), withdrawalEpochLength(paramsIn.withdrawalEpochLength),
-	 customData(paramsIn.customData), constant(paramsIn.constant),
-	 wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), wCeasedVk(paramsIn.wCeasedVk) {}
+     customData(paramsIn.customData), constant(paramsIn.constant),
+     wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), wCeasedVk(paramsIn.wCeasedVk) {}
 
 uint256 CTxScCreationOut::GetHash() const
 {

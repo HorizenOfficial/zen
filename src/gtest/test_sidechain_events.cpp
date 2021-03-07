@@ -93,8 +93,8 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithoutCert
 
         EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
         <<"Inspecting height "<<heightToInspect
-		<<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).ToString()
-		<<"\ninstead of "<<expectedActiveCertDataHash.ToString();
+        <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).ToString()
+        <<"\ninstead of "<<expectedActiveCertDataHash.ToString();
     }
 }
 
@@ -132,8 +132,8 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
 
             EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
             <<"Inspecting height "<<heightToInspect
-    		<<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).ToString()
-    		<<"\ninstead of "<<expectedActiveCertDataHash.ToString();
+            <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).ToString()
+            <<"\ninstead of "<<expectedActiveCertDataHash.ToString();
         } else if (heightToInspect == firstBlockWhereCertIsIncluded)
         {
             chainSettingUtils::ExtendChainActiveToHeight(heightToInspect-1); //connect block before
@@ -142,13 +142,13 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
 
             EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
             <<"Inspecting height "<<heightToInspect
-    		<<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).ToString()
-    		<<"\ninstead of "<<expectedActiveCertDataHash.ToString();
+            <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).ToString()
+            <<"\ninstead of "<<expectedActiveCertDataHash.ToString();
 
-        	// simulate certificate reception, as it happens in UpdateSidechain
-        	sidechain.lastTopQualityCertReferencedEpoch += 1;
-        	sidechain.pastEpochTopQualityCertDataHash = sidechain.lastTopQualityCertDataHash; // rotate past certDataHash
-        	sidechain.lastTopQualityCertDataHash = CSidechainField{std::vector<unsigned char>(SC_FIELD_SIZE, 'c')};
+            // simulate certificate reception, as it happens in UpdateSidechain
+            sidechain.lastTopQualityCertReferencedEpoch += 1;
+            sidechain.pastEpochTopQualityCertDataHash = sidechain.lastTopQualityCertDataHash; // rotate past certDataHash
+            sidechain.lastTopQualityCertDataHash = CSidechainField{std::vector<unsigned char>(SC_FIELD_SIZE, 'c')};
             txCreationUtils::storeSidechain(view->getSidechainMap(), scId, sidechain);
         } else
         {
@@ -158,8 +158,8 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
 
             EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
             <<"Inspecting height "<<heightToInspect
-    		<<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).ToString()
-    		<<"\ninstead of "<<expectedActiveCertDataHash.ToString();
+            <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).ToString()
+            <<"\ninstead of "<<expectedActiveCertDataHash.ToString();
         }
     }
 }

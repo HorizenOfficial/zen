@@ -1561,9 +1561,9 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 2)
         throw runtime_error(
             "checkcswnullifier\n"
-			"\nArguments:\n"
-			"1. \"scid\"   (string, mandatory) scid of nullifier, \"*\" means all \n"
-			"2. nullifier (string, mandatory) Retrieve only information for nullifier\n"
+            "\nArguments:\n"
+            "1. \"scid\"   (string, mandatory) scid of nullifier, \"*\" means all \n"
+            "2. nullifier (string, mandatory) Retrieve only information for nullifier\n"
             "\nReturns True if nullifier exit in SC.\n"
             "\nResult:\n"
             "{\n"

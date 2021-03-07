@@ -231,7 +231,7 @@ namespace libzendoomc{
         CAmount scFees,
         const libzendoomc::ScProof& scProof,
         const boost::optional<libzendoomc::ScVk>& wMbtrVk,
-		const CSidechainField& certDataHash
+        const CSidechainField& certDataHash
     ) const
     {
         return true; //Currently mocked
@@ -252,8 +252,8 @@ CSidechainField::CSidechainField(const uint256& sha256)
 
 uint256 CSidechainField::GetLegacyHashTO_BE_REMOVED() const
 {
-	std::vector<unsigned char> tmp(this->byteArray.begin(), this->byteArray.begin()+32);
-	return uint256(tmp);
+    std::vector<unsigned char> tmp(this->byteArray.begin(), this->byteArray.begin()+32);
+    return uint256(tmp);
 }
 
 CSidechainField::CSidechainField(const std::vector<unsigned char>& _byteArray) :byteArray(_byteArray)
@@ -274,10 +274,10 @@ std::vector<unsigned char>  CSidechainField::GetByteArray() const
 }
 void CSidechainField::SetByteArray(const std::vector<unsigned char>& _byteArray)
 {
-	*this = CSidechainField(_byteArray);
+    *this = CSidechainField(_byteArray);
 }
 
-unsigned int CSidechainField::size() const {return SC_FIELD_SIZE ; }
+unsigned int CSidechainField::ByteSize() { return SC_FIELD_SIZE; }
 
 std::string CSidechainField::GetHex() const   {return byteArray.GetHex();}
 std::string CSidechainField::ToString() const {return byteArray.ToString();}
