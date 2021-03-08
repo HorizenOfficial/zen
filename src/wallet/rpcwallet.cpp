@@ -863,15 +863,17 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (params.size() > 5)
     {
         const std::string& inputString = params[5].get_str();
-        if (!Sidechain::AddScData(inputString, sc.creationData.constant, CSidechainField::ByteSize(), true, error))
+        std::vector<unsigned char> scConstantByteArray {};
+        if (!Sidechain::AddScData(inputString, scConstantByteArray, CSidechainField::ByteSize(), true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
 
-        if(!libzendoomc::IsValidScConstant(sc.creationData.constant))
+        if(!CSidechainField::IsValid(scConstantByteArray))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid constant");
         }
+        sc.creationData.constant.SetByteArray(scConstantByteArray);
     }
 
     if (params.size() > 6)
@@ -1124,15 +1126,17 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("constant"))
     {
         string inputString = find_value(inputObject, "constant").get_str();
-        if (!Sidechain::AddScData(inputString, creationData.constant, CSidechainField::ByteSize(), true, error))
+        std::vector<unsigned char> scConstantByteArray {};
+        if (!Sidechain::AddScData(inputString, scConstantByteArray, CSidechainField::ByteSize(), true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
 
-        if (!libzendoomc::IsValidScConstant(creationData.constant))
+        if (!CSidechainField::IsValid(scConstantByteArray))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
         }
+        creationData.constant.SetByteArray(scConstantByteArray);
     }
 
     // ---------------------------------------------------------
@@ -1567,9 +1571,10 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scUtxoId\"" );
         }
 
-        CSidechainField scUtxoId {scUtxoIdVec};
-        if(!CSidechainField::IsValid(scUtxoId))
+        if(!CSidechainField::IsValid(scUtxoIdVec))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scUtxoId"));
+
+        CSidechainField scUtxoId {scUtxoIdVec};
 
         ScBwtRequestParameters bwtData;
         bwtData.scFee = scFee;

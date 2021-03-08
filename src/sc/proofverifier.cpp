@@ -29,15 +29,6 @@ namespace libzendoomc{
         return true;
     }
 
-    bool IsValidScConstant(const ScConstant& scConstant)
-    {
-        auto scConstantDeserialized = zendoo_deserialize_field(scConstant.data());
-        if (scConstantDeserialized == nullptr)
-            return false;
-        zendoo_field_free(scConstantDeserialized);
-        return true;
-    }
-
     std::string ToString(Error err){
         return strprintf(
             "%s: [%d - %s]\n",
@@ -107,21 +98,11 @@ namespace libzendoomc{
         WCertVerifierInputs inputs;
 
         //Deserialize constant
-        if (constant.size() == 0) { //Constant can be optional
+        if (constant.IsNull()) { //Constant can be optional
             inputs.constant = nullptr;
-        } else {
-            
-            inputs.constant = deserialize_field(constant.data()); 
-            
-            if (inputs.constant == nullptr) {
-                
-                LogPrint("zendoo_mc_cryptolib",
-                        "%s():%d - failed to deserialize \"constant\": %s \n", 
-                        __func__, __LINE__, ToString(zendoo_get_last_error()));
-                zendoo_clear_error();
-
-                return false;
-            }
+        } else
+        {
+            inputs.constant = deserialize_field(&constant.GetByteArray()[0]);
         }
 
         //Initialize quality and proofdata
@@ -176,7 +157,7 @@ namespace libzendoomc{
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"quality\": %s\n",
             __func__, __LINE__, scCert.quality);
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"constant\": %s\n",
-            __func__, __LINE__, HexStr(constant));
+            __func__, __LINE__, constant.GetHexRepr());
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_proof\": %s\n",
             __func__, __LINE__, HexStr(scCert.scProof));
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_vk\": %s\n",
@@ -290,9 +271,9 @@ std::string CSidechainField::GetHexRepr() const
     return res;
 }
 
-bool CSidechainField::IsValid(const CSidechainField& scField)
+bool CSidechainField::IsValid(const std::vector<unsigned char>& candidateField)
 {
-    auto scFieldElementDeserialized = zendoo_deserialize_field(&(*scField.byteArray.begin()));
+    auto scFieldElementDeserialized = zendoo_deserialize_field(&candidateField[0]);
     if (scFieldElementDeserialized == nullptr)
         return false;
     zendoo_field_free(scFieldElementDeserialized);

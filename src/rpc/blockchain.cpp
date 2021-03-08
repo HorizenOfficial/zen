@@ -1106,7 +1106,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         {
             sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
             sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
-            sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
+            sc.push_back(Pair("constant", info.creationData.constant.GetHexRepr()));
 
             if (info.creationData.wMbtrVk.is_initialized())
                 sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
@@ -1174,7 +1174,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             {
                 sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
                 sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
-                sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
+                sc.push_back(Pair("unconf constant", info.creationData.constant.GetHexRepr()));
                 if (info.creationData.wMbtrVk.is_initialized())
                     sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
                 else
@@ -1286,12 +1286,6 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
     }
 
     CSidechainField certDataHash = scView.GetActiveCertDataHash(scid);
-    if (certDataHash.IsNull() || !CSidechainField::IsValid(certDataHash))
-    {
-        LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing active cert data hash for required scid"));
-    }
-
     ret.push_back(Pair("certDataHash", certDataHash.GetHexRepr()));
 }
 
@@ -1596,12 +1590,12 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_TYPE_ERROR, error);
     }
 
-    CSidechainField nullifier(nullifierVec);
-    if (!CSidechainField::IsValid(nullifier))
+    if (!CSidechainField::IsValid(nullifierVec))
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": invalid nullifier data";
         throw JSONRPCError(RPC_TYPE_ERROR, error);
     }
+    CSidechainField nullifier(nullifierVec);
 
     UniValue ret(UniValue::VOBJ);
     

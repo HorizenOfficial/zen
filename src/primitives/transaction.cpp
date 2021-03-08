@@ -304,7 +304,7 @@ uint256 CTxScCreationOut::GetHash() const
 std::string CTxScCreationOut::ToString() const
 {
     return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s], constant=[%s], wCertVk=[%s], wCeasedVk=[%s]",
-        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData), HexStr(constant),
+        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData), constant.GetHexRepr(),
                      HexStr(wCertVk), wCeasedVk ? HexStr(wCeasedVk.get()) : "");
 }
 

@@ -21,14 +21,9 @@ namespace libzendoomc {
     bool IsValidScProof(const ScProof& scProof);
 
     typedef base_blob<SC_VK_SIZE * 8> ScVk;
-    
+
     /* Check if scVk is a valid zendoo-mc-cryptolib's sc_vk */
     bool IsValidScVk(const ScVk& scVk);
-
-    typedef std::vector<unsigned char> ScConstant;
-    
-    /* Check if scConstant is a valid zendoo-mc-cryptolib's field */
-    bool IsValidScConstant(const ScConstant& scConstant);
 
     /* Convert to std::string a zendoo-mc-cryptolib Error. Useful for logging */
     std::string ToString(Error err);
@@ -52,7 +47,7 @@ public:
     const std::vector<unsigned char>&  GetByteArray() const;
     uint256 GetLegacyHashTO_BE_REMOVED() const;
 
-    static bool IsValid(const CSidechainField& scField);
+    static bool IsValid(const std::vector<unsigned char>& candidateField);
     friend inline bool operator==(const CSidechainField& lhs, const CSidechainField& rhs) { return lhs.byteArray == rhs.byteArray; }
     friend inline bool operator!=(const CSidechainField& lhs, const CSidechainField& rhs) { return !(lhs == rhs); }
     friend inline bool operator<(const CSidechainField& lhs, const CSidechainField& rhs)  { return lhs.byteArray < rhs.byteArray; } // FOR STD::MAP ONLY
@@ -82,10 +77,12 @@ public:
         char tmp {0};
         is.read(&tmp, 1);
         unsigned int nSize = static_cast<unsigned int>(tmp);
-        assert(nSize <= CSidechainField::ByteSize());
+        if (nSize > CSidechainField::ByteSize())
+            throw std::ios_base::failure("non-canonical CSidechainField size");
 
         byteArray.resize(nSize);
         is.read((char*)&byteArray[0], nSize);
+        byteArray.resize(CSidechainField::ByteSize(), 0x0); //Needed as long as 96 bytes field is used
     }
 
     std::string GetHexRepr() const;
@@ -95,6 +92,8 @@ private:
     std::vector<unsigned char> byteArray;
     static const std::vector<unsigned char> nullByteArray;
 };
+
+typedef CSidechainField ScConstant;
 
 namespace libzendoomc {
     /* Support class for WCert SNARK proof verification. */

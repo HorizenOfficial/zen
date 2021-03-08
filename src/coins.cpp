@@ -1296,9 +1296,6 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         }
 
         CSidechainField certDataHash = this->GetActiveCertDataHash(mbtr.scId);
-        if (!CSidechainField::IsValid(certDataHash))
-            return error("%s():%d - ERROR: Tx[%s] mbtr request [%s] has missing active cert data hash for required scId[%s]\n",
-                __func__, __LINE__, tx.ToString(), mbtr.ToString(), mbtr.scId.ToString());
 
         // Verify mainchain bwt request proof
         if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
@@ -1351,9 +1348,6 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         }
 
         CSidechainField certDataHash = this->GetActiveCertDataHash(csw.scId);
-        if (!CSidechainField::IsValid(certDataHash))
-            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] has missing active cert data hash for required scId[%s]\n",
-                __func__, __LINE__, tx.ToString(), csw.ToString(), csw.scId.ToString());
 
         // Verify CSW proof
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.creationData.wCeasedVk.get(), csw))

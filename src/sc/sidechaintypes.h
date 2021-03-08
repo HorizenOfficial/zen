@@ -38,7 +38,7 @@ struct ScCreationParameters
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
-    libzendoomc::ScConstant constant;
+    CSidechainField constant; //This should be boost::optional
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
@@ -48,7 +48,7 @@ struct ScCreationParameters
         return
             withdrawalEpochLength == -1 &&
             customData.empty()          &&
-            constant.empty( )           &&
+            constant.IsNull()           &&
             wCertVk.IsNull()            &&
             wMbtrVk == boost::none      &&
             wCeasedVk == boost::none;

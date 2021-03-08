@@ -44,6 +44,30 @@ TEST(SidechainsField, Serialization)
     CSidechainField aRetrievedField;
     aFieldStream >> aRetrievedField;
     EXPECT_TRUE(aField == aRetrievedField);
+
+    ////////////////////
+    std::vector<unsigned char> illegalByteArray {};
+    CDataStream illegalByteArrayStream(SER_DISK, CLIENT_VERSION);
+
+    illegalByteArrayStream << illegalByteArray;
+    CSidechainField retrievedzeroLengthByteArrayField;
+    EXPECT_NO_THROW(illegalByteArrayStream >> retrievedzeroLengthByteArrayField); //TODO: should throw
+    EXPECT_TRUE(retrievedzeroLengthByteArrayField.GetByteArray().size() == CSidechainField::ByteSize());
+}
+
+TEST(SidechainsField, IsValid)
+{
+    std::vector<unsigned char> zeroLengthByteArray{};
+    ASSERT_DEATH(CSidechainField::IsValid(zeroLengthByteArray),""); //TO FIX
+
+    std::vector<unsigned char> shortByteArray(19,'a');
+    EXPECT_FALSE(CSidechainField::IsValid(shortByteArray));
+
+    std::vector<unsigned char> nonZeroTerminatedByteArray(CSidechainField::ByteSize(),'a');
+    EXPECT_FALSE(CSidechainField::IsValid(nonZeroTerminatedByteArray));
+
+    std::vector<unsigned char> tooBigByteArray(CSidechainField::ByteSize()*2,0x0);
+    EXPECT_FALSE(CSidechainField::IsValid(tooBigByteArray)); //TO FIX
 }
 
 TEST(ZendooLib, FieldTest)

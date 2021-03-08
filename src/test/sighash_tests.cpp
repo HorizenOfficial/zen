@@ -339,7 +339,9 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             sc_out.address = libzcash::random_uint256();
             sc_out.withdrawalEpochLength = insecure_rand() % 100;
             RandomData(sc_out.customData);
-            RandomData(sc_out.constant);
+            std::vector<unsigned char> tmp;
+            RandomData(tmp);
+            sc_out.constant.SetByteArray(tmp);
             RandomScVk(sc_out.wCertVk);
             libzendoomc::ScVk wCeasedVk;
             RandomScVk(wCeasedVk);

@@ -65,7 +65,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("address", out.address.GetHex()));
         o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
         o.push_back(Pair("customData", HexStr(out.customData)));
-        o.push_back(Pair("constant", HexStr(out.constant)));
+        o.push_back(Pair("constant", out.constant.GetHexRepr()));
         if(out.wCeasedVk.is_initialized())
             o.push_back(Pair("wCeasedVk", HexStr(out.wCeasedVk.get())));
         vscs.push_back(o);
@@ -232,12 +232,12 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 
-        CSidechainField nullifier(nullifierVec);
-        if (!CSidechainField::IsValid(nullifier))
+        if (!CSidechainField::IsValid(nullifierVec))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": invalid nullifier data";
             return false;
         }
+        CSidechainField nullifier {nullifierVec};
 
         // parse snark proof
         const UniValue& proof_v = find_value(o, "scProof");
@@ -365,17 +365,19 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         if (!constant.isNull())
         {
             const std::string& inputString = constant.get_str();
-            if (!AddScData(inputString, sc.constant, CSidechainField::ByteSize(), false, error))
+            std::vector<unsigned char> scConstantByteArray {};
+            if (!AddScData(inputString, scConstantByteArray, CSidechainField::ByteSize(), false, error))
             {
                 error = "constant: " + error;
                 return false;
             }
 
-            if (!libzendoomc::IsValidScConstant(sc.constant))
+            if (!CSidechainField::IsValid(scConstantByteArray))
             {
                 error = "invalid constant";
                 return false;
             }
+            sc.constant.SetByteArray(scConstantByteArray);
         }
         
         const UniValue& wCeasedVk = find_value(o, "wCeasedVk");
@@ -539,12 +541,12 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
             return false;
         }
 
-        bwtData.scRequestData = CSidechainField{scUtxoIdVec};
-        if (!CSidechainField::IsValid(bwtData.scRequestData))
+        if (!CSidechainField::IsValid(scUtxoIdVec))
         {
             error = "invalid scUtxoId";
             return false;
         }
+        bwtData.scRequestData = CSidechainField{scUtxoIdVec};
 
         //---------------------------------------------------------------------
         const UniValue& scProofVal = find_value(o, "scProof");
