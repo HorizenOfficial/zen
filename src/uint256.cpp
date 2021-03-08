@@ -83,12 +83,6 @@ template void base_blob<256>::SetHex(const char*);
 template void base_blob<256>::SetHex(const std::string&);
 
 // Explicit instantiations for sidechain-related stuff
-template             base_blob<SC_FIELD_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
-template void        base_blob<SC_FIELD_SIZE * 8>::SetHex(const char*);
-template void        base_blob<SC_FIELD_SIZE * 8>::SetHex(const std::string&);
-template std::string base_blob<SC_FIELD_SIZE * 8>::GetHex() const;
-template std::string base_blob<SC_FIELD_SIZE * 8>::ToString() const;
-
 template             base_blob<SC_VK_SIZE * 8>::base_blob(const std::vector<unsigned char>&);
 template void        base_blob<SC_VK_SIZE * 8>::SetHex(const std::string&);
 template std::string base_blob<SC_VK_SIZE * 8>::ToString() const;

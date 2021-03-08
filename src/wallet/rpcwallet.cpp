@@ -798,7 +798,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "5. \"customData\"             (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                   hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
             "6. \"constant\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "                                   hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CSidechainField::ByteSize()) + " bytes\n"
             "7. \"wMbtrVk\"                (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                   hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "8. \"wCeasedVk\"              (string, optional) It is an arbitrary byte string of even length expressed in\n"
@@ -863,7 +863,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (params.size() > 5)
     {
         const std::string& inputString = params[5].get_str();
-        if (!Sidechain::AddScData(inputString, sc.creationData.constant, SC_FIELD_SIZE, true, error))
+        if (!Sidechain::AddScData(inputString, sc.creationData.constant, CSidechainField::ByteSize(), true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
@@ -948,7 +948,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "   \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "   \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CSidechainField::ByteSize()) + " bytes\n"
             "   \"wMbtrVk\":data                  (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "   \"wCeasedVk\":data                (string, optional) It is an arbitrary byte string of even length expressed in\n"
@@ -1124,7 +1124,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("constant"))
     {
         string inputString = find_value(inputObject, "constant").get_str();
-        if (!Sidechain::AddScData(inputString, creationData.constant, SC_FIELD_SIZE, true, error))
+        if (!Sidechain::AddScData(inputString, creationData.constant, CSidechainField::ByteSize(), true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
@@ -1415,7 +1415,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             "[{\n"
             "   \"scid\":side chain ID             (string, required) The uint256 side chain ID\n"
             "   \"scUtxoId\":hexstr                (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CSidechainField::ByteSize()) + " bytes\n"
             "   \"pubkeyhash\":pkh                 (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
             "   \"scFee\":amount,                  (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
             "   \"scProof\":hexstr,                (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
@@ -1559,7 +1559,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
         {
             const string& scUtxoIdString = find_value(o, "scUtxoId").get_str();
             std::string error;
-            if (!Sidechain::AddScData(scUtxoIdString, scUtxoIdVec, SC_FIELD_SIZE, true ,error))
+            if (!Sidechain::AddScData(scUtxoIdString, scUtxoIdVec, CSidechainField::ByteSize(), true ,error))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("scUtxoId: ") + error);
         }
         else

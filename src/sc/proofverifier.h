@@ -41,18 +41,16 @@ class CSidechainField
 {
 public:
     CSidechainField();
-    explicit CSidechainField(const uint256& sha256); //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
-    uint256 GetLegacyHashTO_BE_REMOVED() const;
-
-    explicit CSidechainField(const std::vector<unsigned char>& _byteArray);
+    explicit CSidechainField(const std::vector<unsigned char>& byteArrayIn);
+    void SetByteArray(const std::vector<unsigned char>& byteArrayIn);
     ~CSidechainField() = default;
 
     void SetNull();
     bool IsNull() const;
 
-    std::vector<unsigned char>  GetByteArray() const;
-    void SetByteArray(const std::vector<unsigned char>& _byteArray);
-    static unsigned int ByteSize();
+    static constexpr unsigned int ByteSize() { return SC_FIELD_SIZE; }
+    const std::vector<unsigned char>&  GetByteArray() const;
+    uint256 GetLegacyHashTO_BE_REMOVED() const;
 
     /* Check if scFieldElement is a valid field, leveraging zendoo-mc-cryptolib' */
     static bool IsValid(const CSidechainField& scField);
@@ -67,13 +65,12 @@ public:
         READWRITE(byteArray);
     }
 
-    std::string GetHex() const;
-    std::string ToString() const;
-
+    std::string GetHexRepr() const;
     static CSidechainField ComputeHash(const CSidechainField& lhs, const CSidechainField& rhs);
 
 private:
-    base_blob<SC_FIELD_SIZE * 8> byteArray;
+    std::vector<unsigned char> byteArray;
+    static const std::vector<unsigned char> nullByteArray;
 };
 
 namespace libzendoomc {

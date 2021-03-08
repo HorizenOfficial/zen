@@ -238,16 +238,35 @@ namespace libzendoomc{
     }
 }
 
+const std::vector<unsigned char> CSidechainField::nullByteArray = std::vector<unsigned char>(CSidechainField::ByteSize(), 0x0);
 
 CSidechainField::CSidechainField()
 {
     SetNull();
 }
 
-//UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
-CSidechainField::CSidechainField(const uint256& sha256)
+CSidechainField::CSidechainField(const std::vector<unsigned char>& byteArrayIn) : byteArray()
 {
-    byteArray.SetHex(sha256.GetHex());
+    this->SetByteArray(byteArrayIn);
+}
+
+void CSidechainField::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
+{
+    assert(byteArrayIn.size() <= CSidechainField::ByteSize());
+    byteArray = byteArrayIn;
+    byteArray.resize(CSidechainField::ByteSize(), 0x0);
+}
+
+void CSidechainField::SetNull()
+{
+    byteArray = nullByteArray;
+}
+
+bool CSidechainField::IsNull() const { return byteArray == nullByteArray; }
+
+const std::vector<unsigned char>&  CSidechainField::GetByteArray() const
+{
+    return byteArray;
 }
 
 uint256 CSidechainField::GetLegacyHashTO_BE_REMOVED() const
@@ -256,36 +275,24 @@ uint256 CSidechainField::GetLegacyHashTO_BE_REMOVED() const
     return uint256(tmp);
 }
 
-CSidechainField::CSidechainField(const std::vector<unsigned char>& _byteArray) :byteArray(_byteArray)
+std::string CSidechainField::GetHexRepr() const
 {
-    assert(_byteArray.size() == sizeof(uint8_t)*SC_FIELD_SIZE);
+    std::string res; //ADAPTED FROM UTILSTRENCONDING.CPP HEXSTR
+    static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+    res.reserve(this->byteArray.size()*2);
+    for(const auto& byte: this->byteArray)
+    {
+        res.push_back(hexmap[byte>>4]);
+        res.push_back(hexmap[byte&15]);
+    }
+
+    return res;
 }
-
-void CSidechainField::SetNull()
-{
-    byteArray.SetNull();
-}
-
-bool CSidechainField::IsNull() const { return byteArray.IsNull(); }
-
-std::vector<unsigned char>  CSidechainField::GetByteArray() const
-{
-    return std::vector<unsigned char>{byteArray.begin(), byteArray.end()};
-}
-void CSidechainField::SetByteArray(const std::vector<unsigned char>& _byteArray)
-{
-    *this = CSidechainField(_byteArray);
-}
-
-unsigned int CSidechainField::ByteSize() { return SC_FIELD_SIZE; }
-
-std::string CSidechainField::GetHex() const   {return byteArray.GetHex();}
-std::string CSidechainField::ToString() const {return byteArray.ToString();}
-
 
 bool CSidechainField::IsValid(const CSidechainField& scField)
 {
-    auto scFieldElementDeserialized = zendoo_deserialize_field(scField.byteArray.begin());
+    auto scFieldElementDeserialized = zendoo_deserialize_field(&(*scField.byteArray.begin()));
     if (scFieldElementDeserialized == nullptr)
         return false;
     zendoo_field_free(scFieldElementDeserialized);
@@ -302,14 +309,14 @@ CSidechainField CSidechainField::ComputeHash(const CSidechainField& lhs, const C
 {
     zendoo_clear_error();
 
-    field_t* lhsFe = zendoo_deserialize_field(lhs.byteArray.begin());
+    field_t* lhsFe = zendoo_deserialize_field(&(*lhs.byteArray.begin()));
     if (lhsFe == nullptr) {
         LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
         zendoo_clear_error();
         throw std::runtime_error("Could not compute poseidon hash");
     }
 
-    field_t* rhsFe = zendoo_deserialize_field(rhs.byteArray.begin());
+    field_t* rhsFe = zendoo_deserialize_field(&(*rhs.byteArray.begin()));
     if (rhsFe == nullptr) {
         LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
         zendoo_clear_error();
@@ -322,7 +329,7 @@ CSidechainField CSidechainField::ComputeHash(const CSidechainField& lhs, const C
     field_t* outFe = zendoo_compute_poseidon_hash(inputArrayFe, 2);
 
     CSidechainField res;
-    zendoo_serialize_field(outFe, res.byteArray.begin());
+    zendoo_serialize_field(outFe, &*(res.byteArray.begin()));
 
     zendoo_field_free(lhsFe);
     zendoo_field_free(rhsFe);

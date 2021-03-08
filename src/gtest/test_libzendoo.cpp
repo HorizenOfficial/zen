@@ -1,22 +1,35 @@
 #include <gtest/gtest.h>
 #include <gtest/libzendoo_test_files.h>
 #include <util.h>
-#include "zendoo/zendoo_mc.h"
-#include "zendoo/error.h"
 #include <stdio.h>
 #include <cstring>
 #include <utilstrencodings.h>
+
+#include <sc/proofverifier.h>
+TEST(SidechainsField, FieldSizeIsAlwaysTheExpectedOne)
+{
+    CSidechainField emptyField;
+    EXPECT_TRUE(emptyField.GetByteArray().size() == CSidechainField::ByteSize());
+
+    std::vector<unsigned char> shortByteArray(19,'a');
+    ASSERT_TRUE(shortByteArray.size() < CSidechainField::ByteSize());
+    CSidechainField fieldFromShortByteArray{shortByteArray};
+    EXPECT_TRUE(fieldFromShortByteArray.GetByteArray().size() == CSidechainField::ByteSize());
+
+    std::vector<unsigned char> tooLongByteArray(CSidechainField::ByteSize()*2,'b');
+    EXPECT_DEATH(CSidechainField{tooLongByteArray},"");
+}
 
 TEST(ZendooLib, FieldTest)
 {
     //Size is the expected one
     int field_len = zendoo_get_field_size_in_bytes();
-    ASSERT_EQ(field_len, SC_FIELD_SIZE);
+    ASSERT_EQ(field_len, CSidechainField::ByteSize());
 
     auto field = zendoo_get_random_field();
 
     //Serialize and deserialize and check equality
-    unsigned char field_bytes[SC_FIELD_SIZE];
+    unsigned char field_bytes[CSidechainField::ByteSize()];
     zendoo_serialize_field(field, field_bytes);
 
     auto field_deserialized = zendoo_deserialize_field(field_bytes);

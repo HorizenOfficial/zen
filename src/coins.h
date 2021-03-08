@@ -286,7 +286,7 @@ public:
 class CCswNullifiersKeyHasher
 {
 private:
-    static const size_t BUF_LEN = (sizeof(uint256) + SC_FIELD_SIZE)/sizeof(uint32_t);
+    static const size_t BUF_LEN = (sizeof(uint256) + CSidechainField::ByteSize())/sizeof(uint32_t);
     uint32_t salt[BUF_LEN];
 public:
     CCswNullifiersKeyHasher();

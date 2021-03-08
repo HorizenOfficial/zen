@@ -1292,7 +1292,7 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing active cert data hash for required scid"));
     }
 
-    ret.push_back(Pair("certDataHash", HexStr(certDataHash.GetByteArray())));
+    ret.push_back(Pair("certDataHash", certDataHash.GetHexRepr()));
 }
 
 UniValue getscinfo(const UniValue& params, bool fHelp)
@@ -1546,7 +1546,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     // block scCommittmentTreeCumulativeHash
     ssBlock << pblockindex->scCumTreeHash;
     LogPrint("sc", "%s():%d - sc[%s], h[%d], cum[%s], bVers[0x%x]\n", __func__, __LINE__,
-        scId.ToString(), pblockindex->nHeight, pblockindex->scCumTreeHash.ToString(), pblockindex->nVersion);
+        scId.ToString(), pblockindex->nHeight, pblockindex->scCumTreeHash.GetHexRepr(), pblockindex->nVersion);
 
     // block hex data
     ssBlock << block;
@@ -1590,7 +1590,7 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
 
     std::string nullifierError;
     std::vector<unsigned char> nullifierVec;
-    if (!AddScData(inputString, nullifierVec, SC_FIELD_SIZE, true, nullifierError))
+    if (!AddScData(inputString, nullifierVec, CSidechainField::ByteSize(), true, nullifierError))
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": " + nullifierError;
         throw JSONRPCError(RPC_TYPE_ERROR, error);

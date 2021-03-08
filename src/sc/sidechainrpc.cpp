@@ -30,7 +30,7 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("value", ValueFromAmount(csw.nValue)));
         o.push_back(Pair("scId", csw.scId.GetHex()));
-        o.push_back(Pair("nullifier", HexStr(csw.nullifier.GetByteArray())));
+        o.push_back(Pair("nullifier", csw.nullifier.GetHexRepr()));
 
         UniValue spk(UniValue::VOBJ);
         ScriptPubKeyToJSON(csw.scriptPubKey(), spk, true);
@@ -109,7 +109,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         
         o.push_back(Pair("mcDestinationAddress", mcAddr));
         o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
-        o.push_back(Pair("scUtxoId", HexStr(out.scRequestData.GetByteArray())));
+        o.push_back(Pair("scUtxoId", out.scRequestData.GetHexRepr()));
         o.push_back(Pair("scProof", HexStr(out.scProof)));
         vbts.push_back(o);
         nIdx++;
@@ -226,7 +226,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
 
         std::string nullifierError;
         std::vector<unsigned char> nullifierVec;
-        if (!AddScData(nullifier_v.get_str(), nullifierVec, SC_FIELD_SIZE, true, nullifierError))
+        if (!AddScData(nullifier_v.get_str(), nullifierVec, CSidechainField::ByteSize(), true, nullifierError))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": " + nullifierError;
             return false;
@@ -365,7 +365,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         if (!constant.isNull())
         {
             const std::string& inputString = constant.get_str();
-            if (!AddScData(inputString, sc.constant, SC_FIELD_SIZE, false, error))
+            if (!AddScData(inputString, sc.constant, CSidechainField::ByteSize(), false, error))
             {
                 error = "constant: " + error;
                 return false;
@@ -533,7 +533,7 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
         }
         inputString = scUtxoIdVal.get_str();
         std::vector<unsigned char> scUtxoIdVec;
-        if (!AddScData(inputString, scUtxoIdVec, SC_FIELD_SIZE, true, error))
+        if (!AddScData(inputString, scUtxoIdVec, CSidechainField::ByteSize(), true, error))
         {
             error = "scUtxoId: " + error;
             return false;

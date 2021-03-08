@@ -95,8 +95,8 @@ std::string CSidechain::ToString() const
         sidechainVersion
         , creationBlockHeight
         , creationTxHash.ToString()
-        , pastEpochTopQualityCertDataHash.ToString()
-        , lastTopQualityCertDataHash.ToString()
+        , pastEpochTopQualityCertDataHash.GetHexRepr()
+        , lastTopQualityCertDataHash.GetHexRepr()
         , lastTopQualityCertHash.ToString()
         , lastTopQualityCertReferencedEpoch
         , lastTopQualityCertQuality

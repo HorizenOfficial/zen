@@ -226,7 +226,7 @@ CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmou
 std::string CTxCeasedSidechainWithdrawalInput::ToString() const
 {
     return strprintf("CTxCeasedSidechainWithdrawalInput(nValue=%d.%08d, scId=%s, nullifier=%s, pubKeyHash=%s, scProof=%s, redeemScript=%s)",
-                     nValue / COIN, nValue % COIN, scId.ToString(), HexStr(nullifier.GetByteArray()).substr(0, 10),
+                     nValue / COIN, nValue % COIN, scId.ToString(), nullifier.GetHexRepr().substr(0, 10),
                      pubKeyHash.ToString(), HexStr(scProof).substr(0, 10), HexStr(redeemScript).substr(0, 24));
 }
 
@@ -340,7 +340,7 @@ CBwtRequestOut::CBwtRequestOut(
 std::string CBwtRequestOut::ToString() const
 {
     return strprintf("CBwtRequestOut(scId=%s, scUtxoId=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
-        scId.ToString(), HexStr(scRequestData.GetByteArray()).substr(0, 30),
+        scId.ToString(), scRequestData.GetHexRepr().substr(0, 30),
         mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
         HexStr(scProof).substr(0, 30));
 }

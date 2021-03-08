@@ -327,7 +327,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidNullifier) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
-    csw.nullifier = CSidechainField{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
+    csw.nullifier = CSidechainField{std::vector<unsigned char>(size_t(CSidechainField::ByteSize()), 'a')};
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;

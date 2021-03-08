@@ -2990,8 +2990,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (fCheckScTxesCommitment)
     {
         const uint256& scTxsCommittment = scCommitmentBuilder.getCommitment();
-
-        if (CSidechainField{block.hashScTxsCommitment} != CSidechainField{scTxsCommittment})
+        if (block.hashScTxsCommitment != scTxsCommittment)
         {
             // If this check fails, we return validation state obj with a state.corruptionPossible=false attribute,
             // which will mark this header as failed. This is because the previous check on merkel root was successful,
@@ -3842,8 +3841,10 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
 
     if (pindexNew->pprev && pindexNew->nVersion == BLOCK_VERSION_SC_SUPPORT )
     {
-        const CSidechainField& prevScCumTreeHash = (pindexNew->pprev->nVersion == BLOCK_VERSION_SC_SUPPORT) ? pindexNew->pprev->scCumTreeHash : CSidechainField();
-        pindexNew->scCumTreeHash = CSidechainField::ComputeHash(prevScCumTreeHash, CSidechainField{block.hashScTxsCommitment});
+        const CSidechainField& prevScCumTreeHash = (pindexNew->pprev->nVersion == BLOCK_VERSION_SC_SUPPORT)?
+            pindexNew->pprev->scCumTreeHash : CSidechainField();
+        std::vector<unsigned char> tmp(block.hashScTxsCommitment.begin(), block.hashScTxsCommitment.end());
+        pindexNew->scCumTreeHash = CSidechainField::ComputeHash(prevScCumTreeHash, CSidechainField{tmp});
     }
 
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);

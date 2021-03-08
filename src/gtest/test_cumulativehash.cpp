@@ -16,7 +16,7 @@ public:
 TEST_F(ScTxCumulativeHashTestSuite, CBlockIndexSerialization)
 {
     CBlockIndex originalpindex;
-    originalpindex.scCumTreeHash = CSidechainField({std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')});
+    originalpindex.scCumTreeHash = CSidechainField({std::vector<unsigned char>(size_t(CSidechainField::ByteSize()), 'a')});
 
     CDataStream ssValue(SER_DISK, PROTOCOL_VERSION);
     ssValue << CDiskBlockIndex(&originalpindex);
@@ -32,7 +32,7 @@ TEST_F(ScTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
     SelectParams(CBaseChainParams::MAIN);
 
     // Previous block
-    CSidechainField prevCumulativeHash{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
+    CSidechainField prevCumulativeHash{std::vector<unsigned char>(size_t(CSidechainField::ByteSize()), 'a')};
     CBlock prevBlock;
     prevBlock.nVersion = BLOCK_VERSION_SC_SUPPORT;
     prevBlock.hashScTxsCommitment = prevCumulativeHash.GetLegacyHashTO_BE_REMOVED();
@@ -42,7 +42,7 @@ TEST_F(ScTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
     EXPECT_TRUE(prevCumulativeHash == prevPindex->hashScTxsCommitment);
 
     // Current block
-    CSidechainField currentHash{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
+    CSidechainField currentHash{std::vector<unsigned char>(size_t(CSidechainField::ByteSize()), 'b')};
     CBlock block;
     block.nVersion = BLOCK_VERSION_SC_SUPPORT;
     block.hashScTxsCommitment = currentHash.GetLegacyHashTO_BE_REMOVED();

@@ -249,7 +249,7 @@ size_t CCswNullifiersKeyHasher::operator()(const std::pair<uint256, CSidechainFi
     uint32_t buf[BUF_LEN];
     // note: we may consider buf as a raw data, so bytes size of buf is (BUF_LEN * 4)
     memcpy(buf, key.first.begin(), sizeof(uint256));
-    memcpy((buf + sizeof(uint256)/sizeof(uint32_t)), &(key.second.GetByteArray()[0]), SC_FIELD_SIZE);
+    memcpy((buf + sizeof(uint256)/sizeof(uint32_t)), &(key.second.GetByteArray()[0]), CSidechainField::ByteSize());
     return CalculateHash(buf, BUF_LEN, salt);
 }
 

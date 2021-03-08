@@ -236,7 +236,9 @@ public:
 
         nVersion       = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
-        hashScTxsCommitment = CSidechainField{block.hashScTxsCommitment};
+
+        std::vector<unsigned char> tmp (block.hashScTxsCommitment.begin(), block.hashScTxsCommitment.end());
+        hashScTxsCommitment = CSidechainField{tmp};
         nTime          = block.nTime;
         nBits          = block.nBits;
         nNonce         = block.nNonce;

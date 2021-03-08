@@ -929,8 +929,8 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCswRemovalFromMempool) {
     CScript dummyRedeemScript;
 
     CMutableTransaction mutTx;
-    CSidechainField nullfier_1{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
-    CSidechainField nullfier_2{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
+    CSidechainField nullfier_1{std::vector<unsigned char>(size_t(CSidechainField::ByteSize()), 'a')};
+    CSidechainField nullfier_2{std::vector<unsigned char>(size_t(CSidechainField::ByteSize()), 'b')};
     mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
     mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
 
@@ -1010,8 +1010,8 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
 
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
-    CSidechainField nullfier_1{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')};
-    CSidechainField nullfier_2{std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')};
+    CSidechainField nullfier_1{std::vector<unsigned char>(size_t(CSidechainField::ByteSize()), 'a')};
+    CSidechainField nullfier_2{std::vector<unsigned char>(size_t(CSidechainField::ByteSize()), 'b')};
     mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
     mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
 

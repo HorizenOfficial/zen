@@ -275,7 +275,8 @@ CScCertificate::MakeShared() const {
 
 CSidechainField CScCertificate::GetDataHash() const
 {
-    return CSidechainField(GetHash());
+    std::vector<unsigned char> tmp(this->GetHash().begin(), this->GetHash().end());
+    return CSidechainField{tmp};
 }
 #endif
 

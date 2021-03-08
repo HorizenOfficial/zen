@@ -271,7 +271,7 @@ struct CSidechainUndoData
              res += strprintf("appliedMaturedAmount=%d.%08d\n", appliedMaturedAmount / COIN, appliedMaturedAmount % COIN);
 
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
-            res += strprintf("pastEpochTopQualityCertDataHash=%s\n", pastEpochTopQualityCertDataHash.ToString());
+            res += strprintf("pastEpochTopQualityCertDataHash=%s\n", pastEpochTopQualityCertDataHash.GetHexRepr());
 
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -279,7 +279,7 @@ struct CSidechainUndoData
             res += strprintf("prevTopCommittedCertReferencedEpoch=%d\n", prevTopCommittedCertReferencedEpoch);
             res += strprintf("prevTopCommittedCertQuality=%d\n", prevTopCommittedCertQuality);
             res += strprintf("prevTopCommittedCertBwtAmount=%d.%08d\n", prevTopCommittedCertBwtAmount / COIN, prevTopCommittedCertBwtAmount % COIN);
-            res += strprintf("lastTopQualityCertDataHash=%s\n", lastTopQualityCertDataHash.ToString());
+            res += strprintf("lastTopQualityCertDataHash=%s\n", lastTopQualityCertDataHash.GetHexRepr());
         }
 
         res += strprintf("ceasedBwts.size()=%u\n", ceasedBwts.size());
