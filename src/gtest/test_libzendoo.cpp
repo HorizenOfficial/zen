@@ -6,18 +6,44 @@
 #include <utilstrencodings.h>
 
 #include <sc/proofverifier.h>
+#include <streams.h>
+#include <clientversion.h>
 TEST(SidechainsField, FieldSizeIsAlwaysTheExpectedOne)
 {
     CSidechainField emptyField;
     EXPECT_TRUE(emptyField.GetByteArray().size() == CSidechainField::ByteSize());
 
+    ///////////////////
     std::vector<unsigned char> shortByteArray(19,'a');
     ASSERT_TRUE(shortByteArray.size() < CSidechainField::ByteSize());
     CSidechainField fieldFromShortByteArray{shortByteArray};
     EXPECT_TRUE(fieldFromShortByteArray.GetByteArray().size() == CSidechainField::ByteSize());
 
+    ///////////////////
     std::vector<unsigned char> tooLongByteArray(CSidechainField::ByteSize()*2,'b');
     EXPECT_DEATH(CSidechainField{tooLongByteArray},"");
+}
+
+TEST(SidechainsField, Serialization)
+{
+    CSidechainField OriginalEmptyField;
+    CDataStream emptyFieldStream(SER_DISK, CLIENT_VERSION);
+
+    emptyFieldStream << OriginalEmptyField;
+    CSidechainField retrievedEmptyField;
+    emptyFieldStream >> retrievedEmptyField;
+    EXPECT_TRUE(OriginalEmptyField == retrievedEmptyField);
+
+    ///////////////////
+    std::vector<unsigned char> aByteArray(19,'a');
+    ASSERT_TRUE(aByteArray.size() < CSidechainField::ByteSize());
+    CSidechainField aField{aByteArray};
+    CDataStream aFieldStream(SER_DISK, CLIENT_VERSION);
+
+    aFieldStream << aField;
+    CSidechainField aRetrievedField;
+    aFieldStream >> aRetrievedField;
+    EXPECT_TRUE(aField == aRetrievedField);
 }
 
 TEST(ZendooLib, FieldTest)

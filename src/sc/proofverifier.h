@@ -52,17 +52,40 @@ public:
     const std::vector<unsigned char>&  GetByteArray() const;
     uint256 GetLegacyHashTO_BE_REMOVED() const;
 
-    /* Check if scFieldElement is a valid field, leveraging zendoo-mc-cryptolib' */
     static bool IsValid(const CSidechainField& scField);
     friend inline bool operator==(const CSidechainField& lhs, const CSidechainField& rhs) { return lhs.byteArray == rhs.byteArray; }
     friend inline bool operator!=(const CSidechainField& lhs, const CSidechainField& rhs) { return !(lhs == rhs); }
     friend inline bool operator<(const CSidechainField& lhs, const CSidechainField& rhs)  { return lhs.byteArray < rhs.byteArray; } // FOR STD::MAP ONLY
 
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        // substitute with real field element serialization
-        READWRITE(byteArray);
+    // SERIALIZATION SECTION
+    size_t GetSerializeSize(int nType, int nVersion) const //ADAPTED FROM SERIALIZED.H
+    {
+        return 1 + CSidechainField::ByteSize(); //byte for size + byteArray content (each element a single byte)
+    };
+
+    template<typename Stream>
+    void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
+    {
+    	assert(byteArray.size() < 253); //ADAPTED FROM VARINT ENCODING
+    	assert(CSidechainField::ByteSize() < 253);
+    	char tmp = static_cast<char>(byteArray.size());
+       	os.write(&tmp, 1);
+        if (!byteArray.empty())
+        	os.write((char*)&byteArray[0], byteArray.size());
+    }
+
+    template<typename Stream> //ADAPTED FROM SERIALIZED.H
+    void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
+    {
+        byteArray.clear();
+
+        char tmp {0};
+        is.read(&tmp, 1);
+        unsigned int nSize = static_cast<unsigned int>(tmp);
+        assert(nSize <= CSidechainField::ByteSize());
+
+        byteArray.resize(nSize);
+        is.read((char*)&byteArray[0], nSize);
     }
 
     std::string GetHexRepr() const;
