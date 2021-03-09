@@ -180,7 +180,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-creation-invalid-wcert-vk");
         }
 
-        if(!CSidechainField::IsValid(sc.constant.GetByteArray())) //TODO: REMOVE
+        if(sc.constant.is_initialized() && !CSidechainField::IsValid(sc.constant->GetByteArray())) //TODO: REMOVE
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid constant\n",

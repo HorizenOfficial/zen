@@ -574,7 +574,7 @@ private:
 public:
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
-    CSidechainField constant; //optional: TODO Enforce optionality
+    boost::optional<CSidechainField> constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;

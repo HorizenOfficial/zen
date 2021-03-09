@@ -1106,7 +1106,11 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         {
             sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
             sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
-            sc.push_back(Pair("constant", info.creationData.constant.GetHexRepr()));
+
+            if (info.creationData.constant.is_initialized())
+                sc.push_back(Pair("constant", info.creationData.constant->GetHexRepr()));
+            else
+                sc.push_back(Pair("constant", std::string{"NOT INITIALIZED"}));
 
             if (info.creationData.wMbtrVk.is_initialized())
                 sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
@@ -1174,8 +1178,13 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             {
                 sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
                 sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
-                sc.push_back(Pair("unconf constant", info.creationData.constant.GetHexRepr()));
-                if (info.creationData.wMbtrVk.is_initialized())
+
+                if(info.creationData.constant.is_initialized())
+                    sc.push_back(Pair("unconf constant", info.creationData.constant->GetHexRepr()));
+                else
+                    sc.push_back(Pair("unconf constant", std::string{"NOT INITIALIZED"}));
+
+                if(info.creationData.wMbtrVk.is_initialized())
                     sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
                 else
                     sc.push_back(Pair("unconf wMbtrVk", std::string{"NOT INITIALIZED"}));

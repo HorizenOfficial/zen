@@ -1189,7 +1189,10 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
 
     // TODO Remove cert.endEpochBlockHash field, CCoinsViewCache::isEpochDataValid and CTxMemPool::removeOutOfEpochCertificates after changing of verification circuit.
     // Verify certificate proof
-    if (!scVerifier.verifyCScCertificate(sidechain.creationData.constant, sidechain.creationData.wCertVk, prev_end_epoch_block_hash, cert))
+    CSidechainField constant{};
+    if (sidechain.creationData.constant.is_initialized())
+    	constant = sidechain.creationData.constant.get();
+    if (!scVerifier.verifyCScCertificate(constant, sidechain.creationData.wCertVk, prev_end_epoch_block_hash, cert))
     {
         return error("%s():%d - ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());

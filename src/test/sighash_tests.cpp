@@ -341,7 +341,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             RandomData(sc_out.customData);
             std::vector<unsigned char> tmp;
             RandomData(tmp);
-            sc_out.constant.SetByteArray(tmp);
+            sc_out.constant = CSidechainField{tmp};
             RandomScVk(sc_out.wCertVk);
             libzendoomc::ScVk wCeasedVk;
             RandomScVk(wCeasedVk);

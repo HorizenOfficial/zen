@@ -303,9 +303,13 @@ uint256 CTxScCreationOut::GetHash() const
 
 std::string CTxScCreationOut::ToString() const
 {
-    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, customData=[%s], constant=[%s], wCertVk=[%s], wCeasedVk=[%s]",
-        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData), constant.GetHexRepr(),
-                     HexStr(wCertVk), wCeasedVk ? HexStr(wCeasedVk.get()) : "");
+    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, "
+                                       "nValue=%d.%08d, address=%s, customData=[%s], "
+                                       "constant=[%s], wCertVk=[%s], wCeasedVk=[%s]",
+        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN,
+        HexStr(address).substr(0, 30), HexStr(customData),
+        constant.is_initialized()? constant->GetHexRepr(): CSidechainField{}.GetHexRepr(),
+        HexStr(wCertVk), wCeasedVk ? HexStr(wCeasedVk.get()) : "");
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const

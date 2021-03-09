@@ -873,7 +873,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid constant");
         }
-        sc.creationData.constant.SetByteArray(scConstantByteArray);
+        sc.creationData.constant = CSidechainField{scConstantByteArray};
     }
 
     if (params.size() > 6)
@@ -1136,7 +1136,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
         }
-        creationData.constant.SetByteArray(scConstantByteArray);
+        creationData.constant = CSidechainField{scConstantByteArray};
     }
 
     // ---------------------------------------------------------

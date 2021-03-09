@@ -33,12 +33,13 @@ typedef struct sPowRelatedData_tag
     }
 } ScPowRelatedData;
 
+static const int MAX_SC_DATA_LEN = 1024; //CUSTOM DATA MAX LENGTH
 struct ScCreationParameters
 {
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
-    CSidechainField constant; //This should be boost::optional
+    boost::optional<CSidechainField> constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
@@ -48,7 +49,7 @@ struct ScCreationParameters
         return
             withdrawalEpochLength == -1 &&
             customData.empty()          &&
-            constant.IsNull()           &&
+            constant == boost::none     &&
             wCertVk.IsNull()            &&
             wMbtrVk == boost::none      &&
             wCeasedVk == boost::none;
@@ -152,8 +153,6 @@ struct CRecipientBwtRequest
     CRecipientBwtRequest(): bwtRequestData() {}
     CAmount GetScValue() const { return bwtRequestData.scFee; }
 };
-
-static const int MAX_SC_DATA_LEN = 1024;
 
 }; // end of namespace
 

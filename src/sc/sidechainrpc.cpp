@@ -65,7 +65,10 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("address", out.address.GetHex()));
         o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
         o.push_back(Pair("customData", HexStr(out.customData)));
-        o.push_back(Pair("constant", out.constant.GetHexRepr()));
+        if(out.constant.is_initialized())
+            o.push_back(Pair("constant", out.constant->GetHexRepr()));
+        if(out.wMbtrVk.is_initialized())
+            o.push_back(Pair("wMbtrVk", HexStr(out.wMbtrVk.get())));
         if(out.wCeasedVk.is_initialized())
             o.push_back(Pair("wCeasedVk", HexStr(out.wCeasedVk.get())));
         vscs.push_back(o);
@@ -377,7 +380,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
                 error = "invalid constant";
                 return false;
             }
-            sc.constant.SetByteArray(scConstantByteArray);
+            sc.constant = CSidechainField{scConstantByteArray};
         }
         
         const UniValue& wCeasedVk = find_value(o, "wCeasedVk");
