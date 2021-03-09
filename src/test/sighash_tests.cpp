@@ -194,6 +194,7 @@ void static RandomSidechainField(CSidechainField &fe) {
     {
     	 vec.push_back((unsigned char)(insecure_rand() % 0xff));
     }
+    vec.resize(CSidechainField::ByteSize());
     fe.SetByteArray(vec);
 }
 
@@ -339,9 +340,8 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             sc_out.address = libzcash::random_uint256();
             sc_out.withdrawalEpochLength = insecure_rand() % 100;
             RandomData(sc_out.customData);
-            std::vector<unsigned char> tmp;
-            RandomData(tmp);
-            sc_out.constant = CSidechainField{tmp};
+            sc_out.constant = CSidechainField{};
+            RandomSidechainField(sc_out.constant.get());
             RandomScVk(sc_out.wCertVk);
             libzendoomc::ScVk wCeasedVk;
             RandomScVk(wCeasedVk);
