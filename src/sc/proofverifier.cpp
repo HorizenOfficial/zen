@@ -273,6 +273,8 @@ std::string CSidechainField::GetHexRepr() const
 
 bool CSidechainField::IsValid(const std::vector<unsigned char>& candidateField)
 {
+    if (candidateField.size() != CSidechainField::ByteSize())
+        return false;
     auto scFieldElementDeserialized = zendoo_deserialize_field(&candidateField[0]);
     if (scFieldElementDeserialized == nullptr)
         return false;
