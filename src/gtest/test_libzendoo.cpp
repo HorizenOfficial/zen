@@ -21,7 +21,7 @@ TEST(SidechainsField, FieldSizeIsAlwaysTheExpectedOne)
 
     ///////////////////
     std::vector<unsigned char> tooLongByteArray(CSidechainField::ByteSize()*2,'b');
-    EXPECT_DEATH(CSidechainField{tooLongByteArray},"");
+    EXPECT_THROW(CSidechainField{tooLongByteArray}, std::invalid_argument);
 }
 
 TEST(SidechainsField, Serialization)
@@ -58,16 +58,17 @@ TEST(SidechainsField, Serialization)
 TEST(SidechainsField, IsValid)
 {
     std::vector<unsigned char> zeroLengthByteArray{};
-    EXPECT_FALSE(CSidechainField::IsValid(zeroLengthByteArray));
+    EXPECT_THROW(CSidechainField{zeroLengthByteArray}, std::invalid_argument); //WILL BE GREEN UPON INTRO OF RIGHT SIZED FIELD
 
     std::vector<unsigned char> shortByteArray(19,'a');
-    EXPECT_FALSE(CSidechainField::IsValid(shortByteArray));
+    EXPECT_THROW(CSidechainField{shortByteArray}, std::invalid_argument); //WILL BE GREEN UPON INTRO OF RIGHT SIZED FIELD
 
-    std::vector<unsigned char> nonZeroTerminatedByteArray(CSidechainField::ByteSize(),'a');
-    EXPECT_FALSE(CSidechainField::IsValid(nonZeroTerminatedByteArray));
+    std::vector<unsigned char> nonZeroTerminatedByteArray(CSidechainField::ByteSize(),0xff);
+    CSidechainField nonZeroTerminatedField {nonZeroTerminatedByteArray};
+    EXPECT_FALSE(nonZeroTerminatedField.IsValid());
 
     std::vector<unsigned char> tooBigByteArray(CSidechainField::ByteSize()*2,0x0);
-    EXPECT_FALSE(CSidechainField::IsValid(tooBigByteArray));
+    EXPECT_THROW(CSidechainField{tooBigByteArray}, std::invalid_argument);
 
     std::vector<unsigned char> overModuleByteArray = {
         138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
@@ -76,7 +77,8 @@ TEST(SidechainsField, IsValid)
         88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 2, 0
     };
     ASSERT_TRUE(overModuleByteArray.size() == CSidechainField::ByteSize());
-    EXPECT_FALSE(CSidechainField::IsValid(overModuleByteArray));
+    CSidechainField overModuleField{overModuleByteArray};
+    EXPECT_FALSE(overModuleField.IsValid());
 
     std::vector<unsigned char> validByteArray = {
         138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
@@ -85,7 +87,38 @@ TEST(SidechainsField, IsValid)
         88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 1, 0
     };
     ASSERT_TRUE(validByteArray.size() == CSidechainField::ByteSize());
-    EXPECT_TRUE(CSidechainField::IsValid(validByteArray));
+    CSidechainField validField {validByteArray};
+    EXPECT_TRUE(validField.IsValid());
+}
+
+TEST(SidechainsField, CopyAndAssignement)
+{
+    std::vector<unsigned char> validByteArray = {
+        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
+        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
+        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
+        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 1, 0
+    };
+    ASSERT_TRUE(validByteArray.size() == CSidechainField::ByteSize());
+    {
+        CSidechainField AValidField {validByteArray};
+        ASSERT_TRUE(AValidField.IsValid());
+
+        { //Scoped to invoke copiedField dtor
+        	CSidechainField copiedField{AValidField};
+        	EXPECT_TRUE(copiedField.IsValid());
+        	EXPECT_TRUE(copiedField == AValidField);
+        }
+        EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
+
+        { //Scoped to invoke assigned dtor
+        	CSidechainField assignedField{};
+        	assignedField = AValidField;
+        	EXPECT_TRUE(assignedField.IsValid());
+        	EXPECT_TRUE(assignedField == AValidField);
+        }
+        EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
+    }
 }
 
 TEST(ZendooLib, FieldTest)

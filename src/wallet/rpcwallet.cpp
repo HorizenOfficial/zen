@@ -869,11 +869,11 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
 
-        if(!CSidechainField::IsValid(scConstantByteArray))
+        sc.creationData.constant = CSidechainField{scConstantByteArray};
+        if(!sc.creationData.constant->IsValid())
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid constant");
         }
-        sc.creationData.constant = CSidechainField{scConstantByteArray};
     }
 
     if (params.size() > 6)
@@ -1132,11 +1132,11 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
 
-        if (!CSidechainField::IsValid(scConstantByteArray))
+        creationData.constant = CSidechainField{scConstantByteArray};
+        if (!creationData.constant->IsValid())
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
         }
-        creationData.constant = CSidechainField{scConstantByteArray};
     }
 
     // ---------------------------------------------------------
@@ -1571,10 +1571,9 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scUtxoId\"" );
         }
 
-        if(!CSidechainField::IsValid(scUtxoIdVec))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scUtxoId"));
-
         CSidechainField scUtxoId {scUtxoIdVec};
+        if(!scUtxoId.IsValid())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scUtxoId"));
 
         ScBwtRequestParameters bwtData;
         bwtData.scFee = scFee;

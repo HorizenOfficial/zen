@@ -36,9 +36,13 @@ class CSidechainField
 {
 public:
     CSidechainField();
+    ~CSidechainField();
+
     explicit CSidechainField(const std::vector<unsigned char>& byteArrayIn);
-    void SetByteArray(const std::vector<unsigned char>& byteArrayIn);
-    ~CSidechainField() = default;
+    bool SetByteArray(const std::vector<unsigned char>& byteArrayIn);
+
+    CSidechainField(const CSidechainField& rhs);
+    CSidechainField& operator=(const CSidechainField& rhs);
 
     void SetNull();
     bool IsNull() const;
@@ -47,7 +51,7 @@ public:
     const std::vector<unsigned char>&  GetByteArray() const;
     uint256 GetLegacyHashTO_BE_REMOVED() const;
 
-    static bool IsValid(const std::vector<unsigned char>& candidateField);
+    bool IsValid() const;
     friend inline bool operator==(const CSidechainField& lhs, const CSidechainField& rhs) { return lhs.byteArray == rhs.byteArray; }
     friend inline bool operator!=(const CSidechainField& lhs, const CSidechainField& rhs) { return !(lhs == rhs); }
     friend inline bool operator<(const CSidechainField& lhs, const CSidechainField& rhs)  { return lhs.byteArray < rhs.byteArray; } // FOR STD::MAP ONLY
@@ -61,18 +65,23 @@ public:
     template<typename Stream>
     void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
     {
-    	assert(byteArray.size() < 253); //ADAPTED FROM VARINT ENCODING
-    	assert(CSidechainField::ByteSize() < 253);
-    	char tmp = static_cast<char>(byteArray.size());
-       	os.write(&tmp, 1);
+        assert(byteArray.size() < 253); //ADAPTED FROM VARINT ENCODING
+        assert(CSidechainField::ByteSize() < 253);
+        char tmp = static_cast<char>(byteArray.size());
+           os.write(&tmp, 1);
         if (!byteArray.empty())
-        	os.write((char*)&byteArray[0], byteArray.size());
+            os.write((char*)&byteArray[0], byteArray.size());
     }
 
     template<typename Stream> //ADAPTED FROM SERIALIZED.H
     void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
     {
         byteArray.clear();
+        if (deserializedField != nullptr)
+        {
+            zendoo_field_free(deserializedField);
+            deserializedField = nullptr;
+        }
 
         char tmp {0};
         is.read(&tmp, 1);
@@ -90,6 +99,7 @@ public:
 
 private:
     std::vector<unsigned char> byteArray;
+    mutable field_t* deserializedField;
     static const std::vector<unsigned char> nullByteArray;
 };
 

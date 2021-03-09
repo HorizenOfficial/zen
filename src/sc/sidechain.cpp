@@ -180,7 +180,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-creation-invalid-wcert-vk");
         }
 
-        if(sc.constant.is_initialized() && !CSidechainField::IsValid(sc.constant->GetByteArray())) //TODO: REMOVE
+        if(sc.constant.is_initialized() && !sc.constant->IsValid())
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid constant\n",
@@ -235,7 +235,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-proof");
         }
 
-        if (!CSidechainField::IsValid(bt.scRequestData.GetByteArray())) //TODO: REMOVE
+        if (!bt.scRequestData.IsValid())
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scUtxoId\n",
@@ -253,7 +253,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-cswinput-value-not-valid");
         }
 
-        if(!CSidechainField::IsValid(csw.nullifier.GetByteArray())) //TODO: REMOVE
+        if(!csw.nullifier.IsValid())
         {
             return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW nullifier\n",
                     __func__, __LINE__, txHash.ToString()),

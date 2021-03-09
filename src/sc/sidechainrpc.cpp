@@ -235,12 +235,12 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 
-        if (!CSidechainField::IsValid(nullifierVec))
+        CSidechainField nullifier {nullifierVec};
+        if (!nullifier.IsValid())
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": invalid nullifier data";
             return false;
         }
-        CSidechainField nullifier {nullifierVec};
 
         // parse snark proof
         const UniValue& proof_v = find_value(o, "scProof");
@@ -375,12 +375,12 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
                 return false;
             }
 
-            if (!CSidechainField::IsValid(scConstantByteArray))
+            sc.constant = CSidechainField{scConstantByteArray};
+            if (!sc.constant->IsValid())
             {
                 error = "invalid constant";
                 return false;
             }
-            sc.constant = CSidechainField{scConstantByteArray};
         }
         
         const UniValue& wCeasedVk = find_value(o, "wCeasedVk");
@@ -544,12 +544,12 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
             return false;
         }
 
-        if (!CSidechainField::IsValid(scUtxoIdVec))
+        bwtData.scRequestData = CSidechainField{scUtxoIdVec};
+        if (!bwtData.scRequestData.IsValid())
         {
             error = "invalid scUtxoId";
             return false;
         }
-        bwtData.scRequestData = CSidechainField{scUtxoIdVec};
 
         //---------------------------------------------------------------------
         const UniValue& scProofVal = find_value(o, "scProof");

@@ -221,29 +221,63 @@ namespace libzendoomc{
 
 const std::vector<unsigned char> CSidechainField::nullByteArray = std::vector<unsigned char>(CSidechainField::ByteSize(), 0x0);
 
-CSidechainField::CSidechainField()
+CSidechainField::CSidechainField(): byteArray(), deserializedField(nullptr) { SetNull(); }
+CSidechainField::~CSidechainField() { SetNull(); }
+
+CSidechainField::CSidechainField(const std::vector<unsigned char>& byteArrayIn) : byteArray(), deserializedField(nullptr)
 {
-    SetNull();
+    if (!this->SetByteArray(byteArrayIn))
+        throw std::invalid_argument(std::string("Illegal byte array size. It is ") + std::to_string(byteArrayIn.size())
+                                  + std::string(" Must be ")+std::to_string(CSidechainField::ByteSize()));
 }
 
-CSidechainField::CSidechainField(const std::vector<unsigned char>& byteArrayIn) : byteArray()
+bool CSidechainField::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
 {
-    this->SetByteArray(byteArrayIn);
-}
+    if (byteArrayIn.size() > CSidechainField::ByteSize()) //TO USE != UPON INTRODUCTION OF FIELD WITH RIGHT SIZE
+        return false;
 
-void CSidechainField::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
-{
-    assert(byteArrayIn.size() <= CSidechainField::ByteSize());
     byteArray = byteArrayIn;
-    byteArray.resize(CSidechainField::ByteSize(), 0x0);
+    byteArray.resize(CSidechainField::ByteSize(), 0x0); //TO REMOVE UPON INTRODUCTION OF FIELD WITH RIGHT SIZE
+    if (deserializedField != nullptr)
+    {
+        zendoo_field_free(deserializedField);
+        deserializedField = nullptr;
+    }
+    return true;
+}
+
+CSidechainField::CSidechainField(const CSidechainField& rhs): byteArray(), deserializedField(nullptr)
+{
+    *this = rhs;
+}
+
+CSidechainField& CSidechainField::operator=(const CSidechainField& rhs)
+{
+    if (*this != rhs)
+    {
+        if (deserializedField != nullptr)
+        {
+            zendoo_field_free(deserializedField);
+            deserializedField = nullptr;
+        }
+        this->byteArray = rhs.byteArray;
+        //Note: no need to deep copy deserializedField. It'll be build when needed from byteArray
+    }
+
+    return *this;
 }
 
 void CSidechainField::SetNull()
 {
     byteArray = nullByteArray;
+    if (deserializedField != nullptr)
+    {
+        zendoo_field_free(deserializedField);
+        deserializedField = nullptr;
+    }
 }
 
-bool CSidechainField::IsNull() const { return byteArray == nullByteArray; }
+bool CSidechainField::IsNull() const { return (byteArray == nullByteArray) && (deserializedField == nullptr); } //For symmetry sake
 
 const std::vector<unsigned char>&  CSidechainField::GetByteArray() const
 {
@@ -271,14 +305,14 @@ std::string CSidechainField::GetHexRepr() const
     return res;
 }
 
-bool CSidechainField::IsValid(const std::vector<unsigned char>& candidateField)
+bool CSidechainField::IsValid() const
 {
-    if (candidateField.size() != CSidechainField::ByteSize())
+    if (deserializedField)
+        return true;
+    deserializedField = zendoo_deserialize_field(&this->byteArray[0]);
+    if (deserializedField == nullptr)
         return false;
-    auto scFieldElementDeserialized = zendoo_deserialize_field(&candidateField[0]);
-    if (scFieldElementDeserialized == nullptr)
-        return false;
-    zendoo_field_free(scFieldElementDeserialized);
+
     return true;
 }
 

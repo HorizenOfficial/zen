@@ -1603,13 +1603,12 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": " + nullifierError;
         throw JSONRPCError(RPC_TYPE_ERROR, error);
     }
-
-    if (!CSidechainField::IsValid(nullifierVec))
+    CSidechainField nullifier{nullifierVec};
+    if (!nullifier.IsValid())
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": invalid nullifier data";
         throw JSONRPCError(RPC_TYPE_ERROR, error);
     }
-    CSidechainField nullifier(nullifierVec);
 
     UniValue ret(UniValue::VOBJ);
     

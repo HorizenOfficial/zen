@@ -1191,7 +1191,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
     // Verify certificate proof
     CSidechainField constant{};
     if (sidechain.creationData.constant.is_initialized())
-    	constant = sidechain.creationData.constant.get();
+        constant = sidechain.creationData.constant.get();
     if (!scVerifier.verifyCScCertificate(constant, sidechain.creationData.wCertVk, prev_end_epoch_block_hash, cert))
     {
         return error("%s():%d - ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
