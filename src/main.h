@@ -872,19 +872,16 @@ public:
      std::string ToString() const;
 
      /** update statistics (does not update nSize) */
-     void AddBlock(unsigned int nHeightIn, uint64_t nTimeIn)
-     {
-         if (nBlocks == 0) {
+     void AddBlock(unsigned int nHeightIn, uint64_t nTimeIn) {
+         if (nBlocks==0 || nHeightFirst > nHeightIn)
              nHeightFirst = nHeightIn;
+         if (nBlocks==0 || nTimeFirst > nTimeIn)
              nTimeFirst = nTimeIn;
-         } else {
-             nHeightFirst = std::min<unsigned int>(nHeightFirst, nHeightIn);
-             nTimeFirst = std::min<uint64_t>(nTimeFirst, nTimeIn);
-         }
-
          nBlocks++;
-         nHeightLast = std::max<unsigned int>(nHeightLast, nHeightIn);
-         nTimeLast = std::max<uint64_t>(nTimeLast, nTimeIn);
+         if (nHeightIn > nHeightLast)
+             nHeightLast = nHeightIn;
+         if (nTimeIn > nTimeLast)
+             nTimeLast = nTimeIn;
      }
 };
 
