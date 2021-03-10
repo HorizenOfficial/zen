@@ -5368,9 +5368,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // get fe cfg from creation params if any
     std::vector<CompressedFieldElementConfig> vCompressedFieldElementConfig = sidechain.creationData.vCompressedFieldElementConfig;
-    std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig = sidechain.creationData.vCompressedMerkleTreeConfig;
+    std::vector<CompressedBitVectorMerkleTreeConfig> vCompressedMerkleTreeConfig = sidechain.creationData.vCompressedMerkleTreeConfig;
 
-    std::vector<CompressedFieldElement> vCompressedFieldElement;
+    std::vector<FieldElementCertificateField> vCompressedFieldElement;
     UniValue feArray(UniValue::VARR);
     if (params.size() > 7)
     {
@@ -5403,7 +5403,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             feArray.size(), vCompressedFieldElementConfig.size()));
     }
 
-    std::vector<CompressedMerkleTree> vCompressedMerkleTree;
+    std::vector<CompressedBitVectorMerkleTree> vCompressedMerkleTree;
     UniValue cmtArray(UniValue::VARR);
     if (params.size() > 8)
     {

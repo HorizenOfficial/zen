@@ -2,137 +2,109 @@
 #include "util.h"
 
 ////////////////////////////// Custom Config types //////////////////////////////
-bool CompressedFieldElementConfig::isBitsLenghtValid()
+void FieldElementCertificateFieldConfig::checkValid()
 {
     //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
-    return (nBits > 0);
+	if(nBits <=0 || nBits > SC_FIELD_SIZE) {
+		throw std::invalid_argument("FieldElementCertificateFieldConfig size must be strictly positive");
+	}
 }
 
-CompressedFieldElementConfig::CompressedFieldElementConfig(int32_t nBitsIn): CustomFieldConfig(), nBits(nBitsIn)
+FieldElementCertificateFieldConfig::FieldElementCertificateFieldConfig(int32_t nBitsIn): CustomCertificateFieldConfig(), nBits(nBitsIn)
 {
-    if (!isBitsLenghtValid())
-        throw std::invalid_argument("CompressedFieldElementConfig size must be strictly positive");
+    checkValid();
 }
 
-int32_t CompressedFieldElementConfig::getBitSize() const
+int32_t FieldElementCertificateFieldConfig::getBitSize() const
 {
     //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
     return nBits;
 }
 
 //----------------------------------------------------------------------------------
-bool CompressedMerkleTreeConfig::isTreeHeightValid() {
+void BitVectorCertificateFieldConfig::checkValid() {
     //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
-    return ((treeHeight >= 0) && (treeHeight < MAX_TREE_HEIGHT));
+    bool isValid = ((bitVectorSizeBits >= 0) && (bitVectorSizeBits <= MAX_BIT_VECTOR_SIZE_BITS)) &&
+    		((maxCompressedSizeBytes >= 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES));
+    if(!isValid) {
+		throw std::invalid_argument(
+					std::string("BitVectorCertificateFieldConfig bitVectorSizeBits=" + std::to_string(bitVectorSizeBits) +
+					", must be in the range [0, ") + std::to_string(MAX_BIT_VECTOR_SIZE_BITS) + std::string(")"));
+    }
 }
 
-CompressedMerkleTreeConfig::CompressedMerkleTreeConfig(int32_t treeHeightIn): CustomFieldConfig(), treeHeight(treeHeightIn)
+BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVectorSizeBits, int32_t maxCompressedSizeBytes): CustomCertificateFieldConfig(), bitVectorSizeBits(bitVectorSizeBits), maxCompressedSizeBytes(maxCompressedSizeBytes)
 {
-	if (!isTreeHeightValid())
-        throw std::invalid_argument(
-            std::string("CompressedMerkleTreeConfig height=" + std::to_string(treeHeight) +
-            ", must be in the range [0, ") + std::to_string(MAX_TREE_HEIGHT) + std::string(")"));
-}
-
-int32_t CompressedMerkleTreeConfig::getBitSize() const
-{
-    //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
-    int nBytes = (treeHeight == -1)? 0: 1 << treeHeight;
-    return nBytes * CHAR_BIT;
+	checkValid();
 }
 
 
 ////////////////////////////// Custom Field types //////////////////////////////
-CustomField::CustomField(const std::vector<unsigned char>& rawBytes)
-    :vRawField(rawBytes) {};
+
 
 //----------------------------------------------------------------------------------------
-CompressedFieldElement::CompressedFieldElement(const std::vector<unsigned char>& rawBytes)
-    :CustomField(rawBytes) {}
+FieldElementCertificateField::FieldElementCertificateField(const std::vector<unsigned char>& rawBytes)
+    :CustomCertificateField(rawBytes) {}
 
-CompressedFieldElement& CompressedFieldElement::operator=(const CompressedFieldElement& rhs)
+FieldElementCertificateField& FieldElementCertificateField::operator=(const FieldElementCertificateField& rhs)
 {
-    *const_cast<std::vector<unsigned char>*>(&vRawField) = rhs.vRawField;
+    *const_cast<std::vector<unsigned char>*>(&vRawData) = rhs.vRawData;
     return *this;
 }
 
-void CompressedFieldElement::InitFieldElement() const
+
+void FieldElementCertificateField::initialize(const FieldElementCertificateFieldConfig& cfg) const
 {
-    if (scFieldElement.IsNull())
-    {
-        if (vRawField.size() > scFieldElement.size())
-        {
-            LogPrint("sc", "%s():%d - Error: Wrong size: rawData[%d]>fieldElement[%d]\n", 
-                __func__, __LINE__, vRawField.size(), scFieldElement.size());
-            throw std::invalid_argument(
-                std::string("Wrong size: rawData[" + std::to_string(vRawField.size()) + "] > fieldElement[" +
-                std::to_string(scFieldElement.size()) + "]"));
-        }
-        // pad with zeroes, must have the same size for the internal repr
-        std::vector<unsigned char> temp(vRawField);
-        temp.resize(scFieldElement.size(), 0x0);
-        *const_cast<libzendoomc::ScFieldElement*>(&scFieldElement) = libzendoomc::ScFieldElement(temp); // TODO
-    }
+
+	assert(state == VALIDATION_STATE::NOT_INITIALIZED);
+
+	state = VALIDATION_STATE::INVALID;
+
+	int rem = 0;
+
+	assert(cfg.getBitSize() <= fieldElement.getBitSize());
+
+	int bytes = getBytesFromBits(cfg.getBitSize(), rem);
+
+	if (vRawData.size() != bytes )
+	{
+		LogPrint("sc", "%s():%d - ERROR: wrong size: data[%d] != cfg[%d]\n",
+			__func__, __LINE__, vRawData.size(), cfg.getBitSize());
+		return;
+	}
+
+	if (rem)
+	{
+		// check null bits in the last byte are as expected
+		unsigned char lastByte = vRawData.back();
+		int numbOfZeroBits = getTrailingZeroBitsInByte(lastByte);
+		if (numbOfZeroBits < (CHAR_BIT - rem))
+		{
+			LogPrint("sc", "%s():%d - ERROR: wrong number of null bits in last byte[0x%x]: %d vs %d\n",
+				__func__, __LINE__, lastByte, numbOfZeroBits, (CHAR_BIT - rem));
+			return;
+		}
+	}
+
+	try {
+		*const_cast<libzendoomc::FieldElementWrapper*>(&fieldElement) = libzendoomc::FieldElementWrapper::getScFieldElement(vRawData); // TODO
+		state = VALIDATION_STATE::VALID;
+	} catch(...) {
+
+	}
 }
-
-const libzendoomc::ScFieldElement& CompressedFieldElement::GetFieldElement() const
-{
-    InitFieldElement();
-    return scFieldElement;
-}
-
-#ifdef BITCOIN_TX
-bool CompressedFieldElement::IsValid() const { return true; }
-#else
-bool CompressedFieldElement::IsValid() const
-{
-    InitFieldElement();
-    if (scFieldElement.IsNull())
-        return false;
-
-    return libzendoomc::IsValidScFieldElement(scFieldElement);
-};
-#endif
-
-bool CompressedFieldElement::checkCfg(const CustomFieldConfig& cfg) const
-{
-    int rem = 0;
-    int bytes = getBytesFromBits(cfg.getBitSize(), rem);
-
-    if (vRawField.size() != bytes )
-    {
-        LogPrint("sc", "%s():%d - ERROR: wrong size: data[%d] != cfg[%d]\n", 
-            __func__, __LINE__, vRawField.size(), cfg.getBitSize());
-        return false;
-    }
-
-    if (rem)
-    {
-        // check null bits in the last byte are as expected
-        unsigned char lastByte = vRawField.back();
-        int numbOfZeroBits = getTrailingZeroBitsInByte(lastByte);
-        if (numbOfZeroBits < (CHAR_BIT - rem))
-        {
-            LogPrint("sc", "%s():%d - ERROR: wrong number of null bits in last byte[0x%x]: %d vs %d\n", 
-                __func__, __LINE__, lastByte, numbOfZeroBits, (CHAR_BIT - rem));
-            return false;
-        }
-    }
-
-    return true;
-};
 
 //----------------------------------------------------------------------------------
-CompressedMerkleTree::CompressedMerkleTree(const std::vector<unsigned char>& rawBytes)
-    :CustomField(rawBytes) {}
+BitVectorCertificateField::BitVectorCertificateField(const std::vector<unsigned char>& rawBytes)
+    :CustomCertificateField(rawBytes) {}
 
-CompressedMerkleTree& CompressedMerkleTree::operator=(const CompressedMerkleTree& rhs)
+BitVectorCertificateField& BitVectorCertificateField::operator=(const BitVectorCertificateField& rhs)
 {
-    *const_cast<std::vector<unsigned char>*>(&vRawField) = rhs.vRawField;
+    *const_cast<std::vector<unsigned char>*>(&vRawData) = rhs.vRawData;
     return *this;
 }
 
-void CompressedMerkleTree::CalculateMerkleRoot() const
+void BitVectorCertificateField::initialize(const BitVectorCertificateFieldConfig& cfg) const
 {
     /*
      *  TODO this is a dummy implementation, useful just for running preliminary tests
@@ -143,50 +115,25 @@ void CompressedMerkleTree::CalculateMerkleRoot() const
      *   3. Calculate and store the root hash.
      */
 
-    if (merkleRoot.IsNull())
-    {
-        if (vRawField.size() > merkleRoot.size())
-        {
-            LogPrint("sc", "%s():%d - ERROR: wrong size: rawData[%d] > mklRoot[%d]\n", 
-                __func__, __LINE__, vRawField.size(), merkleRoot.size());
-            throw std::invalid_argument(
-                std::string("Wrong size: rawData[" + std::to_string(vRawField.size()) + "] > mklRoot[" +
-                std::to_string(merkleRoot.size()) + "]"));
-        }
-        // pad with zeroes, must have the same size for the internal fe repr
-        std::vector<unsigned char> temp(vRawField);
-        temp.resize(merkleRoot.size(), 0x0);
-        *const_cast<libzendoomc::ScFieldElement*>(&merkleRoot) = libzendoomc::ScFieldElement(temp); // TODO
-    }
+	assert(state == VALIDATION_STATE::NOT_INITIALIZED);
+	state = VALIDATION_STATE::INVALID;
+
+	if(vRawData.size() > cfg.getMaxCompressedSizeBytes()) {
+		return;
+	}
+
+	/*
+
+	TODO
+
+	try {
+			*const_cast<libzendoomc::FieldElementWrapper*>(&fieldElement) = RustImpl::getBitVectorMerkleRoot(vRawData, cfg.getBitVectorSizeBits());
+			state = VALIDATION_STATE::VALID;
+	} catch(...) {
+
+	}
+	*/
+
 }
 
-const libzendoomc::ScFieldElement& CompressedMerkleTree::GetFieldElement() const
-{
-    CalculateMerkleRoot();
-    return merkleRoot;
-}
-
-bool CompressedMerkleTree::IsValid() const
-{
-    CalculateMerkleRoot();
-    if (merkleRoot.IsNull())
-        return false;
-
-    // TODO something like libzendoomc::IsValidScFieldElement() or exactly this?? In this case we can move this to base   
-    return true;
-}
-
-bool CompressedMerkleTree::checkCfg(const CustomFieldConfig& cfg) const
-{
-    int rem = 0;
-    int bytes = getBytesFromBits(cfg.getBitSize(), rem);
-
-    if (vRawField.size() > bytes )
-    {
-        LogPrint("sc", "%s():%d - ERROR: mklTree wrong size: data[%d] > cfg[%d]\n", 
-            __func__, __LINE__, vRawField.size(), cfg.getBitSize());
-        return false;
-    }
-    return true;
-}
 ////////////////////////// End of Custom Field types ///////////////////////////

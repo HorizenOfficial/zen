@@ -317,10 +317,10 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert)
 {
     const std::vector<CompressedFieldElementConfig>& vCfeCfg = sidechain.creationData.vCompressedFieldElementConfig;
-    const std::vector<CompressedMerkleTreeConfig>& vCmtCfg = sidechain.creationData.vCompressedMerkleTreeConfig;
+    const std::vector<CompressedBitVectorMerkleTreeConfig>& vCmtCfg = sidechain.creationData.vCompressedMerkleTreeConfig;
 
-    const std::vector<CompressedFieldElement>& vCfe = cert.vCompressedFieldElement;
-    const std::vector<CompressedMerkleTree>& vCmt = cert.vCompressedMerkleTree;
+    const std::vector<FieldElementCertificateField>& vCfe = cert.vCompressedFieldElement;
+    const std::vector<CompressedBitVectorMerkleTree>& vCmt = cert.vCompressedMerkleTree;
 
     if ( vCfeCfg.size() != vCfe.size() || vCmtCfg.size() != vCmt.size() )
     {
@@ -331,7 +331,7 @@ bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCert
 
     for (int i = 0; i < vCfe.size(); i++)
     {
-        const CompressedFieldElement& fe = vCfe.at(i);
+        const FieldElementCertificateField& fe = vCfe.at(i);
         if (!fe.checkCfg(vCfeCfg.at(i)) )
         {
             LogPrint("sc", "%s():%d - invalid custom field cfg at pos %d\n", __func__, __LINE__, i);
@@ -346,7 +346,7 @@ bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCert
 
     for (int i = 0; i < vCmt.size(); i++)
     {
-        const CompressedMerkleTree& cmt = vCmt.at(i);
+        const CompressedBitVectorMerkleTree& cmt = vCmt.at(i);
         if (!cmt.checkCfg(vCmtCfg.at(i)) )
         {
             LogPrint("sc", "%s():%d - invalid compr mkl tree field cfg at pos %d\n", __func__, __LINE__, i);

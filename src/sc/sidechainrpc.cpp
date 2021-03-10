@@ -859,7 +859,7 @@ void ScRpcCmd::addChange()
 ScRpcCmdCert::ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
-        const std::vector<CompressedFieldElement>& vCfe, const std::vector<CompressedMerkleTree>& vCmt):
+        const std::vector<FieldElementCertificateField>& vCfe, const std::vector<CompressedBitVectorMerkleTree>& vCmt):
         ScRpcCmd(fromaddress, changeaddress, minConf, nFee),
         _cert(cert),_bwdParams(bwdParams), _vCfe(vCfe), _vCmt(vCmt)
 {
@@ -1111,5 +1111,5 @@ void ScRpcRetrieveCmdTx::addCcOutputs()
 
 // explicit instantiations
 template bool AddScData<CompressedFieldElementConfig>(const UniValue& intArray, std::vector<CompressedFieldElementConfig>& vCfg);
-template bool AddScData<CompressedMerkleTreeConfig>(const UniValue& intArray, std::vector<CompressedMerkleTreeConfig>& vCfg);
+template bool AddScData<CompressedBitVectorMerkleTreeConfig>(const UniValue& intArray, std::vector<CompressedBitVectorMerkleTreeConfig>& vCfg);
 }  // end of namespace

@@ -33,8 +33,8 @@ public:
     bool IsNull() const { return (nValue == -1);  }
 };
 
-class CompressedFieldElement;
-class CompressedMerkleTree;
+class FieldElementCertificateField;
+class CompressedBitVectorMerkleTree;
 
 class CScCertificate : public CTransactionBase
 {
@@ -59,8 +59,8 @@ public:
     const int64_t quality;
     const uint256 endEpochBlockHash;
     const libzendoomc::ScProof scProof;
-    std::vector<CompressedFieldElement> vCompressedFieldElement;
-    std::vector<CompressedMerkleTree> vCompressedMerkleTree;
+    std::vector<FieldElementCertificateField> vCompressedFieldElement;
+    std::vector<CompressedBitVectorMerkleTree> vCompressedMerkleTree;
 
     // memory only
     const int nFirstBwtPos;
@@ -108,8 +108,8 @@ public:
         READWRITE(*const_cast<int64_t*>(&quality));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
         READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
-        READWRITE(*const_cast<std::vector<CompressedFieldElement>*>(&vCompressedFieldElement));
-        READWRITE(*const_cast<std::vector<CompressedMerkleTree>*>(&vCompressedMerkleTree));
+        READWRITE(*const_cast<std::vector<FieldElementCertificateField>*>(&vCompressedFieldElement));
+        READWRITE(*const_cast<std::vector<CompressedBitVectorMerkleTree>*>(&vCompressedMerkleTree));
 
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
 
@@ -226,8 +226,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
     int64_t quality;
     uint256 endEpochBlockHash;
     libzendoomc::ScProof scProof;
-    std::vector<CompressedFieldElement> vCompressedFieldElement;
-    std::vector<CompressedMerkleTree> vCompressedMerkleTree;
+    std::vector<FieldElementCertificateField> vCompressedFieldElement;
+    std::vector<CompressedBitVectorMerkleTree> vCompressedMerkleTree;
 
     // memory only
     const int nFirstBwtPos;

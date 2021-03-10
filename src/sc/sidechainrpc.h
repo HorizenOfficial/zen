@@ -140,13 +140,13 @@ class ScRpcCmdCert : public ScRpcCmd
 
     // cmd params
     std::vector<sBwdParams> _bwdParams;
-    std::vector<CompressedFieldElement> _vCfe;
-    std::vector<CompressedMerkleTree> _vCmt;
+    std::vector<FieldElementCertificateField> _vCfe;
+    std::vector<CompressedBitVectorMerkleTree> _vCmt;
 
     ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
-        const std::vector<CompressedFieldElement>& vCfe, const std::vector<CompressedMerkleTree>& vCmt);
+        const std::vector<FieldElementCertificateField>& vCfe, const std::vector<CompressedBitVectorMerkleTree>& vCmt);
 
     void execute() override;
 };

@@ -558,7 +558,7 @@ public:
 };
 
 class CompressedFieldElementConfig;
-class CompressedMerkleTreeConfig;
+class CompressedBitVectorMerkleTreeConfig;
 
 class CTxScCreationOut : public CTxCrosschainOut
 {
@@ -577,7 +577,7 @@ public:
     boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
     std::vector<CompressedFieldElementConfig> vCompressedFieldElementConfig;
-    std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
+    std::vector<CompressedBitVectorMerkleTreeConfig> vCompressedMerkleTreeConfig;
 
     CTxScCreationOut():withdrawalEpochLength(-1) { }
 

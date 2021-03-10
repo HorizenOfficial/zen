@@ -916,7 +916,7 @@ TEST(CertificateCustomFields, DefaultConstructedFieldElementConfigCannotBeSerial
 
 TEST(CertificateCustomFields, ZeroHeightCompressedMerkleTreeConfigCanBeBuilt)
 {
-    CompressedMerkleTreeConfig zeroHeightCompressedMtConfig{0};
+    CompressedBitVectorMerkleTreeConfig zeroHeightCompressedMtConfig{0};
     // TODO the getBitSize() final implementation will use the rust lib, this test should be then updated
     EXPECT_TRUE(zeroHeightCompressedMtConfig.getBitSize() == 1*CHAR_BIT);
 }
@@ -925,7 +925,7 @@ TEST(CertificateCustomFields, NegativeHeightCompressedMerkleTreeConfigCannotBeBu
 {
     EXPECT_THROW(
     {
-        try { CompressedMerkleTreeConfig(-1); }
+        try { CompressedBitVectorMerkleTreeConfig(-1); }
         catch( const std::invalid_argument& e ) { throw; }
     }, std::invalid_argument );
 }
@@ -934,7 +934,7 @@ TEST(CertificateCustomFields, TooBigCompressedMerkleTreeConfigCannotBeBuilt)
 {
     EXPECT_THROW(
     {
-        try { CompressedMerkleTreeConfig(log2(std::numeric_limits<int32_t>::max())+1); }
+        try { CompressedBitVectorMerkleTreeConfig(log2(std::numeric_limits<int32_t>::max())+1); }
         catch( const std::invalid_argument& e ) { throw; }
     }, std::invalid_argument );
 }

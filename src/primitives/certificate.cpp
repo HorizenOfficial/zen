@@ -46,8 +46,8 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
     *const_cast<int64_t*>(&quality) = cert.quality;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<libzendoomc::ScProof*>(&scProof) = cert.scProof;
-    *const_cast<std::vector<CompressedFieldElement>*>(&vCompressedFieldElement) = cert.vCompressedFieldElement;
-    *const_cast<std::vector<CompressedMerkleTree>*>(&vCompressedMerkleTree) = cert.vCompressedMerkleTree;
+    *const_cast<std::vector<FieldElementCertificateField>*>(&vCompressedFieldElement) = cert.vCompressedFieldElement;
+    *const_cast<std::vector<CompressedBitVectorMerkleTree>*>(&vCompressedMerkleTree) = cert.vCompressedMerkleTree;
     *const_cast<int*>(&nFirstBwtPos) = cert.nFirstBwtPos;
     return *this;
 }
