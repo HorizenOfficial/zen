@@ -86,12 +86,12 @@ public:
         char tmp {0};
         is.read(&tmp, 1);
         unsigned int nSize = static_cast<unsigned int>(tmp);
-        if (nSize > CSidechainField::ByteSize())
+        if (nSize > CSidechainField::ByteSize()) //TO USE != UPON INTRODUCTION OF FIELD WITH RIGHT SIZE
             throw std::ios_base::failure("non-canonical CSidechainField size");
 
         byteArray.resize(nSize);
         is.read((char*)&byteArray[0], nSize);
-        byteArray.resize(CSidechainField::ByteSize(), 0x0); //Needed as long as 96 bytes field is used
+        byteArray.resize(CSidechainField::ByteSize(), 0x0); //TO BE REMOVED UPON INTRODUCTION OF FIELD WITH RIGHT SIZE
     }
 
     std::string GetHexRepr() const;
