@@ -70,6 +70,7 @@ void create_verify(int argc, char** argv)
         bt_list.push_back(bt);
     }
 
+/*
     // Generate proof and vk
     assert(zendoo_create_mc_test_proof(
         end_epoch_mc_b_hash.begin(),
@@ -117,6 +118,7 @@ void create_verify(int argc, char** argv)
         zendoo_sc_proof_free(proof);
         zendoo_sc_vk_free(vk);
     }
+*/
 
     zendoo_field_free(constant_f);
 }
@@ -124,7 +126,7 @@ void create_verify(int argc, char** argv)
 void generate(char** argv)
 {
     std::string path = std::string(argv[2]);
-    assert(zendoo_generate_mc_test_params((path_char_t*)path.c_str(), path.size()));
+//    assert(zendoo_generate_mc_test_params((path_char_t*)path.c_str(), path.size()));
 }
 
 

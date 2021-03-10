@@ -233,11 +233,10 @@ CSidechainField::CSidechainField(const std::vector<unsigned char>& byteArrayIn) 
 
 bool CSidechainField::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
 {
-    if (byteArrayIn.size() > CSidechainField::ByteSize()) //TO USE != UPON INTRODUCTION OF FIELD WITH RIGHT SIZE
+    if (byteArrayIn.size() != CSidechainField::ByteSize())
         return false;
 
     byteArray = byteArrayIn;
-    byteArray.resize(CSidechainField::ByteSize(), 0x0); //TO REMOVE UPON INTRODUCTION OF FIELD WITH RIGHT SIZE
     if (deserializedField != nullptr)
     {
         zendoo_field_free(deserializedField);
@@ -335,30 +334,32 @@ CSidechainField CSidechainField::ComputeHash(const CSidechainField& lhs, const C
 {
     zendoo_clear_error();
 
-    field_t* lhsFe = zendoo_deserialize_field(&(*lhs.byteArray.begin()));
+    const field_t* const  lhsFe = lhs.GetFieldElement();
     if (lhsFe == nullptr) {
-        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
+        LogPrintf("%s():%d - failed to deserialize lhs field element[%s]: %s \n",
+            __func__, __LINE__, lhs.GetHexRepr(), libzendoomc::ToString(zendoo_get_last_error()));
         zendoo_clear_error();
         throw std::runtime_error("Could not compute poseidon hash");
     }
 
-    field_t* rhsFe = zendoo_deserialize_field(&(*rhs.byteArray.begin()));
+    const field_t* const  rhsFe = rhs.GetFieldElement();
     if (rhsFe == nullptr) {
-        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
+        LogPrintf("%s():%d - failed to deserialize rhs field element[%s]: %s \n",
+            __func__, __LINE__, rhs.GetHexRepr(), libzendoomc::ToString(zendoo_get_last_error()));
         zendoo_clear_error();
-        zendoo_field_free(lhsFe);
         throw std::runtime_error("Could not compute poseidon hash");
     }
 
-    const field_t* inputArrayFe[] = {lhsFe, rhsFe};
+    auto digest = ZendooPoseidonHash();
+    digest.update(lhsFe);
+    digest.update(rhsFe);
+    field_t* outFe = digest.finalize();
 
-    field_t* outFe = zendoo_compute_poseidon_hash(inputArrayFe, 2);
+    // Once out of scope the destructor of ZendooPoseidonHash will automatically free the memory Rust-side for digest
 
     CSidechainField res;
     zendoo_serialize_field(outFe, &*(res.byteArray.begin()));
 
-    zendoo_field_free(lhsFe);
-    zendoo_field_free(rhsFe);
     zendoo_field_free(outFe);
     return res;
 }
