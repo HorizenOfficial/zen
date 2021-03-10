@@ -134,22 +134,35 @@ TEST(SidechainsField, CopyAndAssignement)
     ASSERT_TRUE(validByteArray.size() == CSidechainField::ByteSize());
     {
         CSidechainField AValidField {validByteArray};
+        const field_t* const AValidPtr = AValidField.GetFieldElement();
+        ASSERT_TRUE(AValidPtr != nullptr);
+
         ASSERT_TRUE(AValidField.IsValid());
 
-        { //Scoped to invoke copiedField dtor
+        { //Scoped to invoke copied obj dtor
         	CSidechainField copiedField{AValidField};
+            const field_t* const copiedPtr = copiedField.GetFieldElement();
+
         	EXPECT_TRUE(copiedField.IsValid());
         	EXPECT_TRUE(copiedField == AValidField);
+            ASSERT_TRUE(copiedPtr != nullptr);
+            ASSERT_TRUE(copiedPtr != AValidPtr);
         }
         EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
 
-        { //Scoped to invoke assigned dtor
+        { //Scoped to invoke assigned obj dtor
         	CSidechainField assignedField{};
+            const field_t* const assignedPtr = assignedField.GetFieldElement();
+
         	assignedField = AValidField;
         	EXPECT_TRUE(assignedField.IsValid());
         	EXPECT_TRUE(assignedField == AValidField);
+            ASSERT_TRUE(assignedPtr != nullptr);
+            ASSERT_TRUE(assignedPtr != AValidPtr);
         }
         EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
+        const field_t* const ptr = AValidField.GetFieldElement();
+        ASSERT_TRUE(ptr == AValidPtr);
     }
 }
 
@@ -208,6 +221,7 @@ TEST(ZendooLib, FieldTest)
     zendoo_field_free(field_deserialized);
 }
 
+#if 0
 TEST(ZendooLib, PoseidonMerkleTreeTest)  {
 
     //Generate random leaves
@@ -248,6 +262,7 @@ TEST(ZendooLib, PoseidonMerkleTreeTest)  {
         zendoo_field_free((field_t*)leaves[i]);
     }
 }
+#endif
 
 // Execute the test from zen directory
 TEST(ZendooLib, TestProof)

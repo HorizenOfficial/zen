@@ -228,7 +228,7 @@ CSidechainField::CSidechainField(const std::vector<unsigned char>& byteArrayIn) 
 {
     if (!this->SetByteArray(byteArrayIn))
         throw std::invalid_argument(std::string("Illegal byte array size. It is ") + std::to_string(byteArrayIn.size())
-                                  + std::string(" Must be ")+std::to_string(CSidechainField::ByteSize()));
+                                  + std::string(", must be ")+std::to_string(CSidechainField::ByteSize()));
 }
 
 bool CSidechainField::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
@@ -282,6 +282,15 @@ bool CSidechainField::IsNull() const { return (byteArray == nullByteArray) && (d
 const std::vector<unsigned char>&  CSidechainField::GetByteArray() const
 {
     return byteArray;
+}
+
+const field_t* const CSidechainField::GetFieldElement() const
+{
+    if (IsValid())
+    {
+        return deserializedField;
+    }
+    return nullptr;
 }
 
 uint256 CSidechainField::GetLegacyHashTO_BE_REMOVED() const
