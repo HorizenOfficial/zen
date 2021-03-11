@@ -22,27 +22,31 @@ class CustomCertificateFieldConfig
 public:
     CustomCertificateFieldConfig() = default;
     virtual ~CustomCertificateFieldConfig() = default;
+    virtual bool IsValid() const = 0;
 };
 
 class FieldElementCertificateFieldConfig : public CustomCertificateFieldConfig
 {
 private:
     int32_t nBits;
-    void checkValid(); //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
 
 public:
     FieldElementCertificateFieldConfig(int32_t nBitsIn);
-    FieldElementCertificateFieldConfig(): CustomCertificateFieldConfig(), nBits(0) {} //for serialization only, which requires the default ctor
+    FieldElementCertificateFieldConfig(const FieldElementCertificateFieldConfig& rhs) = default;
     ~FieldElementCertificateFieldConfig() = default;
 
-    int32_t getBitSize() const; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
+    //For serialization only, which requires the default ctor. No checkValid call here
+    FieldElementCertificateFieldConfig(): CustomCertificateFieldConfig(), nBits(0) {}
+
+    bool IsValid() const override final;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nBits);
-        checkValid();
     }
+
+    int32_t getBitSize() const;
 
     bool operator==(const FieldElementCertificateFieldConfig& rhs) const {
         return (this->nBits == rhs.nBits);
@@ -65,11 +69,14 @@ private:
     int32_t maxCompressedSizeBytes;
     static const int32_t MAX_BIT_VECTOR_SIZE_BITS = 1000192;
     static const int32_t MAX_COMPRESSED_SIZE_BYTES = MAX_BIT_VECTOR_SIZE_BITS / 8;
-    void checkValid();
 public:
     BitVectorCertificateFieldConfig(int32_t bitVectorSizeBits, int32_t maxCompressedSizeBytes);
-    BitVectorCertificateFieldConfig(): CustomCertificateFieldConfig(), bitVectorSizeBits(-1), maxCompressedSizeBytes(-1) {} //for serialization only, which requires the default ctor
     ~BitVectorCertificateFieldConfig() = default;
+
+    //for serialization only, which requires the default ctor. No checkValid call here
+    BitVectorCertificateFieldConfig(): CustomCertificateFieldConfig(), bitVectorSizeBits(-1), maxCompressedSizeBytes(-1) {}
+
+    bool IsValid() const override final;
 
     int32_t getBitVectorSizeBits() const {
     	return bitVectorSizeBits;
@@ -84,12 +91,11 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(bitVectorSizeBits);
         READWRITE(maxCompressedSizeBytes);
-        checkValid();
     }
 
     bool operator==(const BitVectorCertificateFieldConfig& rhs) const {
-        //TODO
-    	//return (this->treeHeight == rhs.treeHeight);
+    	return (this->bitVectorSizeBits == rhs.bitVectorSizeBits) &&
+               (this->maxCompressedSizeBytes == rhs.maxCompressedSizeBytes);
     }
 
     bool operator!=(const BitVectorCertificateFieldConfig& rhs) const {
@@ -97,7 +103,7 @@ public:
     }
 
     friend std::ostream& operator<<(std::ostream& os, const BitVectorCertificateFieldConfig& r) {
-       //TODO  os << r.treeHeight;
+    	os << r.maxCompressedSizeBytes<<" "<<r.maxCompressedSizeBytes;
         return os;
     }
 };
@@ -118,7 +124,6 @@ public:
     CustomCertificateField(const std::vector<unsigned char>& rawBytes)
         :vRawData(rawBytes), state(NOT_INITIALIZED) {};
     virtual ~CustomCertificateField() = default;
-    virtual void initialize(const T& cfg) const = 0;
     virtual const libzendoomc::FieldElementWrapper& GetFieldElement() {
     	if(state != VALIDATION_STATE::VALID) {
     		throw std::exception();
@@ -126,24 +131,20 @@ public:
 
     	return fieldElement;
     }
-    virtual bool IsValid() {
-    	if(state == VALIDATION_STATE::NOT_INITIALIZED) {
-    		throw std::exception();
-    	}
 
-    	return state == VALIDATION_STATE::VALID;
-    }
     const std::vector<unsigned char>& getVRawData() const { return vRawData; }
 };
 
 class FieldElementCertificateField : public CustomCertificateField<FieldElementCertificateFieldConfig>
 {
+private:
+	FieldElementCertificateFieldConfig* pReferenceCfg;
 public:
-    FieldElementCertificateField() = default;
+    FieldElementCertificateField(): pReferenceCfg{nullptr} {};
     FieldElementCertificateField(const std::vector<unsigned char>& rawBytes);
-    FieldElementCertificateField(const FieldElementCertificateField& rhs) = default;
+    FieldElementCertificateField(const FieldElementCertificateField& rhs);
     FieldElementCertificateField& operator=(const FieldElementCertificateField& rhs);
-    ~FieldElementCertificateField() = default;
+    ~FieldElementCertificateField() {delete pReferenceCfg; pReferenceCfg = nullptr; };
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -151,18 +152,19 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
-    void initialize(const FieldElementCertificateFieldConfig& cfg) const;
+    bool IsValid(const FieldElementCertificateFieldConfig& cfg) const;
 };
 
 class BitVectorCertificateField : public CustomCertificateField<BitVectorCertificateFieldConfig>
 {
-
+private:
+	BitVectorCertificateFieldConfig* pReferenceCfg;
 public:
-    BitVectorCertificateField() = default;
+    BitVectorCertificateField(): pReferenceCfg{nullptr} {};
     BitVectorCertificateField(const std::vector<unsigned char>& rawBytes);
-    ~BitVectorCertificateField() = default;
-    BitVectorCertificateField(const BitVectorCertificateField& rhs) = default;
+    BitVectorCertificateField(const BitVectorCertificateField& rhs);
     BitVectorCertificateField& operator=(const BitVectorCertificateField& rhs);
+    ~BitVectorCertificateField() {delete pReferenceCfg; pReferenceCfg = nullptr; };
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -170,7 +172,7 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
-    void initialize(const BitVectorCertificateFieldConfig& cfg) const;
+    bool IsValid(const BitVectorCertificateFieldConfig& cfg) const;
 };
 ////////////////////////// End of Custom Field types ///////////////////////////
 
@@ -226,8 +228,8 @@ struct ScCreationParameters
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
-    std::vector<FieldElementCertificateFieldConfig> vCompressedFieldElementConfig;
-    std::vector<BitVectorCertificateFieldConfig> vCompressedMerkleTreeConfig;
+    std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
+    std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
 
     bool IsNull() const
     {
@@ -238,8 +240,8 @@ struct ScCreationParameters
             wCertVk.IsNull()                      &&
             wMbtrVk == boost::none                &&
 			wCeasedVk == boost::none              &&
-            vCompressedFieldElementConfig.empty() &&
-            vCompressedMerkleTreeConfig.empty() );
+			vFieldElementCertificateFieldConfig.empty() &&
+			vBitVectorCertificateFieldConfig.empty() );
     }
 
     ADD_SERIALIZE_METHODS;
@@ -251,8 +253,8 @@ struct ScCreationParameters
         READWRITE(wCertVk);
         READWRITE(wMbtrVk);
         READWRITE(wCeasedVk);
-        READWRITE(vCompressedFieldElementConfig);
-        READWRITE(vCompressedMerkleTreeConfig);
+        READWRITE(vFieldElementCertificateFieldConfig);
+        READWRITE(vBitVectorCertificateFieldConfig);
     }
     ScCreationParameters() :withdrawalEpochLength(-1) {}
 
@@ -264,8 +266,8 @@ struct ScCreationParameters
                (wCertVk == rhs.wCertVk)  &&
                (wMbtrVk == rhs.wMbtrVk)  &&
 			   (wCeasedVk == rhs.wCeasedVk) &&
-               (vCompressedFieldElementConfig == rhs.vCompressedFieldElementConfig) &&
-               (vCompressedMerkleTreeConfig == rhs.vCompressedMerkleTreeConfig);
+               (vFieldElementCertificateFieldConfig == rhs.vFieldElementCertificateFieldConfig) &&
+               (vBitVectorCertificateFieldConfig == rhs.vBitVectorCertificateFieldConfig);
     }
     inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
     inline ScCreationParameters& operator=(const ScCreationParameters& cp)
@@ -276,8 +278,8 @@ struct ScCreationParameters
         wCertVk                       = cp.wCertVk;
         wMbtrVk                       = cp.wMbtrVk;
         wCeasedVk                     = cp.wCeasedVk;
-        vCompressedFieldElementConfig = cp.vCompressedFieldElementConfig;
-        vCompressedMerkleTreeConfig   = cp.vCompressedMerkleTreeConfig;
+        vFieldElementCertificateFieldConfig = cp.vFieldElementCertificateFieldConfig;
+        vBitVectorCertificateFieldConfig   = cp.vBitVectorCertificateFieldConfig;
         return *this;
     }
 };

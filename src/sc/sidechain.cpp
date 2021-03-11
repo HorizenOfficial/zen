@@ -185,6 +185,22 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-creation-amount-outside-range");
         }
 
+        for(const auto& config: sc.vFieldElementCertificateFieldConfig)
+        {
+        	if (!config.IsValid())
+                return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], invalid config parameters for vFieldElementCertificateFieldConfig\n",
+                        __func__, __LINE__), REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
+        }
+
+        for(const auto& config: sc.vBitVectorCertificateFieldConfig)
+        {
+        	if (!config.IsValid())
+                return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], invalid config parameters for vBitVectorCertificateFieldConfig\n",
+                        __func__, __LINE__), REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
+        }
+
         if (!libzendoomc::IsValidScVk(sc.wCertVk))
         {
             return state.DoS(100,
@@ -316,8 +332,8 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 
 bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert)
 {
-    const std::vector<CompressedFieldElementConfig>& vCfeCfg = sidechain.creationData.vCompressedFieldElementConfig;
-    const std::vector<CompressedBitVectorMerkleTreeConfig>& vCmtCfg = sidechain.creationData.vCompressedMerkleTreeConfig;
+    const std::vector<FieldElementCertificateFieldConfig>& vCfeCfg = sidechain.creationData.vCompressedFieldElementConfig;
+    const std::vector<BitVectorCertificateFieldConfig>& vCmtCfg = sidechain.creationData.vCompressedMerkleTreeConfig;
 
     const std::vector<FieldElementCertificateField>& vCfe = cert.vCompressedFieldElement;
     const std::vector<CompressedBitVectorMerkleTree>& vCmt = cert.vCompressedMerkleTree;

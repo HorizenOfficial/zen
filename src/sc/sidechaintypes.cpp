@@ -2,41 +2,37 @@
 #include "util.h"
 
 ////////////////////////////// Custom Config types //////////////////////////////
-void FieldElementCertificateFieldConfig::checkValid()
+bool FieldElementCertificateFieldConfig::IsValid() const
 {
-    //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
-	if(nBits <=0 || nBits > SC_FIELD_SIZE) {
-		throw std::invalid_argument("FieldElementCertificateFieldConfig size must be strictly positive");
-	}
+	if(nBits <=0 || nBits > SC_FIELD_SIZE*8)
+		return false;
+	else
+		return true;
 }
 
-FieldElementCertificateFieldConfig::FieldElementCertificateFieldConfig(int32_t nBitsIn): CustomCertificateFieldConfig(), nBits(nBitsIn)
-{
-    checkValid();
-}
+FieldElementCertificateFieldConfig::FieldElementCertificateFieldConfig(int32_t nBitsIn): CustomCertificateFieldConfig(), nBits(nBitsIn) {}
 
 int32_t FieldElementCertificateFieldConfig::getBitSize() const
 {
-    //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
     return nBits;
 }
 
 //----------------------------------------------------------------------------------
-void BitVectorCertificateFieldConfig::checkValid() {
-    //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
-    bool isValid = ((bitVectorSizeBits >= 0) && (bitVectorSizeBits <= MAX_BIT_VECTOR_SIZE_BITS)) &&
-    		((maxCompressedSizeBytes >= 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES));
-    if(!isValid) {
-		throw std::invalid_argument(
-					std::string("BitVectorCertificateFieldConfig bitVectorSizeBits=" + std::to_string(bitVectorSizeBits) +
-					", must be in the range [0, ") + std::to_string(MAX_BIT_VECTOR_SIZE_BITS) + std::string(")"));
-    }
+bool BitVectorCertificateFieldConfig::IsValid() const
+{
+    bool isBitVectorSizeValid = (bitVectorSizeBits >= 0) && (bitVectorSizeBits <= MAX_BIT_VECTOR_SIZE_BITS)
+    if(!isBitVectorSizeValid)
+    	return false;
+
+    bool isMaxCompressedSizeValid = (maxCompressedSizeBytes >= 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES)
+    if(!isMaxCompressedSizeValid)
+    	return false;
+
+    return true;
 }
 
 BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVectorSizeBits, int32_t maxCompressedSizeBytes): CustomCertificateFieldConfig(), bitVectorSizeBits(bitVectorSizeBits), maxCompressedSizeBytes(maxCompressedSizeBytes)
-{
-	checkValid();
-}
+{}
 
 
 ////////////////////////////// Custom Field types //////////////////////////////
@@ -44,21 +40,40 @@ BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVect
 
 //----------------------------------------------------------------------------------------
 FieldElementCertificateField::FieldElementCertificateField(const std::vector<unsigned char>& rawBytes)
-    :CustomCertificateField(rawBytes) {}
+    :CustomCertificateField(rawBytes), pReferenceCfg{nullptr} {}
+
+FieldElementCertificateField::FieldElementCertificateField(const FieldElementCertificateField& rhs)
+    :CustomCertificateField{}, pReferenceCfg{nullptr}
+{
+	*this = rhs;
+}
 
 FieldElementCertificateField& FieldElementCertificateField::operator=(const FieldElementCertificateField& rhs)
 {
     *const_cast<std::vector<unsigned char>*>(&vRawData) = rhs.vRawData;
+    if (rhs.pReferenceCfg != nullptr)
+    	this->pReferenceCfg = new FieldElementCertificateFieldConfig{*rhs.pReferenceCfg};
+    else
+    	this->pReferenceCfg = nullptr;
     return *this;
 }
 
 
-void FieldElementCertificateField::initialize(const FieldElementCertificateFieldConfig& cfg) const
+bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg) const
 {
+    if (state != VALIDATION_STATE::NOT_INITIALIZED)
+    {
+    	assert(pReferenceCfg != nullptr);
+    	if (*pReferenceCfg == cfg)
+    		return state == VALIDATION_STATE::VALID;
 
-	assert(state == VALIDATION_STATE::NOT_INITIALIZED);
+    	// revalidated with new cfg
+    	delete this->pReferenceCfg;
+    	this->pReferenceCfg = nullptr;
+    }
 
 	state = VALIDATION_STATE::INVALID;
+	this->pReferenceCfg = new FieldElementCertificateFieldConfig(cfg);
 
 	int rem = 0;
 
@@ -70,7 +85,7 @@ void FieldElementCertificateField::initialize(const FieldElementCertificateField
 	{
 		LogPrint("sc", "%s():%d - ERROR: wrong size: data[%d] != cfg[%d]\n",
 			__func__, __LINE__, vRawData.size(), cfg.getBitSize());
-		return;
+		return false;
 	}
 
 	if (rem)
@@ -82,30 +97,58 @@ void FieldElementCertificateField::initialize(const FieldElementCertificateField
 		{
 			LogPrint("sc", "%s():%d - ERROR: wrong number of null bits in last byte[0x%x]: %d vs %d\n",
 				__func__, __LINE__, lastByte, numbOfZeroBits, (CHAR_BIT - rem));
-			return;
+			return false;
 		}
 	}
 
 	try {
 		*const_cast<libzendoomc::FieldElementWrapper*>(&fieldElement) = libzendoomc::FieldElementWrapper::getScFieldElement(vRawData); // TODO
 		state = VALIDATION_STATE::VALID;
-	} catch(...) {
-
-	}
+		return true;
+	} catch(...) {}
+	return false;
 }
 
 //----------------------------------------------------------------------------------
 BitVectorCertificateField::BitVectorCertificateField(const std::vector<unsigned char>& rawBytes)
-    :CustomCertificateField(rawBytes) {}
+    :CustomCertificateField(rawBytes), pReferenceCfg{nullptr} {}
+
+BitVectorCertificateField::BitVectorCertificateField(const BitVectorCertificateField& rhs)
+	:CustomCertificateField(), pReferenceCfg{nullptr}
+{
+	*this = rhs;
+}
 
 BitVectorCertificateField& BitVectorCertificateField::operator=(const BitVectorCertificateField& rhs)
 {
     *const_cast<std::vector<unsigned char>*>(&vRawData) = rhs.vRawData;
+    if (rhs.pReferenceCfg != nullptr)
+    	this->pReferenceCfg = new BitVectorCertificateFieldConfig(*rhs.pReferenceCfg);
+    else
+    	this->pReferenceCfg = nullptr;
     return *this;
 }
 
-void BitVectorCertificateField::initialize(const BitVectorCertificateFieldConfig& cfg) const
+bool BitVectorCertificateField::IsValid(const BitVectorCertificateFieldConfig& cfg) const
 {
+    if (state != VALIDATION_STATE::NOT_INITIALIZED)
+    {
+    	assert(pReferenceCfg != nullptr);
+    	if (*pReferenceCfg == cfg)
+    		return state == VALIDATION_STATE::VALID;
+
+    	// revalidated with new cfg
+    	delete this->pReferenceCfg;
+    	this->pReferenceCfg = nullptr;
+    }
+
+	state = VALIDATION_STATE::INVALID;
+	this->pReferenceCfg = new BitVectorCertificateFieldConfig(cfg);
+
+	if(vRawData.size() > cfg.getMaxCompressedSizeBytes()) {
+		return false;
+	}
+
     /*
      *  TODO this is a dummy implementation, useful just for running preliminary tests
      *  In the final version using rust lib the steps to cover would be:
@@ -115,12 +158,7 @@ void BitVectorCertificateField::initialize(const BitVectorCertificateFieldConfig
      *   3. Calculate and store the root hash.
      */
 
-	assert(state == VALIDATION_STATE::NOT_INITIALIZED);
-	state = VALIDATION_STATE::INVALID;
 
-	if(vRawData.size() > cfg.getMaxCompressedSizeBytes()) {
-		return;
-	}
 
 	/*
 
@@ -129,11 +167,11 @@ void BitVectorCertificateField::initialize(const BitVectorCertificateFieldConfig
 	try {
 			*const_cast<libzendoomc::FieldElementWrapper*>(&fieldElement) = RustImpl::getBitVectorMerkleRoot(vRawData, cfg.getBitVectorSizeBits());
 			state = VALIDATION_STATE::VALID;
+			return true;
 	} catch(...) {
-
 	}
 	*/
-
+	return false;
 }
 
 ////////////////////////// End of Custom Field types ///////////////////////////

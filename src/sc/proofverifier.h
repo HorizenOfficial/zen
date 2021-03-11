@@ -15,25 +15,26 @@ class CScCertificate;
 class CTxCeasedSidechainWithdrawalInput;
 
 namespace libzendoomc{
-    //typedef base_blob<SC_FIELD_SIZE * 8> ScFieldElement;
-	class FieldElementWrapper {
-	private:
 
-		FieldElementWrapper(/* rust obj */) {}
+	class FieldElementWrapper
+	{
+	private:
+		field_t* pField;
+		FieldElementWrapper(/* rust obj */): pField(nullptr) {}
 	public:
 		int32_t getBitSize() const {
-			//TODO
-			return 0;
+			return 0; //TODO
 		};
 
 		// pad with zeroes, must have the same size for the internal repr
 		static FieldElementWrapper getScFieldElement(const std::vector<unsigned char> vRawData) {
 			//call rust to retrieve instance of field element given vRawData
 			// check result and in case of error return exception
-			return nullptr;
+			return FieldElementWrapper{};
 		};
 	};
 
+	typedef base_blob<SC_FIELD_SIZE * 8> ScFieldElement;
     /* Check if scFieldElement is a valid field, leveraging zendoo-mc-cryptolib' */
     bool IsValidScFieldElement(const ScFieldElement& scFieldElement);
 

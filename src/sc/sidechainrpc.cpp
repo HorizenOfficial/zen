@@ -1110,6 +1110,6 @@ void ScRpcRetrieveCmdTx::addCcOutputs()
 }
 
 // explicit instantiations
-template bool AddScData<CompressedFieldElementConfig>(const UniValue& intArray, std::vector<CompressedFieldElementConfig>& vCfg);
-template bool AddScData<CompressedBitVectorMerkleTreeConfig>(const UniValue& intArray, std::vector<CompressedBitVectorMerkleTreeConfig>& vCfg);
+template bool AddScData<FieldElementCertificateFieldConfig>(const UniValue& intArray, std::vector<FieldElementCertificateFieldConfig>& vCfg);
+template bool AddScData<BitVectorCertificateFieldConfig>(const UniValue& intArray, std::vector<BitVectorCertificateFieldConfig>& vCfg);
 }  // end of namespace

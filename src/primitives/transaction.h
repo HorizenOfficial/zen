@@ -557,8 +557,8 @@ public:
     }
 };
 
-class CompressedFieldElementConfig;
-class CompressedBitVectorMerkleTreeConfig;
+class FieldElementCertificateFieldConfig;
+class BitVectorCertificateFieldConfig;
 
 class CTxScCreationOut : public CTxCrosschainOut
 {
@@ -576,8 +576,8 @@ public:
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
-    std::vector<CompressedFieldElementConfig> vCompressedFieldElementConfig;
-    std::vector<CompressedBitVectorMerkleTreeConfig> vCompressedMerkleTreeConfig;
+    std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
+    std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
 
     CTxScCreationOut():withdrawalEpochLength(-1) { }
 
@@ -596,8 +596,8 @@ public:
         READWRITE(wCertVk);
         READWRITE(wMbtrVk);
         READWRITE(wCeasedVk);
-        READWRITE(vCompressedFieldElementConfig);
-        READWRITE(vCompressedMerkleTreeConfig);
+        READWRITE(vFieldElementCertificateFieldConfig);
+        READWRITE(vBitVectorCertificateFieldConfig);
     }
 
     const uint256& GetScId() const override final { return generatedScId;}; 
@@ -615,8 +615,8 @@ public:
                  a.wCertVk == b.wCertVk &&
                  a.wMbtrVk == b.wMbtrVk &&
                  a.wCeasedVk == b.wCeasedVk &&
-                 a.vCompressedFieldElementConfig == b.vCompressedFieldElementConfig &&
-                 a.vCompressedMerkleTreeConfig == b.vCompressedMerkleTreeConfig;
+                 a.vFieldElementCertificateFieldConfig == b.vFieldElementCertificateFieldConfig &&
+                 a.vBitVectorCertificateFieldConfig == b.vBitVectorCertificateFieldConfig;
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)
