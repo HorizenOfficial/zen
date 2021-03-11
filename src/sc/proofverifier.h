@@ -14,25 +14,61 @@ class CSidechain;
 class CScCertificate;
 class CTxCeasedSidechainWithdrawalInput;
 
+class CFieldElement
+{
+public:
+	CFieldElement();
+    ~CFieldElement() = default;
+
+    explicit CFieldElement(const std::vector<unsigned char>& byteArrayIn);
+    explicit CFieldElement(const uint256& value);
+    void SetByteArray(const std::vector<unsigned char>& byteArrayIn);
+
+    CFieldElement(const CFieldElement& rhs) = default;
+    CFieldElement& operator=(const CFieldElement& rhs) = default;
+
+    void SetNull();
+    bool IsNull() const;
+
+    static constexpr unsigned int ByteSize() { return SC_FIELD_SIZE; }
+    static constexpr unsigned int BitSize() { return ByteSize()*8; }
+    const std::vector<unsigned char>&  GetByteArray() const;
+    uint256 GetLegacyHashTO_BE_REMOVED() const;
+
+    const field_t* const GetFieldElement() const;
+
+    bool IsValid() const;
+    // equality is not tested on deserializedField attribute since it is a ptr to memory specific per instance
+    friend inline bool operator==(const CFieldElement& lhs, const CFieldElement& rhs) { return lhs.byteArray == rhs.byteArray; }
+    friend inline bool operator!=(const CFieldElement& lhs, const CFieldElement& rhs) { return !(lhs == rhs); }
+    friend inline bool operator<(const CFieldElement& lhs, const CFieldElement& rhs)  { return lhs.byteArray < rhs.byteArray; } // FOR STD::MAP ONLY
+
+    // SERIALIZATION SECTION
+    size_t GetSerializeSize(int nType, int nVersion) const //ADAPTED FROM SERIALIZED.H
+    {
+        return CFieldElement::ByteSize(); //byteArray content (each element a single byte)
+    };
+
+    template<typename Stream>
+    void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
+    {
+		os.write((char*)&byteArray[0], CFieldElement::ByteSize());
+    }
+
+    template<typename Stream> //ADAPTED FROM SERIALIZED.H
+    void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
+    {
+        is.read((char*)&byteArray[0], CFieldElement::ByteSize());
+    }
+
+    std::string GetHexRepr() const;
+    static CFieldElement ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs);
+
+private:
+    std::array<unsigned char, CFieldElement::ByteSize()> byteArray;
+};
+
 namespace libzendoomc{
-
-	class FieldElementWrapper
-	{
-	private:
-		field_t* pField;
-		FieldElementWrapper(/* rust obj */): pField(nullptr) {}
-	public:
-		int32_t getBitSize() const {
-			return 0; //TODO
-		};
-
-		// pad with zeroes, must have the same size for the internal repr
-		static FieldElementWrapper getScFieldElement(const std::vector<unsigned char> vRawData) {
-			//call rust to retrieve instance of field element given vRawData
-			// check result and in case of error return exception
-			return FieldElementWrapper{};
-		};
-	};
 
 	typedef base_blob<SC_FIELD_SIZE * 8> ScFieldElement;
     /* Check if scFieldElement is a valid field, leveraging zendoo-mc-cryptolib' */

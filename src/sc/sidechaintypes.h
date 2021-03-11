@@ -117,14 +117,14 @@ protected:
     const std::vector<unsigned char> vRawData;
     enum VALIDATION_STATE {NOT_INITIALIZED, INVALID, VALID};
     VALIDATION_STATE state;
-    const libzendoomc::FieldElementWrapper fieldElement; // memory only, lazy-initialized by GetFieldElement call
+    CFieldElement fieldElement; // memory only, lazy-initialized by GetFieldElement call
 
 public:
     CustomCertificateField(): state(NOT_INITIALIZED) {};
     CustomCertificateField(const std::vector<unsigned char>& rawBytes)
         :vRawData(rawBytes), state(NOT_INITIALIZED) {};
     virtual ~CustomCertificateField() = default;
-    virtual const libzendoomc::FieldElementWrapper& GetFieldElement() {
+    virtual const CFieldElement& GetFieldElement() {
     	if(state != VALIDATION_STATE::VALID) {
     		throw std::exception();
     	}
@@ -152,7 +152,7 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
-    bool IsValid(const FieldElementCertificateFieldConfig& cfg) const;
+    bool IsValid(const FieldElementCertificateFieldConfig& cfg) /*const TO REINSERT CONST*/;
 };
 
 class BitVectorCertificateField : public CustomCertificateField<BitVectorCertificateFieldConfig>

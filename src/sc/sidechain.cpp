@@ -332,11 +332,11 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 
 bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert)
 {
-    const std::vector<FieldElementCertificateFieldConfig>& vCfeCfg = sidechain.creationData.vCompressedFieldElementConfig;
-    const std::vector<BitVectorCertificateFieldConfig>& vCmtCfg = sidechain.creationData.vCompressedMerkleTreeConfig;
+    const std::vector<FieldElementCertificateFieldConfig>& vCfeCfg = sidechain.creationData.vFieldElementCertificateFieldConfig;
+    const std::vector<BitVectorCertificateFieldConfig>& vCmtCfg = sidechain.creationData.vBitVectorCertificateFieldConfig;
 
     const std::vector<FieldElementCertificateField>& vCfe = cert.vCompressedFieldElement;
-    const std::vector<CompressedBitVectorMerkleTree>& vCmt = cert.vCompressedMerkleTree;
+    const std::vector<BitVectorCertificateField>& vCmt = cert.vCompressedMerkleTree;
 
     if ( vCfeCfg.size() != vCfe.size() || vCmtCfg.size() != vCmt.size() )
     {
@@ -348,12 +348,7 @@ bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCert
     for (int i = 0; i < vCfe.size(); i++)
     {
         const FieldElementCertificateField& fe = vCfe.at(i);
-        if (!fe.checkCfg(vCfeCfg.at(i)) )
-        {
-            LogPrint("sc", "%s():%d - invalid custom field cfg at pos %d\n", __func__, __LINE__, i);
-            return false;
-        }
-        if (!fe.IsValid())
+        if (!fe.IsValid(vCfeCfg.at(i)))
         {
             LogPrint("sc", "%s():%d - invalid custom field at pos %d\n", __func__, __LINE__, i);
             return false;
@@ -362,13 +357,8 @@ bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCert
 
     for (int i = 0; i < vCmt.size(); i++)
     {
-        const CompressedBitVectorMerkleTree& cmt = vCmt.at(i);
-        if (!cmt.checkCfg(vCmtCfg.at(i)) )
-        {
-            LogPrint("sc", "%s():%d - invalid compr mkl tree field cfg at pos %d\n", __func__, __LINE__, i);
-            return false;
-        }
-        if (!cmt.IsValid())
+        const BitVectorCertificateField& cmt = vCmt.at(i);
+        if (!cmt.IsValid(vCmtCfg.at(i)))
         {
             LogPrint("sc", "%s():%d - invalid compr mkl tree field at pos %d\n", __func__, __LINE__, i);
             return false;

@@ -34,7 +34,7 @@ public:
 };
 
 class FieldElementCertificateField;
-class CompressedBitVectorMerkleTree;
+class BitVectorCertificateField;
 
 class CScCertificate : public CTransactionBase
 {
@@ -60,7 +60,7 @@ public:
     const uint256 endEpochBlockHash;
     const libzendoomc::ScProof scProof;
     std::vector<FieldElementCertificateField> vCompressedFieldElement;
-    std::vector<CompressedBitVectorMerkleTree> vCompressedMerkleTree;
+    std::vector<BitVectorCertificateField> vCompressedMerkleTree;
 
     // memory only
     const int nFirstBwtPos;
@@ -109,7 +109,7 @@ public:
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
         READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
         READWRITE(*const_cast<std::vector<FieldElementCertificateField>*>(&vCompressedFieldElement));
-        READWRITE(*const_cast<std::vector<CompressedBitVectorMerkleTree>*>(&vCompressedMerkleTree));
+        READWRITE(*const_cast<std::vector<BitVectorCertificateField>*>(&vCompressedMerkleTree));
 
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
 

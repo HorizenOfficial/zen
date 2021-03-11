@@ -9,6 +9,111 @@
 
 #include <fstream>
 
+CFieldElement::CFieldElement(): byteArray() { SetNull(); }
+
+CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) : byteArray()
+{
+    this->SetByteArray(byteArrayIn);
+}
+
+void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
+{
+    assert(byteArrayIn.size() == CFieldElement::ByteSize());
+    byteArray = byteArrayIn;
+}
+
+CFieldElement::CFieldElement(const uint256& value)
+{
+	this->byteArray = std::vector<unsigned char>(value.begin(), value.end());
+}
+
+void CFieldElement::SetNull()
+{
+    byteArray = std::array<unsigned char, CFieldElement::ByteSize()>{0x0};
+}
+
+bool CFieldElement::IsNull() const { return (byteArray == std::array<unsigned char, CFieldElement::ByteSize()>{0x0});}
+
+const std::vector<unsigned char>&  CFieldElement::GetByteArray() const
+{
+    return byteArray;
+}
+
+const field_t* const CFieldElement::GetFieldElement() const
+{
+	return zendoo_deserialize_field(&this->byteArray[0]);
+}
+
+uint256 CFieldElement::GetLegacyHashTO_BE_REMOVED() const
+{
+    std::vector<unsigned char> tmp(this->byteArray.begin(), this->byteArray.begin()+32);
+    return uint256(tmp);
+}
+
+std::string CFieldElement::GetHexRepr() const
+{
+    std::string res; //ADAPTED FROM UTILSTRENCONDING.CPP HEXSTR
+    static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+    res.reserve(this->byteArray.size()*2);
+    for(const auto& byte: this->byteArray)
+    {
+        res.push_back(hexmap[byte>>4]);
+        res.push_back(hexmap[byte&15]);
+    }
+
+    return res;
+}
+
+bool CFieldElement::IsValid() const
+{
+	// THERE SHOULD BE A RUST METHOD RETURNING BOOL RATHER THAN FIELD PTR
+    const field_t * pField = zendoo_deserialize_field(&this->byteArray[0]);
+    if (pField == nullptr)
+        return false;
+
+    return true;
+}
+
+#ifdef BITCOIN_TX
+CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs)
+{
+    return CFieldElement{};
+}
+#else
+CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs)
+{
+    zendoo_clear_error();
+
+    field_t* lhsFe = zendoo_deserialize_field(&(*lhs.byteArray.begin()));
+    if (lhsFe == nullptr) {
+        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
+        zendoo_clear_error();
+        throw std::runtime_error("Could not compute poseidon hash");
+    }
+
+    field_t* rhsFe = zendoo_deserialize_field(&(*rhs.byteArray.begin()));
+    if (rhsFe == nullptr) {
+        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
+        zendoo_clear_error();
+        zendoo_field_free(lhsFe);
+        throw std::runtime_error("Could not compute poseidon hash");
+    }
+
+    const field_t* inputArrayFe[] = {lhsFe, rhsFe};
+
+    field_t* outFe = zendoo_compute_poseidon_hash(inputArrayFe, 2);
+
+    CFieldElement res;
+    zendoo_serialize_field(outFe, &*(res.byteArray.begin()));
+
+    zendoo_field_free(lhsFe);
+    zendoo_field_free(rhsFe);
+    zendoo_field_free(outFe);
+    return res;
+}
+#endif
+
 namespace libzendoomc{
 
     bool IsValidScFieldElement(const ScFieldElement& scFieldElement)

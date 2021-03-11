@@ -52,14 +52,14 @@ FieldElementCertificateField& FieldElementCertificateField::operator=(const Fiel
 {
     *const_cast<std::vector<unsigned char>*>(&vRawData) = rhs.vRawData;
     if (rhs.pReferenceCfg != nullptr)
-    	this->pReferenceCfg = new FieldElementCertificateFieldConfig{*rhs.pReferenceCfg};
+    	this->pReferenceCfg = new FieldElementCertificateFieldConfig(*rhs.pReferenceCfg);
     else
     	this->pReferenceCfg = nullptr;
     return *this;
 }
 
 
-bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg) const
+bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg)
 {
     if (state != VALIDATION_STATE::NOT_INITIALIZED)
     {
@@ -77,7 +77,7 @@ bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldCon
 
 	int rem = 0;
 
-	assert(cfg.getBitSize() <= fieldElement.getBitSize());
+	assert(cfg.getBitSize() <= CFieldElement::BitSize());
 
 	int bytes = getBytesFromBits(cfg.getBitSize(), rem);
 
@@ -101,11 +101,16 @@ bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldCon
 		}
 	}
 
-	try {
-		*const_cast<libzendoomc::FieldElementWrapper*>(&fieldElement) = libzendoomc::FieldElementWrapper::getScFieldElement(vRawData); // TODO
+	std::vector<unsigned char> extendedRawData = vRawData;
+	extendedRawData.insert(extendedRawData.begin(), CFieldElement::ByteSize()-vRawData.size(), 0x0);
+
+	fieldElement.SetByteArray(extendedRawData);
+	if (fieldElement.IsValid())
+	{
 		state = VALIDATION_STATE::VALID;
 		return true;
-	} catch(...) {}
+	}
+
 	return false;
 }
 
@@ -165,7 +170,7 @@ bool BitVectorCertificateField::IsValid(const BitVectorCertificateFieldConfig& c
 	TODO
 
 	try {
-			*const_cast<libzendoomc::FieldElementWrapper*>(&fieldElement) = RustImpl::getBitVectorMerkleRoot(vRawData, cfg.getBitVectorSizeBits());
+			fieldElement = RustImpl::getBitVectorMerkleRoot(vRawData, cfg.getBitVectorSizeBits());
 			state = VALIDATION_STATE::VALID;
 			return true;
 	} catch(...) {
