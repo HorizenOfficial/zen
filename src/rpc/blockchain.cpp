@@ -1119,8 +1119,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             else
                 sc.push_back(Pair("wCeasedVk", std::string{"NOT INITIALIZED"}));
 
-            sc.push_back(Pair("vCompressedFieldElementConfig", VecToStr(info.creationData.vCompressedFieldElementConfig)));
-            sc.push_back(Pair("vCompressedMerkleTreeConfig", VecToStr(info.creationData.vCompressedMerkleTreeConfig) ));
+            sc.push_back(Pair("vFieldElementCertificateFieldConfig", VecToStr(info.creationData.vFieldElementCertificateFieldConfig)));
+            sc.push_back(Pair("vBitVectorCertificateFieldConfig", VecToStr(info.creationData.vBitVectorCertificateFieldConfig) ));
         }
  
         UniValue ia(UniValue::VARR);
@@ -1166,8 +1166,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.wCertVk = scCreation.wCertVk;
                     info.creationData.wMbtrVk = scCreation.wMbtrVk;
                     info.creationData.wCeasedVk = scCreation.wCeasedVk;
-                    info.creationData.vCompressedFieldElementConfig = scCreation.vCompressedFieldElementConfig;
-                    info.creationData.vCompressedMerkleTreeConfig = scCreation.vCompressedMerkleTreeConfig;
+                    info.creationData.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
+                    info.creationData.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;
                     break;
                 }
             }
@@ -1192,8 +1192,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 else
                     sc.push_back(Pair("unconf wCeasedVk", std::string{"NOT INITIALIZED"}));
 
-                sc.push_back(Pair("unconf vCompressedFieldElementConfig", VecToStr(info.creationData.vCompressedFieldElementConfig)));
-                sc.push_back(Pair("unconf vCompressedMerkleTreeConfig", VecToStr(info.creationData.vCompressedMerkleTreeConfig)));
+                sc.push_back(Pair("unconf vFieldElementCertificateFieldConfig", VecToStr(info.creationData.vFieldElementCertificateFieldConfig)));
+                sc.push_back(Pair("unconf vBitVectorCertificateFieldConfig", VecToStr(info.creationData.vBitVectorCertificateFieldConfig)));
             }
 
             addScUnconfCcData(scId, sc);

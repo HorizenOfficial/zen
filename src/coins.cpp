@@ -799,8 +799,8 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.creationData.wCertVk = cr.wCertVk;
         scIt->second.sidechain.creationData.wMbtrVk = cr.wMbtrVk;
         scIt->second.sidechain.creationData.wCeasedVk = cr.wCeasedVk;
-        scIt->second.sidechain.creationData.vCompressedFieldElementConfig = cr.vCompressedFieldElementConfig;
-        scIt->second.sidechain.creationData.vCompressedMerkleTreeConfig = cr.vCompressedMerkleTreeConfig;
+        scIt->second.sidechain.creationData.vFieldElementCertificateFieldConfig = cr.vFieldElementCertificateFieldConfig;
+        scIt->second.sidechain.creationData.vBitVectorCertificateFieldConfig = cr.vBitVectorCertificateFieldConfig;
 
         scIt->second.sidechain.mImmatureAmounts[maturityHeight] = cr.nValue;
 

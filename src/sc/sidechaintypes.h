@@ -15,6 +15,85 @@
 #include <boost/variant.hpp>
 #include<sc/proofverifier.h>
 
+///////////////////////////////// Field types //////////////////////////////////
+class CFieldElement
+{
+public:
+	CFieldElement();
+    ~CFieldElement() = default;
+
+    explicit CFieldElement(const std::vector<unsigned char>& byteArrayIn);
+    explicit CFieldElement(const uint256& value); // MIND RETROCOMPATIBILITY WITH RESERVED HASH BEFORE SIDECHAIN HARD FORK
+    void SetByteArray(const std::vector<unsigned char>& byteArrayIn);
+
+    CFieldElement(const CFieldElement& rhs) = default;
+    CFieldElement& operator=(const CFieldElement& rhs) = default;
+
+    void SetNull();
+    bool IsNull() const;
+
+    static constexpr unsigned int ByteSize() { return SC_FIELD_SIZE; }
+    static constexpr unsigned int BitSize() { return ByteSize()*8; }
+    const std::array<unsigned char, SC_FIELD_SIZE>&  GetByteArray() const; //apparently cannot call ByteSize() HERE
+    uint256 GetLegacyHashTO_BE_REMOVED() const;
+
+    const field_t* const GetFieldElement() const;
+
+    bool IsValid() const;
+    // equality is not tested on deserializedField attribute since it is a ptr to memory specific per instance
+    friend inline bool operator==(const CFieldElement& lhs, const CFieldElement& rhs) { return lhs.byteArray == rhs.byteArray; }
+    friend inline bool operator!=(const CFieldElement& lhs, const CFieldElement& rhs) { return !(lhs == rhs); }
+    friend inline bool operator<(const CFieldElement& lhs, const CFieldElement& rhs)  { return lhs.byteArray < rhs.byteArray; } // FOR STD::MAP ONLY
+
+    // SERIALIZATION SECTION
+    size_t GetSerializeSize(int nType, int nVersion) const //ADAPTED FROM SERIALIZED.H
+    {
+        return CFieldElement::ByteSize(); //byteArray content (each element a single byte)
+    };
+
+    template<typename Stream>
+    void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
+    {
+		os.write((char*)&byteArray[0], CFieldElement::ByteSize());
+    }
+
+    template<typename Stream> //ADAPTED FROM SERIALIZED.H
+    void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
+    {
+        is.read((char*)&byteArray[0], CFieldElement::ByteSize());
+    }
+
+    std::string GetHexRepr() const;
+    static CFieldElement ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs);
+
+private:
+    std::array<unsigned char, SC_FIELD_SIZE> byteArray; //apparently cannot call ByteSize() HERE
+};
+
+class CPoseidonHash
+{
+public:
+    CPoseidonHash ()  {SetNull();};
+    explicit CPoseidonHash (const uint256& sha256): innerHash(sha256) {} //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
+    ~CPoseidonHash () = default;
+
+    void SetNull() { innerHash.SetNull(); }
+    friend inline bool operator==(const CPoseidonHash & lhs, const CPoseidonHash & rhs) { return lhs.innerHash == rhs.innerHash; }
+    friend inline bool operator!=(const CPoseidonHash & lhs, const CPoseidonHash & rhs) { return !(lhs == rhs); }
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(innerHash);
+    }
+
+    std::string GetHex() const   {return innerHash.GetHex();}
+    std::string ToString() const {return innerHash.ToString();}
+
+private:
+    uint256 innerHash; //Temporary, for backward compatibility with beta
+};
+////////////////////////////// End of Field types //////////////////////////////
 
 ////////////////////////////// Custom Config types //////////////////////////////
 class CustomCertificateFieldConfig
@@ -67,14 +146,16 @@ class BitVectorCertificateFieldConfig : public CustomCertificateFieldConfig
 private:
     int32_t bitVectorSizeBits;
     int32_t maxCompressedSizeBytes;
-    static const int32_t MAX_BIT_VECTOR_SIZE_BITS = 1000192;
-    static const int32_t MAX_COMPRESSED_SIZE_BYTES = MAX_BIT_VECTOR_SIZE_BITS / 8;
+
 public:
     BitVectorCertificateFieldConfig(int32_t bitVectorSizeBits, int32_t maxCompressedSizeBytes);
     ~BitVectorCertificateFieldConfig() = default;
 
     //for serialization only, which requires the default ctor. No checkValid call here
     BitVectorCertificateFieldConfig(): CustomCertificateFieldConfig(), bitVectorSizeBits(-1), maxCompressedSizeBytes(-1) {}
+
+    static const int32_t MAX_BIT_VECTOR_SIZE_BITS = 1000192;
+    static const int32_t MAX_COMPRESSED_SIZE_BYTES = MAX_BIT_VECTOR_SIZE_BITS / 8;
 
     bool IsValid() const override final;
 
@@ -115,14 +196,14 @@ class CustomCertificateField
 {
 protected:
     const std::vector<unsigned char> vRawData;
-    enum VALIDATION_STATE {NOT_INITIALIZED, INVALID, VALID};
-    VALIDATION_STATE state;
-    CFieldElement fieldElement; // memory only, lazy-initialized by GetFieldElement call
+    enum class VALIDATION_STATE {NOT_INITIALIZED, INVALID, VALID};
+    mutable VALIDATION_STATE state;
+    mutable CFieldElement fieldElement; // memory only, lazy-initialized
 
 public:
-    CustomCertificateField(): state(NOT_INITIALIZED) {};
+    CustomCertificateField(): state(VALIDATION_STATE::NOT_INITIALIZED) {};
     CustomCertificateField(const std::vector<unsigned char>& rawBytes)
-        :vRawData(rawBytes), state(NOT_INITIALIZED) {};
+        :vRawData(rawBytes), state(VALIDATION_STATE::NOT_INITIALIZED) {};
     virtual ~CustomCertificateField() = default;
     virtual const CFieldElement& GetFieldElement() {
     	if(state != VALIDATION_STATE::VALID) {
@@ -138,7 +219,7 @@ public:
 class FieldElementCertificateField : public CustomCertificateField<FieldElementCertificateFieldConfig>
 {
 private:
-	FieldElementCertificateFieldConfig* pReferenceCfg;
+	mutable FieldElementCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
 public:
     FieldElementCertificateField(): pReferenceCfg{nullptr} {};
     FieldElementCertificateField(const std::vector<unsigned char>& rawBytes);
@@ -152,13 +233,13 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
-    bool IsValid(const FieldElementCertificateFieldConfig& cfg) /*const TO REINSERT CONST*/;
+    bool IsValid(const FieldElementCertificateFieldConfig& cfg) const;
 };
 
 class BitVectorCertificateField : public CustomCertificateField<BitVectorCertificateFieldConfig>
 {
 private:
-	BitVectorCertificateFieldConfig* pReferenceCfg;
+	mutable BitVectorCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
 public:
     BitVectorCertificateField(): pReferenceCfg{nullptr} {};
     BitVectorCertificateField(const std::vector<unsigned char>& rawBytes);
@@ -175,31 +256,6 @@ public:
     bool IsValid(const BitVectorCertificateFieldConfig& cfg) const;
 };
 ////////////////////////// End of Custom Field types ///////////////////////////
-
-
-class CPoseidonHash 
-{
-public:
-    CPoseidonHash ()  {SetNull();};
-    explicit CPoseidonHash (const uint256& sha256): innerHash(sha256) {} //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
-    ~CPoseidonHash () = default;
-
-    void SetNull() { innerHash.SetNull(); }
-    friend inline bool operator==(const CPoseidonHash & lhs, const CPoseidonHash & rhs) { return lhs.innerHash == rhs.innerHash; }
-    friend inline bool operator!=(const CPoseidonHash & lhs, const CPoseidonHash & rhs) { return !(lhs == rhs); }
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(innerHash);
-    }
-
-    std::string GetHex() const   {return innerHash.GetHex();}
-    std::string ToString() const {return innerHash.ToString();}
-
-private:
-    uint256 innerHash; //Temporary, for backward compatibility with beta
-};
 
 namespace Sidechain
 {

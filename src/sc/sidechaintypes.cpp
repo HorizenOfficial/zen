@@ -1,6 +1,118 @@
 #include "sc/sidechaintypes.h"
 #include "util.h"
 
+///////////////////////////////// Field types //////////////////////////////////
+#ifdef BITCOIN_TX
+    CFieldElement::CFieldElement() {};
+    void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn) {};
+    void CFieldElement::SetNull() {};
+    bool CFieldElement::IsNull() const {return false;};
+    const field_t* const CFieldElement::GetFieldElement() const {return nullptr;};
+    bool CFieldElement::IsValid() const {return false;};
+    std::string CFieldElement::GetHexRepr() const {return std::string{};};
+    CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs) { return CFieldElement{}; }
+#else
+CFieldElement::CFieldElement(): byteArray() { SetNull(); }
+
+CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) : byteArray()
+{
+    this->SetByteArray(byteArrayIn);
+}
+
+void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
+{
+    assert(byteArrayIn.size() == CFieldElement::ByteSize());
+    std::copy(byteArrayIn.begin(), byteArrayIn.end(), this->byteArray.begin());
+}
+
+CFieldElement::CFieldElement(const uint256& value)
+{
+	std::copy(value.begin(), value.end(), this->byteArray.begin());
+}
+
+void CFieldElement::SetNull()
+{
+    byteArray.fill(0x0);
+}
+
+bool CFieldElement::IsNull() const { return (byteArray == std::array<unsigned char, CFieldElement::ByteSize()>{0x0});}
+
+const std::array<unsigned char, CFieldElement::ByteSize()>&  CFieldElement::GetByteArray() const
+{
+    return byteArray;
+}
+
+const field_t* const CFieldElement::GetFieldElement() const
+{
+	return zendoo_deserialize_field(&this->byteArray[0]);
+}
+
+uint256 CFieldElement::GetLegacyHashTO_BE_REMOVED() const
+{
+    std::vector<unsigned char> tmp(this->byteArray.begin(), this->byteArray.begin()+32);
+    return uint256(tmp);
+}
+
+std::string CFieldElement::GetHexRepr() const
+{
+    std::string res; //ADAPTED FROM UTILSTRENCONDING.CPP HEXSTR
+    static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+    res.reserve(this->byteArray.size()*2);
+    for(const auto& byte: this->byteArray)
+    {
+        res.push_back(hexmap[byte>>4]);
+        res.push_back(hexmap[byte&15]);
+    }
+
+    return res;
+}
+
+bool CFieldElement::IsValid() const
+{
+    // THERE SHOULD BE A RUST METHOD RETURNING BOOL RATHER THAN FIELD PTR
+    field_t * pField = zendoo_deserialize_field(&this->byteArray[0]);
+    if (pField == nullptr)
+        return false;
+
+    zendoo_field_free(pField);
+    return true;
+}
+
+CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs)
+{
+    auto digest = ZendooPoseidonHash();
+
+    field_t* lhsFe = zendoo_deserialize_field(&(*lhs.byteArray.begin()));
+    if (lhsFe == nullptr) {
+        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
+        zendoo_clear_error();
+        throw std::runtime_error("Could not compute poseidon hash");
+    }
+    digest.update(lhsFe);
+    digest.finalize(); // Call to finalize keeps the state
+
+    field_t* rhsFe = zendoo_deserialize_field(&(*rhs.byteArray.begin()));
+    if (rhsFe == nullptr) {
+        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
+        zendoo_clear_error();
+        zendoo_field_free(lhsFe);
+        throw std::runtime_error("Could not compute poseidon hash");
+    }
+    digest.update(rhsFe);
+
+    field_t* outFe = digest.finalize();
+    CFieldElement res;
+    zendoo_serialize_field(outFe, &*(res.byteArray.begin()));
+
+    zendoo_field_free(lhsFe);
+    zendoo_field_free(rhsFe);
+    zendoo_field_free(outFe);
+    return res;
+}
+#endif
+////////////////////////////// End of Field types //////////////////////////////
+
 ////////////////////////////// Custom Config types //////////////////////////////
 bool FieldElementCertificateFieldConfig::IsValid() const
 {
@@ -20,11 +132,11 @@ int32_t FieldElementCertificateFieldConfig::getBitSize() const
 //----------------------------------------------------------------------------------
 bool BitVectorCertificateFieldConfig::IsValid() const
 {
-    bool isBitVectorSizeValid = (bitVectorSizeBits >= 0) && (bitVectorSizeBits <= MAX_BIT_VECTOR_SIZE_BITS)
+    bool isBitVectorSizeValid = (bitVectorSizeBits >= 0) && (bitVectorSizeBits <= MAX_BIT_VECTOR_SIZE_BITS);
     if(!isBitVectorSizeValid)
     	return false;
 
-    bool isMaxCompressedSizeValid = (maxCompressedSizeBytes >= 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES)
+    bool isMaxCompressedSizeValid = (maxCompressedSizeBytes >= 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES);
     if(!isMaxCompressedSizeValid)
     	return false;
 
@@ -59,7 +171,7 @@ FieldElementCertificateField& FieldElementCertificateField::operator=(const Fiel
 }
 
 
-bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg)
+bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg) const
 {
     if (state != VALIDATION_STATE::NOT_INITIALIZED)
     {

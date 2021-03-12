@@ -1176,8 +1176,8 @@ public:
             ::Serialize(s, certTo.quality, nType, nVersion);
             ::Serialize(s, certTo.endEpochBlockHash, nType, nVersion);
             ::Serialize(s, certTo.scProof, nType, nVersion);
-            ::Serialize(s, certTo.vCompressedFieldElement, nType, nVersion);
-            ::Serialize(s, certTo.vCompressedMerkleTree, nType, nVersion);
+            ::Serialize(s, certTo.vFieldElementCertificateField, nType, nVersion);
+            ::Serialize(s, certTo.vBitVectorCertificateField, nType, nVersion);
 
             // Serialize vin
             unsigned int nInputs = fAnyoneCanPay ? 1 : certTo.GetVin().size();

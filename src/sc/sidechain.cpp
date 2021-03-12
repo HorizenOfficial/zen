@@ -335,8 +335,8 @@ bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCert
     const std::vector<FieldElementCertificateFieldConfig>& vCfeCfg = sidechain.creationData.vFieldElementCertificateFieldConfig;
     const std::vector<BitVectorCertificateFieldConfig>& vCmtCfg = sidechain.creationData.vBitVectorCertificateFieldConfig;
 
-    const std::vector<FieldElementCertificateField>& vCfe = cert.vCompressedFieldElement;
-    const std::vector<BitVectorCertificateField>& vCmt = cert.vCompressedMerkleTree;
+    const std::vector<FieldElementCertificateField>& vCfe = cert.vFieldElementCertificateField;
+    const std::vector<BitVectorCertificateField>& vCmt = cert.vBitVectorCertificateField;
 
     if ( vCfeCfg.size() != vCfe.size() || vCmtCfg.size() != vCmt.size() )
     {

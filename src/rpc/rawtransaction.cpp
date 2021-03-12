@@ -233,14 +233,14 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     x.push_back(Pair("scProof", HexStr(cert.scProof)));
 
     UniValue vCfe(UniValue::VARR);
-    for (const auto& entry : cert.vCompressedFieldElement) {
-        vCfe.push_back(HexStr(entry.getVRawField()));
+    for (const auto& entry : cert.vFieldElementCertificateField) {
+        vCfe.push_back(HexStr(entry.getVRawData()));
     }
     x.push_back(Pair("vCompressedFieldElement", vCfe));
 
     UniValue vCmt(UniValue::VARR);
-    for (const auto& entry : cert.vCompressedMerkleTree) {
-        vCmt.push_back(HexStr(entry.getVRawField()));
+    for (const auto& entry : cert.vBitVectorCertificateField) {
+        vCmt.push_back(HexStr(entry.getVRawData()));
     }
     x.push_back(Pair("vCompressedMerkleTree", vCmt));
 
@@ -725,6 +725,8 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
             "         \"wCeasedVk\":hexstr        (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                       hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "         \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many FieldElementCertificateField with the corresponding size.\n"
+            "         \"vBitVectorCertificateFieldConfig\"    (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many BitVectorCertificateField with the corresponding size\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"
@@ -1170,7 +1172,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             if (!Sidechain::AddCustomFieldElement(o.get_str(), fe, MAX_FE_SIZE_BYTES, errString))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedFieldElement[" + std::to_string(count) + "]") + errString);
 
-            rawCert.vCompressedFieldElement.push_back(fe);
+            rawCert.vFieldElementCertificateField.push_back(fe);
             count++;
         }
     }
@@ -1193,7 +1195,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             if (!Sidechain::AddScData(o.get_str(), cmt, MAX_CMT_SIZE_BYTES, false, error))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedMerkleTree[" + std::to_string(count) + "]") + error);
 
-            rawCert.vCompressedMerkleTree.push_back(cmt);
+            rawCert.vBitVectorCertificateField.push_back(cmt);
             count++;
         }
     }
