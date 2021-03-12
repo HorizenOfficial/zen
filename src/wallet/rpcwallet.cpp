@@ -871,12 +871,14 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         // it is optional
         if (!inputString.empty())
         {
-            if (!Sidechain::AddScData(inputString, sc.creationData.constant, SC_FIELD_SIZE, true, error))
+            std::vector<unsigned char> scConstantByteArray {};
+            if (!Sidechain::AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), true, error))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
             }
  
-            if(!libzendoomc::IsValidScConstant(sc.creationData.constant))
+            sc.creationData.constant = CFieldElement{scConstantByteArray};
+            if(!sc.creationData.constant->IsValid())
             {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid constant");
             }
@@ -934,19 +936,19 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     if (params.size() > 9)
     {
-    	// TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
+        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
         UniValue PairsArray = params[9].get_array();
         if (!PairsArray.isNull())
         {
             for(auto& pairEntry: PairsArray.getValues())
             {
-            	if (pairEntry.size() != 2) {
+                if (pairEntry.size() != 2) {
                     error = "invalid vBitVectorCertificateFieldConfig";
                     return false;
                 }
                 if (!pairEntry[0].isNum() || !pairEntry[1].isNum())
                 {
-                	error = "invalid vBitVectorCertificateFieldConfig";
+                    error = "invalid vBitVectorCertificateFieldConfig";
                     return false;
                 }
 
@@ -993,13 +995,13 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
                                                       strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
                                                       ") The fee amount to attach to this transaction.\n"
             "   \"wCertVk\":data                  (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
+            "                                          hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "   \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "   \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "   \"wMbtrVk\":data                  (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
+            "                                          hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "   \"wCeasedVk\":data                (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "   \"vCompressedFieldElementConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
@@ -1175,12 +1177,14 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("constant"))
     {
         string inputString = find_value(inputObject, "constant").get_str();
-        if (!Sidechain::AddScData(inputString, creationData.constant, SC_FIELD_SIZE, true, error))
+        std::vector<unsigned char> scConstantByteArray {};
+        if (!Sidechain::AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
 
-        if (!libzendoomc::IsValidScConstant(creationData.constant))
+        creationData.constant = CFieldElement{scConstantByteArray};
+        if (!creationData.constant->IsValid())
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
         }
@@ -1242,13 +1246,13 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         {
             for(auto& pairEntry: PairsArray.getValues())
             {
-            	if (pairEntry.size() != 2) {
+                if (pairEntry.size() != 2) {
                     error = "invalid vBitVectorCertificateFieldConfig";
                     return false;
                 }
                 if (!pairEntry[0].isNum() || !pairEntry[1].isNum())
                 {
-                	error = "invalid vBitVectorCertificateFieldConfig";
+                    error = "invalid vBitVectorCertificateFieldConfig";
                     return false;
                 }
 
@@ -1501,7 +1505,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             "[{\n"
             "   \"scid\":side chain ID             (string, required) The uint256 side chain ID\n"
             "   \"scUtxoId\":hexstr                (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "   \"pubkeyhash\":pkh                 (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
             "   \"scFee\":amount,                  (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
             "   \"scProof\":hexstr,                (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
@@ -1643,22 +1647,22 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
         {
             const string& scUtxoIdString = find_value(o, "scUtxoId").get_str();
             std::string error;
-            if (!Sidechain::AddScData(scUtxoIdString, scUtxoIdVec, SC_FIELD_SIZE, true ,error))
+            if (!Sidechain::AddScData(scUtxoIdString, scUtxoIdVec, CFieldElement::ByteSize(), true ,error))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("scUtxoId: ") + error);
         }
         else
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scUtxoId\"" );
         }
-        libzendoomc::ScFieldElement scUtxoId = libzendoomc::ScFieldElement(scUtxoIdVec);
 
-        if(!libzendoomc::IsValidScFieldElement(scUtxoId))
+        CFieldElement scUtxoId {scUtxoIdVec};
+        if(!scUtxoId.IsValid())
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scUtxoId"));
 
         ScBwtRequestParameters bwtData;
         bwtData.scFee = scFee;
         bwtData.scProof = scProof;
-        bwtData.scUtxoId = scUtxoId;
+        bwtData.scRequestData = scUtxoId;
 
         vOutputs.push_back(ScRpcRetrieveCmdTx::sBtOutParams(scId, pkeyValue, bwtData));
     }
@@ -5267,7 +5271,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     CCoinsViewMemPool vm(pcoinsTip, mempool);
     scView.SetBackend(vm);
     CSidechain sidechain;
-    if (!scView.GetSidechain(scId, sidechain))
+    if (!scView.GetSidechain(scId,sidechain))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid does not exists: ") + scId.ToString());

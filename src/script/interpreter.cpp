@@ -1157,8 +1157,8 @@ public:
                 // keeps the JoinSplit cryptographically bound
                 // to the transaction.
                 //
-            	auto os = WithTxVersion(&s, txTo.nVersion);
-            	::Serialize(os, txTo.GetVjoinsplit(), nType, nVersion);
+                auto os = WithTxVersion(&s, txTo.nVersion);
+                ::Serialize(os, txTo.GetVjoinsplit(), nType, nVersion);
                 if (txTo.GetVjoinsplit().size() > 0) {
                 ::Serialize(s, txTo.joinSplitPubKey, nType, nVersion);
  

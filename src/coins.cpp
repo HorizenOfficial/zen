@@ -204,7 +204,7 @@ bool CCoinsView::CheckQuality(const CScCertificate& cert)                       
 uint256 CCoinsView::GetBestBlock()                                              const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                             const { return uint256(); }
 bool CCoinsView::HaveCswNullifier(const uint256& scId,
-                                 const libzendoomc::ScFieldElement &nullifier)  const { return false; }
+                                  const CFieldElement &nullifier)               const { return false; }
 
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                             const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
@@ -230,7 +230,7 @@ uint256 CCoinsViewBacked::GetBestBlock()                                        
 uint256 CCoinsViewBacked::GetBestAnchor()                                              const { return base->GetBestAnchor(); }
 
 bool CCoinsViewBacked::HaveCswNullifier(const uint256& scId,
-                                        const libzendoomc::ScFieldElement &nullifier)  const { return base->HaveCswNullifier(scId,nullifier); }
+                                        const CFieldElement &nullifier)                const { return base->HaveCswNullifier(scId,nullifier); }
 
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
 bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
@@ -245,11 +245,11 @@ bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                             
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
 CCswNullifiersKeyHasher::CCswNullifiersKeyHasher() : salt() {GetRandBytes(reinterpret_cast<unsigned char*>(salt), BUF_LEN);}
 
-size_t CCswNullifiersKeyHasher::operator()(const std::pair<uint256, libzendoomc::ScFieldElement>& key) const {
+size_t CCswNullifiersKeyHasher::operator()(const std::pair<uint256, CFieldElement>& key) const {
     uint32_t buf[BUF_LEN];
     // note: we may consider buf as a raw data, so bytes size of buf is (BUF_LEN * 4)
     memcpy(buf, key.first.begin(), sizeof(uint256));
-    memcpy((buf + sizeof(uint256)/sizeof(uint32_t)), key.second.begin(), SC_FIELD_SIZE);
+    memcpy((buf + sizeof(uint256)/sizeof(uint32_t)), &(key.second.GetByteArray()[0]), CFieldElement::ByteSize());
     return CalculateHash(buf, BUF_LEN, salt);
 }
 
@@ -525,8 +525,8 @@ void CCoinsViewCache::SetBestBlock(const uint256 &hashBlockIn) {
     hashBlock = hashBlockIn;
 }
 
-bool CCoinsViewCache::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const {
-    std::pair<uint256, libzendoomc::ScFieldElement> key = std::make_pair(scId, nullifier);
+bool CCoinsViewCache::HaveCswNullifier(const uint256& scId, const CFieldElement &nullifier) const {
+    std::pair<uint256, CFieldElement> key = std::make_pair(scId, nullifier);
 
     CCswNullifiersMap::iterator it = cacheCswNullifiers.find(key);
     if (it != cacheCswNullifiers.end())
@@ -539,16 +539,16 @@ bool CCoinsViewCache::HaveCswNullifier(const uint256& scId, const libzendoomc::S
     return true;
 }
 
-bool CCoinsViewCache::AddCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) {
+bool CCoinsViewCache::AddCswNullifier(const uint256& scId, const CFieldElement &nullifier) {
     if (HaveCswNullifier(scId, nullifier))
         return false;
 
-    std::pair<uint256, libzendoomc::ScFieldElement> key = std::make_pair(scId, nullifier);
+    std::pair<uint256, CFieldElement> key = std::make_pair(scId, nullifier);
     cacheCswNullifiers.insert(std::make_pair(key, CCswNullifiersCacheEntry{CCswNullifiersCacheEntry::Flags::FRESH}));
     return true;
 }
 
-bool CCoinsViewCache::RemoveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) {
+bool CCoinsViewCache::RemoveCswNullifier(const uint256& scId, const CFieldElement &nullifier) {
     if (!HaveCswNullifier(scId, nullifier))
         return false;
 
@@ -1139,7 +1139,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
 
     if (!Sidechain::checkCertCustomFields(sidechain, cert) )
     {
-    	return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
+        return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
@@ -1183,7 +1183,10 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
     uint256 prev_end_epoch_block_hash = chainActive[targetHeight]->GetBlockHash();
 
     // Verify certificate proof
-    if (!scVerifier.verifyCScCertificate(sidechain.creationData.constant, sidechain.creationData.wCertVk, prev_end_epoch_block_hash, cert))
+    CFieldElement constant{};
+    if (sidechain.creationData.constant.is_initialized())
+        constant = sidechain.creationData.constant.get();
+    if (!scVerifier.verifyCScCertificate(constant, sidechain.creationData.wCertVk, prev_end_epoch_block_hash, cert))
     {
         return error("%s():%d - ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
@@ -1289,10 +1292,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
             return error("%s():%d - ERROR: mbtr not supported\n",  __func__, __LINE__);
         }
 
-        libzendoomc::ScFieldElement certDataHash = this->GetActiveCertDataHash(mbtr.scId);
-        if (!libzendoomc::IsValidScFieldElement(certDataHash))
-            return error("%s():%d - ERROR: Tx[%s] mbtr request [%s] has missing active cert data hash for required scId[%s]\n",
-                __func__, __LINE__, tx.ToString(), mbtr.ToString(), mbtr.scId.ToString());
+        CFieldElement certDataHash = this->GetActiveCertDataHash(mbtr.scId);
 
         // Verify mainchain bwt request proof
         if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
@@ -1344,10 +1344,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
                 __func__, __LINE__, tx.ToString(), csw.ToString());
         }
 
-        libzendoomc::ScFieldElement certDataHash = this->GetActiveCertDataHash(csw.scId);
-        if (!libzendoomc::IsValidScFieldElement(certDataHash))
-            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] has missing active cert data hash for required scId[%s]\n",
-                __func__, __LINE__, tx.ToString(), csw.ToString(), csw.scId.ToString());
+        CFieldElement certDataHash = this->GetActiveCertDataHash(csw.scId);
 
         // Verify CSW proof
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.creationData.wCeasedVk.get(), csw))
@@ -1822,12 +1819,12 @@ CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
         return CSidechain::State::ALIVE;
 }
 
-libzendoomc::ScFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256& scId) const
+CFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256& scId) const
 {
     const CSidechain* const pSidechain = this->AccessSidechain(scId);
 
     if (pSidechain == nullptr)
-        return libzendoomc::ScFieldElement{};
+        return CFieldElement{};
 
     if (this->GetSidechainState(scId) == CSidechain::State::CEASED)
         return pSidechain->pastEpochTopQualityCertDataHash;

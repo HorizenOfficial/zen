@@ -110,8 +110,9 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
 
 CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
 {
-    libzendoomc::ScFieldElement nullifier;
-    nullifier.SetHex(nullifierHex);
+    std::vector<unsigned char> tmp(nullifierHex.begin(), nullifierHex.end());
+    tmp.resize(CFieldElement::ByteSize());
+    CFieldElement nullifier{tmp};
 
     uint160 dummyPubKeyHash {};
     libzendoomc::ScProof dummyScProof;
@@ -217,7 +218,7 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
 
 uint256 txCreationUtils::CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight)
 {
-    CAmount dummyFeeAmount{0};
+    CAmount dummyFeeAmount {0};
     CScript dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
             << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
 

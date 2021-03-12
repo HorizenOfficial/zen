@@ -358,7 +358,7 @@ class CTxCeasedSidechainWithdrawalInput
 public:
     CAmount nValue;
     uint256 scId;
-    libzendoomc::ScFieldElement nullifier;
+    CFieldElement nullifier;
     uint160 pubKeyHash;
     libzendoomc::ScProof scProof;
     CScript redeemScript;
@@ -366,7 +366,7 @@ public:
     CTxCeasedSidechainWithdrawalInput(): nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript() {}
 
     explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
-                                               const libzendoomc::ScFieldElement& nullifierIn, const uint160& pubKeyHashIn,
+                                               const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
                                                const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn);
 
     ADD_SERIALIZE_METHODS
@@ -572,7 +572,7 @@ private:
 public:
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
-    libzendoomc::ScConstant constant;
+    boost::optional<CFieldElement> constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
@@ -629,7 +629,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 {
   public:
     uint256 scId;
-    libzendoomc::ScFieldElement scRequestData;
+    CFieldElement scRequestData;
     uint160 mcDestinationAddress;
     CAmount scFee;
     libzendoomc::ScProof scProof;

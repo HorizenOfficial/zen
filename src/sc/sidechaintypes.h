@@ -4,22 +4,24 @@
 #include <vector>
 #include <string>
 
+#include <boost/unordered_map.hpp>
+#include <boost/variant.hpp>
+#include <boost/optional.hpp>
+#include <boost/variant.hpp>
+
 #include "uint256.h"
 #include "hash.h"
 #include "script/script.h"
 #include "amount.h"
 #include "serialize.h"
-#include <boost/unordered_map.hpp>
-#include <boost/variant.hpp>
-#include <boost/optional.hpp>
-#include <boost/variant.hpp>
-#include<sc/proofverifier.h>
 
+#include <zendoo/error.h>
+#include <zendoo/zendoo_mc.h>
 ///////////////////////////////// Field types //////////////////////////////////
 class CFieldElement
 {
 public:
-	CFieldElement();
+    CFieldElement();
     ~CFieldElement() = default;
 
     explicit CFieldElement(const std::vector<unsigned char>& byteArrayIn);
@@ -54,7 +56,7 @@ public:
     template<typename Stream>
     void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
     {
-		os.write((char*)&byteArray[0], CFieldElement::ByteSize());
+        os.write((char*)&byteArray[0], CFieldElement::ByteSize());
     }
 
     template<typename Stream> //ADAPTED FROM SERIALIZED.H
@@ -70,30 +72,25 @@ private:
     std::array<unsigned char, SC_FIELD_SIZE> byteArray; //apparently cannot call ByteSize() HERE
 };
 
-class CPoseidonHash
-{
-public:
-    CPoseidonHash ()  {SetNull();};
-    explicit CPoseidonHash (const uint256& sha256): innerHash(sha256) {} //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
-    ~CPoseidonHash () = default;
-
-    void SetNull() { innerHash.SetNull(); }
-    friend inline bool operator==(const CPoseidonHash & lhs, const CPoseidonHash & rhs) { return lhs.innerHash == rhs.innerHash; }
-    friend inline bool operator!=(const CPoseidonHash & lhs, const CPoseidonHash & rhs) { return !(lhs == rhs); }
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(innerHash);
-    }
-
-    std::string GetHex() const   {return innerHash.GetHex();}
-    std::string ToString() const {return innerHash.ToString();}
-
-private:
-    uint256 innerHash; //Temporary, for backward compatibility with beta
-};
+typedef CFieldElement ScConstant;
 ////////////////////////////// End of Field types //////////////////////////////
+
+/////////////////////// libzendoomc namespace definitions //////////////////////
+namespace libzendoomc {
+    typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
+
+    /* Check if scProof is a valid zendoo-mc-cryptolib's sc_proof */
+    bool IsValidScProof(const ScProof& scProof);
+
+    typedef base_blob<SC_VK_SIZE * 8> ScVk;
+
+    /* Check if scVk is a valid zendoo-mc-cryptolib's sc_vk */
+    bool IsValidScVk(const ScVk& scVk);
+
+    /* Convert to std::string a zendoo-mc-cryptolib Error. Useful for logging */
+    std::string ToString(Error err);
+}
+/////////////////// end of libzendoomc namespace definitions ///////////////////
 
 ////////////////////////////// Custom Config types //////////////////////////////
 class CustomCertificateFieldConfig
@@ -160,11 +157,11 @@ public:
     bool IsValid() const override final;
 
     int32_t getBitVectorSizeBits() const {
-    	return bitVectorSizeBits;
+        return bitVectorSizeBits;
     }
 
     int32_t getMaxCompressedSizeBytes() const {
-    	return maxCompressedSizeBytes;
+        return maxCompressedSizeBytes;
     }
 
     ADD_SERIALIZE_METHODS;
@@ -175,7 +172,7 @@ public:
     }
 
     bool operator==(const BitVectorCertificateFieldConfig& rhs) const {
-    	return (this->bitVectorSizeBits == rhs.bitVectorSizeBits) &&
+        return (this->bitVectorSizeBits == rhs.bitVectorSizeBits) &&
                (this->maxCompressedSizeBytes == rhs.maxCompressedSizeBytes);
     }
 
@@ -184,7 +181,7 @@ public:
     }
 
     friend std::ostream& operator<<(std::ostream& os, const BitVectorCertificateFieldConfig& r) {
-    	os << r.maxCompressedSizeBytes<<" "<<r.maxCompressedSizeBytes;
+        os << r.maxCompressedSizeBytes<<" "<<r.maxCompressedSizeBytes;
         return os;
     }
 };
@@ -206,11 +203,11 @@ public:
         :vRawData(rawBytes), state(VALIDATION_STATE::NOT_INITIALIZED) {};
     virtual ~CustomCertificateField() = default;
     virtual const CFieldElement& GetFieldElement() {
-    	if(state != VALIDATION_STATE::VALID) {
-    		throw std::exception();
-    	}
+        if(state != VALIDATION_STATE::VALID) {
+            throw std::exception();
+        }
 
-    	return fieldElement;
+        return fieldElement;
     }
 
     const std::vector<unsigned char>& getVRawData() const { return vRawData; }
@@ -219,7 +216,7 @@ public:
 class FieldElementCertificateField : public CustomCertificateField<FieldElementCertificateFieldConfig>
 {
 private:
-	mutable FieldElementCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
+    mutable FieldElementCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
 public:
     FieldElementCertificateField(): pReferenceCfg{nullptr} {};
     FieldElementCertificateField(const std::vector<unsigned char>& rawBytes);
@@ -239,7 +236,7 @@ public:
 class BitVectorCertificateField : public CustomCertificateField<BitVectorCertificateFieldConfig>
 {
 private:
-	mutable BitVectorCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
+    mutable BitVectorCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
 public:
     BitVectorCertificateField(): pReferenceCfg{nullptr} {};
     BitVectorCertificateField(const std::vector<unsigned char>& rawBytes);
@@ -280,7 +277,7 @@ struct ScCreationParameters
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
-    libzendoomc::ScConstant constant;
+    boost::optional<CFieldElement> constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
@@ -292,12 +289,12 @@ struct ScCreationParameters
         return (
             withdrawalEpochLength == -1           &&
             customData.empty()                    &&
-            constant.empty( )                     &&
+            constant == boost::none     &&
             wCertVk.IsNull()                      &&
             wMbtrVk == boost::none                &&
-			wCeasedVk == boost::none              &&
-			vFieldElementCertificateFieldConfig.empty() &&
-			vBitVectorCertificateFieldConfig.empty() );
+            wCeasedVk == boost::none              &&
+            vFieldElementCertificateFieldConfig.empty() &&
+            vBitVectorCertificateFieldConfig.empty() );
     }
 
     ADD_SERIALIZE_METHODS;
@@ -321,7 +318,7 @@ struct ScCreationParameters
                (constant == rhs.constant) &&
                (wCertVk == rhs.wCertVk)  &&
                (wMbtrVk == rhs.wMbtrVk)  &&
-			   (wCeasedVk == rhs.wCeasedVk) &&
+               (wCeasedVk == rhs.wCeasedVk) &&
                (vFieldElementCertificateFieldConfig == rhs.vFieldElementCertificateFieldConfig) &&
                (vBitVectorCertificateFieldConfig == rhs.vBitVectorCertificateFieldConfig);
     }
@@ -343,19 +340,19 @@ struct ScCreationParameters
 struct ScBwtRequestParameters
 {
     CAmount scFee;
-    libzendoomc::ScFieldElement scUtxoId;
+    CFieldElement scRequestData;
     libzendoomc::ScProof scProof;
 
     bool IsNull() const
     {
-        return ( scFee == 0 && scUtxoId.IsNull() && scProof.IsNull());
+        return ( scFee == 0 && scRequestData.IsNull() && scProof.IsNull());
     }
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(scFee);
-        READWRITE(scUtxoId);
+        READWRITE(scRequestData);
         READWRITE(scProof);
     }
     ScBwtRequestParameters() :scFee(0) {}
@@ -363,14 +360,14 @@ struct ScBwtRequestParameters
     inline bool operator==(const ScBwtRequestParameters& rhs) const
     {
         return (scFee == rhs.scFee) &&
-               (scUtxoId == rhs.scUtxoId) &&
+               (scRequestData == rhs.scRequestData) &&
                (scProof == rhs.scProof); 
     }
     inline bool operator!=(const ScBwtRequestParameters& rhs) const { return !(*this == rhs); }
     inline ScBwtRequestParameters& operator=(const ScBwtRequestParameters& cp)
     {
         scFee = cp.scFee;
-        scUtxoId = cp.scUtxoId;
+        scRequestData = cp.scRequestData;
         scProof = cp.scProof;
         return *this;
     }

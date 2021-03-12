@@ -168,7 +168,7 @@ public:
     const std::vector<JSDescription>&  GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                     GetScId()       const          {return scId;};
     const uint32_t&                    GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
-    libzendoomc::ScFieldElement        GetDataHash() const;
+    CFieldElement                    GetDataHash() const;
     //END OF GETTERS
 
     bool IsBackwardTransfer(int pos) const override final;
@@ -285,8 +285,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
     template <typename Stream>
     CMutableScCertificate(deserialize_type, Stream& s) :
         scId(), epochNumber(CScCertificate::EPOCH_NULL),
-		quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), scProof(),
-		vFieldElementCertificateField(), vBitVectorCertificateField()
+        quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), scProof(),
+        vFieldElementCertificateField(), vBitVectorCertificateField()
     {
         Unserialize(s);
     }

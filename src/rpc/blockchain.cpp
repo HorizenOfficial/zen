@@ -1107,14 +1107,18 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         {
             sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
             sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
-            sc.push_back(Pair("constant", HexStr(info.creationData.constant)));
+
+            if (info.creationData.constant.is_initialized())
+                sc.push_back(Pair("constant", info.creationData.constant->GetHexRepr()));
+            else
+                sc.push_back(Pair("constant", std::string{"NOT INITIALIZED"}));
 
             if (info.creationData.wMbtrVk.is_initialized())
                 sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
             else
                 sc.push_back(Pair("wMbtrVk", std::string{"NOT INITIALIZED"}));
 
-            if (info.creationData.wCeasedVk.is_initialized())
+            if(info.creationData.wCeasedVk.is_initialized())
                 sc.push_back(Pair("wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
             else
                 sc.push_back(Pair("wCeasedVk", std::string{"NOT INITIALIZED"}));
@@ -1180,14 +1184,18 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             {
                 sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
                 sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
-                sc.push_back(Pair("unconf constant", HexStr(info.creationData.constant)));
 
-                if (info.creationData.wMbtrVk.is_initialized())
+                if(info.creationData.constant.is_initialized())
+                    sc.push_back(Pair("unconf constant", info.creationData.constant->GetHexRepr()));
+                else
+                    sc.push_back(Pair("unconf constant", std::string{"NOT INITIALIZED"}));
+
+                if(info.creationData.wMbtrVk.is_initialized())
                     sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
                 else
                     sc.push_back(Pair("unconf wMbtrVk", std::string{"NOT INITIALIZED"}));
 
-                if (info.creationData.wCeasedVk.is_initialized())
+                if(info.creationData.wCeasedVk.is_initialized())
                     sc.push_back(Pair("unconf wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
                 else
                     sc.push_back(Pair("unconf wCeasedVk", std::string{"NOT INITIALIZED"}));
@@ -1295,14 +1303,13 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
     }
 
-    libzendoomc::ScFieldElement certDataHash = scView.GetActiveCertDataHash(scid);
-    if (!libzendoomc::IsValidScFieldElement(certDataHash) || certDataHash.IsNull() )
+    CFieldElement certDataHash = scView.GetActiveCertDataHash(scid);
+    if (certDataHash.IsNull() )
     {
         LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing active cert data hash for required scid"));
     }
-
-    ret.push_back(Pair("certDataHash", HexStr(certDataHash)));
+    ret.push_back(Pair("certDataHash", certDataHash.GetHexRepr()));
 }
 
 UniValue getscinfo(const UniValue& params, bool fHelp)
@@ -1570,9 +1577,9 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 2)
         throw runtime_error(
             "checkcswnullifier\n"
-			"\nArguments:\n"
-			"1. \"scid\"   (string, mandatory) scid of nullifier, \"*\" means all \n"
-			"2. nullifier (string, mandatory) Retrieve only information for nullifier\n"
+            "\nArguments:\n"
+            "1. \"scid\"   (string, mandatory) scid of nullifier, \"*\" means all \n"
+            "2. nullifier (string, mandatory) Retrieve only information for nullifier\n"
             "\nReturns True if nullifier exit in SC.\n"
             "\nResult:\n"
             "{\n"
@@ -1599,14 +1606,13 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
 
     std::string nullifierError;
     std::vector<unsigned char> nullifierVec;
-    if (!AddScData(inputString, nullifierVec, SC_FIELD_SIZE, true, nullifierError))
+    if (!AddScData(inputString, nullifierVec, CFieldElement::ByteSize(), true, nullifierError))
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": " + nullifierError;
         throw JSONRPCError(RPC_TYPE_ERROR, error);
     }
-
-    libzendoomc::ScFieldElement nullifier(nullifierVec);
-    if (!libzendoomc::IsValidScFieldElement(nullifier))
+    CFieldElement nullifier{nullifierVec};
+    if (!nullifier.IsValid())
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": invalid nullifier data";
         throw JSONRPCError(RPC_TYPE_ERROR, error);

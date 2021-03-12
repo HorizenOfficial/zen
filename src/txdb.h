@@ -48,7 +48,7 @@ public:
     uint256 GetBestBlock()                                               const override;
     uint256 GetBestAnchor()                                              const override;
     bool HaveCswNullifier(const uint256& scId,
-                          const libzendoomc::ScFieldElement& nullifier)  const override;
+                          const CFieldElement& nullifier)  const override;
 
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,

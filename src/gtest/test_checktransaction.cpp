@@ -67,7 +67,9 @@ CMutableTransaction GetValidTransaction(int txVersion) {
         CTxCeasedSidechainWithdrawalInput csw_ccin;
         csw_ccin.nValue = 2.0 * COIN;
         csw_ccin.scId = GetRandHash();
-        GetRandBytes((unsigned char*)&csw_ccin.nullifier, csw_ccin.nullifier.size());
+        std::vector<unsigned char> nullifierStr(CFieldElement::ByteSize(), 0x0);
+        GetRandBytes((unsigned char*)&nullifierStr[0], CFieldElement::ByteSize()-2);
+        csw_ccin.nullifier = CFieldElement{nullifierStr};
         GetRandBytes((unsigned char*)&csw_ccin.pubKeyHash, csw_ccin.pubKeyHash.size());
         GetRandBytes((unsigned char*)&csw_ccin.scProof, csw_ccin.scProof.size());
         csw_ccin.redeemScript = CScript();
@@ -881,39 +883,39 @@ TEST(SidechainsCertificateManipulation, ResizingCertificateChangeOutputs) {
 
 TEST(SidechainsCertificateCustomFields, FieldElementCertificateFieldConfig_Validation)
 {
-	FieldElementCertificateFieldConfig negativeFieldConfig{-1};
-	EXPECT_FALSE(negativeFieldConfig.IsValid());
+    FieldElementCertificateFieldConfig negativeFieldConfig{-1};
+    EXPECT_FALSE(negativeFieldConfig.IsValid());
 
-	FieldElementCertificateFieldConfig zeroFieldConfig{0};
-	EXPECT_FALSE(zeroFieldConfig.IsValid());
+    FieldElementCertificateFieldConfig zeroFieldConfig{0};
+    EXPECT_FALSE(zeroFieldConfig.IsValid());
 
-	FieldElementCertificateFieldConfig positiveFieldConfig{10};
+    FieldElementCertificateFieldConfig positiveFieldConfig{10};
     EXPECT_TRUE(positiveFieldConfig.IsValid());
 
-	FieldElementCertificateFieldConfig tooBigFieldConfig(CFieldElement::BitSize()+1);
-	EXPECT_FALSE(tooBigFieldConfig.IsValid());
+    FieldElementCertificateFieldConfig tooBigFieldConfig(CFieldElement::BitSize()+1);
+    EXPECT_FALSE(tooBigFieldConfig.IsValid());
 }
 
 TEST(SidechainsCertificateCustomFields, BitVectorCertificateFieldConfig_Validation)
 {
-	BitVectorCertificateFieldConfig negativeSizeBitVector_BitVectorConfig{-1, 12};
-	EXPECT_FALSE(negativeSizeBitVector_BitVectorConfig.IsValid());
+    BitVectorCertificateFieldConfig negativeSizeBitVector_BitVectorConfig{-1, 12};
+    EXPECT_FALSE(negativeSizeBitVector_BitVectorConfig.IsValid());
 
-	BitVectorCertificateFieldConfig negativeSizeCompressed_BitVectorConfig{1, -1};
-	EXPECT_FALSE(negativeSizeCompressed_BitVectorConfig.IsValid());
+    BitVectorCertificateFieldConfig negativeSizeCompressed_BitVectorConfig{1, -1};
+    EXPECT_FALSE(negativeSizeCompressed_BitVectorConfig.IsValid());
 
-	BitVectorCertificateFieldConfig zeroSizeBitVector_BitVectorConfig{0, 12};
-	EXPECT_TRUE(zeroSizeBitVector_BitVectorConfig.IsValid());  //SHOULD THIS BE FALSE ?
+    BitVectorCertificateFieldConfig zeroSizeBitVector_BitVectorConfig{0, 12};
+    EXPECT_TRUE(zeroSizeBitVector_BitVectorConfig.IsValid());  //SHOULD THIS BE FALSE ?
 
-	BitVectorCertificateFieldConfig zeroSizeCompressed_BitVectorConfig{1, 0};
-	EXPECT_TRUE(zeroSizeCompressed_BitVectorConfig.IsValid()); //SHOULD THIS BE FALSE ?
+    BitVectorCertificateFieldConfig zeroSizeCompressed_BitVectorConfig{1, 0};
+    EXPECT_TRUE(zeroSizeCompressed_BitVectorConfig.IsValid()); //SHOULD THIS BE FALSE ?
 
-	BitVectorCertificateFieldConfig positiveBitVectorConfig{10, 12};
-	EXPECT_TRUE(positiveBitVectorConfig.IsValid());
+    BitVectorCertificateFieldConfig positiveBitVectorConfig{10, 12};
+    EXPECT_TRUE(positiveBitVectorConfig.IsValid());
 
-	BitVectorCertificateFieldConfig tooBigBitVector_BitVectorConfig{BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS+1, 12};
-	EXPECT_FALSE(tooBigBitVector_BitVectorConfig.IsValid());
+    BitVectorCertificateFieldConfig tooBigBitVector_BitVectorConfig{BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS+1, 12};
+    EXPECT_FALSE(tooBigBitVector_BitVectorConfig.IsValid());
 
-	BitVectorCertificateFieldConfig tooBigCompressed_BitVectorConfig{1, BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES+1};
-	EXPECT_FALSE(tooBigCompressed_BitVectorConfig.IsValid());
+    BitVectorCertificateFieldConfig tooBigCompressed_BitVectorConfig{1, BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES+1};
+    EXPECT_FALSE(tooBigCompressed_BitVectorConfig.IsValid());
 }

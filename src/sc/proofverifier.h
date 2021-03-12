@@ -1,48 +1,26 @@
 #ifndef _SC_PROOF_VERIFIER_H
 #define _SC_PROOF_VERIFIER_H
 
-#include <zendoo/error.h>
-#include <zendoo/zendoo_mc.h>
 #include "uint256.h"
 
 #include <string>
 #include <boost/variant.hpp>
 #include <boost/filesystem.hpp>
 #include <amount.h>
+#include <sc/sidechaintypes.h> //CHECK IF IT CAN BE REPLACED WITH FORWARD DECLARATION
 
 class CSidechain;
 class CScCertificate;
 class CTxCeasedSidechainWithdrawalInput;
 
-namespace libzendoomc{
-
-	typedef base_blob<SC_FIELD_SIZE * 8> ScFieldElement;
-    /* Check if scFieldElement is a valid field, leveraging zendoo-mc-cryptolib' */
-    bool IsValidScFieldElement(const ScFieldElement& scFieldElement);
-
-    typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
-
-    /* Check if scProof is a valid zendoo-mc-cryptolib's sc_proof */
-    bool IsValidScProof(const ScProof& scProof);
-
-    typedef base_blob<SC_VK_SIZE * 8> ScVk;
-    
-    /* Check if scVk is a valid zendoo-mc-cryptolib's sc_vk */
-    bool IsValidScVk(const ScVk& scVk);
-
-    typedef std::vector<unsigned char> ScConstant;
-    
-    /* Check if scConstant is a valid zendoo-mc-cryptolib's field */
-    bool IsValidScConstant(const ScConstant& scConstant);
-
-    /* Convert to std::string a zendoo-mc-cryptolib Error. Useful for logging */
-    std::string ToString(Error err);
-
+namespace libzendoomc
+{
     /* Write scVk to file in vkPath. Returns true if operation succeeds, false otherwise. */
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk);
 
     /* Support class for WCert SNARK proof verification. */
-    class CScWCertProofVerification {
+    class CScWCertProofVerification
+    {
         public:
             CScWCertProofVerification() = default;
             virtual ~CScWCertProofVerification() = default;
@@ -94,7 +72,8 @@ namespace libzendoomc{
     };
 
     /* Class for instantiating a verifier able to verify different kind of ScProof for different kind of ScProof(s) */
-    class CScProofVerifier {
+    class CScProofVerifier
+    {
         protected:
             bool perform_verification;
 
@@ -126,19 +105,19 @@ namespace libzendoomc{
             // Returns false if proof verification has failed or deserialization of CSW's elements
             // into libzendoomc's elements has failed.
             bool verifyCTxCeasedSidechainWithdrawalInput(
-                const ScFieldElement& certDataHash,
+                const CFieldElement& certDataHash,
                 const ScVk& wCeasedVk,
                 const CTxCeasedSidechainWithdrawalInput& csw
             ) const;
 
             bool verifyCBwtRequest(
                 const uint256& scId,
-                const libzendoomc::ScFieldElement& scUtxoId,
+                const CFieldElement& scUtxoId,
                 const uint160& mcDestinationAddress,
                 CAmount scFees,
                 const libzendoomc::ScProof& scProof,
                 const boost::optional<libzendoomc::ScVk>& wMbtrVk,
-				const libzendoomc::ScFieldElement& certDataHash
+                const CFieldElement& certDataHash
             ) const;
     };
 }

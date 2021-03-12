@@ -887,8 +887,8 @@ TEST_F(SidechainsBlockFormationTestSuite, Unconfirmed_Mbtr_scCreation_DulyOrdere
     mbtrTx.nVersion = SC_TX_VERSION;
     mbtrTx.vmbtr_out.push_back(mcBwtReq);
     CTxMemPoolEntry mbtr_entry(mbtrTx, /*fee*/CAmount(1000),   /*time*/ 1000, /*priority*/1000.0, /*height*/dummyHeight);
-    std::map<uint256, libzendoomc::ScFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = libzendoomc::ScFieldElement{};
+    std::map<uint256, CFieldElement> dummyCertDataHashInfo;
+    dummyCertDataHashInfo[scId] = CFieldElement{};
     ASSERT_TRUE(mempool.addUnchecked(mbtrTx.GetHash(), mbtr_entry, /*fCurrentEstimate*/true, dummyCertDataHashInfo));
 
     //test

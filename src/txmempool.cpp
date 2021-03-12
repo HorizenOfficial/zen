@@ -156,7 +156,7 @@ void CTxMemPool::AddTransactionsUpdated(unsigned int n)
 
 
 bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate,
-                              const std::map<uint256, libzendoomc::ScFieldElement>& scIdToCertDataHash)
+                              const std::map<uint256, CFieldElement>& scIdToCertDataHash)
 {
     // Add to memory pool without checking anything.
     // Used by main.cpp AcceptToMemoryPool(), which DOES do
@@ -1569,7 +1569,7 @@ bool CCoinsViewMemPool::HaveSidechain(const uint256& scId) const {
     return mempool.hasSidechainCreationTx(scId) || base->HaveSidechain(scId);
 }
 
-bool CCoinsViewMemPool::HaveCswNullifier(const uint256& scId, const libzendoomc::ScFieldElement &nullifier) const
+bool CCoinsViewMemPool::HaveCswNullifier(const uint256& scId, const CFieldElement &nullifier) const
 {
     return mempool.HaveCswNullifier(scId, nullifier) || base->HaveCswNullifier(scId, nullifier);
 }
