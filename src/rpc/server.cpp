@@ -225,10 +225,15 @@ UniValue help(const UniValue& params, bool fHelp)
         throw runtime_error(
             "help ( \"command\" )\n"
             "\nList all commands, or get help for a specified command.\n"
+            
             "\nArguments:\n"
-            "1. \"command\"     (string, optional) The command to get help on\n"
+            "1. \"command\"   (string, optional) the command to get help on\n"
             "\nResult:\n"
-            "\"text\"     (string) The help text\n"
+            "\"text\"         (string) the help text\n"
+            
+            "\nExamples:\n"
+            + HelpExampleCli("help", "")
+            + HelpExampleRpc("help", "")
         );
 
     string strCommand;
@@ -245,7 +250,16 @@ UniValue stop(const UniValue& params, bool fHelp)
     if (fHelp || params.size() > 1)
         throw runtime_error(
             "stop\n"
-            "\nStop Zen server.");
+            "\nStop Zen server."
+            
+            "\nResult\n"
+            "Nothing if is success\n"
+            "\"Failure\": \"xxxx\"   (string) rejected reason"
+            
+            "\nExamples:\n"
+            + HelpExampleCli("stop", "")
+            + HelpExampleRpc("stop", "")
+        );
     // Shutdown will take long enough that the response should get back
     StartShutdown();
     return "Zen server stopping";
