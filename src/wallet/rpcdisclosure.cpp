@@ -53,13 +53,15 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
             "\nGenerate a payment disclosure for a given joinsplit output.\n"
             "\nEXPERIMENTAL FEATURE\n"
             + strPaymentDisclosureDisabledMsg +
+            
             "\nArguments:\n"
-            "1. \"txid\"            (string, required) \n"
-            "2. \"js_index\"        (string, required) \n"
-            "3. \"output_index\"    (string, required) \n"
-            "4. \"message\"         (string, optional) \n"
+            "1. \"txid\"            (string, required) the transaction id\n"
+            "2. \"js_index\"        (numeric, required) the js index\n"
+            "3. \"output_index\"    (numeric, required) the output index\n"
+            "4. \"message\"         (string, optional) the message\n"
+            
             "\nResult:\n"
-            "\"paymentdisclosure\"  (string) Hex data string, with \"zpd:\" prefix.\n"
+            "\"paymentdisclosure\"  (string) hex data string, with \"zpd:\" prefix.\n"
             "\nExamples:\n"
             + HelpExampleCli("z_getpaymentdisclosure", "96f12882450429324d5f3b48630e3168220e49ab7b0f066e5c2935a6b88bb0f2 0 0 \"refund\"")
             + HelpExampleRpc("z_getpaymentdisclosure", "\"96f12882450429324d5f3b48630e3168220e49ab7b0f066e5c2935a6b88bb0f2\", 0, 0, \"refund\"")
@@ -159,8 +161,27 @@ UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp)
             "\nValidates a payment disclosure.\n"
             "\nEXPERIMENTAL FEATURE\n"
             + strPaymentDisclosureDisabledMsg +
+            
             "\nArguments:\n"
-            "1. \"paymentdisclosure\"     (string, required) Hex data string, with \"zpd:\" prefix.\n"
+            "1. \"paymentdisclosure\"                (string, required) hex data string, with \"zpd:\" prefix\n"
+            
+            "\nResult:\n"
+            "{\n                                     (array) information about the payment disclosure\n"
+                "\"txid\": \"hash\",                 (string) the transaction id\n"
+                "\"jsIndex\": n,                     (numeric) the js index\n"
+                "\"outputIndex\": n,                 (numeric) the output index\n"
+                "\"version\": nn,                    (numeric) version 0 = experimental, 1 = first production version\n"
+                "\"onetimePrivKey\": \"hex\",        (string) one time private key for validate the payment disclosure\n"
+                "\"message\": \"xxxxx\",             (string) message of the payment disclosure\n"
+                "\"joinSplitPubKey\": \"hex\",       (string) the hex-coded public key\n"
+                "\"signatureVerified\": true|false,  (boolean) if the signature is verified or not\n"
+                "\"paymentAddress\": \"zenaddress\", (string) the ZEN address for the payment\n"
+                "\"memo\": \"hex\",                  (string) hexademical string representation of memo field\n"
+                "\"value\": nnn,                     (numeric) the total value\n"
+                "\"commitmentMatch\": true|false,    (boolean) if the commitment derived from payment disclosure match blockchain commitment or not\n"
+                "\"valid\": true|false               (boolean) if the payment disclosure is valid or not\n"
+            "}\n"
+            
             "\nExamples:\n"
             + HelpExampleCli("z_validatepaymentdisclosure", "\"zpd:706462ff004c561a0447ba2ec51184e6c204...\"")
             + HelpExampleRpc("z_validatepaymentdisclosure", "\"zpd:706462ff004c561a0447ba2ec51184e6c204...\"")
