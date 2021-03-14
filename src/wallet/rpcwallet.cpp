@@ -469,7 +469,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
             
             "\nArguments:\n"
             "1. \"horizenaddress\"     (string, required) the horizen address to send to\n"
-            "2. \"amount\"             (numeric, required) the amount in " CURRENCY_UNIT + "\n"
+            "2. \"amount\"             (numeric, required) the amount in " + CURRENCY_UNIT + "\n"
             "3. \"comment\"            (string, optional) a comment used to store what the transaction is for\n"
             "                             this is not part of the transaction, just kept in your wallet\n"
             "4. \"comment-to\"         (string, optional) a comment to store the name of the person or organization\n"
@@ -2381,8 +2381,8 @@ UniValue settxfee(const UniValue& params, bool fHelp)
             
             "\nArguments:\n"
             "1. amount         (numeric, required) the transaction fee in " + CURRENCY_UNIT + "/kB rounded to the nearest 0.00000001\n"
-            "
-            \nResult\n"
+            
+            "\nResult\n"
             "true|false        (boolean) returns true if successful\n"
             
             "\nExamples:\n"
@@ -2672,7 +2672,7 @@ UniValue zc_sample_joinsplit(const UniValue& params, bool fHelp)
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
 
     auto os = WithTxVersion(&ss, shieldedTxVersion);
-    os << samplejoinsplit;|
+    os << samplejoinsplit;
     return HexStr(ss.begin(), ss.end());
 }
 
