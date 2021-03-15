@@ -71,6 +71,10 @@ std::string CFieldElement::GetHexRepr() const
 
 bool CFieldElement::IsValid() const
 {
+	if(this->IsNull()) {
+		return false;
+	}
+
     // THERE SHOULD BE A RUST METHOD RETURNING BOOL RATHER THAN FIELD PTR
     field_t * pField = zendoo_deserialize_field(&this->byteVector[0]);
     if (pField == nullptr)
@@ -82,6 +86,9 @@ bool CFieldElement::IsValid() const
 
 CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs)
 {
+	if(lhs.IsNull() || rhs.IsNull()) {
+		throw std::runtime_error("Could not compute poseidon hash on null field elements");
+	}
     auto digest = ZendooPoseidonHash();
 
     field_t* lhsFe = zendoo_deserialize_field(&(*lhs.byteVector.begin()));
@@ -206,11 +213,18 @@ FieldElementCertificateField& FieldElementCertificateField::operator=(const Fiel
 
 bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg) const
 {
+	return !this->GetFieldElement(cfg).IsNull();
+}
+
+const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const
+{
     if (state != VALIDATION_STATE::NOT_INITIALIZED)
     {
         assert(pReferenceCfg != nullptr);
         if (*pReferenceCfg == cfg)
-            return state == VALIDATION_STATE::VALID;
+        {
+            return fieldElement;
+        }
 
         // revalidated with new cfg
         delete this->pReferenceCfg;
@@ -218,6 +232,7 @@ bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldCon
     }
 
     state = VALIDATION_STATE::INVALID;
+    this->fieldElement = CFieldElement{};
     this->pReferenceCfg = new FieldElementCertificateFieldConfig(cfg);
 
     int rem = 0;
@@ -230,7 +245,7 @@ bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldCon
     {
         LogPrint("sc", "%s():%d - ERROR: wrong size: data[%d] != cfg[%d]\n",
             __func__, __LINE__, vRawData.size(), cfg.getBitSize());
-        return false;
+        return fieldElement;
     }
 
     if (rem)
@@ -242,7 +257,7 @@ bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldCon
         {
             LogPrint("sc", "%s():%d - ERROR: wrong number of null bits in last byte[0x%x]: %d vs %d\n",
                 __func__, __LINE__, lastByte, numbOfZeroBits, (CHAR_BIT - rem));
-            return false;
+            return fieldElement;
         }
     }
 
@@ -253,10 +268,12 @@ bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldCon
     if (fieldElement.IsValid())
     {
         state = VALIDATION_STATE::VALID;
-        return true;
+    } else
+    {
+    	fieldElement = CFieldElement{};
     }
 
-    return false;
+    return fieldElement;
 }
 
 //----------------------------------------------------------------------------------
@@ -281,11 +298,18 @@ BitVectorCertificateField& BitVectorCertificateField::operator=(const BitVectorC
 
 bool BitVectorCertificateField::IsValid(const BitVectorCertificateFieldConfig& cfg) const
 {
+	return !this->GetFieldElement(cfg).IsNull();
+}
+
+const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const
+{
     if (state != VALIDATION_STATE::NOT_INITIALIZED)
     {
         assert(pReferenceCfg != nullptr);
         if (*pReferenceCfg == cfg)
-            return state == VALIDATION_STATE::VALID;
+        {
+            return fieldElement;
+        }
 
         // revalidated with new cfg
         delete this->pReferenceCfg;
@@ -293,10 +317,11 @@ bool BitVectorCertificateField::IsValid(const BitVectorCertificateFieldConfig& c
     }
 
     state = VALIDATION_STATE::INVALID;
+    this->fieldElement = CFieldElement{};
     this->pReferenceCfg = new BitVectorCertificateFieldConfig(cfg);
 
     if(vRawData.size() > cfg.getMaxCompressedSizeBytes()) {
-        return false;
+        return fieldElement;
     }
 
     /*
@@ -321,7 +346,7 @@ bool BitVectorCertificateField::IsValid(const BitVectorCertificateFieldConfig& c
     } catch(...) {
     }
     */
-    return false;
+    return fieldElement;
 }
 
 ////////////////////////// End of Custom Field types ///////////////////////////

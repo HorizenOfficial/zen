@@ -195,20 +195,12 @@ protected:
     const std::vector<unsigned char> vRawData;
     enum class VALIDATION_STATE {NOT_INITIALIZED, INVALID, VALID};
     mutable VALIDATION_STATE state;
-    mutable CFieldElement fieldElement; // memory only, lazy-initialized
 
 public:
     CustomCertificateField(): state(VALIDATION_STATE::NOT_INITIALIZED) {};
     CustomCertificateField(const std::vector<unsigned char>& rawBytes)
         :vRawData(rawBytes), state(VALIDATION_STATE::NOT_INITIALIZED) {};
     virtual ~CustomCertificateField() = default;
-    virtual const CFieldElement& GetFieldElement() {
-        if(state != VALIDATION_STATE::VALID) {
-            throw std::exception();
-        }
-
-        return fieldElement;
-    }
 
     const std::vector<unsigned char>& getVRawData() const { return vRawData; }
 };
@@ -217,6 +209,7 @@ class FieldElementCertificateField : public CustomCertificateField<FieldElementC
 {
 private:
     mutable FieldElementCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
+    mutable CFieldElement fieldElement; // memory only, lazy-initialized
 public:
     FieldElementCertificateField(): pReferenceCfg{nullptr} {};
     FieldElementCertificateField(const std::vector<unsigned char>& rawBytes);
@@ -231,12 +224,14 @@ public:
     }
 
     bool IsValid(const FieldElementCertificateFieldConfig& cfg) const;
+    const CFieldElement& GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const;
 };
 
 class BitVectorCertificateField : public CustomCertificateField<BitVectorCertificateFieldConfig>
 {
 private:
     mutable BitVectorCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
+    mutable CFieldElement fieldElement; // memory only, lazy-initialized
 public:
     BitVectorCertificateField(): pReferenceCfg{nullptr} {};
     BitVectorCertificateField(const std::vector<unsigned char>& rawBytes);
@@ -251,6 +246,7 @@ public:
     }
 
     bool IsValid(const BitVectorCertificateFieldConfig& cfg) const;
+    const CFieldElement& GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const;
 };
 ////////////////////////// End of Custom Field types ///////////////////////////
 
