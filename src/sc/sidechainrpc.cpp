@@ -63,8 +63,24 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
         o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
-        o.push_back(Pair("vFieldElementCertificateFieldConfig", VecToStr(out.vFieldElementCertificateFieldConfig)));
-        o.push_back(Pair("vBitVectorCertificateFieldConfig", VecToStr(out.vBitVectorCertificateFieldConfig)));
+
+        UniValue arrFieldElementConfig(UniValue::VARR);
+        for(const auto& cfgEntry: out.vFieldElementCertificateFieldConfig)
+        {
+        	arrFieldElementConfig.push_back(cfgEntry.getBitSize());
+        }
+        o.push_back(Pair("vFieldElementCertificateFieldConfig", arrFieldElementConfig));
+
+        UniValue arrBitVectorConfig(UniValue::VARR);
+        for(const auto& cfgEntry: out.vBitVectorCertificateFieldConfig)
+        {
+        	UniValue singlePair(UniValue::VARR);
+        	singlePair.push_back(cfgEntry.getBitVectorSizeBits());
+        	singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
+        	arrBitVectorConfig.push_back(singlePair);
+        }
+        o.push_back(Pair("vBitVectorCertificateFieldConfig", arrBitVectorConfig));
+
         o.push_back(Pair("customData", HexStr(out.customData)));
         if(out.constant.is_initialized())
             o.push_back(Pair("constant", out.constant->GetHexRepr()));

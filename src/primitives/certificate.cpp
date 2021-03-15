@@ -288,6 +288,7 @@ CScCertificate::MakeShared() const {
 CFieldElement CScCertificate::GetDataHash() const
 {
     std::vector<unsigned char> tmp(this->GetHash().begin(), this->GetHash().end());
+    tmp.resize(CFieldElement::ByteSize(), 0x0); //not sure if prepending or appending. It's dummy anyhow
     return CFieldElement{tmp};
 }
 #endif

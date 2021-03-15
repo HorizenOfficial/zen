@@ -726,7 +726,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "         \"wCeasedVk\":hexstr        (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                       hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "         \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many FieldElementCertificateField with the corresponding size.\n"
-            "         \"vBitVectorCertificateFieldConfig\"    (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many BitVectorCertificateField with the corresponding size\n"
+            "         \"vBitVectorCertificateFieldConfig\"    (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many BitVectorCertificateField with the corresponding sizes\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"

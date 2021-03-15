@@ -168,7 +168,7 @@ public:
     const std::vector<JSDescription>&  GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                     GetScId()       const          {return scId;};
     const uint32_t&                    GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
-    CFieldElement                    GetDataHash() const;
+    CFieldElement                      GetDataHash() const;
     //END OF GETTERS
 
     bool IsBackwardTransfer(int pos) const override final;

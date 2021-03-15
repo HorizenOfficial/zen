@@ -1123,8 +1123,22 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             else
                 sc.push_back(Pair("wCeasedVk", std::string{"NOT INITIALIZED"}));
 
-            sc.push_back(Pair("vFieldElementCertificateFieldConfig", VecToStr(info.creationData.vFieldElementCertificateFieldConfig)));
-            sc.push_back(Pair("vBitVectorCertificateFieldConfig", VecToStr(info.creationData.vBitVectorCertificateFieldConfig) ));
+            UniValue arrFieldElementConfig(UniValue::VARR);
+            for(const auto& cfgEntry: info.creationData.vFieldElementCertificateFieldConfig)
+            {
+            	arrFieldElementConfig.push_back(cfgEntry.getBitSize());
+            }
+            sc.push_back(Pair("vFieldElementCertificateFieldConfig", arrFieldElementConfig));
+
+            UniValue arrBitVectorConfig(UniValue::VARR);
+            for(const auto& cfgEntry: info.creationData.vBitVectorCertificateFieldConfig)
+            {
+            	UniValue singlePair(UniValue::VARR);
+            	singlePair.push_back(cfgEntry.getBitVectorSizeBits());
+            	singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
+            	arrBitVectorConfig.push_back(singlePair);
+            }
+            sc.push_back(Pair("vBitVectorCertificateFieldConfig", arrBitVectorConfig));
         }
  
         UniValue ia(UniValue::VARR);
@@ -1200,8 +1214,22 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 else
                     sc.push_back(Pair("unconf wCeasedVk", std::string{"NOT INITIALIZED"}));
 
-                sc.push_back(Pair("unconf vFieldElementCertificateFieldConfig", VecToStr(info.creationData.vFieldElementCertificateFieldConfig)));
-                sc.push_back(Pair("unconf vBitVectorCertificateFieldConfig", VecToStr(info.creationData.vBitVectorCertificateFieldConfig)));
+                UniValue arrFieldElementConfig(UniValue::VARR);
+                for(const auto& cfgEntry: info.creationData.vFieldElementCertificateFieldConfig)
+                {
+                	arrFieldElementConfig.push_back(cfgEntry.getBitSize());
+                }
+                sc.push_back(Pair("unconf vFieldElementCertificateFieldConfig", arrFieldElementConfig));
+
+                UniValue arrBitVectorConfig(UniValue::VARR);
+                for(const auto& cfgEntry: info.creationData.vBitVectorCertificateFieldConfig)
+                {
+                	UniValue singlePair(UniValue::VARR);
+                	singlePair.push_back(cfgEntry.getBitVectorSizeBits());
+                	singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
+                	arrBitVectorConfig.push_back(singlePair);
+                }
+                sc.push_back(Pair("unconf vBitVectorCertificateFieldConfig", arrBitVectorConfig));
             }
 
             addScUnconfCcData(scId, sc);
@@ -1349,8 +1377,8 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
             "     \"wMbtrVk\":                 xxxxx,   (string)  The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
             "     \"wCeasedVk\":               xxxxx,   (string, optional)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
-            "     \"vCompressedFieldElementConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
-            "     \"vCompressedMerkleTreeConfig\"    xxxxx,   (string) A string representation of an array whose entries are mkl tree heights. Any certificate should have as many custom CompressedMerkleTree with the corresponding tree height\n"
+            "     \"vFieldElementCertificateFieldConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            "     \"vBitVectorCertificateFieldConfig\"    xxxxx,   (string) A string representation of an array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom CompressedMerkleTree with the corresponding sizes\n"
             "     \"immature amounts\": [\n"
             "       {\n"
             "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"

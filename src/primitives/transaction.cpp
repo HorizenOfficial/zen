@@ -310,14 +310,17 @@ std::string CTxScCreationOut::ToString() const
 {
     return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, "
                                        "nValue=%d.%08d, address=%s, customData=[%s], "
-                                       "constant=[%s], wCertVk=[%s], wCeasedVk=[%s]",
-                                       "vFieldElementCertificateFieldConfig=[%s]",
+                                       "constant=[%s], wCertVk=[%s], wMbtrVk=[%s], "
+                                       "wCeasedVk=[%s], "
+                                       "vFieldElementCertificateFieldConfig=[%s], "
                                        "vBitVectorCertificateFieldConfig[%s]",
-        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN,
-        HexStr(address).substr(0, 30), HexStr(customData),
+        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN,
+        nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
         constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
-        HexStr(wCertVk), wMbtrVk ? HexStr(wMbtrVk.get()) : "", wCeasedVk ? HexStr(wCeasedVk.get()) : "",
-        VecToStr(vFieldElementCertificateFieldConfig), VecToStr(vBitVectorCertificateFieldConfig) );
+        HexStr(wCertVk), wMbtrVk ? HexStr(wMbtrVk.get()) : "",
+        wCeasedVk ? HexStr(wCeasedVk.get()) : "",
+        VecToStr(vFieldElementCertificateFieldConfig),
+        VecToStr(vBitVectorCertificateFieldConfig) );
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const

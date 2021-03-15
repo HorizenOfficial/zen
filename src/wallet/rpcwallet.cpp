@@ -802,8 +802,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "                                     hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             " 8. \"wCeasedVk\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                 hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            " 9. \"vCompressedFieldElementConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
-            "10. \"vCompressedMerkleTreeConfig\" (array, optional) An array whose entries are mkl tree heights. Any certificate should have as many custom CompressedMerkleTree with the corresponding tree height\n"
+            " 9. \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElementCertificateField with the corresponding size.\n"
+            "10. \"vBitVectorCertificateFieldConfig\" (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -943,13 +943,11 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             for(auto& pairEntry: PairsArray.getValues())
             {
                 if (pairEntry.size() != 2) {
-                    error = "invalid vBitVectorCertificateFieldConfig";
-                    return false;
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig");
                 }
                 if (!pairEntry[0].isNum() || !pairEntry[1].isNum())
                 {
-                    error = "invalid vBitVectorCertificateFieldConfig";
-                    return false;
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig, expected integers");
                 }
 
                 sc.creationData.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});
@@ -1004,8 +1002,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "                                          hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "   \"wCeasedVk\":data                (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
-            "   \"vCompressedFieldElementConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
-            "   \"vCompressedMerkleTreeConfig\"   (array, optional) An array whose entries are mkl tree heights. Any certificate should have as many custom CompressedMerkleTree with the corresponding tree height\n"
+            "   \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            "   \"vBitVectorCertificateFieldConfig\"   (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
             "}\n"
             "\nResult:\n"
             "{\n"
@@ -1021,7 +1019,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
         {"withdrawalEpochLength", "fromaddress", "changeaddress", "toaddress", "amount", "minconf", "fee",
-         "wCertVk", "customData", "constant", "wMbtrVk","wCeasedVk", "vCompressedFieldElementConfig", "vCompressedMerkleTreeConfig"};
+         "wCertVk", "customData", "constant", "wMbtrVk","wCeasedVk", "vFieldElementCertificateFieldConfig", "vBitVectorCertificateFieldConfig"};
 
     UniValue inputObject = params[0].get_obj();
 
@@ -1247,13 +1245,11 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             for(auto& pairEntry: PairsArray.getValues())
             {
                 if (pairEntry.size() != 2) {
-                    error = "invalid vBitVectorCertificateFieldConfig";
-                    return false;
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig");
                 }
                 if (!pairEntry[0].isNum() || !pairEntry[1].isNum())
                 {
-                    error = "invalid vBitVectorCertificateFieldConfig";
-                    return false;
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig, expected integers");
                 }
 
                 creationData.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});

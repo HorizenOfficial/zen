@@ -70,10 +70,10 @@ class sc_cert_customfields(BitcoinTestFramework):
         #-------------------------------------------------------
         bad_obj = {"a":1, "b":2}
         cmdInput = {
-            'withdrawalEpochLength': EPOCH_LENGTH, 'vCompressedFieldElementConfig': bad_obj,
+            'withdrawalEpochLength': EPOCH_LENGTH, 'vFieldElementCertificateFieldConfig': bad_obj,
             'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
 
-        mark_logs("\nNode 1 create SC with wrong vCompressedFieldElementConfig obj in input (expecting failure...)", self.nodes, DEBUG_MODE)
+        mark_logs("\nNode 1 create SC with wrong vFieldElementCertificateFieldConfig obj in input (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
             self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
@@ -84,42 +84,42 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         bad_array = ["hello", "world"]
-        cmdInput = {'vCompressedMerkleTreeConfig': bad_array, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
+        cmdInput = {'vBitVectorCertificateFieldConfig': bad_array, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
 
-        mark_logs("\nNode 1 create SC with wrong vCompressedMerkleTreeConfig array in input (expecting failure...)", self.nodes, DEBUG_MODE)
+        mark_logs("\nNode 1 create SC with wrong vBitVectorCertificateFieldConfig array in input (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
             self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("expected int" in errorString)
+            assert_true("Invalid vBitVectorCertificateFieldConfig" in errorString)
 
         #-------------------------------------------------------
-        too_large_array_values = [30, 31] # 30 at most
-        cmdInput = {'vCompressedMerkleTreeConfig': too_large_array_values, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
+        too_large_array_values = [[1000193, 31]] # [1000192, 1000192/8] at most
+        cmdInput = {'vBitVectorCertificateFieldConfig': too_large_array_values, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
 
-        mark_logs("\nNode 1 create SC with a vCompressedMerkleTreeConfig array with too large integers (expecting failure...)", self.nodes, DEBUG_MODE)
+        mark_logs("\nNode 1 create SC with a vBitVectorCertificateFieldConfig array with too large integers (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
             self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("must be in the range" in errorString)
+            assert_true("invalid-custom-config" in errorString)
 
         #-------------------------------------------------------
         zero_values_array = [0, 0] 
-        cmdInput = {'vCompressedFieldElementConfig': zero_values_array, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
+        cmdInput = {'vFieldElementCertificateFieldConfig': zero_values_array, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
 
-        mark_logs("\nNode 1 create SC with a vCompressedFieldElementConfig array with zeroes (expecting failure...)", self.nodes, DEBUG_MODE)
+        mark_logs("\nNode 1 create SC with a vFieldElementCertificateFieldConfig array with zeroes (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
             self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("must be strictly positive" in errorString)
+            assert_true("invalid-custom-config" in errorString)
 
         #-------------------------------------------------------
         fee = 0.000025
@@ -130,14 +130,14 @@ class sc_cert_customfields(BitcoinTestFramework):
         feCfg.append([31, 48, 16])
 
         # all certs must have custom CompressedMerkleTrees with size = 2^those value at most in bytes (i.e 2^8 = 256, 2^3 = 2048)
-        cmtCfg.append([8, 3])
+        cmtCfg.append([[8, 3], [11, 122]])
 
         cmdInput = {
             'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': fee,
             'constant':constant1 , 'wCertVk': vk, 'toaddress':"cdcd",
-            'vCompressedFieldElementConfig':feCfg[0], 'vCompressedMerkleTreeConfig':cmtCfg[0] }
+            'vFieldElementCertificateFieldConfig':feCfg[0], 'vBitVectorCertificateFieldConfig':cmtCfg[0] }
 
-        mark_logs("\nNode 1 create SC1 with valid vCompressedFieldElementConfig / vCompressedMerkleTreeConfig pair", self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 1 create SC1 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
             res = self.nodes[1].create_sidechain(cmdInput)
             tx =   res['txid']
@@ -149,15 +149,15 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         self.sync_all()
 
-        mark_logs("Verify vCompressedFieldElementConfig / vCompressedMerkleTreeConfig are correctly set in creation tx", self.nodes,DEBUG_MODE)
+        mark_logs("Verify vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig are correctly set in creation tx", self.nodes,DEBUG_MODE)
         decoded_tx = self.nodes[1].getrawtransaction(tx, 1)
         dec_sc_id = decoded_tx['vsc_ccout'][0]['scid']
         assert_equal(scid1, dec_sc_id)
 
-        feCfgStr  = decoded_tx['vsc_ccout'][0]['vCompressedFieldElementConfig']
-        cmtCfgStr = decoded_tx['vsc_ccout'][0]['vCompressedMerkleTreeConfig']
-        assert_equal([int(x) for x in feCfgStr.split()], feCfg[0])
-        assert_equal([int(x) for x in cmtCfgStr.split()], cmtCfg[0])
+        feCfgStr  = decoded_tx['vsc_ccout'][0]['vFieldElementCertificateFieldConfig']
+        cmtCfgStr = decoded_tx['vsc_ccout'][0]['vBitVectorCertificateFieldConfig']
+        assert_equal(feCfgStr, feCfg[0])
+        assert_equal(cmtCfgStr, cmtCfg[0])
 
         # test two more SC creations with different versions of the cmd
         #-------------------------------------------------------
@@ -169,7 +169,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         feCfg.append([16])
         cmtCfg.append([])
 
-        mark_logs("\nNode 1 create SC2 with valid vCompressedFieldElementConfig / vCompressedMerkleTreeConfig pair", self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 1 create SC2 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
             ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", amount, vk, customData, constant2, mbtrVk, cswVk, feCfg[1], cmtCfg[1])
         except JSONRPCException, e:
@@ -178,7 +178,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             assert_true(False);
         self.sync_all()
  
-        mark_logs("Verify vCompressedFieldElementConfig / vCompressedMerkleTreeConfig are correctly set in creation tx", self.nodes,DEBUG_MODE)
+        mark_logs("Verify vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig are correctly set in creation tx", self.nodes,DEBUG_MODE)
         creating_tx = ret['txid']
         scid2 = ret['scid']
 
@@ -186,23 +186,23 @@ class sc_cert_customfields(BitcoinTestFramework):
         dec_sc_id = decoded_tx['vsc_ccout'][0]['scid']
         assert_equal(scid2, dec_sc_id)
 
-        feCfgStr  = decoded_tx['vsc_ccout'][0]['vCompressedFieldElementConfig']
-        cmtCfgStr = decoded_tx['vsc_ccout'][0]['vCompressedMerkleTreeConfig']
-        assert_equal([int(x) for x in feCfgStr.split()], feCfg[1])
-        assert_equal([int(x) for x in cmtCfgStr.split()], cmtCfg[1])
+        feCfgStr  = decoded_tx['vsc_ccout'][0]['vFieldElementCertificateFieldConfig']
+        cmtCfgStr = decoded_tx['vsc_ccout'][0]['vBitVectorCertificateFieldConfig']
+        assert_equal(feCfgStr, feCfg[1])
+        assert_equal(cmtCfgStr, cmtCfg[1])
 
         #-------------------------------------------------------
         vk = mcTest.generate_params("sc3")
         constant3 = generate_random_field_element_hex()
         customData = "c0ffee"
         feCfg.append([])
-        cmtCfg.append([3])
+        cmtCfg.append([[1987, 1967]])
 
         sc_cr = [{
             "epoch_length": EPOCH_LENGTH, "amount":amount, "address":"ddaa", "wCertVk": vk, "constant": constant3,
-            "vCompressedFieldElementConfig":feCfg[2], "vCompressedMerkleTreeConfig":cmtCfg[2] }]
+            "vFieldElementCertificateFieldConfig":feCfg[2], "vBitVectorCertificateFieldConfig":cmtCfg[2] }]
 
-        mark_logs("\nNode 0 create SC3 with valid vCompressedFieldElementConfig / vCompressedMerkleTreeConfig pair", self.nodes,DEBUG_MODE)
+        mark_logs("\nNode 0 create SC3 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
             rawtx=self.nodes[0].createrawtransaction([],{},[],sc_cr)
             funded_tx = self.nodes[0].fundrawtransaction(rawtx)
@@ -214,14 +214,14 @@ class sc_cert_customfields(BitcoinTestFramework):
             assert_true(False);
         self.sync_all()
  
-        mark_logs("Verify vCompressedFieldElementConfig / vCompressedMerkleTreeConfig are correctly set in creation tx", self.nodes,DEBUG_MODE)
+        mark_logs("Verify vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig are correctly set in creation tx", self.nodes,DEBUG_MODE)
         decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
         scid3 = decoded_tx['vsc_ccout'][0]['scid']
 
-        feCfgStr  = decoded_tx['vsc_ccout'][0]['vCompressedFieldElementConfig']
-        cmtCfgStr = decoded_tx['vsc_ccout'][0]['vCompressedMerkleTreeConfig']
-        assert_equal([int(x) for x in feCfgStr.split()], feCfg[2])
-        assert_equal([int(x) for x in cmtCfgStr.split()], cmtCfg[2])
+        feCfgStr  = decoded_tx['vsc_ccout'][0]['vFieldElementCertificateFieldConfig']
+        cmtCfgStr = decoded_tx['vsc_ccout'][0]['vBitVectorCertificateFieldConfig']
+        assert_equal(feCfgStr, feCfg[2])
+        assert_equal(cmtCfgStr, cmtCfg[2])
 
         #-------------------------------------------------------
         mark_logs("\nNode 0 generates 1 block confirming SC creations", self.nodes, DEBUG_MODE)
@@ -230,12 +230,12 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.sync_all()
 
         scids = [scid1, scid2, scid3]
-        mark_logs("Verify vCompressedFieldElementConfig / vCompressedMerkleTreeConfig are correctly set in scinfo for all SCs", self.nodes,DEBUG_MODE)
+        mark_logs("Verify vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig are correctly set in scinfo for all SCs", self.nodes,DEBUG_MODE)
         for i, val in enumerate(scids):
-            feCfgStr  = self.nodes[0].getscinfo(val)['items'][0]['vCompressedFieldElementConfig']
-            cmtCfgStr = self.nodes[0].getscinfo(val)['items'][0]['vCompressedMerkleTreeConfig']
-            assert_equal([int(x) for x in feCfgStr.split()], feCfg[i])
-            assert_equal([int(x) for x in cmtCfgStr.split()], cmtCfg[i])
+            feCfgStr  = self.nodes[0].getscinfo(val)['items'][0]['vFieldElementCertificateFieldConfig']
+            cmtCfgStr = self.nodes[0].getscinfo(val)['items'][0]['vBitVectorCertificateFieldConfig']
+            assert_equal(feCfgStr, feCfg[i])
+            assert_equal(cmtCfgStr, cmtCfg[i])
 
         #-------------------------------------------------------
         # advance epoch

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <sc/sidechaintypes.h>
 #include <primitives/transaction.h>
 #include <primitives/certificate.h>
 #include <sc/sidechainTxsCommitmentBuilder.h>
@@ -12,6 +13,7 @@
 
 #include <streams.h>
 #include <clientversion.h>
+
 TEST(SidechainsField, FieldSizeIsAlwaysTheExpectedOne)
 {
     CFieldElement emptyField;
@@ -20,13 +22,9 @@ TEST(SidechainsField, FieldSizeIsAlwaysTheExpectedOne)
 
 TEST(SidechainsField, Serialization)
 {
-    std::vector<unsigned char> zeroLengthByteArray {};
     CDataStream zeroLengthStream(SER_DISK, CLIENT_VERSION);
-
-    zeroLengthStream << zeroLengthByteArray;
     CFieldElement zeroLengthRetrievedField;
-    EXPECT_THROW(zeroLengthStream >> zeroLengthRetrievedField,std::ios_base::failure)
-    <<"THIS MUST BE GREEN AS SOON AS 253 BITS FIELD IS INTRODUCED";
+    EXPECT_THROW(zeroLengthStream >> zeroLengthRetrievedField,std::ios_base::failure);
 
     ///////////////////
     std::vector<unsigned char> tooShortByteArray(19,'a');
@@ -35,8 +33,7 @@ TEST(SidechainsField, Serialization)
 
     tooShortStream << tooShortByteArray;
     CFieldElement tooShortRetrievedField;
-    EXPECT_THROW(tooShortStream >> tooShortRetrievedField,std::ios_base::failure)
-    <<"THIS MUST BE GREEN AS SOON AS 253 BITS FIELD IS INTRODUCED";
+    EXPECT_THROW(tooShortStream >> tooShortRetrievedField,std::ios_base::failure);
 
     ////////////////////
     std::vector<unsigned char> tooBigByteArray(CFieldElement::ByteSize()*2,0x0);
@@ -45,7 +42,7 @@ TEST(SidechainsField, Serialization)
 
     tooBigStream << tooBigByteArray;
     CFieldElement tooBigRetrievedField;
-    EXPECT_THROW(tooBigStream >> tooBigRetrievedField,std::ios_base::failure);
+    EXPECT_NO_THROW(tooBigStream >> tooBigRetrievedField);
 
     ////////////////////
     std::vector<unsigned char> nonZeroTerminatedByteArray(CFieldElement::ByteSize(),0xff);
@@ -65,9 +62,10 @@ TEST(SidechainsField, Serialization)
         88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 2, 0
     };
     ASSERT_TRUE(overModuleByteArray.size() == CFieldElement::ByteSize());
-    CDataStream overModuleStream(SER_DISK, CLIENT_VERSION);
 
-    overModuleStream << overModuleByteArray;
+    CDataStream overModuleStream(SER_DISK, CLIENT_VERSION);
+    overModuleStream.write((char*)&overModuleByteArray[0], overModuleByteArray.size() * sizeof(unsigned char));
+
     CFieldElement overModuleRetrievedField;
     EXPECT_NO_THROW(overModuleStream >> overModuleRetrievedField);
     EXPECT_FALSE(overModuleRetrievedField.IsValid());
@@ -79,28 +77,26 @@ TEST(SidechainsField, Serialization)
         144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
         88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 1, 0
     };
-    ASSERT_TRUE(validByteArray.size() == CFieldElement::ByteSize());
+    CFieldElement fieldElement{validByteArray};
     CDataStream validStream(SER_DISK, CLIENT_VERSION);
 
-    validStream << validByteArray;
+    validStream << fieldElement;
     CFieldElement validRetrievedField;
     EXPECT_NO_THROW(validStream >> validRetrievedField);
     EXPECT_TRUE(validRetrievedField.IsValid());
+    EXPECT_TRUE(validRetrievedField == fieldElement);
 }
 
 TEST(SidechainsField, IsValid)
 {
     std::vector<unsigned char> zeroLengthByteArray{};
-    EXPECT_THROW(CFieldElement{zeroLengthByteArray}, std::invalid_argument)
-    <<"THIS MUST BE GREEN AS SOON AS 253 BITS FIELD IS INTRODUCED";
+    EXPECT_DEATH(CFieldElement{zeroLengthByteArray}, "");
 
     std::vector<unsigned char> shortByteArray(19,'a');
-    EXPECT_THROW(CFieldElement{shortByteArray}, std::invalid_argument)
-    <<"THIS MUST BE GREEN AS SOON AS 253 BITS FIELD IS INTRODUCED";
+    EXPECT_DEATH(CFieldElement{shortByteArray}, "");
 
     std::vector<unsigned char> tooBigByteArray(CFieldElement::ByteSize()*2,0x0);
-    EXPECT_THROW(CFieldElement{tooBigByteArray}, std::invalid_argument)
-    <<"THIS MUST BE GREEN AS SOON AS 253 BITS FIELD IS INTRODUCED";
+    EXPECT_DEATH(CFieldElement{tooBigByteArray}, "");
 
     std::vector<unsigned char> nonZeroTerminatedByteArray(CFieldElement::ByteSize(),0xff);
     CFieldElement nonZeroTerminatedField {nonZeroTerminatedByteArray};
@@ -138,35 +134,47 @@ TEST(SidechainsField, CopyAndAssignement)
     ASSERT_TRUE(validByteArray.size() == CFieldElement::ByteSize());
     {
         CFieldElement AValidField {validByteArray};
-        const field_t* const AValidPtr = AValidField.GetFieldElement();
+        ASSERT_TRUE(AValidField.IsValid());
+        field_t* AValidPtr = AValidField.GetFieldElement();
         ASSERT_TRUE(AValidPtr != nullptr);
 
-        ASSERT_TRUE(AValidField.IsValid());
-
         { //Scoped to invoke copied obj dtor
-            CFieldElement copiedField{AValidField};
-            const field_t* const copiedPtr = copiedField.GetFieldElement();
-
+            CFieldElement copiedField(AValidField);
             EXPECT_TRUE(copiedField.IsValid());
             EXPECT_TRUE(copiedField == AValidField);
+
+            field_t* copiedPtr = copiedField.GetFieldElement();
             ASSERT_TRUE(copiedPtr != nullptr);
             ASSERT_TRUE(copiedPtr != AValidPtr);
+
+            zendoo_field_free(copiedPtr); // cleanup
+            copiedPtr = nullptr;
         }
         EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
+        field_t* ptr = AValidField.GetFieldElement();
+        ASSERT_TRUE(ptr != nullptr);
+        ASSERT_TRUE(ptr != AValidPtr);
 
         { //Scoped to invoke assigned obj dtor
             CFieldElement assignedField{};
-            const field_t* const assignedPtr = assignedField.GetFieldElement();
-
             assignedField = AValidField;
             EXPECT_TRUE(assignedField.IsValid());
             EXPECT_TRUE(assignedField == AValidField);
+
+            field_t* assignedPtr = assignedField.GetFieldElement();
             ASSERT_TRUE(assignedPtr != nullptr);
             ASSERT_TRUE(assignedPtr != AValidPtr);
+
+            zendoo_field_free(assignedPtr); // cleanup
+            assignedPtr = nullptr;
         }
         EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
-        const field_t* const ptr = AValidField.GetFieldElement();
-        ASSERT_TRUE(ptr == AValidPtr);
+        ptr = AValidField.GetFieldElement();
+        ASSERT_TRUE(ptr != nullptr);
+        ASSERT_TRUE(ptr != AValidPtr);
+
+        zendoo_field_free(ptr); // cleanup
+        ptr = nullptr;
     }
 }
 

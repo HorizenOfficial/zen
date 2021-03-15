@@ -9,14 +9,14 @@
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
 
+#include <zendoo/zendoo_mc.h>
+#include <zendoo/error.h>
+
 #include "uint256.h"
 #include "hash.h"
 #include "script/script.h"
 #include "amount.h"
 #include "serialize.h"
-
-#include <zendoo/error.h>
-#include <zendoo/zendoo_mc.h>
 ///////////////////////////////// Field types //////////////////////////////////
 class CFieldElement
 {
@@ -39,7 +39,7 @@ public:
     const std::array<unsigned char, SC_FIELD_SIZE>&  GetByteArray() const; //apparently cannot call ByteSize() HERE
     uint256 GetLegacyHashTO_BE_REMOVED() const;
 
-    const field_t* const GetFieldElement() const;
+    field_t* GetFieldElement() const; //TODO: use smart ptr with adequate deleter [zendoo_field_free]
 
     bool IsValid() const;
     // equality is not tested on deserializedField attribute since it is a ptr to memory specific per instance
@@ -181,7 +181,7 @@ public:
     }
 
     friend std::ostream& operator<<(std::ostream& os, const BitVectorCertificateFieldConfig& r) {
-        os << r.maxCompressedSizeBytes<<" "<<r.maxCompressedSizeBytes;
+        os << "["<<r.bitVectorSizeBits<<","<<r.maxCompressedSizeBytes<<"],";
         return os;
     }
 };

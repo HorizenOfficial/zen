@@ -190,7 +190,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             if (!config.IsValid())
                 return state.DoS(100,
                         error("%s():%d - ERROR: Invalid tx[%s], invalid config parameters for vFieldElementCertificateFieldConfig\n",
-                        __func__, __LINE__), REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
+                        __func__, __LINE__, txHash.ToString()), REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
         }
 
         for(const auto& config: sc.vBitVectorCertificateFieldConfig)
@@ -198,7 +198,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             if (!config.IsValid())
                 return state.DoS(100,
                         error("%s():%d - ERROR: Invalid tx[%s], invalid config parameters for vBitVectorCertificateFieldConfig\n",
-                        __func__, __LINE__), REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
+                        __func__, __LINE__, txHash.ToString()), REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
         }
 
         if (!libzendoomc::IsValidScVk(sc.wCertVk))
