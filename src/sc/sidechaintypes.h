@@ -36,16 +36,16 @@ public:
 
     static constexpr unsigned int ByteSize() { return SC_FIELD_SIZE; }
     static constexpr unsigned int BitSize() { return ByteSize()*8; }
-    const std::array<unsigned char, SC_FIELD_SIZE>&  GetByteArray() const; //apparently cannot call ByteSize() HERE
+    const std::vector<unsigned char>&  GetByteArray() const;
     uint256 GetLegacyHashTO_BE_REMOVED() const;
 
     field_t* GetFieldElement() const; //TODO: use smart ptr with adequate deleter [zendoo_field_free]
 
     bool IsValid() const;
     // equality is not tested on deserializedField attribute since it is a ptr to memory specific per instance
-    friend inline bool operator==(const CFieldElement& lhs, const CFieldElement& rhs) { return lhs.byteArray == rhs.byteArray; }
+    friend inline bool operator==(const CFieldElement& lhs, const CFieldElement& rhs) { return lhs.byteVector == rhs.byteVector; }
     friend inline bool operator!=(const CFieldElement& lhs, const CFieldElement& rhs) { return !(lhs == rhs); }
-    friend inline bool operator<(const CFieldElement& lhs, const CFieldElement& rhs)  { return lhs.byteArray < rhs.byteArray; } // FOR STD::MAP ONLY
+    friend inline bool operator<(const CFieldElement& lhs, const CFieldElement& rhs)  { return lhs.byteVector < rhs.byteVector; } // FOR STD::MAP ONLY
 
     // SERIALIZATION SECTION
     size_t GetSerializeSize(int nType, int nVersion) const //ADAPTED FROM SERIALIZED.H
@@ -56,20 +56,20 @@ public:
     template<typename Stream>
     void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
     {
-        os.write((char*)&byteArray[0], CFieldElement::ByteSize());
+        os.write((char*)&byteVector[0], CFieldElement::ByteSize());
     }
 
     template<typename Stream> //ADAPTED FROM SERIALIZED.H
     void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
     {
-        is.read((char*)&byteArray[0], CFieldElement::ByteSize());
+        is.read((char*)&byteVector[0], CFieldElement::ByteSize());
     }
 
     std::string GetHexRepr() const;
     static CFieldElement ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs);
 
 private:
-    std::array<unsigned char, SC_FIELD_SIZE> byteArray; //apparently cannot call ByteSize() HERE
+    std::vector<unsigned char> byteVector;
 };
 
 typedef CFieldElement ScConstant;

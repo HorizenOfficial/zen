@@ -11,11 +11,11 @@
     bool CFieldElement::IsValid() const {return false;};
     std::string CFieldElement::GetHexRepr() const {return std::string{};};
     CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs) { return CFieldElement{}; }
-    const std::array<unsigned char, SC_FIELD_SIZE>&  CFieldElement::GetByteArray() const { static std::array<unsigned char, SC_FIELD_SIZE> dummy{0x0}; return dummy;}
+    const std::vector<unsigned char>&  CFieldElement::GetByteArray() const { static std::vector<unsigned char> dummy{}; return dummy;}
 #else
-CFieldElement::CFieldElement(): byteArray() { SetNull(); }
+CFieldElement::CFieldElement(): byteVector() { SetNull(); }
 
-CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) : byteArray()
+CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) : byteVector()
 {
     this->SetByteArray(byteArrayIn);
 }
@@ -23,34 +23,34 @@ CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) : by
 void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
 {
     assert(byteArrayIn.size() == CFieldElement::ByteSize());
-    std::copy(byteArrayIn.begin(), byteArrayIn.end(), this->byteArray.begin());
+    this->byteVector = byteArrayIn;
 }
 
 CFieldElement::CFieldElement(const uint256& value)
 {
-    std::copy(value.begin(), value.end(), this->byteArray.begin());
+    std::copy(value.begin(), value.end(), this->byteVector.begin());
 }
 
 void CFieldElement::SetNull()
 {
-    byteArray.fill(0x0);
+    byteVector.resize(0);
 }
 
-bool CFieldElement::IsNull() const { return (byteArray == std::array<unsigned char, CFieldElement::ByteSize()>{0x0});}
+bool CFieldElement::IsNull() const { return byteVector.empty();}
 
-const std::array<unsigned char, CFieldElement::ByteSize()>&  CFieldElement::GetByteArray() const
+const std::vector<unsigned char>&  CFieldElement::GetByteArray() const
 {
-    return byteArray;
+    return byteVector;
 }
 
 field_t* CFieldElement::GetFieldElement() const
 {
-    return zendoo_deserialize_field(&this->byteArray[0]);
+    return zendoo_deserialize_field(&this->byteVector[0]);
 }
 
 uint256 CFieldElement::GetLegacyHashTO_BE_REMOVED() const
 {
-    std::vector<unsigned char> tmp(this->byteArray.begin(), this->byteArray.begin()+32);
+    std::vector<unsigned char> tmp(this->byteVector.begin(), this->byteVector.begin()+32);
     return uint256(tmp);
 }
 
@@ -59,8 +59,8 @@ std::string CFieldElement::GetHexRepr() const
     std::string res; //ADAPTED FROM UTILSTRENCONDING.CPP HEXSTR
     static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
                                      '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-    res.reserve(this->byteArray.size()*2);
-    for(const auto& byte: this->byteArray)
+    res.reserve(this->byteVector.size()*2);
+    for(const auto& byte: this->byteVector)
     {
         res.push_back(hexmap[byte>>4]);
         res.push_back(hexmap[byte&15]);
@@ -72,7 +72,7 @@ std::string CFieldElement::GetHexRepr() const
 bool CFieldElement::IsValid() const
 {
     // THERE SHOULD BE A RUST METHOD RETURNING BOOL RATHER THAN FIELD PTR
-    field_t * pField = zendoo_deserialize_field(&this->byteArray[0]);
+    field_t * pField = zendoo_deserialize_field(&this->byteVector[0]);
     if (pField == nullptr)
         return false;
 
@@ -84,7 +84,7 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
 {
     auto digest = ZendooPoseidonHash();
 
-    field_t* lhsFe = zendoo_deserialize_field(&(*lhs.byteArray.begin()));
+    field_t* lhsFe = zendoo_deserialize_field(&(*lhs.byteVector.begin()));
     if (lhsFe == nullptr) {
         LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
         zendoo_clear_error();
@@ -93,7 +93,7 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
     digest.update(lhsFe);
     digest.finalize(); // Call to finalize keeps the state
 
-    field_t* rhsFe = zendoo_deserialize_field(&(*rhs.byteArray.begin()));
+    field_t* rhsFe = zendoo_deserialize_field(&(*rhs.byteVector.begin()));
     if (rhsFe == nullptr) {
         LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
         zendoo_clear_error();
@@ -104,7 +104,7 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
 
     field_t* outFe = digest.finalize();
     CFieldElement res;
-    zendoo_serialize_field(outFe, &*(res.byteArray.begin()));
+    zendoo_serialize_field(outFe, &*(res.byteVector.begin()));
 
     zendoo_field_free(lhsFe);
     zendoo_field_free(rhsFe);
