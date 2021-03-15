@@ -425,3 +425,106 @@ TEST(ZendooLib, TestProofNoBwt){
     zendoo_sc_vk_free(vk);
     zendoo_field_free(constant);
 }
+
+TEST(SidechainsField, BitVectorUncompressed)
+{
+    const unsigned char buffer[3] = {0x07, 0x0e, 0x00};
+    CompressionAlgorithm e = CompressionAlgorithm::Uncompressed;
+
+    bv_buffer* ct = zendoo_compress_bit_vector(buffer, sizeof(buffer), e);
+
+    unsigned char* ptr = (unsigned char*)ct;
+
+    for (int i = 0; i < sizeof(buffer); i++)
+    {
+        ASSERT_TRUE(ptr[i+1] == buffer[i]);
+    }
+
+    zendoo_bit_vector_buffer_free(ct);
+}
+
+TEST(SidechainsField, BitVectorGzip)
+{
+    const unsigned char buffer[5] = {0xad, 0xde, 0xef, 0xbe, 0x00};
+    CompressionAlgorithm e = CompressionAlgorithm::Gzip;
+
+    printf("Compressing using gzip...\n");
+    bv_buffer* buf_1 = zendoo_compress_bit_vector(buffer, sizeof(buffer), e);
+
+    // make a copy
+    unsigned char ptr2[BV_SIZE_IN_BYTES] = {};
+    memcpy(ptr2, buf_1, BV_SIZE_IN_BYTES);
+    ptr2[0] = (unsigned char)CompressionAlgorithm::Bzip2;
+
+    printf("\nDecompressing with an invalid compression algo enum...\n");
+    bv_buffer* ct = zendoo_decompress_bit_vector(ptr2, sizeof(buffer));
+    ASSERT_TRUE(ct == nullptr);
+
+    unsigned char ptr3[0] = {};
+    printf("\nDecompressing an empty buffer...\n");
+    ct = zendoo_decompress_bit_vector(ptr3, 0);
+    ASSERT_TRUE(ct == nullptr);
+
+    unsigned char* ptr4 = nullptr;
+    printf("\nDecompressing a null ptr buffer...\n");
+    ct = zendoo_decompress_bit_vector(ptr4, 0);
+    ASSERT_TRUE(ct == nullptr);
+
+    printf("\nDecompressing expecting a wrong size...\n");
+    ct = zendoo_decompress_bit_vector((unsigned char*)buf_1, sizeof(buffer)-1);
+    ASSERT_TRUE(ct == nullptr);
+
+    printf("\nDecompressing good data...\n");
+    bv_buffer* buf_2 = zendoo_decompress_bit_vector((unsigned char*)buf_1, sizeof(buffer));
+    ASSERT_TRUE(buf_2 != nullptr);
+
+    unsigned char* ptr = (unsigned char*)buf_2;
+
+    for (int i = 0; i < sizeof(buffer); i++)
+    {
+        ASSERT_TRUE(ptr[i] == buffer[i]);
+    }
+
+    printf("\nfreeing buffers...\n");
+    zendoo_bit_vector_buffer_free(buf_1);
+    zendoo_bit_vector_buffer_free(buf_2);
+}
+
+TEST(SidechainsField, BitVectorBzip2)
+{
+    const unsigned char buffer[5] = {0xad, 0xde, 0xef, 0xbe, 0x00};
+    CompressionAlgorithm e = CompressionAlgorithm::Bzip2;
+
+    printf("Compressing using bzip2...\n");
+    bv_buffer* buf_1 = zendoo_compress_bit_vector(buffer, sizeof(buffer), e);
+
+    // make a copy
+    unsigned char ptr2[BV_SIZE_IN_BYTES] = {};
+    memcpy(ptr2, buf_1, BV_SIZE_IN_BYTES);
+    ptr2[0] = (unsigned char)CompressionAlgorithm::Gzip;
+
+    printf("\nDecompressing with an invalid compression algo enum...\n");
+    bv_buffer* ct = zendoo_decompress_bit_vector(ptr2, sizeof(buffer));
+    ASSERT_TRUE(ct == nullptr);
+
+    printf("\nDecompressing expecting a wrong size...\n");
+    ct = zendoo_decompress_bit_vector((unsigned char*)buf_1, sizeof(buffer)-1);
+    ASSERT_TRUE(ct == nullptr);
+
+    printf("\nDecompressing good data...\n");
+    bv_buffer* buf_2 = zendoo_decompress_bit_vector((unsigned char*)buf_1, sizeof(buffer));
+    ASSERT_TRUE(buf_2 != nullptr);
+
+    unsigned char* ptr = (unsigned char*)buf_2;
+
+    for (int i = 0; i < sizeof(buffer); i++)
+    {
+        ASSERT_TRUE(ptr[i] == buffer[i]);
+    }
+
+    printf("\nfreeing buffers...\n");
+    zendoo_bit_vector_buffer_free(buf_1);
+    zendoo_bit_vector_buffer_free(buf_2);
+}
+
+

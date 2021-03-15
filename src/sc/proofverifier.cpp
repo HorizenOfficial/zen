@@ -9,24 +9,34 @@
 
 #include <fstream>
 
+#define MC_CRYPTO_LIB_MOCKED 1
+
 namespace libzendoomc{
 
     bool IsValidScProof(const ScProof& scProof)
     {
+#if MC_CRYPTO_LIB_MOCKED
+        return true;
+#else
         auto scProofDeserialized = zendoo_deserialize_sc_proof(scProof.begin());
         if (scProofDeserialized == nullptr)
             return false;
         zendoo_sc_proof_free(scProofDeserialized);
         return true;
+#endif
     }
 
     bool IsValidScVk(const ScVk& scVk)
     {
+#if MC_CRYPTO_LIB_MOCKED
+        return true;
+#else
         auto scVkDeserialized = zendoo_deserialize_sc_vk(scVk.begin());
         if (scVkDeserialized == nullptr)
             return false;
         zendoo_sc_vk_free(scVkDeserialized);
         return true;
+#endif
     }
 
     std::string ToString(Error err){
@@ -80,7 +90,7 @@ namespace libzendoomc{
         }
     };
 
-#ifdef BITCOIN_TX
+#if defined(BITCOIN_TX) || defined(MC_CRYPTO_LIB_MOCKED) 
     bool CScWCertProofVerification::verifyScCert(
         const ScConstant& constant,
         const ScVk& wCertVk,
