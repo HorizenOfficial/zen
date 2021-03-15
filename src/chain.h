@@ -182,7 +182,7 @@ public:
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
-    CFieldElement  hashScTxsCommitment;
+    uint256  hashScTxsCommitment;
     unsigned int nTime;
     unsigned int nBits;
     uint256 nNonce;
@@ -231,7 +231,7 @@ public:
 
         nVersion       = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
-        hashScTxsCommitment = CFieldElement{block.hashScTxsCommitment};
+        hashScTxsCommitment = block.hashScTxsCommitment;
         nTime          = block.nTime;
         nBits          = block.nBits;
         nNonce         = block.nNonce;
@@ -263,7 +263,7 @@ public:
         if (pprev)
             block.hashPrevBlock = pprev->GetBlockHash();
         block.hashMerkleRoot = hashMerkleRoot;
-        block.hashScTxsCommitment   = hashScTxsCommitment.GetLegacyHashTO_BE_REMOVED();
+        block.hashScTxsCommitment   = hashScTxsCommitment;
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
@@ -391,7 +391,7 @@ public:
         block.nVersion        = nVersion;
         block.hashPrevBlock   = hashPrev;
         block.hashMerkleRoot  = hashMerkleRoot;
-        block.hashScTxsCommitment = hashScTxsCommitment.GetLegacyHashTO_BE_REMOVED();
+        block.hashScTxsCommitment = hashScTxsCommitment;
         block.nTime           = nTime;
         block.nBits           = nBits;
         block.nNonce          = nNonce;
