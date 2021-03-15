@@ -4,197 +4,251 @@
 #include <vector>
 #include <string>
 
+#include <boost/unordered_map.hpp>
+#include <boost/variant.hpp>
+#include <boost/optional.hpp>
+#include <boost/variant.hpp>
+
+#include <zendoo/zendoo_mc.h>
+#include <zendoo/error.h>
+
 #include "uint256.h"
 #include "hash.h"
 #include "script/script.h"
 #include "amount.h"
 #include "serialize.h"
-#include <boost/unordered_map.hpp>
-#include <boost/variant.hpp>
-#include <boost/optional.hpp>
-#include <boost/variant.hpp>
-#include<sc/proofverifier.h>
-
-
-////////////////////////////// Custom Config types //////////////////////////////
-class CustomFieldConfig
+///////////////////////////////// Field types //////////////////////////////////
+class CFieldElement
 {
 public:
-    CustomFieldConfig() = default;
-    virtual ~CustomFieldConfig() = default;
-    virtual int32_t getBitSize() const = 0;
+    CFieldElement();
+    ~CFieldElement() = default;
+
+    explicit CFieldElement(const std::vector<unsigned char>& byteArrayIn);
+    explicit CFieldElement(const uint256& value); // MIND RETROCOMPATIBILITY WITH RESERVED HASH BEFORE SIDECHAIN HARD FORK
+    void SetByteArray(const std::vector<unsigned char>& byteArrayIn);
+
+    CFieldElement(const CFieldElement& rhs) = default;
+    CFieldElement& operator=(const CFieldElement& rhs) = default;
+
+    void SetNull();
+    bool IsNull() const;
+
+    static constexpr unsigned int ByteSize() { return SC_FIELD_SIZE; }
+    static constexpr unsigned int BitSize() { return ByteSize()*8; }
+    const std::vector<unsigned char>&  GetByteArray() const;
+    uint256 GetLegacyHashTO_BE_REMOVED() const;
+
+    field_t* GetFieldElement() const; //TODO: use smart ptr with adequate deleter [zendoo_field_free]
+
+    bool IsValid() const;
+    // equality is not tested on deserializedField attribute since it is a ptr to memory specific per instance
+    friend inline bool operator==(const CFieldElement& lhs, const CFieldElement& rhs) { return lhs.byteVector == rhs.byteVector; }
+    friend inline bool operator!=(const CFieldElement& lhs, const CFieldElement& rhs) { return !(lhs == rhs); }
+    friend inline bool operator<(const CFieldElement& lhs, const CFieldElement& rhs)  { return lhs.byteVector < rhs.byteVector; } // FOR STD::MAP ONLY
+
+    // SERIALIZATION SECTION
+    size_t GetSerializeSize(int nType, int nVersion) const //ADAPTED FROM SERIALIZED.H
+    {
+        return CFieldElement::ByteSize(); //byteArray content (each element a single byte)
+    };
+
+    template<typename Stream>
+    void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
+    {
+        os.write((char*)&byteVector[0], CFieldElement::ByteSize());
+    }
+
+    template<typename Stream> //ADAPTED FROM SERIALIZED.H
+    void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
+    {
+        is.read((char*)&byteVector[0], CFieldElement::ByteSize());
+    }
+
+    std::string GetHexRepr() const;
+    static CFieldElement ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs);
+
+private:
+    std::vector<unsigned char> byteVector;
 };
 
-class CompressedFieldElementConfig : public CustomFieldConfig
+typedef CFieldElement ScConstant;
+////////////////////////////// End of Field types //////////////////////////////
+
+/////////////////////// libzendoomc namespace definitions //////////////////////
+namespace libzendoomc {
+    typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
+
+    /* Check if scProof is a valid zendoo-mc-cryptolib's sc_proof */
+    bool IsValidScProof(const ScProof& scProof);
+
+    typedef base_blob<SC_VK_SIZE * 8> ScVk;
+
+    /* Check if scVk is a valid zendoo-mc-cryptolib's sc_vk */
+    bool IsValidScVk(const ScVk& scVk);
+
+    /* Convert to std::string a zendoo-mc-cryptolib Error. Useful for logging */
+    std::string ToString(Error err);
+}
+/////////////////// end of libzendoomc namespace definitions ///////////////////
+
+////////////////////////////// Custom Config types //////////////////////////////
+class CustomCertificateFieldConfig
+{
+public:
+    CustomCertificateFieldConfig() = default;
+    virtual ~CustomCertificateFieldConfig() = default;
+    virtual bool IsValid() const = 0;
+};
+
+class FieldElementCertificateFieldConfig : public CustomCertificateFieldConfig
 {
 private:
     int32_t nBits;
-    bool isBitsLenghtValid(); //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
 
 public:
-    CompressedFieldElementConfig(int32_t nBitsIn);
-    CompressedFieldElementConfig(): CustomFieldConfig(), nBits(0) {} //for serialization only, which requires the default ctor
-    ~CompressedFieldElementConfig() = default;
+    FieldElementCertificateFieldConfig(int32_t nBitsIn);
+    FieldElementCertificateFieldConfig(const FieldElementCertificateFieldConfig& rhs) = default;
+    ~FieldElementCertificateFieldConfig() = default;
 
-    int32_t getBitSize() const override; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
+    //For serialization only, which requires the default ctor. No checkValid call here
+    FieldElementCertificateFieldConfig(): CustomCertificateFieldConfig(), nBits(0) {}
+
+    bool IsValid() const override final;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nBits);
-
-        if (!isBitsLenghtValid())
-            throw std::invalid_argument("CompressedFieldElementConfig size must be strictly positive");
     }
 
-    bool operator==(const CompressedFieldElementConfig& rhs) const {
+    int32_t getBitSize() const;
+
+    bool operator==(const FieldElementCertificateFieldConfig& rhs) const {
         return (this->nBits == rhs.nBits);
     }
 
-    bool operator!=(const CompressedFieldElementConfig& rhs) const {
+    bool operator!=(const FieldElementCertificateFieldConfig& rhs) const {
         return !(*this == rhs);
     }
 
-    friend std::ostream& operator<<(std::ostream& os, const CompressedFieldElementConfig& r) {
+    friend std::ostream& operator<<(std::ostream& os, const FieldElementCertificateFieldConfig& r) {
         os << r.nBits;
         return os;
     }
 };
 
-class CompressedMerkleTreeConfig : public CustomFieldConfig
+class BitVectorCertificateFieldConfig : public CustomCertificateFieldConfig
 {
 private:
-    int32_t treeHeight;
-    static const int32_t MAX_TREE_HEIGHT = log2(std::numeric_limits<int32_t>::max()); //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
-    bool isTreeHeightValid(); //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
+    int32_t bitVectorSizeBits;
+    int32_t maxCompressedSizeBytes;
 
 public:
-    CompressedMerkleTreeConfig(int32_t treeHeightIn);
-    CompressedMerkleTreeConfig(): CustomFieldConfig(), treeHeight(-1) {} //for serialization only, which requires the default ctor
-    ~CompressedMerkleTreeConfig() = default;
+    BitVectorCertificateFieldConfig(int32_t bitVectorSizeBits, int32_t maxCompressedSizeBytes);
+    ~BitVectorCertificateFieldConfig() = default;
 
-    int32_t getBitSize() const override; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
+    //for serialization only, which requires the default ctor. No checkValid call here
+    BitVectorCertificateFieldConfig(): CustomCertificateFieldConfig(), bitVectorSizeBits(-1), maxCompressedSizeBytes(-1) {}
+
+    static const int32_t MAX_BIT_VECTOR_SIZE_BITS = 1000192;
+    static const int32_t MAX_COMPRESSED_SIZE_BYTES = MAX_BIT_VECTOR_SIZE_BITS / 8;
+
+    bool IsValid() const override final;
+
+    int32_t getBitVectorSizeBits() const {
+        return bitVectorSizeBits;
+    }
+
+    int32_t getMaxCompressedSizeBytes() const {
+        return maxCompressedSizeBytes;
+    }
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(treeHeight);
-
-    	if (!isTreeHeightValid())
-            throw std::invalid_argument(
-                std::string("CompressedMerkleTreeConfig height must be within [0] and [: ") + std::to_string(MAX_TREE_HEIGHT) +
-                std::string("], but it is [ ") + std::to_string(treeHeight) + std::string("]."));
+        READWRITE(bitVectorSizeBits);
+        READWRITE(maxCompressedSizeBytes);
     }
 
-    bool operator==(const CompressedMerkleTreeConfig& rhs) const {
-        return (this->treeHeight == rhs.treeHeight);
+    bool operator==(const BitVectorCertificateFieldConfig& rhs) const {
+        return (this->bitVectorSizeBits == rhs.bitVectorSizeBits) &&
+               (this->maxCompressedSizeBytes == rhs.maxCompressedSizeBytes);
     }
 
-    bool operator!=(const CompressedMerkleTreeConfig& rhs) const {
+    bool operator!=(const BitVectorCertificateFieldConfig& rhs) const {
         return !(*this == rhs);
     }
 
-    friend std::ostream& operator<<(std::ostream& os, const CompressedMerkleTreeConfig& r) {
-        os << r.treeHeight;
+    friend std::ostream& operator<<(std::ostream& os, const BitVectorCertificateFieldConfig& r) {
+        os << "["<<r.bitVectorSizeBits<<","<<r.maxCompressedSizeBytes<<"],";
         return os;
     }
 };
 ////////////////////////// End of Custom Config types //////////////////////////
 
 ////////////////////////////// Custom Field types //////////////////////////////
-class CustomField
+template <typename T> //TODO: T should extend CustomCertificateFieldConfig
+class CustomCertificateField
 {
 protected:
-    const std::vector<unsigned char> vRawField;
+    const std::vector<unsigned char> vRawData;
+    enum class VALIDATION_STATE {NOT_INITIALIZED, INVALID, VALID};
+    mutable VALIDATION_STATE state;
 
 public:
-    CustomField() = default;
-    CustomField(const std::vector<unsigned char>& rawBytes);
-    virtual ~CustomField() = default;
+    CustomCertificateField(): state(VALIDATION_STATE::NOT_INITIALIZED) {};
+    CustomCertificateField(const std::vector<unsigned char>& rawBytes)
+        :vRawData(rawBytes), state(VALIDATION_STATE::NOT_INITIALIZED) {};
+    virtual ~CustomCertificateField() = default;
 
-    virtual const libzendoomc::ScFieldElement& GetFieldElement() const = 0; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
-    virtual bool IsValid() const = 0; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
-    virtual bool checkCfg(const CustomFieldConfig& cfg) const = 0;
-    const std::vector<unsigned char>& getVRawField() const { return vRawField; }
+    const std::vector<unsigned char>& getVRawData() const { return vRawData; }
 };
 
-class CompressedFieldElement : public CustomField
+class FieldElementCertificateField : public CustomCertificateField<FieldElementCertificateFieldConfig>
 {
 private:
-    const libzendoomc::ScFieldElement scFieldElement; // memory only, lazy-initialized by GetFieldElement call
-
-protected:
-    void InitFieldElement() const; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
-
+    mutable FieldElementCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
+    mutable CFieldElement fieldElement; // memory only, lazy-initialized
 public:
-    CompressedFieldElement() = default; 
-    CompressedFieldElement(const std::vector<unsigned char>& rawBytes);
-    CompressedFieldElement(const CompressedFieldElement& rhs) = default;
-    CompressedFieldElement& operator=(const CompressedFieldElement& rhs);
-    ~CompressedFieldElement() = default;
+    FieldElementCertificateField(): pReferenceCfg{nullptr} {};
+    FieldElementCertificateField(const std::vector<unsigned char>& rawBytes);
+    FieldElementCertificateField(const FieldElementCertificateField& rhs);
+    FieldElementCertificateField& operator=(const FieldElementCertificateField& rhs);
+    ~FieldElementCertificateField() {delete pReferenceCfg; pReferenceCfg = nullptr; };
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawField));
+        READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
-    const libzendoomc::ScFieldElement& GetFieldElement() const override;
-    bool IsValid() const override;
-    bool checkCfg(const CustomFieldConfig& cfg) const override;
+    bool IsValid(const FieldElementCertificateFieldConfig& cfg) const;
+    const CFieldElement& GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const;
 };
 
-class CompressedMerkleTree : public CustomField
+class BitVectorCertificateField : public CustomCertificateField<BitVectorCertificateFieldConfig>
 {
 private:
-    const libzendoomc::ScFieldElement merkleRoot; // memory only, lazy-initialized by GetFieldElement call
-
-protected:
-    void CalculateMerkleRoot() const; //TENTATIVE IMPLEMENTATION, BEFORE ACTUAL ONE
-
+    mutable BitVectorCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
+    mutable CFieldElement fieldElement; // memory only, lazy-initialized
 public:
-    CompressedMerkleTree() = default; 
-    CompressedMerkleTree(const std::vector<unsigned char>& rawBytes);
-    ~CompressedMerkleTree() = default;
-    CompressedMerkleTree(const CompressedMerkleTree& rhs) = default;
-    CompressedMerkleTree& operator=(const CompressedMerkleTree& rhs);
+    BitVectorCertificateField(): pReferenceCfg{nullptr} {};
+    BitVectorCertificateField(const std::vector<unsigned char>& rawBytes);
+    BitVectorCertificateField(const BitVectorCertificateField& rhs);
+    BitVectorCertificateField& operator=(const BitVectorCertificateField& rhs);
+    ~BitVectorCertificateField() {delete pReferenceCfg; pReferenceCfg = nullptr; };
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawField));
+        READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
-    const libzendoomc::ScFieldElement& GetFieldElement() const override;
-    bool IsValid() const override;
-    bool checkCfg(const CustomFieldConfig& cfg) const override;
+    bool IsValid(const BitVectorCertificateFieldConfig& cfg) const;
+    const CFieldElement& GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const;
 };
 ////////////////////////// End of Custom Field types ///////////////////////////
-
-
-class CPoseidonHash 
-{
-public:
-    CPoseidonHash ()  {SetNull();};
-    explicit CPoseidonHash (const uint256& sha256): innerHash(sha256) {} //UPON INTEGRATION OF POSEIDON HASH STUFF, THIS MUST DISAPPER
-    ~CPoseidonHash () = default;
-
-    void SetNull() { innerHash.SetNull(); }
-    friend inline bool operator==(const CPoseidonHash & lhs, const CPoseidonHash & rhs) { return lhs.innerHash == rhs.innerHash; }
-    friend inline bool operator!=(const CPoseidonHash & lhs, const CPoseidonHash & rhs) { return !(lhs == rhs); }
-
-    ADD_SERIALIZE_METHODS;
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(innerHash);
-    }
-
-    std::string GetHex() const   {return innerHash.GetHex();}
-    std::string ToString() const {return innerHash.ToString();}
-
-private:
-    uint256 innerHash; //Temporary, for backward compatibility with beta
-};
 
 namespace Sidechain
 {
@@ -219,24 +273,24 @@ struct ScCreationParameters
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
-    libzendoomc::ScConstant constant;
+    boost::optional<CFieldElement> constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
-    std::vector<CompressedFieldElementConfig> vCompressedFieldElementConfig;
-    std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
+    std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
+    std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
 
     bool IsNull() const
     {
         return (
             withdrawalEpochLength == -1           &&
             customData.empty()                    &&
-            constant.empty( )                     &&
+            constant == boost::none     &&
             wCertVk.IsNull()                      &&
             wMbtrVk == boost::none                &&
-			wCeasedVk == boost::none              &&
-            vCompressedFieldElementConfig.empty() &&
-            vCompressedMerkleTreeConfig.empty() );
+            wCeasedVk == boost::none              &&
+            vFieldElementCertificateFieldConfig.empty() &&
+            vBitVectorCertificateFieldConfig.empty() );
     }
 
     ADD_SERIALIZE_METHODS;
@@ -248,8 +302,8 @@ struct ScCreationParameters
         READWRITE(wCertVk);
         READWRITE(wMbtrVk);
         READWRITE(wCeasedVk);
-        READWRITE(vCompressedFieldElementConfig);
-        READWRITE(vCompressedMerkleTreeConfig);
+        READWRITE(vFieldElementCertificateFieldConfig);
+        READWRITE(vBitVectorCertificateFieldConfig);
     }
     ScCreationParameters() :withdrawalEpochLength(-1) {}
 
@@ -260,9 +314,9 @@ struct ScCreationParameters
                (constant == rhs.constant) &&
                (wCertVk == rhs.wCertVk)  &&
                (wMbtrVk == rhs.wMbtrVk)  &&
-			   (wCeasedVk == rhs.wCeasedVk) &&
-               (vCompressedFieldElementConfig == rhs.vCompressedFieldElementConfig) &&
-               (vCompressedMerkleTreeConfig == rhs.vCompressedMerkleTreeConfig);
+               (wCeasedVk == rhs.wCeasedVk) &&
+               (vFieldElementCertificateFieldConfig == rhs.vFieldElementCertificateFieldConfig) &&
+               (vBitVectorCertificateFieldConfig == rhs.vBitVectorCertificateFieldConfig);
     }
     inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
     inline ScCreationParameters& operator=(const ScCreationParameters& cp)
@@ -273,8 +327,8 @@ struct ScCreationParameters
         wCertVk                       = cp.wCertVk;
         wMbtrVk                       = cp.wMbtrVk;
         wCeasedVk                     = cp.wCeasedVk;
-        vCompressedFieldElementConfig = cp.vCompressedFieldElementConfig;
-        vCompressedMerkleTreeConfig   = cp.vCompressedMerkleTreeConfig;
+        vFieldElementCertificateFieldConfig = cp.vFieldElementCertificateFieldConfig;
+        vBitVectorCertificateFieldConfig   = cp.vBitVectorCertificateFieldConfig;
         return *this;
     }
 };
@@ -282,19 +336,19 @@ struct ScCreationParameters
 struct ScBwtRequestParameters
 {
     CAmount scFee;
-    libzendoomc::ScFieldElement scUtxoId;
+    CFieldElement scRequestData;
     libzendoomc::ScProof scProof;
 
     bool IsNull() const
     {
-        return ( scFee == 0 && scUtxoId.IsNull() && scProof.IsNull());
+        return ( scFee == 0 && scRequestData.IsNull() && scProof.IsNull());
     }
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(scFee);
-        READWRITE(scUtxoId);
+        READWRITE(scRequestData);
         READWRITE(scProof);
     }
     ScBwtRequestParameters() :scFee(0) {}
@@ -302,14 +356,14 @@ struct ScBwtRequestParameters
     inline bool operator==(const ScBwtRequestParameters& rhs) const
     {
         return (scFee == rhs.scFee) &&
-               (scUtxoId == rhs.scUtxoId) &&
+               (scRequestData == rhs.scRequestData) &&
                (scProof == rhs.scProof); 
     }
     inline bool operator!=(const ScBwtRequestParameters& rhs) const { return !(*this == rhs); }
     inline ScBwtRequestParameters& operator=(const ScBwtRequestParameters& cp)
     {
         scFee = cp.scFee;
-        scUtxoId = cp.scUtxoId;
+        scRequestData = cp.scRequestData;
         scProof = cp.scProof;
         return *this;
     }

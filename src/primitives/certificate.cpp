@@ -31,12 +31,15 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
 
 CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
     scId(), epochNumber(EPOCH_NOT_INITIALIZED), quality(QUALITY_NULL),
-    endEpochBlockHash(), scProof(), vCompressedFieldElement(), vCompressedMerkleTree(), nFirstBwtPos(0) {}
+    endEpochBlockHash(), scProof(), vFieldElementCertificateField(),
+    vBitVectorCertificateField(), nFirstBwtPos(0) {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
     endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof),
-    vCompressedFieldElement(cert.vCompressedFieldElement), vCompressedMerkleTree(cert.vCompressedMerkleTree), nFirstBwtPos(cert.nFirstBwtPos) {}
+    vFieldElementCertificateField(cert.vFieldElementCertificateField),
+    vBitVectorCertificateField(cert.vBitVectorCertificateField),
+    nFirstBwtPos(cert.nFirstBwtPos) {}
 
 CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 {
@@ -46,8 +49,8 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
     *const_cast<int64_t*>(&quality) = cert.quality;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<libzendoomc::ScProof*>(&scProof) = cert.scProof;
-    *const_cast<std::vector<CompressedFieldElement>*>(&vCompressedFieldElement) = cert.vCompressedFieldElement;
-    *const_cast<std::vector<CompressedMerkleTree>*>(&vCompressedMerkleTree) = cert.vCompressedMerkleTree;
+    *const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField) = cert.vFieldElementCertificateField;
+    *const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField) = cert.vBitVectorCertificateField;
     *const_cast<int*>(&nFirstBwtPos) = cert.nFirstBwtPos;
     return *this;
 }
@@ -55,7 +58,9 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
     endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof),
-    vCompressedFieldElement(cert.vCompressedFieldElement), vCompressedMerkleTree(cert.vCompressedMerkleTree), nFirstBwtPos(cert.nFirstBwtPos)
+    vFieldElementCertificateField(cert.vFieldElementCertificateField),
+    vBitVectorCertificateField(cert.vBitVectorCertificateField),
+    nFirstBwtPos(cert.nFirstBwtPos)
 {
     UpdateHash();
 }
@@ -177,11 +182,14 @@ CAmount CScCertificate::GetFeeAmount(const CAmount& valueIn) const
 {
     return (valueIn - GetValueOfChange());
 }
-
+#ifdef BITCOIN_TX
+std::string CScCertificate::EncodeHex() const {return std::string{};}
+#else
 std::string CScCertificate::EncodeHex() const
 {
     return EncodeHexCert(*this);
 }
+#endif
 
 std::string CScCertificate::ToString() const
 {
@@ -217,7 +225,27 @@ bool CScCertificate::CheckInputsLimit() const {
     return true;
 }
 
-bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const 
+//--------------------------------------------------------------------------------------------
+// binaries other than zend that are produced in the build, do not call these members and therefore do not
+// need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
+// in zen-tx binary build configuration
+#ifdef BITCOIN_TX
+bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return false;}
+bool CScCertificate::VerifyScript(
+        const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+        bool cacheStore, ScriptError* serror) const { return true; }
+
+void CScCertificate::Relay() const {}
+std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
+{
+    return std::shared_ptr<const CTransactionBase>();
+}
+CFieldElement CScCertificate::GetDataHash() const
+{
+     static const CFieldElement dummy; return dummy;
+}
+#else
+bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const
 {
     bool areScSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
 
@@ -229,26 +257,6 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
 
     return true;
 }
-
-//--------------------------------------------------------------------------------------------
-// binaries other than zend that are produced in the build, do not call these members and therefore do not
-// need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
-// in zen-tx binary build configuration
-#ifdef BITCOIN_TX
-bool CScCertificate::VerifyScript(
-        const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
-        bool cacheStore, ScriptError* serror) const { return true; }
-
-void CScCertificate::Relay() const {}
-std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
-{
-    return std::shared_ptr<const CTransactionBase>();
-}
-libzendoomc::ScFieldElement CScCertificate::GetDataHash() const
-{
-     static const libzendoomc::ScFieldElement dummy; return dummy;
-}
-#else
 
 bool CScCertificate::VerifyScript(
         const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
@@ -277,11 +285,11 @@ CScCertificate::MakeShared() const {
     return std::shared_ptr<const CTransactionBase>(new CScCertificate(*this));
 }
 
-libzendoomc::ScFieldElement CScCertificate::GetDataHash() const
+CFieldElement CScCertificate::GetDataHash() const
 {
-     libzendoomc::ScFieldElement dummy; 
-     dummy.SetHex(GetHash().GetHex());
-     return dummy;
+    std::vector<unsigned char> tmp(this->GetHash().begin(), this->GetHash().end());
+    tmp.resize(CFieldElement::ByteSize(), 0x0); //not sure if prepending or appending. It's dummy anyhow
+    return CFieldElement{tmp};
 }
 #endif
 
@@ -306,12 +314,14 @@ CAmount CScCertificate::GetValueOfChange() const
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate(): CMutableTransactionBase(),
     scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
-    endEpochBlockHash(), scProof(), vCompressedFieldElement(), vCompressedMerkleTree(), nFirstBwtPos(0) {}
+    endEpochBlockHash(), scProof(), vFieldElementCertificateField(),
+    vBitVectorCertificateField(), nFirstBwtPos(0) {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutableTransactionBase(),
     scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 
     endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), 
-    vCompressedFieldElement(cert.vCompressedFieldElement), vCompressedMerkleTree(cert.vCompressedMerkleTree), nFirstBwtPos(cert.nFirstBwtPos)
+    vFieldElementCertificateField(cert.vFieldElementCertificateField),
+    vBitVectorCertificateField(cert.vBitVectorCertificateField), nFirstBwtPos(cert.nFirstBwtPos)
 {
     nVersion = cert.nVersion;
     vin  = cert.GetVin();
@@ -320,16 +330,16 @@ CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutab
 
 CMutableScCertificate& CMutableScCertificate::operator=(const CMutableScCertificate& rhs)
 {
-    nVersion                = rhs.nVersion;
-    vin                     = rhs.vin;
-    vout                    = rhs.vout;
-    scId                    = rhs.scId;
-    epochNumber             = rhs.epochNumber;
-    quality                 = rhs.quality;
-    endEpochBlockHash       = rhs.endEpochBlockHash;
-    scProof                 = rhs.scProof;
-    vCompressedFieldElement = rhs.vCompressedFieldElement;
-    vCompressedMerkleTree   = rhs.vCompressedMerkleTree;
+    nVersion                      = rhs.nVersion;
+    vin                           = rhs.vin;
+    vout                          = rhs.vout;
+    scId                          = rhs.scId;
+    epochNumber                   = rhs.epochNumber;
+    quality                       = rhs.quality;
+    endEpochBlockHash             = rhs.endEpochBlockHash;
+    scProof                       = rhs.scProof;
+    vFieldElementCertificateField = rhs.vFieldElementCertificateField;
+    vBitVectorCertificateField    = rhs.vBitVectorCertificateField;
     *const_cast<int*>(&nFirstBwtPos) = rhs.nFirstBwtPos;
 
     return *this;

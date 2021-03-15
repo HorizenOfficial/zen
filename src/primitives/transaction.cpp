@@ -213,7 +213,7 @@ std::string CTxIn::ToString() const
 }
 
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
-                                                                     const libzendoomc::ScFieldElement& nullifierIn, const uint160& pubKeyHashIn,
+                                                                     const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
                                                                      const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn)
 {
     nValue = nValueIn;
@@ -227,7 +227,7 @@ CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmou
 std::string CTxCeasedSidechainWithdrawalInput::ToString() const
 {
     return strprintf("CTxCeasedSidechainWithdrawalInput(nValue=%d.%08d, scId=%s, nullifier=%s, pubKeyHash=%s, scProof=%s, redeemScript=%s)",
-                     nValue / COIN, nValue % COIN, scId.ToString(), HexStr(nullifier).substr(0, 10),
+                     nValue / COIN, nValue % COIN, scId.ToString(), nullifier.GetHexRepr().substr(0, 10),
                      pubKeyHash.ToString(), HexStr(scProof).substr(0, 10), HexStr(redeemScript).substr(0, 24));
 }
 
@@ -298,8 +298,8 @@ CTxScCreationOut::CTxScCreationOut(
     :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
      withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant),
      wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), wCeasedVk(paramsIn.wCeasedVk),
-     vCompressedFieldElementConfig(paramsIn.vCompressedFieldElementConfig),
-     vCompressedMerkleTreeConfig(paramsIn.vCompressedMerkleTreeConfig) {}
+     vFieldElementCertificateFieldConfig(paramsIn.vFieldElementCertificateFieldConfig),
+     vBitVectorCertificateFieldConfig(paramsIn.vBitVectorCertificateFieldConfig) {}
 
 uint256 CTxScCreationOut::GetHash() const
 {
@@ -308,11 +308,19 @@ uint256 CTxScCreationOut::GetHash() const
 
 std::string CTxScCreationOut::ToString() const
 {
-    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, nValue=%d.%08d, address=%s, "
-        "customData=[%s], constant=[%s], wCertVk=[%s], wMbtrVk=[%s], wCeasedVk=[%s], vCompressedFieldElementConfig=[%s], vCompressedMerkleTreeConfig[%s]",
-        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30),
-        HexStr(customData), HexStr(constant), HexStr(wCertVk), wMbtrVk ? HexStr(wMbtrVk.get()) : "", wCeasedVk ? HexStr(wCeasedVk.get()) : "",
-        VecToStr(vCompressedFieldElementConfig), VecToStr(vCompressedMerkleTreeConfig) );
+    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, "
+                                       "nValue=%d.%08d, address=%s, customData=[%s], "
+                                       "constant=[%s], wCertVk=[%s], wMbtrVk=[%s], "
+                                       "wCeasedVk=[%s], "
+                                       "vFieldElementCertificateFieldConfig=[%s], "
+                                       "vBitVectorCertificateFieldConfig[%s]",
+        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN,
+        nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
+        constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
+        HexStr(wCertVk), wMbtrVk ? HexStr(wMbtrVk.get()) : "",
+        wCeasedVk ? HexStr(wCeasedVk.get()) : "",
+        VecToStr(vFieldElementCertificateFieldConfig),
+        VecToStr(vBitVectorCertificateFieldConfig) );
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
@@ -336,21 +344,22 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     wCertVk = ccout.wCertVk;
     wMbtrVk = ccout.wMbtrVk;
     wCeasedVk = ccout.wCeasedVk;
-    vCompressedFieldElementConfig = ccout.vCompressedFieldElementConfig;
-    vCompressedMerkleTreeConfig = ccout.vCompressedMerkleTreeConfig;
+    vFieldElementCertificateFieldConfig = ccout.vFieldElementCertificateFieldConfig;
+    vBitVectorCertificateFieldConfig = ccout.vBitVectorCertificateFieldConfig;
     return *this;
 }
 
 CBwtRequestOut::CBwtRequestOut(
     const uint256& scIdIn, const uint160& pkhIn, const Sidechain::ScBwtRequestParameters& paramsIn):
-    scId(scIdIn), scRequestData(paramsIn.scUtxoId), mcDestinationAddress(pkhIn),
+    scId(scIdIn), scRequestData(paramsIn.scRequestData), mcDestinationAddress(pkhIn),
     scFee(paramsIn.scFee), scProof(paramsIn.scProof) {}
 
 
 std::string CBwtRequestOut::ToString() const
 {
     return strprintf("CBwtRequestOut(scId=%s, scUtxoId=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
-        scId.ToString(), HexStr(scRequestData).substr(0, 30), mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
+        scId.ToString(), scRequestData.GetHexRepr().substr(0, 30),
+        mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
         HexStr(scProof).substr(0, 30));
 }
 
@@ -593,7 +602,7 @@ bool CTransaction::CheckInputsDuplication(CValidationState &state) const
 
     // Check for duplicate ceased sidechain withdrawal inputs
     // CSW nullifiers expected to be unique
-    std::set<libzendoomc::ScFieldElement> vNullifiers;
+    std::set<CFieldElement> vNullifiers;
     for(const CTxCeasedSidechainWithdrawalInput cswIn: GetVcswCcIn())
     {
         if(vNullifiers.count(cswIn.nullifier))

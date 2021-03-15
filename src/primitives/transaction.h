@@ -358,7 +358,7 @@ class CTxCeasedSidechainWithdrawalInput
 public:
     CAmount nValue;
     uint256 scId;
-    libzendoomc::ScFieldElement nullifier;
+    CFieldElement nullifier;
     uint160 pubKeyHash;
     libzendoomc::ScProof scProof;
     CScript redeemScript;
@@ -366,7 +366,7 @@ public:
     CTxCeasedSidechainWithdrawalInput(): nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript() {}
 
     explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
-                                               const libzendoomc::ScFieldElement& nullifierIn, const uint160& pubKeyHashIn,
+                                               const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
                                                const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn);
 
     ADD_SERIALIZE_METHODS
@@ -557,8 +557,8 @@ public:
     }
 };
 
-class CompressedFieldElementConfig;
-class CompressedMerkleTreeConfig;
+class FieldElementCertificateFieldConfig;
+class BitVectorCertificateFieldConfig;
 
 class CTxScCreationOut : public CTxCrosschainOut
 {
@@ -572,12 +572,12 @@ private:
 public:
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
-    libzendoomc::ScConstant constant;
+    boost::optional<CFieldElement> constant;
     libzendoomc::ScVk wCertVk;
     boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
-    std::vector<CompressedFieldElementConfig> vCompressedFieldElementConfig;
-    std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig;
+    std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
+    std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
 
     CTxScCreationOut():withdrawalEpochLength(-1) { }
 
@@ -596,8 +596,8 @@ public:
         READWRITE(wCertVk);
         READWRITE(wMbtrVk);
         READWRITE(wCeasedVk);
-        READWRITE(vCompressedFieldElementConfig);
-        READWRITE(vCompressedMerkleTreeConfig);
+        READWRITE(vFieldElementCertificateFieldConfig);
+        READWRITE(vBitVectorCertificateFieldConfig);
     }
 
     const uint256& GetScId() const override final { return generatedScId;}; 
@@ -615,8 +615,8 @@ public:
                  a.wCertVk == b.wCertVk &&
                  a.wMbtrVk == b.wMbtrVk &&
                  a.wCeasedVk == b.wCeasedVk &&
-                 a.vCompressedFieldElementConfig == b.vCompressedFieldElementConfig &&
-                 a.vCompressedMerkleTreeConfig == b.vCompressedMerkleTreeConfig;
+                 a.vFieldElementCertificateFieldConfig == b.vFieldElementCertificateFieldConfig &&
+                 a.vBitVectorCertificateFieldConfig == b.vBitVectorCertificateFieldConfig;
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)
@@ -629,7 +629,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 {
   public:
     uint256 scId;
-    libzendoomc::ScFieldElement scRequestData;
+    CFieldElement scRequestData;
     uint160 mcDestinationAddress;
     CAmount scFee;
     libzendoomc::ScProof scProof;

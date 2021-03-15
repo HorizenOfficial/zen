@@ -1537,7 +1537,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         }
 
         // Store transaction in memory
-        std::map<uint256, libzendoomc::ScFieldElement> scIdToCertDataHash;
+        std::map<uint256, CFieldElement> scIdToCertDataHash;
         for(const auto& btr: tx.GetVBwtRequestOut())
         {
             scIdToCertDataHash[btr.scId] = view.GetActiveCertDataHash(btr.scId);
@@ -2990,8 +2990,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (fCheckScTxesCommitment)
     {
         const uint256& scTxsCommittment = scCommitmentBuilder.getCommitment();
-
-        if (block.hashScTxsCommitment != CPoseidonHash (scTxsCommittment))
+        if (block.hashScTxsCommitment != scTxsCommittment)
         {
             // If this check fails, we return validation state obj with a state.corruptionPossible=false attribute,
             // which will mark this header as failed. This is because the previous check on merkel root was successful,

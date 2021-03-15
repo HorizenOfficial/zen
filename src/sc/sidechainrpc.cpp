@@ -29,7 +29,7 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("value", ValueFromAmount(csw.nValue)));
         o.push_back(Pair("scId", csw.scId.GetHex()));
-        o.push_back(Pair("nullifier", HexStr(csw.nullifier)));
+        o.push_back(Pair("nullifier", csw.nullifier.GetHexRepr()));
 
         UniValue spk(UniValue::VOBJ);
         ScriptPubKeyToJSON(csw.scriptPubKey(), spk, true);
@@ -63,10 +63,27 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
         o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
-        o.push_back(Pair("vCompressedFieldElementConfig", VecToStr(out.vCompressedFieldElementConfig)));
-        o.push_back(Pair("vCompressedMerkleTreeConfig", VecToStr(out.vCompressedMerkleTreeConfig)));
+
+        UniValue arrFieldElementConfig(UniValue::VARR);
+        for(const auto& cfgEntry: out.vFieldElementCertificateFieldConfig)
+        {
+        	arrFieldElementConfig.push_back(cfgEntry.getBitSize());
+        }
+        o.push_back(Pair("vFieldElementCertificateFieldConfig", arrFieldElementConfig));
+
+        UniValue arrBitVectorConfig(UniValue::VARR);
+        for(const auto& cfgEntry: out.vBitVectorCertificateFieldConfig)
+        {
+        	UniValue singlePair(UniValue::VARR);
+        	singlePair.push_back(cfgEntry.getBitVectorSizeBits());
+        	singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
+        	arrBitVectorConfig.push_back(singlePair);
+        }
+        o.push_back(Pair("vBitVectorCertificateFieldConfig", arrBitVectorConfig));
+
         o.push_back(Pair("customData", HexStr(out.customData)));
-        o.push_back(Pair("constant", HexStr(out.constant)));
+        if(out.constant.is_initialized())
+            o.push_back(Pair("constant", out.constant->GetHexRepr()));
         if(out.wMbtrVk.is_initialized())
             o.push_back(Pair("wMbtrVk", HexStr(out.wMbtrVk.get())));
         if(out.wCeasedVk.is_initialized())
@@ -112,7 +129,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         
         o.push_back(Pair("mcDestinationAddress", mcAddr));
         o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
-        o.push_back(Pair("scUtxoId", HexStr(out.scRequestData)));
+        o.push_back(Pair("scUtxoId", out.scRequestData.GetHexRepr()));
         o.push_back(Pair("scProof", HexStr(out.scProof)));
         vbts.push_back(o);
         nIdx++;
@@ -275,14 +292,14 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
 
         std::string nullifierError;
         std::vector<unsigned char> nullifierVec;
-        if (!AddScData(nullifier_v.get_str(), nullifierVec, SC_FIELD_SIZE, true, nullifierError))
+        if (!AddScData(nullifier_v.get_str(), nullifierVec, CFieldElement::ByteSize(), true, nullifierError))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": " + nullifierError;
             return false;
         }
 
-        libzendoomc::ScFieldElement nullifier(nullifierVec);
-        if (!libzendoomc::IsValidScFieldElement(nullifier))
+        CFieldElement nullifier {nullifierVec};
+        if (!nullifier.IsValid())
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": invalid nullifier data";
             return false;
@@ -414,13 +431,15 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         if (!constant.isNull())
         {
             const std::string& inputString = constant.get_str();
-            if (!AddScData(inputString, sc.constant, SC_FIELD_SIZE, false, error))
+            std::vector<unsigned char> scConstantByteArray {};
+            if (!AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), false, error))
             {
                 error = "constant: " + error;
                 return false;
             }
 
-            if (!libzendoomc::IsValidScConstant(sc.constant))
+            sc.constant = CFieldElement{scConstantByteArray};
+            if (!sc.constant->IsValid())
             {
                 error = "invalid constant";
                 return false;
@@ -466,25 +485,34 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             }
         }
 
-        const UniValue& FeCfg = find_value(o, "vCompressedFieldElementConfig");
+        const UniValue& FeCfg = find_value(o, "vFieldElementCertificateFieldConfig");
         if (!FeCfg.isNull())
         {
             UniValue intArray = FeCfg.get_array();
-            if (!Sidechain::AddScData(intArray, sc.vCompressedFieldElementConfig))
+            if (!Sidechain::AddScData(intArray, sc.vFieldElementCertificateFieldConfig))
             {
-                error = "invalid vCompressedFieldElementConfig";
+                error = "invalid vFieldElementCertificateFieldConfig";
                 return false;
             }
         }
 
-        const UniValue& CmtCfg = find_value(o, "vCompressedMerkleTreeConfig");
+        const UniValue& CmtCfg = find_value(o, "vBitVectorCertificateFieldConfig");
         if (!CmtCfg.isNull())
         {
-            UniValue intArray = CmtCfg.get_array();
-            if (!Sidechain::AddScData(intArray, sc.vCompressedMerkleTreeConfig))
+            UniValue BitVectorSizesPairArray = CmtCfg.get_array();
+            for(auto& pairEntry: BitVectorSizesPairArray.getValues())
             {
-                error = "invalid vCompressedMerkleTreeConfig";
-                return false;
+                if (pairEntry.size() != 2) {
+                    error = "invalid vBitVectorCertificateFieldConfig";
+                    return false;
+                }
+                if (!pairEntry[0].isNum() || !pairEntry[1].isNum())
+                {
+                    error = "invalid vBitVectorCertificateFieldConfig";
+                    return false;
+                }
+
+                sc.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});
             }
         }
 
@@ -604,15 +632,14 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
         }
         inputString = scUtxoIdVal.get_str();
         std::vector<unsigned char> scUtxoIdVec;
-        if (!AddScData(inputString, scUtxoIdVec, SC_FIELD_SIZE, true, error))
+        if (!AddScData(inputString, scUtxoIdVec, CFieldElement::ByteSize(), true, error))
         {
             error = "scUtxoId: " + error;
             return false;
         }
 
-        bwtData.scUtxoId = libzendoomc::ScFieldElement(scUtxoIdVec);
-
-        if (!libzendoomc::IsValidScFieldElement(bwtData.scUtxoId))
+        bwtData.scRequestData = CFieldElement{scUtxoIdVec};
+        if (!bwtData.scRequestData.IsValid())
         {
             error = "invalid scUtxoId";
             return false;
@@ -658,14 +685,14 @@ void fundCcRecipients(const CTransaction& tx,
         CRecipientScCreation sc;
         sc.nValue = entry.nValue;
         sc.address = entry.address;
-        sc.creationData.withdrawalEpochLength         = entry.withdrawalEpochLength;
-        sc.creationData.wCertVk                       = entry.wCertVk;
-        sc.creationData.wMbtrVk                       = entry.wMbtrVk;
-        sc.creationData.wCeasedVk                     = entry.wCeasedVk;
-        sc.creationData.vCompressedFieldElementConfig = entry.vCompressedFieldElementConfig;
-        sc.creationData.vCompressedMerkleTreeConfig   = entry.vCompressedMerkleTreeConfig;
-        sc.creationData.customData                    = entry.customData;
-        sc.creationData.constant                      = entry.constant;
+        sc.creationData.withdrawalEpochLength               = entry.withdrawalEpochLength;
+        sc.creationData.wCertVk                             = entry.wCertVk;
+        sc.creationData.wMbtrVk                             = entry.wMbtrVk;
+        sc.creationData.wCeasedVk                           = entry.wCeasedVk;
+        sc.creationData.vFieldElementCertificateFieldConfig = entry.vFieldElementCertificateFieldConfig;
+        sc.creationData.vBitVectorCertificateFieldConfig    = entry.vBitVectorCertificateFieldConfig;
+        sc.creationData.customData                          = entry.customData;
+        sc.creationData.constant                            = entry.constant;
 
         vecScSend.push_back(sc);
     }
@@ -686,7 +713,7 @@ void fundCcRecipients(const CTransaction& tx,
         bt.scId = entry.scId;
         bt.mcDestinationAddress = entry.mcDestinationAddress;
         bt.bwtRequestData.scFee = entry.scFee;
-        bt.bwtRequestData.scUtxoId = entry.scRequestData;
+        bt.bwtRequestData.scRequestData = entry.scRequestData;
         bt.bwtRequestData.scProof = entry.scProof;
 
         vecBwtRequest.push_back(bt);
@@ -859,7 +886,7 @@ void ScRpcCmd::addChange()
 ScRpcCmdCert::ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
-        const std::vector<CompressedFieldElement>& vCfe, const std::vector<CompressedMerkleTree>& vCmt):
+        const std::vector<FieldElementCertificateField>& vCfe, const std::vector<BitVectorCertificateField>& vCmt):
         ScRpcCmd(fromaddress, changeaddress, minConf, nFee),
         _cert(cert),_bwdParams(bwdParams), _vCfe(vCfe), _vCmt(vCmt)
 {
@@ -949,9 +976,9 @@ void ScRpcCmdCert::addBackwardTransfers()
 void ScRpcCmdCert::addCustomFields()
 {
     if (!_vCfe.empty())
-        _cert.vCompressedFieldElement = _vCfe;
+        _cert.vFieldElementCertificateField = _vCfe;
     if (!_vCmt.empty())
-        _cert.vCompressedMerkleTree = _vCmt;
+        _cert.vBitVectorCertificateField = _vCmt;
 }
 
 ScRpcCmdTx::ScRpcCmdTx(
@@ -1110,6 +1137,5 @@ void ScRpcRetrieveCmdTx::addCcOutputs()
 }
 
 // explicit instantiations
-template bool AddScData<CompressedFieldElementConfig>(const UniValue& intArray, std::vector<CompressedFieldElementConfig>& vCfg);
-template bool AddScData<CompressedMerkleTreeConfig>(const UniValue& intArray, std::vector<CompressedMerkleTreeConfig>& vCfg);
+template bool AddScData<FieldElementCertificateFieldConfig>(const UniValue& intArray, std::vector<FieldElementCertificateFieldConfig>& vCfg);
 }  // end of namespace

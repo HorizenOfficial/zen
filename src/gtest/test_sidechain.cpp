@@ -275,7 +275,7 @@ TEST_F(SidechainsTestSuite, ValidCSWTx) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
-    csw.nullifier = libzendoomc::ScFieldElement();
+    csw.nullifier = CFieldElement{};
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -291,7 +291,7 @@ TEST_F(SidechainsTestSuite, CSWTxNegativeAmount) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = -1;
-    csw.nullifier = libzendoomc::ScFieldElement();
+    csw.nullifier = CFieldElement{};
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -309,7 +309,7 @@ TEST_F(SidechainsTestSuite, CSWTxHugeAmount) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = MAX_MONEY + 1;
-    csw.nullifier = libzendoomc::ScFieldElement();
+    csw.nullifier = CFieldElement{};
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -327,7 +327,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidNullifier) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
-    csw.nullifier = libzendoomc::ScFieldElement({std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')});
+    csw.nullifier = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -345,7 +345,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidProof) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
-    csw.nullifier = libzendoomc::ScFieldElement();
+    csw.nullifier = CFieldElement{};
     csw.scProof = libzendoomc::ScProof({std::vector<unsigned char>(size_t(SC_PROOF_SIZE), 'a')});
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;

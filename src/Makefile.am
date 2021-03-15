@@ -272,10 +272,10 @@ libbitcoin_server_a_SOURCES = \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
   sc/sidechainTxsCommitmentBuilder.cpp \
+  sc/sidechaintypes.cpp \
   sc/proofverifier.cpp \
   sc/sidechain.cpp \
   sc/sidechainrpc.cpp \
-  sc/sidechaintypes.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \
@@ -371,6 +371,7 @@ libbitcoin_common_a_SOURCES = \
   arith_uint256.cpp \
   base58.cpp \
   chainparams.cpp \
+  sc/proofverifier.cpp \
   coins.cpp \
   compressor.cpp \
   core_read.cpp \
@@ -510,6 +511,7 @@ zen_tx_SOURCES = \
     primitives/certificate.cpp \
     sc/sidechainTxsCommitmentBuilder.cpp \
     sc/sidechaintypes.cpp \
+    sc/proofverifier.cpp \
     sc/sidechain.cpp \
     coins.cpp \
     script/interpreter.cpp \

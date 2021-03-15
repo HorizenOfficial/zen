@@ -67,7 +67,9 @@ CMutableTransaction GetValidTransaction(int txVersion) {
         CTxCeasedSidechainWithdrawalInput csw_ccin;
         csw_ccin.nValue = 2.0 * COIN;
         csw_ccin.scId = GetRandHash();
-        GetRandBytes((unsigned char*)&csw_ccin.nullifier, csw_ccin.nullifier.size());
+        std::vector<unsigned char> nullifierStr(CFieldElement::ByteSize(), 0x0);
+        GetRandBytes((unsigned char*)&nullifierStr[0], CFieldElement::ByteSize()-2);
+        csw_ccin.nullifier = CFieldElement{nullifierStr};
         GetRandBytes((unsigned char*)&csw_ccin.pubKeyHash, csw_ccin.pubKeyHash.size());
         GetRandBytes((unsigned char*)&csw_ccin.scProof, csw_ccin.scProof.size());
         csw_ccin.redeemScript = CScript();
@@ -879,62 +881,41 @@ TEST(SidechainsCertificateManipulation, ResizingCertificateChangeOutputs) {
         EXPECT_TRUE(noBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
 }
 
-TEST(CertificateCustomFields, PositiveSizeFieldElementConfigCanBeBuilt)
+TEST(SidechainsCertificateCustomFields, FieldElementCertificateFieldConfig_Validation)
 {
-    CompressedFieldElementConfig positiveSizeFieldConfig{10};
-    EXPECT_TRUE(positiveSizeFieldConfig.getBitSize() == 10);
+    FieldElementCertificateFieldConfig negativeFieldConfig{-1};
+    EXPECT_FALSE(negativeFieldConfig.IsValid());
+
+    FieldElementCertificateFieldConfig zeroFieldConfig{0};
+    EXPECT_FALSE(zeroFieldConfig.IsValid());
+
+    FieldElementCertificateFieldConfig positiveFieldConfig{10};
+    EXPECT_TRUE(positiveFieldConfig.IsValid());
+
+    FieldElementCertificateFieldConfig tooBigFieldConfig(CFieldElement::BitSize()+1);
+    EXPECT_FALSE(tooBigFieldConfig.IsValid());
 }
 
-TEST(CertificateCustomFields, NegativeSizeFieldElementConfigCannotBeBuilt)
+TEST(SidechainsCertificateCustomFields, BitVectorCertificateFieldConfig_Validation)
 {
-    EXPECT_THROW(
-    {
-        try { CompressedFieldElementConfig(-1); }
-        catch( const std::invalid_argument& e ) { throw; }
-    }, std::invalid_argument );
-}
+    BitVectorCertificateFieldConfig negativeSizeBitVector_BitVectorConfig{-1, 12};
+    EXPECT_FALSE(negativeSizeBitVector_BitVectorConfig.IsValid());
 
-TEST(CertificateCustomFields, ZeroSizeFieldElementConfigCannotBeBuilt)
-{
-    EXPECT_THROW(
-    {
-        try { CompressedFieldElementConfig(0); }
-        catch( const std::invalid_argument& e ) { throw; }
-    }, std::invalid_argument );
-}
+    BitVectorCertificateFieldConfig negativeSizeCompressed_BitVectorConfig{1, -1};
+    EXPECT_FALSE(negativeSizeCompressed_BitVectorConfig.IsValid());
 
-TEST(CertificateCustomFields, DefaultConstructedFieldElementConfigCannotBeSerialized)
-{
-    CompressedFieldElementConfig cfgToWrite{};
-    CDataStream cfgStream(SER_DISK, CLIENT_VERSION);
-    EXPECT_THROW(
-    {
-        try { cfgStream << cfgToWrite; }
-        catch( const std::invalid_argument& e ) { throw; }
-    }, std::invalid_argument );
-}
+    BitVectorCertificateFieldConfig zeroSizeBitVector_BitVectorConfig{0, 12};
+    EXPECT_TRUE(zeroSizeBitVector_BitVectorConfig.IsValid());  //SHOULD THIS BE FALSE ?
 
-TEST(CertificateCustomFields, ZeroHeightCompressedMerkleTreeConfigCanBeBuilt)
-{
-    CompressedMerkleTreeConfig zeroHeightCompressedMtConfig{0};
-    // TODO the getBitSize() final implementation will use the rust lib, this test should be then updated
-    EXPECT_TRUE(zeroHeightCompressedMtConfig.getBitSize() == 1*CHAR_BIT);
-}
+    BitVectorCertificateFieldConfig zeroSizeCompressed_BitVectorConfig{1, 0};
+    EXPECT_TRUE(zeroSizeCompressed_BitVectorConfig.IsValid()); //SHOULD THIS BE FALSE ?
 
-TEST(CertificateCustomFields, NegativeHeightCompressedMerkleTreeConfigCannotBeBuilt)
-{
-    EXPECT_THROW(
-    {
-        try { CompressedMerkleTreeConfig(-1); }
-        catch( const std::invalid_argument& e ) { throw; }
-    }, std::invalid_argument );
-}
+    BitVectorCertificateFieldConfig positiveBitVectorConfig{10, 12};
+    EXPECT_TRUE(positiveBitVectorConfig.IsValid());
 
-TEST(CertificateCustomFields, TooBigCompressedMerkleTreeConfigCannotBeBuilt)
-{
-    EXPECT_THROW(
-    {
-        try { CompressedMerkleTreeConfig(log2(std::numeric_limits<int32_t>::max())+1); }
-        catch( const std::invalid_argument& e ) { throw; }
-    }, std::invalid_argument );
+    BitVectorCertificateFieldConfig tooBigBitVector_BitVectorConfig{BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS+1, 12};
+    EXPECT_FALSE(tooBigBitVector_BitVectorConfig.IsValid());
+
+    BitVectorCertificateFieldConfig tooBigCompressed_BitVectorConfig{1, BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES+1};
+    EXPECT_FALSE(tooBigCompressed_BitVectorConfig.IsValid());
 }

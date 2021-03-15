@@ -33,8 +33,8 @@ public:
     bool IsNull() const { return (nValue == -1);  }
 };
 
-class CompressedFieldElement;
-class CompressedMerkleTree;
+class FieldElementCertificateField;
+class BitVectorCertificateField;
 
 class CScCertificate : public CTransactionBase
 {
@@ -59,8 +59,8 @@ public:
     const int64_t quality;
     const uint256 endEpochBlockHash;
     const libzendoomc::ScProof scProof;
-    std::vector<CompressedFieldElement> vCompressedFieldElement;
-    std::vector<CompressedMerkleTree> vCompressedMerkleTree;
+    std::vector<FieldElementCertificateField> vFieldElementCertificateField;
+    std::vector<BitVectorCertificateField> vBitVectorCertificateField;
 
     // memory only
     const int nFirstBwtPos;
@@ -108,8 +108,8 @@ public:
         READWRITE(*const_cast<int64_t*>(&quality));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
         READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
-        READWRITE(*const_cast<std::vector<CompressedFieldElement>*>(&vCompressedFieldElement));
-        READWRITE(*const_cast<std::vector<CompressedMerkleTree>*>(&vCompressedMerkleTree));
+        READWRITE(*const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField));
+        READWRITE(*const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField));
 
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
 
@@ -168,7 +168,7 @@ public:
     const std::vector<JSDescription>&  GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                     GetScId()       const          {return scId;};
     const uint32_t&                    GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
-    libzendoomc::ScFieldElement GetDataHash() const;
+    CFieldElement                      GetDataHash() const;
     //END OF GETTERS
 
     bool IsBackwardTransfer(int pos) const override final;
@@ -197,8 +197,8 @@ public:
             quality == QUALITY_NULL &&
             endEpochBlockHash.IsNull() &&
             scProof.IsNull() &&
-            vCompressedFieldElement.empty() &&
-            vCompressedMerkleTree.empty() &&
+            vFieldElementCertificateField.empty() &&
+            vBitVectorCertificateField.empty() &&
             vin.empty() &&
             vout.empty() );
     }
@@ -226,8 +226,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
     int64_t quality;
     uint256 endEpochBlockHash;
     libzendoomc::ScProof scProof;
-    std::vector<CompressedFieldElement> vCompressedFieldElement;
-    std::vector<CompressedMerkleTree> vCompressedMerkleTree;
+    std::vector<FieldElementCertificateField> vFieldElementCertificateField;
+    std::vector<BitVectorCertificateField> vBitVectorCertificateField;
 
     // memory only
     const int nFirstBwtPos;
@@ -249,8 +249,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(quality);
         READWRITE(endEpochBlockHash);
         READWRITE(scProof);
-        READWRITE(vCompressedFieldElement);
-        READWRITE(vCompressedMerkleTree);
+        READWRITE(vFieldElementCertificateField);
+        READWRITE(vBitVectorCertificateField);
         READWRITE(vin);
 
         if (ser_action.ForRead())
@@ -284,8 +284,9 @@ struct CMutableScCertificate : public CMutableTransactionBase
 
     template <typename Stream>
     CMutableScCertificate(deserialize_type, Stream& s) :
-        scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), scProof(),
-        vCompressedFieldElement(), vCompressedMerkleTree()
+        scId(), epochNumber(CScCertificate::EPOCH_NULL),
+        quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), scProof(),
+        vFieldElementCertificateField(), vBitVectorCertificateField()
     {
         Unserialize(s);
     }

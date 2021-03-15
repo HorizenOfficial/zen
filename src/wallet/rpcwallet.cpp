@@ -802,8 +802,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "                                     hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             " 8. \"wCeasedVk\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                 hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            " 9. \"vCompressedFieldElementConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
-            "10. \"vCompressedMerkleTreeConfig\" (array, optional) An array whose entries are mkl tree heights. Any certificate should have as many custom CompressedMerkleTree with the corresponding tree height\n"
+            " 9. \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElementCertificateField with the corresponding size.\n"
+            "10. \"vBitVectorCertificateFieldConfig\" (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -871,12 +871,14 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         // it is optional
         if (!inputString.empty())
         {
-            if (!Sidechain::AddScData(inputString, sc.creationData.constant, SC_FIELD_SIZE, true, error))
+            std::vector<unsigned char> scConstantByteArray {};
+            if (!Sidechain::AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), true, error))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
             }
  
-            if(!libzendoomc::IsValidScConstant(sc.creationData.constant))
+            sc.creationData.constant = CFieldElement{scConstantByteArray};
+            if(!sc.creationData.constant->IsValid())
             {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid constant");
             }
@@ -925,7 +927,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (params.size() > 8)
     {
         UniValue intArray = params[8].get_array();
-        if (!Sidechain::AddScData(intArray, sc.creationData.vCompressedFieldElementConfig))
+        if (!Sidechain::AddScData(intArray, sc.creationData.vFieldElementCertificateFieldConfig))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
         }
@@ -934,12 +936,23 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     if (params.size() > 9)
     {
-        UniValue intArray = params[9].get_array();
-        if (!Sidechain::AddScData(intArray, sc.creationData.vCompressedMerkleTreeConfig))
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
-        }
         // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
+        UniValue PairsArray = params[9].get_array();
+        if (!PairsArray.isNull())
+        {
+            for(auto& pairEntry: PairsArray.getValues())
+            {
+                if (pairEntry.size() != 2) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig");
+                }
+                if (!pairEntry[0].isNum() || !pairEntry[1].isNum())
+                {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig, expected integers");
+                }
+
+                sc.creationData.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});
+            }
+        }
     }
 
     vector<CRecipientScCreation> vecScSend;
@@ -984,13 +997,13 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "   \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "   \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "   \"wMbtrVk\":data                  (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             "   \"wCeasedVk\":data                (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            "   \"vCompressedFieldElementConfig\"           (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
-            "   \"vCompressedMerkleTreeConfig\"   (array, optional) An array whose entries are mkl tree heights. Any certificate should have as many custom CompressedMerkleTree with the corresponding tree height\n"
+            "                                          hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
+            "   \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            "   \"vBitVectorCertificateFieldConfig\"   (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
             "}\n"
             "\nResult:\n"
             "{\n"
@@ -1006,7 +1019,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
         {"withdrawalEpochLength", "fromaddress", "changeaddress", "toaddress", "amount", "minconf", "fee",
-         "wCertVk", "customData", "constant", "wMbtrVk","wCeasedVk", "vCompressedFieldElementConfig", "vCompressedMerkleTreeConfig"};
+         "wCertVk", "customData", "constant", "wMbtrVk","wCeasedVk", "vFieldElementCertificateFieldConfig", "vBitVectorCertificateFieldConfig"};
 
     UniValue inputObject = params[0].get_obj();
 
@@ -1162,12 +1175,14 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("constant"))
     {
         string inputString = find_value(inputObject, "constant").get_str();
-        if (!Sidechain::AddScData(inputString, creationData.constant, SC_FIELD_SIZE, true, error))
+        std::vector<unsigned char> scConstantByteArray {};
+        if (!Sidechain::AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
 
-        if (!libzendoomc::IsValidScConstant(creationData.constant))
+        creationData.constant = CFieldElement{scConstantByteArray};
+        if (!creationData.constant->IsValid())
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
         }
@@ -1210,10 +1225,10 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
-    if (setKeyArgs.count("vCompressedFieldElementConfig"))
+    if (setKeyArgs.count("vFieldElementCertificateFieldConfig"))
     {
-        UniValue intArray = find_value(inputObject, "vCompressedFieldElementConfig").get_array();
-        if (!Sidechain::AddScData(intArray, creationData.vCompressedFieldElementConfig))
+        UniValue intArray = find_value(inputObject, "vFieldElementCertificateFieldConfig").get_array();
+        if (!Sidechain::AddScData(intArray, creationData.vFieldElementCertificateFieldConfig))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
         }
@@ -1221,14 +1236,25 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
-    if (setKeyArgs.count("vCompressedMerkleTreeConfig"))
+    if (setKeyArgs.count("vBitVectorCertificateFieldConfig"))
     {
-        UniValue intArray = find_value(inputObject, "vCompressedMerkleTreeConfig").get_array();
-        if (!Sidechain::AddScData(intArray, creationData.vCompressedMerkleTreeConfig))
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
-        }
         // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
+        UniValue PairsArray = find_value(inputObject, "vBitVectorCertificateFieldConfig").get_array();
+        if (!PairsArray.isNull())
+        {
+            for(auto& pairEntry: PairsArray.getValues())
+            {
+                if (pairEntry.size() != 2) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig");
+                }
+                if (!pairEntry[0].isNum() || !pairEntry[1].isNum())
+                {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig, expected integers");
+                }
+
+                creationData.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});
+            }
+        }
     }
 
     CMutableTransaction tx_create;
@@ -1475,7 +1501,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             "[{\n"
             "   \"scid\":side chain ID             (string, required) The uint256 side chain ID\n"
             "   \"scUtxoId\":hexstr                (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "   \"pubkeyhash\":pkh                 (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
             "   \"scFee\":amount,                  (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
             "   \"scProof\":hexstr,                (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
@@ -1608,10 +1634,8 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
         }
         libzendoomc::ScProof scProof = libzendoomc::ScProof(scProofVec);
 
-#if 1 // TODO 
         if(!libzendoomc::IsValidScProof(scProof))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scProof"));
-#endif
 
         // ---------------------------------------------------------
         std::vector<unsigned char> scUtxoIdVec;
@@ -1619,22 +1643,22 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
         {
             const string& scUtxoIdString = find_value(o, "scUtxoId").get_str();
             std::string error;
-            if (!Sidechain::AddScData(scUtxoIdString, scUtxoIdVec, SC_FIELD_SIZE, true ,error))
+            if (!Sidechain::AddScData(scUtxoIdString, scUtxoIdVec, CFieldElement::ByteSize(), true ,error))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("scUtxoId: ") + error);
         }
         else
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scUtxoId\"" );
         }
-        libzendoomc::ScFieldElement scUtxoId = libzendoomc::ScFieldElement(scUtxoIdVec);
 
-        if(!libzendoomc::IsValidScFieldElement(scUtxoId))
+        CFieldElement scUtxoId {scUtxoIdVec};
+        if(!scUtxoId.IsValid())
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scUtxoId"));
 
         ScBwtRequestParameters bwtData;
         bwtData.scFee = scFee;
         bwtData.scProof = scProof;
-        bwtData.scUtxoId = scUtxoId;
+        bwtData.scRequestData = scUtxoId;
 
         vOutputs.push_back(ScRpcRetrieveCmdTx::sBtOutParams(scId, pkeyValue, bwtData));
     }
@@ -5243,7 +5267,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     CCoinsViewMemPool vm(pcoinsTip, mempool);
     scView.SetBackend(vm);
     CSidechain sidechain;
-    if (!scView.GetSidechain(scId, sidechain))
+    if (!scView.GetSidechain(scId,sidechain))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid does not exists: ") + scId.ToString());
@@ -5367,10 +5391,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     // get fe cfg from creation params if any
-    std::vector<CompressedFieldElementConfig> vCompressedFieldElementConfig = sidechain.creationData.vCompressedFieldElementConfig;
-    std::vector<CompressedMerkleTreeConfig> vCompressedMerkleTreeConfig = sidechain.creationData.vCompressedMerkleTreeConfig;
+    const auto & vFieldElementCertificateFieldConfig = sidechain.creationData.vFieldElementCertificateFieldConfig;
+    const auto & vBitVectorCertificateFieldConfig = sidechain.creationData.vBitVectorCertificateFieldConfig;
 
-    std::vector<CompressedFieldElement> vCompressedFieldElement;
+    std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     UniValue feArray(UniValue::VARR);
     if (params.size() > 7)
     {
@@ -5383,7 +5407,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
             std::string strError;
             std::vector<unsigned char> fe;
-            int nBits = vCompressedFieldElementConfig.at(count).getBitSize(); 
+            int nBits = vFieldElementCertificateFieldConfig.at(count).getBitSize();
             int nBytes = nBits/8;
             if (nBits % 8)
                 nBytes++;
@@ -5391,19 +5415,19 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             if (!Sidechain::AddCustomFieldElement(o.get_str(), fe, nBytes, strError))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedFieldElement[" + std::to_string(count) + "]: ") + strError);
  
-            vCompressedFieldElement.push_back(fe);
+            vFieldElementCertificateField.push_back(fe);
             count++;
         }
     }
     // check here because we must check also if custom field vec is empty and sc creation has a non-empty cfg 
-    if (feArray.size() != vCompressedFieldElementConfig.size() )
+    if (feArray.size() != vFieldElementCertificateField.size() )
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
             "Invalid parameter, fe array has size %d, but the expected size is %d",
-            feArray.size(), vCompressedFieldElementConfig.size()));
+            feArray.size(), vBitVectorCertificateFieldConfig.size()));
     }
 
-    std::vector<CompressedMerkleTree> vCompressedMerkleTree;
+    std::vector<BitVectorCertificateField> vBitVectorCertificateField;
     UniValue cmtArray(UniValue::VARR);
     if (params.size() > 8)
     {
@@ -5416,7 +5440,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
             std::string error;
             std::vector<unsigned char> cmt;
-            int cmt_size = vCompressedMerkleTreeConfig.at(count).getBitSize(); 
+            int cmt_size = vBitVectorCertificateFieldConfig.at(count).getMaxCompressedSizeBytes();
 
             // check upper limit only since data are compressed
             static const bool STRICT_SZ_CHECK = false;
@@ -5424,15 +5448,15 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             if (!Sidechain::AddScData(o.get_str(), cmt, cmt_size, STRICT_SZ_CHECK, error))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedMerkleTree[" + std::to_string(count) + "]: ") + error);
  
-            vCompressedMerkleTree.push_back(cmt);
+            vBitVectorCertificateField.push_back(cmt);
             count++;
         }
     }
-    if (cmtArray.size() != vCompressedMerkleTreeConfig.size() )
+    if (cmtArray.size() != vBitVectorCertificateFieldConfig.size() )
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
             "Invalid parameter, compr mkl tree array has size %d, but the expected size is %d",
-            cmtArray.size(), vCompressedMerkleTreeConfig.size()));
+            cmtArray.size(), vBitVectorCertificateFieldConfig.size()));
     }
 
     EnsureWalletIsUnlocked();
@@ -5460,7 +5484,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     Sidechain::ScRpcCmdCert cmd(cert, vBackwardTransfers, fromaddress, changeaddress, nMinDepth, nCertFee,
-        vCompressedFieldElement, vCompressedMerkleTree);
+        vFieldElementCertificateField, vBitVectorCertificateField);
     cmd.execute();
 
     return cert.GetHash().GetHex();

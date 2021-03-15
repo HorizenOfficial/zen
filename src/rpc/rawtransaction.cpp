@@ -233,14 +233,14 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     x.push_back(Pair("scProof", HexStr(cert.scProof)));
 
     UniValue vCfe(UniValue::VARR);
-    for (const auto& entry : cert.vCompressedFieldElement) {
-        vCfe.push_back(HexStr(entry.getVRawField()));
+    for (const auto& entry : cert.vFieldElementCertificateField) {
+        vCfe.push_back(HexStr(entry.getVRawData()));
     }
     x.push_back(Pair("vCompressedFieldElement", vCfe));
 
     UniValue vCmt(UniValue::VARR);
-    for (const auto& entry : cert.vCompressedMerkleTree) {
-        vCmt.push_back(HexStr(entry.getVRawField()));
+    for (const auto& entry : cert.vBitVectorCertificateField) {
+        vCmt.push_back(HexStr(entry.getVRawData()));
     }
     x.push_back(Pair("vCompressedMerkleTree", vCmt));
 
@@ -678,8 +678,8 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "    [{\"amount\": value, \"senderAddress\":\"address\", ...}, ...] (\n"
             "    [{\"epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr},...]\n"
             "    ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id},...]\n"
-			"    ( [{\"scid\":\"scid\", \"scUtxoId\":\"scUtxoId\", \"pubkeyhash\":\"pubkeyhash\", \"scFee\":\"scFee\", \"scProof\":\"scProof\"},...]\n"
-			") ) )\n"
+            "    ( [{\"scid\":\"scid\", \"scUtxoId\":\"scUtxoId\", \"pubkeyhash\":\"pubkeyhash\", \"scFee\":\"scFee\", \"scProof\":\"scProof\"},...]\n"
+            ") ) )\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
             "Note that the transaction's inputs are not signed, and\n"
@@ -722,9 +722,11 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "         \"customData\":hexstr       (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                       hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "         \"constant\":hexstr         (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "         \"wCeasedVk\":hexstr        (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                       hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "         \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many FieldElementCertificateField with the corresponding size.\n"
+            "         \"vBitVectorCertificateFieldConfig\"    (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many BitVectorCertificateField with the corresponding sizes\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"
@@ -742,7 +744,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "       {\n"
             "         \"scid\":side chain ID       (string, required) The uint256 side chain ID\n"
             "         \"scUtxoId\":hexstr          (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "         \"pubkeyhash\":pkh           (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
             "         \"scFee\":amount,            (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
             "         \"scProof\":hexstr,          (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
@@ -1170,7 +1172,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             if (!Sidechain::AddCustomFieldElement(o.get_str(), fe, MAX_FE_SIZE_BYTES, errString))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedFieldElement[" + std::to_string(count) + "]") + errString);
 
-            rawCert.vCompressedFieldElement.push_back(fe);
+            rawCert.vFieldElementCertificateField.push_back(fe);
             count++;
         }
     }
@@ -1193,7 +1195,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             if (!Sidechain::AddScData(o.get_str(), cmt, MAX_CMT_SIZE_BYTES, false, error))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedMerkleTree[" + std::to_string(count) + "]") + error);
 
-            rawCert.vCompressedMerkleTree.push_back(cmt);
+            rawCert.vBitVectorCertificateField.push_back(cmt);
             count++;
         }
     }

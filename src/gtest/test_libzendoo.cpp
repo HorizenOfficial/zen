@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <sc/sidechaintypes.h>
 #include <primitives/transaction.h>
 #include <primitives/certificate.h>
 #include <sc/sidechainTxsCommitmentBuilder.h>
@@ -10,16 +11,217 @@
 #include <cstring>
 #include <utilstrencodings.h>
 
+#include <streams.h>
+#include <clientversion.h>
+
+TEST(SidechainsField, FieldSizeIsAlwaysTheExpectedOne)
+{
+    CFieldElement emptyField;
+    EXPECT_TRUE(emptyField.GetByteArray().size() == CFieldElement::ByteSize());
+}
+
+TEST(SidechainsField, Serialization)
+{
+    CDataStream zeroLengthStream(SER_DISK, CLIENT_VERSION);
+    CFieldElement zeroLengthRetrievedField;
+    EXPECT_THROW(zeroLengthStream >> zeroLengthRetrievedField,std::ios_base::failure);
+
+    ///////////////////
+    std::vector<unsigned char> tooShortByteArray(19,'a');
+    ASSERT_TRUE(tooShortByteArray.size() < CFieldElement::ByteSize());
+    CDataStream tooShortStream(SER_DISK, CLIENT_VERSION);
+
+    tooShortStream << tooShortByteArray;
+    CFieldElement tooShortRetrievedField;
+    EXPECT_THROW(tooShortStream >> tooShortRetrievedField,std::ios_base::failure);
+
+    ////////////////////
+    std::vector<unsigned char> tooBigByteArray(CFieldElement::ByteSize()*2,0x0);
+    ASSERT_TRUE(tooBigByteArray.size() > CFieldElement::ByteSize());
+    CDataStream tooBigStream(SER_DISK, CLIENT_VERSION);
+
+    tooBigStream << tooBigByteArray;
+    CFieldElement tooBigRetrievedField;
+    EXPECT_NO_THROW(tooBigStream >> tooBigRetrievedField);
+
+    ////////////////////
+    std::vector<unsigned char> nonZeroTerminatedByteArray(CFieldElement::ByteSize(),0xff);
+    ASSERT_TRUE(nonZeroTerminatedByteArray.size() == CFieldElement::ByteSize());
+    CDataStream nonZeroStream(SER_DISK, CLIENT_VERSION);
+
+    nonZeroStream << nonZeroTerminatedByteArray;
+    CFieldElement nonZeroRetrievedField;
+    EXPECT_NO_THROW(nonZeroStream >> nonZeroRetrievedField);
+    EXPECT_FALSE(nonZeroRetrievedField.IsValid());
+
+    ////////////////////
+    std::vector<unsigned char> overModuleByteArray = {
+        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
+        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
+        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
+        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 2, 0
+    };
+    ASSERT_TRUE(overModuleByteArray.size() == CFieldElement::ByteSize());
+
+    CDataStream overModuleStream(SER_DISK, CLIENT_VERSION);
+    overModuleStream.write((char*)&overModuleByteArray[0], overModuleByteArray.size() * sizeof(unsigned char));
+
+    CFieldElement overModuleRetrievedField;
+    EXPECT_NO_THROW(overModuleStream >> overModuleRetrievedField);
+    EXPECT_FALSE(overModuleRetrievedField.IsValid());
+
+    ////////////////////
+    std::vector<unsigned char> validByteArray = {
+        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
+        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
+        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
+        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 1, 0
+    };
+    CFieldElement fieldElement{validByteArray};
+    CDataStream validStream(SER_DISK, CLIENT_VERSION);
+
+    validStream << fieldElement;
+    CFieldElement validRetrievedField;
+    EXPECT_NO_THROW(validStream >> validRetrievedField);
+    EXPECT_TRUE(validRetrievedField.IsValid());
+    EXPECT_TRUE(validRetrievedField == fieldElement);
+}
+
+TEST(SidechainsField, IsValid)
+{
+    std::vector<unsigned char> zeroLengthByteArray{};
+    EXPECT_DEATH(CFieldElement{zeroLengthByteArray}, "");
+
+    std::vector<unsigned char> shortByteArray(19,'a');
+    EXPECT_DEATH(CFieldElement{shortByteArray}, "");
+
+    std::vector<unsigned char> tooBigByteArray(CFieldElement::ByteSize()*2,0x0);
+    EXPECT_DEATH(CFieldElement{tooBigByteArray}, "");
+
+    std::vector<unsigned char> nonZeroTerminatedByteArray(CFieldElement::ByteSize(),0xff);
+    CFieldElement nonZeroTerminatedField {nonZeroTerminatedByteArray};
+    EXPECT_FALSE(nonZeroTerminatedField.IsValid());
+
+    std::vector<unsigned char> overModuleByteArray = {
+        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
+        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
+        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
+        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 2, 0
+    };
+    ASSERT_TRUE(overModuleByteArray.size() == CFieldElement::ByteSize());
+    CFieldElement overModuleField{overModuleByteArray};
+    EXPECT_FALSE(overModuleField.IsValid());
+
+    std::vector<unsigned char> validByteArray = {
+        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
+        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
+        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
+        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 1, 0
+    };
+    ASSERT_TRUE(validByteArray.size() == CFieldElement::ByteSize());
+    CFieldElement validField {validByteArray};
+    EXPECT_TRUE(validField.IsValid());
+}
+
+TEST(SidechainsField, CopyAndAssignement)
+{
+    std::vector<unsigned char> validByteArray = {
+        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
+        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
+        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
+        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 1, 0
+    };
+    ASSERT_TRUE(validByteArray.size() == CFieldElement::ByteSize());
+    {
+        CFieldElement AValidField {validByteArray};
+        ASSERT_TRUE(AValidField.IsValid());
+        field_t* AValidPtr = AValidField.GetFieldElement();
+        ASSERT_TRUE(AValidPtr != nullptr);
+
+        { //Scoped to invoke copied obj dtor
+            CFieldElement copiedField(AValidField);
+            EXPECT_TRUE(copiedField.IsValid());
+            EXPECT_TRUE(copiedField == AValidField);
+
+            field_t* copiedPtr = copiedField.GetFieldElement();
+            ASSERT_TRUE(copiedPtr != nullptr);
+            ASSERT_TRUE(copiedPtr != AValidPtr);
+
+            zendoo_field_free(copiedPtr); // cleanup
+            copiedPtr = nullptr;
+        }
+        EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
+        field_t* ptr = AValidField.GetFieldElement();
+        ASSERT_TRUE(ptr != nullptr);
+        ASSERT_TRUE(ptr != AValidPtr);
+
+        { //Scoped to invoke assigned obj dtor
+            CFieldElement assignedField{};
+            assignedField = AValidField;
+            EXPECT_TRUE(assignedField.IsValid());
+            EXPECT_TRUE(assignedField == AValidField);
+
+            field_t* assignedPtr = assignedField.GetFieldElement();
+            ASSERT_TRUE(assignedPtr != nullptr);
+            ASSERT_TRUE(assignedPtr != AValidPtr);
+
+            zendoo_field_free(assignedPtr); // cleanup
+            assignedPtr = nullptr;
+        }
+        EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
+        ptr = AValidField.GetFieldElement();
+        ASSERT_TRUE(ptr != nullptr);
+        ASSERT_TRUE(ptr != AValidPtr);
+
+        zendoo_field_free(ptr); // cleanup
+        ptr = nullptr;
+    }
+}
+
+TEST(SidechainsField, PoseidonHashTest)
+{
+    std::vector<unsigned char> lhs {
+        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
+        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
+        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
+        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 0, 0
+    };
+    CFieldElement lhsField{lhs};
+    ASSERT_TRUE(lhsField.IsValid());
+
+    std::vector<unsigned char> rhs {
+        199, 130, 235, 52, 44, 219, 5, 195, 71, 154, 54, 121, 3, 11, 111, 160, 86, 212, 189, 66, 235, 236, 240, 242,
+        126, 248, 116, 0, 48, 95, 133, 85, 73, 150, 110, 169, 16, 88, 136, 34, 106, 7, 38, 176, 46, 89, 163, 49, 162,
+        222, 182, 42, 200, 240, 149, 226, 173, 203, 148, 194, 207, 59, 44, 185, 67, 134, 107, 221, 188, 208, 122, 212,
+        200, 42, 227, 3, 23, 59, 31, 37, 91, 64, 69, 196, 74, 195, 24, 5, 165, 25, 101, 215, 45, 92, 1, 0
+    };
+    CFieldElement rhsField{rhs};
+    ASSERT_TRUE(rhsField.IsValid());
+
+    std::vector<unsigned char> expectedHash {
+        53, 2, 235, 12, 255, 18, 125, 167, 223, 32, 245, 103, 38, 74, 43, 73, 254, 189, 174, 137, 20, 90, 195, 107, 202,
+        24, 151, 136, 85, 23, 9, 93, 207, 33, 229, 200, 178, 225, 221, 127, 18, 250, 108, 56, 86, 94, 171, 1, 76, 21,
+        237, 254, 26, 235, 196, 14, 18, 129, 101, 158, 136, 103, 147, 147, 239, 140, 163, 94, 245, 147, 110, 28, 93,
+        231, 66, 7, 111, 11, 202, 99, 146, 211, 117, 143, 224, 99, 183, 108, 157, 200, 119, 169, 180, 148, 0, 0,
+    };
+    CFieldElement expectedField{expectedHash};
+    ASSERT_TRUE(expectedField.IsValid());
+
+    EXPECT_TRUE(CFieldElement::ComputeHash(lhsField, rhsField) == expectedField)
+    <<"expectedField "<<expectedField.GetHexRepr()<<"\n"
+    <<"actualField   "<<CFieldElement::ComputeHash(lhsField, rhsField).GetHexRepr();
+}
+
 TEST(ZendooLib, FieldTest)
 {
     //Size is the expected one
     int field_len = zendoo_get_field_size_in_bytes();
-    ASSERT_EQ(field_len, SC_FIELD_SIZE);
+    ASSERT_EQ(field_len, CFieldElement::ByteSize());
 
     auto field = zendoo_get_random_field();
 
     //Serialize and deserialize and check equality
-    unsigned char field_bytes[SC_FIELD_SIZE];
+    unsigned char field_bytes[CFieldElement::ByteSize()];
     zendoo_serialize_field(field, field_bytes);
 
     auto field_deserialized = zendoo_deserialize_field(field_bytes);
@@ -295,7 +497,7 @@ TEST(ZendooLib, TestProofNoBwt)
 
 TEST(ScTxCommitmentTree, TreeCommitmentCalculation)
 {
-	fPrintToConsole = true;
+    fPrintToConsole = true;
 
     SidechainTxsCommitmentBuilder builder;
 
@@ -325,7 +527,7 @@ TEST(ScTxCommitmentTree, TreeCommitmentCalculation)
 
 TEST(ScTxCommitmentTree, EmptyTreeCommitmentCalculation)
 {
-	fPrintToConsole = true;
+    fPrintToConsole = true;
     SidechainTxsCommitmentBuilder builder;
 
     //Nothing to add
