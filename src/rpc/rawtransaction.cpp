@@ -236,13 +236,13 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     for (const auto& entry : cert.vFieldElementCertificateField) {
         vCfe.push_back(HexStr(entry.getVRawData()));
     }
-    x.push_back(Pair("vCompressedFieldElement", vCfe));
+    x.push_back(Pair("vFieldElementCertificateField", vCfe));
 
     UniValue vCmt(UniValue::VARR);
     for (const auto& entry : cert.vBitVectorCertificateField) {
         vCmt.push_back(HexStr(entry.getVRawData()));
     }
-    x.push_back(Pair("vCompressedMerkleTree", vCmt));
+    x.push_back(Pair("vBitVectorCertificateField", vCmt));
 
     x.push_back(Pair("totalAmount", ValueFromAmount(cert.GetValueOfBackwardTransfers())));
 
@@ -1011,8 +1011,8 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "      \"quality\":n                     (numeric, required) A positive number specifying the quality of this withdrawal certificate. \n"
             "      \"endEpochBlockHash\":\"blockHash\" (string, required) The block hash determining the end of the referenced epoch\n"
             "      \"scProof\":\"scProof\"             (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + "bytes \n"
-            "      \"vCompressedFieldElement\":\"field els\"     (array, optional) An array of HEX string... TODO add description\n"
-            "      \"vCompressedMerkleTree\":\"cmp mkl trees\"  (array, optional) An array of HEX string... TODO add description\n"
+            "      \"vFieldElementCertificateField\":\"field els\"     (array, optional) An array of HEX string... TODO add description\n"
+            "      \"vBitVectorCertificateField\":\"cmp mkl trees\"  (array, optional) An array of HEX string... TODO add description\n"
             "    }\n"
             "\nResult:\n"
             "\"certificate\" (string) hex string of the certificate\n"
@@ -1075,7 +1075,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     // valid input keywords for certificate data
     static const std::set<std::string> validKeyArgs = {
         "scid", "withdrawalEpochNumber", "quality", "endEpochBlockHash", "scProof",
-        "vCompressedFieldElement", "vCompressedMerkleTree"};
+        "vFieldElementCertificateField", "vBitVectorCertificateField"};
 
     // sanity check, report error if unknown/duplicate key-value pairs
     for (const string& s : cert_params.getKeys())
@@ -1157,9 +1157,9 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     // ---------------------------------------------------------
     // just check against a maximum size 
     static const size_t MAX_FE_SIZE_BYTES  = SC_FIELD_SIZE;
-    if (setKeyArgs.count("vCompressedFieldElement"))
+    if (setKeyArgs.count("vFieldElementCertificateField"))
     {
-        UniValue feArray = find_value(cert_params, "vCompressedFieldElement").get_array();
+        UniValue feArray = find_value(cert_params, "vFieldElementCertificateField").get_array();
 
         int count = 0;
         for (const UniValue& o : feArray.getValues())
@@ -1170,7 +1170,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             std::string errString;
             std::vector<unsigned char> fe;
             if (!Sidechain::AddCustomFieldElement(o.get_str(), fe, MAX_FE_SIZE_BYTES, errString))
-                throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedFieldElement[" + std::to_string(count) + "]") + errString);
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vFieldElementCertificateField[" + std::to_string(count) + "]") + errString);
 
             rawCert.vFieldElementCertificateField.push_back(fe);
             count++;
@@ -1180,9 +1180,9 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     // ---------------------------------------------------------
     // just check against a maximum size TODO for the time being set to 32 K
     static const size_t MAX_CMT_SIZE_BYTES = 1024*32;
-    if (setKeyArgs.count("vCompressedMerkleTree"))
+    if (setKeyArgs.count("vBitVectorCertificateField"))
     {
-        UniValue feArray = find_value(cert_params, "vCompressedMerkleTree").get_array();
+        UniValue feArray = find_value(cert_params, "vBitVectorCertificateField").get_array();
 
         int count = 0;
         for (const UniValue& o : feArray.getValues())
@@ -1193,7 +1193,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             std::string error;
             std::vector<unsigned char> cmt;
             if (!Sidechain::AddScData(o.get_str(), cmt, MAX_CMT_SIZE_BYTES, false, error))
-                throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedMerkleTree[" + std::to_string(count) + "]") + error);
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vBitVectorCertificateField[" + std::to_string(count) + "]") + error);
 
             rawCert.vBitVectorCertificateField.push_back(cmt);
             count++;

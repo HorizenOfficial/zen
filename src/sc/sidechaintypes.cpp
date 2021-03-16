@@ -322,6 +322,7 @@ const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorC
     this->pReferenceCfg = new BitVectorCertificateFieldConfig(cfg);
 
     if(vRawData.size() > cfg.getMaxCompressedSizeBytes()) {
+        // this is invalid and fieldElement is Null 
         return fieldElement;
     }
 
@@ -347,6 +348,18 @@ const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorC
     } catch(...) {
     }
     */
+    // set a default impl for having a valid field returned here
+    std::vector<unsigned char> extendedRawData = vRawData;
+    // this is in order to have a valid field element with the final bytes set to 0
+    extendedRawData.resize(CFieldElement::ByteSize() - 2, 0x0);
+    extendedRawData.resize(CFieldElement::ByteSize(), 0x0);
+
+    fieldElement.SetByteArray(extendedRawData);
+    if (fieldElement.IsValid())
+    {
+        state = VALIDATION_STATE::VALID;
+    } 
+
     return fieldElement;
 }
 
