@@ -18,6 +18,17 @@
 #include "amount.h"
 #include "serialize.h"
 ///////////////////////////////// Field types //////////////////////////////////
+
+struct CFieldPtrDeleter
+{ // deleter
+	CFieldPtrDeleter() = default;
+    void operator()(field_t* p) const {
+    	zendoo_field_free(p);
+    	p = nullptr;
+    };
+};
+typedef std::unique_ptr<field_t, CFieldPtrDeleter> wrappedFieldPtr;
+
 class CFieldElement
 {
 public:
@@ -39,7 +50,7 @@ public:
     const std::vector<unsigned char>&  GetByteArray() const;
     uint256 GetLegacyHashTO_BE_REMOVED() const;
 
-    field_t* GetFieldElement() const; //TODO: use smart ptr with adequate deleter [zendoo_field_free]
+    wrappedFieldPtr GetFieldElement() const;
 
     bool IsValid() const;
     // equality is not tested on deserializedField attribute since it is a ptr to memory specific per instance
@@ -85,6 +96,7 @@ public:
 
 private:
     std::vector<unsigned char> byteVector;
+    static CFieldPtrDeleter theFieldPtrDeleter;
 };
 
 typedef CFieldElement ScConstant;

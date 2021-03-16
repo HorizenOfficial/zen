@@ -133,24 +133,21 @@ TEST(SidechainsField, CopyAndAssignement)
     {
         CFieldElement AValidField {SAMPLE_FIELD};
         ASSERT_TRUE(AValidField.IsValid());
-        field_t* AValidPtr = AValidField.GetFieldElement();
-        ASSERT_TRUE(AValidPtr != nullptr);
+        wrappedFieldPtr AValidPtr = AValidField.GetFieldElement();
+        ASSERT_TRUE(AValidPtr.get() != nullptr);
 
         { //Scoped to invoke copied obj dtor
             CFieldElement copiedField(AValidField);
             EXPECT_TRUE(copiedField.IsValid());
             EXPECT_TRUE(copiedField == AValidField);
 
-            field_t* copiedPtr = copiedField.GetFieldElement();
-            ASSERT_TRUE(copiedPtr != nullptr);
+            wrappedFieldPtr copiedPtr = copiedField.GetFieldElement();
+            ASSERT_TRUE(copiedPtr.get() != nullptr);
             ASSERT_TRUE(copiedPtr != AValidPtr);
-
-            zendoo_field_free(copiedPtr); // cleanup
-            copiedPtr = nullptr;
         }
         EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
-        field_t* ptr = AValidField.GetFieldElement();
-        ASSERT_TRUE(ptr != nullptr);
+        wrappedFieldPtr ptr = AValidField.GetFieldElement();
+        ASSERT_TRUE(ptr.get() != nullptr);
         ASSERT_TRUE(ptr != AValidPtr);
 
         { //Scoped to invoke assigned obj dtor
@@ -159,20 +156,14 @@ TEST(SidechainsField, CopyAndAssignement)
             EXPECT_TRUE(assignedField.IsValid());
             EXPECT_TRUE(assignedField == AValidField);
 
-            field_t* assignedPtr = assignedField.GetFieldElement();
-            ASSERT_TRUE(assignedPtr != nullptr);
+            wrappedFieldPtr assignedPtr = assignedField.GetFieldElement();
+            ASSERT_TRUE(assignedPtr.get() != nullptr);
             ASSERT_TRUE(assignedPtr != AValidPtr);
-
-            zendoo_field_free(assignedPtr); // cleanup
-            assignedPtr = nullptr;
         }
         EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
         ptr = AValidField.GetFieldElement();
-        ASSERT_TRUE(ptr != nullptr);
+        ASSERT_TRUE(ptr.get() != nullptr);
         ASSERT_TRUE(ptr != AValidPtr);
-
-        zendoo_field_free(ptr); // cleanup
-        ptr = nullptr;
     }
 }
 

@@ -7,7 +7,7 @@
     void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn) {};
     void CFieldElement::SetNull() {};
     bool CFieldElement::IsNull() const {return false;};
-    field_t* CFieldElement::GetFieldElement() const {return nullptr;};
+    wrappedFieldPtr CFieldElement::GetFieldElement() const {return nullptr;};
     bool CFieldElement::IsValid() const {return false;};
     std::string CFieldElement::GetHexRepr() const {return std::string{};};
     CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs) { return CFieldElement{}; }
@@ -43,9 +43,9 @@ const std::vector<unsigned char>&  CFieldElement::GetByteArray() const
     return byteVector;
 }
 
-field_t* CFieldElement::GetFieldElement() const
+wrappedFieldPtr CFieldElement::GetFieldElement() const
 {
-    return zendoo_deserialize_field(&this->byteVector[0]);
+    return wrappedFieldPtr{zendoo_deserialize_field(&this->byteVector[0]), theFieldPtrDeleter};
 }
 
 uint256 CFieldElement::GetLegacyHashTO_BE_REMOVED() const
