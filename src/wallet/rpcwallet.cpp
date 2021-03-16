@@ -1500,7 +1500,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
             "[{\n"
             "   \"scid\":side chain ID             (string, required) The uint256 side chain ID\n"
-            "   \"scUtxoId\":hexstr                (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "   \"scRequestData\":hexstr                (string, required) It is an arbitrary byte string of even length expressed in\n"
             "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "   \"pubkeyhash\":pkh                 (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
             "   \"scFee\":amount,                  (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
@@ -1526,7 +1526,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
 
     // valid keywords in cmd arguments
     static const std::set<std::string> validKeyOutputArray =
-        {"scid", "scUtxoId", "pubkeyhash", "scFee", "scProof"};
+        {"scid", "scRequestData", "pubkeyhash", "scFee", "scProof"};
 
     // valid keywords in optional params
     static const std::set<std::string> validKeyArgs =
@@ -1638,27 +1638,27 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scProof"));
 
         // ---------------------------------------------------------
-        std::vector<unsigned char> scUtxoIdVec;
-        if (setKeyOutputArray.count("scUtxoId"))
+        std::vector<unsigned char> scRequestDataVec;
+        if (setKeyOutputArray.count("scRequestData"))
         {
-            const string& scUtxoIdString = find_value(o, "scUtxoId").get_str();
+            const string& scRequestDataString = find_value(o, "scRequestData").get_str();
             std::string error;
-            if (!Sidechain::AddScData(scUtxoIdString, scUtxoIdVec, CFieldElement::ByteSize(), true ,error))
-                throw JSONRPCError(RPC_TYPE_ERROR, string("scUtxoId: ") + error);
+            if (!Sidechain::AddScData(scRequestDataString, scRequestDataVec, CFieldElement::ByteSize(), true ,error))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("scRequestData: ") + error);
         }
         else
         {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scUtxoId\"" );
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scRequestData\"" );
         }
 
-        CFieldElement scUtxoId {scUtxoIdVec};
-        if(!scUtxoId.IsValid())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scUtxoId"));
+        CFieldElement scRequestData {scRequestDataVec};
+        if(!scRequestData.IsValid())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scRequestData"));
 
         ScBwtRequestParameters bwtData;
         bwtData.scFee = scFee;
         bwtData.scProof = scProof;
-        bwtData.scRequestData = scUtxoId;
+        bwtData.scRequestData = scRequestData;
 
         vOutputs.push_back(ScRpcRetrieveCmdTx::sBtOutParams(scId, pkeyValue, bwtData));
     }
@@ -5232,13 +5232,13 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "      \"amount\":amount       (numeric, required) The numeric amount in ZEN\n"
             "    }, ... ]\n"
             "7. fee                         (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
-            "8. vCompressedFieldElement           (array, optional) An array of byte strings...TODO add description\n"
+            "8. vFieldElementCertificateField           (array, optional) An array of byte strings...TODO add description\n"
             "    [\n"                     
             "      \"fieldElement\"    (string, required) The HEX string representing a generic field element\n"
             "    , ... ]\n"
-            "9. vCompressedMerkleTree   (array, optional) An array of byte strings...TODO add description\n"
+            "9. vBitVectorCertificateField   (array, optional) An array of byte strings...TODO add description\n"
             "    [\n"                     
-            "      \"compMklTree\"     (string, required) The HEX string representing a generic field element\n"
+            "      \"fieldElement\"     (string, required) The HEX string representing a generic field element\n"
             "    , ... ]\n"
             "\nResult:\n"
             "  \"certificateId\"   (string) The resulting certificate id.\n"
@@ -5413,7 +5413,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
                 nBytes++;
 
             if (!Sidechain::AddCustomFieldElement(o.get_str(), fe, nBytes, strError))
-                throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedFieldElement[" + std::to_string(count) + "]: ") + strError);
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vFieldElementCertificateField [" + std::to_string(count) + "]: ") + strError);
  
             vFieldElementCertificateField.push_back(fe);
             count++;
@@ -5446,7 +5446,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             static const bool STRICT_SZ_CHECK = false;
 
             if (!Sidechain::AddScData(o.get_str(), cmt, cmt_size, STRICT_SZ_CHECK, error))
-                throw JSONRPCError(RPC_TYPE_ERROR, string("vCompressedMerkleTree[" + std::to_string(count) + "]: ") + error);
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vBitVectorCertificateField [" + std::to_string(count) + "]: ") + error);
  
             vBitVectorCertificateField.push_back(cmt);
             count++;

@@ -106,6 +106,19 @@ bool CScCertificate::CheckInputsOutputsNonEmpty(CValidationState &state) const
     return true;
 }
 
+bool CScCertificate::CheckSerializedSize(CValidationState &state) const
+{
+    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity
+    uint32_t size = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    if (size > MAX_CERT_SIZE) {
+        LogPrintf("CheckSerializedSize: Cert id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_CERT_SIZE, ToString());
+        return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
+                         REJECT_INVALID, "bad-txns-oversize");
+    }
+
+    return true;
+}
+
 bool CScCertificate::CheckAmounts(CValidationState &state) const
 {
     // Check for negative or overflow output values
@@ -288,7 +301,7 @@ CScCertificate::MakeShared() const {
 CFieldElement CScCertificate::GetDataHash() const
 {
     std::vector<unsigned char> tmp(this->GetHash().begin(), this->GetHash().end());
-    tmp.resize(CFieldElement::ByteSize(), 0x0); //not sure if prepending or appending. It's dummy anyhow
+    tmp.resize(CFieldElement::ByteSize(), 0x0);
     return CFieldElement{tmp};
 }
 #endif

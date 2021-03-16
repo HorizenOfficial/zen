@@ -176,6 +176,7 @@ public:
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
     bool IsVersionStandard(int nHeight) const override;
+    bool CheckSerializedSize(CValidationState &state) const override;
     bool CheckAmounts     (CValidationState &state) const override;
     bool CheckInputsOutputsNonEmpty(CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;

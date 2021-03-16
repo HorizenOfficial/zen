@@ -129,7 +129,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         
         o.push_back(Pair("mcDestinationAddress", mcAddr));
         o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
-        o.push_back(Pair("scUtxoId", out.scRequestData.GetHexRepr()));
+        o.push_back(Pair("scRequestData", out.scRequestData.GetHexRepr()));
         o.push_back(Pair("scProof", HexStr(out.scProof)));
         vbts.push_back(o);
         nIdx++;
@@ -624,24 +624,24 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
         bwtData.scFee = scFee;
 
         //---------------------------------------------------------------------
-        const UniValue& scUtxoIdVal = find_value(o, "scUtxoId");
-        if (scUtxoIdVal.isNull())
+        const UniValue& scRequestDataVal = find_value(o, "scRequestData");
+        if (scRequestDataVal.isNull())
         {
-            error = "Missing mandatory parameter scUtxoId";
+            error = "Missing mandatory parameter scRequestData";
             return false;
         }
-        inputString = scUtxoIdVal.get_str();
-        std::vector<unsigned char> scUtxoIdVec;
-        if (!AddScData(inputString, scUtxoIdVec, CFieldElement::ByteSize(), true, error))
+        inputString = scRequestDataVal.get_str();
+        std::vector<unsigned char> scRequestDataVec;
+        if (!AddScData(inputString, scRequestDataVec, CFieldElement::ByteSize(), true, error))
         {
-            error = "scUtxoId: " + error;
+            error = "scRequestData: " + error;
             return false;
         }
 
-        bwtData.scRequestData = CFieldElement{scUtxoIdVec};
+        bwtData.scRequestData = CFieldElement{scRequestDataVec};
         if (!bwtData.scRequestData.IsValid())
         {
-            error = "invalid scUtxoId";
+            error = "invalid scRequestData";
             return false;
         }
 

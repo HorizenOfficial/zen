@@ -1,5 +1,6 @@
 #include "sc/sidechaintypes.h"
 #include "util.h"
+#include <consensus/consensus.h>
 
 ///////////////////////////////// Field types //////////////////////////////////
 #ifdef BITCOIN_TX
@@ -156,13 +157,14 @@ namespace libzendoomc
 ////////////////////////////// Custom Config types //////////////////////////////
 bool FieldElementCertificateFieldConfig::IsValid() const
 {
-    if(nBits <=0 || nBits > SC_FIELD_SIZE*8)
-        return false;
-    else
+    if(nBits > 0 && nBits <= SC_FIELD_SIZE*8)
         return true;
+    else
+        return false;
 }
 
-FieldElementCertificateFieldConfig::FieldElementCertificateFieldConfig(int32_t nBitsIn): CustomCertificateFieldConfig(), nBits(nBitsIn) {}
+FieldElementCertificateFieldConfig::FieldElementCertificateFieldConfig(int32_t nBitsIn):
+    CustomCertificateFieldConfig(), nBits(nBitsIn) {}
 
 int32_t FieldElementCertificateFieldConfig::getBitSize() const
 {
@@ -172,19 +174,23 @@ int32_t FieldElementCertificateFieldConfig::getBitSize() const
 //----------------------------------------------------------------------------------
 bool BitVectorCertificateFieldConfig::IsValid() const
 {
-    bool isBitVectorSizeValid = (bitVectorSizeBits >= 0) && (bitVectorSizeBits <= MAX_BIT_VECTOR_SIZE_BITS);
+    bool isBitVectorSizeValid = (bitVectorSizeBits > 0) && (bitVectorSizeBits <= MAX_BIT_VECTOR_SIZE_BITS);
     if(!isBitVectorSizeValid)
         return false;
 
-    bool isMaxCompressedSizeValid = (maxCompressedSizeBytes >= 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES);
+    bool isMaxCompressedSizeValid = (maxCompressedSizeBytes > 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES);
     if(!isMaxCompressedSizeValid)
         return false;
 
     return true;
 }
 
-BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVectorSizeBits, int32_t maxCompressedSizeBytes): CustomCertificateFieldConfig(), bitVectorSizeBits(bitVectorSizeBits), maxCompressedSizeBytes(maxCompressedSizeBytes)
-{}
+BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVectorSizeBits, int32_t maxCompressedSizeBytes):
+    CustomCertificateFieldConfig(),
+    bitVectorSizeBits(bitVectorSizeBits),
+    maxCompressedSizeBytes(maxCompressedSizeBytes) {
+    BOOST_STATIC_ASSERT(MAX_COMPRESSED_SIZE_BYTES <= MAX_CERT_SIZE); // sanity
+}
 
 
 ////////////////////////////// Custom Field types //////////////////////////////

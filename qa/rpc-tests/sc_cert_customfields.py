@@ -129,7 +129,6 @@ class sc_cert_customfields(BitcoinTestFramework):
         # all certs must have custom FieldElements with exactly those values as size in bits 
         feCfg.append([31, 48, 16])
 
-        # all certs must have custom CompressedMerkleTrees with size = 2^those value at most in bytes (i.e 2^8 = 256, 2^3 = 2048)
         cmtCfg.append([[8, 4], [16, 8]])
 
         cmdInput = {

@@ -112,7 +112,7 @@ namespace libzendoomc
 
             bool verifyCBwtRequest(
                 const uint256& scId,
-                const CFieldElement& scUtxoId,
+                const CFieldElement& scRequestData,
                 const uint160& mcDestinationAddress,
                 CAmount scFees,
                 const libzendoomc::ScProof& scProof,
