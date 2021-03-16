@@ -905,10 +905,10 @@ TEST(SidechainsCertificateCustomFields, BitVectorCertificateFieldConfig_Validati
     EXPECT_FALSE(negativeSizeCompressed_BitVectorConfig.IsValid());
 
     BitVectorCertificateFieldConfig zeroSizeBitVector_BitVectorConfig{0, 12};
-    EXPECT_TRUE(zeroSizeBitVector_BitVectorConfig.IsValid());  //SHOULD THIS BE FALSE ?
+    EXPECT_FALSE(zeroSizeBitVector_BitVectorConfig.IsValid());
 
     BitVectorCertificateFieldConfig zeroSizeCompressed_BitVectorConfig{1, 0};
-    EXPECT_TRUE(zeroSizeCompressed_BitVectorConfig.IsValid()); //SHOULD THIS BE FALSE ?
+    EXPECT_FALSE(zeroSizeCompressed_BitVectorConfig.IsValid());
 
     BitVectorCertificateFieldConfig positiveBitVectorConfig{10, 12};
     EXPECT_TRUE(positiveBitVectorConfig.IsValid());

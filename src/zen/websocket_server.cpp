@@ -643,7 +643,7 @@ private:
 
                 static const std::set<std::string> validKeyArgs = {
                     "scid", "epochNumber", "quality", "fee", "endEpochBlockHash", "scProof",
-                    "backwardTransfers", "vFieldElement", "vCompressedMerkleTree"
+                    "backwardTransfers", "vFieldElementCertificateField", "vBitVectorCertificateField"
                 };
 
                 for (const std::string& s : reqPayload.getKeys()) {
@@ -730,20 +730,20 @@ private:
                 }
 
                 // optional, can be null
-                const UniValue& cfe = find_value(reqPayload, "vCompressedFieldElement");
+                const UniValue& cfe = find_value(reqPayload, "vFieldElementCertificateField");
                 if (!cfe.isNull())
                 {
                     const UniValue& vCfe = cfe.get_array();
-                    LogPrint("ws", "%s():%d - adding vCompressedFieldElement, sz(%d): msg[%s]\n", __func__, __LINE__, vCfe.size(), msg);
+                    LogPrint("ws", "%s():%d - adding vFieldElementCertificateField, sz(%d): msg[%s]\n", __func__, __LINE__, vCfe.size(), msg);
                     cmdParams.push_back(vCfe);
                 }
 
                 // optional, can be null
-                const UniValue& cmt = find_value(reqPayload, "vCompressedMerkleTree");
+                const UniValue& cmt = find_value(reqPayload, "vBitVectorCertificateField");
                 if (!cmt.isNull())
                 {
                     const UniValue& vCmt = cmt.get_array();
-                    LogPrint("ws", "%s():%d - adding vCompressedMerkleTree, sz(%d): msg[%s]\n", __func__, __LINE__, vCmt.size(), msg);
+                    LogPrint("ws", "%s():%d - adding vBitVectorCertificateField, sz(%d): msg[%s]\n", __func__, __LINE__, vCmt.size(), msg);
                     cmdParams.push_back(vCmt);
                 }
 

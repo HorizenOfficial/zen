@@ -267,7 +267,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
         if (!bt.scRequestData.IsValid())
         {
             return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scUtxoId\n",
+                    error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scRequestData\n",
                     __func__, __LINE__, txHash.ToString()),
                     REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-utxo-id");
         }

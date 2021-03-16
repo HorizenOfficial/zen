@@ -129,8 +129,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         # all certs must have custom FieldElements with exactly those values as size in bits 
         feCfg.append([31, 48, 16])
 
-        # all certs must have custom CompressedMerkleTrees with size = 2^those value at most in bytes (i.e 2^8 = 256, 2^3 = 2048)
-        cmtCfg.append([[8, 3], [11, 122]])
+        cmtCfg.append([[8, 4], [16, 8]])
 
         cmdInput = {
             'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': fee,
@@ -270,7 +269,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         vCfe = ["abcd1234", "ccccddddeeee", "aaee"]
         vCmt = ["1111", "0660101a"]
         params = {'scid': scid2, 'quality': 10, 'endEpochBlockHash': epoch_block_hash_1, 'scProof': scProof2,
-                  'withdrawalEpochNumber': epoch_number_1, 'vCompressedFieldElement': vCfe, 'vCompressedMerkleTree':vCmt}
+                  'withdrawalEpochNumber': epoch_number_1, 'vFieldElementCertificateField': vCfe, 'vBitVectorCertificateField':vCmt}
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
@@ -282,16 +281,13 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         mark_logs("\nCreate raw cert with good custom field elements for SC2...", self.nodes, DEBUG_MODE)
-        '''
-        scProof2 = mcTest.create_test_proof(
-            'sc2', epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            10, constant2, [pkh_node1], [bwt_amount])
-        '''
-
-        vCfe = ["abcd"]
+        # cfgs for SC2: [16], []
+        # field element will be filled using trailing zeroes, therefore we must be careful with bits. "0x0100" = 0000 0001 0000 0000 is OK
+        # because last 15 bits are set to 0
+        vCfe = ["0100"]
         vCmt = []
         params = {'scid': scid2, 'quality': 10, 'endEpochBlockHash': epoch_block_hash_1, 'scProof': scProof2,
-                  'withdrawalEpochNumber': epoch_number_1, 'vCompressedFieldElement': vCfe, 'vCompressedMerkleTree':vCmt}
+                  'withdrawalEpochNumber': epoch_number_1, 'vFieldElementCertificateField': vCfe, 'vBitVectorCertificateField':vCmt}
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
@@ -315,14 +311,14 @@ class sc_cert_customfields(BitcoinTestFramework):
         inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         outputs = { self.nodes[0].getnewaddress() : change }
 
-        # cfgs for SC1: [31, 48, 16], [8, 3]
-        mark_logs("\nCreate raw cert with bad custom field elements for SC1...", self.nodes, DEBUG_MODE)
+        # cfgs for SC1: [31, 48, 16], [[8, 4], [16, 8]]
+        mark_logs("Create raw cert with bad custom field elements for SC1...", self.nodes, DEBUG_MODE)
 
         # In 0xcd there are no trailing null bits, therefore it is not OK
         vCfe = ["abde12cd", "ccccbbbbeeee", "cbbd"]
         vCmt = ["1111", "0660101a"]
         params = {'scid': scid1, 'quality': 10, 'endEpochBlockHash': epoch_block_hash_1, 'scProof': scProof1,
-                  'withdrawalEpochNumber': epoch_number_1, 'vCompressedFieldElement': vCfe, 'vCompressedMerkleTree':vCmt}
+                  'withdrawalEpochNumber': epoch_number_1, 'vFieldElementCertificateField': vCfe, 'vBitVectorCertificateField':vCmt}
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
@@ -335,11 +331,11 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.sync_all()
         mark_logs("\nCreate raw cert with good custom field elements for SC1...", self.nodes, DEBUG_MODE)
 
-        # In 0x34 there are 2 trailing null bits, therefore it is OK
-        vCfe = ["abcd1234", "ccccddddeeee", "ccdd"]
+        # Any number ending with 0x00 0x01 0x00 is not over module for being a valid field element, therefore it is OK
+        vCfe = ["ab000100", "ccccdddd0000", "0100"]
         vCmt = ["1111", "0660101a"]
         params = {'scid': scid1, 'quality': 10, 'endEpochBlockHash': epoch_block_hash_1, 'scProof': scProof1,
-                  'withdrawalEpochNumber': epoch_number_1, 'vCompressedFieldElement': vCfe, 'vCompressedMerkleTree':vCmt}
+                  'withdrawalEpochNumber': epoch_number_1, 'vFieldElementCertificateField': vCfe, 'vBitVectorCertificateField':vCmt}
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
@@ -393,7 +389,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         prev_epoch_block_hash = epoch_block_hash_1
 
         #-------------------------------------------------------
-        # cfgs for SC1: [31, 48, 16], [8, 3]
+        # cfgs for SC1: [31, 48, 16], [[8, 4], [16, 8]]
         scProof1 = mcTest.create_test_proof(
             'sc1', epoch_number_2, epoch_block_hash_2, prev_epoch_block_hash,
             5, constant1, [], [])
@@ -447,15 +443,15 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         # parse a good cert and check custom fields
-        mark_logs("\nVerify vCompressedFieldElement/ vCompressedMerkleTreeare correctly set in cert", self.nodes,DEBUG_MODE)
+        mark_logs("\nVerify vFieldElementCertificateField/ vBitVectorCertificateFieldare correctly set in cert", self.nodes,DEBUG_MODE)
         decoded = self.nodes[1].getrawcertificate(cert, 1)
 
-        vCfeCert = decoded['cert']['vCompressedFieldElement']
+        vCfeCert = decoded['cert']['vFieldElementCertificateField']
         assert_equal(vCfeCert, vCfe)
         for i, val in enumerate(vCfe):
             assert_equal(val, vCfeCert[i]) 
 
-        vCmtCert = decoded['cert']['vCompressedMerkleTree']
+        vCmtCert = decoded['cert']['vBitVectorCertificateField']
         assert_equal(vCmtCert, vCmt)
         for i, val in enumerate(vCmt):
             assert_equal(val, vCmtCert[i]) 

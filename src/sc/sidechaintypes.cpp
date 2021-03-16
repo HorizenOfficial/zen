@@ -1,5 +1,6 @@
 #include "sc/sidechaintypes.h"
 #include "util.h"
+#include <consensus/consensus.h>
 
 ///////////////////////////////// Field types //////////////////////////////////
 #ifdef BITCOIN_TX
@@ -7,7 +8,7 @@
     void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn) {};
     void CFieldElement::SetNull() {};
     bool CFieldElement::IsNull() const {return false;};
-    field_t* CFieldElement::GetFieldElement() const {return nullptr;};
+    wrappedFieldPtr CFieldElement::GetFieldElement() const {return nullptr;};
     bool CFieldElement::IsValid() const {return false;};
     std::string CFieldElement::GetHexRepr() const {return std::string{};};
     CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs) { return CFieldElement{}; }
@@ -43,9 +44,9 @@ const std::vector<unsigned char>&  CFieldElement::GetByteArray() const
     return byteVector;
 }
 
-field_t* CFieldElement::GetFieldElement() const
+wrappedFieldPtr CFieldElement::GetFieldElement() const
 {
-    return zendoo_deserialize_field(&this->byteVector[0]);
+    return wrappedFieldPtr{zendoo_deserialize_field(&this->byteVector[0]), theFieldPtrDeleter};
 }
 
 uint256 CFieldElement::GetLegacyHashTO_BE_REMOVED() const
@@ -71,9 +72,9 @@ std::string CFieldElement::GetHexRepr() const
 
 bool CFieldElement::IsValid() const
 {
-	if(this->IsNull()) {
-		return false;
-	}
+    if(this->IsNull()) {
+        return false;
+    }
 
     // THERE SHOULD BE A RUST METHOD RETURNING BOOL RATHER THAN FIELD PTR
     field_t * pField = zendoo_deserialize_field(&this->byteVector[0]);
@@ -86,9 +87,9 @@ bool CFieldElement::IsValid() const
 
 CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs)
 {
-	if(lhs.IsNull() || rhs.IsNull()) {
-		throw std::runtime_error("Could not compute poseidon hash on null field elements");
-	}
+    if(lhs.IsNull() || rhs.IsNull()) {
+        throw std::runtime_error("Could not compute poseidon hash on null field elements");
+    }
     auto digest = ZendooPoseidonHash();
 
     field_t* lhsFe = zendoo_deserialize_field(&(*lhs.byteVector.begin()));
@@ -98,7 +99,6 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
         throw std::runtime_error("Could not compute poseidon hash");
     }
     digest.update(lhsFe);
-    digest.finalize(); // Call to finalize keeps the state
 
     field_t* rhsFe = zendoo_deserialize_field(&(*rhs.byteVector.begin()));
     if (rhsFe == nullptr) {
@@ -111,6 +111,7 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
 
     field_t* outFe = digest.finalize();
     CFieldElement res;
+    res.byteVector.resize(CFieldElement::ByteSize());
     zendoo_serialize_field(outFe, &*(res.byteVector.begin()));
 
     zendoo_field_free(lhsFe);
@@ -156,13 +157,14 @@ namespace libzendoomc
 ////////////////////////////// Custom Config types //////////////////////////////
 bool FieldElementCertificateFieldConfig::IsValid() const
 {
-    if(nBits <=0 || nBits > SC_FIELD_SIZE*8)
-        return false;
-    else
+    if(nBits > 0 && nBits <= SC_FIELD_SIZE*8)
         return true;
+    else
+        return false;
 }
 
-FieldElementCertificateFieldConfig::FieldElementCertificateFieldConfig(int32_t nBitsIn): CustomCertificateFieldConfig(), nBits(nBitsIn) {}
+FieldElementCertificateFieldConfig::FieldElementCertificateFieldConfig(int32_t nBitsIn):
+    CustomCertificateFieldConfig(), nBits(nBitsIn) {}
 
 int32_t FieldElementCertificateFieldConfig::getBitSize() const
 {
@@ -172,19 +174,23 @@ int32_t FieldElementCertificateFieldConfig::getBitSize() const
 //----------------------------------------------------------------------------------
 bool BitVectorCertificateFieldConfig::IsValid() const
 {
-    bool isBitVectorSizeValid = (bitVectorSizeBits >= 0) && (bitVectorSizeBits <= MAX_BIT_VECTOR_SIZE_BITS);
+    bool isBitVectorSizeValid = (bitVectorSizeBits > 0) && (bitVectorSizeBits <= MAX_BIT_VECTOR_SIZE_BITS);
     if(!isBitVectorSizeValid)
         return false;
 
-    bool isMaxCompressedSizeValid = (maxCompressedSizeBytes >= 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES);
+    bool isMaxCompressedSizeValid = (maxCompressedSizeBytes > 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES);
     if(!isMaxCompressedSizeValid)
         return false;
 
     return true;
 }
 
-BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVectorSizeBits, int32_t maxCompressedSizeBytes): CustomCertificateFieldConfig(), bitVectorSizeBits(bitVectorSizeBits), maxCompressedSizeBytes(maxCompressedSizeBytes)
-{}
+BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVectorSizeBits, int32_t maxCompressedSizeBytes):
+    CustomCertificateFieldConfig(),
+    bitVectorSizeBits(bitVectorSizeBits),
+    maxCompressedSizeBytes(maxCompressedSizeBytes) {
+    BOOST_STATIC_ASSERT(MAX_COMPRESSED_SIZE_BYTES <= MAX_CERT_SIZE); // sanity
+}
 
 
 ////////////////////////////// Custom Field types //////////////////////////////
@@ -213,7 +219,7 @@ FieldElementCertificateField& FieldElementCertificateField::operator=(const Fiel
 
 bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg) const
 {
-	return !this->GetFieldElement(cfg).IsNull();
+    return !this->GetFieldElement(cfg).IsNull();
 }
 
 const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const
@@ -270,7 +276,7 @@ const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldEl
         state = VALIDATION_STATE::VALID;
     } else
     {
-    	fieldElement = CFieldElement{};
+        fieldElement = CFieldElement{};
     }
 
     return fieldElement;
@@ -298,7 +304,7 @@ BitVectorCertificateField& BitVectorCertificateField::operator=(const BitVectorC
 
 bool BitVectorCertificateField::IsValid(const BitVectorCertificateFieldConfig& cfg) const
 {
-	return !this->GetFieldElement(cfg).IsNull();
+    return !this->GetFieldElement(cfg).IsNull();
 }
 
 const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const
@@ -321,6 +327,7 @@ const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorC
     this->pReferenceCfg = new BitVectorCertificateFieldConfig(cfg);
 
     if(vRawData.size() > cfg.getMaxCompressedSizeBytes()) {
+        // this is invalid and fieldElement is Null 
         return fieldElement;
     }
 
@@ -346,6 +353,18 @@ const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorC
     } catch(...) {
     }
     */
+    // set a default impl for having a valid field returned here
+    std::vector<unsigned char> extendedRawData = vRawData;
+    // this is in order to have a valid field element with the final bytes set to 0
+    extendedRawData.resize(CFieldElement::ByteSize() - 2, 0x0);
+    extendedRawData.resize(CFieldElement::ByteSize(), 0x0);
+
+    fieldElement.SetByteArray(extendedRawData);
+    if (fieldElement.IsValid())
+    {
+        state = VALIDATION_STATE::VALID;
+    } 
+
     return fieldElement;
 }
 

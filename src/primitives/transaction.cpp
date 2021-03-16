@@ -357,7 +357,7 @@ CBwtRequestOut::CBwtRequestOut(
 
 std::string CBwtRequestOut::ToString() const
 {
-    return strprintf("CBwtRequestOut(scId=%s, scUtxoId=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
+    return strprintf("CBwtRequestOut(scId=%s, scRequestData=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
         scId.ToString(), scRequestData.GetHexRepr().substr(0, 30),
         mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
         HexStr(scProof).substr(0, 30));
@@ -458,6 +458,19 @@ CAmount CTransactionBase::GetJoinSplitValueIn() const
     }
 
     return nCumulatedValue;
+}
+
+bool CTransaction::CheckSerializedSize(CValidationState &state) const
+{
+    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
+    uint32_t size = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    if (size > MAX_TX_SIZE) {
+        LogPrintf("CheckSerializedSize: Tx id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_TX_SIZE, ToString());
+        return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
+                         REJECT_INVALID, "bad-txns-oversize");
+    }
+
+    return true;
 }
 
 bool CTransaction::CheckAmounts(CValidationState &state) const
@@ -760,19 +773,6 @@ bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
     {
         return state.DoS(10, error("CheckNonEmpty(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
-    }
-
-    return true;
-}
-
-bool CTransactionBase::CheckSerializedSize(CValidationState &state) const
-{
-    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
-    uint32_t size = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
-    if (size > MAX_TX_SIZE) {
-        LogPrintf("CheckSerializedSize: Tx id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_TX_SIZE, ToString());
-        return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
-                         REJECT_INVALID, "bad-txns-oversize");
     }
 
     return true;

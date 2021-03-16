@@ -1293,9 +1293,10 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         }
 
         CFieldElement certDataHash = this->GetActiveCertDataHash(mbtr.scId);
-        if (certDataHash.IsNull()) // mbtr before having received a cert
-            return error("%s():%d - ERROR: Tx[%s] mbtr request [%s] has missing active cert data hash for required scId[%s]\n",
-        	                __func__, __LINE__, tx.ToString(), mbtr.ToString(), mbtr.scId.ToString());
+//        //TODO: Unlock when we'll handle recovery of fwt of last epoch
+//        if (certDataHash.IsNull())
+//            return error("%s():%d - ERROR: Tx[%s] mbtr request [%s] has missing active cert data hash for required scId[%s]\n",
+//                            __func__, __LINE__, tx.ToString(), mbtr.ToString(), mbtr.scId.ToString());
 
         // Verify mainchain bwt request proof
         if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
@@ -1348,9 +1349,11 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         }
 
         CFieldElement certDataHash = this->GetActiveCertDataHash(csw.scId);
-        if (certDataHash.IsNull()) //TODO: handle recovery of fwt of last epoch
-        	return error("%s():%d - ERROR: Tx[%s] CSW input [%s] has missing active cert data hash for required scId[%s]\n",
-        	                __func__, __LINE__, tx.ToString(), csw.ToString(), csw.scId.ToString());
+
+//        //TODO: Unlock when we'll handle recovery of fwt of last epoch
+//        if (certDataHash.IsNull())
+//            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] has missing active cert data hash for required scId[%s]\n",
+//                            __func__, __LINE__, tx.ToString(), csw.ToString(), csw.scId.ToString());
 
         // Verify CSW proof
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.creationData.wCeasedVk.get(), csw))

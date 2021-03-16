@@ -18,6 +18,17 @@
 #include "amount.h"
 #include "serialize.h"
 ///////////////////////////////// Field types //////////////////////////////////
+
+struct CFieldPtrDeleter
+{ // deleter
+	CFieldPtrDeleter() = default;
+    void operator()(field_t* p) const {
+    	zendoo_field_free(p);
+    	p = nullptr;
+    };
+};
+typedef std::unique_ptr<field_t, CFieldPtrDeleter> wrappedFieldPtr;
+
 class CFieldElement
 {
 public:
@@ -39,7 +50,7 @@ public:
     const std::vector<unsigned char>&  GetByteArray() const;
     uint256 GetLegacyHashTO_BE_REMOVED() const;
 
-    field_t* GetFieldElement() const; //TODO: use smart ptr with adequate deleter [zendoo_field_free]
+    wrappedFieldPtr GetFieldElement() const;
 
     bool IsValid() const;
     // equality is not tested on deserializedField attribute since it is a ptr to memory specific per instance
@@ -50,19 +61,34 @@ public:
     // SERIALIZATION SECTION
     size_t GetSerializeSize(int nType, int nVersion) const //ADAPTED FROM SERIALIZED.H
     {
-        return CFieldElement::ByteSize(); //byteArray content (each element a single byte)
+        return 1 + CFieldElement::ByteSize(); //byte for size + byteArray content (each element a single byte)
     };
 
     template<typename Stream>
     void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
     {
-        os.write((char*)&byteVector[0], CFieldElement::ByteSize());
+        char tmp = static_cast<char>(byteVector.size());
+           os.write(&tmp, 1);
+        if (!byteVector.empty())
+            os.write((char*)&byteVector[0], byteVector.size());
     }
 
     template<typename Stream> //ADAPTED FROM SERIALIZED.H
     void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
     {
-        is.read((char*)&byteVector[0], CFieldElement::ByteSize());
+        byteVector.clear();
+
+        char tmp {0};
+        is.read(&tmp, 1);
+        unsigned int nSize = static_cast<unsigned int>(tmp);
+        if (nSize != 0 && nSize != CFieldElement::ByteSize())
+            throw std::ios_base::failure("non-canonical CSidechainField size");
+
+        if (nSize != 0)
+        {
+            byteVector.resize(nSize);
+            is.read((char*)&byteVector[0], nSize);
+        }
     }
 
     std::string GetHexRepr() const;
@@ -70,6 +96,7 @@ public:
 
 private:
     std::vector<unsigned char> byteVector;
+    static CFieldPtrDeleter theFieldPtrDeleter;
 };
 
 typedef CFieldElement ScConstant;
