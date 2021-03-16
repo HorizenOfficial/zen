@@ -1126,17 +1126,17 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             UniValue arrFieldElementConfig(UniValue::VARR);
             for(const auto& cfgEntry: info.creationData.vFieldElementCertificateFieldConfig)
             {
-            	arrFieldElementConfig.push_back(cfgEntry.getBitSize());
+                arrFieldElementConfig.push_back(cfgEntry.getBitSize());
             }
             sc.push_back(Pair("vFieldElementCertificateFieldConfig", arrFieldElementConfig));
 
             UniValue arrBitVectorConfig(UniValue::VARR);
             for(const auto& cfgEntry: info.creationData.vBitVectorCertificateFieldConfig)
             {
-            	UniValue singlePair(UniValue::VARR);
-            	singlePair.push_back(cfgEntry.getBitVectorSizeBits());
-            	singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
-            	arrBitVectorConfig.push_back(singlePair);
+                UniValue singlePair(UniValue::VARR);
+                singlePair.push_back(cfgEntry.getBitVectorSizeBits());
+                singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
+                arrBitVectorConfig.push_back(singlePair);
             }
             sc.push_back(Pair("vBitVectorCertificateFieldConfig", arrBitVectorConfig));
         }
@@ -1217,17 +1217,17 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 UniValue arrFieldElementConfig(UniValue::VARR);
                 for(const auto& cfgEntry: info.creationData.vFieldElementCertificateFieldConfig)
                 {
-                	arrFieldElementConfig.push_back(cfgEntry.getBitSize());
+                    arrFieldElementConfig.push_back(cfgEntry.getBitSize());
                 }
                 sc.push_back(Pair("unconf vFieldElementCertificateFieldConfig", arrFieldElementConfig));
 
                 UniValue arrBitVectorConfig(UniValue::VARR);
                 for(const auto& cfgEntry: info.creationData.vBitVectorCertificateFieldConfig)
                 {
-                	UniValue singlePair(UniValue::VARR);
-                	singlePair.push_back(cfgEntry.getBitVectorSizeBits());
-                	singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
-                	arrBitVectorConfig.push_back(singlePair);
+                    UniValue singlePair(UniValue::VARR);
+                    singlePair.push_back(cfgEntry.getBitVectorSizeBits());
+                    singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
+                    arrBitVectorConfig.push_back(singlePair);
                 }
                 sc.push_back(Pair("unconf vBitVectorCertificateFieldConfig", arrBitVectorConfig));
             }

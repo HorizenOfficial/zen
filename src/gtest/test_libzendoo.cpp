@@ -14,16 +14,27 @@
 #include <streams.h>
 #include <clientversion.h>
 
-TEST(SidechainsField, FieldSizeIsAlwaysTheExpectedOne)
+TEST(SidechainsField, GetByteArray)
 {
-    CFieldElement emptyField;
-    EXPECT_TRUE(emptyField.GetByteArray().size() == CFieldElement::ByteSize());
+    CFieldElement emptyField{};
+    EXPECT_TRUE(emptyField.GetByteArray().size() == 0);
+
+    ///////////////////
+    std::vector<unsigned char> validByteArray = {
+        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
+        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
+        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
+        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 1, 0
+    };
+    ASSERT_TRUE(validByteArray.size() == CFieldElement::ByteSize());
+    CFieldElement validField {validByteArray};
+    ASSERT_TRUE(validField.GetByteArray().size() == CFieldElement::ByteSize());
 }
 
 TEST(SidechainsField, Serialization)
 {
     CDataStream zeroLengthStream(SER_DISK, CLIENT_VERSION);
-    CFieldElement zeroLengthRetrievedField;
+    CFieldElement zeroLengthRetrievedField{};
     EXPECT_THROW(zeroLengthStream >> zeroLengthRetrievedField,std::ios_base::failure);
 
     ///////////////////
@@ -212,7 +223,7 @@ TEST(SidechainsField, PoseidonHashTest)
     <<"actualField   "<<CFieldElement::ComputeHash(lhsField, rhsField).GetHexRepr();
 }
 
-TEST(ZendooLib, FieldTest)
+TEST(SidechainsField, NakedZendooFeatures_FieldTest)
 {
     //Size is the expected one
     int field_len = zendoo_get_field_size_in_bytes();
@@ -233,8 +244,7 @@ TEST(ZendooLib, FieldTest)
     zendoo_field_free(field_deserialized);
 }
 
-
-TEST(ZendooLib, PoseidonHashTest) 
+TEST(SidechainsField, NakedZendooFeatures_PoseidonHashTest)
 {
     unsigned char lhs[SC_FIELD_SIZE] = {
         138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
@@ -275,11 +285,13 @@ TEST(ZendooLib, PoseidonHashTest)
     digest.update(rhs_field); // Call to finalize keeps the state
 
     auto actual_hash = digest.finalize();
-    ASSERT_TRUE(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash, expected_hash)));
+    ASSERT_TRUE((zendoo_field_assert_eq(actual_hash, expected_hash)))
+    <<"Expected hashes to be equal";
     zendoo_field_free(actual_hash);
 
     auto actual_hash_2 = digest.finalize(); // finalize() is idempotent
-    ASSERT_TRUE(("Expected hashes to be equal", zendoo_field_assert_eq(actual_hash_2, expected_hash)));
+    ASSERT_TRUE((zendoo_field_assert_eq(actual_hash_2, expected_hash)))
+    <<"Expected hashes to be equal";
     zendoo_field_free(actual_hash_2);
 
     zendoo_field_free(expected_hash);
@@ -288,7 +300,8 @@ TEST(ZendooLib, PoseidonHashTest)
     zendoo_field_free(rhs_field);
 }
 
-TEST(ZendooLib, PoseidonMerkleTreeTest)  {
+TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
+{
     size_t height = 5;
 
     // Deserialize root
@@ -325,17 +338,20 @@ TEST(ZendooLib, PoseidonMerkleTreeTest)  {
 
     // Compute root and assert equality with expected one
     auto root = tree.root();
-    ASSERT_TRUE(("Expected roots to be equal", zendoo_field_assert_eq(root, expected_root)));
+    ASSERT_TRUE(zendoo_field_assert_eq(root, expected_root))
+    <<"Expected roots to be equal";
 
     // It is the same by calling finalize()
     auto tree_copy = tree.finalize();
     auto root_copy = tree_copy.root();
-    ASSERT_TRUE(("Expected roots to be equal", zendoo_field_assert_eq(root_copy, expected_root)));
+    ASSERT_TRUE(zendoo_field_assert_eq(root_copy, expected_root))
+    <<"Expected roots to be equal";
 
     // Test Merkle Paths
     for (int i = 0; i < leaves_len; i++) {
         auto path = tree.get_merkle_path(i);
-        ASSERT_TRUE(("Merkle Path must be verified", zendoo_verify_ginger_merkle_path(path, height, (field_t*)leaves[i], root)));
+        ASSERT_TRUE(zendoo_verify_ginger_merkle_path(path, height, (field_t*)leaves[i], root))
+        <<"Merkle Path must be verified";
         zendoo_free_ginger_merkle_path(path);
     }
 
@@ -349,7 +365,7 @@ TEST(ZendooLib, PoseidonMerkleTreeTest)  {
 }
 
 // Execute the test from zen directory
-TEST(ZendooLib, TestProof)
+TEST(SidechainsField, NakedZendooFeatures_TestProof)
 {
     //Deserialize zero knowledge proof
     auto proof_serialized = ParseHex(SAMPLE_PROOF);
@@ -423,7 +439,7 @@ TEST(ZendooLib, TestProof)
 }
 
 // Execute the test from zen directory
-TEST(ZendooLib, TestProofNoBwt)
+TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
 {
     //Deserialize zero knowledge proof
     auto proof_serialized = ParseHex(SAMPLE_PROOF_NO_BWT);
@@ -495,7 +511,7 @@ TEST(ZendooLib, TestProofNoBwt)
     zendoo_field_free(constant);
 }
 
-TEST(ScTxCommitmentTree, TreeCommitmentCalculation)
+TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 {
     fPrintToConsole = true;
 
@@ -525,7 +541,7 @@ TEST(ScTxCommitmentTree, TreeCommitmentCalculation)
         <<scTxCommitmentHash.ToString();
 }
 
-TEST(ScTxCommitmentTree, EmptyTreeCommitmentCalculation)
+TEST(SidechainsField, NakedZendooFeatures_EmptyTreeCommitmentCalculation)
 {
     fPrintToConsole = true;
     SidechainTxsCommitmentBuilder builder;

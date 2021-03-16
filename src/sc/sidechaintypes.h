@@ -56,12 +56,14 @@ public:
     template<typename Stream>
     void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
     {
+        assert(byteVector.size() == CFieldElement::ByteSize());
         os.write((char*)&byteVector[0], CFieldElement::ByteSize());
     }
 
     template<typename Stream> //ADAPTED FROM SERIALIZED.H
     void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
     {
+        byteVector.resize(CFieldElement::ByteSize(), 0x0);
         is.read((char*)&byteVector[0], CFieldElement::ByteSize());
     }
 

@@ -71,9 +71,9 @@ std::string CFieldElement::GetHexRepr() const
 
 bool CFieldElement::IsValid() const
 {
-	if(this->IsNull()) {
-		return false;
-	}
+    if(this->IsNull()) {
+        return false;
+    }
 
     // THERE SHOULD BE A RUST METHOD RETURNING BOOL RATHER THAN FIELD PTR
     field_t * pField = zendoo_deserialize_field(&this->byteVector[0]);
@@ -86,9 +86,9 @@ bool CFieldElement::IsValid() const
 
 CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs)
 {
-	if(lhs.IsNull() || rhs.IsNull()) {
-		throw std::runtime_error("Could not compute poseidon hash on null field elements");
-	}
+    if(lhs.IsNull() || rhs.IsNull()) {
+        throw std::runtime_error("Could not compute poseidon hash on null field elements");
+    }
     auto digest = ZendooPoseidonHash();
 
     field_t* lhsFe = zendoo_deserialize_field(&(*lhs.byteVector.begin()));
@@ -111,6 +111,7 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
 
     field_t* outFe = digest.finalize();
     CFieldElement res;
+    res.byteVector.resize(CFieldElement::ByteSize());
     zendoo_serialize_field(outFe, &*(res.byteVector.begin()));
 
     zendoo_field_free(lhsFe);
@@ -213,7 +214,7 @@ FieldElementCertificateField& FieldElementCertificateField::operator=(const Fiel
 
 bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg) const
 {
-	return !this->GetFieldElement(cfg).IsNull();
+    return !this->GetFieldElement(cfg).IsNull();
 }
 
 const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const
@@ -270,7 +271,7 @@ const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldEl
         state = VALIDATION_STATE::VALID;
     } else
     {
-    	fieldElement = CFieldElement{};
+        fieldElement = CFieldElement{};
     }
 
     return fieldElement;
@@ -298,7 +299,7 @@ BitVectorCertificateField& BitVectorCertificateField::operator=(const BitVectorC
 
 bool BitVectorCertificateField::IsValid(const BitVectorCertificateFieldConfig& cfg) const
 {
-	return !this->GetFieldElement(cfg).IsNull();
+    return !this->GetFieldElement(cfg).IsNull();
 }
 
 const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const
