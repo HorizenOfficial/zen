@@ -530,16 +530,22 @@ TEST(SidechainsField, BitVectorBzip2)
 TEST(SidechainsField, BitVectorMerkleTree)
 {
     const unsigned char buffer[5] = {0xad, 0xde, 0xef, 0xbe, 0x00};
-    CompressionAlgorithm e = CompressionAlgorithm::Bzip2;
+    printf("\nBuilding using uncompressed data...\n");
+    field_t* fe1 = zendoo_merkle_root_from_bytes((const unsigned char*)buffer, sizeof(buffer));
+    ASSERT_TRUE(fe1 == nullptr);
 
-    printf("Compressing using bzip2...\n");
+    CompressionAlgorithm e = CompressionAlgorithm::Bzip2;
     bv_buffer* buf_1 = zendoo_compress_bit_vector(buffer, sizeof(buffer), e);
 
-    printf("building merkle tree ...\n");
-    field_t* fe = zendoo_merkle_root_from_bytes((const unsigned char*)buf_1, sizeof(buffer));
+    printf("\nBuilding with a wrong expected size...\n");
+    field_t* fe2 = zendoo_merkle_root_from_bytes((const unsigned char*)buf_1, sizeof(buffer)-1);
+    ASSERT_TRUE(fe2 == nullptr);
 
-    ASSERT_TRUE(fe != nullptr);
-    zendoo_field_free(fe);
+    printf("building merkle tree ...\n");
+    field_t* fe3 = zendoo_merkle_root_from_bytes((const unsigned char*)buf_1, sizeof(buffer));
+
+    ASSERT_TRUE(fe3 != nullptr);
+    zendoo_field_free(fe3);
 }
 
 
