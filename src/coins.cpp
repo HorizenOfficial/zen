@@ -1179,8 +1179,6 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
     assert(prev_end_epoch_block_index);
     assert(curr_end_epoch_block_index);
 
-    // TODO check that ithose are the correct heights for both scCumTreeHash objs
-    // TODO add the cumulative committment tree hash objs to the verify call
     CPoseidonHash scCumTreeHash_start = prev_end_epoch_block_index->scCumTreeHash;
     const libzendoomc::ScFieldElement& scCumTreeHash_start_Fe = scCumTreeHash_start.GetFieldElement();
 
@@ -1190,7 +1188,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
     // TODO Remove prev_end_epoch_block_hash after changing of verification circuit.
     uint256 prev_end_epoch_block_hash = prev_end_epoch_block_index->GetBlockHash();
 
-    // TODO Remove cert.endEpochBlockHash field, CCoinsViewCache::isEpochDataValid and CTxMemPool::removeOutOfEpochCertificates after changing of verification circuit.
+    // TODO Remove cert.endEpochBlockHash field
     // Verify certificate proof
     if (!scVerifier.verifyCScCertificate(sidechain.creationData.constant, sidechain.creationData.wCertVk, prev_end_epoch_block_hash, cert))
     {
