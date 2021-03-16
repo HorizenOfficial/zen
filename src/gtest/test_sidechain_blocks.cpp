@@ -508,6 +508,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_I
     mcBwtReq.scId = CTransaction(scCreation).GetScIdFromScCcOut(0);
     mcBwtReq.scFee = CAmount(0);
     mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mcBwtReq.scRequestData = CFieldElement{SAMPLE_FIELD};
     mbtrTx.nVersion = SC_TX_VERSION;
     mbtrTx.vmbtr_out.push_back(mcBwtReq);
 

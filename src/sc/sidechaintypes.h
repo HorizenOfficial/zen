@@ -50,21 +50,34 @@ public:
     // SERIALIZATION SECTION
     size_t GetSerializeSize(int nType, int nVersion) const //ADAPTED FROM SERIALIZED.H
     {
-        return CFieldElement::ByteSize(); //byteArray content (each element a single byte)
+        return 1 + CFieldElement::ByteSize(); //byte for size + byteArray content (each element a single byte)
     };
 
     template<typename Stream>
     void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
     {
-        assert(byteVector.size() == CFieldElement::ByteSize());
-        os.write((char*)&byteVector[0], CFieldElement::ByteSize());
+        char tmp = static_cast<char>(byteVector.size());
+           os.write(&tmp, 1);
+        if (!byteVector.empty())
+            os.write((char*)&byteVector[0], byteVector.size());
     }
 
     template<typename Stream> //ADAPTED FROM SERIALIZED.H
     void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
     {
-        byteVector.resize(CFieldElement::ByteSize(), 0x0);
-        is.read((char*)&byteVector[0], CFieldElement::ByteSize());
+        byteVector.clear();
+
+        char tmp {0};
+        is.read(&tmp, 1);
+        unsigned int nSize = static_cast<unsigned int>(tmp);
+        if (nSize != 0 && nSize != CFieldElement::ByteSize())
+            throw std::ios_base::failure("non-canonical CSidechainField size");
+
+        if (nSize != 0)
+        {
+            byteVector.resize(nSize);
+            is.read((char*)&byteVector[0], nSize);
+        }
     }
 
     std::string GetHexRepr() const;

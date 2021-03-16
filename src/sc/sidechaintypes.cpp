@@ -98,7 +98,6 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
         throw std::runtime_error("Could not compute poseidon hash");
     }
     digest.update(lhsFe);
-    digest.finalize(); // Call to finalize keeps the state
 
     field_t* rhsFe = zendoo_deserialize_field(&(*rhs.byteVector.begin()));
     if (rhsFe == nullptr) {
