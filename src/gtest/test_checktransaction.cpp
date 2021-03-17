@@ -910,7 +910,13 @@ TEST(SidechainsCertificateCustomFields, BitVectorCertificateFieldConfig_Validati
     BitVectorCertificateFieldConfig zeroSizeCompressed_BitVectorConfig{1, 0};
     EXPECT_FALSE(zeroSizeCompressed_BitVectorConfig.IsValid());
 
-    BitVectorCertificateFieldConfig positiveBitVectorConfig{10, 12};
+    BitVectorCertificateFieldConfig offSizeBitVectorConfig_1{253*8, 12};
+    EXPECT_FALSE(offSizeBitVectorConfig_1.IsValid());
+
+    BitVectorCertificateFieldConfig offSizeBitVectorConfig_2{254*7, 12};
+    EXPECT_FALSE(offSizeBitVectorConfig_2.IsValid());
+
+    BitVectorCertificateFieldConfig positiveBitVectorConfig{254*8, 12};
     EXPECT_TRUE(positiveBitVectorConfig.IsValid());
 
     BitVectorCertificateFieldConfig tooBigBitVector_BitVectorConfig{BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS+1, 12};

@@ -96,7 +96,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             assert_true("Invalid vBitVectorCertificateFieldConfig" in errorString)
 
         #-------------------------------------------------------
-        too_large_array_values = [[1000193, 31]] # [1000192, 1000192/8] at most
+        too_large_array_values = [[1000761, 31]] # [1000192, 1000192/8] at most
         cmdInput = {'vBitVectorCertificateFieldConfig': too_large_array_values, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with a vBitVectorCertificateFieldConfig array with too large integers (expecting failure...)", self.nodes, DEBUG_MODE)
@@ -129,7 +129,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         # all certs must have custom FieldElements with exactly those values as size in bits 
         feCfg.append([31, 48, 16])
 
-        cmtCfg.append([[8, 4], [16, 8]])
+        cmtCfg.append([[254*8, 4], [254*8*2, 8]])
 
         cmdInput = {
             'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': fee,
@@ -195,7 +195,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         constant3 = generate_random_field_element_hex()
         customData = "c0ffee"
         feCfg.append([])
-        cmtCfg.append([[1987, 1967]])
+        cmtCfg.append([[254*8*3, 1967]])
 
         sc_cr = [{
             "epoch_length": EPOCH_LENGTH, "amount":amount, "address":"ddaa", "wCertVk": vk, "constant": constant3,
