@@ -8,7 +8,6 @@
 
 #include "arith_uint256.h"
 #include "primitives/block.h"
-#include "pow.h"
 #include "tinyformat.h"
 #include "uint256.h"
 
@@ -154,7 +153,7 @@ public:
     int64_t nChainDelay;
 
     //! Cumulative Hash Block Sidechain Transaction Commitment Tree
-    CPoseidonHash scCumTreeHash;
+    CFieldElement scCumTreeHash;
 
     //! Number of transactions in this block.
     //! Note: in a potential headers-first mode, this number cannot be relied upon
@@ -186,7 +185,7 @@ public:
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
-    CPoseidonHash hashScTxsCommitment;
+    uint256  hashScTxsCommitment;
     unsigned int nTime;
     unsigned int nBits;
     uint256 nNonce;
@@ -194,6 +193,9 @@ public:
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     uint32_t nSequenceId;
+
+    //! hashable CFieldElement used for pre-sidechain forks hash calculations
+    static const CFieldElement defaultScCumTreeHash;
 
     void SetNull()
     {
@@ -222,7 +224,8 @@ public:
         nBits          = 0;
         nNonce         = uint256();
         nSolution.clear();
-        scCumTreeHash.SetNull();
+
+        scCumTreeHash = CBlockIndex::defaultScCumTreeHash;
     }
 
     CBlockIndex()

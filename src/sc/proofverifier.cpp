@@ -2,59 +2,13 @@
 #include "primitives/certificate.h"
 
 #include "main.h"
-
 #include "util.h"
 #include "sync.h"
 #include "tinyformat.h"
-
 #include <fstream>
 
-namespace libzendoomc{
-
-    bool IsValidScFieldElement(const ScFieldElement& scFieldElement)
-    {
-        auto scFieldElementDeserialized = zendoo_deserialize_field(scFieldElement.begin());
-        if (scFieldElementDeserialized == nullptr)
-            return false;
-        zendoo_field_free(scFieldElementDeserialized);
-        return true;
-    }
-
-    bool IsValidScProof(const ScProof& scProof)
-    {
-        auto scProofDeserialized = zendoo_deserialize_sc_proof(scProof.begin());
-        if (scProofDeserialized == nullptr)
-            return false;
-        zendoo_sc_proof_free(scProofDeserialized);
-        return true;
-    }
-
-    bool IsValidScVk(const ScVk& scVk)
-    {
-        auto scVkDeserialized = zendoo_deserialize_sc_vk(scVk.begin());
-        if (scVkDeserialized == nullptr)
-            return false;
-        zendoo_sc_vk_free(scVkDeserialized);
-        return true;
-    }
-
-    bool IsValidScConstant(const ScConstant& scConstant)
-    {
-        auto scConstantDeserialized = zendoo_deserialize_field(scConstant.data());
-        if (scConstantDeserialized == nullptr)
-            return false;
-        zendoo_field_free(scConstantDeserialized);
-        return true;
-    }
-
-    std::string ToString(Error err){
-        return strprintf(
-            "%s: [%d - %s]\n",
-            err.msg,
-            err.category,
-            zendoo_get_category_name(err.category));
-    }
-
+namespace libzendoomc
+{
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk) {
 
         try
@@ -109,21 +63,11 @@ namespace libzendoomc{
         WCertVerifierInputs inputs;
 
         //Deserialize constant
-        if (constant.size() == 0) { //Constant can be optional
+        if (constant.IsNull()) { //Constant can be optional
             inputs.constant = nullptr;
-        } else {
-            
-            inputs.constant = deserialize_field(constant.data()); 
-            
-            if (inputs.constant == nullptr) {
-                
-                LogPrint("zendoo_mc_cryptolib",
-                        "%s():%d - failed to deserialize \"constant\": %s \n", 
-                        __func__, __LINE__, ToString(zendoo_get_last_error()));
-                zendoo_clear_error();
-
-                return false;
-            }
+        } else
+        {
+            inputs.constant = deserialize_field(&constant.GetByteArray()[0]);
         }
 
         //Initialize quality and proofdata
@@ -178,7 +122,7 @@ namespace libzendoomc{
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"quality\": %s\n",
             __func__, __LINE__, scCert.quality);
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"constant\": %s\n",
-            __func__, __LINE__, HexStr(constant));
+            __func__, __LINE__, constant.GetHexRepr());
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_proof\": %s\n",
             __func__, __LINE__, HexStr(scCert.scProof));
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_vk\": %s\n",
@@ -215,7 +159,7 @@ namespace libzendoomc{
     }
 
     bool CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput(
-        const ScFieldElement& certDataHash,
+        const CFieldElement& certDataHash,
         const ScVk& wCeasedVk,
         const CTxCeasedSidechainWithdrawalInput& csw
     ) const
@@ -228,46 +172,14 @@ namespace libzendoomc{
 
     bool CScProofVerifier::verifyCBwtRequest(
         const uint256& scId,
-        const libzendoomc::ScFieldElement& scUtxoId,
+        const CFieldElement& scRequestData,
         const uint160& mcDestinationAddress,
         CAmount scFees,
         const libzendoomc::ScProof& scProof,
         const boost::optional<libzendoomc::ScVk>& wMbtrVk,
-		const libzendoomc::ScFieldElement& certDataHash
+        const CFieldElement& certDataHash
     ) const
     {
         return true; //Currently mocked
-    }
-
-    bool CalculateHash(const ScFieldElement& inA, const ScFieldElement& inB, ScFieldElement& out)
-    {
-        zendoo_clear_error();
-
-        field_t* aFe = zendoo_deserialize_field(inA.begin());
-        if (aFe == nullptr) {
-            LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, ToString(zendoo_get_last_error()));
-            zendoo_clear_error();
-            return false;
-        }
- 
-        field_t* bFe = zendoo_deserialize_field(inB.begin());
-        if (bFe == nullptr) {
-            LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, ToString(zendoo_get_last_error()));
-            zendoo_clear_error();
-            zendoo_field_free(aFe);
-            return false;
-        }
- 
-        const field_t* inputArrayFe[] = {aFe, bFe};
- 
-        field_t* outFe = zendoo_compute_poseidon_hash(inputArrayFe, 2);
- 
-        zendoo_serialize_field(outFe, out.begin());
- 
-        zendoo_field_free(aFe);
-        zendoo_field_free(bFe);
-        zendoo_field_free(outFe);
- 
-        return true;
     }
 }

@@ -6,7 +6,6 @@
 
 #include "script/script.h"
 #include "script/standard.h"
-#include "streams.h"
 #include "util.h"
 
 #include <string>

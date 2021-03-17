@@ -168,6 +168,7 @@ TEST(Mempool, TxInputLimit) {
     CValidationState state4;
     EXPECT_FALSE(AcceptTxToMemoryPool(pool, state4, tx3, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
     EXPECT_EQ(state4.GetRejectReason(), "bad-txns-version-too-low");
+
     CValidationState state4csw;
     EXPECT_FALSE(AcceptTxToMemoryPool(pool, state4csw, txWithCsw, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
     EXPECT_EQ(state4.GetRejectReason(), "bad-txns-version-too-low");

@@ -170,7 +170,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         pkh1 = self.nodes[1].getnewaddress("", True)
         p1 = mcTest.create_test_proof("sc1", 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
         TX_FEE = Decimal("0.000123")
-        outputs = [{'scUtxoId':fe1, 'scFee':SC_FEE, 'scid':scid, 'scProof':p1, 'pubkeyhash':pkh1 }]
+        outputs = [{'scRequestData':fe1, 'scFee':SC_FEE, 'scid':scid, 'scProof':p1, 'pubkeyhash':pkh1 }]
         cmdParms = { "minconf":0, "fee":TX_FEE}
 
         try:

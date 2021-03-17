@@ -1,59 +1,71 @@
 #include <gtest/gtest.h>
-
 #include "main.h"
+#include <gtest/libzendoo_test_files.h>
 
-extern CBlockIndex* AddToBlockIndex(const CBlockHeader& block);
-extern void CleanUpAll();
-
-class ScTxCumulativeHashTestSuite: public ::testing::Test {
-
+class SidechainsTxCumulativeHashTestSuite: public ::testing::Test
+{
 public:
-    ScTxCumulativeHashTestSuite(){}
-
-    ~ScTxCumulativeHashTestSuite(){}
+    SidechainsTxCumulativeHashTestSuite() = default;
+    ~SidechainsTxCumulativeHashTestSuite() = default;
 };
 
-TEST_F(ScTxCumulativeHashTestSuite, CBlockIndexSerialization)
+TEST_F(SidechainsTxCumulativeHashTestSuite, CBlockIndexSerialization)
 {
     CBlockIndex originalpindex;
-    originalpindex.scCumTreeHash = CPoseidonHash(libzendoomc::ScFieldElement({std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')}));
+    originalpindex.nVersion = BLOCK_VERSION_SC_SUPPORT;
+    originalpindex.scCumTreeHash = CFieldElement{SAMPLE_FIELD};
 
     CDataStream ssValue(SER_DISK, PROTOCOL_VERSION);
     ssValue << CDiskBlockIndex(&originalpindex);
     CDiskBlockIndex diskpindex;
     ssValue >> diskpindex;
 
-    EXPECT_TRUE(originalpindex.scCumTreeHash == diskpindex.scCumTreeHash);
+    EXPECT_TRUE(originalpindex.scCumTreeHash == diskpindex.scCumTreeHash)
+    <<originalpindex.scCumTreeHash.GetHexRepr()<<"\n"
+	<<diskpindex.scCumTreeHash.GetHexRepr();
 }
 
-TEST_F(ScTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
+TEST_F(SidechainsTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
 {
-    CleanUpAll();
+    UnloadBlockIndex();
     SelectParams(CBaseChainParams::MAIN);
 
     // Previous block
-    CPoseidonHash prevCumulativeHash(libzendoomc::ScFieldElement({std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'a')}));
+    std::vector<unsigned char> prevCumHashByteArray(32,'a');
+    prevCumHashByteArray.resize(CFieldElement::ByteSize(),0x0);
+    CFieldElement prevCumulativeHash{prevCumHashByteArray};
+
     CBlock prevBlock;
     prevBlock.nVersion = BLOCK_VERSION_SC_SUPPORT;
-    prevBlock.hashScTxsCommitment = prevCumulativeHash;
+    prevBlock.hashScTxsCommitment = prevCumulativeHash.GetLegacyHashTO_BE_REMOVED();
 
     CBlockIndex* prevPindex = AddToBlockIndex(prevBlock);
     prevPindex->scCumTreeHash = prevCumulativeHash;
-    EXPECT_TRUE(prevCumulativeHash == prevPindex->hashScTxsCommitment);
+    EXPECT_TRUE(prevCumulativeHash.GetLegacyHashTO_BE_REMOVED() == prevPindex->hashScTxsCommitment)
+    <<prevCumulativeHash.GetLegacyHashTO_BE_REMOVED().ToString()<<"\n"
+	<<prevPindex->hashScTxsCommitment.ToString();
 
     // Current block
-    CPoseidonHash currentHash(libzendoomc::ScFieldElement({std::vector<unsigned char>(size_t(SC_FIELD_SIZE), 'b')}));
+    std::vector<unsigned char> currentHashByteArray(32,'b');
+    currentHashByteArray.resize(CFieldElement::ByteSize(),0x0);
+    CFieldElement currentHash{currentHashByteArray};
+
     CBlock block;
     block.nVersion = BLOCK_VERSION_SC_SUPPORT;
-    block.hashScTxsCommitment = currentHash;
+    block.hashScTxsCommitment = currentHash.GetLegacyHashTO_BE_REMOVED();
     block.hashPrevBlock = prevBlock.GetHash();
 
     CBlockIndex* pindex = AddToBlockIndex(block);
-    EXPECT_TRUE(currentHash == pindex->hashScTxsCommitment);
+    EXPECT_TRUE(currentHash.GetLegacyHashTO_BE_REMOVED() == pindex->hashScTxsCommitment)
+    <<currentHash.GetLegacyHashTO_BE_REMOVED().ToString()<<"\n"
+	<<pindex->hashScTxsCommitment.ToString();
+
     EXPECT_TRUE(pindex->pprev == prevPindex);
 
-    CPoseidonHash expectedHash = CPoseidonHash::ComputeHash(prevCumulativeHash, currentHash);
-    EXPECT_TRUE(expectedHash == pindex->scCumTreeHash);
+    CFieldElement expectedHash = CFieldElement::ComputeHash(prevCumulativeHash, currentHash);
+    EXPECT_TRUE(expectedHash.GetLegacyHashTO_BE_REMOVED() == pindex->scCumTreeHash.GetLegacyHashTO_BE_REMOVED())
+    <<expectedHash.GetLegacyHashTO_BE_REMOVED().ToString()<<"\n"
+	<<pindex->scCumTreeHash.GetLegacyHashTO_BE_REMOVED().ToString();
 
-    CleanUpAll();
+    UnloadBlockIndex();
 }

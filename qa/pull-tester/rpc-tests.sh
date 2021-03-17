@@ -100,6 +100,7 @@ testScripts=(
   'sc_cert_quality_wallet.py'
   'sc_cert_ceasing_sg.py'
   'sc_bwt_request.py'
+  'sc_cert_customfields.py'
   'sc_csw_nullifier.py'
   'sc_cert_memcleanup_split.py'
   'sc_cert_ceasing_split.py'

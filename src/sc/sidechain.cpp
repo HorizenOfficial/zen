@@ -95,8 +95,8 @@ std::string CSidechain::ToString() const
         sidechainVersion
         , creationBlockHeight
         , creationTxHash.ToString()
-        , pastEpochTopQualityCertDataHash.ToString()
-        , lastTopQualityCertDataHash.ToString()
+        , pastEpochTopQualityCertDataHash.GetHexRepr()
+        , lastTopQualityCertDataHash.GetHexRepr()
         , lastTopQualityCertHash.ToString()
         , lastTopQualityCertReferencedEpoch
         , lastTopQualityCertQuality
@@ -114,7 +114,6 @@ size_t CSidechain::DynamicMemoryUsage() const {
 size_t CSidechainEvents::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(maturingScs) + memusage::DynamicUsage(ceasingScs);
 }
-
 
 #ifdef BITCOIN_TX
 bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state) { return true; }
@@ -172,6 +171,22 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-creation-amount-outside-range");
         }
 
+        for(const auto& config: sc.vFieldElementCertificateFieldConfig)
+        {
+            if (!config.IsValid())
+                return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], invalid config parameters for vFieldElementCertificateFieldConfig\n",
+                        __func__, __LINE__, txHash.ToString()), REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
+        }
+
+        for(const auto& config: sc.vBitVectorCertificateFieldConfig)
+        {
+            if (!config.IsValid())
+                return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], invalid config parameters for vBitVectorCertificateFieldConfig\n",
+                        __func__, __LINE__, txHash.ToString()), REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
+        }
+
         if (!libzendoomc::IsValidScVk(sc.wCertVk))
         {
             return state.DoS(100,
@@ -180,7 +195,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-creation-invalid-wcert-vk");
         }
 
-        if((sc.constant.size() != 0) && !libzendoomc::IsValidScConstant(sc.constant))
+        if(sc.constant.is_initialized() && !sc.constant->IsValid())
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid constant\n",
@@ -235,10 +250,10 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-proof");
         }
 
-        if (!libzendoomc::IsValidScFieldElement(bt.scRequestData))
+        if (!bt.scRequestData.IsValid())
         {
             return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scUtxoId\n",
+                    error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scRequestData\n",
                     __func__, __LINE__, txHash.ToString()),
                     REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-utxo-id");
         }
@@ -253,7 +268,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-cswinput-value-not-valid");
         }
 
-        if(!libzendoomc::IsValidScFieldElement(csw.nullifier))
+        if(!csw.nullifier.IsValid())
         {
             return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW nullifier\n",
                     __func__, __LINE__, txHash.ToString()),
@@ -270,19 +285,6 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
     return true;
 }
-
-bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
-{
-    BOOST_FOREACH(const auto& sc, tx.GetVscCcOut())
-    {
-        if (sc.GetScId() == scId)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
 bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state)
 {
     const uint256& certHash = cert.GetHash();
@@ -311,6 +313,43 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
                 REJECT_INVALID, "bad-cert-invalid-sc-proof");
     }
 
+    return true;
+}
+
+bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert)
+{
+    const std::vector<FieldElementCertificateFieldConfig>& vCfeCfg = sidechain.creationData.vFieldElementCertificateFieldConfig;
+    const std::vector<BitVectorCertificateFieldConfig>& vCmtCfg = sidechain.creationData.vBitVectorCertificateFieldConfig;
+
+    const std::vector<FieldElementCertificateField>& vCfe = cert.vFieldElementCertificateField;
+    const std::vector<BitVectorCertificateField>& vCmt = cert.vBitVectorCertificateField;
+
+    if ( vCfeCfg.size() != vCfe.size() || vCmtCfg.size() != vCmt.size() )
+    {
+        LogPrint("sc", "%s():%d - invalid custom field cfg sz: %d/%d - %d/%d\n", __func__, __LINE__,
+            vCfeCfg.size(), vCfe.size(), vCmtCfg.size(), vCmt.size() );
+        return false;
+    }
+
+    for (int i = 0; i < vCfe.size(); i++)
+    {
+        const FieldElementCertificateField& fe = vCfe.at(i);
+        if (!fe.IsValid(vCfeCfg.at(i)))
+        {
+            LogPrint("sc", "%s():%d - invalid custom field at pos %d\n", __func__, __LINE__, i);
+            return false;
+        }
+    }
+
+    for (int i = 0; i < vCmt.size(); i++)
+    {
+        const BitVectorCertificateField& cmt = vCmt.at(i);
+        if (!cmt.IsValid(vCmtCfg.at(i)))
+        {
+            LogPrint("sc", "%s():%d - invalid compr mkl tree field at pos %d\n", __func__, __LINE__, i);
+            return false;
+        }
+    }
     return true;
 }
 #endif

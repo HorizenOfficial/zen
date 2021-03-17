@@ -260,6 +260,16 @@ template <typename Callable> void TraceThread(const char* name,  Callable func)
     }
 }
 
+template <typename T>
+std::string VecToStr(const std::vector<T>& vIn)
+{
+    std::stringstream ss;
+    std::copy(vIn.begin(), vIn.end(), std::ostream_iterator<T>(ss, " "));
+    std::string s = ss.str();
+    // get rid of the trailing space (safe if s.empty) 
+    return s.substr(0, s.length()-1).c_str();
+}
+
 // Utilities useful for developing and debugging
 //--------------------------------------------------------------
 class CBlockIndex;
@@ -275,4 +285,6 @@ std::string dbg_blk_unlinked();
 std::string dbg_blk_candidates();
 std::string dbg_blk_global_tips();
 
+int getTrailingZeroBitsInByte(unsigned char inputByte);
+int getBytesFromBits(int nbits, int& reminder);
 #endif // BITCOIN_UTIL_H

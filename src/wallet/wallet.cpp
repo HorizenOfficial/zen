@@ -3344,18 +3344,12 @@ bool CWallet::CreateTransaction(
                 for (const auto& entry : vecScSend)
                 {
                     CTxScCreationOut txccout(entry.nValue, entry.address, entry.creationData);
-                    if (txccout.IsDust(::minRelayTxFee)) {
-                        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
-                    }
                     txNew.add(txccout);
                 }
 
                 for (const auto& entry : vecFtSend)
                 {
                     CTxForwardTransferOut txccout(entry.scId, entry.nValue, entry.address);
-                    if (txccout.IsDust(::minRelayTxFee)) {
-                        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Could not build cc output, amount is too small"));
-                    }
                     txNew.add(txccout);
                 }
 
