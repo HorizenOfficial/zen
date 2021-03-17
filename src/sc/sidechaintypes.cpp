@@ -180,6 +180,9 @@ bool BitVectorCertificateFieldConfig::IsValid() const
     if(!isBitVectorSizeValid)
         return false;
 
+    if ((bitVectorSizeBits % 254 != 0) || (bitVectorSizeBits % 8 != 0))
+        return false;
+
     bool isMaxCompressedSizeValid = (maxCompressedSizeBytes > 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES);
     if(!isMaxCompressedSizeValid)
         return false;
