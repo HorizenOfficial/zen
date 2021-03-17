@@ -29,6 +29,7 @@ void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
 
 CFieldElement::CFieldElement(const uint256& value)
 {
+    this->byteVector.resize(CFieldElement::ByteSize(),0x0);
     std::copy(value.begin(), value.end(), this->byteVector.begin());
 }
 
@@ -46,7 +47,8 @@ const std::vector<unsigned char>&  CFieldElement::GetByteArray() const
 
 wrappedFieldPtr CFieldElement::GetFieldElement() const
 {
-    return wrappedFieldPtr{zendoo_deserialize_field(&this->byteVector[0]), theFieldPtrDeleter};
+    wrappedFieldPtr res = {zendoo_deserialize_field(&this->byteVector[0]), theFieldPtrDeleter};
+    return res;
 }
 
 uint256 CFieldElement::GetLegacyHashTO_BE_REMOVED() const

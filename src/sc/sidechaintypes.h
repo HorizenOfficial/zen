@@ -21,13 +21,13 @@
 
 struct CFieldPtrDeleter
 { // deleter
-	CFieldPtrDeleter() = default;
+    CFieldPtrDeleter() = default;
     void operator()(field_t* p) const {
-    	zendoo_field_free(p);
-    	p = nullptr;
+        zendoo_field_free(p);
+        p = nullptr;
     };
 };
-typedef std::unique_ptr<field_t, CFieldPtrDeleter> wrappedFieldPtr;
+typedef std::shared_ptr<field_t> wrappedFieldPtr;
 
 class CFieldElement
 {
