@@ -774,7 +774,7 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected)
     ASSERT_TRUE(cswTx.GetHash() != duplicatedCswTx.GetHash());
 
     CValidationState dummyState;
-    libzendoomc::CScProofVerifier verifier = libzendoomc::CScProofVerifier::Disabled();
+    CScProofVerifier verifier{CScProofVerifier::Verification::Loose};
     EXPECT_FALSE(mempool.checkIncomingTxConflicts(duplicatedCswTx));
 }
 

@@ -56,6 +56,9 @@ const std::vector<unsigned char>&  CFieldElement::GetByteArray() const
 
 wrappedFieldPtr CFieldElement::GetFieldElement() const
 {
+    if (this->byteVector.empty())
+        return wrappedFieldPtr{nullptr};
+
     wrappedFieldPtr res = {zendoo_deserialize_field(&this->byteVector[0]), theFieldPtrDeleter};
     return res;
 }

@@ -100,7 +100,7 @@ public:
     SidechainsTestSuite():
           fakeChainStateDb(nullptr)
         , sidechainsView(nullptr)
-        , dummyScVerifier(libzendoomc::CScProofVerifier::Disabled()) {};
+        , dummyScVerifier{CScProofVerifier::Verification::Loose} {};
 
     ~SidechainsTestSuite() = default;
 
@@ -126,7 +126,7 @@ protected:
     CNakedCCoinsViewCache *sidechainsView;
 
     //Helpers
-    libzendoomc::CScProofVerifier dummyScVerifier;
+    CScProofVerifier dummyScVerifier;
     CBlockUndo createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash = uint256());
     void storeSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
 };

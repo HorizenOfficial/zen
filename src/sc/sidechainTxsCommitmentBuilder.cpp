@@ -55,7 +55,7 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
     // set of scid is ordered
     for (const auto& scid : sScIds)
     {
-    	CFieldElement ftRootField = defaultLeaf;
+        CFieldElement ftRootField = defaultLeaf;
         auto itFt = mScMerkleTreeLeavesFt.find(scid);
         if (itFt != mScMerkleTreeLeavesFt.end() )
         {
@@ -128,7 +128,7 @@ CFieldElement SidechainTxsCommitmentBuilder::merkleTreeRootOf(std::vector<CField
     
     auto btrTree = ZendooGingerMerkleTree(treeHeightForLeaves(numberOfLeaves), numberOfLeaves);
     for(CFieldElement & leaf: leaves)
-		btrTree.append(leaf.GetFieldElement().get());
+        btrTree.append(leaf.GetFieldElement().get());
 
     btrTree.finalize_in_place();
     wrappedFieldPtr wrappedRoot(btrTree.root(), CFieldPtrDeleter());

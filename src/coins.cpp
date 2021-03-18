@@ -1072,8 +1072,8 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 #ifdef BITCOIN_TX
 int CCoinsViewCache::GetHeight() const {return -1;}
 bool CCoinsViewCache::CheckEndEpochBlockHash(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const {return true;}
-bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const { return true;}
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, CScProofVerifier& scVerifier) const {return true;}
+bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, CScProofVerifier& scVerifier) const { return true;}
 #else
 
 int CCoinsViewCache::GetHeight() const
@@ -1122,7 +1122,7 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certEpoch) const
     return true;
 }
 
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, CScProofVerifier& scVerifier) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -1245,7 +1245,7 @@ bool CCoinsViewCache::CheckScTxTiming(const uint256& scId) const
     return true;
 }
 
-bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const
+bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, CScProofVerifier& scVerifier) const
 {
     if (tx.IsCoinBase())
         return true;

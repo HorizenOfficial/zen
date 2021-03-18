@@ -290,16 +290,17 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
         190, 140, 20, 123, 208, 132, 48, 243, 14, 2, 48, 106, 100, 13, 41, 254, 129, 225, 168, 23,
         72, 215, 207, 255, 98, 156, 102, 215, 201, 158, 10, 123, 107, 238, 0, 0
     };
-    auto expected_root = zendoo_deserialize_field(expected_root_bytes);
-    ASSERT_TRUE(expected_root != NULL);
+    CFieldElement expected_root = CFieldElement{wrappedFieldPtr{zendoo_deserialize_field(expected_root_bytes), CFieldPtrDeleter{}}};
+    ASSERT_TRUE(expected_root.IsValid());
 
     //Generate leaves
 
     //enum removes variable length buffer [-Wstack-protector] warning that simple const int would give
     enum { leaves_len = 32 };
-    const field_t* leaves[leaves_len];
-    for (int i = 0; i < leaves_len; i++){
-        leaves[i] = zendoo_get_field_from_long(i);
+    CFieldElement leaves[leaves_len];
+    for (int i = 0; i < leaves_len; i++)
+    {
+        leaves[i] = CFieldElement{wrappedFieldPtr{zendoo_get_field_from_long(i), CFieldPtrDeleter{}}};
     }
 
     // Initialize tree
@@ -307,38 +308,28 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
 
     // Add leaves to tree
     for (int i = 0; i < leaves_len; i++){
-        tree.append(leaves[i]);
+        tree.append(leaves[i].GetFieldElement().get());
     }
 
     // Finalize tree
     tree.finalize_in_place();
 
     // Compute root and assert equality with expected one
-    auto root = tree.root();
-    ASSERT_TRUE(zendoo_field_assert_eq(root, expected_root))
-    <<"Expected roots to be equal";
+    CFieldElement root = CFieldElement{wrappedFieldPtr{tree.root(), CFieldPtrDeleter{}}};
+    EXPECT_TRUE(root == expected_root);
 
     // It is the same by calling finalize()
     auto tree_copy = tree.finalize();
-    auto root_copy = tree_copy.root();
-    ASSERT_TRUE(zendoo_field_assert_eq(root_copy, expected_root))
-    <<"Expected roots to be equal";
+    CFieldElement root_copy = CFieldElement{wrappedFieldPtr{tree_copy.root(), CFieldPtrDeleter{}}};
+    ASSERT_TRUE(root_copy == expected_root);
 
     // Test Merkle Paths
     for (int i = 0; i < leaves_len; i++) {
         auto path = tree.get_merkle_path(i);
-        ASSERT_TRUE(zendoo_verify_ginger_merkle_path(path, height, (field_t*)leaves[i], root))
+        ASSERT_TRUE(zendoo_verify_ginger_merkle_path(path, height, leaves[i].GetFieldElement().get(), root.GetFieldElement().get()))
         <<"Merkle Path must be verified";
         zendoo_free_ginger_merkle_path(path);
     }
-
-    // Free memory
-    zendoo_field_free(expected_root);
-    for (int i = 0; i < leaves_len; i++){
-        zendoo_field_free((field_t*)leaves[i]);
-    }
-    zendoo_field_free(root);
-    zendoo_field_free(root_copy);
 }
 
 // SILENCED SINCE BROKEN. TODO: Come up with correct byte arrays
