@@ -5,6 +5,9 @@
 ///////////////////////////////// Field types //////////////////////////////////
 #ifdef BITCOIN_TX
     CFieldElement::CFieldElement() {};
+    CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) {};
+    CFieldElement::CFieldElement(const uint256& value) {};
+    CFieldElement::CFieldElement(const wrappedFieldPtr& wrappedField) {};
     void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn) {};
     void CFieldElement::SetNull() {};
     bool CFieldElement::IsNull() const {return false;};
@@ -31,6 +34,12 @@ CFieldElement::CFieldElement(const uint256& value)
 {
     this->byteVector.resize(CFieldElement::ByteSize(),0x0);
     std::copy(value.begin(), value.end(), this->byteVector.begin());
+}
+
+CFieldElement::CFieldElement(const wrappedFieldPtr& wrappedField)
+{
+    this->byteVector.resize(CFieldElement::ByteSize(),0x0);
+    zendoo_serialize_field(wrappedField.get(), &byteVector[0]);
 }
 
 void CFieldElement::SetNull()

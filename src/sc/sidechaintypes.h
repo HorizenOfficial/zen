@@ -37,6 +37,7 @@ public:
 
     explicit CFieldElement(const std::vector<unsigned char>& byteArrayIn);
     explicit CFieldElement(const uint256& value);
+    explicit CFieldElement(const wrappedFieldPtr& wrappedField);
     void SetByteArray(const std::vector<unsigned char>& byteArrayIn);
 
     CFieldElement(const CFieldElement& rhs) = default;
