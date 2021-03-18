@@ -1,10 +1,15 @@
 #include "tx_creation_utils.h"
 #include <gtest/libzendoo_test_files.h>
+#include <primitives/transaction.h>
+#include <primitives/certificate.h>
 #include <script/interpreter.h>
 #include <main.h>
 #include <pubkey.h>
 #include <miner.h>
 #include <undo.h>
+#include "tx_creation_utils.h"
+#include <pow.h>
+#include <coins.h>
 
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength)
 {
@@ -105,8 +110,9 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
 
 CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
 {
-    libzendoomc::ScFieldElement nullifier;
-    nullifier.SetHex(nullifierHex);
+    std::vector<unsigned char> tmp(nullifierHex.begin(), nullifierHex.end());
+    tmp.resize(CFieldElement::ByteSize());
+    CFieldElement nullifier{tmp};
 
     uint160 dummyPubKeyHash {};
     libzendoomc::ScProof dummyScProof;
@@ -212,7 +218,7 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
 
 uint256 txCreationUtils::CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight)
 {
-    CAmount dummyFeeAmount{0};
+    CAmount dummyFeeAmount {0};
     CScript dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
             << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
 

@@ -5,6 +5,7 @@
 #include "main.h"
 #include "zcash/Proof.hpp"
 #include "base58.h"
+#include <pow.h>
 #include "zen/forkmanager.h"
 #include "zen/forks/fork1_chainsplitfork.h"
 #include "zen/forks/fork3_communityfundandrpfixfork.h"

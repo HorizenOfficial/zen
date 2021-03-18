@@ -15,7 +15,13 @@ zcash_GenerateParams_LDADD = \
   $(LIBZCASH_LIBS)
 
 # tool for profiling the creation of joinsplits
-zcash_CreateJoinSplit_SOURCES = zcash/CreateJoinSplit.cpp primitives/transaction.cpp
+zcash_CreateJoinSplit_SOURCES = \
+    zcash/CreateJoinSplit.cpp \
+    primitives/transaction.cpp \
+    primitives/certificate.cpp \
+    sc/sidechaintypes.cpp \
+    sc/proofverifier.cpp \
+    sc/sidechain.cpp
 zcash_CreateJoinSplit_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) -DBITCOIN_TX
 zcash_CreateJoinSplit_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) -DBITCOIN_TX
 zcash_CreateJoinSplit_LDADD = \

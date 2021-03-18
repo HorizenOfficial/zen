@@ -188,13 +188,14 @@ void static RandomPubKeyHash(uint160 &pubKeyHash) {
     pubKeyHash.SetHex(str);
 }
 
-void static RandomScFieldElement(libzendoomc::ScFieldElement &fe) {
-    std::string str;
-    for (unsigned int i = 0; i < sizeof(libzendoomc::ScFieldElement); i++)
+void static RandomSidechainField(CFieldElement &fe) {
+    std::vector<unsigned char> vec;
+    for (unsigned int i = 0; i < sizeof(CFieldElement); i++)
     {
-        str.push_back((unsigned char)(insecure_rand() % 0xff));
+         vec.push_back((unsigned char)(insecure_rand() % 0xff));
     }
-    fe.SetHex(str);
+    vec.resize(CFieldElement::ByteSize());
+    fe.SetByteArray(vec);
 }
 
 void static RandomScProof(libzendoomc::ScProof &proof) {
@@ -229,7 +230,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
     bool isSidechain = (insecure_rand() % 2) == 0;
     if (isSidechain) {
         tx.nVersion = SC_TX_VERSION;
-	} else {
+    } else {
         bool isGroth = (insecure_rand() % 2) == 0;
         if (isGroth) {
             tx.nVersion = GROTH_TX_VERSION;
@@ -238,7 +239,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             // test will also have to verify if negative versions are rejected except GROTH_TX_VERSION
             tx.nVersion = insecure_rand();
         }
-	}
+    }
 
     tx.vin.clear();
     tx.resizeOut(0);
@@ -258,9 +259,9 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
         txin.prevout.hash = GetRandHash();
         txin.prevout.n = insecure_rand() % 4;
         if(emptyInputScript) {
-        	txin.scriptSig = CScript();
+            txin.scriptSig = CScript();
         } else {
-        	RandomScript(txin.scriptSig);
+            RandomScript(txin.scriptSig);
         }
         txin.nSequence = (insecure_rand() % 2) ? insecure_rand() : (unsigned int)-1;
     }
@@ -321,7 +322,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
           RandomPubKeyHash(csw_in.pubKeyHash);
           csw_in.nValue = insecure_rand() % 100000000;
           csw_in.scId = libzcash::random_uint256();
-          RandomScFieldElement(csw_in.nullifier);
+          RandomSidechainField(csw_in.nullifier);
           RandomScProof(csw_in.scProof);
 
           if(emptyInputScript) {
@@ -339,7 +340,8 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             sc_out.address = libzcash::random_uint256();
             sc_out.withdrawalEpochLength = insecure_rand() % 100;
             RandomData(sc_out.customData);
-            RandomData(sc_out.constant);
+            sc_out.constant = CFieldElement{};
+            RandomSidechainField(sc_out.constant.get());
             RandomScVk(sc_out.wCertVk);
             libzendoomc::ScVk wCeasedVk;
             RandomScVk(wCeasedVk);
@@ -378,9 +380,9 @@ void static RandomCertificate(CMutableScCertificate &cert, bool fSingle, bool em
         txin.prevout.hash = GetRandHash();
         txin.prevout.n = insecure_rand() % NUM_R;
         if(emptyInputScript) {
-        	txin.scriptSig = CScript();
+            txin.scriptSig = CScript();
         } else {
-        	RandomScript(txin.scriptSig);
+            RandomScript(txin.scriptSig);
         }
         txin.nSequence = (insecure_rand() % 2) ? insecure_rand() : (unsigned int)-1;
     }
@@ -502,27 +504,27 @@ BOOST_AUTO_TEST_CASE(sighash_cert_test)
 // Goal: check that SignatureHash generates correct hash by checking if serialization matches with the one implemented in CTransaction
 BOOST_AUTO_TEST_CASE(sighash_from_tx)
 {
-	int nRandomTests = 500;
+    int nRandomTests = 500;
 
-	for (int i=0; i<nRandomTests; i++) {
-		CMutableTransaction txTo;
-		uint256 interpreterSH, checkSH;
-		CScript scriptCode;
+    for (int i=0; i<nRandomTests; i++) {
+        CMutableTransaction txTo;
+        uint256 interpreterSH, checkSH;
+        CScript scriptCode;
 
-		RandomTransaction(txTo, false, true);
-		CTransaction::joinsplit_sig_t nullSig = {};
-		txTo.joinSplitSig = nullSig;
+        RandomTransaction(txTo, false, true);
+        CTransaction::joinsplit_sig_t nullSig = {};
+        txTo.joinSplitSig = nullSig;
 
-		interpreterSH = SignatureHash(scriptCode, txTo, NOT_AN_INPUT, SIGHASH_ALL);
+        interpreterSH = SignatureHash(scriptCode, txTo, NOT_AN_INPUT, SIGHASH_ALL);
 
 
-		// Serialize and hash
-		CHashWriter ss(SER_GETHASH, 0);
-		ss << txTo << (int)SIGHASH_ALL;
-		checkSH = ss.GetHash();
-		BOOST_CHECK(checkSH == interpreterSH);
+        // Serialize and hash
+        CHashWriter ss(SER_GETHASH, 0);
+        ss << txTo << (int)SIGHASH_ALL;
+        checkSH = ss.GetHash();
+        BOOST_CHECK(checkSH == interpreterSH);
 
-	}
+    }
 
 }
 
@@ -573,8 +575,8 @@ BOOST_AUTO_TEST_CASE(sighash_from_data)
           std::vector<unsigned char> raw = ParseHex(raw_script);
           scriptCode.insert(scriptCode.end(), raw.begin(), raw.end());
         } catch (const std::exception& e) {
-        	BOOST_ERROR("Bad test (exception: \"" << e.what() << "\"), couldn't deserialize data: " << strTest);
-        	continue;
+            BOOST_ERROR("Bad test (exception: \"" << e.what() << "\"), couldn't deserialize data: " << strTest);
+            continue;
         } catch (...) {
           BOOST_ERROR("Bad test, couldn't deserialize data: " << strTest);
           continue;

@@ -8,7 +8,6 @@
 
 #include "arith_uint256.h"
 #include "primitives/block.h"
-#include "pow.h"
 #include "tinyformat.h"
 #include "uint256.h"
 
@@ -183,7 +182,7 @@ public:
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
-    uint256 hashScTxsCommitment;
+    uint256  hashScTxsCommitment;
     unsigned int nTime;
     unsigned int nBits;
     uint256 nNonce;
@@ -214,7 +213,7 @@ public:
 
         nVersion       = 0;
         hashMerkleRoot = uint256();
-        hashScTxsCommitment = uint256();
+        hashScTxsCommitment.SetNull();
         nTime          = 0;
         nBits          = 0;
         nNonce         = uint256();

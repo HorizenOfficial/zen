@@ -17,6 +17,7 @@
 #include "miner.h"
 #include "wallet/wallet.h"
 #include "rpc/server.h"
+#include "pow.h"
 
 #include <vector>
 #include <map>

@@ -16,7 +16,7 @@
 #include "script/script.h"
 #include "script/script_error.h"
 #include "primitives/transaction.h"
-
+#include "pow.h"
 #include "sodium.h"
 
 #include <map>

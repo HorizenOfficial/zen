@@ -32,7 +32,9 @@ static inline size_t RecursiveDynamicUsage(const CTxCeasedSidechainWithdrawalInp
 
 static inline size_t RecursiveDynamicUsage(const CTxScCreationOut& ccout)
 {
-    return memusage::DynamicUsage(ccout.customData);
+    return memusage::DynamicUsage(ccout.customData) +
+           memusage::DynamicUsage(ccout.vFieldElementCertificateFieldConfig) +
+           memusage::DynamicUsage(ccout.vBitVectorCertificateFieldConfig);
 }
 
 // no dynamic fields
