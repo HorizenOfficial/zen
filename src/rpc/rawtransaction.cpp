@@ -230,7 +230,7 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     x.push_back(Pair("epochNumber", cert.epochNumber));
     x.push_back(Pair("quality", cert.quality));
     x.push_back(Pair("endEpochBlockHash", cert.endEpochBlockHash.GetHex()));
-    x.push_back(Pair("scProof", HexStr(cert.scProof)));
+    x.push_back(Pair("scProof", cert.scProof.GetHexRepr()));
 
     UniValue vCfe(UniValue::VARR);
     for (const auto& entry : cert.vFieldElementCertificateField) {
@@ -707,7 +707,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "         \"senderAddress\": \"address\", (string, required) The sender Horizen address\n"
             "         \"scId\": \"hex\",              (string, required) The ceased sidechain id\n"
             "         \"nullifier\": \"hex\",         (string, required) Withdrawal nullifier\n"
-            "         \"scProof\": \"hex\"            (string, required) SNARK proof whose verification key was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + "bytes \n"
+            "         \"scProof\": \"hex\"            (string, required) SNARK proof whose verification key was set upon sidechain registration. Its size must be " + strprintf("%d", CScProof::ByteSize()) + "bytes \n"
             "       }\n"
             "       ,...\n"
             "     ]\n"
@@ -747,7 +747,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "         \"pubkeyhash\":pkh           (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
             "         \"scFee\":amount,            (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
-            "         \"scProof\":hexstr,          (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
+            "         \"scProof\":hexstr,          (string, required) SNARK proof. Its size must be " + strprintf("%d", CScProof::ByteSize()) + " bytes\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"
@@ -1010,7 +1010,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "      \"withdrawalEpochNumber\":n       (numeric, required) The epoch number this certificate refers to\n"
             "      \"quality\":n                     (numeric, required) A positive number specifying the quality of this withdrawal certificate. \n"
             "      \"endEpochBlockHash\":\"blockHash\" (string, required) The block hash determining the end of the referenced epoch\n"
-            "      \"scProof\":\"scProof\"             (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + "bytes \n"
+            "      \"scProof\":\"scProof\"             (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", CScProof::ByteSize()) + "bytes \n"
             "      \"vFieldElementCertificateField\":\"field els\"     (array, optional) An array of HEX string... TODO add description\n"
             "      \"vBitVectorCertificateField\":\"cmp mkl trees\"  (array, optional) An array of HEX string... TODO add description\n"
             "    }\n"
@@ -1140,14 +1140,12 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         string inputString = find_value(cert_params, "scProof").get_str();
         std::string error;
         std::vector<unsigned char> scProofVec;
-        if (!Sidechain::AddScData(inputString, scProofVec, SC_PROOF_SIZE, true, error))
+        if (!Sidechain::AddScData(inputString, scProofVec, CScProof::ByteSize(), true, error))
             throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
 
-        libzendoomc::ScProof scProof(scProofVec);
-        if (!libzendoomc::IsValidScProof(scProof))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid cert \"scProof\"");
-        
-        rawCert.scProof = scProof;
+        rawCert.scProof = CScProof{scProofVec};
+        if (!rawCert.scProof.IsValid())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid cert \"scProof\"");
     }
     else
     {
@@ -1156,7 +1154,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 
     // ---------------------------------------------------------
     // just check against a maximum size 
-    static const size_t MAX_FE_SIZE_BYTES  = SC_FIELD_SIZE;
+    static const size_t MAX_FE_SIZE_BYTES  = CFieldElement::ByteSize();
     if (setKeyArgs.count("vFieldElementCertificateField"))
     {
         UniValue feArray = find_value(cert_params, "vFieldElementCertificateField").get_array();

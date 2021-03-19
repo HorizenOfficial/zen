@@ -360,14 +360,14 @@ public:
     uint256 scId;
     CFieldElement nullifier;
     uint160 pubKeyHash;
-    libzendoomc::ScProof scProof;
+    CScProof scProof;
     CScript redeemScript;
 
     CTxCeasedSidechainWithdrawalInput(): nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript() {}
 
     explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
-                                               const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn);
+                                               const CScProof& scProofIn, const CScript& redeemScriptIn);
 
     ADD_SERIALIZE_METHODS
 
@@ -632,7 +632,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     CFieldElement scRequestData;
     uint160 mcDestinationAddress;
     CAmount scFee;
-    libzendoomc::ScProof scProof;
+    CScProof scProof;
 
     CBwtRequestOut():scFee(0) {}
 

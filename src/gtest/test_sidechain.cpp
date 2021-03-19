@@ -276,7 +276,7 @@ TEST_F(SidechainsTestSuite, ValidCSWTx) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -292,7 +292,7 @@ TEST_F(SidechainsTestSuite, InvalidNullifier) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -310,7 +310,7 @@ TEST_F(SidechainsTestSuite, CSWTxNegativeAmount) {
 
     csw.nValue = -1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -328,7 +328,7 @@ TEST_F(SidechainsTestSuite, CSWTxHugeAmount) {
 
     csw.nValue = MAX_MONEY + 1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -346,7 +346,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidNullifier) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -364,7 +364,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidProof) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof({std::vector<unsigned char>(size_t(SC_PROOF_SIZE), 'a')});
+    csw.scProof = CScProof({std::vector<unsigned char>(size_t(CScProof::ByteSize()), 'a')});
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -597,7 +597,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mcBwtReq.scProof = CScProof(ParseHex(SAMPLE_PROOF));
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
@@ -631,7 +631,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mcBwtReq.scProof = CScProof(ParseHex(SAMPLE_PROOF));
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
@@ -679,7 +679,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicabl
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mcBwtReq.scProof = CScProof(ParseHex(SAMPLE_PROOF));
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
@@ -716,7 +716,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithoutKeyIsNotApp
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mcBwtReq.scProof = CScProof(ParseHex(SAMPLE_PROOF));
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);

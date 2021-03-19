@@ -198,13 +198,14 @@ void static RandomSidechainField(CFieldElement &fe) {
     fe.SetByteArray(vec);
 }
 
-void static RandomScProof(libzendoomc::ScProof &proof) {
-    std::string str;
-    for (unsigned int i = 0; i < sizeof(libzendoomc::ScProof); i++)
+void static RandomScProof(CScProof &proof) {
+    std::vector<unsigned char> vec;
+    for (unsigned int i = 0; i < sizeof(CScProof); i++)
     {
-        str.push_back((unsigned char)(insecure_rand() % 0xff));
+         vec.push_back((unsigned char)(insecure_rand() % 0xff));
     }
-    proof.SetHex(str);
+    vec.resize(CScProof::ByteSize());
+    proof.SetByteArray(vec);
 }
 
 void static RandomScVk(libzendoomc::ScVk &vk) {

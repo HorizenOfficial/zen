@@ -45,7 +45,7 @@ public:
         const CFieldElement& scRequestData,
         const uint160& mcDestinationAddress,
         CAmount scFees,
-        const libzendoomc::ScProof& scProof,
+        const CScProof& scProof,
         const boost::optional<libzendoomc::ScVk>& wMbtrVk,
         const CFieldElement& certDataHash
     ) const;

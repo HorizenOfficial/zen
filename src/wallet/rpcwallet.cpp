@@ -797,7 +797,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             " 5. \"customData\"              (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                     hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
             " 6. \"constant\"                (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                     hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "                                     hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             " 7. \"wMbtrVk\"                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                     hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             " 8. \"wCeasedVk\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
@@ -1504,7 +1504,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "   \"pubkeyhash\":pkh                 (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
             "   \"scFee\":amount,                  (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
-            "   \"scProof\":hexstr,                (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
+            "   \"scProof\":hexstr,                (string, required) SNARK proof. Its size must be " + strprintf("%d", CScProof::ByteSize()) + " bytes\n"
             "},...,]\n"
             "2. \"params\"                        (string, optional) A json object with the command parameters\n"
             "{\n"                     
@@ -1625,16 +1625,16 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
         {
             const string& scProofString = find_value(o, "scProof").get_str();
             std::string error;
-            if (!Sidechain::AddScData(scProofString, scProofVec, SC_PROOF_SIZE, true ,error))
+            if (!Sidechain::AddScData(scProofString, scProofVec, CScProof::ByteSize(), true ,error))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
         }
         else
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scProof\"" );
         }
-        libzendoomc::ScProof scProof = libzendoomc::ScProof(scProofVec);
+        CScProof scProof {scProofVec};
 
-        if(!libzendoomc::IsValidScProof(scProof))
+        if(!scProof.IsValid())
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scProof"));
 
         // ---------------------------------------------------------
@@ -5225,7 +5225,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "2. epochNumber                 (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
             "3. quality                     (numeric, required) The quality of this withdrawal certificate. \n"
             "4. \"endEpochBlockHash\"         (string, required) The block hash determining the end of the referenced epoch\n"
-            "5. \"scProof\"                   (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
+            "5. \"scProof\"                   (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", CScProof::ByteSize()) + " bytes\n"
             "6. transfers:                  (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
             "    [{\n"                     
             "      \"pubkeyhash\":\"pkh\"    (string, required) The public key hash of the receiver\n"
@@ -5319,12 +5319,12 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     {
         std::string error;
         std::vector<unsigned char> scProofVec;
-        if (!Sidechain::AddScData(inputString, scProofVec, SC_PROOF_SIZE, true ,error))
+        if (!Sidechain::AddScData(inputString, scProofVec, CScProof::ByteSize(), true ,error))
             throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
 
-        cert.scProof = libzendoomc::ScProof(scProofVec);
+        cert.scProof.SetByteArray(scProofVec);
 
-        if(!libzendoomc::IsValidScProof(cert.scProof))
+        if(!cert.scProof.IsValid())
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert scProof"));
     }
 

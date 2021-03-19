@@ -115,7 +115,7 @@ CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(const uint256&
     CFieldElement nullifier{tmp};
 
     uint160 dummyPubKeyHash {};
-    libzendoomc::ScProof dummyScProof;
+    CScProof dummyScProof{ParseHex(SAMPLE_PROOF)};
     CScript dummyRedeemScript;
 
     return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript);
@@ -200,6 +200,7 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
     res.quality = quality;
+    res.scProof.SetByteArray(ParseHex(SAMPLE_PROOF_NO_BWT));
 
     res.vin.resize(1);
     res.vin[0].prevout.hash = uint256S("1");

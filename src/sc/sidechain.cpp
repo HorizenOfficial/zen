@@ -242,7 +242,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-fee-amount-outside-range");
         }
 
-        if (!libzendoomc::IsValidScProof(bt.scProof))
+        if (!bt.scProof.IsValid())
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scProof\n",
@@ -275,7 +275,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-cswinput-invalid-nullifier");
         }
 
-        if(!libzendoomc::IsValidScProof(csw.scProof))
+        if(!csw.scProof.IsValid())
         {
             return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW proof\n",
                     __func__, __LINE__, txHash.ToString()),
@@ -305,7 +305,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
                 REJECT_INVALID, "bad-cert-invalid-epoch-data");;
     }
 
-    if(!libzendoomc::IsValidScProof(cert.scProof))
+    if(!cert.scProof.IsValid())
     {
         return state.DoS(100,
                 error("%s():%d - ERROR: Invalid cert[%s], invalid scProof\n",

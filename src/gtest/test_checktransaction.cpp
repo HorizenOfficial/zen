@@ -71,7 +71,7 @@ CMutableTransaction GetValidTransaction(int txVersion) {
         GetRandBytes((unsigned char*)&nullifierStr[0], CFieldElement::ByteSize()-2);
         csw_ccin.nullifier = CFieldElement{nullifierStr};
         GetRandBytes((unsigned char*)&csw_ccin.pubKeyHash, csw_ccin.pubKeyHash.size());
-        GetRandBytes((unsigned char*)&csw_ccin.scProof, csw_ccin.scProof.size());
+        GetRandBytes((unsigned char*)&csw_ccin.scProof, csw_ccin.scProof.ByteSize());
         csw_ccin.redeemScript = CScript();
         mtx.vcsw_ccin.push_back(csw_ccin);
 

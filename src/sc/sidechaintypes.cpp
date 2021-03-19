@@ -42,11 +42,7 @@ CFieldElement::CFieldElement(const wrappedFieldPtr& wrappedField)
     zendoo_serialize_field(wrappedField.get(), &byteVector[0]);
 }
 
-void CFieldElement::SetNull()
-{
-    byteVector.resize(0);
-}
-
+void CFieldElement::SetNull() { byteVector.resize(0); }
 bool CFieldElement::IsNull() const { return byteVector.empty();}
 
 const std::vector<unsigned char>&  CFieldElement::GetByteArray() const
@@ -86,69 +82,77 @@ std::string CFieldElement::GetHexRepr() const
 
 bool CFieldElement::IsValid() const
 {
-    if(this->IsNull()) {
-        return false;
-    }
-
-    // THERE SHOULD BE A RUST METHOD RETURNING BOOL RATHER THAN FIELD PTR
-    field_t * pField = zendoo_deserialize_field(&this->byteVector[0]);
-    if (pField == nullptr)
+    if(this->GetFieldElement() == nullptr)
         return false;
 
-    zendoo_field_free(pField);
     return true;
 }
 
 CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs)
 {
-    if(lhs.IsNull() || rhs.IsNull()) {
+    if(!lhs.IsValid() || !rhs.IsValid())
         throw std::runtime_error("Could not compute poseidon hash on null field elements");
-    }
-    auto digest = ZendooPoseidonHash();
 
-    field_t* lhsFe = zendoo_deserialize_field(&(*lhs.byteVector.begin()));
-    if (lhsFe == nullptr) {
-        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
-        zendoo_clear_error();
-        throw std::runtime_error("Could not compute poseidon hash");
-    }
-    digest.update(lhsFe);
+    ZendooPoseidonHash digest{};
 
-    field_t* rhsFe = zendoo_deserialize_field(&(*rhs.byteVector.begin()));
-    if (rhsFe == nullptr) {
-        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
-        zendoo_clear_error();
-        zendoo_field_free(lhsFe);
-        throw std::runtime_error("Could not compute poseidon hash");
-    }
-    digest.update(rhsFe);
+    digest.update(lhs.GetFieldElement().get());
+    digest.update(rhs.GetFieldElement().get());
 
-    field_t* outFe = digest.finalize();
-    CFieldElement res;
-    res.byteVector.resize(CFieldElement::ByteSize());
-    zendoo_serialize_field(outFe, &*(res.byteVector.begin()));
-
-    zendoo_field_free(lhsFe);
-    zendoo_field_free(rhsFe);
-    zendoo_field_free(outFe);
-    return res;
+    wrappedFieldPtr res = {digest.finalize(), theFieldPtrDeleter};
+    return CFieldElement(res);
 }
 #endif
 ////////////////////////////// End of Field types //////////////////////////////
 
+CScProof::CScProof(const std::vector<unsigned char>& byteArrayIn) : byteVector()
+{
+    this->SetByteArray(byteArrayIn);
+}
+
+void CScProof::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
+{
+    assert(byteArrayIn.size() == CScProof::ByteSize());
+    this->byteVector = byteArrayIn;
+}
+
+void CScProof::SetNull() { byteVector.resize(0); }
+bool CScProof::IsNull() const { return byteVector.empty();}
+
+wrappedScProofPtr CScProof::GetProofPtr() const
+{
+    if (this->byteVector.empty())
+        return wrappedScProofPtr{nullptr};
+
+    wrappedScProofPtr res = {zendoo_deserialize_sc_proof(&this->byteVector[0]), theProofPtrDeleter};
+    return res;
+}
+
+bool CScProof::IsValid() const
+{
+    if (this->GetProofPtr() == nullptr)
+        return false;
+
+    return true;
+}
+
+std::string CScProof::GetHexRepr() const
+{
+    std::string res; //ADAPTED FROM UTILSTRENCONDING.CPP HEXSTR
+    static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+    res.reserve(this->byteVector.size()*2);
+    for(const auto& byte: this->byteVector)
+    {
+        res.push_back(hexmap[byte>>4]);
+        res.push_back(hexmap[byte&15]);
+    }
+
+    return res;
+}
+
 /////////////////////// libzendoomc namespace definitions //////////////////////
 namespace libzendoomc
 {
-
-    bool IsValidScProof(const ScProof& scProof)
-    {
-        auto scProofDeserialized = zendoo_deserialize_sc_proof(scProof.begin());
-        if (scProofDeserialized == nullptr)
-            return false;
-        zendoo_sc_proof_free(scProofDeserialized);
-        return true;
-    }
-
     bool IsValidScVk(const ScVk& scVk)
     {
         auto scVkDeserialized = zendoo_deserialize_sc_vk(scVk.begin());
@@ -171,7 +175,7 @@ namespace libzendoomc
 ////////////////////////////// Custom Config types //////////////////////////////
 bool FieldElementCertificateFieldConfig::IsValid() const
 {
-    if(nBits > 0 && nBits <= SC_FIELD_SIZE*8)
+    if(nBits > 0 && nBits <= CFieldElement::ByteSize()*8)
         return true;
     else
         return false;

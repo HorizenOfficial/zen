@@ -7,12 +7,10 @@ struct WCertVerifierInputs {
     std::vector<backward_transfer_t> bt_list;
     CFieldElement constant;
     CFieldElement proofdata;
-    sc_proof_t* sc_proof;
+    CScProof sc_proof;
     sc_vk_t* sc_vk;
 
     ~WCertVerifierInputs() {
-        zendoo_sc_proof_free(sc_proof);
-        sc_proof = nullptr;
 
         zendoo_sc_vk_free(sc_vk);
         sc_vk = nullptr;
@@ -35,8 +33,7 @@ bool CScProofVerifier::verifyCScCertificate(
     inputs.proofdata = CFieldElement{}; //Note: Currently proofdata is not present in WCert
     //Note: Currently quality not yet accounted for in proof verifier
 
-    inputs.sc_proof = zendoo_deserialize_sc_proof(cert.scProof.begin());
-    assert(inputs.sc_proof != nullptr); // proof must have been already validated at this point
+    inputs.sc_proof = cert.scProof;
 
     //Deserialize sc_vk
     inputs.sc_vk = zendoo_deserialize_sc_vk(wCertVk.begin());
@@ -65,7 +62,7 @@ bool CScProofVerifier::verifyCScCertificate(
     LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"constant\": %s\n",
         __func__, __LINE__, constant.GetHexRepr());
     LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_proof\": %s\n",
-        __func__, __LINE__, HexStr(cert.scProof));
+        __func__, __LINE__, cert.scProof.GetHexRepr());
     LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_vk\": %s\n",
         __func__, __LINE__, HexStr(wCertVk));
 
@@ -76,7 +73,7 @@ bool CScProofVerifier::verifyCScCertificate(
             cert.quality,
             inputs.constant.GetFieldElement().get(),
             inputs.proofdata.GetFieldElement().get(),
-            inputs.sc_proof,
+            inputs.sc_proof.GetProofPtr().get(),
             inputs.sc_vk))
     {
         Error err = zendoo_get_last_error();
@@ -108,7 +105,7 @@ bool CScProofVerifier::verifyCBwtRequest(
     const CFieldElement& scRequestData,
     const uint160& mcDestinationAddress,
     CAmount scFees,
-    const libzendoomc::ScProof& scProof,
+    const CScProof& scProof,
     const boost::optional<libzendoomc::ScVk>& wMbtrVk,
     const CFieldElement& certDataHash
 ) const

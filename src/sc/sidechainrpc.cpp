@@ -35,7 +35,7 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
         ScriptPubKeyToJSON(csw.scriptPubKey(), spk, true);
         o.push_back(Pair("scriptPubKey", spk));
 
-        o.push_back(Pair("scProof", HexStr(csw.scProof)));
+        o.push_back(Pair("scProof", csw.scProof.GetHexRepr()));
 
         UniValue rs(UniValue::VOBJ);
         rs.push_back(Pair("asm", csw.redeemScript.ToString()));
@@ -130,7 +130,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("mcDestinationAddress", mcAddr));
         o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
         o.push_back(Pair("scRequestData", out.scRequestData.GetHexRepr()));
-        o.push_back(Pair("scProof", HexStr(out.scProof)));
+        o.push_back(Pair("scProof", out.scProof.GetHexRepr()));
         vbts.push_back(o);
         nIdx++;
     }
@@ -315,14 +315,14 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
 
         std::string proofError;
         std::vector<unsigned char> scProofVec;
-        if (!AddScData(proof_v.get_str(), scProofVec, SC_PROOF_SIZE, true, proofError))
+        if (!AddScData(proof_v.get_str(), scProofVec, CScProof::ByteSize(), true, proofError))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"scProof\": " + proofError;
             return false;
         }
 
-        libzendoomc::ScProof scProof(scProofVec);
-        if (!libzendoomc::IsValidScProof(scProof))
+        CScProof scProof {scProofVec};
+        if (!scProof.IsValid())
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"scProof\": invalid snark proof data";
             return false;
@@ -654,15 +654,14 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
         }
         inputString = scProofVal.get_str();
         std::vector<unsigned char> scProofVec;
-        if (!AddScData(inputString, scProofVec, SC_PROOF_SIZE, true, error))
+        if (!AddScData(inputString, scProofVec, CScProof::ByteSize(), true, error))
         {
             error = "scProof: " + error;
             return false;
         }
 
-        bwtData.scProof = libzendoomc::ScProof(scProofVec);
-
-        if (!libzendoomc::IsValidScProof(bwtData.scProof))
+        bwtData.scProof = CScProof{scProofVec};
+        if (!bwtData.scProof.IsValid())
         {
             error = "invalid scProof";
             return false;

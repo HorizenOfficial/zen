@@ -54,42 +54,18 @@ public:
     wrappedFieldPtr GetFieldElement() const;
 
     bool IsValid() const;
-    // equality is not tested on deserializedField attribute since it is a ptr to memory specific per instance
     friend inline bool operator==(const CFieldElement& lhs, const CFieldElement& rhs) { return lhs.byteVector == rhs.byteVector; }
     friend inline bool operator!=(const CFieldElement& lhs, const CFieldElement& rhs) { return !(lhs == rhs); }
     friend inline bool operator<(const CFieldElement& lhs, const CFieldElement& rhs)  { return lhs.byteVector < rhs.byteVector; } // FOR STD::MAP ONLY
 
     // SERIALIZATION SECTION
-    size_t GetSerializeSize(int nType, int nVersion) const //ADAPTED FROM SERIALIZED.H
-    {
-        return 1 + CFieldElement::ByteSize(); //byte for size + byteArray content (each element a single byte)
-    };
-
-    template<typename Stream>
-    void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
-    {
-        char tmp = static_cast<char>(byteVector.size());
-           os.write(&tmp, 1);
-        if (!byteVector.empty())
-            os.write((char*)&byteVector[0], byteVector.size());
-    }
-
-    template<typename Stream> //ADAPTED FROM SERIALIZED.H
-    void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
-    {
-        byteVector.clear();
-
-        char tmp {0};
-        is.read(&tmp, 1);
-        unsigned int nSize = static_cast<unsigned int>(tmp);
-        if (nSize != 0 && nSize != CFieldElement::ByteSize())
+    ADD_SERIALIZE_METHODS
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(byteVector);
+        //Allow zero-length byteVector for, e.g. serialization/hashing of empty txes/certs
+        if (byteVector.size() != 0 && byteVector.size() != ByteSize())
             throw std::ios_base::failure("non-canonical CSidechainField size");
-
-        if (nSize != 0)
-        {
-            byteVector.resize(nSize);
-            is.read((char*)&byteVector[0], nSize);
-        }
     }
 
     std::string GetHexRepr() const;
@@ -103,13 +79,56 @@ private:
 typedef CFieldElement ScConstant;
 ////////////////////////////// End of Field types //////////////////////////////
 
+struct CProofPtrDeleter
+{ // deleter
+    CProofPtrDeleter() = default;
+    void operator()(sc_proof_t* p) const {
+        zendoo_sc_proof_free(p);
+        p = nullptr;
+    };
+};
+typedef std::shared_ptr<sc_proof_t> wrappedScProofPtr;
+
+class CScProof
+{
+public:
+    CScProof() = default;
+    ~CScProof() = default;
+
+    explicit CScProof(const std::vector<unsigned char>& byteArrayIn);
+    void SetByteArray(const std::vector<unsigned char>& byteArrayIn);
+
+    void SetNull();
+    bool IsNull() const;
+
+    static constexpr unsigned int ByteSize() { return SC_PROOF_SIZE; }
+    static constexpr unsigned int BitSize() { return ByteSize()*8; }
+
+    wrappedScProofPtr GetProofPtr() const;
+
+    bool IsValid() const;
+    bool operator==(const CScProof& rhs) const { return this->byteVector == rhs.byteVector; }
+    bool operator!=(const CScProof& rhs) { return !(*this == rhs); }
+
+    // SERIALIZATION SECTION
+    ADD_SERIALIZE_METHODS
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(byteVector);
+        //Allow zero-length byteVector for, e.g. serialization/hashing of empty txes/certs
+        if (byteVector.size() != 0 && byteVector.size() != ByteSize())
+            throw std::ios_base::failure("non-canonical CScProof size");
+    }
+
+    std::string GetHexRepr() const;
+
+private:
+    std::vector<unsigned char> byteVector;
+    static CProofPtrDeleter theProofPtrDeleter;
+};
+
 /////////////////////// libzendoomc namespace definitions //////////////////////
 namespace libzendoomc {
-    typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
-
-    /* Check if scProof is a valid zendoo-mc-cryptolib's sc_proof */
-    bool IsValidScProof(const ScProof& scProof);
-
     typedef base_blob<SC_VK_SIZE * 8> ScVk;
 
     /* Check if scVk is a valid zendoo-mc-cryptolib's sc_vk */
@@ -364,7 +383,7 @@ struct ScBwtRequestParameters
 {
     CAmount scFee;
     CFieldElement scRequestData;
-    libzendoomc::ScProof scProof;
+    CScProof scProof;
 
     bool IsNull() const
     {
