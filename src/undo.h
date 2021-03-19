@@ -10,7 +10,6 @@
 #include "primitives/transaction.h"
 #include "serialize.h"
 #include "coins.h"
-#include "sc/proofverifier.h"
 
 /** Undo information for a CTxIn
  *

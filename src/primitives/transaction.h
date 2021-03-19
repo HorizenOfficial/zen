@@ -10,6 +10,7 @@
 #include "random.h"
 #include "script/script.h"
 #include "serialize.h"
+#include <univalue.h>
 #include "streams.h"
 #include "uint256.h"
 #include "consensus/consensus.h"
@@ -28,7 +29,6 @@
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
 #include <script/script_error.h>
-#include <sc/proofverifier.h>
 
 static const int32_t SC_CERT_VERSION = 0xFFFFFFFB; // -5
 static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
@@ -557,9 +557,6 @@ public:
     }
 };
 
-class FieldElementCertificateFieldConfig;
-class BitVectorCertificateFieldConfig;
-
 class CTxScCreationOut : public CTxCrosschainOut
 {
 friend class CTransaction;
@@ -573,9 +570,9 @@ public:
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
-    libzendoomc::ScVk wCertVk;
-    boost::optional<libzendoomc::ScVk> wMbtrVk;
-    boost::optional<libzendoomc::ScVk> wCeasedVk;
+    CScVKey wCertVk;
+    boost::optional<CScVKey> wMbtrVk;
+    boost::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
 
@@ -674,18 +671,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 
 // forward declarations
 class CValidationState;
-class CTxMemPool;
-class CCoinsViewCache;
 class CChain;
-class CBlock;
-class CBlockTemplate;
-class CScriptCheck;
-class CBlockUndo;
-class CTxUndo;
-class UniValue;
-
-namespace Sidechain { class ScCoinsViewCache; }
-
 class CMutableTransactionBase;
 
 // abstract interface for CTransaction and CScCertificate

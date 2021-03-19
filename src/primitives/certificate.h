@@ -2,8 +2,7 @@
 #define _CERTIFICATE_H
 
 #include "transaction.h"
-#include "sc/proofverifier.h"
-#include "policy/fees.h"
+#include "sc/sidechaintypes.h"
 
 struct CMutableScCertificate;
 
@@ -32,9 +31,6 @@ public:
 
     bool IsNull() const { return (nValue == -1);  }
 };
-
-class FieldElementCertificateField;
-class BitVectorCertificateField;
 
 class CScCertificate : public CTransactionBase
 {

@@ -8,7 +8,6 @@
 
 #include "coins.h"
 #include "leveldbwrapper.h"
-#include "sc/proofverifier.h"
 
 #include <map>
 #include <string>

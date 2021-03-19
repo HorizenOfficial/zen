@@ -317,8 +317,8 @@ std::string CTxScCreationOut::ToString() const
         generatedScId.ToString(), withdrawalEpochLength, nValue / COIN,
         nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
         constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
-        HexStr(wCertVk), wMbtrVk ? HexStr(wMbtrVk.get()) : "",
-        wCeasedVk ? HexStr(wCeasedVk.get()) : "",
+        wCertVk.GetHexRepr(), wMbtrVk ? wMbtrVk.get().GetHexRepr() : "",
+        wCeasedVk ? wCeasedVk.get().GetHexRepr() : "",
         VecToStr(vFieldElementCertificateFieldConfig),
         VecToStr(vBitVectorCertificateFieldConfig) );
 }

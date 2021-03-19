@@ -208,15 +208,15 @@ void static RandomScProof(CScProof &proof) {
     proof.SetByteArray(vec);
 }
 
-void static RandomScVk(libzendoomc::ScVk &vk) {
-    std::string str;
-    for (unsigned int i = 0; i < sizeof(libzendoomc::ScVk); i++)
+void static RandomScVk(CScVKey &vk) {
+    std::vector<unsigned char> vec;
+    for (unsigned int i = 0; i < sizeof(CScVKey); i++)
     {
-        str.push_back((unsigned char)(insecure_rand() % 0xff));
+         vec.push_back((unsigned char)(insecure_rand() % 0xff));
     }
-    vk.SetHex(str);
+    vec.resize(CScVKey::ByteSize());
+    vk.SetByteArray(vec);
 }
-
 
 void static RandomData(std::vector<unsigned char> &data) {
     data.clear();
@@ -344,7 +344,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             sc_out.constant = CFieldElement{};
             RandomSidechainField(sc_out.constant.get());
             RandomScVk(sc_out.wCertVk);
-            libzendoomc::ScVk wCeasedVk;
+            CScVKey wCeasedVk;
             RandomScVk(wCeasedVk);
             sc_out.wCeasedVk = wCeasedVk;
         }

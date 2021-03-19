@@ -62,7 +62,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
-        o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
+        o.push_back(Pair("wCertVk", out.wCertVk.GetHexRepr()));
 
         UniValue arrFieldElementConfig(UniValue::VARR);
         for(const auto& cfgEntry: out.vFieldElementCertificateFieldConfig)
@@ -85,9 +85,9 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         if(out.constant.is_initialized())
             o.push_back(Pair("constant", out.constant->GetHexRepr()));
         if(out.wMbtrVk.is_initialized())
-            o.push_back(Pair("wMbtrVk", HexStr(out.wMbtrVk.get())));
+            o.push_back(Pair("wMbtrVk", out.wMbtrVk.get().GetHexRepr()));
         if(out.wCeasedVk.is_initialized())
-            o.push_back(Pair("wCeasedVk", HexStr(out.wCeasedVk.get())));
+            o.push_back(Pair("wCeasedVk", out.wCeasedVk.get().GetHexRepr()));
         vscs.push_back(o);
         nIdx++;
     }
@@ -401,15 +401,15 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         {
             const std::string& inputString = wCertVk.get_str();
             std::vector<unsigned char> wCertVkVec;
-            if (!AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
+            if (!AddScData(inputString, wCertVkVec, CScVKey::ByteSize(), true, error))
             {
                 error = "wCertVk: " + error;
                 return false;
             }
 
-            sc.wCertVk = libzendoomc::ScVk(wCertVkVec);
+            sc.wCertVk = CScVKey(wCertVkVec);
 
-            if (!libzendoomc::IsValidScVk(sc.wCertVk))
+            if (!sc.wCertVk.IsValid())
             {
                 error = "invalid wCertVk";
                 return false;
@@ -451,15 +451,14 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         {
             const std::string& inputString = wCeasedVk.get_str();
             std::vector<unsigned char> wCeasedVkVec;
-            if (!AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
+            if (!AddScData(inputString, wCeasedVkVec, CScVKey::ByteSize(), true, error))
             {
                 error = "wCeasedVk: " + error;
                 return false;
             }
 
-            sc.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
-
-            if (!libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
+            sc.wCeasedVk = CScVKey(wCeasedVkVec);
+            if (!sc.wCeasedVk.get().IsValid())
             {
                 error = "invalid wCeasedVk";
                 return false;
@@ -471,14 +470,14 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         {
             const std::string& inputString = wMbtrVk.get_str();
             std::vector<unsigned char> wMbtrVkVec;
-            if (!AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+            if (!AddScData(inputString, wMbtrVkVec, CScVKey::ByteSize(), true, error))
             {
                 error = "wMbtrVk: " + error;
                 return false;
             }
 
-            sc.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
-            if (!libzendoomc::IsValidScVk(sc.wMbtrVk.get()))
+            sc.wMbtrVk = CScVKey(wMbtrVkVec);
+            if (!sc.wMbtrVk.get().IsValid())
             {
                 error = "invalid wMbtrVkVec";
                 return false;
