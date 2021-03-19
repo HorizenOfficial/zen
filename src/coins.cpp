@@ -247,6 +247,10 @@ CCswNullifiersKeyHasher::CCswNullifiersKeyHasher() : salt() {GetRandBytes(reinte
 
 size_t CCswNullifiersKeyHasher::operator()(const std::pair<uint256, CFieldElement>& key) const {
     uint32_t buf[BUF_LEN];
+
+    // nullifiers are already checked by the caller, but let's assert it too
+    assert(!key.second.IsNull());
+
     // note: we may consider buf as a raw data, so bytes size of buf is (BUF_LEN * 4)
     memcpy(buf, key.first.begin(), sizeof(uint256));
     memcpy((buf + sizeof(uint256)/sizeof(uint32_t)), &(key.second.GetByteArray()[0]), CFieldElement::ByteSize());
@@ -786,7 +790,6 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         }
 
         CSidechainsMap::iterator scIt = ModifySidechain(scId);
-        scIt->second.sidechain.creationBlockHash = block.GetHash();
         scIt->second.sidechain.creationBlockHeight = blockHeight;
         scIt->second.sidechain.creationTxHash = txHash;
         scIt->second.sidechain.lastTopQualityCertReferencedEpoch = CScCertificate::EPOCH_NULL;
@@ -1143,7 +1146,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
-    // check that epoch data are consistent
+    // TODO Remove cert.endEpochBlockHash checks after changing of verification circuit.
     if (!CheckEndEpochBlockHash(sidechain, cert.epochNumber, cert.endEpochBlockHash) )
     {
         return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid epoch data\n",
@@ -1178,9 +1181,21 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
-    // Retrieve previous end epoch block hash for certificate proof verification
-    int targetHeight =  sidechain.GetStartHeightForEpoch(cert.epochNumber) - 1;
-    uint256 prev_end_epoch_block_hash = chainActive[targetHeight]->GetBlockHash();
+    // Retrieve current and previous end epoch block info for certificate proof verification
+    int curr_end_epoch_block_height = sidechain.GetEndHeightForEpoch(cert.epochNumber);
+    int prev_end_epoch_block_height = curr_end_epoch_block_height - sidechain.creationData.withdrawalEpochLength;
+
+    CBlockIndex* prev_end_epoch_block_index = chainActive[prev_end_epoch_block_height];
+    CBlockIndex* curr_end_epoch_block_index = chainActive[curr_end_epoch_block_height];
+
+    assert(prev_end_epoch_block_index);
+    assert(curr_end_epoch_block_index);
+
+    const CFieldElement& scCumTreeHash_start = prev_end_epoch_block_index->scCumTreeHash;
+    const CFieldElement& scCumTreeHash_end   = curr_end_epoch_block_index->scCumTreeHash;
+
+    // TODO Remove prev_end_epoch_block_hash after changing of verification circuit.
+    uint256 prev_end_epoch_block_hash = prev_end_epoch_block_index->GetBlockHash();
 
     // Verify certificate proof
     CFieldElement constant{};

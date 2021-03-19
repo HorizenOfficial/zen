@@ -44,7 +44,7 @@ public:
 class CSidechain {
 public:
     CSidechain():
-        sidechainVersion(0), creationBlockHash(), creationBlockHeight(-1), creationTxHash(),
+        sidechainVersion(0), creationBlockHeight(-1), creationTxHash(),
         pastEpochTopQualityCertDataHash(), lastTopQualityCertDataHash(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
@@ -53,7 +53,6 @@ public:
     bool IsNull() const
     {
         return (
-             creationBlockHash.IsNull()                                       &&
              creationBlockHeight == -1                                        &&
              creationTxHash.IsNull()                                          &&
              pastEpochTopQualityCertDataHash.IsNull()                         &&
@@ -68,9 +67,6 @@ public:
     }
 
     int32_t sidechainVersion;
-
-    // reference to the block containing the tx that created the side chain
-    uint256 creationBlockHash;
 
     // We can not serialize a pointer value to block index, but can retrieve it from chainActive if we have height
     int creationBlockHeight;
@@ -116,7 +112,6 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
         READWRITE(sidechainVersion);
-        READWRITE(creationBlockHash);
         READWRITE(VARINT(creationBlockHeight));
         READWRITE(creationTxHash);
         READWRITE(pastEpochTopQualityCertDataHash);
@@ -133,7 +128,6 @@ public:
     inline bool operator==(const CSidechain& rhs) const
     {
         return (this->sidechainVersion                   == rhs.sidechainVersion)                   &&
-               (this->creationBlockHash                  == rhs.creationBlockHash)                  &&
                (this->creationBlockHeight                == rhs.creationBlockHeight)                &&
                (this->creationTxHash                     == rhs.creationTxHash)                     &&
                (this->pastEpochTopQualityCertDataHash    == rhs.pastEpochTopQualityCertDataHash)    &&
@@ -169,7 +163,6 @@ namespace Sidechain {
     bool checkCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert);
     bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
     bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
-    bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 }; // end of namespace
 
 #endif // _SIDECHAIN_CORE_H

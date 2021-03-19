@@ -475,7 +475,7 @@ def dump_sc_info_record(info, i, debug=0):
     if debug == 0:
         return
     print "  Node %d - balance: %f" % (i, info["balance"])
-    print "    created in block: %s (%d)" % (info["created in block"], info["created at block height"])
+    print "    created at block: %s (%d)" % (info["created at block height"], info["created at block height"])
     print "    created in tx:    %s" % info["creating tx hash"]
     print "    immature amounts: %s" % info["immature amounts"]
 

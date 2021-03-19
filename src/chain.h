@@ -152,6 +152,9 @@ public:
 
     int64_t nChainDelay;
 
+    //! Cumulative Hash Block Sidechain Transaction Commitment Tree
+    CFieldElement scCumTreeHash;
+
     //! Number of transactions in this block.
     //! Note: in a potential headers-first mode, this number cannot be relied upon
     unsigned int nTx;
@@ -191,6 +194,9 @@ public:
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     uint32_t nSequenceId;
 
+    //! hashable CFieldElement used for pre-sidechain forks hash calculations
+    static const CFieldElement defaultScCumTreeHash;
+
     void SetNull()
     {
         phashBlock = NULL;
@@ -218,6 +224,8 @@ public:
         nBits          = 0;
         nNonce         = uint256();
         nSolution.clear();
+
+        scCumTreeHash.SetNull();
     }
 
     CBlockIndex()
@@ -382,6 +390,10 @@ public:
         // this index was storing them.
         if ((nType & SER_DISK) && (nVersion >= SPROUT_VALUE_VERSION)) {
             READWRITE(nSproutValue);
+        }
+
+        if (this->nVersion == BLOCK_VERSION_SC_SUPPORT) {
+            READWRITE(scCumTreeHash);
         }
     }
 

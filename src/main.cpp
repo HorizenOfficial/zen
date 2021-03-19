@@ -3838,6 +3838,15 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
     if(pindexNew->nChainDelay != 0) {
         LogPrintf("%s: Block belong to a chain under punishment Delay VAL: %i BLOCKHEIGHT: %d\n",__func__, pindexNew->nChainDelay,pindexNew->nHeight);
     }
+
+    if (pindexNew->pprev && pindexNew->nVersion == BLOCK_VERSION_SC_SUPPORT )
+    {
+        const CFieldElement& prevScCumTreeHash =
+                (pindexNew->pprev->nVersion == BLOCK_VERSION_SC_SUPPORT) ?
+                        pindexNew->pprev->scCumTreeHash : CBlockIndex::defaultScCumTreeHash;
+        pindexNew->scCumTreeHash = CFieldElement::ComputeHash(prevScCumTreeHash, CFieldElement{block.hashScTxsCommitment}); 
+    }
+
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
     if (pindexBestHeader == NULL || (pindexBestHeader->nChainWork < pindexNew->nChainWork && pindexNew->nChainDelay==0))
         pindexBestHeader = pindexNew;
@@ -4168,6 +4177,14 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     {
         return state.Invalid(error("%s : rejected nVersion block %d not supported at height %d", __func__, block.nVersion, nHeight),
             REJECT_INVALID, "bad-version");
+    }
+
+    if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
+    {
+    	CFieldElement fieldToValidate{block.hashScTxsCommitment};
+    	if (!fieldToValidate.IsValid())
+            return state.DoS(100, error("%s: incorrect hashScTxsCommitment", __func__),
+                             REJECT_INVALID, "bad-hashScTxsCommitment");
     }
 
     return true;

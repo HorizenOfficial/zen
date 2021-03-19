@@ -98,8 +98,8 @@ TEST(SidechainsField, Serialization)
 
 TEST(SidechainsField, IsValid)
 {
-	CFieldElement emptyFieldElement{};
-	EXPECT_FALSE(emptyFieldElement.IsValid());
+    CFieldElement emptyFieldElement{};
+    EXPECT_FALSE(emptyFieldElement.IsValid());
 
     std::vector<unsigned char> zeroLengthByteArray{};
     EXPECT_DEATH(CFieldElement{zeroLengthByteArray}, "");
@@ -297,7 +297,6 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
 
     //enum removes variable length buffer [-Wstack-protector] warning that simple const int would give
     enum { leaves_len = 32 };
-
     const field_t* leaves[leaves_len];
     for (int i = 0; i < leaves_len; i++){
         leaves[i] = zendoo_get_field_from_long(i);

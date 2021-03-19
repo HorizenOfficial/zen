@@ -86,14 +86,13 @@ std::string CSidechain::stateToString(State s)
 std::string CSidechain::ToString() const
 {
     std::string str;
-    str = strprintf("\n CSidechain(version=%d\n creationBlockHash=%s\n creationBlockHeight=%d\n"
+    str = strprintf("\n CSidechain(version=%d\n creationBlockHeight=%d\n"
                       " creationTxHash=%s\n pastEpochTopQualityCertDataHash=%s\n"
                       " lastTopQualityCertDataHash=%s\n"
                       " lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
                       " lastTopQualityCertQuality=%d\n lastTopQualityCertBwtAmount=%s\n balance=%s\n"
                       " creationData=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
         sidechainVersion
-        , creationBlockHash.ToString()
         , creationBlockHeight
         , creationTxHash.ToString()
         , pastEpochTopQualityCertDataHash.GetHexRepr()
@@ -114,19 +113,6 @@ size_t CSidechain::DynamicMemoryUsage() const {
 
 size_t CSidechainEvents::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(maturingScs) + memusage::DynamicUsage(ceasingScs);
-}
-
-
-bool Sidechain::hasScCreationOutput(const CTransaction& tx, const uint256& scId)
-{
-    BOOST_FOREACH(const auto& sc, tx.GetVscCcOut())
-    {
-        if (sc.GetScId() == scId)
-        {
-            return true;
-        }
-    }
-    return false;
 }
 
 #ifdef BITCOIN_TX

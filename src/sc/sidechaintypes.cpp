@@ -121,6 +121,15 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
     zendoo_field_free(outFe);
     return res;
 }
+
+const CFieldElement& CFieldElement::GetPhantomHash()
+{
+    // TODO call an utility method to retrieve from zendoo_mc_cryptolib a constant phantom hash
+    // field element and use it everywhere it is needed a constant value whose preimage has to
+    // be unknown
+    static CFieldElement ret{std::vector<unsigned char>(CFieldElement::ByteSize(),0x00)};
+    return ret;
+}
 #endif
 ////////////////////////////// End of Field types //////////////////////////////
 

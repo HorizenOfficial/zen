@@ -36,7 +36,7 @@ public:
     ~CFieldElement() = default;
 
     explicit CFieldElement(const std::vector<unsigned char>& byteArrayIn);
-    explicit CFieldElement(const uint256& value); // MIND RETROCOMPATIBILITY WITH RESERVED HASH BEFORE SIDECHAIN HARD FORK
+    explicit CFieldElement(const uint256& value);
     void SetByteArray(const std::vector<unsigned char>& byteArrayIn);
 
     CFieldElement(const CFieldElement& rhs) = default;
@@ -93,6 +93,7 @@ public:
 
     std::string GetHexRepr() const;
     static CFieldElement ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs);
+    static const CFieldElement& GetPhantomHash();
 
 private:
     std::vector<unsigned char> byteVector;
@@ -279,7 +280,6 @@ public:
 
 namespace Sidechain
 {
-
 typedef boost::unordered_map<uint256, CAmount, ObjectHasher> ScAmountMap;
 
 // useful in sc rpc command for getting genesis info

@@ -147,7 +147,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             UniValue inputs = test[0].get_array();
             bool fValid = true;
             for (size_t inpIdx = 0; inpIdx < inputs.size(); inpIdx++) {
-	        const UniValue& input = inputs[inpIdx];
+                const UniValue& input = inputs[inpIdx];
                 if (!input.isArray())
                 {
                     fValid = false;
@@ -230,8 +230,8 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             map<COutPoint, CScript> mapprevOutScriptPubKeys;
             UniValue inputs = test[0].get_array();
             bool fValid = true;
-	    for (size_t inpIdx = 0; inpIdx < inputs.size(); inpIdx++) {
-	        const UniValue& input = inputs[inpIdx];
+            for (size_t inpIdx = 0; inpIdx < inputs.size(); inpIdx++) {
+                const UniValue& input = inputs[inpIdx];
                 if (!input.isArray())
                 {
                     fValid = false;
@@ -421,8 +421,8 @@ void basic_joinsplit_verification(int txVersion, bool isGroth) {
 
 BOOST_AUTO_TEST_CASE(test_basic_joinsplit_verification)
 {
-	basic_joinsplit_verification(PHGR_TX_VERSION, false);
-	basic_joinsplit_verification(GROTH_TX_VERSION, true);
+    basic_joinsplit_verification(PHGR_TX_VERSION, false);
+    basic_joinsplit_verification(GROTH_TX_VERSION, true);
 
 }
 
@@ -651,17 +651,17 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
 
 
 void verifyTx(const CTransaction &tx, int height, bool expectResultStd, bool expectResultCtx) {
-	string reason;
-	CValidationState state;
-	BOOST_CHECK_MESSAGE(IsStandardTx(tx, reason, height) == expectResultStd, "IsStandardTx unexpected (" << !expectResultStd << ") result for tx version " << tx.nVersion << ", height " << height);
-	BOOST_CHECK_MESSAGE(tx.ContextualCheck(state, height, 100) == expectResultCtx, "ContextualCheck() unexpected (" << !expectResultCtx << ") result for tx version " << tx.nVersion << ", height " << height );
+    string reason;
+    CValidationState state;
+    BOOST_CHECK_MESSAGE(IsStandardTx(tx, reason, height) == expectResultStd, "IsStandardTx unexpected (" << !expectResultStd << ") result for tx version " << tx.nVersion << ", height " << height);
+    BOOST_CHECK_MESSAGE(tx.ContextualCheck(state, height, 100) == expectResultCtx, "ContextualCheck() unexpected (" << !expectResultCtx << ") result for tx version " << tx.nVersion << ", height " << height );
 }
 
 void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHeight)
 {
     LOCK(cs_main);
 
-	SelectParams(network);
+    SelectParams(network);
 
     CBasicKeyStore keystore;
     CCoinsView coinsDummy;
@@ -727,29 +727,29 @@ void verifyTxVersions(CBaseChainParams::Network network, int grothIntroductionHe
     verifyTx(t, grothIntroductionHeight, true, true);
 
     // v2 is not standard after Groth is active
-	t.nVersion = PHGR_TX_VERSION;
-	t.vjoinsplit.clear();
-	t.vjoinsplit.push_back(JSDescription::getNewInstance(false)); // use PHGR
-	jsdesc = &t.vjoinsplit[0];
-	jsdesc->vpub_old = 0;
-	jsdesc->vpub_new = 100*CENT;
-	t.getOut(0).nValue = 90*CENT;
+    t.nVersion = PHGR_TX_VERSION;
+    t.vjoinsplit.clear();
+    t.vjoinsplit.push_back(JSDescription::getNewInstance(false)); // use PHGR
+    jsdesc = &t.vjoinsplit[0];
+    jsdesc->vpub_old = 0;
+    jsdesc->vpub_new = 100*CENT;
+    t.getOut(0).nValue = 90*CENT;
     verifyTx(t, grothIntroductionHeight, false, false);
 
-	// v1 is still standard after Groth is active but should be refused by contextual checks if joinsplit is not empty
-	t.nVersion = TRANSPARENT_TX_VERSION;
-	verifyTx(t, grothIntroductionHeight, true, false);
-	// but v1 was accepted by consensus if joinsplit is not empty before Groth introduction (in any case it should have never happened
-	// because deserializer would not have deserialized joinsplits for v1)
-	verifyTx(t, grothIntroductionHeight - 1, true, true);
+    // v1 is still standard after Groth is active but should be refused by contextual checks if joinsplit is not empty
+    t.nVersion = TRANSPARENT_TX_VERSION;
+    verifyTx(t, grothIntroductionHeight, true, false);
+    // but v1 was accepted by consensus if joinsplit is not empty before Groth introduction (in any case it should have never happened
+    // because deserializer would not have deserialized joinsplits for v1)
+    verifyTx(t, grothIntroductionHeight - 1, true, true);
 }
 
 
 BOOST_AUTO_TEST_CASE(test_IsStandardV2)
 {
-	verifyTxVersions(CBaseChainParams::REGTEST, 200);
-	verifyTxVersions(CBaseChainParams::TESTNET, 369900);
-	verifyTxVersions(CBaseChainParams::MAIN, 455555);
+    verifyTxVersions(CBaseChainParams::REGTEST, 200);
+    verifyTxVersions(CBaseChainParams::TESTNET, 369900);
+    verifyTxVersions(CBaseChainParams::MAIN, 455555);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

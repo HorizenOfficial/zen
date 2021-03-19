@@ -1091,7 +1091,6 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         if (bVerbose)
         {
             sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
-            sc.push_back(Pair("created in block", info.creationBlockHash.ToString()));
         }
  
         sc.push_back(Pair("created at block height", info.creationBlockHeight));
@@ -1367,7 +1366,6 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"state\":                   xxxxx,   (string)  state of the sidechain at the current chain height\n"
             "     \"ceasing height\":          xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
             "     \"creating tx hash\":        xxxxx,   (string)  txid of the creating transaction\n"
-            "     \"created in block\":        xxxxx,   (string)  hash of the block containing the creatimg tx\n"
             "     \"created at block height\": xxxxx,   (numeric) height of the above block\n"
             "     \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
             "     \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
@@ -1538,12 +1536,11 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
     }
 
-    const uint256& blockHash = info.creationBlockHash;
-
-    assert(mapBlockIndex.count(blockHash) != 0);
+    int blockHeight = info.creationBlockHeight;
 
     CBlock block;
-    CBlockIndex* pblockindex = mapBlockIndex[blockHash];
+    CBlockIndex* pblockindex = chainActive[blockHeight];
+    assert(pblockindex != nullptr);
 
     if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
@@ -1591,6 +1588,11 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
     // block height
     ssBlock << pblockindex->nHeight;
+
+    // block scCommittmentTreeCumulativeHash
+    ssBlock << pblockindex->scCumTreeHash;
+    LogPrint("sc", "%s():%d - sc[%s], h[%d], cum[%s], bVers[0x%x]\n", __func__, __LINE__,
+        scId.ToString(), pblockindex->nHeight, pblockindex->scCumTreeHash.GetHexRepr(), pblockindex->nVersion);
 
     // block hex data
     ssBlock << block;

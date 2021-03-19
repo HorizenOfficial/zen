@@ -276,6 +276,7 @@ libbitcoin_server_a_SOURCES = \
   sc/proofverifier.cpp \
   sc/sidechain.cpp \
   sc/sidechainrpc.cpp \
+  sc/sidechaintypes.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \

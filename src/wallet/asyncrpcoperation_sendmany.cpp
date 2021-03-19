@@ -49,7 +49,7 @@ int find_output(UniValue obj, int n) {
 }
 
 AsyncRPCOperation_sendmany::AsyncRPCOperation_sendmany(
-		CMutableTransaction contextualTx,
+        CMutableTransaction contextualTx,
         std::string fromAddress,
         std::vector<SendManyRecipient> tOutputs,
         std::vector<SendManyRecipient> zOutputs,
@@ -975,7 +975,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
     uint256 esk; // payment disclosure - secret
 
     JSDescription jsdesc = JSDescription::Randomized(
-			mtx.nVersion == GROTH_TX_VERSION,
+            mtx.nVersion == GROTH_TX_VERSION,
             *pzcashParams,
             joinSplitPubKey_,
             anchor,
