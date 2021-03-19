@@ -5,9 +5,12 @@
 #include <cstring>
 #include <utilstrencodings.h>
 
+#include <primitives/transaction.h>
 #include <sc/proofverifier.h>
 #include <streams.h>
 #include <clientversion.h>
+#include <gtest/tx_creation_utils.h>
+
 TEST(SidechainsField, FieldSizeIsAlwaysTheExpectedOne)
 {
     CSidechainField emptyField;
@@ -747,5 +750,74 @@ TEST(SidechainsField, BitVectorMerkleTreeData)
     zendoo_field_free(fe);
 }
 
+TEST(SidechainsField, CommitmentTreeCreation)
+{
+    printf("Creating a commitment tree ...\n");
+    commitment_tree_t* ct = zendoo_commitment_tree_create();
+    ASSERT_TRUE(ct != nullptr);
 
+    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(1000);
+    const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
+
+    const uint256& tx_hash = aTransaction.GetHash();
+
+    uint32_t out_idx = 0;
+    for (const CTxScCreationOut& ccout : aTransaction.GetVscCcOut() )
+    {
+        CAmount crAmount = ccout.nValue;
+        const uint256& pub_key = ccout.address;
+        uint32_t epoch_len = ccout.withdrawalEpochLength;
+
+        // TODO what to do for empty or variable size vectors?
+        //      currently this is considered a 32 bytes fields but this is not correct, should be 1024 at most
+        //      proposal: lets make it a struct{data, len}
+        std::vector<unsigned char> customData;
+        if (!ccout.customData.empty())
+            customData = ccout.customData;
+        customData.resize(32, 0xff);
+ 
+        // TODO what to do for optional fixed size params?
+        //      proposal: lets make it a struct{data, len} as well
+        std::vector<unsigned char> constant;
+        if(ccout.constant.is_initialized())
+            constant = ccout.constant->GetByteArray();
+        constant.resize(32, 0xff);
+            
+        std::vector<unsigned char> cert_vk(ccout.wCertVk.begin(), ccout.wCertVk.end());
+ 
+        std::vector<unsigned char> btr_vk;
+        if(ccout.wMbtrVk.is_initialized())
+            btr_vk = std::vector<unsigned char>(ccout.wMbtrVk->begin(), ccout.wMbtrVk->end());
+        constant.resize(1544, 0xff);
+            
+        std::vector<unsigned char> csw_vk;
+        if(ccout.wCeasedVk.is_initialized())
+            csw_vk = std::vector<unsigned char>(ccout.wCeasedVk->begin(), ccout.wCeasedVk->end());
+        constant.resize(1544, 0xff);
+
+        printf("Adding a sc creation to the commitment tree ...\n");
+        bool ret = zendoo_commitment_tree_add_scc(ct,
+             (unsigned char*)scId.begin(),
+             crAmount,
+             (unsigned char*)pub_key.begin(),
+             epoch_len,
+             (unsigned char*)&customData[0],
+             (unsigned char*)&constant[0],
+             (unsigned char*)&cert_vk[0],
+             (unsigned char*)&btr_vk[0],
+             (unsigned char*)&csw_vk[0],
+             (unsigned char*)tx_hash.begin(),
+             out_idx
+        );
+ 
+        out_idx++;
+    }
+
+
+    printf("Deleting a nullptr commitment tree ...\n");
+    zendoo_commitment_tree_delete(nullptr);
+
+    printf("Deleting the commitment tree ...\n");
+    zendoo_commitment_tree_delete(ct);
+}
 
