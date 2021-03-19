@@ -93,6 +93,7 @@ public:
 
     std::string GetHexRepr() const;
     static CFieldElement ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs);
+    static const CFieldElement& GetPhantomHash();
 
 private:
     std::vector<unsigned char> byteVector;

@@ -13,8 +13,7 @@ using namespace std;
  * CChain implementation
  */
 
-const CFieldElement CBlockIndex::defaultScCumTreeHash =
-    CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(),0x00)};
+const CFieldElement CBlockIndex::defaultScCumTreeHash = CFieldElement::GetPhantomHash();
 
 CBlockLocator CChain::GetLocator(const CBlockIndex *pindex) const {
     int nStep = 1;
