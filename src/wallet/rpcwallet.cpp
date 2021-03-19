@@ -793,15 +793,15 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             " 2. \"address\"                 (string, required) The receiver PublicKey25519Proposition in the SC\n"
             " 3. amount:                   (numeric, required) The numeric amount in ZEN is the value\n"
             " 4. \"wCertVk\"                 (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                     hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "                                     hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", CScVKey::ByteSize()) + " bytes\n"
             " 5. \"customData\"              (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                     hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
             " 6. \"constant\"                (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                     hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             " 7. \"wMbtrVk\"                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                     hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "                                     hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", CScVKey::ByteSize()) + " bytes\n"
             " 8. \"wCeasedVk\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                 hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "                                 hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", CScVKey::ByteSize()) + " bytes\n"
             " 9. \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElementCertificateField with the corresponding size.\n"
             "10. \"vBitVectorCertificateFieldConfig\" (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
             "\nResult:\n"
@@ -840,13 +840,13 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     {
         const std::string& inputString = params[3].get_str();
         std::vector<unsigned char> wCertVkVec;
-        if (!Sidechain::AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
+        if (!Sidechain::AddScData(inputString, wCertVkVec, CScVKey::ByteSize(), true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
         }
-        sc.creationData.wCertVk = libzendoomc::ScVk(wCertVkVec);
 
-        if (!libzendoomc::IsValidScVk(sc.creationData.wCertVk))
+        sc.creationData.wCertVk = CScVKey(wCertVkVec);
+        if (!sc.creationData.wCertVk.IsValid())
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
         }
@@ -892,12 +892,13 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         if (!inputString.empty())
         {
             std::vector<unsigned char> wMbtrVkVec;
-            if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+            if (!Sidechain::AddScData(inputString, wMbtrVkVec, CScVKey::ByteSize(), true, error))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
             }
-            sc.creationData.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
-            if (!libzendoomc::IsValidScVk(sc.creationData.wMbtrVk.get()))
+
+            sc.creationData.wMbtrVk = CScVKey(wMbtrVkVec);
+            if (!sc.creationData.wMbtrVk.get().IsValid())
             {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
             }
@@ -911,13 +912,13 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         if (!inputString.empty())
         {
             std::vector<unsigned char> wCeasedVkVec;
-            if (!Sidechain::AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
+            if (!Sidechain::AddScData(inputString, wCeasedVkVec, CScVKey::ByteSize(), true, error))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, string("wCeasedVk: ") + error);
             }
  
-            sc.creationData.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
-            if (!libzendoomc::IsValidScVk(sc.creationData.wCeasedVk.get()))
+            sc.creationData.wCeasedVk = CScVKey(wCeasedVkVec);
+            if (!sc.creationData.wCeasedVk.get().IsValid())
             {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
             }
@@ -993,13 +994,13 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
                                                       strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
                                                       ") The fee amount to attach to this transaction.\n"
             "   \"wCertVk\":data                  (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "                                          hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", CScVKey::ByteSize()) + " bytes\n"
             "   \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "   \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "   \"wMbtrVk\":data                  (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "                                          hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", CScVKey::ByteSize()) + " bytes\n"
             "   \"wCeasedVk\":data                (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "   \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
@@ -1144,14 +1145,13 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     {
         string inputString = find_value(inputObject, "wCertVk").get_str();
         std::vector<unsigned char> wCertVkVec;
-        if (!Sidechain::AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
+        if (!Sidechain::AddScData(inputString, wCertVkVec, CScVKey::ByteSize(), true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
         }
 
-        creationData.wCertVk = libzendoomc::ScVk(wCertVkVec);
-
-        if (!libzendoomc::IsValidScVk(creationData.wCertVk))
+        creationData.wCertVk = CScVKey(wCertVkVec);
+        if (!creationData.wCertVk.IsValid())
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
         }
@@ -1193,14 +1193,13 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     {
         string inputString = find_value(inputObject, "wMbtrVk").get_str();
         std::vector<unsigned char> wMbtrVkVec;
-        if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+        if (!Sidechain::AddScData(inputString, wMbtrVkVec, CScVKey::ByteSize(), true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
         }
 
-        creationData.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
-
-        if (!libzendoomc::IsValidScVk(creationData.wMbtrVk.get()))
+        creationData.wMbtrVk = CScVKey(wMbtrVkVec);
+        if (!creationData.wMbtrVk.get().IsValid())
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
         }
@@ -1211,14 +1210,13 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     {
         string inputString = find_value(inputObject, "wCeasedVk").get_str();
         std::vector<unsigned char> wCeasedVkVec;
-        if (!Sidechain::AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
+        if (!Sidechain::AddScData(inputString, wCeasedVkVec, CScVKey::ByteSize(), true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("wCeasedVk: ") + error);
         }
 
-        creationData.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
-
-        if (!libzendoomc::IsValidScVk(creationData.wCeasedVk.get()))
+        creationData.wCeasedVk = CScVKey(wCeasedVkVec);
+        if (!creationData.wCeasedVk.get().IsValid())
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
         }

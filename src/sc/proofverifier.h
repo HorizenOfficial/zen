@@ -29,14 +29,14 @@ public:
 
     bool verifyCScCertificate(
         const ScConstant& constant,
-        const libzendoomc::ScVk& wCertVk,
+        const CScVKey& wCertVk,
         const uint256& prev_end_epoch_block_hash,
         const CScCertificate& scCert
     ) const;
 
     bool verifyCTxCeasedSidechainWithdrawalInput(
         const CFieldElement& certDataHash,
-        const libzendoomc::ScVk& wCeasedVk,
+        const CScVKey& wCeasedVk,
         const CTxCeasedSidechainWithdrawalInput& csw
     ) const;
 
@@ -46,7 +46,7 @@ public:
         const uint160& mcDestinationAddress,
         CAmount scFees,
         const CScProof& scProof,
-        const boost::optional<libzendoomc::ScVk>& wMbtrVk,
+        const boost::optional<CScVKey>& wMbtrVk,
         const CFieldElement& certDataHash
     ) const;
 };

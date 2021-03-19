@@ -2,31 +2,46 @@
 #include "util.h"
 #include <consensus/consensus.h>
 
-///////////////////////////////// Field types //////////////////////////////////
-#ifdef BITCOIN_TX
-    CFieldElement::CFieldElement() {};
-    CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) {};
-    CFieldElement::CFieldElement(const uint256& value) {};
-    CFieldElement::CFieldElement(const wrappedFieldPtr& wrappedField) {};
-    void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn) {};
-    void CFieldElement::SetNull() {};
-    bool CFieldElement::IsNull() const {return false;};
-    wrappedFieldPtr CFieldElement::GetFieldElement() const {return nullptr;};
-    bool CFieldElement::IsValid() const {return false;};
-    std::string CFieldElement::GetHexRepr() const {return std::string{};};
-    CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs) { return CFieldElement{}; }
-    const std::vector<unsigned char>&  CFieldElement::GetByteArray() const { static std::vector<unsigned char> dummy{}; return dummy;}
-#else
-CFieldElement::CFieldElement(): byteVector() { SetNull(); }
-
-CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) : byteVector()
+const std::vector<unsigned char>&  CZendooCctpObject::GetByteArray() const
 {
-    this->SetByteArray(byteArrayIn);
+    return byteVector;
 }
 
+void CZendooCctpObject::SetNull() { byteVector.resize(0); }
+bool CZendooCctpObject::IsNull() const { return byteVector.empty();}
+
+std::string CZendooCctpObject::GetHexRepr() const
+{
+    std::string res; //ADAPTED FROM UTILSTRENCONDING.CPP HEXSTR
+    static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+    res.reserve(this->byteVector.size()*2);
+    for(const auto& byte: this->byteVector)
+    {
+        res.push_back(hexmap[byte>>4]);
+        res.push_back(hexmap[byte&15]);
+    }
+
+    return res;
+}
+
+///////////////////////////////// Field types //////////////////////////////////
+#ifdef BITCOIN_TX
+CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) {};
+void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn) {};
+CFieldElement::CFieldElement(const uint256& value) {};
+CFieldElement::CFieldElement(const wrappedFieldPtr& wrappedField) {};
+wrappedFieldPtr CFieldElement::GetFieldElement() const {return nullptr;};
+bool CFieldElement::IsValid() const {return false;};
+CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs) { return CFieldElement{}; }
+#else
+CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn): CZendooCctpObject(byteArrayIn)
+{
+    assert(byteArrayIn.size() == this->ByteSize());
+}
 void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
 {
-    assert(byteArrayIn.size() == CFieldElement::ByteSize());
+    assert(byteArrayIn.size() == this->ByteSize());
     this->byteVector = byteArrayIn;
 }
 
@@ -42,14 +57,6 @@ CFieldElement::CFieldElement(const wrappedFieldPtr& wrappedField)
     zendoo_serialize_field(wrappedField.get(), &byteVector[0]);
 }
 
-void CFieldElement::SetNull() { byteVector.resize(0); }
-bool CFieldElement::IsNull() const { return byteVector.empty();}
-
-const std::vector<unsigned char>&  CFieldElement::GetByteArray() const
-{
-    return byteVector;
-}
-
 wrappedFieldPtr CFieldElement::GetFieldElement() const
 {
     if (this->byteVector.empty())
@@ -63,21 +70,6 @@ uint256 CFieldElement::GetLegacyHashTO_BE_REMOVED() const
 {
     std::vector<unsigned char> tmp(this->byteVector.begin(), this->byteVector.begin()+32);
     return uint256(tmp);
-}
-
-std::string CFieldElement::GetHexRepr() const
-{
-    std::string res; //ADAPTED FROM UTILSTRENCONDING.CPP HEXSTR
-    static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
-                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-    res.reserve(this->byteVector.size()*2);
-    for(const auto& byte: this->byteVector)
-    {
-        res.push_back(hexmap[byte>>4]);
-        res.push_back(hexmap[byte&15]);
-    }
-
-    return res;
 }
 
 bool CFieldElement::IsValid() const
@@ -102,21 +94,19 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
     return CFieldElement(res);
 }
 #endif
-////////////////////////////// End of Field types //////////////////////////////
+///////////////////////////// End of CFieldElement /////////////////////////////
 
-CScProof::CScProof(const std::vector<unsigned char>& byteArrayIn) : byteVector()
+/////////////////////////////////// CScProof ///////////////////////////////////
+CScProof::CScProof(const std::vector<unsigned char>& byteArrayIn): CZendooCctpObject(byteArrayIn)
 {
-    this->SetByteArray(byteArrayIn);
+    assert(byteArrayIn.size() == this->ByteSize());
 }
 
 void CScProof::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
 {
-    assert(byteArrayIn.size() == CScProof::ByteSize());
+    assert(byteArrayIn.size() == this->ByteSize());
     this->byteVector = byteArrayIn;
 }
-
-void CScProof::SetNull() { byteVector.resize(0); }
-bool CScProof::IsNull() const { return byteVector.empty();}
 
 wrappedScProofPtr CScProof::GetProofPtr() const
 {
@@ -134,43 +124,38 @@ bool CScProof::IsValid() const
 
     return true;
 }
+//////////////////////////////// End of CScProof ///////////////////////////////
 
-std::string CScProof::GetHexRepr() const
+//////////////////////////////////// CScVKey ///////////////////////////////////
+CScVKey::CScVKey(const std::vector<unsigned char>& byteArrayIn): CZendooCctpObject(byteArrayIn)
 {
-    std::string res; //ADAPTED FROM UTILSTRENCONDING.CPP HEXSTR
-    static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
-                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-    res.reserve(this->byteVector.size()*2);
-    for(const auto& byte: this->byteVector)
-    {
-        res.push_back(hexmap[byte>>4]);
-        res.push_back(hexmap[byte&15]);
-    }
+    assert(byteArrayIn.size() == this->ByteSize());
+}
 
+void CScVKey::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
+{
+    assert(byteArrayIn.size() == this->ByteSize());
+    this->byteVector = byteArrayIn;
+}
+
+wrappedScVkeyPtr CScVKey::GetVKeyPtr() const
+{
+    if (this->byteVector.empty())
+        return wrappedScVkeyPtr{nullptr};
+
+    wrappedScVkeyPtr res = {zendoo_deserialize_sc_vk(&this->byteVector[0]), theVkPtrDeleter};
     return res;
 }
 
-/////////////////////// libzendoomc namespace definitions //////////////////////
-namespace libzendoomc
+bool CScVKey::IsValid() const
 {
-    bool IsValidScVk(const ScVk& scVk)
-    {
-        auto scVkDeserialized = zendoo_deserialize_sc_vk(scVk.begin());
-        if (scVkDeserialized == nullptr)
-            return false;
-        zendoo_sc_vk_free(scVkDeserialized);
-        return true;
-    }
+    if (this->GetVKeyPtr() == nullptr)
+        return false;
 
-    std::string ToString(Error err){
-        return strprintf(
-            "%s: [%d - %s]\n",
-            err.msg,
-            err.category,
-            zendoo_get_category_name(err.category));
-    }
+    return true;
 }
-/////////////////// end of libzendoomc namespace definitions ///////////////////
+
+//////////////////////////////// End of CScVKey ////////////////////////////////
 
 ////////////////////////////// Custom Config types //////////////////////////////
 bool FieldElementCertificateFieldConfig::IsValid() const

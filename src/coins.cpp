@@ -4,7 +4,6 @@
 
 #include "coins.h"
 
-#include "memusage.h"
 #include "random.h"
 #include "version.h"
 #include "policy/fees.h"
@@ -1296,7 +1295,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, CScProofVe
         if (!CheckScTxTiming(scId))
             return false;
 
-        boost::optional<libzendoomc::ScVk> wMbtrVk = this->AccessSidechain(scId)->creationData.wMbtrVk;
+        boost::optional<CScVKey> wMbtrVk = this->AccessSidechain(scId)->creationData.wMbtrVk;
 
         if(!wMbtrVk.is_initialized())
         {
