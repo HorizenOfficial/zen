@@ -296,7 +296,7 @@ class sc_cert_orphans(BitcoinTestFramework):
 
         # verify network is aligned
         mark_logs("verifying that network is realigned", self.nodes, DEBUG_MODE)
-        assert_equal(self.nodes[0].getscinfo(),        self.nodes[3].getscinfo())
+        assert_equal(self.nodes[0].getscinfo("*"),     self.nodes[3].getscinfo("*"))
         assert_equal(self.nodes[0].getrawmempool(),    self.nodes[3].getrawmempool())
         assert_equal(self.nodes[0].getblockcount(),    self.nodes[3].getblockcount())
         assert_equal(self.nodes[0].getbestblockhash(), self.nodes[3].getbestblockhash())

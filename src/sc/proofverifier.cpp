@@ -2,50 +2,13 @@
 #include "primitives/certificate.h"
 
 #include "main.h"
-
 #include "util.h"
 #include "sync.h"
 #include "tinyformat.h"
-
 #include <fstream>
 
-namespace libzendoomc{
-
-    bool IsValidScProof(const ScProof& scProof)
-    {
-        auto scProofDeserialized = zendoo_deserialize_sc_proof(scProof.begin());
-        if (scProofDeserialized == nullptr)
-            return false;
-        zendoo_sc_proof_free(scProofDeserialized);
-        return true;
-    }
-
-    bool IsValidScVk(const ScVk& scVk)
-    {
-        auto scVkDeserialized = zendoo_deserialize_sc_vk(scVk.begin());
-        if (scVkDeserialized == nullptr)
-            return false;
-        zendoo_sc_vk_free(scVkDeserialized);
-        return true;
-    }
-
-    bool IsValidScConstant(const ScConstant& scConstant)
-    {
-        auto scConstantDeserialized = zendoo_deserialize_field(scConstant.data());
-        if (scConstantDeserialized == nullptr)
-            return false;
-        zendoo_field_free(scConstantDeserialized);
-        return true;
-    }
-
-    std::string ToString(Error err){
-        return strprintf(
-            "%s: [%d - %s]\n",
-            err.msg,
-            err.category,
-            zendoo_get_category_name(err.category));
-    }
-
+namespace libzendoomc
+{
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk) {
 
         try
@@ -100,22 +63,11 @@ namespace libzendoomc{
         WCertVerifierInputs inputs;
 
         //Deserialize constant
-        if (constant.size() == 0){ //Constant can be optional
+        if (constant.IsNull()) { //Constant can be optional
             inputs.constant = nullptr;
-       
-        } else {
-            
-            inputs.constant = deserialize_field(constant.data()); 
-            
-            if (inputs.constant == nullptr) {
-                
-                LogPrint("zendoo_mc_cryptolib",
-                        "%s():%d - failed to deserialize \"constant\": %s \n", 
-                        __func__, __LINE__, ToString(zendoo_get_last_error()));
-                zendoo_clear_error();
-
-                return false;
-            }
+        } else
+        {
+            inputs.constant = deserialize_field(&constant.GetByteArray()[0]);
         }
 
         //Initialize quality and proofdata
@@ -170,7 +122,7 @@ namespace libzendoomc{
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"quality\": %s\n",
             __func__, __LINE__, scCert.quality);
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"constant\": %s\n",
-            __func__, __LINE__, HexStr(constant));
+            __func__, __LINE__, constant.GetHexRepr());
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_proof\": %s\n",
             __func__, __LINE__, HexStr(scCert.scProof));
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_vk\": %s\n",
@@ -204,5 +156,30 @@ namespace libzendoomc{
             return true;
         else
             return CScWCertProofVerification().verifyScCert(constant, wCertVk, prev_end_epoch_block_hash, cert);
+    }
+
+    bool CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput(
+        const CFieldElement& certDataHash,
+        const ScVk& wCeasedVk,
+        const CTxCeasedSidechainWithdrawalInput& csw
+    ) const
+    {
+        if(!perform_verification)
+            return true;
+        else // TODO: emit rust implementation.
+            return true;// CswProofVerification().verifyCsw(certDataHash, wCeasedVk, csw);
+    }
+
+    bool CScProofVerifier::verifyCBwtRequest(
+        const uint256& scId,
+        const CFieldElement& scRequestData,
+        const uint160& mcDestinationAddress,
+        CAmount scFees,
+        const libzendoomc::ScProof& scProof,
+        const boost::optional<libzendoomc::ScVk>& wMbtrVk,
+        const CFieldElement& certDataHash
+    ) const
+    {
+        return true; //Currently mocked
     }
 }

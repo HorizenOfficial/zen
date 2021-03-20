@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "asyncrpcqueue.h"
-#include "amount.h"
 #include "core_io.h"
 #include "init.h"
 #include "main.h"
@@ -13,7 +12,6 @@
 #include "timedata.h"
 #include "util.h"
 #include "utilmoneystr.h"
-#include "wallet.h"
 #include "walletdb.h"
 #include "script/interpreter.h"
 #include "utiltime.h"
@@ -50,7 +48,7 @@ static int find_output(UniValue obj, int n) {
 }
 
 AsyncRPCOperation_shieldcoinbase::AsyncRPCOperation_shieldcoinbase(
-		CMutableTransaction contextualTx,
+        CMutableTransaction contextualTx,
         std::vector<ShieldCoinbaseUTXO> inputs,
         std::string toAddress,
         CAmount fee,
@@ -196,7 +194,7 @@ bool AsyncRPCOperation_shieldcoinbase::main_impl() {
 
     // Prepare raw transaction to handle JoinSplits
     CMutableTransaction mtx(tx_);
-	crypto_sign_keypair(joinSplitPubKey_.begin(), joinSplitPrivKey_);
+    crypto_sign_keypair(joinSplitPubKey_.begin(), joinSplitPrivKey_);
     mtx.joinSplitPubKey = joinSplitPubKey_;
     tx_ = CTransaction(mtx);
 
@@ -326,7 +324,7 @@ UniValue AsyncRPCOperation_shieldcoinbase::perform_joinsplit(ShieldCoinbaseJSInf
     uint256 esk;
 
     JSDescription jsdesc = JSDescription::Randomized(
-			mtx.nVersion == GROTH_TX_VERSION,
+            mtx.nVersion == GROTH_TX_VERSION,
             *pzcashParams,
             joinSplitPubKey_,
             anchor,
