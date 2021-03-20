@@ -18,7 +18,7 @@ public:
         Strict,
         Loose
     };
-    const  Verification verificationMode;
+    const Verification verificationMode;
 
     CScProofVerifier(Verification mode): verificationMode(mode) {}
     ~CScProofVerifier() = default;

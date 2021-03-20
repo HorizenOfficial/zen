@@ -16,7 +16,7 @@ bool CScProofVerifier::verifyCScCertificate(
     //Note: Currently quality not yet accounted for in proof verifier
 
     //Retrieve BT list
-     std::vector<backward_transfer_t> bt_list;
+    std::vector<backward_transfer_t> bt_list;
     for(int pos = cert.nFirstBwtPos; pos < cert.GetVout().size(); ++pos)
     {
         CBackwardTransferOut btout(cert.GetVout()[pos]);
@@ -55,13 +55,11 @@ bool CScProofVerifier::verifyCScCertificate(
     {
         Error err = zendoo_get_last_error();
         if (err.category == CRYPTO_ERROR){ // Proof verification returned false due to an error, we must log it
-        	std::string errorStr = strprintf(
-                    "%s: [%d - %s]\n",
-                    err.msg,
-                    err.category,
-                    zendoo_get_category_name(err.category));
-            LogPrint("zendoo_mc_cryptolib",
-            "%s():%d - failed to verify \"sc_proof\": %s \n",
+        	std::string errorStr = strprintf( "%s: [%d - %s]\n",
+                err.msg, err.category,
+                zendoo_get_category_name(err.category));
+
+            LogPrint("zendoo_mc_cryptolib", "%s():%d - failed to verify \"sc_proof\": %s \n",
             __func__, __LINE__, errorStr);
             zendoo_clear_error();
         }

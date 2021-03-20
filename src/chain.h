@@ -225,7 +225,7 @@ public:
         nNonce         = uint256();
         nSolution.clear();
 
-        scCumTreeHash = CBlockIndex::defaultScCumTreeHash;
+        scCumTreeHash.SetNull();
     }
 
     CBlockIndex()

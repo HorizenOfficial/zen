@@ -81,6 +81,7 @@ public:
     bool operator<(const CFieldElement& rhs)  const { return this->byteVector < rhs.byteVector; } // FOR STD::MAP ONLY
 
     static CFieldElement ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs);
+    static const CFieldElement& GetPhantomHash();
 
 protected:
     unsigned int SerializedSize() const override final { return ByteSize(); }

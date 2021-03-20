@@ -246,6 +246,10 @@ CCswNullifiersKeyHasher::CCswNullifiersKeyHasher() : salt() {GetRandBytes(reinte
 
 size_t CCswNullifiersKeyHasher::operator()(const std::pair<uint256, CFieldElement>& key) const {
     uint32_t buf[BUF_LEN];
+
+    // nullifiers are already checked by the caller, but let's assert it too
+    assert(!key.second.IsNull());
+
     // note: we may consider buf as a raw data, so bytes size of buf is (BUF_LEN * 4)
     memcpy(buf, key.first.begin(), sizeof(uint256));
     memcpy((buf + sizeof(uint256)/sizeof(uint32_t)), &(key.second.GetByteArray()[0]), CFieldElement::ByteSize());
@@ -1176,9 +1180,9 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, CScPro
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
-    // Retrieve previous end epoch block info for certificate proof verification
-    int prev_end_epoch_block_height = sidechain.GetEndHeightForEpoch(cert.epochNumber - 1);
+    // Retrieve current and previous end epoch block info for certificate proof verification
     int curr_end_epoch_block_height = sidechain.GetEndHeightForEpoch(cert.epochNumber);
+    int prev_end_epoch_block_height = curr_end_epoch_block_height - sidechain.creationData.withdrawalEpochLength;
 
     CBlockIndex* prev_end_epoch_block_index = chainActive[prev_end_epoch_block_height];
     CBlockIndex* curr_end_epoch_block_index = chainActive[curr_end_epoch_block_height];
