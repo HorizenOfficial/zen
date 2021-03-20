@@ -143,15 +143,22 @@ bool VerifyCertificatesDependencies(const CScCertificate& cert)
     return true;
 }
 
-bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsViewCache& view, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers, COrphan*& porphan)
+bool VerifySidechainTxDependencies(const CTransaction& tx, const CCoinsViewCache& view, list<COrphan>& vOrphan, map<uint256, vector<COrphan*> >& mapDependers, COrphan*& porphan)
 {
     // detect dependencies from the sidechain point of view
+    std::set<uint256> targetScIds;
     for (const auto& ft: tx.GetVftCcOut())
+        targetScIds.insert(ft.scId);
+
+    for (const auto& btr: tx.GetVBwtRequestOut())
+        targetScIds.insert(btr.scId);
+
+    for (const uint256& scId: targetScIds)
     {
-        if (view.HaveSidechain(ft.scId) )
+        if (view.HaveSidechain(scId) )
             continue;
-        else if (mempool.hasSidechainCreationTx(ft.scId)) {
-            const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash; 
+        else if (mempool.hasSidechainCreationTx(scId)) {
+            const uint256& scCreationHash = mempool.mapSidechains.at(scId).scCreationTxHash;
             assert(!scCreationHash.IsNull());
             assert(mempool.exists(scCreationHash));
 
@@ -159,11 +166,11 @@ bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsView
             if (scCreationHash == tx.GetHash())
                 continue;
 
-            if (!porphan)
-            {
+            if (!porphan) {
                 vOrphan.push_back(COrphan(&tx));
                 porphan = &vOrphan.back();
             }
+
             mapDependers[scCreationHash].push_back(porphan);
             porphan->setDependsOn.insert(scCreationHash);
             LogPrint("sc", "%s():%d - tx[%s] depends on tx[%s] for sc creation\n",
@@ -177,6 +184,7 @@ bool VerifyForwardTransfersDependencies(const CTransaction& tx, const CCoinsView
             return false;
         }
     }
+
     return true;
 }
 
@@ -245,7 +253,7 @@ bool AddToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view
     // Has to wait for dependencies
     if (!porphan)
     {
-        dPriority = mpEntry.GetPriority(nHeight);
+        dPriority = mpEntry.GetPriority(nHeight); // Csw inputs contributes to this
         nFee = mpEntry.GetFee();
         mempool.ApplyDeltas(hash, dPriority, nFee);
 
@@ -285,7 +293,9 @@ bool AddToPriorities(const CTransactionBase& txBase, const CCoinsViewCache& view
 
             dPriority += (double)nValueIn * nConf;
         }
-        nTotalIn += txBase.GetJoinSplitValueIn();
+        nTotalIn += txBase.GetJoinSplitValueIn() + txBase.GetCSWValueIn();
+
+        // Csw contribute zero to initial priority
 
         // Priority is sum(valuein * age) / modified_txsize
         dPriority = txBase.ComputePriority(dPriority, nTxSize);
@@ -355,7 +365,7 @@ void GetBlockTxPriorityData(const CCoinsViewCache& view, int nHeight, int64_t nL
             continue;
         }
 
-        if (!VerifyForwardTransfersDependencies(tx, view, vOrphan, mapDependers, porphan) )
+        if (!VerifySidechainTxDependencies(tx, view, vOrphan, mapDependers, porphan) )
         {
             if (porphan)
                 vOrphan.pop_back();
@@ -429,11 +439,11 @@ void GetBlockTxPriorityDataOld(const CCoinsViewCache& view, int nHeight, int64_t
 
             dPriority += (double)nValueIn * nConf;
         }
-        nTotalIn += tx.GetJoinSplitValueIn();
+        nTotalIn += tx.GetJoinSplitValueIn() + tx.GetCSWValueIn();
 
         if (fMissingInputs) continue;
 
-        if (!VerifyForwardTransfersDependencies(tx, view, vOrphan, mapDependers, porphan))
+        if (!VerifySidechainTxDependencies(tx, view, vOrphan, mapDependers, porphan))
         {
             // should never happen because that means inconsistency in mempool, but this tx must not be
             // added to vecPriority nor in the vOrphan
@@ -633,7 +643,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             }
 
             // Skip transaction if max block complexity reached.
-            int nTxComplexity = tx.GetVin().size() * tx.GetVin().size();
+            int nTxComplexity = tx.GetComplexity();
             if (!fDeprecatedGetBlockTemplate && nBlockMaxComplexitySize > 0 && nBlockComplexity + nTxComplexity >= nBlockMaxComplexitySize)
                 continue;
 
@@ -653,39 +663,51 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                 continue;
             }
 
-            // Note that flags: we don't want to set mempool/IsStandard()
-            // policy here, but we still have to ensure that the block we
-            // create only contains transactions that are valid in new blocks.
-            CValidationState state;
-            if (!tx.ContextualCheckInputs(state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
-                continue;
-
-            CTxUndo dummyUndo;
             try {
+                // Note that flags: we don't want to set mempool/IsStandard()
+                // policy here, but we still have to ensure that the block we
+                // create only contains transactions that are valid in new blocks.
+                CValidationState dummyState;
+                CTxUndo dummyUndo;
+
                 if (tx.IsCertificate())
-                    UpdateCoins(dynamic_cast<const CScCertificate&>(tx), view, dummyUndo, nHeight, /*isBlockTopQualityCert*/true);
-                else
-                    UpdateCoins(dynamic_cast<const CTransaction&>(tx), view, dummyUndo, nHeight);
+                {
+                    const CScCertificate& castedCert = dynamic_cast<const CScCertificate&>(tx);
+                    if(!ContextualCheckCertInputs(castedCert, dummyState, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
+                        continue;
+
+                    UpdateCoins(castedCert, view, dummyUndo, nHeight, /*isBlockTopQualityCert*/true);
+                    pblock->vcert.push_back(castedCert);
+                    pblocktemplate.get()->vCertFees.push_back(nTxFees);
+                    pblocktemplate.get()->vCertSigOps.push_back(nTxSigOps);
+                } else
+                {
+                    const CTransaction& castedTx = dynamic_cast<const CTransaction&>(tx);
+                    if (!ContextualCheckTxInputs(castedTx, dummyState, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS | SCRIPT_VERIFY_CHECKBLOCKATHEIGHT, true, Params().GetConsensus()))
+                        continue;
+
+                    UpdateCoins(castedTx, view, dummyUndo, nHeight);
+                    pblock->vtx.push_back(castedTx);
+                    pblocktemplate.get()->vTxFees.push_back(nTxFees);
+                    pblocktemplate.get()->vTxSigOps.push_back(nTxSigOps);
+                }
+
+                nBlockSize += nTxSize;
+                ++nBlockTx;
+                nBlockSigOps += nTxSigOps;
+                nFees += nTxFees;
+                nBlockComplexity += nTxComplexity;
+
+                if (fPrintPriority)
+                {
+                    LogPrintf("priority %.1f fee %d feeRate %s txid %s\n",
+                        dPriority, nTxFees, feeRate.ToString(), tx.GetHash().ToString());
+                }
+
             } catch (...) {
                 LogPrintf("%s():%d - ERROR: tx [%s] cast error\n",
                     __func__, __LINE__, hash.ToString());
                 assert("could not cast txbase obj" == 0);
-            }
-
-            // Added
-            tx.AddToBlock(pblock);
-            tx.AddToBlockTemplate(pblocktemplate.get(), nTxFees, nTxSigOps);
-
-            nBlockSize += nTxSize;
-            ++nBlockTx;
-            nBlockSigOps += nTxSigOps;
-            nFees += nTxFees;
-            nBlockComplexity += nTxComplexity;
-
-            if (fPrintPriority)
-            {
-                LogPrintf("priority %.1f fee %d feeRate %s txid %s\n",
-                    dPriority, nTxFees, feeRate.ToString(), tx.GetHash().ToString());
             }
 
             // Add transactions that depend on this one to the priority queue

@@ -6,12 +6,30 @@
 #include <undo.h>
 #include <consensus/validation.h>
 
-class SidechainsEventsTestSuite: public ::testing::Test {
+class CNakedCCoinsViewCache : public CCoinsViewCache
+{
+public:
+    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
+    {
+        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
+        this->hashAnchor = dummyAnchor;
 
+        CAnchorsCacheEntry dummyAnchorsEntry;
+        dummyAnchorsEntry.entered = true;
+        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
+        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
+
+    };
+    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
+    CSidechainEventsMap& getScEventsMap() {return this->cacheSidechainEvents; };
+};
+
+class SidechainsEventsTestSuite: public ::testing::Test
+{
 public:
     SidechainsEventsTestSuite():
-        dummyBackingView(nullptr)
-        , view(nullptr) {};
+        dummyBackingView(nullptr), view(nullptr),
+        dummyBlock(), dummyUndo(),dummyTxundo(), dummyInfo(), dummyHeight{1957} {};
 
     ~SidechainsEventsTestSuite() = default;
 
@@ -19,7 +37,7 @@ public:
         SelectParams(CBaseChainParams::REGTEST);
 
         dummyBackingView = new CCoinsView();
-        view = new CCoinsViewCache(dummyBackingView);
+        view = new CNakedCCoinsViewCache(dummyBackingView);
     };
 
     void TearDown() override {
@@ -31,11 +49,120 @@ public:
     };
 
 protected:
-    CCoinsView        *dummyBackingView;
-    CCoinsViewCache   *view;
+    CCoinsView            *dummyBackingView;
+    CNakedCCoinsViewCache *view;
+
+    CBlock dummyBlock;
+    CBlockUndo dummyUndo;
+    CTxUndo dummyTxundo;
+    int dummyHeight;
+    std::vector<CScCertificateStatusUpdateInfo> dummyInfo;
+
+    void storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
 };
 
+/////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// GetActiveCertDataHash /////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithoutCert) {
+    CSidechain initialScState;
+    uint256 scId = uint256S("abab");
+    int initialEpochReferencedByCert = 0;
 
+    initialScState.creationBlockHeight = 1;
+    initialScState.creationData.withdrawalEpochLength = 5;
+    initialScState.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
+
+    initialScState.pastEpochTopQualityCertDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'a')};
+    initialScState.lastTopQualityCertDataHash      = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'b')};
+
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.GetCertSubmissionWindowStart(initialEpochReferencedByCert));
+    ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+    // test
+    int currWindowEnd = initialScState.GetCertSubmissionWindowEnd(initialEpochReferencedByCert);
+    int nextWindowEnd = initialScState.GetCertSubmissionWindowEnd(initialEpochReferencedByCert+1);
+
+    CFieldElement expectedActiveCertDataHash = initialScState.lastTopQualityCertDataHash;
+
+    for (int heightToInspect = currWindowEnd+1; heightToInspect <= nextWindowEnd; ++heightToInspect)
+    {
+        chainSettingUtils::ExtendChainActiveToHeight(heightToInspect-1); // connect block before
+        view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+        EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+        EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
+        <<"Inspecting height "<<heightToInspect
+        <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).GetHexRepr()
+        <<"\ninstead of "<<expectedActiveCertDataHash.GetHexRepr();
+    }
+}
+
+TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
+    CSidechain sidechain;
+    uint256 scId = uint256S("abab");
+    int initialEpochReferencedByCert = 0;
+
+    sidechain.creationBlockHeight = 1;
+    sidechain.creationData.withdrawalEpochLength = 100;
+    sidechain.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
+
+    sidechain.pastEpochTopQualityCertDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'a')};
+    sidechain.lastTopQualityCertDataHash      = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'b')};
+
+    storeSidechainWithCurrentHeight(*view, scId, sidechain, sidechain.GetCertSubmissionWindowStart(initialEpochReferencedByCert));
+    ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+    CFieldElement expectedActiveCertDataHash = sidechain.lastTopQualityCertDataHash;
+
+    // test
+    int currWindowEnd = sidechain.GetCertSubmissionWindowEnd(initialEpochReferencedByCert);
+    int nextWindowEnd = sidechain.GetCertSubmissionWindowEnd(initialEpochReferencedByCert+1);
+
+    int firstBlockWhereCertIsIncluded = sidechain.GetCertSubmissionWindowStart(initialEpochReferencedByCert+1) + 10;
+    ASSERT_TRUE(firstBlockWhereCertIsIncluded <= nextWindowEnd);
+
+    for (int heightToInspect = currWindowEnd+1; heightToInspect <= nextWindowEnd; ++heightToInspect)
+    {
+        if (heightToInspect < firstBlockWhereCertIsIncluded)
+        {
+            chainSettingUtils::ExtendChainActiveToHeight(heightToInspect-1); //connect block before
+            view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+            EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+            EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
+            <<"Inspecting height "<<heightToInspect
+            <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).GetHexRepr()
+            <<"\ninstead of "<<expectedActiveCertDataHash.GetHexRepr();
+        } else if (heightToInspect == firstBlockWhereCertIsIncluded)
+        {
+            chainSettingUtils::ExtendChainActiveToHeight(heightToInspect-1); //connect block before
+            view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+            EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+            EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
+            <<"Inspecting height "<<heightToInspect
+            <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).GetHexRepr()
+            <<"\ninstead of "<<expectedActiveCertDataHash.GetHexRepr();
+
+            // simulate certificate reception, as it happens in UpdateSidechain
+            sidechain.lastTopQualityCertReferencedEpoch += 1;
+            sidechain.pastEpochTopQualityCertDataHash = sidechain.lastTopQualityCertDataHash; // rotate past certDataHash
+            sidechain.lastTopQualityCertDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'c')};
+            txCreationUtils::storeSidechain(view->getSidechainMap(), scId, sidechain);
+        } else
+        {
+            chainSettingUtils::ExtendChainActiveToHeight(heightToInspect-1); //connect block before
+            view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+            EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+            EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
+            <<"Inspecting height "<<heightToInspect
+            <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).GetHexRepr()
+            <<"\ninstead of "<<expectedActiveCertDataHash.GetHexRepr();
+        }
+    }
+}
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////// isSidechainCeased /////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,414 +171,444 @@ TEST_F(SidechainsEventsTestSuite, UnknownSidechainIsNeitherAliveNorCeased) {
     int creationHeight = 1912;
     ASSERT_FALSE(view->HaveSidechain(scId));
 
-    CSidechain::State state = view->isCeasedAtHeight(scId, creationHeight);
+    CSidechain::State state = view->GetSidechainState(scId);
     EXPECT_TRUE(state == CSidechain::State::NOT_APPLICABLE)
         <<"sc is in state "<<int(state);
 }
 
 TEST_F(SidechainsEventsTestSuite, SidechainInItsFirstEpochIsNotCeased) {
-    uint256 scId = uint256S("aaa");
-    int creationHeight = 1912;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), /*height*/10);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1912;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = CScCertificate::EPOCH_NULL;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int endEpochHeight = scInfo.StartHeightForEpoch(currentEpoch+1)-1;
+    CSidechain sidechain;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechain));
+    int firstHeight = initialScState.creationBlockHeight;
+    int lastHeight = sidechain.GetEndHeightForEpoch(initialScState.lastTopQualityCertReferencedEpoch+1);
 
-    for(int height = creationHeight; height <= endEpochHeight; ++height) {
-        CSidechain::State state = view->isCeasedAtHeight(scId, height);
+    for(int height = firstHeight; height < lastHeight; ++height)
+    {
+        //Move sidechain ahead
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        view->SetBestBlock(chainActive.Tip()->GetBlockHash()); //this represents connecting the actual block
+        CSidechain::State state = view->GetSidechainState(scId);
         EXPECT_TRUE(state == CSidechain::State::ALIVE)
-            <<"sc is in state "<<int(state)<<" at height "<<height;
+            <<"sc is in state "<<CSidechain::stateToString(state)<<" at height "<<height;
     }
 }
 
 TEST_F(SidechainsEventsTestSuite, SidechainIsNotCeasedBeforeNextEpochSafeguard) {
-    uint256 scId = uint256S("aaa");
-    int creationHeight = 1945;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), /*epochLength*/11);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1912;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int nextEpochStart = scInfo.StartHeightForEpoch(currentEpoch+1);
+    CSidechain sidechain;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechain));
+    int firstHeight = sidechain.GetCertSubmissionWindowStart(initialScState.lastTopQualityCertReferencedEpoch+1);
+    int lastHeight = sidechain.GetCertSubmissionWindowEnd(initialScState.lastTopQualityCertReferencedEpoch+1);
 
-    for(int height = nextEpochStart; height <= nextEpochStart + scInfo.SafeguardMargin(); ++height) {
-        CSidechain::State state = view->isCeasedAtHeight(scId, height);
+    for(int height = firstHeight; height < lastHeight; ++height)
+    {
+        //Move sidechain ahead
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        view->SetBestBlock(chainActive.Tip()->GetBlockHash()); //this represents connecting the actual block
+        CSidechain::State state = view->GetSidechainState(scId);
         EXPECT_TRUE(state == CSidechain::State::ALIVE)
-            <<"sc is in state "<<int(state)<<" at height "<<height;
+            <<"sc is in state "<<CSidechain::stateToString(state)<<" at height "<<height;
     }
 }
 
-TEST_F(SidechainsEventsTestSuite, SidechainIsCeasedAftereNextEpochSafeguard) {
-    uint256 scId = uint256S("aaa");
-    int creationHeight = 1968;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10),/*epochLength*/100);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
+TEST_F(SidechainsEventsTestSuite, SidechainIsCeasedAtNextEpochSafeguard) {
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1912;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int nextEpochStart = scInfo.StartHeightForEpoch(currentEpoch+1);
-    int nextEpochEnd = scInfo.StartHeightForEpoch(currentEpoch+2)-1;
+    CSidechain sidechain;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechain));
+    int firstHeight = sidechain.GetCertSubmissionWindowEnd(initialScState.lastTopQualityCertReferencedEpoch+1);
+    int lastHeight = firstHeight + 10;
 
-    for(int height = nextEpochStart + scInfo.SafeguardMargin()+1; height <= nextEpochEnd; ++height) {
-        CSidechain::State state = view->isCeasedAtHeight(scId, height);
+    for(int height = firstHeight; height < lastHeight; ++height)
+    {
+        //Move sidechain ahead
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        view->SetBestBlock(chainActive.Tip()->GetBlockHash()); //this represents connecting the actual block
+        CSidechain::State state = view->GetSidechainState(scId);
+
         EXPECT_TRUE(state == CSidechain::State::CEASED)
-            <<"sc is in state "<<int(state)<<" at height "<<height;
+            <<"sc is in state "<<CSidechain::stateToString(state)<<" at height "<<height;
     }
 }
 
 TEST_F(SidechainsEventsTestSuite, FullCertMovesSidechainTerminationToNextEpochSafeguard) {
-    //Create Sidechain
-    int creationHeight = 1968;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1912;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
-    //Prove it would expire without certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int nextEpochStart = scInfo.StartHeightForEpoch(currentEpoch+1);
-    int nextEpochSafeguard = nextEpochStart + scInfo.SafeguardMargin();
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    CSidechain::State state = view->isCeasedAtHeight(scId, nextEpochSafeguard+1);
-    ASSERT_TRUE(state == CSidechain::State::CEASED)
-        <<"sc is in state "<<int(state)<<" at height "<<nextEpochSafeguard+1;
-
-    //Prove that certificate reception keeps Sc alive for another epoch
-    CBlock CertBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(),
+    // update sidechain with next epoch certificate
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
-    int certReceptionHeight = nextEpochSafeguard-1;
-    for(int height = certReceptionHeight; height < certReceptionHeight +scInfo.creationData.withdrawalEpochLength; ++height) {
-        CSidechain::State state = view->isCeasedAtHeight(scId, height);
+    CSidechain sidechainAfterCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
+    int finalScheduledHeight = sidechainAfterCert.GetScheduledCeasingHeight();
+
+    EXPECT_TRUE(initialScheduledHeight < finalScheduledHeight);
+    for(int height = initialScheduledHeight; height < finalScheduledHeight; ++height)
+    {
+        //Move sidechain ahead
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        view->SetBestBlock(chainActive.Tip()->GetBlockHash()); //this represents connecting the actual block
+        CSidechain::State state = view->GetSidechainState(scId);
         EXPECT_TRUE(state == CSidechain::State::ALIVE)
-            <<"sc is in state "<<int(state)<<" at height "<<height;
+            <<"sc is in state "<<CSidechain::stateToString(state)<<" at height "<<height;
     }
 }
 
 TEST_F(SidechainsEventsTestSuite, PureBwtCertificateMovesSidechainTerminationToNextEpochSafeguard) {
-    //Create Sidechain
-    int creationHeight = 1968;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1912;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.balance = CAmount{100};
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
-    //Prove it would expire without certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int nextEpochStart = scInfo.StartHeightForEpoch(currentEpoch+1);
-    int nextEpochSafeguard = nextEpochStart + scInfo.SafeguardMargin();
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    CSidechain::State state = view->isCeasedAtHeight(scId, nextEpochSafeguard+1);
-    ASSERT_TRUE(state == CSidechain::State::CEASED)
-        <<"sc is in state "<<int(state)<<" at height "<<nextEpochSafeguard+1;
+    // update sidechain with next epoch certificate
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(10), /*numBwt*/1);
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
-    //Prove that certificate reception keeps Sc alive for another epoch
-    CBlock CertBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(10),/*numChangeOut*/10, /*bwtAmount*/CAmount(0), /*numBwt*/1);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
+    CSidechain sidechainAfterCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
+    int finalScheduledHeight = sidechainAfterCert.GetScheduledCeasingHeight();
 
-    int certReceptionHeight = nextEpochSafeguard-1;
-    for(int height = certReceptionHeight; height < certReceptionHeight +scInfo.creationData.withdrawalEpochLength; ++height) {
-        CSidechain::State state = view->isCeasedAtHeight(scId, height);
+    EXPECT_TRUE(initialScheduledHeight < finalScheduledHeight);
+    for(int height = initialScheduledHeight; height < finalScheduledHeight; ++height)
+    {
+        //Move sidechain ahead
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        view->SetBestBlock(chainActive.Tip()->GetBlockHash()); //this represents connecting the actual block
+        CSidechain::State state = view->GetSidechainState(scId);
         EXPECT_TRUE(state == CSidechain::State::ALIVE)
-            <<"sc is in state "<<int(state)<<" at height "<<height;
+            <<"sc is in state "<<CSidechain::stateToString(state)<<" at height "<<height;
     }
 }
 
 TEST_F(SidechainsEventsTestSuite, NoBwtCertificateMovesSidechainTerminationToNextEpochSafeguard) {
-    //Create Sidechain
-    int creationHeight = 1968;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1912;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
-    //Prove it would expire without certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int nextEpochStart = scInfo.StartHeightForEpoch(currentEpoch+1);
-    int nextEpochSafeguard = nextEpochStart + scInfo.SafeguardMargin();
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    CSidechain::State state = view->isCeasedAtHeight(scId, nextEpochSafeguard+1);
-    ASSERT_TRUE(state == CSidechain::State::CEASED)
-        <<"sc is in state "<<int(state)<<" at height "<<nextEpochSafeguard+1;
+    // update sidechain with next epoch certificate
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+             /*changeTotalAmount*/CAmount(10),/*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0);
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
-    //Prove that certificate reception keeps Sc alive for another epoch
-    CBlock CertBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(),
-            /*changeTotalAmount*/CAmount(4), /*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
+    CSidechain sidechainAfterCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
+    int finalScheduledHeight = sidechainAfterCert.GetScheduledCeasingHeight();
 
-    int certReceptionHeight = nextEpochSafeguard-1;
-    for(int height = certReceptionHeight; height < certReceptionHeight +scInfo.creationData.withdrawalEpochLength; ++height) {
-        CSidechain::State state = view->isCeasedAtHeight(scId, height);
+    EXPECT_TRUE(initialScheduledHeight < finalScheduledHeight);
+    for(int height = initialScheduledHeight; height < finalScheduledHeight; ++height)
+    {
+        //Move sidechain ahead
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        view->SetBestBlock(chainActive.Tip()->GetBlockHash()); //this represents connecting the actual block
+        CSidechain::State state = view->GetSidechainState(scId);
         EXPECT_TRUE(state == CSidechain::State::ALIVE)
-            <<"sc is in state "<<int(state)<<" at height "<<height;
+            <<"sc is in state "<<CSidechain::stateToString(state)<<" at height "<<height;
     }
 }
 
-TEST_F(SidechainsEventsTestSuite,EmptyCertificateMovesSidechainTerminationToNextEpochSafeguard) {
-    //Create Sidechain
-    int creationHeight = 1968;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
+TEST_F(SidechainsEventsTestSuite, EmptyCertificateMovesSidechainTerminationToNextEpochSafeguard) {
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1912;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
-    //Prove it would expire without certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int nextEpochStart = scInfo.StartHeightForEpoch(currentEpoch+1);
-    int nextEpochSafeguard = nextEpochStart + scInfo.SafeguardMargin();
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    CSidechain::State state = view->isCeasedAtHeight(scId, nextEpochSafeguard+1);
-    ASSERT_TRUE(state == CSidechain::State::CEASED)
-        <<"sc is in state "<<int(state)<<" at height "<<nextEpochSafeguard+1;
+    // update sidechain with next epoch certificate
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(0), /*numBwt*/0);
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
-    //Prove that certificate reception keeps Sc alive for another epoch
-    CBlock CertBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, CertBlock.GetHash(),
-            /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtAmount*/CAmount(0), /*numBwt*/0);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
+    CSidechain sidechainAfterCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
+    int finalScheduledHeight = sidechainAfterCert.GetScheduledCeasingHeight();
 
-    int certReceptionHeight = nextEpochSafeguard-1;
-    for(int height = certReceptionHeight; height < certReceptionHeight +scInfo.creationData.withdrawalEpochLength; ++height) {
-        CSidechain::State state = view->isCeasedAtHeight(scId, height);
+    EXPECT_TRUE(initialScheduledHeight < finalScheduledHeight);
+    for(int height = initialScheduledHeight; height < finalScheduledHeight; ++height)
+    {
+        //Move sidechain ahead
+        chainSettingUtils::ExtendChainActiveToHeight(height);
+        view->SetBestBlock(chainActive.Tip()->GetBlockHash()); //this represents connecting the actual block
+        CSidechain::State state = view->GetSidechainState(scId);
         EXPECT_TRUE(state == CSidechain::State::ALIVE)
-            <<"sc is in state "<<int(state)<<" at height "<<height;
+            <<"sc is in state "<<CSidechain::stateToString(state)<<" at height "<<height;
     }
 }
+
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////// Ceasing Sidechain updates /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForScCreation) {
-    int scCreationHeight = 1492;
+    int scCreationHeight {1492};
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    ASSERT_TRUE(view->UpdateScInfo(scCreationTx, creationBlock, scCreationHeight));
+    CBlock dummyBlock;
 
     //test
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
+    ASSERT_TRUE(view->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
     //Checks
-    CSidechain scInfo;
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int ceasingHeight = scInfo.StartHeightForEpoch(1)+scInfo.SafeguardMargin()+1;
+    CSidechain sidechain;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechain));
+    int ceasingHeight = sidechain.GetScheduledCeasingHeight();
     CSidechainEvents ceasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(ceasingHeight, ceasingScIds));
     EXPECT_TRUE(ceasingScIds.ceasingScs.count(scId) != 0);
 }
 
-
 TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForFullCert) {
-    //Create and register sidechain
-    int creationHeight = 100;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1912;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
-    CSidechain scInfo;
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int initialCeasingHeight = scInfo.StartHeightForEpoch(currentEpoch+1)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents initialCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
-    EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    uint256 epochZeroEndBlockHash = uint256S("aaa");
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
+    // update sidechain with next epoch certificate
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
-    CBlockUndo blockUndo;
-    EXPECT_TRUE(view->UpdateScInfo(cert, blockUndo));
+    CSidechain sidechainAfterCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
+    int finalScheduledHeight = sidechainAfterCert.GetScheduledCeasingHeight();
 
-    //test
-    view->ScheduleSidechainEvent(cert);
-
-    //Checks
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int newCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin() +1;
     CSidechainEvents updatedCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
+    EXPECT_TRUE(view->GetSidechainEvents(finalScheduledHeight, updatedCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-    EXPECT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
+    EXPECT_TRUE(!view->HaveSidechainEvents(initialScheduledHeight));
 }
 
 TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForPureBwtCert) {
-    //Create and register sidechain
-    int creationHeight = 100;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1912;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.balance = CAmount(19);
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    CSidechain scInfo;
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int initialCeasingHeight = scInfo.StartHeightForEpoch(currentEpoch+1)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents initialCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
-    EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
+    // update sidechain with next epoch certificate
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/4);
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
-    uint256 epochZeroEndBlockHash = uint256S("aaa");
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,
-        /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/4);
+    CSidechain sidechainAfterCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
+    int finalScheduledHeight = sidechainAfterCert.GetScheduledCeasingHeight();
 
-    CBlockUndo blockUndo;
-    EXPECT_TRUE(view->UpdateScInfo(cert, blockUndo));
-
-    //test
-    view->ScheduleSidechainEvent(cert);
-
-    //Checks
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int newCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin() +1;
     CSidechainEvents updatedCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
+    EXPECT_TRUE(view->GetSidechainEvents(finalScheduledHeight, updatedCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-    EXPECT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
+    EXPECT_TRUE(!view->HaveSidechainEvents(initialScheduledHeight));
 }
 
 TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForNoBwtCert) {
-    //Create and register sidechain
-    int creationHeight = 100;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1912;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    CSidechain scInfo;
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int initialCeasingHeight = scInfo.StartHeightForEpoch(currentEpoch+1)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents initialCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
-    EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
+    // update sidechain with next epoch certificate
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(3), /*numChangeOut*/3,/*bwtAmount*/CAmount(0), /*numBwt*/0);
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
-    uint256 epochZeroEndBlockHash = uint256S("aaa");
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,
-        /*changeTotalAmount*/CAmount(3), /*numChangeOut*/3,/*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CSidechain sidechainAfterCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
+    int finalScheduledHeight = sidechainAfterCert.GetScheduledCeasingHeight();
 
-    CBlockUndo blockUndo;
-    EXPECT_TRUE(view->UpdateScInfo(cert, blockUndo));
-
-    //test
-    view->ScheduleSidechainEvent(cert);
-
-    //Checks
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int newCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin() +1;
     CSidechainEvents updatedCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
+    EXPECT_TRUE(view->GetSidechainEvents(finalScheduledHeight, updatedCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-    EXPECT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
+    EXPECT_TRUE(!view->HaveSidechainEvents(initialScheduledHeight));
 }
 
 TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForEmptyCertificate) {
-    //Create and register sidechain
-    int creationHeight = 100;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1912;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    CSidechain scInfo;
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int initialCeasingHeight = scInfo.StartHeightForEpoch(currentEpoch+1)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents initialCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
-    EXPECT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
+    // update sidechain with next epoch certificate
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/0);
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
-    uint256 epochZeroEndBlockHash = uint256S("aaa");
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, epochZeroEndBlockHash,
-        /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/0);
+    CSidechain sidechainAfterCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
+    int finalScheduledHeight = sidechainAfterCert.GetScheduledCeasingHeight();
 
-    CBlockUndo blockUndo;
-    EXPECT_TRUE(view->UpdateScInfo(cert, blockUndo));
-
-    //test
-    view->ScheduleSidechainEvent(cert);
-
-    //Checks
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int newCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin() +1;
     CSidechainEvents updatedCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
+    EXPECT_TRUE(view->GetSidechainEvents(finalScheduledHeight, updatedCeasingScIds));
     EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-    EXPECT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
+    EXPECT_TRUE(!view->HaveSidechainEvents(initialScheduledHeight));
 }
-///////////////////////////////////////////////////////////////////////////////
-////////////////////////////// HandleCeasingScs ///////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////// HandleCeasingScs ///////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCeases) {
-    //Create sidechain
-    int scCreationHeight = 1987;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, scCreationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1987;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.balance = CAmount{20};
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Generate certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(2), /*numBwt*/1);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
+
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
     //Generate coin from certificate
-    CValidationState state;
-    CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scCreationHeight,/*isBlockTopQualityCert*/true);
+    UpdateCoins(cert, *view, dummyTxundo, initialScState.creationBlockHeight,/*isBlockTopQualityCert*/true);
     EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
 
+    CSidechain sidechain;
+    view->GetSidechain(scId, sidechain);
+
+    int minimalCeaseHeight = sidechain.GetScheduledCeasingHeight();
+    chainSettingUtils::ExtendChainActiveToHeight(minimalCeaseHeight);
+    view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+    EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
+
     //test
-    int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
-    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
-    CBlockUndo coinsBlockUndo;
-    std::map<uint256, bool> dummy;
-    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, dummyUndo, &dummyInfo));
 
     //Checks
     CCoins updatedCoin;
@@ -459,43 +616,55 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     updatedCoin.ClearUnspendable();
     EXPECT_TRUE(updatedCoin.vout.size() == cert.nFirstBwtPos);
     EXPECT_TRUE(updatedCoin.nFirstBwtPos == cert.nFirstBwtPos);
+
     EXPECT_FALSE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
 
 TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
-    //Create sidechain
-    int scCreationHeight = 1987;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, scCreationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 201;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.balance = CAmount{20};
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Generate certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(1), /*numBwt*/1);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
+
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
     //Generate coin from certificate
-    CValidationState state;
-    CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scCreationHeight,/*isBlockTopQualityCert*/true);
+    UpdateCoins(cert, *view, dummyTxundo, dummyHeight,/*isBlockTopQualityCert*/true);
     CCoins coinFromCert;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),coinFromCert));
 
+    CSidechain sidechain;
+    view->GetSidechain(scId, sidechain);
+    int minimalCeaseHeight = sidechain.GetScheduledCeasingHeight();
+    chainSettingUtils::ExtendChainActiveToHeight(minimalCeaseHeight);
+    view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+    EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
+
     //test
-    int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
-    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    std::map<uint256, bool> dummy;
-    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
 
     //Checks
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -517,38 +686,49 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
 }
 
 TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSidechainHandling) {
-    //Create sidechain
-    int scCreationHeight = 1987;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, scCreationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 201;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Generate certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
+
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
     //Generate coin from certificate
-    CValidationState state;
-    CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scCreationHeight,/*isBlockTopQualityCert*/true);
-    EXPECT_TRUE(view->HaveCoins(cert.GetHash()));
+    UpdateCoins(cert, *view, dummyTxundo, dummyHeight,/*isBlockTopQualityCert*/true);
+    CCoins coinFromCert;
+    EXPECT_TRUE(view->GetCoins(cert.GetHash(),coinFromCert));
+
+    CSidechain sidechain;
+    view->GetSidechain(scId, sidechain);
+    int minimalCeaseHeight = sidechain.GetScheduledCeasingHeight();
+    chainSettingUtils::ExtendChainActiveToHeight(minimalCeaseHeight);
+    view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+    EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
 
     //test
-    int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
-    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    std::map<uint256, bool> dummy;
-    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
 
     //Checks
     CCoins updatedCoin;
@@ -560,86 +740,105 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
 }
 
 TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSidechainHandling) {
-    //Create sidechain
-    int scCreationHeight = 1987;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, scCreationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 201;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Generate certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
+
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
     //Generate coin from certificate
-    CValidationState state;
-    CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scCreationHeight, /*isBlockTopQualityCert*/true);
-    EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
+    UpdateCoins(cert, *view, dummyTxundo, dummyHeight,/*isBlockTopQualityCert*/true);
+    CCoins coinFromCert;
+    EXPECT_FALSE(view->GetCoins(cert.GetHash(),coinFromCert));
+
+    CSidechain sidechain;
+    view->GetSidechain(scId, sidechain);
+    int minimalCeaseHeight = sidechain.GetScheduledCeasingHeight();
+    chainSettingUtils::ExtendChainActiveToHeight(minimalCeaseHeight);
+    view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+    EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
 
     //test
-    int minimalCeaseHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin()+1;
-    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    std::map<uint256, bool> dummy;
-    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy));
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
 
     //Checks
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
     EXPECT_FALSE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
+
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// RevertCeasingScs ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
-    //Create sidechain
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock scCreationBlock;
-    int scCreationHeight = 1789;
-    view->UpdateScInfo(scCreationTx, scCreationBlock, scCreationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1987;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.balance = CAmount{20};
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Generate certificate
-    CSidechain sidechain;
-    view->GetSidechain(scId, sidechain);
-    int certReferencedEpoch = 0;
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(2), /*numBwt*/1);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
+
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
     //Generate coin from certificate
-    CValidationState state;
-    CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, sidechain.StartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
+    UpdateCoins(cert, *view, dummyTxundo, initialScState.creationBlockHeight,/*isBlockTopQualityCert*/true);
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
-    //Make the sidechain cease
-    int minimalCeaseHeight = sidechain.StartHeightForEpoch(certReferencedEpoch+2)+sidechain.SafeguardMargin()+1;
-    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
-
-    // Null the coins
+    //Make the sidechain cease, nulling the coin
+    CSidechain sidechain;
+    view->GetSidechain(scId, sidechain);
+    int minimalCeaseHeight = sidechain.GetScheduledCeasingHeight();
+    chainSettingUtils::ExtendChainActiveToHeight(minimalCeaseHeight);
+    view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+    EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    std::map<uint256, bool> dummy;
-    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
 
     //test
-    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummy);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummyInfo);
 
     //checks
     CCoins rebuiltCoin;
@@ -655,46 +854,52 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
 }
 
 TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
-    //Create sidechain
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock scCreationBlock;
-    int scCreationHeight = 1789;
-    view->UpdateScInfo(scCreationTx, scCreationBlock, scCreationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1987;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.balance = CAmount{20};
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Generate certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    int certReferencedEpoch = 0;
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(1), /*numBwt*/1);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
+
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
     //Generate coin from certificate
-    CValidationState state;
-    CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
+    UpdateCoins(cert, *view, dummyTxundo, initialScState.creationBlockHeight,/*isBlockTopQualityCert*/true);
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
-    //Make the sidechain cease
-    int minimalCeaseHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+2)+scInfo.SafeguardMargin()+1;
-    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
-
-    // Null the coins
+    //Make the sidechain cease, nulling the coin
+    CSidechain sidechain;
+    view->GetSidechain(scId, sidechain);
+    int minimalCeaseHeight = sidechain.GetScheduledCeasingHeight();
+    chainSettingUtils::ExtendChainActiveToHeight(minimalCeaseHeight);
+    view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+    EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    std::map<uint256, bool> dummy;
-    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
-    ASSERT_FALSE(view->HaveCoins(cert.GetHash()));
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
 
     //test
-    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummy);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummyInfo);
 
     //checks
     CCoins rebuiltCoin;
@@ -710,45 +915,51 @@ TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
 }
 
 TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
-    //Create sidechain
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock scCreationBlock;
-    int scCreationHeight = 1789;
-    view->UpdateScInfo(scCreationTx, scCreationBlock, scCreationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1987;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Generate certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    int certReferencedEpoch = 0;
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(4), /*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
+
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
     //Generate coin from certificate
-    CValidationState state;
-    CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
+    UpdateCoins(cert, *view, dummyTxundo, initialScState.creationBlockHeight,/*isBlockTopQualityCert*/true);
     CCoins originalCoins;
     EXPECT_TRUE(view->GetCoins(cert.GetHash(),originalCoins));
 
-    //Make the sidechain cease
-    int minimalCeaseHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+2)+scInfo.SafeguardMargin()+1;
-    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
-
-    // Null the coins
+    //Make the sidechain cease, nulling the coin
+    CSidechain sidechain;
+    view->GetSidechain(scId, sidechain);
+    int minimalCeaseHeight = sidechain.GetScheduledCeasingHeight();
+    chainSettingUtils::ExtendChainActiveToHeight(minimalCeaseHeight);
+    view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+    EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    std::map<uint256, bool> dummy;
-    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
 
     //test
-    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummy);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummyInfo);
 
     //checks
     CCoins rebuiltCoin;
@@ -764,73 +975,74 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
 }
 
 TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
-    //Create sidechain
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock scCreationBlock;
-    int scCreationHeight = 1789;
-    view->UpdateScInfo(scCreationTx, scCreationBlock, scCreationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, scCreationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1987;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
+
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
     //Generate certificate
-    CSidechain scInfo;
-    view->GetSidechain(scId, scInfo);
-    int certReferencedEpoch = 0;
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certReferencedEpoch, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
+
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
 
     //Generate coin from certificate
-    CValidationState state;
-    CTxUndo txundo;
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-    UpdateCoins(cert, *view, txundo, scInfo.StartHeightForEpoch(1), /*isBlockTopQualityCert*/true);
+    UpdateCoins(cert, *view, dummyTxundo, initialScState.creationBlockHeight,/*isBlockTopQualityCert*/true);
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
 
-    //Make the sidechain cease
-    int minimalCeaseHeight = scInfo.StartHeightForEpoch(certReferencedEpoch+2)+scInfo.SafeguardMargin()+1;
-    EXPECT_TRUE(view->isCeasedAtHeight(scId, minimalCeaseHeight) == CSidechain::State::CEASED);
-
-    // Null the coins
+    //Make the sidechain cease, nulling the coin
+    CSidechain sidechain;
+    view->GetSidechain(scId, sidechain);
+    int minimalCeaseHeight = sidechain.GetScheduledCeasingHeight();
+    chainSettingUtils::ExtendChainActiveToHeight(minimalCeaseHeight);
+    view->SetBestBlock(chainActive.Tip()->GetBlockHash());
+    EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::CEASED);
     CBlockUndo coinsBlockUndo;
-    std::map<uint256, bool> dummy;
-    view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummy);
+    EXPECT_TRUE(view->HandleSidechainEvents(minimalCeaseHeight, coinsBlockUndo, &dummyInfo));
 
     //test
-    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummy);
+    view->RevertSidechainEvents(coinsBlockUndo, minimalCeaseHeight, &dummyInfo);
 
     //checks
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
-
     EXPECT_TRUE(view->HaveSidechainEvents(minimalCeaseHeight));
 }
-///////////////////////////////////////////////////////////////////////////////
-//////////////////////////////// UndoCeasingScs ///////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// UndoCeasingScs ///////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsEventsTestSuite, CancelSidechainEvent) {
     int scCreationHeight = 1492;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    ASSERT_TRUE(view->UpdateScInfo(scCreationTx, creationBlock, scCreationHeight));
+    CBlock dummyBlock;
+    ASSERT_TRUE(view->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationOut, scCreationHeight));
-
-    CSidechain scInfo;
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int ceasingHeight = scInfo.StartHeightForEpoch(1)+scInfo.SafeguardMargin()+1;
+    CSidechain sidechain;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechain));
+    int ceasingHeight = sidechain.GetScheduledCeasingHeight();
     CSidechainEvents ceasingScIds;
     EXPECT_TRUE(view->GetSidechainEvents(ceasingHeight, ceasingScIds));
     EXPECT_TRUE(ceasingScIds.ceasingScs.count(scId) != 0);
 
     //test
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        EXPECT_TRUE(view->CancelSidechainEvent(scCreationOut, scCreationHeight));
+    EXPECT_TRUE(view->RevertTxOutputs(scCreationTx, scCreationHeight));
 
     //checks
     CSidechainEvents restoredCeasingScIds;
@@ -838,206 +1050,201 @@ TEST_F(SidechainsEventsTestSuite, CancelSidechainEvent) {
 }
 
 TEST_F(SidechainsEventsTestSuite, UndoFullCertUpdatesToCeasingScs) {
-    //Create and register sidechain
-    int creationHeight = 100;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1987;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.balance = CAmount{20};
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    CSidechain scInfo;
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int initialCeasingHeight = scInfo.StartHeightForEpoch(currentEpoch+1)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents initialCeasingScIds;
-    ASSERT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
-    ASSERT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
+    //Generate certificate
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(2), /*numBwt*/1);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
 
+    // update sidechain with the certificate
+    CBlockUndo certUndo;
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    CSidechain postCertSidechain;
+    ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
+    int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();
 
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"),
-        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/4, /*bwtTotalAmount*/CAmount(0), /*numBwt*/3);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    CSidechainEvents postCertCeasingScIds;
+    ASSERT_FALSE(view->HaveSidechainEvents(initialScheduledHeight));
+    ASSERT_TRUE(view->GetSidechainEvents(postCertCeasingHeight, postCertCeasingScIds));
+    ASSERT_TRUE(postCertCeasingScIds.ceasingScs.count(scId) != 0);
+
+    // test
+    view->RestoreSidechain(cert, certUndo.scUndoDatabyScId.at(scId));
 
     //Checks
-    view->GetSidechain(scId, scInfo);
-    int newCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents updatedCeasingScIds;
-    ASSERT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
-    ASSERT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-    ASSERT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
-
-    //test
-    view->RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(scId));
-    view->CancelSidechainEvent(cert);
-
-    //Checks
-    view->GetSidechain(scId, scInfo);
-    EXPECT_FALSE(view->HaveSidechainEvents(newCeasingHeight));
     CSidechainEvents restoredCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight,restoredCeasingScIds));
-    EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-
-    //check idempotency
-    EXPECT_TRUE(view->CancelSidechainEvent(cert));
+    EXPECT_FALSE(view->HaveSidechainEvents(postCertCeasingHeight));
+    EXPECT_TRUE(view->GetSidechainEvents(initialScheduledHeight,restoredCeasingScIds));
+    EXPECT_TRUE(restoredCeasingScIds.ceasingScs.count(scId) != 0);
 }
 
 TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
-    //Create and register sidechain
-    int creationHeight = 100;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1987;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.balance = CAmount{5};
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    CSidechain scInfo;
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int initialCeasingHeight = scInfo.StartHeightForEpoch(currentEpoch+1)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents initialCeasingScIds;
-    ASSERT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
-    ASSERT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
+    //Generate certificate
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(3), /*numBwt*/3);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
 
+    // update sidechain with the certificate
+    CBlockUndo certUndo;
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    CSidechain postCertSidechain;
+    ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
+    int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();
 
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"),
-        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/3);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    CSidechainEvents postCertCeasingScIds;
+    ASSERT_FALSE(view->HaveSidechainEvents(initialScheduledHeight));
+    ASSERT_TRUE(view->GetSidechainEvents(postCertCeasingHeight, postCertCeasingScIds));
+    ASSERT_TRUE(postCertCeasingScIds.ceasingScs.count(scId) != 0);
+
+    // test
+    view->RestoreSidechain(cert, certUndo.scUndoDatabyScId.at(scId));
 
     //Checks
-    view->GetSidechain(scId, scInfo);
-    int newCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents updatedCeasingScIds;
-    ASSERT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
-    ASSERT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-    ASSERT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
-
-    //test
-    view->RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(scId));
-    view->CancelSidechainEvent(cert);
-
-    //Checks
-    view->GetSidechain(scId, scInfo);
-
-    EXPECT_FALSE(view->HaveSidechainEvents(newCeasingHeight));
     CSidechainEvents restoredCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight,restoredCeasingScIds));
-    EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-
-    //check idempotency
-    EXPECT_TRUE(view->CancelSidechainEvent(cert));
+    EXPECT_FALSE(view->HaveSidechainEvents(postCertCeasingHeight));
+    EXPECT_TRUE(view->GetSidechainEvents(initialScheduledHeight,restoredCeasingScIds));
+    EXPECT_TRUE(restoredCeasingScIds.ceasingScs.count(scId) != 0);
 }
 
 TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
-    //Create and register sidechain
-    int creationHeight = 100;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1987;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    CSidechain scInfo;
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int initialCeasingHeight = scInfo.StartHeightForEpoch(currentEpoch+1)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents initialCeasingScIds;
-    ASSERT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
-    ASSERT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
+    //Generate certificate
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(4),/*numChangeOut*/4, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
 
+    // update sidechain with the certificate
+    CBlockUndo certUndo;
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    CSidechain postCertSidechain;
+    ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
+    int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();
 
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/4, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    CSidechainEvents postCertCeasingScIds;
+    ASSERT_FALSE(view->HaveSidechainEvents(initialScheduledHeight));
+    ASSERT_TRUE(view->GetSidechainEvents(postCertCeasingHeight, postCertCeasingScIds));
+    ASSERT_TRUE(postCertCeasingScIds.ceasingScs.count(scId) != 0);
+
+    // test
+    view->RestoreSidechain(cert, certUndo.scUndoDatabyScId.at(scId));
 
     //Checks
-    view->GetSidechain(scId, scInfo);
-    int newCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents updatedCeasingScIds;
-    ASSERT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
-    ASSERT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-    ASSERT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
-
-    //test
-    view->RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(scId));
-    view->CancelSidechainEvent(cert);
-
-    //Checks
-    view->GetSidechain(scId, scInfo);
-
-    EXPECT_FALSE(view->HaveSidechainEvents(newCeasingHeight));
     CSidechainEvents restoredCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight,restoredCeasingScIds));
-    EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-
-    //check idempotency
-    EXPECT_TRUE(view->CancelSidechainEvent(cert));
+    EXPECT_FALSE(view->HaveSidechainEvents(postCertCeasingHeight));
+    EXPECT_TRUE(view->GetSidechainEvents(initialScheduledHeight,restoredCeasingScIds));
+    EXPECT_TRUE(restoredCeasingScIds.ceasingScs.count(scId) != 0);
 }
 
 TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
-    //Create and register sidechain
-    int creationHeight = 100;
-    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
-    const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
-    CBlock creationBlock;
-    view->UpdateScInfo(scCreationTx, creationBlock, creationHeight);
-    for(const CTxScCreationOut& scCreationOut: scCreationTx.GetVscCcOut())
-        view->ScheduleSidechainEvent(scCreationOut, creationHeight);
+    // setup sidechain initial state...
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1987;
+    initialScState.creationData.withdrawalEpochLength = 9;
+    initialScState.lastTopQualityCertReferencedEpoch = 19;
+    storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
+    //... and initial ceasing event too
+    CSidechain sidechainBeforeCert;
+    ASSERT_TRUE(view->GetSidechain(scId, sidechainBeforeCert));
+    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    CSidechainEvents scEvent;
+    scEvent.ceasingScs.insert(scId);
+    txCreationUtils::storeSidechainEvent(view->getScEventsMap(), initialScheduledHeight, scEvent);
 
-    CSidechain scInfo;
-    ASSERT_TRUE(view->GetSidechain(scId, scInfo));
-    int currentEpoch = scInfo.EpochFor(creationHeight);
-    int initialCeasingHeight = scInfo.StartHeightForEpoch(currentEpoch+1)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents initialCeasingScIds;
-    ASSERT_TRUE(view->GetSidechainEvents(initialCeasingHeight, initialCeasingScIds));
-    ASSERT_TRUE(initialCeasingScIds.ceasingScs.count(scId) != 0);
+    //Generate certificate
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
+    int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+            /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
 
+    // update sidechain with the certificate
+    CBlockUndo certUndo;
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    CSidechain postCertSidechain;
+    ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
+    int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();
 
-    CScCertificate cert = txCreationUtils::createCertificate(scId, currentEpoch, uint256S("aaa"),
-        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
-    CBlockUndo blockUndo;
-    view->UpdateScInfo(cert, blockUndo);
-    view->ScheduleSidechainEvent(cert);
+    CSidechainEvents postCertCeasingScIds;
+    ASSERT_FALSE(view->HaveSidechainEvents(initialScheduledHeight));
+    ASSERT_TRUE(view->GetSidechainEvents(postCertCeasingHeight, postCertCeasingScIds));
+    ASSERT_TRUE(postCertCeasingScIds.ceasingScs.count(scId) != 0);
+
+    // test
+    view->RestoreSidechain(cert, certUndo.scUndoDatabyScId.at(scId));
 
     //Checks
-    view->GetSidechain(scId, scInfo);
-    int newCeasingHeight = scInfo.StartHeightForEpoch(cert.epochNumber+2)+scInfo.SafeguardMargin() +1;
-    CSidechainEvents updatedCeasingScIds;
-    ASSERT_TRUE(view->GetSidechainEvents(newCeasingHeight, updatedCeasingScIds));
-    ASSERT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-    ASSERT_TRUE(!view->HaveSidechainEvents(initialCeasingHeight));
-
-    //test
-    view->RestoreScInfo(cert, blockUndo.scUndoDatabyScId.at(scId));
-    view->CancelSidechainEvent(cert);
-
-    //Checks
-    view->GetSidechain(scId, scInfo);
-
-    EXPECT_FALSE(view->HaveSidechainEvents(newCeasingHeight));
     CSidechainEvents restoredCeasingScIds;
-    EXPECT_TRUE(view->GetSidechainEvents(initialCeasingHeight,restoredCeasingScIds));
-    EXPECT_TRUE(updatedCeasingScIds.ceasingScs.count(scId) != 0);
-
-    //check idempotency
-    EXPECT_TRUE(view->CancelSidechainEvent(cert));
+    EXPECT_FALSE(view->HaveSidechainEvents(postCertCeasingHeight));
+    EXPECT_TRUE(view->GetSidechainEvents(initialScheduledHeight,restoredCeasingScIds));
+    EXPECT_TRUE(restoredCeasingScIds.ceasingScs.count(scId) != 0);
 }
-///////////////////////////////////////////////////////////////////////////////
-//////////////////////////////// ApplyTxInUndo ////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// ApplyTxInUndo ////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendChangeOutput)
 {
     //Create sidechain
@@ -1045,12 +1252,16 @@ TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendChan
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
     CBlock dummyCreationBlock;
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyCreationBlock, dummyHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyCreationBlock, dummyHeight));
 
     //Generate certificate
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, 100);
+    CBlock dummyBlock;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
@@ -1092,12 +1303,16 @@ TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendBwtO
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
     CBlock dummyCreationBlock;
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyCreationBlock, dummyHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyCreationBlock, dummyHeight));
 
     //Generate certificate
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, 100);
+    CBlock dummyBlock;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
@@ -1139,12 +1354,16 @@ TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendFull
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
     CBlock dummyCreationBlock;
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyCreationBlock, dummyHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyCreationBlock, dummyHeight));
 
     //Generate certificate
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, 100);
+    CBlock dummyBlock;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
@@ -1186,12 +1405,16 @@ TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendFull
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
     CBlock dummyCreationBlock;
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyCreationBlock, dummyHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyCreationBlock, dummyHeight));
 
     //Generate certificate
-    CBlock endEpochBlock;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, endEpochBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, 100);
+    CBlock dummyBlock;
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1);
+    mutCert.vin.clear();
+    mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
+    CScCertificate cert(mutCert);
 
     //Generate coin from cert, to check it is fully reconstructed from BlockUndo
     CTxUndo dummyTxUndo;
@@ -1230,8 +1453,8 @@ TEST_F(SidechainsEventsTestSuite, TransparentTx_CoinReconstructionFromBlockUndo_
 {
     //Generate transparent transaction and the associated coin to be spent
     CMutableTransaction txToBeSpent;
-    txToBeSpent.addOut(CTxOut(CAmount(10),CScript()));
-    txToBeSpent.addOut(CTxOut(CAmount(20),CScript()));
+    txToBeSpent.addOut(CTxOut(CAmount(10),CScript(OP_TRUE))); //a dummy code to ensures the correct serialization
+    txToBeSpent.addOut(CTxOut(CAmount(20),CScript(OP_TRUE))); //a dummy code to ensures the correct serialization
 
     CTxUndo dummyTxUndo;
     int coinHeight = 1987;
@@ -1278,7 +1501,7 @@ TEST_F(SidechainsEventsTestSuite, TransparentTx_CoinReconstructionFromBlockUndo_
 {
     //Generate transparent transaction and the associated coin to be spent
     CMutableTransaction txToBeSpent;
-    txToBeSpent.addOut(CTxOut(CAmount(10),CScript()));
+    txToBeSpent.addOut(CTxOut(CAmount(10),CScript(OP_TRUE)));  //a dummy code to ensures the correct serialization
 
     CTxUndo dummyTxUndo;
     int coinHeight = 1987;
@@ -1320,18 +1543,17 @@ TEST_F(SidechainsEventsTestSuite, TransparentTx_CoinReconstructionFromBlockUndo_
         <<"\n coinFromTx        "<<coinFromTx.ToString()
         <<"\n reconstructedCoin "<<reconstructedCoin.ToString();
 }
-///////////////////////////////////////////////////////////////////////////////
-/////////////////////////// Mature sidechain balance //////////////////////////
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
+///////////////////////////// Mature sidechain balance //////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 TEST_F(SidechainsEventsTestSuite, UponScCreationMaturingEventForCreationAmountIsScheduled) {
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256 & scId = scCreationTx.GetScIdFromScCcOut(0);
     int scCreationHeight = 5;
     CBlock dummyBlock;
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
 
     //test
-    EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
     //Checks
     int creationMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
@@ -1350,16 +1572,14 @@ TEST_F(SidechainsEventsTestSuite, UponFwdMaturingEventForFwdAmountIsScheduled) {
     CBlock dummyBlock;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1));
     const uint256 & scId = scCreationTx.GetScIdFromScCcOut(0);
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
     CAmount fwdAmount = 200;
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
     int fwdHeight = 20;
 
-    EXPECT_TRUE(view->UpdateScInfo(fwdTx, dummyBlock, fwdHeight));
-
     //test
-    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[0], fwdHeight));
+    EXPECT_TRUE(view->UpdateSidechain(fwdTx, dummyBlock, fwdHeight));
 
     //Checks
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
@@ -1373,12 +1593,44 @@ TEST_F(SidechainsEventsTestSuite, UponFwdMaturingEventForFwdAmountIsScheduled) {
     EXPECT_TRUE(sidechain.mImmatureAmounts[fwdMaturityHeight] == fwdTx.GetVftCcOut()[0].nValue);
 }
 
+TEST_F(SidechainsEventsTestSuite, UponMbtrMaturingEventForScFeeIsScheduled) {
+    int scCreationHeight = 5;
+    CBlock dummyBlock;
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1));
+    const uint256 & scId = scCreationTx.GetScIdFromScCcOut(0);
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
+
+    CAmount scFee = 2;
+
+    CBwtRequestOut mcBwtReq;
+    mcBwtReq.scId = scId;
+    CMutableTransaction mutTx;
+    mutTx.nVersion = SC_TX_VERSION;
+    mutTx.vmbtr_out.push_back(mcBwtReq);
+
+    int nHeight = 20;
+
+    //test
+    EXPECT_TRUE(view->UpdateSidechain(mutTx, dummyBlock, nHeight));
+
+    //Checks
+    int scFeeMaturityHeight = nHeight + Params().ScCoinsMaturity();
+    CSidechainEvents scheduledEvent;
+    EXPECT_TRUE(view->GetSidechainEvents(scFeeMaturityHeight, scheduledEvent));
+    EXPECT_TRUE(scheduledEvent.maturingScs.count(scId));
+
+    CSidechain sidechain;
+    EXPECT_TRUE(view->GetSidechain(scId, sidechain));
+    EXPECT_TRUE(sidechain.balance == 0);
+    EXPECT_TRUE(sidechain.mImmatureAmounts[scFeeMaturityHeight] == mutTx.vmbtr_out[0].scFee);
+}
+
 TEST_F(SidechainsEventsTestSuite, DoubleFwdSchedulingIsDoneCorrectly) {
     int scCreationHeight = 5;
     CBlock dummyBlock;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1));
     const uint256 & scId = scCreationTx.GetScIdFromScCcOut(0);
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
     //Create transaction with double fwd Tx
     CAmount fwdAmount1 = 200;
@@ -1390,11 +1642,8 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdSchedulingIsDoneCorrectly) {
 
     int fwdHeight = 20;
 
-    EXPECT_TRUE(view->UpdateScInfo(fwdTx, dummyBlock, fwdHeight));
-    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[0], fwdHeight));
-
-    //Test: schedule a second fwd at the same height
-    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[1], fwdHeight));
+    // test
+    EXPECT_TRUE(view->UpdateSidechain(fwdTx, dummyBlock, fwdHeight));
 
     //Checks
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
@@ -1413,13 +1662,12 @@ TEST_F(SidechainsEventsTestSuite, ScCreationAmountMaturesAtHeight) {
     const uint256 & scId = scCreationTx.GetScIdFromScCcOut(0);
     int scCreationHeight = 5;
     CBlock dummyBlock;
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
-    EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
     //test
     int creationMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(creationMaturityHeight, blockUndo, &dummy));
 
     //Checks
@@ -1436,19 +1684,18 @@ TEST_F(SidechainsEventsTestSuite, FwdAmountMaturesAtHeight) {
     CTransaction dummyScCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10));
     const uint256 & scId = dummyScCreationTx.GetScIdFromScCcOut(0);
     CBlock dummyBlock;
-    EXPECT_TRUE(view->UpdateScInfo(dummyScCreationTx, dummyBlock, /*creationHeight*/5));
+    EXPECT_TRUE(view->UpdateSidechain(dummyScCreationTx, dummyBlock, /*creationHeight*/5));
 
     // create a fwd
     CAmount fwdAmount = 200;
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
     int fwdHeight = 20;
-    EXPECT_TRUE(view->UpdateScInfo(fwdTx, dummyBlock, fwdHeight));
-    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[0], fwdHeight));
+    EXPECT_TRUE(view->UpdateSidechain(fwdTx, dummyBlock, fwdHeight));
 
     //test
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo, &dummy));
 
     //Checks
@@ -1465,7 +1712,7 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsMatureAtHeight) {
     CBlock dummyBlock;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1));
     const uint256 & scId = scCreationTx.GetScIdFromScCcOut(0);
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
     //Create transaction with double fwd Tx
     CAmount fwdAmount1 = 200;
@@ -1476,14 +1723,12 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsMatureAtHeight) {
     fwdTx = mutFwdTx;
 
     int fwdHeight = 20;
-    EXPECT_TRUE(view->UpdateScInfo(fwdTx, dummyBlock, fwdHeight));
-    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[0], fwdHeight));
-    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[1], fwdHeight));
+    EXPECT_TRUE(view->UpdateSidechain(fwdTx, dummyBlock, fwdHeight));
 
     //test
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(fwdMaturityHeight, blockUndo, &dummy));
 
     //Checks
@@ -1500,12 +1745,11 @@ TEST_F(SidechainsEventsTestSuite, CreationAmountDoesNotMatureUponRevertSidechain
     const uint256 & scId = scCreationTx.GetScIdFromScCcOut(0);
     int scCreationHeight = 5;
     CBlock dummyBlock;
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
-    EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
     int creationMaturityHeight = scCreationHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(creationMaturityHeight, blockUndo, &dummy));
 
     //test
@@ -1525,19 +1769,17 @@ TEST_F(SidechainsEventsTestSuite, FwdAmountsDoNotMatureUponRevertSidechainEvents
     const uint256 & scId = scCreationTx.GetScIdFromScCcOut(0);
     int scCreationHeight = 5;
     CBlock dummyBlock;
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
-    EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
     CBlockUndo dummyBlockUndo;
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
 
     // create and mature a fwd
     CAmount fwdAmount = 200;
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount);
     int fwdHeight = 20;
-    EXPECT_TRUE(view->UpdateScInfo(fwdTx, dummyBlock, fwdHeight));
-    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[0], fwdHeight));
+    EXPECT_TRUE(view->UpdateSidechain(fwdTx, dummyBlock, fwdHeight));
 
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
@@ -1559,11 +1801,10 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsDoNotMatureUponRevertSidechainEvents
     CBlock dummyBlock;
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1));
     const uint256 & scId = scCreationTx.GetScIdFromScCcOut(0);
-    EXPECT_TRUE(view->UpdateScInfo(scCreationTx, dummyBlock, scCreationHeight));
-    EXPECT_TRUE(view->ScheduleSidechainEvent(scCreationTx.GetVscCcOut()[0], scCreationHeight));
+    EXPECT_TRUE(view->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
 
     CBlockUndo dummyBlockUndo;
-    std::map<uint256, bool> dummy;
+    std::vector<CScCertificateStatusUpdateInfo> dummy;
     EXPECT_TRUE(view->HandleSidechainEvents(scCreationHeight + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
 
     //Create transaction with double fwd Tx
@@ -1575,9 +1816,7 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsDoNotMatureUponRevertSidechainEvents
     fwdTx = mutFwdTx;
 
     int fwdHeight = 20;
-    EXPECT_TRUE(view->UpdateScInfo(fwdTx, dummyBlock, fwdHeight));
-    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[0], fwdHeight));
-    EXPECT_TRUE(view->ScheduleSidechainEvent(fwdTx.GetVftCcOut()[1], fwdHeight));
+    EXPECT_TRUE(view->UpdateSidechain(fwdTx, dummyBlock, fwdHeight));
 
     int fwdMaturityHeight = fwdHeight + Params().ScCoinsMaturity();
     CBlockUndo blockUndo;
@@ -1592,4 +1831,11 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsDoNotMatureUponRevertSidechainEvents
     EXPECT_TRUE(sidechain.balance == scCreationTx.GetVscCcOut()[0].nValue);
     EXPECT_TRUE(sidechain.mImmatureAmounts.count(fwdMaturityHeight) != 0);
     EXPECT_TRUE(sidechain.mImmatureAmounts.at(fwdMaturityHeight) == fwdTx.GetVftCcOut()[0].nValue + fwdTx.GetVftCcOut()[1].nValue);
+}
+
+void SidechainsEventsTestSuite::storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight)
+{
+    chainSettingUtils::ExtendChainActiveToHeight(chainActiveHeight);
+    view.SetBestBlock(chainActive.Tip()->GetBlockHash());
+    txCreationUtils::storeSidechain(view.getSidechainMap(), scId, sidechain);
 }

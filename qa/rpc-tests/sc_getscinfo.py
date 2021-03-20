@@ -130,13 +130,14 @@ class sc_getscinfo(BitcoinTestFramework):
         # check all of them have right block creation hash which is part of verbose output
         # and fill the ordered scids lists
         for item in sc_info_all['items']:
-            assert_equal(item['created in block'], cr_block_hash)
+            assert_equal(item['created at block height'], sc_creating_height)
             scids_all.append(item['scid'])
             if item['state'] == "ALIVE":
                 scids_alive.append(item['scid'])
 
         NUM_ALIVE = len(scids_alive)
 
+        a_ceased_scid = "*"
         # get a ceased scid
         for scid in scids_all:
             if scid not in scids_alive:
@@ -157,7 +158,7 @@ class sc_getscinfo(BitcoinTestFramework):
         count = 0
         for item in sc_info['items']:
             try:
-                assert_equal(item['created in block'], cr_block_hash)
+                assert_equal(item['created at block height'], sc_creating_height)
                 assert_true(False)
             except Exception, e:
                 # it is ok, we expected it
@@ -179,7 +180,7 @@ class sc_getscinfo(BitcoinTestFramework):
 
         count = from_par
         for item in sc_info['items']:
-            assert_equal(item['created in block'], cr_block_hash)
+            assert_equal(item['created at block height'], sc_creating_height)
             assert_equal(scids_all[count], item['scid'])
             count += 1
 

@@ -12,8 +12,7 @@
 #include "txmempool.h"
 #include "zen/forkmanager.h"
 #include "script/interpreter.h"
-#include <script/sigcache.h>
-
+#include "script/sigcache.h"
 #include "main.h"
 
 CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nValue), pubKeyHash()
@@ -32,11 +31,15 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
 
 CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
     scId(), epochNumber(EPOCH_NOT_INITIALIZED), quality(QUALITY_NULL),
-    endEpochBlockHash(), scProof(), nFirstBwtPos(0) {}
+    endEpochBlockHash(), scProof(), vFieldElementCertificateField(),
+    vBitVectorCertificateField(), nFirstBwtPos(0) {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
-    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), nFirstBwtPos(cert.nFirstBwtPos) {}
+    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof),
+    vFieldElementCertificateField(cert.vFieldElementCertificateField),
+    vBitVectorCertificateField(cert.vBitVectorCertificateField),
+    nFirstBwtPos(cert.nFirstBwtPos) {}
 
 CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 {
@@ -46,13 +49,18 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
     *const_cast<int64_t*>(&quality) = cert.quality;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<libzendoomc::ScProof*>(&scProof) = cert.scProof;
+    *const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField) = cert.vFieldElementCertificateField;
+    *const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField) = cert.vBitVectorCertificateField;
     *const_cast<int*>(&nFirstBwtPos) = cert.nFirstBwtPos;
     return *this;
 }
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
-    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), nFirstBwtPos(cert.nFirstBwtPos)
+    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof),
+    vFieldElementCertificateField(cert.vFieldElementCertificateField),
+    vBitVectorCertificateField(cert.vBitVectorCertificateField),
+    nFirstBwtPos(cert.nFirstBwtPos)
 {
     UpdateHash();
 }
@@ -82,8 +90,31 @@ bool CScCertificate::IsValidVersion(CValidationState &state) const
 
 bool CScCertificate::IsVersionStandard(int nHeight) const
 {
-    if (!zen::ForkManager::getInstance().areSidechainsSupported(nHeight))
-        return false;
+    return true;
+}
+
+bool CScCertificate::CheckInputsOutputsNonEmpty(CValidationState &state) const
+{
+    // Certificates can not contain empty `vin` 
+    if (GetVin().empty())
+    {
+        LogPrint("sc", "%s():%d - Error: cert[%s]\n", __func__, __LINE__, GetHash().ToString() );
+        return state.DoS(10, error("%s(): vin empty", __func__),
+                         REJECT_INVALID, "bad-cert-vin-empty");
+    }
+
+    return true;
+}
+
+bool CScCertificate::CheckSerializedSize(CValidationState &state) const
+{
+    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity
+    uint32_t size = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    if (size > MAX_CERT_SIZE) {
+        LogPrintf("CheckSerializedSize: Cert id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_CERT_SIZE, ToString());
+        return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
+                         REJECT_INVALID, "bad-txns-oversize");
+    }
 
     return true;
 }
@@ -164,11 +195,14 @@ CAmount CScCertificate::GetFeeAmount(const CAmount& valueIn) const
 {
     return (valueIn - GetValueOfChange());
 }
-
+#ifdef BITCOIN_TX
+std::string CScCertificate::EncodeHex() const {return std::string{};}
+#else
 std::string CScCertificate::EncodeHex() const
 {
     return EncodeHexCert(*this);
 }
+#endif
 
 std::string CScCertificate::ToString() const
 {
@@ -189,21 +223,42 @@ std::string CScCertificate::ToString() const
     return str;
 }
 
-void CScCertificate::AddToBlock(CBlock* pblock) const
-{
-    LogPrint("cert", "%s():%d - adding to block cert %s\n", __func__, __LINE__, GetHash().ToString());
-    pblock->vcert.push_back(*this);
+bool CScCertificate::CheckInputsLimit() const {
+    // Node operator can choose to reject tx by number of transparent inputs
+    static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
+    size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
+    if (limit > 0) {
+        size_t n = GetVin().size();
+        if (n > limit) {
+            LogPrint("mempool", "Dropping txid %s : too many inputs %zu > limit %zu\n",
+                    GetHash().ToString(), n, limit );
+            return false;
+        }
+    }
+    return true;
 }
 
-void CScCertificate::AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int sigops) const
-{
-    LogPrint("cert", "%s():%d - adding to block templ cert %s, fee=%s, sigops=%u\n", __func__, __LINE__,
-        GetHash().ToString(), FormatMoney(fee), sigops);
-    pblocktemplate->vCertFees.push_back(fee);
-    pblocktemplate->vCertSigOps.push_back(sigops);
-}
+//--------------------------------------------------------------------------------------------
+// binaries other than zend that are produced in the build, do not call these members and therefore do not
+// need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
+// in zen-tx binary build configuration
+#ifdef BITCOIN_TX
+bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const { return false;}
+bool CScCertificate::VerifyScript(
+        const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+        bool cacheStore, ScriptError* serror) const { return true; }
 
-bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const 
+void CScCertificate::Relay() const {}
+std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
+{
+    return std::shared_ptr<const CTransactionBase>();
+}
+CFieldElement CScCertificate::GetDataHash() const
+{
+     static const CFieldElement dummy; return dummy;
+}
+#else
+bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const
 {
     bool areScSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
 
@@ -216,26 +271,24 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
     return true;
 }
 
-//--------------------------------------------------------------------------------------------
-// binaries other than zend that are produced in the build, do not call these members and therefore do not
-// need linking all of the related symbols. We use this macro as it is already defined with a similar purpose
-// in zen-tx binary build configuration
-#ifdef BITCOIN_TX
-std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
+bool CScCertificate::VerifyScript(
+        const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+        bool cacheStore, ScriptError* serror) const
 {
-    return std::shared_ptr<BaseSignatureChecker>(NULL);
-}
+    if (nIn >= GetVin().size() )
+        return ::error("%s:%d can not verify Signature: nIn too large for vin size %d",
+                                       GetHash().ToString(), nIn, GetVin().size());
 
-void CScCertificate::Relay() const {}
-std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
-{
-    return std::shared_ptr<const CTransactionBase>();
-}
-#else
+    const CScript &scriptSig = GetVin()[nIn].scriptSig;
 
-std::shared_ptr<BaseSignatureChecker> CScCertificate::MakeSignatureChecker(unsigned int nIn, const CChain* chain, bool cacheStore) const
-{
-    return std::shared_ptr<BaseSignatureChecker>(new CachingCertificateSignatureChecker(this, nIn, chain, cacheStore));
+    if (!::VerifyScript(scriptSig, scriptPubKey, nFlags,
+                      CachingCertificateSignatureChecker(this, nIn, chain, cacheStore),
+                      serror))
+    {
+        return ::error("%s:%d VerifySignature failed: %s", GetHash().ToString(), nIn, ScriptErrorString(*serror));
+    }
+
+    return true;
 }
 
 void CScCertificate::Relay() const { ::Relay(*this); }
@@ -243,6 +296,13 @@ void CScCertificate::Relay() const { ::Relay(*this); }
 std::shared_ptr<const CTransactionBase>
 CScCertificate::MakeShared() const {
     return std::shared_ptr<const CTransactionBase>(new CScCertificate(*this));
+}
+
+CFieldElement CScCertificate::GetDataHash() const
+{
+    std::vector<unsigned char> tmp(this->GetHash().begin(), this->GetHash().end());
+    tmp.resize(CFieldElement::ByteSize(), 0x0);
+    return CFieldElement{tmp};
 }
 #endif
 
@@ -267,11 +327,14 @@ CAmount CScCertificate::GetValueOfChange() const
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate(): CMutableTransactionBase(),
     scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
-    endEpochBlockHash(), scProof(), nFirstBwtPos(0) { }
+    endEpochBlockHash(), scProof(), vFieldElementCertificateField(),
+    vBitVectorCertificateField(), nFirstBwtPos(0) {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutableTransactionBase(),
     scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 
-    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), nFirstBwtPos(cert.nFirstBwtPos)
+    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), 
+    vFieldElementCertificateField(cert.vFieldElementCertificateField),
+    vBitVectorCertificateField(cert.vBitVectorCertificateField), nFirstBwtPos(cert.nFirstBwtPos)
 {
     nVersion = cert.nVersion;
     vin  = cert.GetVin();
@@ -280,14 +343,16 @@ CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutab
 
 CMutableScCertificate& CMutableScCertificate::operator=(const CMutableScCertificate& rhs)
 {
-    nVersion          = rhs.nVersion;
-    vin               = rhs.vin;
-    vout              = rhs.vout;
-    scId              = rhs.scId;
-    epochNumber       = rhs.epochNumber;
-    quality           = rhs.quality;
-    endEpochBlockHash = rhs.endEpochBlockHash;
-    scProof           = rhs.scProof;
+    nVersion                      = rhs.nVersion;
+    vin                           = rhs.vin;
+    vout                          = rhs.vout;
+    scId                          = rhs.scId;
+    epochNumber                   = rhs.epochNumber;
+    quality                       = rhs.quality;
+    endEpochBlockHash             = rhs.endEpochBlockHash;
+    scProof                       = rhs.scProof;
+    vFieldElementCertificateField = rhs.vFieldElementCertificateField;
+    vBitVectorCertificateField    = rhs.vBitVectorCertificateField;
     *const_cast<int*>(&nFirstBwtPos) = rhs.nFirstBwtPos;
 
     return *this;
@@ -337,9 +402,6 @@ bool CMutableScCertificate::addBwt(const CTxOut& out) {
     vout.push_back(out);
     return true;
 }
-
-bool CMutableScCertificate::add(const CTxScCreationOut& out) {return false;}
-bool CMutableScCertificate::add(const CTxForwardTransferOut& out) {return false;}
 
 std::string CMutableScCertificate::ToString() const
 {

@@ -452,6 +452,14 @@ def wait_and_assert_operationid_status(node, myopid, in_status='success', in_err
     else:
         return txid # otherwise return the txid
 
+def disconnect_nodes(from_connection, node_num):
+    ip_port = "127.0.0.1:" + str(p2p_port(node_num))
+    from_connection.disconnectnode(ip_port)
+    # poll until version handshake complete to avoid race conditions
+    # with transaction relaying
+    while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
+        time.sleep(0.1)
+
 def dump_ordered_tips(tip_list,debug=0):
     if debug == 0:
         return
@@ -463,11 +471,12 @@ def dump_ordered_tips(tip_list,debug=0):
         else:
             print (" ", y)
         c = 1
+
 def dump_sc_info_record(info, i, debug=0):
     if debug == 0:
         return
     print "  Node %d - balance: %f" % (i, info["balance"])
-    print "    created in block: %s (%d)" % (info["created in block"], info["created at block height"])
+    print "    created at block: %s (%d)" % (info["created at block height"], info["created at block height"])
     print "    created in tx:    %s" % info["creating tx hash"]
     print "    immature amounts: %s" % info["immature amounts"]
 
@@ -502,14 +511,43 @@ def get_epoch_data(scid, node, epochLen):
     epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
     return epoch_block_hash, epoch_number
 
-def disconnect_nodes(from_connection, node_num):
-    ip_port = "127.0.0.1:" + str(p2p_port(node_num))
-    from_connection.disconnectnode(ip_port)
-    # poll until version handshake complete to avoid race conditions
-    # with transaction relaying
-    while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
-        time.sleep(0.1)
+def get_spendable(node, min_amount):
+    # get a UTXO in node's wallet with minimal amount
+    utx = False
+    listunspent = node.listunspent()
+    for aUtx in listunspent:
+        if aUtx['amount'] > min_amount:
+            utx = aUtx
+            change = aUtx['amount'] - min_amount
+            break;
 
-def swap_bytes(input_buf):
-    return codecs.encode(codecs.decode(input_buf, 'hex')[::-1], 'hex').decode()
+    if utx == False:
+        print(listunspent)
+
+    assert_equal(utx!=False, True)
+    return utx, change
+
+def advance_epoch(mcTest, node, sync_call,
+    scid, prev_epoch_hash, sc_tag, constant, epoch_length, cert_quality=1, cert_fee=Decimal("0.00001")):
+
+    node.generate(epoch_length)
+    sync_call()
+
+    epoch_block_hash, epoch_number = get_epoch_data(scid, node, epoch_length)
+
+    proof = mcTest.create_test_proof(
+        sc_tag, epoch_number, epoch_block_hash, prev_epoch_hash,
+        cert_quality, constant, [], [])
+
+    try:
+        cert = node.send_certificate(scid, epoch_number, cert_quality, epoch_block_hash, proof, [], cert_fee)
+    except JSONRPCException, e:
+        errorString = e.error['message']
+        print "Send certificate failed with reason {}".format(errorString)
+        assert(False)
+    sync_call()
+
+    assert_true(cert in node.getrawmempool())
+
+    return cert, epoch_block_hash, epoch_number
 

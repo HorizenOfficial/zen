@@ -7,9 +7,6 @@
 #include <algorithm>
 #include <random>
 
-
-extern CBlockIndex* AddToBlockIndex(const CBlockHeader& block);
-
 //#define TEST_ALT_DEBUG
 
 #if !defined(TEST_ALT_DEBUG)

@@ -98,10 +98,17 @@ testScripts=(
   'sc_quality_nodes.py'
   'sc_quality_voiding.py'
   'sc_cert_quality_wallet.py'
+  'sc_cert_ceasing_sg.py'
+  'sc_bwt_request.py'
+  'sc_cert_customfields.py'
+  'sc_csw_nullifier.py'
+  'sc_cert_memcleanup_split.py'
+  'sc_cert_ceasing_split.py'
   'cbh_rpfix.py'
   'cbh_rpcheck.py'
   'tlsprotocols.py'
 );
+
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
   'getblocktemplate_proposals.py'

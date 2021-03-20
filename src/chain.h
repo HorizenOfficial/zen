@@ -152,6 +152,9 @@ public:
 
     int64_t nChainDelay;
 
+    //! Cumulative Hash Block Sidechain Transaction Commitment Tree
+    CFieldElement scCumTreeHash;
+
     //! Number of transactions in this block.
     //! Note: in a potential headers-first mode, this number cannot be relied upon
     unsigned int nTx;
@@ -182,7 +185,7 @@ public:
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
-    uint256 hashScTxsCommitment;
+    uint256  hashScTxsCommitment;
     unsigned int nTime;
     unsigned int nBits;
     uint256 nNonce;
@@ -190,6 +193,9 @@ public:
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     uint32_t nSequenceId;
+
+    //! hashable CFieldElement used for pre-sidechain forks hash calculations
+    static const CFieldElement defaultScCumTreeHash;
 
     void SetNull()
     {
@@ -213,11 +219,13 @@ public:
 
         nVersion       = 0;
         hashMerkleRoot = uint256();
-        hashScTxsCommitment = uint256();
+        hashScTxsCommitment.SetNull();
         nTime          = 0;
         nBits          = 0;
         nNonce         = uint256();
         nSolution.clear();
+
+        scCumTreeHash.SetNull();
     }
 
     CBlockIndex()
@@ -383,6 +391,10 @@ public:
         if ((nType & SER_DISK) && (nVersion >= SPROUT_VALUE_VERSION)) {
             READWRITE(nSproutValue);
         }
+
+        if (this->nVersion == BLOCK_VERSION_SC_SUPPORT) {
+            READWRITE(scCumTreeHash);
+        }
     }
 
     uint256 GetBlockHash() const
@@ -460,7 +472,17 @@ public:
     }
 
     /** Set/initialize a chain with a given tip. */
-    virtual void SetTip(CBlockIndex *pindex);
+    virtual void SetTip(CBlockIndex *pindex) {
+        if (pindex == NULL) {
+            vChain.clear();
+            return;
+        }
+        vChain.resize(pindex->nHeight + 1);
+        while (pindex && vChain[pindex->nHeight] != pindex) {
+            vChain[pindex->nHeight] = pindex;
+            pindex = pindex->pprev;
+        }
+    }
 
     /** Return a CBlockLocator that refers to a block in this chain (by default the tip). */
     CBlockLocator GetLocator(const CBlockIndex *pindex = NULL) const;

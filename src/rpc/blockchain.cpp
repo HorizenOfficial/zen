@@ -252,49 +252,13 @@ UniValue getdifficulty(const UniValue& params, bool fHelp)
     return GetNetworkDifficulty();
 }
 
-void AddDependancy(const CTransaction& tx, UniValue& info)
+static void AddDependancy(const CTransactionBase& root, UniValue& info)
 {
-    set<string> setDepends;
-    BOOST_FOREACH(const CTxIn& txin, tx.GetVin())
-    {
-        if (mempool.exists(txin.prevout.hash))
-            setDepends.insert(txin.prevout.hash.ToString());
-    }
-    // the dependancy of a certificate from the sc creation is not considered
-    for (const auto& ft: tx.GetVftCcOut())
-    {
-        if (mempool.hasSidechainCreationTx(ft.scId))
-        {
-            const uint256& scCreationHash = mempool.mapSidechains.at(ft.scId).scCreationTxHash;
-
-            // check if tx is also creating the sc
-            if (scCreationHash != tx.GetHash())
-                setDepends.insert(scCreationHash.ToString());
-        }
-    }
-
+    std::vector<uint256> sDepHash = mempool.mempoolDirectDependenciesFrom(root);
     UniValue depends(UniValue::VARR);
-    BOOST_FOREACH(const string& dep, setDepends)
+    for(const uint256& hash: sDepHash)
     {
-        depends.push_back(dep);
-    }
-
-    info.pushKV("depends", depends);
-}
-
-void AddDependancy(const CScCertificate& cert, UniValue& info)
-{
-    set<string> setDepends;
-    BOOST_FOREACH(const CTxIn& txin, cert.GetVin())
-    {
-        if (mempool.exists(txin.prevout.hash))
-            setDepends.insert(txin.prevout.hash.ToString());
-    }
-
-    UniValue depends(UniValue::VARR);
-    BOOST_FOREACH(const string& dep, setDepends)
-    {
-        depends.push_back(dep);
+        depends.push_back(hash.ToString());
     }
 
     info.pushKV("depends", depends);
@@ -1050,36 +1014,90 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
+static void addScUnconfCcData(const uint256& scId, UniValue& sc)
+{
+    if (mempool.mapSidechains.count(scId) == 0)
+        return;
+
+    UniValue ia(UniValue::VARR);
+    if (mempool.hasSidechainCreationTx(scId))
+    {
+        const uint256& hash = mempool.mapSidechains.at(scId).scCreationTxHash;
+        const CTransaction & scCrTx = mempool.mapTx.at(hash).GetTx();
+        for (const auto& scCrAmount : scCrTx.GetVscCcOut())
+        {
+            if (scId == scCrAmount.GetScId())
+            {
+                 UniValue o(UniValue::VOBJ);
+                 o.pushKV("unconf amount", ValueFromAmount(scCrAmount.nValue));
+                 ia.push_back(o);
+             }
+        }
+    }
+
+    for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTxHashes)
+    {
+        const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
+        for (const auto& fwdAmount : fwdTx.GetVftCcOut())
+        {
+            if (scId == fwdAmount.scId)
+            {
+                 UniValue o(UniValue::VOBJ);
+                 o.pushKV("unconf amount", ValueFromAmount(fwdAmount.GetScValue()));
+                 ia.push_back(o);
+             }
+        }
+    }
+
+    for (const auto& mbtrHash: mempool.mapSidechains.at(scId).mcBtrsTxHashes)
+    {
+        const CTransaction & mbtrTx = mempool.mapTx.at(mbtrHash).GetTx();
+        for (const auto& mbtrAmount : mbtrTx.GetVBwtRequestOut())
+        {
+            if (scId == mbtrAmount.scId)
+            {
+                 UniValue o(UniValue::VOBJ);
+                 o.pushKV("unconf amount", ValueFromAmount(mbtrAmount.GetScValue()));
+                 ia.push_back(o);
+             }
+        }
+    }
+
+    if (ia.size() > 0)
+        sc.pushKV("unconf immature amounts", ia);
+
+    // there are no info about bwt requests in sc db, therefore we do not include them neither when they are in mempool
+}
+
 bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechain::State scState,
     UniValue& sc, bool bOnlyAlive, bool bVerbose)
 {
     if (bOnlyAlive && (scState != CSidechain::State::ALIVE))
-    	return false;
+        return false;
 
     sc.pushKV("scid", scId.GetHex());
     if (!info.IsNull() )
     {
         int currentEpoch = (scState == CSidechain::State::ALIVE)?
                 info.EpochFor(chainActive.Height()):
-                info.EpochFor(info.GetCeasingHeight());
+                info.EpochFor(info.GetScheduledCeasingHeight());
  
         sc.pushKV("balance", ValueFromAmount(info.balance));
         sc.pushKV("epoch", currentEpoch);
-        sc.pushKV("end epoch height", info.StartHeightForEpoch(currentEpoch +1) - 1);
+        sc.pushKV("end epoch height", info.GetEndHeightForEpoch(currentEpoch));
         sc.pushKV("state", CSidechain::stateToString(scState));
-        sc.pushKV("ceasing height", info.GetCeasingHeight());
+        sc.pushKV("ceasing height", info.GetScheduledCeasingHeight());
  
         if (bVerbose)
         {
             sc.pushKV("creating tx hash", info.creationTxHash.GetHex());
-            sc.pushKV("created in block", info.creationBlockHash.ToString());
         }
  
         sc.pushKV("created at block height", info.creationBlockHeight);
-        sc.pushKV("last certificate epoch", info.prevBlockTopQualityCertReferencedEpoch);
-        sc.pushKV("last certificate hash", info.prevBlockTopQualityCertHash.GetHex());
-        sc.pushKV("last certificate quality", info.prevBlockTopQualityCertQuality);
-        sc.pushKV("last certificate amount", ValueFromAmount(info.prevBlockTopQualityCertBwtAmount));
+        sc.pushKV("last certificate epoch", info.lastTopQualityCertReferencedEpoch);
+        sc.pushKV("last certificate hash", info.lastTopQualityCertHash.GetHex());
+        sc.pushKV("last certificate quality", info.lastTopQualityCertQuality);
+        sc.pushKV("last certificate amount", ValueFromAmount(info.lastTopQualityCertBwtAmount));
  
         // creation parameters
         sc.pushKV("withdrawalEpochLength", info.creationData.withdrawalEpochLength);
@@ -1088,52 +1106,63 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         {
             sc.pushKV("wCertVk", HexStr(info.creationData.wCertVk));
             sc.pushKV("customData", HexStr(info.creationData.customData));
-            sc.pushKV("constant", HexStr(info.creationData.constant));
- 
-            UniValue ia(UniValue::VARR);
-            for(const auto& entry: info.mImmatureAmounts)
-            {
-                UniValue o(UniValue::VOBJ);
-                o.pushKV("maturityHeight", entry.first);
-                o.pushKV("amount", ValueFromAmount(entry.second));
-                ia.push_back(o);
-            }
-            sc.pushKV("immature amounts", ia);
-        }
 
-        // get fwd / bwt unconfirmed data if any
-        if (mempool.mapSidechains.count(scId)!= 0)
+            if (info.creationData.constant.is_initialized())
+                sc.pushKV("constant", info.creationData.constant->GetHexRepr());
+            else
+                sc.pushKV("constant", std::string{"NOT INITIALIZED"});
+
+            if (info.creationData.wMbtrVk.is_initialized())
+                sc.pushKV("wMbtrVk", HexStr(info.creationData.wMbtrVk.get()));
+            else
+                sc.pushKV("wMbtrVk", std::string{"NOT INITIALIZED"});
+
+            if(info.creationData.wCeasedVk.is_initialized())
+                sc.pushKV("wCeasedVk", HexStr(info.creationData.wCeasedVk.get()));
+            else
+                sc.pushKV("wCeasedVk", std::string{"NOT INITIALIZED"});
+
+            UniValue arrFieldElementConfig(UniValue::VARR);
+            for(const auto& cfgEntry: info.creationData.vFieldElementCertificateFieldConfig)
+            {
+                arrFieldElementConfig.push_back(cfgEntry.getBitSize());
+            }
+            sc.pushKV("vFieldElementCertificateFieldConfig", arrFieldElementConfig);
+
+            UniValue arrBitVectorConfig(UniValue::VARR);
+            for(const auto& cfgEntry: info.creationData.vBitVectorCertificateFieldConfig)
+            {
+                UniValue singlePair(UniValue::VARR);
+                singlePair.push_back(cfgEntry.getBitVectorSizeBits());
+                singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
+                arrBitVectorConfig.push_back(singlePair);
+            }
+            sc.pushKV("vBitVectorCertificateFieldConfig", arrBitVectorConfig);
+        }
+ 
+        UniValue ia(UniValue::VARR);
+        for(const auto& entry: info.mImmatureAmounts)
         {
-            if (!mempool.mapSidechains.at(scId).mBackwardCertificates.empty())
-            {
-                const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
-                const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
- 
-                sc.pushKV("unconf top quality certificate epoch",   topQualCert.epochNumber);
-                sc.pushKV("unconf top quality certificate hash",    topQualCertHash.GetHex());
-                sc.pushKV("unconf top quality certificate quality", topQualCert.quality);
-                sc.pushKV("unconf top quality certificate amount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers()));
-            }
-
-            if (bVerbose)
-            {
-                UniValue ia(UniValue::VARR);
-                for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
-                {
-                    const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-                    for (const auto& fwdAmount : fwdTx.GetVftCcOut())
-                    {
-                        if (scId == fwdAmount.scId)
-                        {
-                             UniValue o(UniValue::VOBJ);
-                             o.pushKV("unconf maturityHeight", -1);
-                             o.pushKV("unconf amount", ValueFromAmount(fwdAmount.nValue));
-                             ia.push_back(o);
-                         }
-                    }
-                }
-            }
+            UniValue o(UniValue::VOBJ);
+            o.pushKV("maturityHeight", entry.first);
+            o.pushKV("amount", ValueFromAmount(entry.second));
+            ia.push_back(o);
         }
+        sc.pushKV("immature amounts", ia);
+
+        // get unconfirmed data if any
+        if (mempool.hasSidechainCertificate(scId))
+        {
+            const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
+            const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
+ 
+            sc.pushKV("unconf top quality certificate epoch",   topQualCert.epochNumber);
+            sc.pushKV("unconf top quality certificate hash",    topQualCertHash.GetHex());
+            sc.pushKV("unconf top quality certificate quality", topQualCert.quality);
+            sc.pushKV("unconf top quality certificate amount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers()));
+        }
+
+        addScUnconfCcData(scId, sc);
     }
     else
     {
@@ -1152,10 +1181,15 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.customData = scCreation.customData;
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
+                    info.creationData.wMbtrVk = scCreation.wMbtrVk;
+                    info.creationData.wCeasedVk = scCreation.wCeasedVk;
+                    info.creationData.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
+                    info.creationData.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;
                     break;
                 }
             }
 
+            sc.pushKV("state", CSidechain::stateToString(CSidechain::State::UNCONFIRMED));
             sc.pushKV("unconf creating tx hash", info.creationTxHash.GetHex());
             sc.pushKV("unconf withdrawalEpochLength", info.creationData.withdrawalEpochLength);
 
@@ -1163,30 +1197,41 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             {
                 sc.pushKV("unconf wCertVk", HexStr(info.creationData.wCertVk));
                 sc.pushKV("unconf customData", HexStr(info.creationData.customData));
-                sc.pushKV("unconf constant", HexStr(info.creationData.constant));
 
-                CAmount fwd_am = 0;
-                for (const auto& fwdHash: mempool.mapSidechains.at(scId).fwdTransfersSet)
+                if(info.creationData.constant.is_initialized())
+                    sc.pushKV("unconf constant", info.creationData.constant->GetHexRepr());
+                else
+                    sc.pushKV("unconf constant", std::string{"NOT INITIALIZED"});
+
+                if(info.creationData.wMbtrVk.is_initialized())
+                    sc.pushKV("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get()));
+                else
+                    sc.pushKV("unconf wMbtrVk", std::string{"NOT INITIALIZED"});
+
+                if(info.creationData.wCeasedVk.is_initialized())
+                    sc.pushKV("unconf wCeasedVk", HexStr(info.creationData.wCeasedVk.get()));
+                else
+                    sc.pushKV("unconf wCeasedVk", std::string{"NOT INITIALIZED"});
+
+                UniValue arrFieldElementConfig(UniValue::VARR);
+                for(const auto& cfgEntry: info.creationData.vFieldElementCertificateFieldConfig)
                 {
-                    const CTransaction & fwdTx = mempool.mapTx.at(fwdHash).GetTx();
-                    for (const auto& fwdAmount : fwdTx.GetVftCcOut())
-                    {
-                        if (scId == fwdAmount.scId)
-                        {
-                            fwd_am += fwdAmount.nValue;
-                        }
-                    }
+                    arrFieldElementConfig.push_back(cfgEntry.getBitSize());
                 }
-                if (fwd_am > 0)
+                sc.pushKV("unconf vFieldElementCertificateFieldConfig", arrFieldElementConfig);
+
+                UniValue arrBitVectorConfig(UniValue::VARR);
+                for(const auto& cfgEntry: info.creationData.vBitVectorCertificateFieldConfig)
                 {
-                    UniValue ia(UniValue::VARR);
-                    UniValue o(UniValue::VOBJ);
-                    o.pushKV("unconf maturityHeight", -1);
-                    o.pushKV("unconf amount", ValueFromAmount(fwd_am));
-                    ia.push_back(o);
-                    sc.pushKV("unconf immature amounts", ia);
+                    UniValue singlePair(UniValue::VARR);
+                    singlePair.push_back(cfgEntry.getBitVectorSizeBits());
+                    singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
+                    arrBitVectorConfig.push_back(singlePair);
                 }
+                sc.pushKV("unconf vBitVectorCertificateFieldConfig", arrBitVectorConfig);
             }
+
+            addScUnconfCcData(scId, sc);
         }
         else
         {
@@ -1200,21 +1245,25 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
 
 bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool bVerbose)
 {
-    CSidechain scInfo;
+    CSidechain sidechain;
     CCoinsViewCache scView(pcoinsTip);
-    if (!scView.GetSidechain(scId, scInfo)) {
+    if (!scView.GetSidechain(scId, sidechain)) {
         LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scId.ToString() );
     }
-    CSidechain::State scState = scView.isCeasedAtHeight(scId, chainActive.Height() + 1);
+    CSidechain::State scState = scView.GetSidechainState(scId);
 
-    return FillScRecordFromInfo(scId, scInfo, scState, scRecord, bOnlyAlive, bVerbose);
+    return FillScRecordFromInfo(scId, sidechain, scState, scRecord, bOnlyAlive, bVerbose);
 }
 
 int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, int to=-1)
 {
-    CCoinsViewCache scView(pcoinsTip);
     std::set<uint256> sScIds;
-    scView.GetScIds(sScIds);
+    {
+        LOCK(mempool.cs);
+        CCoinsViewMemPool scView(pcoinsTip, mempool);
+
+        scView.GetScIds(sScIds);
+    }
 
     if (sScIds.size() == 0)
         return 0;
@@ -1271,18 +1320,37 @@ int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, in
     return vec.size(); 
 }
 
+void FillCertDataHash(const uint256& scid, UniValue& ret)
+{
+    CCoinsViewCache scView(pcoinsTip);
+
+    if (!scView.HaveSidechain(scid))
+    {
+        LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scid.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
+    }
+
+    CFieldElement certDataHash = scView.GetActiveCertDataHash(scid);
+    if (certDataHash.IsNull() )
+    {
+        LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing active cert data hash for required scid"));
+    }
+    ret.pushKV("certDataHash", certDataHash.GetHexRepr());
+}
+
 UniValue getscinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() == 0 || params.size() > 5)
         throw runtime_error(
             "getscinfo (\"scid\" onlyAlive)\n"
-			"\nArguments:\n"
-			"1. \"scid\"   (string, mandatory) Retrive only information about specified scid, \"*\" means all \n"
-			"2. onlyAlive (bool, optional, default=false) Retrieve only information for alive sidechains\n"
-			"3. verbose   (bool, optional, default=true) If false include only essential info in result\n"
+            "\nArguments:\n"
+            "1. \"scid\"   (string, mandatory) Retrive only information about specified scid, \"*\" means all \n"
+            "2. onlyAlive (bool, optional, default=false) Retrieve only information for alive sidechains\n"
+            "3. verbose   (bool, optional, default=true) If false include only essential info in result\n"
             "   --- meaningful if scid is not specified:\n"
-			"4. from      (integer, optional, default=0) If set, limit the starting item index (0-base) in the result array to this entry (included)\n"
-			"5. to        (integer, optional, default=-1) If set, limit the ending item index (0-base) in the result array to this entry (excluded) (-1 means max)\n"
+            "4. from      (integer, optional, default=0) If set, limit the starting item index (0-base) in the result array to this entry (included)\n"
+            "5. to        (integer, optional, default=-1) If set, limit the ending item index (0-base) in the result array to this entry (excluded) (-1 means max)\n"
             "\nReturns side chain info for the given id or for all of the existing sc if the id is not given.\n"
             "\nResult:\n"
             "{\n"
@@ -1298,7 +1366,6 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"state\":                   xxxxx,   (string)  state of the sidechain at the current chain height\n"
             "     \"ceasing height\":          xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
             "     \"creating tx hash\":        xxxxx,   (string)  txid of the creating transaction\n"
-            "     \"created in block\":        xxxxx,   (string)  hash of the block containing the creatimg tx\n"
             "     \"created at block height\": xxxxx,   (numeric) height of the above block\n"
             "     \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
             "     \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
@@ -1306,6 +1373,10 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
             "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
             "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
+            "     \"wMbtrVk\":                 xxxxx,   (string)  The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
+            "     \"wCeasedVk\":               xxxxx,   (string, optional)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
+            "     \"vFieldElementCertificateFieldConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            "     \"vBitVectorCertificateFieldConfig\"    xxxxx,   (string) A string representation of an array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom vBitVectorCertificateField with the corresponding sizes\n"
             "     \"immature amounts\": [\n"
             "       {\n"
             "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
@@ -1326,7 +1397,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     bool bRetrieveAllSc = false;
     string inputString = params[0].get_str();
     if (!inputString.compare("*"))
-    	bRetrieveAllSc = true;
+        bRetrieveAllSc = true;
     else
     {
         if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
@@ -1335,11 +1406,11 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
 
     bool bOnlyAlive = false;
     if (params.size() > 1)
-    	bOnlyAlive = params[1].get_bool();
+        bOnlyAlive = params[1].get_bool();
 
     bool bVerbose = true;
     if (params.size() > 2)
-    	bVerbose = params[2].get_bool();
+        bVerbose = params[2].get_bool();
 
     UniValue ret(UniValue::VOBJ);
     UniValue scItems(UniValue::VARR);
@@ -1372,11 +1443,11 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     {
         int from = 0;
         if (params.size() > 3)
-    	    from = params[3].get_int();
+            from = params[3].get_int();
 
         int to = -1;
         if (params.size() > 4)
-    	    to = params[4].get_int();
+            to = params[4].get_int();
 
         // throws a json rpc exception if the from/to parameters are invalid or out of the range of the
         // retrieved scItems list
@@ -1388,6 +1459,39 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
     }
 
     ret.pushKV("items", scItems);
+    return ret;
+}
+
+UniValue getactivecertdatahash(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getactivecertdatahash (\"scid\")\n"
+            "\nArgument:\n"
+            "   \"scid\"   (string, mandatory)  Retrive information about specified scid\n"
+            "\nReturns the certificate recent data hash info for the given scid.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"certDataHash\":              xxxxx,   (string)  A hex string representation of the field element containing the recent active certificate data hash for the specified scid.\n"
+            "}\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("getactivecertdatahash", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+        );
+
+    string scIdString = params[0].get_str();
+    {
+        if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+    }
+
+    UniValue ret(UniValue::VOBJ);
+ 
+    uint256 scId;
+    scId.SetHex(scIdString);
+
+    FillCertDataHash(scId, ret);
+ 
     return ret;
 }
 
@@ -1432,12 +1536,11 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
     }
 
-    const uint256& blockHash = info.creationBlockHash;
-
-    assert(mapBlockIndex.count(blockHash) != 0);
+    int blockHeight = info.creationBlockHeight;
 
     CBlock block;
-    CBlockIndex* pblockindex = mapBlockIndex[blockHash];
+    CBlockIndex* pblockindex = chainActive[blockHeight];
+    assert(pblockindex != nullptr);
 
     if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
@@ -1486,12 +1589,74 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     // block height
     ssBlock << pblockindex->nHeight;
 
+    // block scCommittmentTreeCumulativeHash
+    ssBlock << pblockindex->scCumTreeHash;
+    LogPrint("sc", "%s():%d - sc[%s], h[%d], cum[%s], bVers[0x%x]\n", __func__, __LINE__,
+        scId.ToString(), pblockindex->nHeight, pblockindex->scCumTreeHash.GetHexRepr(), pblockindex->nVersion);
+
     // block hex data
     ssBlock << block;
 
     std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
     return strHex;
 
+}
+
+UniValue checkcswnullifier(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "checkcswnullifier\n"
+            "\nArguments:\n"
+            "1. \"scid\"   (string, mandatory) scid of nullifier, \"*\" means all \n"
+            "2. nullifier (string, mandatory) Retrieve only information for nullifier\n"
+            "\nReturns True if nullifier exit in SC.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"data\":            xx,      (bool) existance of nullifier\n"
+            "}\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("checkcswnullifier", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\""
+                             "\"0f580d529516a8744de63c578ad83551304c3215f76d204e1a3e7ccbfd40c4e21a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a8740f580d529516a8744de63c578ad83551304c3215f76d204e1a3e7ccbfd40c4e2\"" ) 
+        );
+
+    string inputString = params[0].get_str();
+
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+
+    uint256 scId;
+    scId.SetHex(inputString);
+    
+    inputString = params[1].get_str();
+
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid nullifier format: not an hex");
+
+    std::string nullifierError;
+    std::vector<unsigned char> nullifierVec;
+    if (!AddScData(inputString, nullifierVec, CFieldElement::ByteSize(), true, nullifierError))
+    {
+        std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": " + nullifierError;
+        throw JSONRPCError(RPC_TYPE_ERROR, error);
+    }
+    CFieldElement nullifier{nullifierVec};
+    if (!nullifier.IsValid())
+    {
+        std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": invalid nullifier data";
+        throw JSONRPCError(RPC_TYPE_ERROR, error);
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    
+    if (pcoinsTip->HaveCswNullifier(scId, nullifier)) {
+        ret.pushKV("data", "true");
+    } else {
+        ret.pushKV("data", "false");
+    }
+
+    return ret;
 }
 
 UniValue getblockfinalityindex(const UniValue& params, bool fHelp)

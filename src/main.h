@@ -281,15 +281,18 @@ void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
 void PruneAndFlush();
 
+enum class LimitFreeFlag       { ON, OFF };
+enum class RejectAbsurdFeeFlag { ON, OFF };
+
 /** (try to) add transaction to memory pool **/
-bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false);
+bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
+    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
 
-bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false);
+bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
+    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
 
-bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee=false, bool disconnecting = false, bool verifyCert = true);
+bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
+    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
 
 struct CNodeStateStats {
     int nMisbehavior;
@@ -349,7 +352,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
  */
 bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& mapInputs);
 
-/** 
+/**
  * Count ECDSA signature operations the old-fashioned (pre-0.6) way
  * @return number of sigops this transaction's outputs will produce when spent
  * @see CTransaction::FetchInputs
@@ -367,11 +370,26 @@ unsigned int GetP2SHSigOpCount(const CTransactionBase& tx, const CCoinsViewCache
 
 
 /**
- * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
+ * Check whether the specified input (either regular or CSW) of this transaction has valid scripts & sigs.
  * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
  * instead of being performed inline.
  */
-bool ContextualCheckInputs(const CTransactionBase& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+bool InputScriptCheck(const CScript& scriptPubKey, const CTransactionBase& tx, unsigned int nIn,
+                      const CChain& chain, unsigned int flags, bool cache,  CValidationState &state, std::vector<CScriptCheck> *pvChecks);
+/**
+ * Check whether all inputs (either regular and CSW) of this transaction are valid (no double spends, scripts & sigs, amounts)
+ * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
+ * instead of being performed inline.
+ */
+bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+                           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
+                           std::vector<CScriptCheck> *pvChecks = NULL);
+/**
+ * Check whether all inputs of this certificates are valid (no double spends, scripts & sigs, amounts)
+ * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
+ * instead of being performed inline.
+ */
+bool ContextualCheckCertInputs(const CScCertificate& cert, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL);
 
@@ -427,6 +445,7 @@ private:
 public:
     CScriptCheck();
     CScriptCheck(const CCoins& txFromIn, const CTransactionBase& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn);
+    CScriptCheck(const CScript& scriptPubKeyIn, const CTransactionBase& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn);
     bool operator()();
     void swap(CScriptCheck &check);
     ScriptError GetScriptError() const;
@@ -446,11 +465,12 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex);
  *  will be true if no problems were found. Otherwise, the return value will be false in case
  *  of problems. Note that in any case, coins may be modified. */
 bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins,
-    bool* pfClean = NULL, std::map<uint256, bool>* pVoidedCertsMap = nullptr);
+    bool* pfClean = NULL, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false, bool fCheckScTxesCommitment = true, std::map<uint256, bool>* pVoidedCertsMap = nullptr);
+    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false, bool fCheckScTxesCommitment = true,
+    std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Context-independent validity checks */
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
@@ -556,13 +576,6 @@ extern CCoinsViewCache *pcoinsTip;
 
 /** Global variable that points to the active block tree (protected by cs_main) */
 extern CBlockTreeDB *pblocktree;
-
-/**
- * Return the spend height, which is one more than the inputs.GetBestBlock().
- * While checking, GetBestBlock() refers to the parent block. (protected by cs_main)
- * This is also true for mempool checks.
- */
-int GetSpendHeight(const CCoinsViewCache& inputs);
 
 /**
  * Check if the output nIn is CF Reward

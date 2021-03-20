@@ -163,20 +163,10 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     {
         const uint256& scid = dynamic_cast<const CScCertificate*>(tx.getTxBase())->GetScId();
         entry.pushKV("scid", scid.GetHex());
-        if (conf > 0) {
-            bwtMaturityHeight = tx.bwtMaturityDepth - conf + chainActive.Height() + 1;
-        } else
-        if (conf == 0) {
-            // no info in tx because the block has yet to be mined
+        if (conf >= 0) {
             CSidechain sidechain;
-            int nHeight = chainActive.Height() + 1;
             assert(pcoinsTip->GetSidechain(scid, sidechain));
-            int currentEpoch = sidechain.EpochFor(nHeight);
-            int bwtMaturityDepth = sidechain.StartHeightForEpoch(currentEpoch+1) +
-                sidechain.SafeguardMargin() - nHeight;
-            bwtMaturityHeight = bwtMaturityDepth + nHeight;
-        } else {
-            // if conf < 0 we can not tell
+            bwtMaturityHeight = sidechain.GetCertMaturityHeight(dynamic_cast<const CScCertificate*>(tx.getTxBase())->epochNumber);
         }
     }
 
@@ -199,6 +189,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     }
     entry.pushKV("vout", vout);
 
+    tx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
     tx.getTxBase()->AddSidechainOutsToJSON(entry);
     tx.getTxBase()->AddJoinSplitToJSON(entry);
 
@@ -215,17 +206,17 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     }
 
     if (tx.IsFromMe(ISMINE_ALL)) {
-        CAmount nDebit = tx.GetDebit(ISMINE_ALL);
+        // get any ceasing sidechain withdrawal input
+        CAmount cswInTotAmount = tx.getTxBase()->GetCSWValueIn();
+        // nDebit has only vin contribution, we must add the ceased sc with part if any
+        CAmount nDebit = tx.GetDebit(ISMINE_ALL) + cswInTotAmount;
+
         CAmount nFee = tx.getTxBase()->GetFeeAmount(nDebit);
         entry.pushKV("fees", ValueFromAmount(nFee));
     }
 }
 
-#if 0
-void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry, isminefilter filter)
-#else
 void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefilter filter)
-#endif
 {
     int confirms = wtx.GetDepthInMainChain();
     entry.pushKV("confirmations", confirms);
@@ -251,6 +242,7 @@ void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefi
         entry.pushKV(item.first, item.second);
 
     // add the cross chain outputs if any
+    wtx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
     wtx.getTxBase()->AddSidechainOutsToJSON(entry);
     wtx.getTxBase()->AddJoinSplitToJSON(entry);
 }
@@ -618,11 +610,15 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
     CAmount nFeeRequired;
     std::string strError;
     vector<CRecipient> vecSend;
-    vector< Sidechain::CcRecipientVariant > vecCcSend;
+    vector<CRecipientScCreation> vecScSend;
+    vector<CRecipientForwardTransfer> vecFtSend;
+    vector<CRecipientBwtRequest> vecBwtRequest;
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, vecCcSend, wtxNew, reservekey, nFeeRequired, nChangePosRet, strError)) {
+    if (!pwalletMain->CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest,
+            wtxNew, reservekey, nFeeRequired, nChangePosRet, strError))
+    {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > pwalletMain->GetBalance())
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s because of its amount, complexity, or use of recently received funds!", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -763,7 +759,9 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     return sc_sendmany(input, false);
 }
 
-static void ScHandleTransaction(CWalletTx& wtx, std::vector<CcRecipientVariant>& vecCcSend, const CAmount& nTotalOut)
+static void ScHandleTransaction(CWalletTx& wtx, std::vector<CRecipientScCreation>& vecScSend,
+    std::vector<CRecipientForwardTransfer>& vecFtSend, const std::vector<CRecipientBwtRequest>& vecBwtRequest,
+     const CAmount& nTotalOut)
 {
     CAmount curBalance = pwalletMain->GetBalance();
     if (nTotalOut > curBalance)
@@ -774,7 +772,8 @@ static void ScHandleTransaction(CWalletTx& wtx, std::vector<CcRecipientVariant>&
     int nChangePosRet = -1;
     string strFailReason;
     std::vector<CRecipient> vecSend;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest,
+        wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
@@ -789,19 +788,24 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (fHelp ||  params.size() < 4 ) 
         throw runtime_error(
             "sc_create withdrawalEpochLength [{\"address\":... ,\"amount\":...,\"wCertVk\":...,\"customData\":...,\"constant\":...,...},...]\n"
-            "\nCreate a Side chain with the given id staring from the given block. A fixed amount is charged to the creator\n"
-            "\nIt also sends cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
+            "\nCreate a Side chain.\n"
             "\nArguments:\n"
-            "1. withdrawalEpochLength:   (numeric, required) Length of the withdrawal epochs. The minimum valid value for " +
-                                          Params().NetworkIDString() + " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
-            "2. \"address\"                (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "3. amount:                  (numeric, required) The numeric amount in ZEN is the value\n"
-            "4. \"wCertVk\"                (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            "5. \"customData\"             (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
-            "6. \"constant\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                   hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            " 1. withdrawalEpochLength:    (numeric, required) Length of the withdrawal epochs. The minimum valid value for " +
+                                            Params().NetworkIDString() + " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
+            " 2. \"address\"                 (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            " 3. amount:                   (numeric, required) The numeric amount in ZEN is the value\n"
+            " 4. \"wCertVk\"                 (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                     hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            " 5. \"customData\"              (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                     hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
+            " 6. \"constant\"                (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                     hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            " 7. \"wMbtrVk\"                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                     hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            " 8. \"wCeasedVk\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                 hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            " 9. \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElementCertificateField with the corresponding size.\n"
+            "10. \"vBitVectorCertificateFieldConfig\" (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -853,35 +857,115 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if ((params.size() > 4) && (params[4].get_str().size() != 0))
     {
         const std::string& inputString = params[4].get_str();
-        if(!Sidechain::AddScData(inputString, sc.creationData.customData, MAX_SC_DATA_LEN, false, error))
+        // it is optional
+        if (!inputString.empty())
         {
-            throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
+            if(!Sidechain::AddScData(inputString, sc.creationData.customData, MAX_SC_DATA_LEN, false, error))
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
+            }
         }
     }
 
     if (params.size() > 5)
     {
         const std::string& inputString = params[5].get_str();
-        if (!Sidechain::AddScData(inputString, sc.creationData.constant, SC_FIELD_SIZE, true, error))
+        // it is optional
+        if (!inputString.empty())
         {
-            throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
-        }
-
-        if(!libzendoomc::IsValidScConstant(sc.creationData.constant))
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid constant");
+            std::vector<unsigned char> scConstantByteArray {};
+            if (!Sidechain::AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), true, error))
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
+            }
+ 
+            sc.creationData.constant = CFieldElement{scConstantByteArray};
+            if(!sc.creationData.constant->IsValid())
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid constant");
+            }
         }
     }
 
-    CcRecipientVariant r(sc);
+    if (params.size() > 6)
+    {
+        const std::string& inputString = params[6].get_str();
+        // it is optional
+        if (!inputString.empty())
+        {
+            std::vector<unsigned char> wMbtrVkVec;
+            if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
+            }
+            sc.creationData.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
+            if (!libzendoomc::IsValidScVk(sc.creationData.wMbtrVk.get()))
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
+            }
+        }
+    }
 
-    vector<CcRecipientVariant> vecCcSend;
-    vecCcSend.push_back(r);
+    if (params.size() > 7)
+    {
+        const std::string& inputString = params[7].get_str();
+        // it is optional
+        if (!inputString.empty())
+        {
+            std::vector<unsigned char> wCeasedVkVec;
+            if (!Sidechain::AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, string("wCeasedVk: ") + error);
+            }
+ 
+            sc.creationData.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
+            if (!libzendoomc::IsValidScVk(sc.creationData.wCeasedVk.get()))
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
+            }
+        }
+    }
+
+    if (params.size() > 8)
+    {
+        UniValue intArray = params[8].get_array();
+        if (!Sidechain::AddScData(intArray, sc.creationData.vFieldElementCertificateFieldConfig))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
+        }
+        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
+    }
+
+    if (params.size() > 9)
+    {
+        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
+        UniValue PairsArray = params[9].get_array();
+        if (!PairsArray.isNull())
+        {
+            for(auto& pairEntry: PairsArray.getValues())
+            {
+                if (pairEntry.size() != 2) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig");
+                }
+                if (!pairEntry[0].isNum() || !pairEntry[1].isNum())
+                {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig, expected integers");
+                }
+
+                sc.creationData.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});
+            }
+        }
+    }
+
+    vector<CRecipientScCreation> vecScSend;
+    vecScSend.push_back(sc);
 
     EnsureWalletIsUnlocked();
-
+    vector<CRecipientForwardTransfer> dumVecFtSend;
+    vector<CRecipientBwtRequest> dumVecBwtRequest;
+    
     CWalletTx wtx;
-    ScHandleTransaction(wtx, vecCcSend, nAmount);
+    ScHandleTransaction(wtx, vecScSend, dumVecFtSend, dumVecBwtRequest, nAmount);
 
     UniValue ret(UniValue::VOBJ);
     FillScCreationReturnObj(wtx.getWrappedTx(), ret);
@@ -895,7 +979,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     if (fHelp ||  params.size() != 1)
         throw runtime_error(
-            "create_sidechain {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":...}\n"
+            "create_sidechain {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":... \"wMbtrVk\":...}\n"
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             "{\n"                     
@@ -915,7 +999,13 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "   \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "   \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
+            "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
+            "   \"wMbtrVk\":data                  (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                          hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "   \"wCeasedVk\":data                (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                          hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
+            "   \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            "   \"vBitVectorCertificateFieldConfig\"   (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
             "}\n"
             "\nResult:\n"
             "{\n"
@@ -930,8 +1020,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
-        {"withdrawalEpochLength", "fromaddress", "changeaddress",
-         "toaddress", "amount", "minconf", "fee", "wCertVk", "customData", "constant"};
+        {"withdrawalEpochLength", "fromaddress", "changeaddress", "toaddress", "amount", "minconf", "fee",
+         "wCertVk", "customData", "constant", "wMbtrVk","wCeasedVk", "vFieldElementCertificateFieldConfig", "vBitVectorCertificateFieldConfig"};
 
     UniValue inputObject = params[0].get_obj();
 
@@ -1050,7 +1140,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             FormatMoney(nFee), FormatMoney(nAmount)));
 
     // ---------------------------------------------------------
-
     std::string error;
 
     if (setKeyArgs.count("wCertVk"))
@@ -1068,7 +1157,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
         }
-
     }
     else
     {
@@ -1076,7 +1164,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
-
     if (setKeyArgs.count("customData"))
     {
         string inputString = find_value(inputObject, "customData").get_str();
@@ -1087,35 +1174,100 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
-
     if (setKeyArgs.count("constant"))
     {
         string inputString = find_value(inputObject, "constant").get_str();
-        if (!Sidechain::AddScData(inputString, creationData.constant, SC_FIELD_SIZE, true, error))
+        std::vector<unsigned char> scConstantByteArray {};
+        if (!Sidechain::AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), true, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
 
-        if (!libzendoomc::IsValidScConstant(creationData.constant))
+        creationData.constant = CFieldElement{scConstantByteArray};
+        if (!creationData.constant->IsValid())
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
+        }
+    }
+
+    // ---------------------------------------------------------
+    if (setKeyArgs.count("wMbtrVk"))
+    {
+        string inputString = find_value(inputObject, "wMbtrVk").get_str();
+        std::vector<unsigned char> wMbtrVkVec;
+        if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
+        }
+
+        creationData.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
+
+        if (!libzendoomc::IsValidScVk(creationData.wMbtrVk.get()))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
+        }
+    }
+
+    // ---------------------------------------------------------
+    if (setKeyArgs.count("wCeasedVk"))
+    {
+        string inputString = find_value(inputObject, "wCeasedVk").get_str();
+        std::vector<unsigned char> wCeasedVkVec;
+        if (!Sidechain::AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, string("wCeasedVk: ") + error);
+        }
+
+        creationData.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
+
+        if (!libzendoomc::IsValidScVk(creationData.wCeasedVk.get()))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
+        }
+    }
+
+    // ---------------------------------------------------------
+    if (setKeyArgs.count("vFieldElementCertificateFieldConfig"))
+    {
+        UniValue intArray = find_value(inputObject, "vFieldElementCertificateFieldConfig").get_array();
+        if (!Sidechain::AddScData(intArray, creationData.vFieldElementCertificateFieldConfig))
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
+        }
+        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
+    }
+
+    // ---------------------------------------------------------
+    if (setKeyArgs.count("vBitVectorCertificateFieldConfig"))
+    {
+        // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
+        UniValue PairsArray = find_value(inputObject, "vBitVectorCertificateFieldConfig").get_array();
+        if (!PairsArray.isNull())
+        {
+            for(auto& pairEntry: PairsArray.getValues())
+            {
+                if (pairEntry.size() != 2) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig");
+                }
+                if (!pairEntry[0].isNum() || !pairEntry[1].isNum())
+                {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig, expected integers");
+                }
+
+                creationData.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});
+            }
         }
     }
 
     CMutableTransaction tx_create;
     tx_create.nVersion = SC_TX_VERSION;
 
-    std::vector<ScRpcCreationCmd::sCrOutParams> vOutputs;
-    vOutputs.push_back(ScRpcCreationCmd::sCrOutParams(toaddress, nAmount));
+    std::vector<ScRpcCreationCmdTx::sCrOutParams> vOutputs;
+    vOutputs.push_back(ScRpcCreationCmdTx::sCrOutParams(toaddress, nAmount));
 
-    Sidechain::ScRpcCreationCmd cmd(tx_create, vOutputs, fromaddress, changeaddress, nMinDepth, nFee, creationData);
+    Sidechain::ScRpcCreationCmdTx cmd(tx_create, vOutputs, fromaddress, changeaddress, nMinDepth, nFee, creationData);
 
-    cmd.addInputs();
-    cmd.addChange();
-    cmd.addCcOutputs();
-
-    cmd.sign();
-    cmd.send();
+    cmd.execute();
         
     CTransaction tx(tx_create);
     UniValue ret(UniValue::VOBJ);
@@ -1156,7 +1308,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
     RPCTypeCheck(params, boost::assign::list_of (UniValue::VARR)(UniValue::VOBJ));
 
-    // valid keywords in cmd
+    // valid keywords in optional params
     static const std::set<std::string> validKeyArgs =
         {"fromaddress", "changeaddress", "minconf", "fee"};
 
@@ -1167,7 +1319,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
     UniValue outputsArr = params[0].get_array();
 
     // ---------------------------------------------------------
-    std::vector<ScRpcSendCmd::sFtOutParams> vOutputs;
+    std::vector<ScRpcSendCmdTx::sFtOutParams> vOutputs;
     CAmount totalAmount = 0;
 
     if (outputsArr.size()==0)
@@ -1246,7 +1398,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
             }
         }
  
-        vOutputs.push_back(ScRpcSendCmd::sFtOutParams(scId, toaddress, nAmount));
+        vOutputs.push_back(ScRpcSendCmdTx::sFtOutParams(scId, toaddress, nAmount));
         totalAmount += nAmount;
     }
 
@@ -1331,16 +1483,269 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
     CMutableTransaction tx_fwd;
     tx_fwd.nVersion = SC_TX_VERSION;
 
-    Sidechain::ScRpcSendCmd cmd(tx_fwd, vOutputs, fromaddress, changeaddress, nMinDepth, nFee);
-
-    cmd.addInputs();
-    cmd.addChange();
-    cmd.addCcOutputs();
-
-    cmd.sign();
-    cmd.send();
+    Sidechain::ScRpcSendCmdTx cmd(tx_fwd, vOutputs, fromaddress, changeaddress, nMinDepth, nFee);
+    cmd.execute();
         
     return tx_fwd.GetHash().GetHex();
+}
+
+// request a backward transfer (BWT)
+UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || (params.size() != 1 && params.size() != 2))
+        throw runtime_error(
+            "request_transfer_from_sidechain {TODO}\n"
+            "\nArguments:\n"
+            "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
+            "[{\n"
+            "   \"scid\":side chain ID             (string, required) The uint256 side chain ID\n"
+            "   \"scRequestData\":hexstr                (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
+            "   \"pubkeyhash\":pkh                 (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
+            "   \"scFee\":amount,                  (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
+            "   \"scProof\":hexstr,                (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
+            "},...,]\n"
+            "2. \"params\"                        (string, optional) A json object with the command parameters\n"
+            "{\n"                     
+            "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
+            "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
+            "   \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
+            "   \"fee\":fee                       (numeric, optional, default=" +
+                                                      strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
+                                                      ") The fee amount to attach to this transaction.\n"
+            "}\n"
+            "\nResult:\n"
+            "\"transactionid\"    (string) The resulting transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("request_transfer_from_sidechain", "'{TODO}]'")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    RPCTypeCheck(params, boost::assign::list_of (UniValue::VARR)(UniValue::VOBJ));
+
+    // valid keywords in cmd arguments
+    static const std::set<std::string> validKeyOutputArray =
+        {"scid", "scRequestData", "pubkeyhash", "scFee", "scProof"};
+
+    // valid keywords in optional params
+    static const std::set<std::string> validKeyArgs =
+        {"fromaddress", "changeaddress", "minconf", "fee"};
+
+    UniValue argsArray = params[0].get_array();
+
+    if (argsArray.size()==0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, args arrays is empty.");
+
+    std::vector<ScRpcRetrieveCmdTx::sBtOutParams> vOutputs;
+
+    // keywords set in args array
+    for (const UniValue& o : argsArray.getValues())
+    {
+        if (!o.isObject())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+
+        std::set<std::string> setKeyOutputArray;
+
+        // sanity check, report error if unknown/duplicate key-value pairs
+        for (const string& s : o.getKeys())
+        {
+            if (!validKeyOutputArray.count(s))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
+  
+            if (!setKeyOutputArray.insert(s).second)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Duplicate key in input: ") + s);
+        }
+
+        // ---------------------------------------------------------
+        uint256 scId;
+        if (setKeyOutputArray.count("scid"))
+        {
+            string inputString = find_value(o, "scid").get_str();
+            if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+            scId.SetHex(inputString);
+        }
+        else
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"toaddress\"" );
+        }
+
+        {
+            LOCK(mempool.cs);
+            CCoinsViewMemPool scView(pcoinsTip, mempool);
+            if (!scView.HaveSidechain(scId))
+            {
+                LogPrint("sc", "scid[%s] not yet created\n", scId.ToString() );
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scId.ToString());
+            }
+        }
+ 
+        // ---------------------------------------------------------
+        uint160 pkeyValue;
+        if (setKeyOutputArray.count("pubkeyhash"))
+        {
+            const string& pkeyStr = find_value(o, "pubkeyhash").get_str();
+            if (pkeyStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: not an hex");
+            if (pkeyStr.length() != 40)
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: len is not 20 bytes ");
+            pkeyValue.SetHex(pkeyStr);
+        }
+        else
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"pubkeyhash\"" );
+        }
+
+        CKeyID keyID(pkeyValue);
+        CBitcoinAddress taddr(keyID);
+
+        if (!taddr.IsValid()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, pubkeyhash does not give a valid address");
+        }
+  
+        // ---------------------------------------------------------
+        CAmount scFee = 0;
+        if (setKeyOutputArray.count("scFee"))
+        {
+            UniValue av = find_value(o, "scFee");
+            scFee = AmountFromValue( av );
+            // we allow also 0 scFee, check only the amount range
+            if (!MoneyRange(scFee))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount out of range");
+        }
+        else
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scFee\"" );
+        }
+
+        // ---------------------------------------------------------
+        std::vector<unsigned char> scProofVec;
+        if (setKeyOutputArray.count("scProof"))
+        {
+            const string& scProofString = find_value(o, "scProof").get_str();
+            std::string error;
+            if (!Sidechain::AddScData(scProofString, scProofVec, SC_PROOF_SIZE, true ,error))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
+        }
+        else
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scProof\"" );
+        }
+        libzendoomc::ScProof scProof = libzendoomc::ScProof(scProofVec);
+
+        if(!libzendoomc::IsValidScProof(scProof))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scProof"));
+
+        // ---------------------------------------------------------
+        std::vector<unsigned char> scRequestDataVec;
+        if (setKeyOutputArray.count("scRequestData"))
+        {
+            const string& scRequestDataString = find_value(o, "scRequestData").get_str();
+            std::string error;
+            if (!Sidechain::AddScData(scRequestDataString, scRequestDataVec, CFieldElement::ByteSize(), true ,error))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("scRequestData: ") + error);
+        }
+        else
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scRequestData\"" );
+        }
+
+        CFieldElement scRequestData {scRequestDataVec};
+        if(!scRequestData.IsValid())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scRequestData"));
+
+        ScBwtRequestParameters bwtData;
+        bwtData.scFee = scFee;
+        bwtData.scProof = scProof;
+        bwtData.scRequestData = scRequestData;
+
+        vOutputs.push_back(ScRpcRetrieveCmdTx::sBtOutParams(scId, pkeyValue, bwtData));
+    }
+
+    CBitcoinAddress fromaddress;
+    CBitcoinAddress changeaddress;
+    int nMinDepth = 1;
+    CAmount nFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
+
+    if (params.size() > 1 && !params[1].isNull())
+    {
+        UniValue cmdParams  = params[1].get_obj();
+
+        if (!cmdParams.isObject())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+ 
+        // keywords set in cmd
+        std::set<std::string> setKeyArgs;
+ 
+        // sanity check, report error if unknown/duplicate key-value pairs
+        for (const string& s : cmdParams.getKeys())
+        {
+            if (!validKeyArgs.count(s))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
+ 
+            if (!setKeyArgs.insert(s).second)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Duplicate key in input: ") + s);
+        }
+
+        // ---------------------------------------------------------
+        if (setKeyArgs.count("fromaddress"))
+        {
+            string inputString = find_value(cmdParams, "fromaddress").get_str();
+            fromaddress = CBitcoinAddress(inputString);
+            if(!fromaddress.IsValid())
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown fromaddress format: ")+inputString );
+            }
+        }
+ 
+        // ---------------------------------------------------------
+        if (setKeyArgs.count("changeaddress"))
+        {
+            string inputString = find_value(cmdParams, "changeaddress").get_str();
+            changeaddress = CBitcoinAddress(inputString);
+            if(!changeaddress.IsValid())
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown changeaddress format: ")+inputString );
+            }
+            if (!IsMine(*pwalletMain, GetScriptForDestination(changeaddress.Get())))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, changeaddress is not mine: ")+inputString );
+        }
+ 
+        // ---------------------------------------------------------
+        if (setKeyArgs.count("minconf"))
+        {
+            nMinDepth = find_value(cmdParams, "minconf").get_int();
+            if (nMinDepth < 0)
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid minconf: must be greater that 0");
+        }
+ 
+        // ---------------------------------------------------------
+        if (setKeyArgs.count("fee"))
+        {
+            UniValue val = find_value(cmdParams, "fee");
+            if (val.get_real() == 0.0)
+            {
+                nFee = 0;
+            }
+            else
+            {
+                nFee = AmountFromValue(val);
+            }
+        }
+        if (!MoneyRange(nFee))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee out of range");
+    }
+
+    CMutableTransaction tx_bwt;
+    tx_bwt.nVersion = SC_TX_VERSION;
+
+    Sidechain::ScRpcRetrieveCmdTx cmd(tx_bwt, vOutputs, fromaddress, changeaddress, nMinDepth, nFee);
+    cmd.execute();
+        
+    return tx_bwt.GetHash().GetHex();
 }
 
 UniValue listaddressgroupings(const UniValue& params, bool fHelp)
@@ -1940,8 +2345,12 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
     string strFailReason;
-    vector< Sidechain::CcRecipientVariant > vecCcSend;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, vecCcSend, wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
+    vector<CRecipientScCreation> dumVecScSend;
+    vector<CRecipientForwardTransfer> dumVecFtSend;
+    vector<CRecipientBwtRequest> dumVecBwtRequest;
+
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, dumVecScSend, dumVecFtSend, dumVecBwtRequest,
+        wtx, keyChange, nFeeRequired, nChangePosRet, strFailReason);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
@@ -2883,7 +3292,9 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     CAmount nFee = 0;
     if (wtx.IsFromMe(filter))
     {
-        nFee = -(wtx.getTxBase()->GetFeeAmount(nDebit));
+        // nDebit has only vin contribution, we must add the ceased sc with part if any
+        CAmount cswInTotAmount = wtx.getTxBase()->GetCSWValueIn();
+        nFee = -(wtx.getTxBase()->GetFeeAmount(nDebit) + cswInTotAmount);
     }
 
     entry.pushKV("amount", ValueFromAmount(nNet - nFee));
@@ -4726,7 +5137,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
 
     // Recipients
     CAmount nTotalOut = 0;
-    vector<CcRecipientVariant> vecSend;
+    vector<CRecipientForwardTransfer> vecFtSend;
 
     for (const UniValue& o : outputs.getValues())
     {
@@ -4770,7 +5181,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         ft.nValue = nAmount;
         ft.scId = scId;
 
-        vecSend.push_back(CcRecipientVariant(ft));
+        vecFtSend.push_back(ft);
 
         nTotalOut += nAmount;
     }
@@ -4784,7 +5195,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
     txsize += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     txsize += CTXIN_SPEND_DUST_SIZE;
     txsize += CTXOUT_REGULAR_SIZE;      // There will probably be taddr change
-    txsize += CTXOUT_REGULAR_SIZE * vecSend.size();
+    txsize += CTXOUT_REGULAR_SIZE * vecFtSend.size();
     if (txsize > MAX_TX_SIZE) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Too many outputs, size of raw transaction would be larger than limit of %d bytes", MAX_TX_SIZE ));
     }
@@ -4794,7 +5205,10 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
     // Send
     CWalletTx wtx;
 
-    ScHandleTransaction(wtx, vecSend, nTotalOut);
+    vector<CRecipientScCreation> dumVecScSend;
+    vector<CRecipientBwtRequest> dumVecBwtRequest;
+
+    ScHandleTransaction(wtx, dumVecScSend, vecFtSend, dumVecBwtRequest, nTotalOut);
 
     return wtx.getWrappedTx().GetHash().GetHex();
 }
@@ -4809,17 +5223,25 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "send_certificate scid epochNumber quality endEpochBlockHash scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
             "\nArguments:\n"
-            "1. \"scid\"                  (string, required) The uint256 side chain ID\n"
-            "2. epochNumber             (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
-            "3. quality                 (numeric, required) The quality of this withdrawal certificate. \n"
-            "4. \"endEpochBlockHash\"     (string, required) The block hash determining the end of the referenced epoch\n"
-            "5. \"scProof\"               (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
-            "6. transfers:              (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
+            "1. \"scid\"                      (string, required) The uint256 side chain ID\n"
+            "2. epochNumber                 (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
+            "3. quality                     (numeric, required) The quality of this withdrawal certificate. \n"
+            "4. \"endEpochBlockHash\"         (string, required) The block hash determining the end of the referenced epoch\n"
+            "5. \"scProof\"                   (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
+            "6. transfers:                  (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
             "    [{\n"                     
             "      \"pubkeyhash\":\"pkh\"    (string, required) The public key hash of the receiver\n"
             "      \"amount\":amount       (numeric, required) The numeric amount in ZEN\n"
             "    }, ... ]\n"
-            "7. fee                     (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
+            "7. fee                         (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
+            "8. vFieldElementCertificateField           (array, optional) An array of byte strings...TODO add description\n"
+            "    [\n"                     
+            "      \"fieldElement\"    (string, required) The HEX string representing a generic field element\n"
+            "    , ... ]\n"
+            "9. vBitVectorCertificateField   (array, optional) An array of byte strings...TODO add description\n"
+            "    [\n"                     
+            "      \"fieldElement\"     (string, required) The HEX string representing a generic field element\n"
+            "    , ... ]\n"
             "\nResult:\n"
             "  \"certificateId\"   (string) The resulting certificate id.\n"
             "\nExamples:\n"
@@ -4846,8 +5268,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     CCoinsViewCache scView(&dummy);
     CCoinsViewMemPool vm(pcoinsTip, mempool);
     scView.SetBackend(vm);
-    CSidechain scInfo;
-    if (!scView.GetSidechain(scId,scInfo))
+    CSidechain sidechain;
+    if (!scView.GetSidechain(scId,sidechain))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid does not exists: ") + scId.ToString());
@@ -4880,13 +5302,13 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // sanity check of the epoch number and epoch hash block: it must be a legal end-epoch hash and epoch number must
     // be consistent with the current epoch (no old epoch certificates allowed)
-    if (!scView.isEpochDataValid(scInfo, epochNumber, endEpochBlockHash) )
+    if (!scView.CheckEndEpochBlockHash(sidechain, epochNumber, endEpochBlockHash) )
     {
         LogPrintf("ERROR: epochNumber[%d]/endEpochBlockHash[%s] are not legal\n", epochNumber, endEpochBlockHash.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid epoch data"));
     }
 
-    if (scView.isCeasedAtHeight(scId, chainActive.Height()+1)!= CSidechain::State::ALIVE) {
+    if (scView.GetSidechainState(scId)!= CSidechain::State::ALIVE) {
         LogPrintf("ERROR: certificate cannot be accepted, sidechain [%s] already ceased at active height = %d\n",
             scId.ToString(), chainActive.Height());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
@@ -4970,6 +5392,75 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         // any check for upper threshold is left to cert processing
     }
 
+    // get fe cfg from creation params if any
+    const auto & vFieldElementCertificateFieldConfig = sidechain.creationData.vFieldElementCertificateFieldConfig;
+    const auto & vBitVectorCertificateFieldConfig = sidechain.creationData.vBitVectorCertificateFieldConfig;
+
+    std::vector<FieldElementCertificateField> vFieldElementCertificateField;
+    UniValue feArray(UniValue::VARR);
+    if (params.size() > 7)
+    {
+        feArray = params[7].get_array();
+        int count = 0;
+        for (const UniValue& o : feArray.getValues())
+        {
+            if (!o.isStr())
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected string");
+
+            std::string strError;
+            std::vector<unsigned char> fe;
+            int nBits = vFieldElementCertificateFieldConfig.at(count).getBitSize();
+            int nBytes = nBits/8;
+            if (nBits % 8)
+                nBytes++;
+
+            if (!Sidechain::AddCustomFieldElement(o.get_str(), fe, nBytes, strError))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vFieldElementCertificateField [" + std::to_string(count) + "]: ") + strError);
+ 
+            vFieldElementCertificateField.push_back(fe);
+            count++;
+        }
+    }
+    // check here because we must check also if custom field vec is empty and sc creation has a non-empty cfg 
+    if (feArray.size() != vFieldElementCertificateField.size() )
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+            "Invalid parameter, fe array has size %d, but the expected size is %d",
+            feArray.size(), vBitVectorCertificateFieldConfig.size()));
+    }
+
+    std::vector<BitVectorCertificateField> vBitVectorCertificateField;
+    UniValue cmtArray(UniValue::VARR);
+    if (params.size() > 8)
+    {
+        cmtArray = params[8].get_array();
+        int count = 0;
+        for (const UniValue& o : cmtArray.getValues())
+        {
+            if (!o.isStr())
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected string");
+
+            std::string error;
+            std::vector<unsigned char> cmt;
+            int cmt_size = vBitVectorCertificateFieldConfig.at(count).getMaxCompressedSizeBytes();
+
+            // check upper limit only since data are compressed
+            static const bool STRICT_SZ_CHECK = false;
+
+            if (!Sidechain::AddScData(o.get_str(), cmt, cmt_size, STRICT_SZ_CHECK, error))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vBitVectorCertificateField [" + std::to_string(count) + "]: ") + error);
+ 
+            vBitVectorCertificateField.push_back(cmt);
+            count++;
+        }
+    }
+    if (cmtArray.size() != vBitVectorCertificateFieldConfig.size() )
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+            "Invalid parameter, compr mkl tree array has size %d, but the expected size is %d",
+            cmtArray.size(), vBitVectorCertificateFieldConfig.size()));
+    }
+
     EnsureWalletIsUnlocked();
 
     std::string strFailReason;
@@ -4982,26 +5473,21 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     int nMinDepth = 0; //1; 
 
     CAmount delta = 0;
-    if (epochNumber == scInfo.prevBlockTopQualityCertReferencedEpoch)
+    if (epochNumber == sidechain.lastTopQualityCertReferencedEpoch)
     {
-        delta = scInfo.prevBlockTopQualityCertBwtAmount;
+        delta = sidechain.lastTopQualityCertBwtAmount;
     }
 
-    if (nTotalOut > scInfo.balance+delta)
+    if (nTotalOut > sidechain.balance+delta)
     {
         LogPrint("sc", "%s():%d - insufficent balance in scid[%s]: balance[%s], cert amount[%s]\n",
-            __func__, __LINE__, scId.ToString(), FormatMoney(scInfo.balance+delta), FormatMoney(nTotalOut) );
+            __func__, __LINE__, scId.ToString(), FormatMoney(sidechain.balance+delta), FormatMoney(nTotalOut) );
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "sidechain has insufficient funds");
     }
 
-    Sidechain::ScRpcCmdCert cmd(cert, vBackwardTransfers, fromaddress, changeaddress, nMinDepth, nCertFee);
-
-    cmd.addInputs();
-    cmd.addChange();
-    cmd.addBackwardTransfers();
-
-    cmd.sign();
-    cmd.send();
+    Sidechain::ScRpcCmdCert cmd(cert, vBackwardTransfers, fromaddress, changeaddress, nMinDepth, nCertFee,
+        vFieldElementCertificateField, vBitVectorCertificateField);
+    cmd.execute();
 
     return cert.GetHash().GetHex();
 }

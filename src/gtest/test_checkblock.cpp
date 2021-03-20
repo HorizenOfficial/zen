@@ -6,6 +6,7 @@
 #include "zcash/Proof.hpp"
 #include <pow.h>
 #include "base58.h"
+#include <pow.h>
 #include "zen/forkmanager.h"
 #include "zen/forks/fork1_chainsplitfork.h"
 #include "zen/forks/fork3_communityfundandrpfixfork.h"
@@ -180,15 +181,15 @@ protected:
         mtx.addOut(CTxOut(0, CScript() << OP_TRUE));
         CAmount reward = GetBlockSubsidy(height, Params().GetConsensus());
 
-		for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
-			CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(height, reward, cfType);
-			if (vCommunityFund > 0) {
-				// Take some reward away from miners
-				mtx.getOut(0).nValue -= vCommunityFund;
-				// And give it to the community
-				mtx.addOut(CTxOut(vCommunityFund, Params().GetCommunityFundScriptAtHeight(height, cfType)));
-			}
-		}
+        for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+            CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(height, reward, cfType);
+            if (vCommunityFund > 0) {
+                // Take some reward away from miners
+                mtx.getOut(0).nValue -= vCommunityFund;
+                // And give it to the community
+                mtx.addOut(CTxOut(vCommunityFund, Params().GetCommunityFundScriptAtHeight(height, cfType)));
+            }
+        }
         return mtx;
     }
 
@@ -291,49 +292,49 @@ TEST_F(ContextualCheckBlockTest, BlockSproutRulesAcceptSproutTx) {
 
 class ContextualTxsCheckBlockTest : public ContextualCheckBlockTest {
 protected:
-	void TestTxsAcceptanceRules(CBaseChainParams::Network network, int expectedGrothTxSupportHeight) {
-	        SelectParams(network);
+    void TestTxsAcceptanceRules(CBaseChainParams::Network network, int expectedGrothTxSupportHeight) {
+            SelectParams(network);
 
-	    	CMutableTransaction mtx = GetBlockTxWithHeight(expectedGrothTxSupportHeight - 1);
+            CMutableTransaction mtx = GetBlockTxWithHeight(expectedGrothTxSupportHeight - 1);
 
-	        // Make it a Groth transaction: since nHeight is below 200, it will fail
-	        mtx.nVersion = GROTH_TX_VERSION;
-	        {
-	            SCOPED_TRACE("BlockShieldRulesRejectGrothTx");
-//	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-shielded-version-too-low");
-	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-version-unexpected");
-	        }
+            // Make it a Groth transaction: since nHeight is below 200, it will fail
+            mtx.nVersion = GROTH_TX_VERSION;
+            {
+                SCOPED_TRACE("BlockShieldRulesRejectGrothTx");
+//                ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-shielded-version-too-low");
+                ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-version-unexpected");
+            }
 
-	        // Make it a PHGR transaction: since nHeight is below 200, it will succeed
-	        mtx.nVersion = PHGR_TX_VERSION;
-	        {
-	            SCOPED_TRACE("BlockShieldRulesAcceptPhgrTx");
-	            ExpectValidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1);
-	        }
+            // Make it a PHGR transaction: since nHeight is below 200, it will succeed
+            mtx.nVersion = PHGR_TX_VERSION;
+            {
+                SCOPED_TRACE("BlockShieldRulesAcceptPhgrTx");
+                ExpectValidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1);
+            }
 
-	        mtx = GetBlockTxWithHeight(expectedGrothTxSupportHeight);
-	        mtx.nVersion = GROTH_TX_VERSION;
-	        {
-	            SCOPED_TRACE("BlockShieldRulesAcceptGrothTx");
-	            ExpectValidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight);
-	        }
+            mtx = GetBlockTxWithHeight(expectedGrothTxSupportHeight);
+            mtx.nVersion = GROTH_TX_VERSION;
+            {
+                SCOPED_TRACE("BlockShieldRulesAcceptGrothTx");
+                ExpectValidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight);
+            }
 
-	        mtx.nVersion = PHGR_TX_VERSION;
-	        {
-	            SCOPED_TRACE("BlockShieldRulesRejectPhgrTx");
-	            //ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-shielded-version-too-low");
-	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-version-unexpected");
-	        }
+            mtx.nVersion = PHGR_TX_VERSION;
+            {
+                SCOPED_TRACE("BlockShieldRulesRejectPhgrTx");
+                //ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-shielded-version-too-low");
+                ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-version-unexpected");
+            }
 
-	    }
+        }
 };
 
 
 TEST_F(ContextualTxsCheckBlockTest, BlockShieldRulesRejectOtherTx) {
 
-	TestTxsAcceptanceRules(CBaseChainParams::REGTEST, 200);
-	TestTxsAcceptanceRules(CBaseChainParams::TESTNET, 369900);
-	TestTxsAcceptanceRules(CBaseChainParams::MAIN, 455555);
+    TestTxsAcceptanceRules(CBaseChainParams::REGTEST, 200);
+    TestTxsAcceptanceRules(CBaseChainParams::TESTNET, 369900);
+    TestTxsAcceptanceRules(CBaseChainParams::MAIN, 455555);
 
 }
 
@@ -574,10 +575,10 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
 
     address1.SetString((Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str()));
     CBitcoinAddress address_sec_node(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SECURENODE).c_str());
-	CBitcoinAddress address_sup_node(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
+    CBitcoinAddress address_sup_node(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
 
-	CScriptID scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
-	CScriptID scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
+    CScriptID scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
+    CScriptID scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
     scriptID1 = boost::get<CScriptID>(address1.Get());
 
 
@@ -586,10 +587,10 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     mtx.getOut(0).nValue = 1.2 * COIN;
 
     mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-	mtx.getOut(1).nValue = 1.25 * COIN;
+    mtx.getOut(1).nValue = 1.25 * COIN;
 
-	mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-	mtx.getOut(2).nValue = 1.25 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 1.25 * COIN;
 
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);
@@ -613,29 +614,29 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     address_sup_node.SetString(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
 
     scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
-	scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
-	scriptID1 = boost::get<CScriptID>(address1.Get());
+    scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
+    scriptID1 = boost::get<CScriptID>(address1.Get());
 
 
-	mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
-	// this is the wrong amount for the FOUNDATION
-	mtx.getOut(0).nValue = 1.25 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
+    // this is the wrong amount for the FOUNDATION
+    mtx.getOut(0).nValue = 1.25 * COIN;
 
-	mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-	mtx.getOut(1).nValue = 1.25 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 1.25 * COIN;
 
-	mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-	mtx.getOut(2).nValue = 1.25 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 1.25 * COIN;
 
-	indexPrev.nHeight = hardForkHeight - 1;
-	block.vtx[0] = CTransaction(mtx);
+    indexPrev.nHeight = hardForkHeight - 1;
+    block.vtx[0] = CTransaction(mtx);
     EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // this is the correct amount for the FOUNDATION
     mtx.getOut(0).nValue = 2.5 * COIN;
-	indexPrev.nHeight = hardForkHeight - 1;
-	block.vtx[0] = CTransaction(mtx);
+    indexPrev.nHeight = hardForkHeight - 1;
+    block.vtx[0] = CTransaction(mtx);
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
 }

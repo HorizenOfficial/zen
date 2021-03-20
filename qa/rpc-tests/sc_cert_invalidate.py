@@ -44,14 +44,6 @@ class sc_cert_invalidate(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def disconnect_nodes(self, from_connection, node_num):
-        ip_port = "127.0.0.1:" + str(p2p_port(node_num))
-        from_connection.disconnectnode(ip_port)
-        # poll until version handshake complete to avoid race conditions
-        # with transaction relaying
-        while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
-            time.sleep(0.1)
-
     def refresh_sidechain(self, sc_info, scid, nIdx = 0 ):
         mark_logs("Node{} generating 1 block".format(nIdx), self.nodes, DEBUG_MODE)
         self.nodes[nIdx].generate(1)
@@ -60,6 +52,13 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mark_logs("  ==> height {}".format(self.nodes[nIdx].getblockcount()), self.nodes, DEBUG_MODE)
 
     def run_test(self):
+
+        def removekey(d, key='unconf'):
+            r = dict(d)
+            for k in d:
+                if key in k:
+                    del r[k]
+            return r
 
         '''
         Node0 creates a SC and sends funds to it, and then sends a cert to it with a bwt to Node1
@@ -105,7 +104,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
-        sc_info.append({'scid': scid})
+        sc_info.append(removekey(self.nodes[0].getscinfo(scid)['items'][0]))
 
         decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
         assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
@@ -216,13 +215,6 @@ class sc_cert_invalidate(BitcoinTestFramework):
         cross_epoch_0 = False
 
         end_epoch_height = self.nodes[0].getblock(epoch_block_hash)['height']
-
-        def removekey(d):
-            r = dict(d)
-            for k in d:
-                if 'unconf' in k:
-                    del r[k]
-            return r
 
         # invalidate all blocks one by one
         for j in range(0, len(sc_info)):

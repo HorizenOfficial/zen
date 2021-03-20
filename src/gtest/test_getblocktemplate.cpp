@@ -18,6 +18,7 @@
 #include <pow.h>
 #include "wallet/wallet.h"
 #include "rpc/server.h"
+#include "pow.h"
 
 #include <vector>
 #include <map>
@@ -74,8 +75,9 @@ public:
         CNullifiersMap mapNullifiers;
         CSidechainsMap mapSidechains;
         CSidechainEventsMap mapSidechainEvents;
+        CCswNullifiersMap cswNullifiers;
 
-        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents);
+        return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents, cswNullifiers);
     }
 };
 
