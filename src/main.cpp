@@ -1137,7 +1137,6 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
     LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
-    MempoolReturnValue res = MempoolReturnValue::INVALID;
 
     //we retrieve the current height from the pcoinsTip and not from chainActive because on DisconnectTip the Accept*ToMemoryPool
     // is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
