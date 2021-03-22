@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, initialize_chain_clean, \
+from test_framework.util import assert_true, assert_false, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
     mark_logs, disconnect_nodes
 from test_framework.mc_test.mc_test import *
@@ -14,7 +14,7 @@ from decimal import Decimal
 import time
 
 NUMB_OF_NODES = 3
-DEBUG_MODE = 0
+DEBUG_MODE = 1
 
 
 class ScSplitTest(BitcoinTestFramework):
@@ -95,6 +95,7 @@ class ScSplitTest(BitcoinTestFramework):
         mark_logs("\nNode 1 send 5.0 coins to a valid taddr to verify the network split", self.nodes, DEBUG_MODE)
 
         txes.append(self.nodes[1].sendtoaddress("zthXuPst7DVeePf2ZQvodgyMfQCrYf9oVx4", 5.0))
+        mark_logs("tx: {}".format(txes[-1]), self.nodes, DEBUG_MODE)
         self.sync_all()
 
         # Check the mempools of every nodes
@@ -118,19 +119,20 @@ class ScSplitTest(BitcoinTestFramework):
         ret = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
-        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
+        mark_logs("created SC id: {} tx: {}".format(scid,creating_tx), self.nodes, DEBUG_MODE)
         txes.append(creating_tx)
         self.sync_all()
 
         mark_logs("\nNode0 generating 1 honest block", self.nodes, DEBUG_MODE)
 
         blocks.extend(self.nodes[0].generate(1))
-        ownerBlock = blocks[-1]
         self.sync_all()
+        ownerBlockHeight = self.nodes[0].getblockcount()
 
         # Node 1 creates a FT of 4.0 coins and Node 0 generates 1 block
         mark_logs("\nNode 1 performs a fwd transfer of " + str(fwt_amount_1) + " coins ...", self.nodes, DEBUG_MODE)
         txes.append(self.nodes[1].sc_send("abcd", fwt_amount_1, scid))
+        mark_logs("tx: {}".format(txes[-1]), self.nodes, DEBUG_MODE)
 
         mark_logs("\nNode0 generating 1 honest block", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
@@ -139,6 +141,7 @@ class ScSplitTest(BitcoinTestFramework):
         # Node 1 creates a FT of 1.0 coin and Node 0 generates 1 block
         mark_logs("\nNode 1 performs a fwd transfer of " + str(fwt_amount_2) + " coins ...", self.nodes, DEBUG_MODE)
         txes.append(self.nodes[1].sc_send("abcd", fwt_amount_2, scid))
+        mark_logs("tx: {}".format(txes[-1]), self.nodes, DEBUG_MODE)
         self.sync_all()
 
         mark_logs("\nNode0 generating 1 honest block", self.nodes, DEBUG_MODE)
@@ -147,21 +150,14 @@ class ScSplitTest(BitcoinTestFramework):
 
         # Check the sc info
         mark_logs("\nChecking sc info on 'honest' portion of network...", self.nodes, DEBUG_MODE)
-        scinfoNode0 = self.nodes[0].getscinfo(scid)
-        scinfoNode1 = self.nodes[1].getscinfo(scid)
+        scinfoNode0 = self.nodes[0].getscinfo(scid)['items'][0]
+        scinfoNode1 = self.nodes[1].getscinfo(scid)['items'][0]
         assert_equal(scinfoNode0, scinfoNode1)
-        mark_logs("Node 0: " + str(scinfoNode0), self.nodes, DEBUG_MODE)
-        mark_logs("Node 1: " + str(scinfoNode1), self.nodes, DEBUG_MODE)
-        try:
-            mark_logs("Node 2: ", self.nodes[2].getscinfo(scid), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        assert_equal(self.nodes[1].getscinfo(scid)["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
-        assert_equal(self.nodes[1].getscinfo(scid)["created in block"], ownerBlock)
-        assert_equal(self.nodes[1].getscinfo(scid)["creating tx hash"], creating_tx)
-        assert_equal("scid not yet created" in errorString, True)
+        
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["created at block height"], ownerBlockHeight)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["creating tx hash"], creating_tx)
+        assert_equal(0, self.nodes[2].getscinfo(scid)['totalItems'])
 
         # ---------------------------------------------------------------------------------------
         # Nodes 2 start to work on malicious chain
@@ -174,13 +170,10 @@ class ScSplitTest(BitcoinTestFramework):
         self.join_network()
         mark_logs("Network joined", self.nodes, DEBUG_MODE)
 
-        mark_logs("\nChecking that sc info on Node1 are not available anymore since tx has been reverted...", self.nodes, DEBUG_MODE)
-        try:
-            mark_logs(self.nodes[1].getscinfo(scid), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("scid not yet created" in errorString, True)
+        mark_logs("\nChecking that sc info on Node1 are not available anymore in blockchain since tx has been reverted...", self.nodes, DEBUG_MODE)
+        ret = self.nodes[1].getscinfo(scid)['items'][0]
+        assert_false('creating tx hash' in ret)
+        assert_true(ret['unconf creating tx hash'], creating_tx)
 
         # Check the mempools of every nodes
         mark_logs("\nChecking mempools...", self.nodes, DEBUG_MODE)
@@ -200,7 +193,8 @@ class ScSplitTest(BitcoinTestFramework):
         mark_logs("\nNode1 generating 1 honest block and restoring the SC creation...", self.nodes, DEBUG_MODE)
 
         blocks.extend(self.nodes[1].generate(1))
-        secondOwnerBlock = blocks[-1]
+        self.sync_all()
+        secondOwnerBlockHeight = self.nodes[1].getblockcount()
 
         mark_logs("\nNode1 generating 1 honest block more and restoring all of SC funds...", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[1].generate(1))
@@ -213,19 +207,15 @@ class ScSplitTest(BitcoinTestFramework):
             assert_equal(len(txmem), 0)
 
         mark_logs("\nChecking sc info on the whole network...", self.nodes, DEBUG_MODE)
-        scinfoNode0 = self.nodes[0].getscinfo(scid)
-        scinfoNode1 = self.nodes[1].getscinfo(scid)
-        scinfoNode2 = self.nodes[2].getscinfo(scid)
-
-        mark_logs("Node 0: " + str(scinfoNode0), self.nodes, DEBUG_MODE)
-        mark_logs("Node 1: " + str(scinfoNode1), self.nodes, DEBUG_MODE)
-        mark_logs("Node 2: " + str(scinfoNode2), self.nodes, DEBUG_MODE)
+        scinfoNode0 = self.nodes[0].getscinfo(scid)['items'][0]
+        scinfoNode1 = self.nodes[1].getscinfo(scid)['items'][0]
+        scinfoNode2 = self.nodes[2].getscinfo(scid)['items'][0]
 
         assert_equal(scinfoNode0, scinfoNode1)
         assert_equal(scinfoNode0, scinfoNode2)
-        assert_equal(self.nodes[2].getscinfo(scid)["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
-        assert_equal(self.nodes[2].getscinfo(scid)["created in block"], secondOwnerBlock)
-        assert_equal(self.nodes[1].getscinfo(scid)["creating tx hash"], creating_tx)
+        assert_equal(self.nodes[2].getscinfo(scid)['items'][0]["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
+        assert_equal(self.nodes[2].getscinfo(scid)['items'][0]["created at block height"], secondOwnerBlockHeight)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["creating tx hash"], creating_tx)
 
 
 if __name__ == '__main__':

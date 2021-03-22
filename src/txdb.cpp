@@ -33,6 +33,7 @@ static const char DB_BEST_ANCHOR = 'a';
 static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
 static const char DB_LAST_BLOCK = 'l';
+static const char DB_CSW_NULLIFIER = 'n';
 
 
 void static BatchWriteAnchor(CLevelDBBatch &batch,
@@ -65,7 +66,7 @@ void static BatchSidechains(CLevelDBBatch &batch, const uint256 &scId, const CSi
     switch (sidechain.flag) {
         case CSidechainsCacheEntry::Flags::FRESH:
         case CSidechainsCacheEntry::Flags::DIRTY:
-            batch.Write(make_pair(DB_SIDECHAINS, scId), sidechain.scInfo);
+            batch.Write(make_pair(DB_SIDECHAINS, scId), sidechain.sidechain);
             break;
         case CSidechainsCacheEntry::Flags::ERASED:
             batch.Erase(make_pair(DB_SIDECHAINS, scId));
@@ -99,6 +100,22 @@ void static BatchWriteHashBestChain(CLevelDBBatch &batch, const uint256 &hash) {
 
 void static BatchWriteHashBestAnchor(CLevelDBBatch &batch, const uint256 &hash) {
     batch.Write(DB_BEST_ANCHOR, hash);
+}
+
+void static BatchWriteCswNullifier(CLevelDBBatch &batch, const uint256 &scId, const CFieldElement &nullifier, CCswNullifiersCacheEntry state) {
+    std::pair<uint256, CFieldElement> position = std::make_pair(scId, nullifier);
+
+    switch(state.flag) {
+        case CCswNullifiersCacheEntry::Flags::FRESH:
+            batch.Write(make_pair(DB_CSW_NULLIFIER, position), true);
+            break;
+        case CCswNullifiersCacheEntry::Flags::ERASED:
+            batch.Erase(make_pair(DB_CSW_NULLIFIER, position));
+            break;
+        case CCswNullifiersCacheEntry::Flags::DEFAULT:
+        default:
+            break;
+    }
 }
 
 CCoinsViewDB::CCoinsViewDB(std::string dbName, size_t nCacheSize, bool fMemory, bool fWipe) : db(GetDataDir() / dbName, nCacheSize, fMemory, fWipe) {
@@ -192,13 +209,19 @@ uint256 CCoinsViewDB::GetBestAnchor() const {
     return hashBestAnchor;
 }
 
+bool CCoinsViewDB::HaveCswNullifier(const uint256& scId, const CFieldElement &nullifier) const {
+    std::pair<uint256, CFieldElement> position = std::make_pair(scId, nullifier);
+    return db.Exists(make_pair(DB_CSW_NULLIFIER, position));
+}
+
 bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
                               const uint256 &hashBlock,
                               const uint256 &hashAnchor,
                               CAnchorsMap &mapAnchors,
                               CNullifiersMap &mapNullifiers,
                               CSidechainsMap& mapSidechains,
-                              CSidechainEventsMap& mapSidechainEvents) {
+                              CSidechainEventsMap& mapSidechainEvents,
+                              CCswNullifiersMap& cswNullifies) {
     CLevelDBBatch batch;
     size_t count = 0;
     size_t changed = 0;
@@ -240,6 +263,13 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
         BatchCeasedScs(batch, it->first, it->second);
         CSidechainEventsMap::iterator itOld = it++;
         mapSidechainEvents.erase(itOld);
+    }
+    
+    for (CCswNullifiersMap::iterator it = cswNullifies.begin(); it != cswNullifies.end();) {
+        const std::pair<uint256, CFieldElement>& position = it->first;
+        BatchWriteCswNullifier(batch, position.first, position.second, it->second);
+        CCswNullifiersMap::iterator itOld = it++;
+        cswNullifies.erase(itOld);
     }
 
     if (!hashBlock.IsNull())
@@ -358,8 +388,7 @@ void CCoinsViewDB::Dump_info()  const
             std::cout
                 << "scId[" << keyScId.ToString() << "]" << std::endl
                 << "  ==> balance: " << FormatMoney(info.balance) << std::endl
-                << "  creating block hash: " << info.creationBlockHash.ToString() <<
-                   " (height: " << info.creationBlockHeight << ")" << std::endl
+                << "  creating block height: " << info.creationBlockHeight  << std::endl
                 << "  creating tx hash: " << info.creationTxHash.ToString() << std::endl
                 // creation parameters
                 << "  withdrawalEpochLength: " << info.creationData.withdrawalEpochLength << std::endl;
@@ -446,6 +475,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nTx            = diskindex.nTx;
                 pindexNew->nSproutValue   = diskindex.nSproutValue;
                 pindexNew->hashScTxsCommitment = diskindex.hashScTxsCommitment;
+                pindexNew->scCumTreeHash  = diskindex.scCumTreeHash;
 
                 if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))
                     return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
@@ -461,3 +491,4 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
 
     return true;
 }
+

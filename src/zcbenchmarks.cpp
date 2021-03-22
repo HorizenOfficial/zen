@@ -116,7 +116,7 @@ double benchmark_create_joinsplit()
     struct timeval tv_start;
     timer_start(tv_start);
     JSDescription jsdesc(true,
-						 *pzcashParams,
+                         *pzcashParams,
                          pubKeyHash,
                          anchor,
                          {JSInput(), JSInput()},
@@ -389,7 +389,8 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapSidechainEvents) override
+                    CSidechainEventsMap& mapSidechainEvents,
+                    CCswNullifiersMap& cswNullifiers) override
     {
         return false;
     }
