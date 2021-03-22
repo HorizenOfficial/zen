@@ -248,4 +248,9 @@ bool ProofVerifier::check(
     }
 }
 
+bool ProofVerifier::isVerificationEnabled() const
+{
+    return perform_verification;
+}
+
 }
