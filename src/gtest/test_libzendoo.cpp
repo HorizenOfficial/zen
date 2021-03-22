@@ -431,86 +431,86 @@ TEST(ZendooLib, TestProofNoBwt){
 
 TEST(SidechainsField, BitVectorUncompressed)
 {
-    BitVectorErrorCode ret_code = BitVectorErrorCode::OK;
+    CctpErrorCode ret_code = CctpErrorCode::OK;
 
     unsigned char buffer[3] = {0x07, 0x0e, 0x00};
     CompressionAlgorithm e = CompressionAlgorithm::Uncompressed;
 
-    BitVectorBuffer bvb_in(buffer, sizeof(buffer));
+    BufferWithSize bws_in(buffer, sizeof(buffer));
 
-    BitVectorBuffer* bvb_ret = nullptr;
-    bvb_ret = zendoo_compress_bit_vector(&bvb_in, e, &ret_code);
-    ASSERT_TRUE(bvb_ret != nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::OK);
+    BufferWithSize* bws_ret = nullptr;
+    bws_ret = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
+    ASSERT_TRUE(bws_ret != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
-    unsigned char* ptr = bvb_ret->data;
+    unsigned char* ptr = bws_ret->data;
 
     for (int i = 0; i < sizeof(buffer); i++)
     {
         ASSERT_TRUE(ptr[i+1] == buffer[i]);
     }
 
-    zendoo_free_bit_vector(bvb_ret);
+    zendoo_free_bit_vector(bws_ret);
 }
 
 TEST(SidechainsField, BitVectorGzip)
 {
-    BitVectorErrorCode ret_code = BitVectorErrorCode::OK;
+    CctpErrorCode ret_code = CctpErrorCode::OK;
 
     unsigned char buffer[5] = {0xad, 0xde, 0xef, 0xbe, 0x00};
     CompressionAlgorithm e = CompressionAlgorithm::Gzip;
 
-    BitVectorBuffer bvb_in(buffer, sizeof(buffer));
+    BufferWithSize bws_in(buffer, sizeof(buffer));
 
     printf("Compressing using gzip...\n");
-    BitVectorBuffer* bvb_ret1 = nullptr;
-    bvb_ret1 = zendoo_compress_bit_vector(&bvb_in, e, &ret_code);
-    ASSERT_TRUE(bvb_ret1 != nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::OK);
+    BufferWithSize* bws_ret1 = nullptr;
+    bws_ret1 = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
+    ASSERT_TRUE(bws_ret1 != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
     // make a copy
     unsigned char ptr2[BV_SIZE_IN_BYTES] = {};
-    memcpy(ptr2, bvb_ret1->data, bvb_ret1->len);
+    memcpy(ptr2, bws_ret1->data, bws_ret1->len);
     ptr2[0] = (unsigned char)CompressionAlgorithm::Bzip2;
-    BitVectorBuffer bvb_in2(ptr2, bvb_ret1->len);
+    BufferWithSize bws_in2(ptr2, bws_ret1->len);
 
     printf("\nDecompressing with an invalid compression algo enum...\n");
-    BitVectorBuffer* bvb_null = nullptr;
-    bvb_null = zendoo_decompress_bit_vector(&bvb_in2, bvb_in2.len, &ret_code);
-    ASSERT_TRUE(bvb_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::UncompressError);
+    BufferWithSize* bws_null = nullptr;
+    bws_null = zendoo_decompress_bit_vector(&bws_in2, bws_in2.len, &ret_code);
+    ASSERT_TRUE(bws_null == nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::UncompressError);
 
     unsigned char ptr3[0] = {};
-    BitVectorBuffer bvb_in3(ptr3, 0);
+    BufferWithSize bws_in3(ptr3, 0);
     printf("\nDecompressing an empty buffer...\n");
-    bvb_null = zendoo_decompress_bit_vector(&bvb_in3, bvb_in3.len, &ret_code);
-    ASSERT_TRUE(bvb_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::InvalidBufferLength);
+    bws_null = zendoo_decompress_bit_vector(&bws_in3, bws_in3.len, &ret_code);
+    ASSERT_TRUE(bws_null == nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::InvalidBufferLength);
 
     unsigned char* ptr4 = nullptr;
-    BitVectorBuffer bvb_in4(ptr4, 33);
+    BufferWithSize bws_in4(ptr4, 33);
     printf("\nDecompressing a null ptr buffer in a valid struct...\n");
-    bvb_null = zendoo_decompress_bit_vector(&bvb_in4, bvb_in4.len, &ret_code);
-    ASSERT_TRUE(bvb_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::InvalidBufferData);
+    bws_null = zendoo_decompress_bit_vector(&bws_in4, bws_in4.len, &ret_code);
+    ASSERT_TRUE(bws_null == nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::InvalidBufferData);
 
-    BitVectorBuffer* bvb_in5 = nullptr;
+    BufferWithSize* bws_in5 = nullptr;
     printf("\nDecompressing a null ptr struct ...\n");
-    bvb_null = zendoo_decompress_bit_vector(bvb_in5, bvb_in4.len, &ret_code);
-    ASSERT_TRUE(bvb_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::NullPtr);
+    bws_null = zendoo_decompress_bit_vector(bws_in5, bws_in4.len, &ret_code);
+    ASSERT_TRUE(bws_null == nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::NullPtr);
 
     printf("\nDecompressing expecting a wrong size...\n");
-    bvb_null = zendoo_decompress_bit_vector(bvb_ret1, sizeof(buffer)-1, &ret_code);
-    ASSERT_TRUE(bvb_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::UncompressError);
+    bws_null = zendoo_decompress_bit_vector(bws_ret1, sizeof(buffer)-1, &ret_code);
+    ASSERT_TRUE(bws_null == nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::UncompressError);
 
     printf("\nDecompressing good data...\n");
-    BitVectorBuffer* bvb_ret2 = zendoo_decompress_bit_vector(bvb_ret1, sizeof(buffer), &ret_code);
-    ASSERT_TRUE(bvb_ret2 != nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::OK);
+    BufferWithSize* bws_ret2 = zendoo_decompress_bit_vector(bws_ret1, sizeof(buffer), &ret_code);
+    ASSERT_TRUE(bws_ret2 != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
-    unsigned char* ptr = bvb_ret2->data;
+    unsigned char* ptr = bws_ret2->data;
 
     for (int i = 0; i < sizeof(buffer); i++)
     {
@@ -518,68 +518,68 @@ TEST(SidechainsField, BitVectorGzip)
     }
 
     printf("\nfreeing buffers...\n");
-    zendoo_free_bit_vector(bvb_ret1);
-    zendoo_free_bit_vector(bvb_ret2);
+    zendoo_free_bit_vector(bws_ret1);
+    zendoo_free_bit_vector(bws_ret2);
 }
 
 TEST(SidechainsField, BitVectorBzip2)
 {
-    BitVectorErrorCode ret_code = BitVectorErrorCode::OK;
+    CctpErrorCode ret_code = CctpErrorCode::OK;
 
     unsigned char buffer[5] = {0xad, 0xde, 0xef, 0xbe, 0x00};
     CompressionAlgorithm e = CompressionAlgorithm::Bzip2;
 
-    BitVectorBuffer bvb_in(buffer, sizeof(buffer));
+    BufferWithSize bws_in(buffer, sizeof(buffer));
 
     printf("Compressing using bzip2...\n");
-    BitVectorBuffer* bvb_ret1 = nullptr;
-    bvb_ret1 = zendoo_compress_bit_vector(&bvb_in, e, &ret_code);
-    ASSERT_TRUE(bvb_ret1 != nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::OK);
+    BufferWithSize* bws_ret1 = nullptr;
+    bws_ret1 = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
+    ASSERT_TRUE(bws_ret1 != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
     // make a copy
     unsigned char ptr2[BV_SIZE_IN_BYTES] = {};
-    memcpy(ptr2, bvb_ret1->data, bvb_ret1->len);
+    memcpy(ptr2, bws_ret1->data, bws_ret1->len);
     ptr2[0] = (unsigned char)CompressionAlgorithm::Gzip;
-    BitVectorBuffer bvb_in2(ptr2, bvb_ret1->len);
+    BufferWithSize bws_in2(ptr2, bws_ret1->len);
 
     printf("\nDecompressing with an invalid compression algo enum...\n");
-    BitVectorBuffer* bvb_null = nullptr;
-    bvb_null = zendoo_decompress_bit_vector(&bvb_in2, sizeof(buffer), &ret_code);
-    ASSERT_TRUE(bvb_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::UncompressError);
+    BufferWithSize* bws_null = nullptr;
+    bws_null = zendoo_decompress_bit_vector(&bws_in2, sizeof(buffer), &ret_code);
+    ASSERT_TRUE(bws_null == nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::UncompressError);
 
     unsigned char ptr3[0] = {};
-    BitVectorBuffer bvb_in3(ptr3, 0);
+    BufferWithSize bws_in3(ptr3, 0);
     printf("\nDecompressing an empty buffer...\n");
-    bvb_null = zendoo_decompress_bit_vector(&bvb_in3, bvb_in3.len, &ret_code);
-    ASSERT_TRUE(bvb_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::InvalidBufferLength);
+    bws_null = zendoo_decompress_bit_vector(&bws_in3, bws_in3.len, &ret_code);
+    ASSERT_TRUE(bws_null == nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::InvalidBufferLength);
 
     unsigned char* ptr4 = nullptr;
-    BitVectorBuffer bvb_in4(ptr4, 33);
+    BufferWithSize bws_in4(ptr4, 33);
     printf("\nDecompressing a null ptr buffer in a valid struct...\n");
-    bvb_null = zendoo_decompress_bit_vector(&bvb_in4, bvb_in4.len, &ret_code);
-    ASSERT_TRUE(bvb_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::InvalidBufferData);
+    bws_null = zendoo_decompress_bit_vector(&bws_in4, bws_in4.len, &ret_code);
+    ASSERT_TRUE(bws_null == nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::InvalidBufferData);
 
-    BitVectorBuffer* bvb_in5 = nullptr;
+    BufferWithSize* bws_in5 = nullptr;
     printf("\nDecompressing a null ptr struct ...\n");
-    bvb_null = zendoo_decompress_bit_vector(bvb_in5, bvb_in4.len, &ret_code);
-    ASSERT_TRUE(bvb_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::NullPtr);
+    bws_null = zendoo_decompress_bit_vector(bws_in5, bws_in4.len, &ret_code);
+    ASSERT_TRUE(bws_null == nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::NullPtr);
 
     printf("\nDecompressing expecting a wrong size...\n");
-    bvb_null = zendoo_decompress_bit_vector(bvb_ret1, sizeof(buffer)-1, &ret_code);
-    ASSERT_TRUE(bvb_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::UncompressError);
+    bws_null = zendoo_decompress_bit_vector(bws_ret1, sizeof(buffer)-1, &ret_code);
+    ASSERT_TRUE(bws_null == nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::UncompressError);
 
     printf("\nDecompressing good data...\n");
-    BitVectorBuffer* bvb_ret2 = zendoo_decompress_bit_vector(bvb_ret1, sizeof(buffer), &ret_code);
-    ASSERT_TRUE(bvb_ret2 != nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::OK);
+    BufferWithSize* bws_ret2 = zendoo_decompress_bit_vector(bws_ret1, sizeof(buffer), &ret_code);
+    ASSERT_TRUE(bws_ret2 != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
-    unsigned char* ptr = bvb_ret2->data;
+    unsigned char* ptr = bws_ret2->data;
 
     for (int i = 0; i < sizeof(buffer); i++)
     {
@@ -587,56 +587,56 @@ TEST(SidechainsField, BitVectorBzip2)
     }
 
     printf("\nfreeing buffers...\n");
-    zendoo_free_bit_vector(bvb_ret1);
-    zendoo_free_bit_vector(bvb_ret2);
+    zendoo_free_bit_vector(bws_ret1);
+    zendoo_free_bit_vector(bws_ret2);
 }
 
 TEST(SidechainsField, BitVectorMerkleTree)
 {
-    BitVectorErrorCode ret_code = BitVectorErrorCode::OK;
+    CctpErrorCode ret_code = CctpErrorCode::OK;
 
     unsigned char buffer[5] = {0xad, 0xde, 0xef, 0xbe, 0x00};
 
-    BitVectorBuffer bvb_in_uncomp(buffer, sizeof(buffer));
+    BufferWithSize bws_in_uncomp(buffer, sizeof(buffer));
 
     printf("\nBuilding using uncompressed data...\n");
-    field_t* fe_null = zendoo_merkle_root_from_compressed_bytes(&bvb_in_uncomp, sizeof(buffer), &ret_code);
+    field_t* fe_null = zendoo_merkle_root_from_compressed_bytes(&bws_in_uncomp, sizeof(buffer), &ret_code);
     ASSERT_TRUE(fe_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::MerkleRootBuildError);
+    ASSERT_TRUE(ret_code == CctpErrorCode::MerkleRootBuildError);
 
-    BitVectorBuffer bvb_in(buffer, sizeof(buffer));
+    BufferWithSize bws_in(buffer, sizeof(buffer));
     CompressionAlgorithm e = CompressionAlgorithm::Bzip2;
-    BitVectorBuffer* bvb_ret1 = nullptr;
-    bvb_ret1 = zendoo_compress_bit_vector(&bvb_in_uncomp, e, &ret_code);
-    ASSERT_TRUE(bvb_ret1 != nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::OK);
+    BufferWithSize* bws_ret1 = nullptr;
+    bws_ret1 = zendoo_compress_bit_vector(&bws_in_uncomp, e, &ret_code);
+    ASSERT_TRUE(bws_ret1 != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
     unsigned char* ptr4 = nullptr;
-    BitVectorBuffer bvb_in4(ptr4, 33);
+    BufferWithSize bws_in4(ptr4, 33);
     printf("\nDecompressing a null ptr buffer in a valid struct...\n");
-    fe_null = zendoo_merkle_root_from_compressed_bytes(&bvb_in4, bvb_in4.len, &ret_code);
+    fe_null = zendoo_merkle_root_from_compressed_bytes(&bws_in4, bws_in4.len, &ret_code);
     ASSERT_TRUE(fe_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::InvalidBufferData);
+    ASSERT_TRUE(ret_code == CctpErrorCode::InvalidBufferData);
 
-    BitVectorBuffer* bvb_in5 = nullptr;
+    BufferWithSize* bws_in5 = nullptr;
     printf("\nBuilding with a null ptr struct ...\n");
-    fe_null = zendoo_merkle_root_from_compressed_bytes(bvb_in5, 5, &ret_code);
+    fe_null = zendoo_merkle_root_from_compressed_bytes(bws_in5, 5, &ret_code);
     ASSERT_TRUE(fe_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::NullPtr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::NullPtr);
 
     printf("\nBuilding with a wrong expected size...\n");
-    fe_null = zendoo_merkle_root_from_compressed_bytes(bvb_ret1, sizeof(buffer)-1, &ret_code);
+    fe_null = zendoo_merkle_root_from_compressed_bytes(bws_ret1, sizeof(buffer)-1, &ret_code);
     ASSERT_TRUE(fe_null == nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::MerkleRootBuildError);
+    ASSERT_TRUE(ret_code == CctpErrorCode::MerkleRootBuildError);
 
     printf("\nBuilding merkle tree ...\n");
-    field_t* fe = zendoo_merkle_root_from_compressed_bytes(bvb_ret1, sizeof(buffer), &ret_code);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::OK);
+    field_t* fe = zendoo_merkle_root_from_compressed_bytes(bws_ret1, sizeof(buffer), &ret_code);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
     ASSERT_TRUE(fe != nullptr);
 
     printf("\nfreeing mem...\n");
     zendoo_field_free(fe);
-    zendoo_free_bit_vector(bvb_ret1);
+    zendoo_free_bit_vector(bws_ret1);
 }
 
 TEST(SidechainsField, BitVectorMerkleTreeData)
@@ -713,24 +713,24 @@ TEST(SidechainsField, BitVectorMerkleTreeData)
         0x5a, 0xab, 0xdb, 0x76, 0x7b, 0x55, 0xe6, 0x80, 0xb2, 0xda, 0x36, 0xb8, 0x9d, 0x9e, 0xe1, 0x3c
     };
 
-    BitVectorErrorCode ret_code = BitVectorErrorCode::OK;
+    CctpErrorCode ret_code = CctpErrorCode::OK;
 
     size_t len = sizeof(buffer);
     printf("Size of data buf = %lu ...\n", len);
 
-    BitVectorBuffer bvb_in_uncomp(buffer, len);
+    BufferWithSize bws_in_uncomp(buffer, len);
     CompressionAlgorithm e = CompressionAlgorithm::Gzip;
     
     printf("\nCompressing data ...\n");
-    BitVectorBuffer* bvb_ret = zendoo_compress_bit_vector(&bvb_in_uncomp, e, &ret_code);
-    ASSERT_TRUE(bvb_ret != nullptr);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::OK);
+    BufferWithSize* bws_ret = zendoo_compress_bit_vector(&bws_in_uncomp, e, &ret_code);
+    ASSERT_TRUE(bws_ret != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
-    printf("\nCompressed data size = %lu ...\n", bvb_ret->len);
+    printf("\nCompressed data size = %lu ...\n", bws_ret->len);
 
     printf("\nBuilding merkle tree ...\n");
-    field_t* fe = zendoo_merkle_root_from_compressed_bytes(bvb_ret, len, &ret_code);
-    ASSERT_TRUE(ret_code == BitVectorErrorCode::OK);
+    field_t* fe = zendoo_merkle_root_from_compressed_bytes(bws_ret, len, &ret_code);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
     ASSERT_TRUE(fe != nullptr);
 
     printf("\nSerializing result ...\n");
@@ -746,7 +746,7 @@ TEST(SidechainsField, BitVectorMerkleTreeData)
     printf("]\n");
 
     printf("\nfreeing mem...\n");
-    zendoo_free_bit_vector(bvb_ret);
+    zendoo_free_bit_vector(bws_ret);
     zendoo_field_free(fe);
 }
 
@@ -756,62 +756,91 @@ TEST(SidechainsField, CommitmentTreeCreation)
     commitment_tree_t* ct = zendoo_commitment_tree_create();
     ASSERT_TRUE(ct != nullptr);
 
+    unsigned char field_bytes[CSidechainField::ByteSize()] = {};
+
+    printf("\nChecking initial commitment tree ...\n");
+    field_t* fe0 = zendoo_commitment_tree_get_commitment(ct);
+    zendoo_serialize_field(fe0, field_bytes);
+    printf("ct = [");
+    for (int i = 0; i < sizeof(field_bytes); i++)
+        printf("%02x", ((unsigned char*)field_bytes)[i]);
+    printf("]\n");
+
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(1000);
+
     const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
+    BufferWithSize bws_scid((unsigned char*)scId.begin(), scId.size());
 
     const uint256& tx_hash = aTransaction.GetHash();
+    BufferWithSize bws_hash((unsigned char*)tx_hash.begin(), tx_hash.size());
+
+    printf("sc creation tx hash=[%s] ...\n", tx_hash.ToString().c_str());
 
     uint32_t out_idx = 0;
     for (const CTxScCreationOut& ccout : aTransaction.GetVscCcOut() )
     {
         CAmount crAmount = ccout.nValue;
+
         const uint256& pub_key = ccout.address;
+        BufferWithSize bws_pk((unsigned char*)pub_key.begin(), pub_key.size());
+
         uint32_t epoch_len = ccout.withdrawalEpochLength;
 
-        // TODO what to do for empty or variable size vectors?
-        //      currently this is considered a 32 bytes fields but this is not correct, should be 1024 at most
-        //      proposal: lets make it a struct{data, len}
-        std::vector<unsigned char> customData;
+        BufferWithSize bws_custom_data(nullptr, 0);
         if (!ccout.customData.empty())
-            customData = ccout.customData;
-        customData.resize(32, 0xff);
+        {
+            bws_custom_data.data = (unsigned char*)(&ccout.customData[0]);
+            bws_custom_data.len = ccout.customData.size();
+        }
  
-        // TODO what to do for optional fixed size params?
-        //      proposal: lets make it a struct{data, len} as well
-        std::vector<unsigned char> constant;
+        BufferWithSize bws_constant(nullptr, 0);
         if(ccout.constant.is_initialized())
-            constant = ccout.constant->GetByteArray();
-        constant.resize(32, 0xff);
+        {
+            bws_constant.data = (unsigned char*)(&ccout.constant->GetByteArray()[0]);
+            bws_constant.len = ccout.constant->GetByteArray().size();
+        }
             
-        std::vector<unsigned char> cert_vk(ccout.wCertVk.begin(), ccout.wCertVk.end());
+        BufferWithSize bws_cert_vk((unsigned char*)ccout.wCertVk.begin(), ccout.wCertVk.size());
  
-        std::vector<unsigned char> btr_vk;
+        BufferWithSize bws_mbtr(nullptr, 0);
         if(ccout.wMbtrVk.is_initialized())
-            btr_vk = std::vector<unsigned char>(ccout.wMbtrVk->begin(), ccout.wMbtrVk->end());
-        constant.resize(1544, 0xff);
+        {
+            bws_mbtr.data = (unsigned char*)ccout.wMbtrVk->begin();
+            bws_mbtr.len = ccout.wMbtrVk->size();
+        }
             
-        std::vector<unsigned char> csw_vk;
+        BufferWithSize bws_csw(nullptr, 0);
         if(ccout.wCeasedVk.is_initialized())
-            csw_vk = std::vector<unsigned char>(ccout.wCeasedVk->begin(), ccout.wCeasedVk->end());
-        constant.resize(1544, 0xff);
+        {
+            bws_csw.data = (unsigned char*)ccout.wCeasedVk->begin();
+            bws_csw.len = ccout.wCeasedVk->size();
+        }
 
         printf("Adding a sc creation to the commitment tree ...\n");
         bool ret = zendoo_commitment_tree_add_scc(ct,
-             (unsigned char*)scId.begin(),
+             &bws_scid,
              crAmount,
-             (unsigned char*)pub_key.begin(),
+             &bws_pk,
              epoch_len,
-             (unsigned char*)&customData[0],
-             (unsigned char*)&constant[0],
-             (unsigned char*)&cert_vk[0],
-             (unsigned char*)&btr_vk[0],
-             (unsigned char*)&csw_vk[0],
-             (unsigned char*)tx_hash.begin(),
+             &bws_custom_data,
+             &bws_constant,
+             &bws_cert_vk,
+             &bws_mbtr,
+             &bws_csw,
+             &bws_hash,
              out_idx
         );
  
         out_idx++;
     }
+
+    printf("\nChecking commitment tree after sc add ...\n");
+    field_t* fe1 = zendoo_commitment_tree_get_commitment(ct);
+    zendoo_serialize_field(fe1, field_bytes);
+    printf("ct = [");
+    for (int i = 0; i < sizeof(field_bytes); i++)
+        printf("%02x", ((unsigned char*)field_bytes)[i]);
+    printf("]\n");
 
 
     printf("Deleting a nullptr commitment tree ...\n");
