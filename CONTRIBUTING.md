@@ -9,7 +9,7 @@
 # Filing bug reports:
 
 1. Follow the github issue guide
-2. If it requires secrecy, send an email to info@horizen.global
+2. If it requires secrecy, send an email to info@horizen.io
 
 # What we're looking for:
 
