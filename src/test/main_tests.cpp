@@ -44,7 +44,7 @@ static void TestBlockSubsidyHalvings(int nSubsidySlowStartInterval, int nSubsidy
 BOOST_AUTO_TEST_CASE(block_subsidy_test)
 {
     TestBlockSubsidyHalvings(Params(CBaseChainParams::MAIN).GetConsensus()); // As in main
-    TestBlockSubsidyHalvings(50, 150); // As in regtest
+    TestBlockSubsidyHalvings(1, 2000); // As in regtest
     TestBlockSubsidyHalvings(500, 1000); // Just another interval
 }
 

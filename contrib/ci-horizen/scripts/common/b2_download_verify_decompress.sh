@@ -6,7 +6,7 @@ FOLDERNAME="$1"
 FILENAME="$2"
 gzip_cmd="gzip"
 
-if command -v pigz > /dev/null;then
+if command -v pigz > /dev/null; then
   gzip_cmd="pigz"
 fi
 
@@ -16,7 +16,7 @@ if [ "${RENAME_FOLDER}" = "true" ] && [ ! -z "${RENAME_SUFFIX}" ]; then
 fi
 if command -v aria2c 2>&1 > /dev/null; then
   aria2c --file-allocation=none --max-tries=3 --continue=true "${B2_DOWNLOAD_URL}${FILENAME}.sha256" -d "${HOME}" || FAILURE="true"
-  aria2c --file-allocation=none -s4 -x4 --max-tries=3 --continue=true "${B2_DOWNLOAD_URL}${FILENAME}" -d "${HOME}" || FAILURE="true"
+  aria2c --file-allocation=none -s16 -x16 --max-tries=3 --continue=true "${B2_DOWNLOAD_URL}${FILENAME}" -d "${HOME}" || FAILURE="true"
 else
   wget --quiet --retry-connrefused --waitretry=3 --timeout=90 --continue "${B2_DOWNLOAD_URL}${FILENAME}.sha256" -O "${HOME}/${FILENAME}.sha256" || FAILURE="true"
   wget --quiet --retry-connrefused --waitretry=3 --timeout=90 --continue "${B2_DOWNLOAD_URL}${FILENAME}" -O "${HOME}/${FILENAME}" || FAILURE="true"

@@ -89,6 +89,8 @@ public:
     CScript GetCommunityFundScriptAtHeight(int height, Fork::CommunityFundType cfType) const;
     /** Enforce coinbase consensus rule in regtest mode */
     void SetRegTestCoinbaseMustBeProtected() { consensus.fCoinbaseMustBeProtected = true; }
+
+    void SetSubsidyHalvingInterval(int val) { consensus.nSubsidyHalvingInterval = val;}
 protected:
     CChainParams() {}
 

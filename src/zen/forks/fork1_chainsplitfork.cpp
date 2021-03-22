@@ -28,7 +28,7 @@ ChainsplitFork::ChainsplitFork() {
                                      //"zsvM6GdLJWXAvKs9ruUDgEdKiJzN7qrtKcP","zsre8uXg4TJTuqSaiKLQYjMd5ST3UwYorTj","zsem4VjWQuzhhhWPLwQN39SewXV1xaCVrR4","zt17Ett8K57LnhMt5RjUeYrjXDocjqt2oja",
                                      //"zt2PZSoyKuigEgM6ss6id5wqem69mwSKSnP","zszxnNPj2zg81McDarbQi76y3NYeqj8PkwU","zsi3PoGMUzkj8kPAaq9YGYUS8Wp2pDRjR8X",
                                      }},
-                                {CBaseChainParams::Network::REGTEST,{ "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" }},
+                                {CBaseChainParams::Network::REGTEST,{ "zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD" }},
                                 {CBaseChainParams::Network::TESTNET,{
                                      "zrH8KT8KUcpKKNBu3fjH4hA84jZBCawErqn", "zrGsMC4ou1r5Vxy7Dnxg4PfKpansx83BM8g", "zr6sB2Az36D8CqzeZNavB11WbovsGtJSAZG", "zrBAG3pXCTDq14nivNK9mW8SfwMNcdmMQpb",
                                      "zrRLwpYRYky4wsvwLVrDp8fs89EBTRhNMB1", "zrLozMfptTmE3zLP5SrTLyB8TXqH84Agjrr", "zrMckkaLtVTEUvxj4ouU7BPDGa8xmdTZSVE", "zrFc897wJXmF7BcEdbvi2mS1bLrcuWYK6hm",
@@ -49,6 +49,17 @@ ChainsplitFork::ChainsplitFork() {
                                {CBaseChainParams::Network::TESTNET,1494616813}
                            });
 }
+
+/*
+ * This is the prv key used in REGTEST for getting the community fund p2sh address:
+ *
+ * "privkey": "cQqMxnYBJUUS3jERyQSJWFuQV54eKTgS2v68wMNHXtNg9HzuyiAk"
+ * 
+ * After having imported the relevant priv key:
+ *     src/zen-cli --regtest importprivkey <privkey>
+ * The multi sig (m=1) redeemscript can be added to the wallet via:
+ *     src/zen-cli --regtest addmultisigaddress 1 "[\"<zen_addr>\"]
+ */
 
 /**
  * @brief getCommunityFundReward returns the community fund reward based on the height and passed-in reward

@@ -9,7 +9,7 @@ NEED_MAC_SIGN_CREDS="false"
 NEED_WIN_SIGN_CREDS="false"
 NEED_PGP_SIGN_CREDS="false"
 
-export B2_DOWNLOAD_URL="https://downloads.horizen.global/file/${B2_BUCKET_NAME}/"
+export B2_DOWNLOAD_URL="https://f001.backblazeb2.com/file/${B2_BUCKET_NAME}/"
 
 if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
   export DOCKER_UPDATE_PACKAGES="binfmt-support containerd.io docker-ce docker-ce-cli qemu-user-static"
