@@ -1133,39 +1133,46 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
     return nMinFee;
 }
 
-bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee)
+MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
-    if (pfMissingInputs)
-        *pfMissingInputs = false;
+    MempoolReturnValue res = MempoolReturnValue::INVALID;
 
     //we retrieve the current height from the pcoinsTip and not from chainActive because on DisconnectTip the Accept*ToMemoryPool
     // is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
     int nextBlockHeight = pcoinsTip->GetHeight() + 1;
 
     if (!cert.CheckInputsLimit())
-        return false;
+        return MempoolReturnValue::INVALID;
 
     if(!CheckCertificate(cert, state))
-        return error("%s(): CheckCertificate failed", __func__);
+    {
+        error("%s(): CheckCertificate failed", __func__);
+        return MempoolReturnValue::INVALID;
+    }
 
     static const int DOS_LEVEL = 10;
     if(!cert.ContextualCheck(state, nextBlockHeight, DOS_LEVEL))
-        return error("%s(): ContextualCheck failed", __func__);
+    {
+        error("%s(): ContextualCheck failed", __func__);
+        return MempoolReturnValue::INVALID;
+    }
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
     if (getRequireStandard() &&  !IsStandardTx(cert, reason, nextBlockHeight))
-        return state.DoS(0, error("%s(): nonstandard certificate: %s", __func__, reason),
-                            REJECT_NONSTANDARD, reason);
+    {
+        state.DoS(0, error("%s(): nonstandard certificate: %s", __func__, reason),
+                  REJECT_NONSTANDARD, reason);
+        return MempoolReturnValue::INVALID;
+    }
 
     if (!pool.checkIncomingCertConflicts(cert))
-        return false;
+        return MempoolReturnValue::INVALID;
 
     // Check if cert is already in mempool or if there are conflicts with in-memory certs
     std::pair<uint256, CAmount> conflictingCertData = pool.FindCertWithQuality(cert.GetScId(), cert.quality);
-
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
@@ -1182,14 +1189,15 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             if (view.HaveCoins(certHash))
             {
                 LogPrint("mempool", "Dropping cert %s : already have coins\n", certHash.ToString());
-                return false;
+                return MempoolReturnValue::INVALID;
             }
 
             auto scVerifier = libzendoomc::CScProofVerifier::Strict();
             if (!view.IsCertApplicableToState(cert, scVerifier))
             {
-                return state.DoS(0, error("%s(): certificate not applicable", __func__),
+                state.DoS(0, error("%s(): certificate not applicable", __func__),
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
+                return MempoolReturnValue::INVALID;
             }
             
             // do all inputs exist?
@@ -1199,18 +1207,17 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             {
                 if (!view.HaveCoins(txin.prevout.hash))
                 {
-                    if (pfMissingInputs) { *pfMissingInputs = true; }
                     LogPrint("mempool", "Dropping cert %s : no coins for vin (tx=%s)\n", certHash.ToString(), txin.prevout.hash.ToString());
-                    return false;
+                    return MempoolReturnValue::MISSING_INPUT;
                 }
             }
  
             // are the actual inputs available?
             if (!view.HaveInputs(cert))
             {
-                LogPrintf("%s():%d - ERROR: cert[%s]\n", __func__, __LINE__, certHash.ToString());
-                return state.Invalid(error("%s():d - inputs already spent", __func__, __LINE__),
-                                     REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
+                state.Invalid(error("%s():d - cert[%s] inputs already spent", __func__, __LINE__, certHash.ToString()),
+                              REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
+                return MempoolReturnValue::INVALID;
             }
 
             // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
@@ -1221,7 +1228,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             {
                 LogPrintf("%s():%d - Dropping cert %s : low fee and same quality as other cert in mempool\n",
                         __func__, __LINE__, certHash.ToString());
-                return error("invalid quality");
+                return MempoolReturnValue::INVALID;
             }
 
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -1229,16 +1236,19 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         }
 
         // Check for non-standard pay-to-script-hash in inputs
-        if (getRequireStandard() && !AreInputsStandard(cert, view)) {
-            return error("%s(): nonstandard transaction input", __func__);
+        if (getRequireStandard() && !AreInputsStandard(cert, view))
+        {
+            error("%s():%d: nonstandard transaction input", __func__, __LINE__);
+            return MempoolReturnValue::INVALID;
         }
 
         unsigned int nSigOps = GetLegacySigOpCount(cert);
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
         {
-            return state.DoS(0, error("%s(): too many sigops %s, %d > %d",
-                                   __func__, certHash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
-                             REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
+            state.DoS(0, error("%s(): too many sigops %s, %d > %d",
+                               __func__, certHash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
+                         REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
+            return MempoolReturnValue::INVALID;
         }
 
         // cert: this computes priority based on input amount and depth in blockchain, as transparent txes.
@@ -1254,13 +1264,20 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
         if (fLimitFree == LimitFreeFlag::ON && nFees < txMinFee)
-            return state.DoS(0, error("%s(): not enough fees %s, %d < %d",
-                                    __func__, certHash.ToString(), nFees, txMinFee),
-                            REJECT_INSUFFICIENTFEE, "insufficient fee");
+        {
+            state.DoS(0, error("%s(): not enough fees %s, %d < %d",
+                               __func__, certHash.ToString(), nFees, txMinFee),
+                      REJECT_INSUFFICIENTFEE, "insufficient fee");
+            return MempoolReturnValue::INVALID;
+        }
 
         // Require that free transactions have sufficient priority to be mined in the next block.
-        if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(view.GetPriority(cert, chainActive.Height() + 1))) {
-            return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "insufficient priority");
+        if (GetBoolArg("-relaypriority", false) &&
+            nFees < ::minRelayTxFee.GetFee(nSize) &&
+            !AllowFree(view.GetPriority(cert, chainActive.Height() + 1)))
+        {
+            state.DoS(0, false, REJECT_INSUFFICIENTFEE, "insufficient priority");
+            return MempoolReturnValue::INVALID;
         }
 
         // Continuously rate-limit free (really, very-low-fee) transactions
@@ -1281,8 +1298,11 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             // -limitfreerelay unit is thousand-bytes-per-minute
             // At default rate it would take over a month to fill 1GB
             if (dFreeCount >= GetArg("-limitfreerelay", 15)*10*1000)
-                return state.DoS(0, error("%s(): free transaction rejected by rate limiter", __func__),
-                                 REJECT_INSUFFICIENTFEE, "rate limited free transaction");
+            {
+                state.DoS(0, error("%s(): free transaction rejected by rate limiter", __func__),
+                                   REJECT_INSUFFICIENTFEE, "rate limited free transaction");
+                return MempoolReturnValue::INVALID;;
+            }
             LogPrint("mempool", "Rate limit dFreeCount: %g => %g\n", dFreeCount, dFreeCount+nSize);
             dFreeCount += nSize;
         }
@@ -1291,14 +1311,15 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         {
             LogPrintf("%s():%d - absurdly high fees cert[%s], %d > %d\n", __func__, __LINE__, certHash.ToString(),
                          nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
-            return false;
+            return MempoolReturnValue::INVALID;
         }
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         if (!ContextualCheckCertInputs(cert, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
-            return error("%s(): ConnectInputs failed %s", __func__, certHash.ToString());
+            error("%s(): ConnectInputs failed %s", __func__, certHash.ToString());
+            return MempoolReturnValue::INVALID;
         }
 
         // Check again against just the consensus-critical mandatory script
@@ -1312,42 +1333,50 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         // can be exploited as a DoS attack.
         if (!ContextualCheckCertInputs(cert, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
-            return error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__, certHash.ToString());
+            error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s",
+                                __func__, certHash.ToString());
+            return MempoolReturnValue::INVALID;
         }
 
         if (!pool.RemoveCertAndSync(conflictingCertData.first))
-            return error("%s(): cert %s depends on some conflicting quality certs", __func__, certHash.ToString());
+        {
+            error("%s(): cert %s depends on some conflicting quality certs", __func__, certHash.ToString());
+            return MempoolReturnValue::INVALID;
+        }
 
         // Store transaction in memory
         pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());
     }
 
-    return true;
+    return MempoolReturnValue::VALID;;
 }
 
 
-bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, LimitFreeFlag fLimitFree,
-                        bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee)
+MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, LimitFreeFlag fLimitFree,
+                        RejectAbsurdFeeFlag fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
-    if (pfMissingInputs)
-        *pfMissingInputs = false;
 
     //we retrieve the current height from the pcoinsTip and not from chainActive because on DisconnectTip the Accept*ToMemoryPool
     // is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
     int nextBlockHeight = pcoinsTip->GetHeight() + 1;
 
     if (!tx.CheckInputsLimit())
-        return false;
+        return MempoolReturnValue::INVALID;
 
     auto verifier = libzcash::ProofVerifier::Strict();
     if (!CheckTransaction(tx, state, verifier))
-        return error("%s(): CheckTransaction failed", __func__);
+    {
+        error("%s(): CheckTransaction failed", __func__);
+        return MempoolReturnValue::INVALID;
+    }
 
     // DoS level set to 10 to be more forgiving.
     // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
-    if (!tx.ContextualCheck(state, nextBlockHeight, 10)) {
-        return error("%s(): ContextualCheck() failed", __func__);
+    if (!tx.ContextualCheck(state, nextBlockHeight, 10))
+    {
+        error("%s(): ContextualCheck() failed", __func__);
+        return MempoolReturnValue::INVALID;
     }
 
     // Silently drop pre-chainsplit transactions
@@ -1355,29 +1384,38 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
     {
         LogPrint("mempool", "%s():%d - Dropping txid[%s]: chain height[%d] is before chain split\n",
             __func__, __LINE__, tx.GetHash().ToString(), nextBlockHeight);
-        return false;
+        return MempoolReturnValue::INVALID;
     }
 
     // Coinbase is only valid in a block, not as a loose transaction
     if (tx.IsCoinBase())
-        return state.DoS(100, error("%s(): coinbase as individual tx", __func__),
-                         REJECT_INVALID, "coinbase");
+    {
+        state.DoS(100, error("%s(): coinbase as individual tx", __func__),
+                  REJECT_INVALID, "coinbase");
+        return MempoolReturnValue::INVALID;
+    }
+
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
     if (getRequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
-        return state.DoS(0,
-                         error("%s(): nonstandard transaction: %s", __func__, reason),
-                         REJECT_NONSTANDARD, reason);
+    {
+        state.DoS(0, error("%s(): nonstandard transaction: %s", __func__, reason),
+                  REJECT_NONSTANDARD, reason);
+        return MempoolReturnValue::INVALID;
+    }
 
     // Only accept nLockTime-using transactions that can be mined in the next
     // block; we don't want our mempool filled up with transactions that can't
     // be mined yet.
     if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))
-        return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
+    {
+        state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
+        return MempoolReturnValue::INVALID;
+    }
 
     if (!pool.checkIncomingTxConflicts(tx))
-        return false;
+        return MempoolReturnValue::INVALID;
 
     {
         uint256 hash = tx.GetHash();
@@ -1394,7 +1432,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             if (view.HaveCoins(hash))
             {
                 LogPrint("mempool", "Dropping txid %s : already have coins\n", hash.ToString());
-                return false;
+                return MempoolReturnValue::INVALID;
             }
 
             // do all inputs exist?
@@ -1404,9 +1442,8 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             {
                 if (!view.HaveCoins(txin.prevout.hash))
                 {
-                    if (pfMissingInputs)  *pfMissingInputs = true;
                     LogPrint("mempool", "Dropping txid %s : no coins for vin\n", hash.ToString());
-                    return false;
+                    return MempoolReturnValue::MISSING_INPUT;
                 }
             }
  
@@ -1414,22 +1451,27 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             if (!view.HaveInputs(tx))
             {
                 LogPrintf("%s():%d - ERROR: tx[%s]\n", __func__, __LINE__, hash.ToString());
-                return state.Invalid(error("%s(): inputs already spent", __func__),
+                state.Invalid(error("%s(): inputs already spent", __func__),
                                      REJECT_DUPLICATE, "bad-txns-inputs-spent");
+                return MempoolReturnValue::INVALID;
             }
 
             auto scVerifier = libzendoomc::CScProofVerifier::Strict();
             if (!view.IsScTxApplicableToState(tx, scVerifier))
             {
-                return state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString()),
-                                 REJECT_INVALID, "bad-sc-tx");
+                state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n",
+                              __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx");
+                return MempoolReturnValue::INVALID;
             }
 
             // are the joinsplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
-                return state.Invalid(error("%s(): joinsplit requirements not met", __func__),
-                                     REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
- 
+            {
+                state.Invalid(error("%s(): joinsplit requirements not met", __func__),
+                              REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
+                return MempoolReturnValue::INVALID;
+            }
+
             // Bring the best block into scope
             view.GetBestBlock();
 
@@ -1442,7 +1484,8 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         // Check for non-standard pay-to-script-hash in inputs
         if (getRequireStandard() && !AreInputsStandard(tx, view))
         {
-            return error("%s(): nonstandard transaction input", __func__);
+            error("%s(): nonstandard transaction input", __func__);
+            return MempoolReturnValue::INVALID;
         }
 
         // Check that the transaction doesn't have an excessive number of
@@ -1454,10 +1497,10 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         nSigOps += GetP2SHSigOpCount(tx, view);
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
         {
-            return state.DoS(0,
-                             error("%s(): too many sigops %s, %d > %d",
-                                   __func__, hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
-                             REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
+            state.DoS(0, error("%s(): too many sigops %s, %d > %d",
+                         __func__, hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
+                      REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
+            return MempoolReturnValue::INVALID;
         }
       
         double dPriority = view.GetPriority(tx, chainActive.Height());
@@ -1474,14 +1517,21 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             CAmount txMinFee = GetMinRelayFee(tx, nSize, true);
             LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
             if (fLimitFree == LimitFreeFlag::ON && nFees < txMinFee)
-                return state.DoS(0, error("%s(): not enough fees %s, %d < %d",
-                                        __func__, hash.ToString(), nFees, txMinFee),
-                                REJECT_INSUFFICIENTFEE, "insufficient fee");
+            {
+                state.DoS(0, error("%s(): not enough fees %s, %d < %d",
+                                   __func__, hash.ToString(), nFees, txMinFee),
+                          REJECT_INSUFFICIENTFEE, "insufficient fee");
+                return MempoolReturnValue::INVALID;
+            }
         }
 
         // Require that free transactions have sufficient priority to be mined in the next block.
-        if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(view.GetPriority(tx, chainActive.Height() + 1))) {
-            return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "insufficient priority");
+        if (GetBoolArg("-relaypriority", false) &&
+            nFees < ::minRelayTxFee.GetFee(nSize) &&
+            !AllowFree(view.GetPriority(tx, chainActive.Height() + 1)))
+        {
+            state.DoS(0, false, REJECT_INSUFFICIENTFEE, "insufficient priority");
+            return MempoolReturnValue::INVALID;
         }
 
         // Continuously rate-limit free (really, very-low-fee) transactions
@@ -1502,8 +1552,11 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             // -limitfreerelay unit is thousand-bytes-per-minute
             // At default rate it would take over a month to fill 1GB
             if (dFreeCount >= GetArg("-limitfreerelay", 15)*10*1000)
-                return state.DoS(0, error("%s(): free transaction rejected by rate limiter", __func__),
-                                 REJECT_INSUFFICIENTFEE, "rate limited free transaction");
+            {
+                state.DoS(0, error("%s(): free transaction rejected by rate limiter", __func__),
+                          REJECT_INSUFFICIENTFEE, "rate limited free transaction");
+                return MempoolReturnValue::INVALID;
+            }
             LogPrint("mempool", "Rate limit dFreeCount: %g => %g\n", dFreeCount, dFreeCount+nSize);
             dFreeCount += nSize;
         }
@@ -1512,14 +1565,15 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         {
             LogPrint("mempool", "%s(): absurdly high fees tx[%s], %d > %d", __func__, hash.ToString(),
                          nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
-            return false;
+            return MempoolReturnValue::INVALID;
         }
 
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         if (!ContextualCheckTxInputs(tx, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
-            return error("%s(): ConnectInputs failed %s", __func__, hash.ToString());
+            error("%s(): ConnectInputs failed %s", __func__, hash.ToString());
+            return MempoolReturnValue::INVALID;
         }
 
         // Check again against just the consensus-critical mandatory script
@@ -1533,7 +1587,8 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         // can be exploited as a DoS attack.
         if (!ContextualCheckTxInputs(tx, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
-            return error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__,  hash.ToString());
+            error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__,  hash.ToString());
+            return MempoolReturnValue::INVALID;
         }
 
         // Store transaction in memory
@@ -1546,31 +1601,29 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         pool.addUnchecked(hash, entry, !IsInitialBlockDownload(), scIdToCertDataHash);
     }
 
-    return true;
+    return MempoolReturnValue::VALID;
 }
 
-bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee)
+MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
 {
     try
     {
         if (txBase.IsCertificate())
         {
-            return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree,
-                pfMissingInputs, fRejectAbsurdFee);
+            return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree, fRejectAbsurdFee);
         }
         else
         {
-            return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree,
-                pfMissingInputs, fRejectAbsurdFee);
+            return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree, fRejectAbsurdFee);
         }
     }
     catch (...)
     {
         LogPrintf("%s():%d - ERROR: txBase[%s] cast error\n", __func__, __LINE__, txBase.GetHash().ToString());
-        return false;
     }
-    return false;
+
+    return MempoolReturnValue::INVALID;
 }
 
 /** Return transaction in tx, and if it was found inside a block, its hash is placed in hashBlock */
@@ -3235,7 +3288,9 @@ bool static DisconnectTip(CValidationState &state) {
         }
 
         if (tx.IsCoinBase() ||
-            !AcceptTxToMemoryPool(mempool, stateDummy, tx, LimitFreeFlag::OFF, NULL, RejectAbsurdFeeFlag::OFF)) {
+            MempoolReturnValue::VALID != AcceptTxToMemoryPool(mempool, stateDummy, tx,
+                    LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF))
+        {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
             mempool.remove(tx, dummyTxs, dummyCerts, true);
@@ -3248,8 +3303,9 @@ bool static DisconnectTip(CValidationState &state) {
         // ignore validation errors in resurrected certificates
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
-        if (!AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
-                LimitFreeFlag::OFF, NULL, RejectAbsurdFeeFlag::OFF)) {
+        if (MempoolReturnValue::VALID != AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
+                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF))
+        {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
 
@@ -4181,8 +4237,8 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
 
     if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
     {
-    	CFieldElement fieldToValidate{block.hashScTxsCommitment};
-    	if (!fieldToValidate.IsValid())
+        CFieldElement fieldToValidate{block.hashScTxsCommitment};
+        if (!fieldToValidate.IsValid())
             return state.DoS(100, error("%s: incorrect hashScTxsCommitment", __func__),
                              REJECT_INVALID, "bad-hashScTxsCommitment");
     }
@@ -5538,89 +5594,87 @@ void static ProcessGetData(CNode* pfrom)
 
 void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
 {
-    vector<uint256> vWorkQueue;
-    vector<uint256> vEraseQueue;
-    std::string strCommand = "tx";
-
     CInv inv(MSG_TX, txBase.GetHash());
     pfrom->AddInventoryKnown(inv);
 
     LOCK(cs_main);
 
-    bool fMissingInputs = false;
-    CValidationState state;
-
     pfrom->setAskFor.erase(inv.hash);
     mapAlreadyAskedFor.erase(inv);
 
-    if (!AlreadyHave(inv) &&
-        AcceptTxBaseToMemoryPool(mempool, state, txBase, LimitFreeFlag::ON, &fMissingInputs, RejectAbsurdFeeFlag::OFF))
+    MempoolReturnValue res = MempoolReturnValue::INVALID;
+    CValidationState state;
+    if (!AlreadyHave(inv))
     {
-        mempool.check(pcoinsTip);
-        txBase.Relay();
-        vWorkQueue.push_back(inv.hash);
-
-        LogPrint("mempool", "%s(): peer=%d %s: accepted %s (poolsz %u)\n", __func__,
-            pfrom->id, pfrom->cleanSubVer,
-            txBase.GetHash().ToString(),
-            mempool.size());
-
-        // Recursively process any orphan transactions that depended on this one
-        set<NodeId> setMisbehaving;
-        for (unsigned int i = 0; i < vWorkQueue.size(); i++)
+        res = AcceptTxBaseToMemoryPool(mempool, state, txBase, LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF);
+        if (res == MempoolReturnValue::VALID)
         {
-            map<uint256, set<uint256> >::iterator itByPrev = mapOrphanTransactionsByPrev.find(vWorkQueue[i]);
-            if (itByPrev == mapOrphanTransactionsByPrev.end())
-                continue;
-            for (set<uint256>::iterator mi = itByPrev->second.begin();
-                 mi != itByPrev->second.end();
-                 ++mi)
+            mempool.check(pcoinsTip);
+            txBase.Relay();
+            std::vector<uint256> vWorkQueue{inv.hash};
+            std::vector<uint256> vEraseQueue;
+
+            LogPrint("mempool", "%s(): peer=%d %s: accepted %s (poolsz %u)\n", __func__,
+                pfrom->id, pfrom->cleanSubVer,
+                txBase.GetHash().ToString(),
+                mempool.size());
+
+            // Recursively process any orphan transactions that depended on this one
+            set<NodeId> setMisbehaving;
+            for (unsigned int i = 0; i < vWorkQueue.size(); i++)
             {
-                const uint256& orphanHash = *mi;
-                const CTransactionBase& orphanTx = *mapOrphanTransactions[orphanHash].tx;
-                NodeId fromPeer = mapOrphanTransactions[orphanHash].fromPeer;
-                bool fMissingInputs2 = false;
-                // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
-                // resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get
-                // anyone relaying LegitTxX banned)
-                CValidationState stateDummy;
-
-                if (setMisbehaving.count(fromPeer))
+                map<uint256, set<uint256> >::iterator itByPrev = mapOrphanTransactionsByPrev.find(vWorkQueue[i]);
+                if (itByPrev == mapOrphanTransactionsByPrev.end())
                     continue;
-                if (AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
-                        LimitFreeFlag::ON, &fMissingInputs2, RejectAbsurdFeeFlag::OFF))
+                for (const uint256& orphanHash: itByPrev->second)
                 {
-                    LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
-                    orphanTx.Relay();
-                    vWorkQueue.push_back(orphanHash);
-                    vEraseQueue.push_back(orphanHash);
-                }
-                else if (!fMissingInputs2)
-                {
-                    int nDos = 0;
-                    if (stateDummy.IsInvalid(nDos) && nDos > 0)
-                    {
-                        // Punish peer that gave us an invalid orphan tx
-                        Misbehaving(fromPeer, nDos);
-                        setMisbehaving.insert(fromPeer);
-                        LogPrint("mempool", "   invalid orphan tx %s\n", orphanHash.ToString());
-                    }
-                    // Has inputs but not accepted to mempool
-                    // Probably non-standard or insufficient fee/priority
-                    LogPrint("mempool", "   removed orphan tx %s\n", orphanHash.ToString());
-                    vEraseQueue.push_back(orphanHash);
-                    assert(recentRejects);
-                    recentRejects->insert(orphanHash);
-                }
-                mempool.check(pcoinsTip);
-            }
-        }
+                    const CTransactionBase& orphanTx = *mapOrphanTransactions[orphanHash].tx;
+                    NodeId fromPeer = mapOrphanTransactions[orphanHash].fromPeer;
+                    bool fMissingInputs2 = false;
+                    // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
+                    // resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get
+                    // anyone relaying LegitTxX banned)
+                    CValidationState stateDummy;
 
-        BOOST_FOREACH(uint256 hash, vEraseQueue)
-            EraseOrphanTx(hash);
+                    if (setMisbehaving.count(fromPeer))
+                        continue;
+
+                    MempoolReturnValue resOrphan = AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
+                            LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF);
+                    if (resOrphan == MempoolReturnValue::VALID)
+                    {
+                        LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
+                        orphanTx.Relay();
+                        vWorkQueue.push_back(orphanHash);
+                        vEraseQueue.push_back(orphanHash);
+                    }
+                    else if (resOrphan == MempoolReturnValue::INVALID)
+                    {
+                        int nDos = 0;
+                        if (stateDummy.IsInvalid(nDos) && nDos > 0)
+                        {
+                            // Punish peer that gave us an invalid orphan tx
+                            Misbehaving(fromPeer, nDos);
+                            setMisbehaving.insert(fromPeer);
+                            LogPrint("mempool", "   invalid orphan tx %s\n", orphanHash.ToString());
+                        }
+                        // Has inputs but not accepted to mempool
+                        // Probably non-standard or insufficient fee/priority
+                        LogPrint("mempool", "   removed orphan tx %s\n", orphanHash.ToString());
+                        vEraseQueue.push_back(orphanHash);
+                        assert(recentRejects);
+                        recentRejects->insert(orphanHash);
+                    }
+                    mempool.check(pcoinsTip);
+                }
+            }
+
+            for(const uint256& hash: vEraseQueue)
+                EraseOrphanTx(hash);
+        }
     }
     // TODO: currently, prohibit joinsplits from entering mapOrphans
-    else if (fMissingInputs && txBase.GetVjoinsplit().size() == 0)
+    else if (res == MempoolReturnValue::MISSING_INPUT && txBase.GetVjoinsplit().size() == 0)
     {
         AddOrphanTx(txBase, pfrom->GetId());
 
@@ -5629,7 +5683,8 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
         unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
         if (nEvicted > 0)
             LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
-    } else {
+    } else
+    {
         assert(recentRejects);
         recentRejects->insert(txBase.GetHash());
 
@@ -5658,7 +5713,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
         LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
             pfrom->id, pfrom->cleanSubVer,
             state.GetRejectReason());
-        pfrom->PushMessage("reject", strCommand, state.GetRejectCode(),
+        pfrom->PushMessage("reject", std::string("tx"), state.GetRejectCode(),
                            state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
         if (nDoS > 0)
             Misbehaving(pfrom->GetId(), nDoS);
@@ -6241,9 +6296,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == "tx")
     {
-        vector<uint256> vWorkQueue;
-        vector<uint256> vEraseQueue;
-
         int nType = vRecv.nType;
         int nVersion = vRecv.nVersion;
 

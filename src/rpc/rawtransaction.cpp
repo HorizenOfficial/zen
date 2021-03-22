@@ -1781,16 +1781,16 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     if (!fHaveMempool && !fHaveChain) {
         // push to local node and sync with wallets
         CValidationState state;
-        bool fMissingInputs;
-        if (!AcceptTxToMemoryPool(mempool, state, tx, LimitFreeFlag::OFF, &fMissingInputs, fRejectAbsurdFee)) {
-            if (state.IsInvalid()) {
+        MempoolReturnValue res = AcceptTxToMemoryPool(mempool, state, tx, LimitFreeFlag::OFF, fRejectAbsurdFee);
+        if (res != MempoolReturnValue::MISSING_INPUT)
+        {
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
+        } else  if (res != MempoolReturnValue::VALID)
+        {
+            if (state.IsInvalid())
                 throw JSONRPCError(RPC_TRANSACTION_REJECTED, strprintf("%i: %s", state.GetRejectCode(), state.GetRejectReason()));
-            } else {
-                if (fMissingInputs) {
-                    throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
-                }
-                throw JSONRPCError(RPC_TRANSACTION_ERROR, state.GetRejectReason());
-            }
+
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, state.GetRejectReason());
         }
     } else if (fHaveChain) {
         throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "transaction already in block chain");
@@ -1844,23 +1844,20 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
     {
         // push to local node and sync with wallets
         CValidationState state;
-        bool fMissingInputs;
-        if (!AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, &fMissingInputs,
-                fRejectAbsurdFee))
+        MempoolReturnValue res = AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee);
+        if (res != MempoolReturnValue::VALID)
         {
             LogPrintf("%s():%d - cert[%s] not accepted in mempool\n", __func__, __LINE__, hashCertificate.ToString());
             if (state.IsInvalid())
             {
                 throw JSONRPCError(RPC_TRANSACTION_REJECTED, strprintf("%i: %s", state.GetRejectCode(), state.GetRejectReason()));
             }
-            else
+            if (res == MempoolReturnValue::MISSING_INPUT)
             {
-                if (fMissingInputs)
-                {
-                    throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
-                }
-                throw JSONRPCError(RPC_TRANSACTION_ERROR, "certificate not accepted to mempool");
+                throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
             }
+
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, "certificate not accepted to mempool");
         }
     }
     else if (fHaveChain)
