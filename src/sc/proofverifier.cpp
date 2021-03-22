@@ -2,51 +2,15 @@
 #include "primitives/certificate.h"
 
 #include "main.h"
-
 #include "util.h"
 #include "sync.h"
 #include "tinyformat.h"
-
 #include <fstream>
 
 #define MC_CRYPTO_LIB_MOCKED 1
 
-namespace libzendoomc{
-
-    bool IsValidScProof(const ScProof& scProof)
-    {
-#if MC_CRYPTO_LIB_MOCKED
-        return true;
-#else
-        auto scProofDeserialized = zendoo_deserialize_sc_proof(scProof.begin());
-        if (scProofDeserialized == nullptr)
-            return false;
-        zendoo_sc_proof_free(scProofDeserialized);
-        return true;
-#endif
-    }
-
-    bool IsValidScVk(const ScVk& scVk)
-    {
-#if MC_CRYPTO_LIB_MOCKED
-        return true;
-#else
-        auto scVkDeserialized = zendoo_deserialize_sc_vk(scVk.begin());
-        if (scVkDeserialized == nullptr)
-            return false;
-        zendoo_sc_vk_free(scVkDeserialized);
-        return true;
-#endif
-    }
-
-    std::string ToString(Error err){
-        return strprintf(
-            "%s: [%d - %s]\n",
-            err.msg,
-            err.category,
-            zendoo_get_category_name(err.category));
-    }
-
+namespace libzendoomc
+{
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk) {
 
         try
@@ -90,19 +54,13 @@ namespace libzendoomc{
         }
     };
 
-#if defined(BITCOIN_TX) || defined(MC_CRYPTO_LIB_MOCKED) 
-    bool CScWCertProofVerification::verifyScCert(
-        const ScConstant& constant,
-        const ScVk& wCertVk,
-        const uint256& prev_end_epoch_block_hash,
-        const CScCertificate& scCert) const {return true;}
-#else
     bool CScWCertProofVerification::verifyScCert(                
         const ScConstant& constant,
         const ScVk& wCertVk,
         const uint256& prev_end_epoch_block_hash,
         const CScCertificate& scCert) const
     {
+#ifndef MC_CRYPTO_LIB_MOCKED
         // Collect verifier inputs
 
         WCertVerifierInputs inputs;
@@ -187,9 +145,10 @@ namespace libzendoomc{
             }
             return false;
         }
+#endif
         return true;
     }
-#endif
+
     bool CScProofVerifier::verifyCScCertificate(
         const ScConstant& constant,
         const ScVk& wCertVk,
@@ -204,7 +163,7 @@ namespace libzendoomc{
     }
 
     bool CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput(
-        const CSidechainField& certDataHash,
+        const CFieldElement& certDataHash,
         const ScVk& wCeasedVk,
         const CTxCeasedSidechainWithdrawalInput& csw
     ) const
@@ -217,160 +176,14 @@ namespace libzendoomc{
 
     bool CScProofVerifier::verifyCBwtRequest(
         const uint256& scId,
-        const CSidechainField& scUtxoId,
+        const CFieldElement& scRequestData,
         const uint160& mcDestinationAddress,
         CAmount scFees,
         const libzendoomc::ScProof& scProof,
         const boost::optional<libzendoomc::ScVk>& wMbtrVk,
-        const CSidechainField& certDataHash
+        const CFieldElement& certDataHash
     ) const
     {
         return true; //Currently mocked
     }
 }
-
-const std::vector<unsigned char> CSidechainField::nullByteArray = std::vector<unsigned char>(CSidechainField::ByteSize(), 0x0);
-
-CSidechainField::CSidechainField(): byteArray(), deserializedField(nullptr) { SetNull(); }
-CSidechainField::~CSidechainField() { SetNull(); }
-
-CSidechainField::CSidechainField(const std::vector<unsigned char>& byteArrayIn) : byteArray(), deserializedField(nullptr)
-{
-    if (!this->SetByteArray(byteArrayIn))
-        throw std::invalid_argument(std::string("Illegal byte array size. It is ") + std::to_string(byteArrayIn.size())
-                                  + std::string(", must be ")+std::to_string(CSidechainField::ByteSize()));
-}
-
-bool CSidechainField::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
-{
-    if (byteArrayIn.size() != CSidechainField::ByteSize())
-        return false;
-
-    byteArray = byteArrayIn;
-    if (deserializedField != nullptr)
-    {
-        zendoo_field_free(deserializedField);
-        deserializedField = nullptr;
-    }
-    return true;
-}
-
-CSidechainField::CSidechainField(const CSidechainField& rhs): byteArray(), deserializedField(nullptr)
-{
-    *this = rhs;
-}
-
-CSidechainField& CSidechainField::operator=(const CSidechainField& rhs)
-{
-    if (*this != rhs)
-    {
-        if (deserializedField != nullptr)
-        {
-            zendoo_field_free(deserializedField);
-            deserializedField = nullptr;
-        }
-        this->byteArray = rhs.byteArray;
-        //Note: no need to deep copy deserializedField. It'll be build when needed from byteArray
-    }
-
-    return *this;
-}
-
-void CSidechainField::SetNull()
-{
-    byteArray = nullByteArray;
-    if (deserializedField != nullptr)
-    {
-        zendoo_field_free(deserializedField);
-        deserializedField = nullptr;
-    }
-}
-
-bool CSidechainField::IsNull() const { return (byteArray == nullByteArray) && (deserializedField == nullptr); } //For symmetry sake
-
-const std::vector<unsigned char>&  CSidechainField::GetByteArray() const
-{
-    return byteArray;
-}
-
-const field_t* const CSidechainField::GetFieldElement() const
-{
-    if (IsValid())
-    {
-        return deserializedField;
-    }
-    return nullptr;
-}
-
-uint256 CSidechainField::GetLegacyHashTO_BE_REMOVED() const
-{
-    std::vector<unsigned char> tmp(this->byteArray.begin(), this->byteArray.begin()+32);
-    return uint256(tmp);
-}
-
-std::string CSidechainField::GetHexRepr() const
-{
-    std::string res; //ADAPTED FROM UTILSTRENCONDING.CPP HEXSTR
-    static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
-                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-    res.reserve(this->byteArray.size()*2);
-    for(const auto& byte: this->byteArray)
-    {
-        res.push_back(hexmap[byte>>4]);
-        res.push_back(hexmap[byte&15]);
-    }
-
-    return res;
-}
-
-bool CSidechainField::IsValid() const
-{
-    if (deserializedField)
-        return true;
-    deserializedField = zendoo_deserialize_field(&this->byteArray[0]);
-    if (deserializedField == nullptr)
-        return false;
-
-    return true;
-}
-
-#ifdef BITCOIN_TX
-CSidechainField CSidechainField::ComputeHash(const CSidechainField& lhs, const CSidechainField& rhs)
-{
-    return CSidechainField{};
-}
-#else
-CSidechainField CSidechainField::ComputeHash(const CSidechainField& lhs, const CSidechainField& rhs)
-{
-    zendoo_clear_error();
-
-    const field_t* const  lhsFe = lhs.GetFieldElement();
-    if (lhsFe == nullptr) {
-        LogPrintf("%s():%d - failed to deserialize lhs field element[%s]: %s \n",
-            __func__, __LINE__, lhs.GetHexRepr(), libzendoomc::ToString(zendoo_get_last_error()));
-        zendoo_clear_error();
-        throw std::runtime_error("Could not compute poseidon hash");
-    }
-
-    const field_t* const  rhsFe = rhs.GetFieldElement();
-    if (rhsFe == nullptr) {
-        LogPrintf("%s():%d - failed to deserialize rhs field element[%s]: %s \n",
-            __func__, __LINE__, rhs.GetHexRepr(), libzendoomc::ToString(zendoo_get_last_error()));
-        zendoo_clear_error();
-        throw std::runtime_error("Could not compute poseidon hash");
-    }
-
-    auto digest = ZendooPoseidonHash();
-    digest.update(lhsFe);
-    digest.update(rhsFe);
-    field_t* outFe = digest.finalize();
-
-    // Once out of scope the destructor of ZendooPoseidonHash will automatically free the memory Rust-side for digest
-
-    CSidechainField res;
-    zendoo_serialize_field(outFe, &*(res.byteArray.begin()));
-
-    zendoo_field_free(outFe);
-    return res;
-}
-#endif

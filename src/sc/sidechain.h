@@ -75,8 +75,8 @@ public:
     uint256 creationTxHash;
 
     // Cert data hash section
-    CSidechainField pastEpochTopQualityCertDataHash;
-    CSidechainField lastTopQualityCertDataHash;
+    CFieldElement pastEpochTopQualityCertDataHash;
+    CFieldElement lastTopQualityCertDataHash;
 
     // Data for latest top quality cert confirmed in blockchain
     uint256 lastTopQualityCertHash;
@@ -160,9 +160,9 @@ public:
 };
 
 namespace Sidechain {
+    bool checkCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert);
     bool checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state);
     bool checkTxSemanticValidity(const CTransaction& tx, CValidationState& state);
-    bool hasScCreationOutput(const CTransaction& tx, const uint256& scId);
 }; // end of namespace
 
 #endif // _SIDECHAIN_CORE_H

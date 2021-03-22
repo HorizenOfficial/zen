@@ -1,115 +1,26 @@
 #ifndef _SC_PROOF_VERIFIER_H
 #define _SC_PROOF_VERIFIER_H
 
-#include <zendoo/error.h>
-#include <zendoo/zendoo_mc.h>
 #include "uint256.h"
 
 #include <string>
 #include <boost/variant.hpp>
 #include <boost/filesystem.hpp>
 #include <amount.h>
+#include <sc/sidechaintypes.h> //CHECK IF IT CAN BE REPLACED WITH FORWARD DECLARATION
 
 class CSidechain;
 class CScCertificate;
 class CTxCeasedSidechainWithdrawalInput;
 
-namespace libzendoomc {
-    typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
-
-    /* Check if scProof is a valid zendoo-mc-cryptolib's sc_proof */
-    bool IsValidScProof(const ScProof& scProof);
-
-    typedef base_blob<SC_VK_SIZE * 8> ScVk;
-
-    /* Check if scVk is a valid zendoo-mc-cryptolib's sc_vk */
-    bool IsValidScVk(const ScVk& scVk);
-
-    /* Convert to std::string a zendoo-mc-cryptolib Error. Useful for logging */
-    std::string ToString(Error err);
-
+namespace libzendoomc
+{
     /* Write scVk to file in vkPath. Returns true if operation succeeds, false otherwise. */
     bool SaveScVkToFile(const boost::filesystem::path& vkPath, const ScVk& scVk);
-};
 
-class CSidechainField
-{
-public:
-    CSidechainField();
-    ~CSidechainField();
-
-    explicit CSidechainField(const std::vector<unsigned char>& byteArrayIn);
-    bool SetByteArray(const std::vector<unsigned char>& byteArrayIn);
-
-    CSidechainField(const CSidechainField& rhs);
-    CSidechainField& operator=(const CSidechainField& rhs);
-
-    void SetNull();
-    bool IsNull() const;
-
-    static constexpr unsigned int ByteSize() { return SC_FIELD_SIZE; }
-    const std::vector<unsigned char>&  GetByteArray() const;
-    uint256 GetLegacyHashTO_BE_REMOVED() const;
-
-    const field_t* const GetFieldElement() const;
-
-    bool IsValid() const;
-    // equality is not tested on deserializedField attribute since it is a ptr to memory specific per instance
-    friend inline bool operator==(const CSidechainField& lhs, const CSidechainField& rhs) { return lhs.byteArray == rhs.byteArray; }
-    friend inline bool operator!=(const CSidechainField& lhs, const CSidechainField& rhs) { return !(lhs == rhs); }
-    friend inline bool operator<(const CSidechainField& lhs, const CSidechainField& rhs)  { return lhs.byteArray < rhs.byteArray; } // FOR STD::MAP ONLY
-
-    // SERIALIZATION SECTION
-    size_t GetSerializeSize(int nType, int nVersion) const //ADAPTED FROM SERIALIZED.H
-    {
-        return 1 + CSidechainField::ByteSize(); //byte for size + byteArray content (each element a single byte)
-    };
-
-    template<typename Stream>
-    void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
-    {
-        assert(byteArray.size() < 253); //ADAPTED FROM VARINT ENCODING
-        assert(CSidechainField::ByteSize() < 253);
-        char tmp = static_cast<char>(byteArray.size());
-           os.write(&tmp, 1);
-        if (!byteArray.empty())
-            os.write((char*)&byteArray[0], byteArray.size());
-    }
-
-    template<typename Stream> //ADAPTED FROM SERIALIZED.H
-    void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
-    {
-        byteArray.clear();
-        if (deserializedField != nullptr)
-        {
-            zendoo_field_free(deserializedField);
-            deserializedField = nullptr;
-        }
-
-        char tmp {0};
-        is.read(&tmp, 1);
-        unsigned int nSize = static_cast<unsigned int>(tmp);
-        if (nSize != CSidechainField::ByteSize())
-            throw std::ios_base::failure("non-canonical CSidechainField size");
-
-        byteArray.resize(nSize);
-        is.read((char*)&byteArray[0], nSize);
-    }
-
-    std::string GetHexRepr() const;
-    static CSidechainField ComputeHash(const CSidechainField& lhs, const CSidechainField& rhs);
-
-private:
-    std::vector<unsigned char> byteArray;
-    mutable field_t* deserializedField;
-    static const std::vector<unsigned char> nullByteArray;
-};
-
-typedef CSidechainField ScConstant;
-
-namespace libzendoomc {
     /* Support class for WCert SNARK proof verification. */
-    class CScWCertProofVerification {
+    class CScWCertProofVerification
+    {
         public:
             CScWCertProofVerification() = default;
             virtual ~CScWCertProofVerification() = default;
@@ -161,7 +72,8 @@ namespace libzendoomc {
     };
 
     /* Class for instantiating a verifier able to verify different kind of ScProof for different kind of ScProof(s) */
-    class CScProofVerifier {
+    class CScProofVerifier
+    {
         protected:
             bool perform_verification;
 
@@ -193,19 +105,19 @@ namespace libzendoomc {
             // Returns false if proof verification has failed or deserialization of CSW's elements
             // into libzendoomc's elements has failed.
             bool verifyCTxCeasedSidechainWithdrawalInput(
-                const CSidechainField& certDataHash,
+                const CFieldElement& certDataHash,
                 const ScVk& wCeasedVk,
                 const CTxCeasedSidechainWithdrawalInput& csw
             ) const;
 
             bool verifyCBwtRequest(
                 const uint256& scId,
-                const CSidechainField& scUtxoId,
+                const CFieldElement& scRequestData,
                 const uint160& mcDestinationAddress,
                 CAmount scFees,
                 const libzendoomc::ScProof& scProof,
                 const boost::optional<libzendoomc::ScVk>& wMbtrVk,
-                const CSidechainField& certDataHash
+                const CFieldElement& certDataHash
             ) const;
     };
 }

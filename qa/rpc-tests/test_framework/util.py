@@ -510,6 +510,22 @@ def get_epoch_data(scid, node, epochLen):
     epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
     return epoch_block_hash, epoch_number
 
+def get_spendable(node, min_amount):
+    # get a UTXO in node's wallet with minimal amount
+    utx = False
+    listunspent = node.listunspent()
+    for aUtx in listunspent:
+        if aUtx['amount'] > min_amount:
+            utx = aUtx
+            change = aUtx['amount'] - min_amount
+            break;
+
+    if utx == False:
+        print(listunspent)
+
+    assert_equal(utx!=False, True)
+    return utx, change
+
 def advance_epoch(mcTest, node, sync_call,
     scid, prev_epoch_hash, sc_tag, constant, epoch_length, cert_quality=1, cert_fee=Decimal("0.00001")):
 
@@ -533,3 +549,4 @@ def advance_epoch(mcTest, node, sync_call,
     assert_true(cert in node.getrawmempool())
 
     return cert, epoch_block_hash, epoch_number
+

@@ -1,10 +1,15 @@
 #include "tx_creation_utils.h"
 #include <gtest/libzendoo_test_files.h>
+#include <primitives/transaction.h>
+#include <primitives/certificate.h>
 #include <script/interpreter.h>
 #include <main.h>
 #include <pubkey.h>
 #include <miner.h>
 #include <undo.h>
+#include "tx_creation_utils.h"
+#include <pow.h>
+#include <coins.h>
 
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength)
 {
@@ -106,8 +111,8 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
 CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
 {
     std::vector<unsigned char> tmp(nullifierHex.begin(), nullifierHex.end());
-    tmp.resize(CSidechainField::ByteSize());
-    CSidechainField nullifier{tmp};
+    tmp.resize(CFieldElement::ByteSize());
+    CFieldElement nullifier{tmp};
 
     uint160 dummyPubKeyHash {};
     libzendoomc::ScProof dummyScProof;

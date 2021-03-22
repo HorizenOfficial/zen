@@ -231,6 +231,19 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     x.push_back(Pair("quality", cert.quality));
     x.push_back(Pair("endEpochBlockHash", cert.endEpochBlockHash.GetHex()));
     x.push_back(Pair("scProof", HexStr(cert.scProof)));
+
+    UniValue vCfe(UniValue::VARR);
+    for (const auto& entry : cert.vFieldElementCertificateField) {
+        vCfe.push_back(HexStr(entry.getVRawData()));
+    }
+    x.push_back(Pair("vFieldElementCertificateField", vCfe));
+
+    UniValue vCmt(UniValue::VARR);
+    for (const auto& entry : cert.vBitVectorCertificateField) {
+        vCmt.push_back(HexStr(entry.getVRawData()));
+    }
+    x.push_back(Pair("vBitVectorCertificateField", vCmt));
+
     x.push_back(Pair("totalAmount", ValueFromAmount(cert.GetValueOfBackwardTransfers())));
 
     entry.push_back(Pair("cert", x));
@@ -665,7 +678,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "    [{\"amount\": value, \"senderAddress\":\"address\", ...}, ...] (\n"
             "    [{\"epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr},...]\n"
             "    ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id},...]\n"
-            "    ( [{\"scid\":\"scid\", \"scUtxoId\":\"scUtxoId\", \"pubkeyhash\":\"pubkeyhash\", \"scFee\":\"scFee\", \"scProof\":\"scProof\"},...]\n"
+            "    ( [{\"scid\":\"scid\", \"scRequestData\":\"scRequestData\", \"pubkeyhash\":\"pubkeyhash\", \"scFee\":\"scFee\", \"scProof\":\"scProof\"},...]\n"
             ") ) )\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
@@ -709,9 +722,11 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "         \"customData\":hexstr       (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                       hexadecimal format. A max limit of 1024 bytes will be checked\n"
             "         \"constant\":hexstr         (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CSidechainField::ByteSize()) + " bytes\n"
+            "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "         \"wCeasedVk\":hexstr        (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                       hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "         \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many FieldElementCertificateField with the corresponding size.\n"
+            "         \"vBitVectorCertificateFieldConfig\"    (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many BitVectorCertificateField with the corresponding sizes\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"
@@ -728,8 +743,8 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "     [\n"
             "       {\n"
             "         \"scid\":side chain ID       (string, required) The uint256 side chain ID\n"
-            "         \"scUtxoId\":hexstr          (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CSidechainField::ByteSize()) + " bytes\n"
+            "         \"scRequestData\":hexstr          (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "         \"pubkeyhash\":pkh           (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
             "         \"scFee\":amount,            (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
             "         \"scProof\":hexstr,          (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
@@ -996,6 +1011,8 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "      \"quality\":n                     (numeric, required) A positive number specifying the quality of this withdrawal certificate. \n"
             "      \"endEpochBlockHash\":\"blockHash\" (string, required) The block hash determining the end of the referenced epoch\n"
             "      \"scProof\":\"scProof\"             (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + "bytes \n"
+            "      \"vFieldElementCertificateField\":\"field els\"     (array, optional) An array of HEX string... TODO add description\n"
+            "      \"vBitVectorCertificateField\":\"cmp mkl trees\"  (array, optional) An array of HEX string... TODO add description\n"
             "    }\n"
             "\nResult:\n"
             "\"certificate\" (string) hex string of the certificate\n"
@@ -1056,7 +1073,9 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     std::set<std::string> setKeyArgs;
 
     // valid input keywords for certificate data
-    static const std::set<std::string> validKeyArgs = {"scid", "withdrawalEpochNumber", "quality", "endEpochBlockHash", "scProof"};
+    static const std::set<std::string> validKeyArgs = {
+        "scid", "withdrawalEpochNumber", "quality", "endEpochBlockHash", "scProof",
+        "vFieldElementCertificateField", "vBitVectorCertificateField"};
 
     // sanity check, report error if unknown/duplicate key-value pairs
     for (const string& s : cert_params.getKeys())
@@ -1133,6 +1152,52 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     else
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scProof\"" );
+    }
+
+    // ---------------------------------------------------------
+    // just check against a maximum size 
+    static const size_t MAX_FE_SIZE_BYTES  = SC_FIELD_SIZE;
+    if (setKeyArgs.count("vFieldElementCertificateField"))
+    {
+        UniValue feArray = find_value(cert_params, "vFieldElementCertificateField").get_array();
+
+        int count = 0;
+        for (const UniValue& o : feArray.getValues())
+        {
+            if (!o.isStr())
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected string");
+
+            std::string errString;
+            std::vector<unsigned char> fe;
+            if (!Sidechain::AddCustomFieldElement(o.get_str(), fe, MAX_FE_SIZE_BYTES, errString))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vFieldElementCertificateField[" + std::to_string(count) + "]") + errString);
+
+            rawCert.vFieldElementCertificateField.push_back(fe);
+            count++;
+        }
+    }
+
+    // ---------------------------------------------------------
+    // just check against a maximum size TODO for the time being set to 32 K
+    static const size_t MAX_CMT_SIZE_BYTES = 1024*32;
+    if (setKeyArgs.count("vBitVectorCertificateField"))
+    {
+        UniValue feArray = find_value(cert_params, "vBitVectorCertificateField").get_array();
+
+        int count = 0;
+        for (const UniValue& o : feArray.getValues())
+        {
+            if (!o.isStr())
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected string");
+
+            std::string error;
+            std::vector<unsigned char> cmt;
+            if (!Sidechain::AddScData(o.get_str(), cmt, MAX_CMT_SIZE_BYTES, false, error))
+                throw JSONRPCError(RPC_TYPE_ERROR, string("vBitVectorCertificateField[" + std::to_string(count) + "]") + error);
+
+            rawCert.vBitVectorCertificateField.push_back(cmt);
+            count++;
+        }
     }
 
     rawCert.scId = scId;

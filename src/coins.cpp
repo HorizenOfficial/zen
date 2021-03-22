@@ -204,7 +204,7 @@ bool CCoinsView::CheckQuality(const CScCertificate& cert)                       
 uint256 CCoinsView::GetBestBlock()                                              const { return uint256(); }
 uint256 CCoinsView::GetBestAnchor()                                             const { return uint256(); }
 bool CCoinsView::HaveCswNullifier(const uint256& scId,
-                                 const CSidechainField &nullifier)  const { return false; }
+                                  const CFieldElement &nullifier)               const { return false; }
 
 bool CCoinsView::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
                             const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
@@ -230,7 +230,7 @@ uint256 CCoinsViewBacked::GetBestBlock()                                        
 uint256 CCoinsViewBacked::GetBestAnchor()                                              const { return base->GetBestAnchor(); }
 
 bool CCoinsViewBacked::HaveCswNullifier(const uint256& scId,
-                                        const CSidechainField &nullifier)  const { return base->HaveCswNullifier(scId,nullifier); }
+                                        const CFieldElement &nullifier)                const { return base->HaveCswNullifier(scId,nullifier); }
 
 void CCoinsViewBacked::SetBackend(CCoinsView &viewIn) { base = &viewIn; }
 bool CCoinsViewBacked::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
@@ -245,11 +245,15 @@ bool CCoinsViewBacked::GetStats(CCoinsStats &stats)                             
 CCoinsKeyHasher::CCoinsKeyHasher() : salt(GetRandHash()) {}
 CCswNullifiersKeyHasher::CCswNullifiersKeyHasher() : salt() {GetRandBytes(reinterpret_cast<unsigned char*>(salt), BUF_LEN);}
 
-size_t CCswNullifiersKeyHasher::operator()(const std::pair<uint256, CSidechainField>& key) const {
+size_t CCswNullifiersKeyHasher::operator()(const std::pair<uint256, CFieldElement>& key) const {
     uint32_t buf[BUF_LEN];
+
+    // nullifiers are already checked by the caller, but let's assert it too
+    assert(!key.second.IsNull());
+
     // note: we may consider buf as a raw data, so bytes size of buf is (BUF_LEN * 4)
     memcpy(buf, key.first.begin(), sizeof(uint256));
-    memcpy((buf + sizeof(uint256)/sizeof(uint32_t)), &(key.second.GetByteArray()[0]), CSidechainField::ByteSize());
+    memcpy((buf + sizeof(uint256)/sizeof(uint32_t)), &(key.second.GetByteArray()[0]), CFieldElement::ByteSize());
     return CalculateHash(buf, BUF_LEN, salt);
 }
 
@@ -525,8 +529,8 @@ void CCoinsViewCache::SetBestBlock(const uint256 &hashBlockIn) {
     hashBlock = hashBlockIn;
 }
 
-bool CCoinsViewCache::HaveCswNullifier(const uint256& scId, const CSidechainField &nullifier) const {
-    std::pair<uint256, CSidechainField> key = std::make_pair(scId, nullifier);
+bool CCoinsViewCache::HaveCswNullifier(const uint256& scId, const CFieldElement &nullifier) const {
+    std::pair<uint256, CFieldElement> key = std::make_pair(scId, nullifier);
 
     CCswNullifiersMap::iterator it = cacheCswNullifiers.find(key);
     if (it != cacheCswNullifiers.end())
@@ -539,16 +543,16 @@ bool CCoinsViewCache::HaveCswNullifier(const uint256& scId, const CSidechainFiel
     return true;
 }
 
-bool CCoinsViewCache::AddCswNullifier(const uint256& scId, const CSidechainField &nullifier) {
+bool CCoinsViewCache::AddCswNullifier(const uint256& scId, const CFieldElement &nullifier) {
     if (HaveCswNullifier(scId, nullifier))
         return false;
 
-    std::pair<uint256, CSidechainField> key = std::make_pair(scId, nullifier);
+    std::pair<uint256, CFieldElement> key = std::make_pair(scId, nullifier);
     cacheCswNullifiers.insert(std::make_pair(key, CCswNullifiersCacheEntry{CCswNullifiersCacheEntry::Flags::FRESH}));
     return true;
 }
 
-bool CCoinsViewCache::RemoveCswNullifier(const uint256& scId, const CSidechainField &nullifier) {
+bool CCoinsViewCache::RemoveCswNullifier(const uint256& scId, const CFieldElement &nullifier) {
     if (!HaveCswNullifier(scId, nullifier))
         return false;
 
@@ -798,6 +802,9 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.creationData.wCertVk = cr.wCertVk;
         scIt->second.sidechain.creationData.wMbtrVk = cr.wMbtrVk;
         scIt->second.sidechain.creationData.wCeasedVk = cr.wCeasedVk;
+        scIt->second.sidechain.creationData.vFieldElementCertificateFieldConfig = cr.vFieldElementCertificateFieldConfig;
+        scIt->second.sidechain.creationData.vBitVectorCertificateFieldConfig = cr.vBitVectorCertificateFieldConfig;
+
         scIt->second.sidechain.mImmatureAmounts[maturityHeight] = cr.nValue;
 
         scIt->second.flag = CSidechainsCacheEntry::Flags::FRESH;
@@ -1133,8 +1140,13 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
+    if (!Sidechain::checkCertCustomFields(sidechain, cert) )
+    {
+        return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
+                __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+    }
+
     // TODO Remove cert.endEpochBlockHash checks after changing of verification circuit.
-    // check that epoch data are consistent
     if (!CheckEndEpochBlockHash(sidechain, cert.epochNumber, cert.endEpochBlockHash) )
     {
         return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid epoch data\n",
@@ -1169,9 +1181,9 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
-    // Retrieve previous end epoch block info for certificate proof verification
-    int prev_end_epoch_block_height = sidechain.GetEndHeightForEpoch(cert.epochNumber - 1);
+    // Retrieve current and previous end epoch block info for certificate proof verification
     int curr_end_epoch_block_height = sidechain.GetEndHeightForEpoch(cert.epochNumber);
+    int prev_end_epoch_block_height = curr_end_epoch_block_height - sidechain.creationData.withdrawalEpochLength;
 
     CBlockIndex* prev_end_epoch_block_index = chainActive[prev_end_epoch_block_height];
     CBlockIndex* curr_end_epoch_block_index = chainActive[curr_end_epoch_block_height];
@@ -1179,17 +1191,14 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, libzen
     assert(prev_end_epoch_block_index);
     assert(curr_end_epoch_block_index);
 
-    // TODO check that ithose are the correct heights for both scCumTreeHash objs
-    // TODO add the cumulative committment tree hash objs to the verify call
-    CSidechainField scCumTreeHash_start = prev_end_epoch_block_index->scCumTreeHash;
-    CSidechainField scCumTreeHash_end   = curr_end_epoch_block_index->scCumTreeHash;
+    const CFieldElement& scCumTreeHash_start = prev_end_epoch_block_index->scCumTreeHash;
+    const CFieldElement& scCumTreeHash_end   = curr_end_epoch_block_index->scCumTreeHash;
 
     // TODO Remove prev_end_epoch_block_hash after changing of verification circuit.
     uint256 prev_end_epoch_block_hash = prev_end_epoch_block_index->GetBlockHash();
 
-    // TODO Remove cert.endEpochBlockHash field, CCoinsViewCache::isEpochDataValid and CTxMemPool::removeOutOfEpochCertificates after changing of verification circuit.
     // Verify certificate proof
-    CSidechainField constant{};
+    CFieldElement constant{};
     if (sidechain.creationData.constant.is_initialized())
         constant = sidechain.creationData.constant.get();
     if (!scVerifier.verifyCScCertificate(constant, sidechain.creationData.wCertVk, prev_end_epoch_block_hash, cert))
@@ -1298,7 +1307,11 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
             return error("%s():%d - ERROR: mbtr not supported\n",  __func__, __LINE__);
         }
 
-        CSidechainField certDataHash = this->GetActiveCertDataHash(mbtr.scId);
+        CFieldElement certDataHash = this->GetActiveCertDataHash(mbtr.scId);
+//        //TODO: Unlock when we'll handle recovery of fwt of last epoch
+//        if (certDataHash.IsNull())
+//            return error("%s():%d - ERROR: Tx[%s] mbtr request [%s] has missing active cert data hash for required scId[%s]\n",
+//                            __func__, __LINE__, tx.ToString(), mbtr.ToString(), mbtr.scId.ToString());
 
         // Verify mainchain bwt request proof
         if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
@@ -1350,7 +1363,12 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
                 __func__, __LINE__, tx.ToString(), csw.ToString());
         }
 
-        CSidechainField certDataHash = this->GetActiveCertDataHash(csw.scId);
+        CFieldElement certDataHash = this->GetActiveCertDataHash(csw.scId);
+
+//        //TODO: Unlock when we'll handle recovery of fwt of last epoch
+//        if (certDataHash.IsNull())
+//            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] has missing active cert data hash for required scId[%s]\n",
+//                            __func__, __LINE__, tx.ToString(), csw.ToString(), csw.scId.ToString());
 
         // Verify CSW proof
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.creationData.wCeasedVk.get(), csw))
@@ -1825,12 +1843,12 @@ CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
         return CSidechain::State::ALIVE;
 }
 
-CSidechainField CCoinsViewCache::GetActiveCertDataHash(const uint256& scId) const
+CFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256& scId) const
 {
     const CSidechain* const pSidechain = this->AccessSidechain(scId);
 
     if (pSidechain == nullptr)
-        return CSidechainField{};
+        return CFieldElement{};
 
     if (this->GetSidechainState(scId) == CSidechain::State::CEASED)
         return pSidechain->pastEpochTopQualityCertDataHash;

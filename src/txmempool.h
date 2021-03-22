@@ -109,8 +109,8 @@ struct CSidechainMemPoolEntry
     std::set<uint256> fwdTxHashes; 
     std::map<int64_t, uint256> mBackwardCertificates; //quality -> certHash
     std::set<uint256> mcBtrsTxHashes;
-    CSidechainField mcBtrsCertDataHash;
-    std::map<CSidechainField, uint256> cswNullifiers; // csw nullifier -> containing Tx hash
+    CFieldElement mcBtrsCertDataHash;
+    std::map<CFieldElement, uint256> cswNullifiers; // csw nullifier -> containing Tx hash
     CAmount cswTotalAmount;
 
     // Note: in fwdTxHashes and mcBtrsTxHashes, a tx is registered only once,
@@ -194,7 +194,7 @@ public:
     bool RemoveCertAndSync(const uint256& certToRmHash);
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true,
-                      const std::map<uint256, CSidechainField>& scIdToCertDataHash = std::map<uint256, CSidechainField>{});
+                      const std::map<uint256, CFieldElement>& scIdToCertDataHash = std::map<uint256, CFieldElement>{});
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
     std::vector<uint256> mempoolDirectDependenciesFrom(const CTransactionBase& root) const;
@@ -311,7 +311,7 @@ public:
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).scCreationTxHash.IsNull());
     }
 
-    bool HaveCswNullifier(const uint256& scId, const CSidechainField &nullifier) const
+    bool HaveCswNullifier(const uint256& scId, const CFieldElement &nullifier) const
     {
         LOCK(cs);
         return mapSidechains.count(scId) != 0 && mapSidechains.at(scId).cswNullifiers.count(nullifier) != 0;
@@ -364,7 +364,7 @@ public:
     bool HaveSidechain(const uint256& scId)                             const override;
     void GetScIds(std::set<uint256>& scIdsList)                         const override;
     bool HaveCswNullifier(const uint256& scId,
-                          const CSidechainField &nullifier) const override;
+                          const CFieldElement &nullifier) const override;
 };
 
 #endif // BITCOIN_TXMEMPOOL_H

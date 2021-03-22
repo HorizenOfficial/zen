@@ -102,8 +102,8 @@ void static BatchWriteHashBestAnchor(CLevelDBBatch &batch, const uint256 &hash) 
     batch.Write(DB_BEST_ANCHOR, hash);
 }
 
-void static BatchWriteCswNullifier(CLevelDBBatch &batch, const uint256 &scId, const CSidechainField &nullifier, CCswNullifiersCacheEntry state) {
-    std::pair<uint256, CSidechainField> position = std::make_pair(scId, nullifier);
+void static BatchWriteCswNullifier(CLevelDBBatch &batch, const uint256 &scId, const CFieldElement &nullifier, CCswNullifiersCacheEntry state) {
+    std::pair<uint256, CFieldElement> position = std::make_pair(scId, nullifier);
 
     switch(state.flag) {
         case CCswNullifiersCacheEntry::Flags::FRESH:
@@ -209,8 +209,8 @@ uint256 CCoinsViewDB::GetBestAnchor() const {
     return hashBestAnchor;
 }
 
-bool CCoinsViewDB::HaveCswNullifier(const uint256& scId, const CSidechainField &nullifier) const {
-    std::pair<uint256, CSidechainField> position = std::make_pair(scId, nullifier);
+bool CCoinsViewDB::HaveCswNullifier(const uint256& scId, const CFieldElement &nullifier) const {
+    std::pair<uint256, CFieldElement> position = std::make_pair(scId, nullifier);
     return db.Exists(make_pair(DB_CSW_NULLIFIER, position));
 }
 
@@ -266,7 +266,7 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins,
     }
     
     for (CCswNullifiersMap::iterator it = cswNullifies.begin(); it != cswNullifies.end();) {
-        const std::pair<uint256, CSidechainField>& position = it->first;
+        const std::pair<uint256, CFieldElement>& position = it->first;
         BatchWriteCswNullifier(batch, position.first, position.second, it->second);
         CCswNullifiersMap::iterator itOld = it++;
         cswNullifies.erase(itOld);

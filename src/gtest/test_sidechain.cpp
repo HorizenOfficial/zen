@@ -275,7 +275,7 @@ TEST_F(SidechainsTestSuite, ValidCSWTx) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
-    csw.nullifier = CSidechainField{};
+    csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -287,11 +287,29 @@ TEST_F(SidechainsTestSuite, ValidCSWTx) {
     EXPECT_TRUE(txState.IsValid());
 }
 
+TEST_F(SidechainsTestSuite, InvalidNullifier) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = 100;
+    csw.nullifier = CFieldElement{};
+    csw.scProof = libzendoomc::ScProof();
+    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
+    CValidationState txState;
+
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
 TEST_F(SidechainsTestSuite, CSWTxNegativeAmount) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = -1;
-    csw.nullifier = CSidechainField{};
+    csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -309,7 +327,7 @@ TEST_F(SidechainsTestSuite, CSWTxHugeAmount) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = MAX_MONEY + 1;
-    csw.nullifier = CSidechainField{};
+    csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -327,7 +345,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidNullifier) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
-    csw.nullifier = CSidechainField{std::vector<unsigned char>(size_t(CSidechainField::ByteSize()), 'a')};
+    csw.nullifier = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     csw.scProof = libzendoomc::ScProof();
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -345,7 +363,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidProof) {
     CTxCeasedSidechainWithdrawalInput csw;
 
     csw.nValue = 100;
-    csw.nullifier = CSidechainField{};
+    csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof({std::vector<unsigned char>(size_t(SC_PROOF_SIZE), 'a')});
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;

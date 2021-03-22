@@ -23,6 +23,7 @@
 #include "utilmoneystr.h"
 #include <univalue.h>
 #include <limits.h>
+#include "script/sigcache.h"
 
 extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 
@@ -212,7 +213,7 @@ std::string CTxIn::ToString() const
 }
 
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
-                                                                     const CSidechainField& nullifierIn, const uint160& pubKeyHashIn,
+                                                                     const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
                                                                      const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn)
 {
     nValue = nValueIn;
@@ -291,10 +292,14 @@ bool CTxCrosschainOutBase::CheckAmountRange(CAmount& cumulatedAmount) const
     return true;
 }
 
-CTxScCreationOut::CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn,const Sidechain::ScCreationParameters& paramsIn)
-    :CTxCrosschainOut(nValueIn, addressIn), generatedScId(), withdrawalEpochLength(paramsIn.withdrawalEpochLength),
-     customData(paramsIn.customData), constant(paramsIn.constant),
-     wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), wCeasedVk(paramsIn.wCeasedVk) {}
+CTxScCreationOut::CTxScCreationOut(
+    const CAmount& nValueIn, const uint256& addressIn,
+    const Sidechain::ScCreationParameters& paramsIn)
+    :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
+     withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant),
+     wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), wCeasedVk(paramsIn.wCeasedVk),
+     vFieldElementCertificateFieldConfig(paramsIn.vFieldElementCertificateFieldConfig),
+     vBitVectorCertificateFieldConfig(paramsIn.vBitVectorCertificateFieldConfig) {}
 
 uint256 CTxScCreationOut::GetHash() const
 {
@@ -305,11 +310,17 @@ std::string CTxScCreationOut::ToString() const
 {
     return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, "
                                        "nValue=%d.%08d, address=%s, customData=[%s], "
-                                       "constant=[%s], wCertVk=[%s], wCeasedVk=[%s]",
-        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN, nValue % COIN,
-        HexStr(address).substr(0, 30), HexStr(customData),
-        constant.is_initialized()? constant->GetHexRepr(): CSidechainField{}.GetHexRepr(),
-        HexStr(wCertVk), wCeasedVk ? HexStr(wCeasedVk.get()) : "");
+                                       "constant=[%s], wCertVk=[%s], wMbtrVk=[%s], "
+                                       "wCeasedVk=[%s], "
+                                       "vFieldElementCertificateFieldConfig=[%s], "
+                                       "vBitVectorCertificateFieldConfig[%s]",
+        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN,
+        nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
+        constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
+        HexStr(wCertVk), wMbtrVk ? HexStr(wMbtrVk.get()) : "",
+        wCeasedVk ? HexStr(wCeasedVk.get()) : "",
+        VecToStr(vFieldElementCertificateFieldConfig),
+        VecToStr(vBitVectorCertificateFieldConfig) );
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
@@ -331,7 +342,10 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     customData = ccout.customData;
     constant = ccout.constant;
     wCertVk = ccout.wCertVk;
+    wMbtrVk = ccout.wMbtrVk;
     wCeasedVk = ccout.wCeasedVk;
+    vFieldElementCertificateFieldConfig = ccout.vFieldElementCertificateFieldConfig;
+    vBitVectorCertificateFieldConfig = ccout.vBitVectorCertificateFieldConfig;
     return *this;
 }
 
@@ -343,7 +357,7 @@ CBwtRequestOut::CBwtRequestOut(
 
 std::string CBwtRequestOut::ToString() const
 {
-    return strprintf("CBwtRequestOut(scId=%s, scUtxoId=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
+    return strprintf("CBwtRequestOut(scId=%s, scRequestData=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
         scId.ToString(), scRequestData.GetHexRepr().substr(0, 30),
         mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
         HexStr(scProof).substr(0, 30));
@@ -444,6 +458,19 @@ CAmount CTransactionBase::GetJoinSplitValueIn() const
     }
 
     return nCumulatedValue;
+}
+
+bool CTransaction::CheckSerializedSize(CValidationState &state) const
+{
+    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
+    uint32_t size = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    if (size > MAX_TX_SIZE) {
+        LogPrintf("CheckSerializedSize: Tx id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_TX_SIZE, ToString());
+        return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
+                         REJECT_INVALID, "bad-txns-oversize");
+    }
+
+    return true;
 }
 
 bool CTransaction::CheckAmounts(CValidationState &state) const
@@ -588,7 +615,7 @@ bool CTransaction::CheckInputsDuplication(CValidationState &state) const
 
     // Check for duplicate ceased sidechain withdrawal inputs
     // CSW nullifiers expected to be unique
-    std::set<CSidechainField> vNullifiers;
+    std::set<CFieldElement> vNullifiers;
     for(const CTxCeasedSidechainWithdrawalInput cswIn: GetVcswCcIn())
     {
         if(vNullifiers.count(cswIn.nullifier))
@@ -746,19 +773,6 @@ bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
     {
         return state.DoS(10, error("CheckNonEmpty(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
-    }
-
-    return true;
-}
-
-bool CTransactionBase::CheckSerializedSize(CValidationState &state) const
-{
-    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
-    uint32_t size = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
-    if (size > MAX_TX_SIZE) {
-        LogPrintf("CheckSerializedSize: Tx id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_TX_SIZE, ToString());
-        return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
-                         REJECT_INVALID, "bad-txns-oversize");
     }
 
     return true;

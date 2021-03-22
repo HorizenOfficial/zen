@@ -6,7 +6,6 @@
 #include "interpreter.h"
 
 #include "chain.h"
-#include "primitives/transaction.h"
 #include "crypto/ripemd160.h"
 #include "crypto/sha1.h"
 #include "crypto/sha256.h"
@@ -1158,8 +1157,8 @@ public:
                 // keeps the JoinSplit cryptographically bound
                 // to the transaction.
                 //
-            	auto os = WithTxVersion(&s, txTo.nVersion);
-            	::Serialize(os, txTo.GetVjoinsplit(), nType, nVersion);
+                auto os = WithTxVersion(&s, txTo.nVersion);
+                ::Serialize(os, txTo.GetVjoinsplit(), nType, nVersion);
                 if (txTo.GetVjoinsplit().size() > 0) {
                 ::Serialize(s, txTo.joinSplitPubKey, nType, nVersion);
  
@@ -1177,6 +1176,8 @@ public:
             ::Serialize(s, certTo.quality, nType, nVersion);
             ::Serialize(s, certTo.endEpochBlockHash, nType, nVersion);
             ::Serialize(s, certTo.scProof, nType, nVersion);
+            ::Serialize(s, certTo.vFieldElementCertificateField, nType, nVersion);
+            ::Serialize(s, certTo.vBitVectorCertificateField, nType, nVersion);
 
             // Serialize vin
             unsigned int nInputs = fAnyoneCanPay ? 1 : certTo.GetVin().size();

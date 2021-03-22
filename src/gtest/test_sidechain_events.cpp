@@ -73,8 +73,8 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithoutCert
     initialScState.creationData.withdrawalEpochLength = 5;
     initialScState.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
 
-    initialScState.pastEpochTopQualityCertDataHash = CSidechainField{std::vector<unsigned char>(CSidechainField::ByteSize(), 'a')};
-    initialScState.lastTopQualityCertDataHash      = CSidechainField{std::vector<unsigned char>(CSidechainField::ByteSize(), 'b')};
+    initialScState.pastEpochTopQualityCertDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'a')};
+    initialScState.lastTopQualityCertDataHash      = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'b')};
 
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.GetCertSubmissionWindowStart(initialEpochReferencedByCert));
     ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
@@ -83,7 +83,7 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithoutCert
     int currWindowEnd = initialScState.GetCertSubmissionWindowEnd(initialEpochReferencedByCert);
     int nextWindowEnd = initialScState.GetCertSubmissionWindowEnd(initialEpochReferencedByCert+1);
 
-    CSidechainField expectedActiveCertDataHash = initialScState.lastTopQualityCertDataHash;
+    CFieldElement expectedActiveCertDataHash = initialScState.lastTopQualityCertDataHash;
 
     for (int heightToInspect = currWindowEnd+1; heightToInspect <= nextWindowEnd; ++heightToInspect)
     {
@@ -107,13 +107,13 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
     sidechain.creationData.withdrawalEpochLength = 100;
     sidechain.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
 
-    sidechain.pastEpochTopQualityCertDataHash = CSidechainField{std::vector<unsigned char>(CSidechainField::ByteSize(), 'a')};
-    sidechain.lastTopQualityCertDataHash      = CSidechainField{std::vector<unsigned char>(CSidechainField::ByteSize(), 'b')};
+    sidechain.pastEpochTopQualityCertDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'a')};
+    sidechain.lastTopQualityCertDataHash      = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'b')};
 
     storeSidechainWithCurrentHeight(*view, scId, sidechain, sidechain.GetCertSubmissionWindowStart(initialEpochReferencedByCert));
     ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
-    CSidechainField expectedActiveCertDataHash = sidechain.lastTopQualityCertDataHash;
+    CFieldElement expectedActiveCertDataHash = sidechain.lastTopQualityCertDataHash;
 
     // test
     int currWindowEnd = sidechain.GetCertSubmissionWindowEnd(initialEpochReferencedByCert);
@@ -148,7 +148,7 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
             // simulate certificate reception, as it happens in UpdateSidechain
             sidechain.lastTopQualityCertReferencedEpoch += 1;
             sidechain.pastEpochTopQualityCertDataHash = sidechain.lastTopQualityCertDataHash; // rotate past certDataHash
-            sidechain.lastTopQualityCertDataHash = CSidechainField{std::vector<unsigned char>(CSidechainField::ByteSize(), 'c')};
+            sidechain.lastTopQualityCertDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'c')};
             txCreationUtils::storeSidechain(view->getSidechainMap(), scId, sidechain);
         } else
         {

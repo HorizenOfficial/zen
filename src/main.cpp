@@ -10,7 +10,6 @@
 #include "addrman.h"
 #include "alert.h"
 #include "arith_uint256.h"
-#include "chainparams.h"
 #include "checkpoints.h"
 #include "checkqueue.h"
 #include "consensus/validation.h"
@@ -18,10 +17,8 @@
 #include "init.h"
 #include "merkleblock.h"
 #include "metrics.h"
-#include "net.h"
 #include "pow.h"
 #include "txdb.h"
-#include "txmempool.h"
 #include "ui_interface.h"
 #include "undo.h"
 #include "util.h"
@@ -43,6 +40,9 @@
 #include "zen/delay.h"
 
 #include "sc/sidechain.h"
+#include <sc/sidechainTxsCommitmentBuilder.h>
+#include "script/sigcache.h"
+#include "script/standard.h"
 
 using namespace zen;
 
@@ -893,7 +893,7 @@ unsigned int GetLegacySigOpCount(const CTransactionBase& txBase)
                 nSigOps += csw.redeemScript.GetSigOpCount(false);
             }
         } catch(const bad_cast& e) {
-            LogPrint("%s():%d - can't cast CTransactionBase (%s) to CTransaction when expected.\n",
+            LogPrintf("%s():%d - can't cast CTransactionBase (%s) to CTransaction when expected.\n",
                 __func__, __LINE__, txBase.GetHash().ToString());
             assert(false);
         }
@@ -1537,7 +1537,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         }
 
         // Store transaction in memory
-        std::map<uint256, CSidechainField> scIdToCertDataHash;
+        std::map<uint256, CFieldElement> scIdToCertDataHash;
         for(const auto& btr: tx.GetVBwtRequestOut())
         {
             scIdToCertDataHash[btr.scId] = view.GetActiveCertDataHash(btr.scId);
@@ -2136,11 +2136,11 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                         __func__, __LINE__, coins->nHeight, coins->nBwtMaturityHeight, nSpendHeight);
                 if (coins->IsCoinBase())
                     return state.Invalid(
-                        error("CheckInputs(): tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight),
+                        error("%s(): tried to spend coinbase at depth %d", __func__, nSpendHeight - coins->nHeight),
                         REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
                 if (coins->IsFromCert())
                     return state.Invalid(
-                        error("CheckInputs(): tried to spend certificate before next epoch certificate is received"),
+                        error("%s(): tried to spend certificate before next epoch certificate is received", __func__),
                         REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
             }
         }
@@ -2158,7 +2158,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
             bool fDisableProtectionForFR = ForkManager::getInstance().canSendCommunityFundsToTransparentAddress(nSpendHeight);
             if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
                 return state.Invalid(
-                    error("CheckInputs(): tried to spend coinbase with transparent outputs"),
+                    error("%s(): tried to spend coinbase with transparent outputs", __func__),
                     REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                 }
             }
@@ -2167,7 +2167,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         // Check for negative or overflow input values
         nValueIn += coins->vout[prevout.n].nValue;
         if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
-            return state.DoS(100, error("CheckInputs(): txin values out of range"),
+            return state.DoS(100, error("%s(): txin values out of range", __func__),
                 REJECT_INVALID, "bad-txns-inputvalues-outofrange");
     }
 
@@ -2183,7 +2183,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
 
     nValueIn += txBase.GetJoinSplitValueIn();
     if (!MoneyRange(nValueIn))
-        return state.DoS(100, error("CheckInputs(): vpub_old values out of range"),
+        return state.DoS(100, error("%s(): vpub_old values out of range", __func__),
                          REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
     if (!txBase.CheckFeeAmount(nValueIn, state))
@@ -3841,10 +3841,10 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
 
     if (pindexNew->pprev && pindexNew->nVersion == BLOCK_VERSION_SC_SUPPORT )
     {
-        const CSidechainField& prevScCumTreeHash = (pindexNew->pprev->nVersion == BLOCK_VERSION_SC_SUPPORT)?
-            pindexNew->pprev->scCumTreeHash : CSidechainField();
-        std::vector<unsigned char> tmp(block.hashScTxsCommitment.begin(), block.hashScTxsCommitment.end());
-        pindexNew->scCumTreeHash = CSidechainField::ComputeHash(prevScCumTreeHash, CSidechainField{tmp});
+        const CFieldElement& prevScCumTreeHash =
+                (pindexNew->pprev->nVersion == BLOCK_VERSION_SC_SUPPORT) ?
+                        pindexNew->pprev->scCumTreeHash : CBlockIndex::defaultScCumTreeHash;
+        pindexNew->scCumTreeHash = CFieldElement::ComputeHash(prevScCumTreeHash, CFieldElement{block.hashScTxsCommitment}); 
     }
 
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
@@ -4177,6 +4177,14 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     {
         return state.Invalid(error("%s : rejected nVersion block %d not supported at height %d", __func__, block.nVersion, nHeight),
             REJECT_INVALID, "bad-version");
+    }
+
+    if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
+    {
+    	CFieldElement fieldToValidate{block.hashScTxsCommitment};
+    	if (!fieldToValidate.IsValid())
+            return state.DoS(100, error("%s: incorrect hashScTxsCommitment", __func__),
+                             REJECT_INVALID, "bad-hashScTxsCommitment");
     }
 
     return true;

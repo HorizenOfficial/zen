@@ -1121,6 +1121,23 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
             else
                 sc.push_back(Pair("wCeasedVk", std::string{"NOT INITIALIZED"}));
+
+            UniValue arrFieldElementConfig(UniValue::VARR);
+            for(const auto& cfgEntry: info.creationData.vFieldElementCertificateFieldConfig)
+            {
+                arrFieldElementConfig.push_back(cfgEntry.getBitSize());
+            }
+            sc.push_back(Pair("vFieldElementCertificateFieldConfig", arrFieldElementConfig));
+
+            UniValue arrBitVectorConfig(UniValue::VARR);
+            for(const auto& cfgEntry: info.creationData.vBitVectorCertificateFieldConfig)
+            {
+                UniValue singlePair(UniValue::VARR);
+                singlePair.push_back(cfgEntry.getBitVectorSizeBits());
+                singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
+                arrBitVectorConfig.push_back(singlePair);
+            }
+            sc.push_back(Pair("vBitVectorCertificateFieldConfig", arrBitVectorConfig));
         }
  
         UniValue ia(UniValue::VARR);
@@ -1166,6 +1183,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.wCertVk = scCreation.wCertVk;
                     info.creationData.wMbtrVk = scCreation.wMbtrVk;
                     info.creationData.wCeasedVk = scCreation.wCeasedVk;
+                    info.creationData.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
+                    info.creationData.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;
                     break;
                 }
             }
@@ -1193,6 +1212,23 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     sc.push_back(Pair("unconf wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
                 else
                     sc.push_back(Pair("unconf wCeasedVk", std::string{"NOT INITIALIZED"}));
+
+                UniValue arrFieldElementConfig(UniValue::VARR);
+                for(const auto& cfgEntry: info.creationData.vFieldElementCertificateFieldConfig)
+                {
+                    arrFieldElementConfig.push_back(cfgEntry.getBitSize());
+                }
+                sc.push_back(Pair("unconf vFieldElementCertificateFieldConfig", arrFieldElementConfig));
+
+                UniValue arrBitVectorConfig(UniValue::VARR);
+                for(const auto& cfgEntry: info.creationData.vBitVectorCertificateFieldConfig)
+                {
+                    UniValue singlePair(UniValue::VARR);
+                    singlePair.push_back(cfgEntry.getBitVectorSizeBits());
+                    singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
+                    arrBitVectorConfig.push_back(singlePair);
+                }
+                sc.push_back(Pair("unconf vBitVectorCertificateFieldConfig", arrBitVectorConfig));
             }
 
             addScUnconfCcData(scId, sc);
@@ -1294,7 +1330,7 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
     }
 
-    CSidechainField certDataHash = scView.GetActiveCertDataHash(scid);
+    CFieldElement certDataHash = scView.GetActiveCertDataHash(scid);
     if (certDataHash.IsNull() )
     {
         LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());
@@ -1339,6 +1375,8 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
             "     \"wMbtrVk\":                 xxxxx,   (string)  The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
             "     \"wCeasedVk\":               xxxxx,   (string, optional)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
+            "     \"vFieldElementCertificateFieldConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            "     \"vBitVectorCertificateFieldConfig\"    xxxxx,   (string) A string representation of an array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom vBitVectorCertificateField with the corresponding sizes\n"
             "     \"immature amounts\": [\n"
             "       {\n"
             "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
@@ -1598,12 +1636,12 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
 
     std::string nullifierError;
     std::vector<unsigned char> nullifierVec;
-    if (!AddScData(inputString, nullifierVec, CSidechainField::ByteSize(), true, nullifierError))
+    if (!AddScData(inputString, nullifierVec, CFieldElement::ByteSize(), true, nullifierError))
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": " + nullifierError;
         throw JSONRPCError(RPC_TYPE_ERROR, error);
     }
-    CSidechainField nullifier{nullifierVec};
+    CFieldElement nullifier{nullifierVec};
     if (!nullifier.IsValid())
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": invalid nullifier data";

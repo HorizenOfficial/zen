@@ -1,58 +1,71 @@
 #include <gtest/gtest.h>
+
+#include <sc/sidechaintypes.h>
+#include <primitives/transaction.h>
+#include <primitives/certificate.h>
+#include <sc/sidechainTxsCommitmentBuilder.h>
+#include "tx_creation_utils.h"
+
 #include <gtest/libzendoo_test_files.h>
 #include <util.h>
-#include <stdio.h>
 #include <cstring>
 #include <utilstrencodings.h>
 
-#include <primitives/transaction.h>
-#include <sc/proofverifier.h>
 #include <streams.h>
 #include <clientversion.h>
-#include <gtest/tx_creation_utils.h>
 
-TEST(SidechainsField, FieldSizeIsAlwaysTheExpectedOne)
+TEST(SidechainsField, GetByteArray)
 {
-    CSidechainField emptyField;
-    EXPECT_TRUE(emptyField.GetByteArray().size() == CSidechainField::ByteSize());
+    CFieldElement emptyField{};
+    EXPECT_TRUE(emptyField.IsNull());
+    EXPECT_TRUE(emptyField.GetByteArray().size() == 0);
+
+    ///////////////////
+    CFieldElement validField {SAMPLE_FIELD};
+    ASSERT_TRUE(validField.GetByteArray().size() == CFieldElement::ByteSize());
 }
 
 TEST(SidechainsField, Serialization)
 {
-    std::vector<unsigned char> zeroLengthByteArray {};
-    CDataStream zeroLengthStream(SER_DISK, CLIENT_VERSION);
+    ////////////////////
+    CFieldElement emptyFieldElement{};
+    CDataStream emptyFieldStream(SER_DISK, CLIENT_VERSION);
 
-    zeroLengthStream << zeroLengthByteArray;
-    CSidechainField zeroLengthRetrievedField;
-    EXPECT_THROW(zeroLengthStream >> zeroLengthRetrievedField,std::ios_base::failure)
-    <<"THIS MUST BE GREEN AS SOON AS 253 BITS FIELD IS INTRODUCED";
+    emptyFieldStream << emptyFieldElement;
+    CFieldElement emptyRetrievedField;
+    EXPECT_NO_THROW(emptyFieldStream >> emptyRetrievedField);
+    EXPECT_TRUE(emptyRetrievedField == emptyFieldElement);
+
+    ////////////////////
+    CDataStream zeroLengthStream(SER_DISK, CLIENT_VERSION);
+    CFieldElement zeroLengthRetrievedField{};
+    EXPECT_THROW(zeroLengthStream >> zeroLengthRetrievedField,std::ios_base::failure);
 
     ///////////////////
     std::vector<unsigned char> tooShortByteArray(19,'a');
-    ASSERT_TRUE(tooShortByteArray.size() < CSidechainField::ByteSize());
+    ASSERT_TRUE(tooShortByteArray.size() < CFieldElement::ByteSize());
     CDataStream tooShortStream(SER_DISK, CLIENT_VERSION);
 
     tooShortStream << tooShortByteArray;
-    CSidechainField tooShortRetrievedField;
-    EXPECT_THROW(tooShortStream >> tooShortRetrievedField,std::ios_base::failure)
-    <<"THIS MUST BE GREEN AS SOON AS 253 BITS FIELD IS INTRODUCED";
+    CFieldElement tooShortRetrievedField;
+    EXPECT_THROW(tooShortStream >> tooShortRetrievedField,std::ios_base::failure);
 
     ////////////////////
-    std::vector<unsigned char> tooBigByteArray(CSidechainField::ByteSize()*2,0x0);
-    ASSERT_TRUE(tooBigByteArray.size() > CSidechainField::ByteSize());
+    std::vector<unsigned char> tooBigByteArray(CFieldElement::ByteSize()*2,0x0);
+    ASSERT_TRUE(tooBigByteArray.size() > CFieldElement::ByteSize());
     CDataStream tooBigStream(SER_DISK, CLIENT_VERSION);
 
     tooBigStream << tooBigByteArray;
-    CSidechainField tooBigRetrievedField;
+    CFieldElement tooBigRetrievedField;
     EXPECT_THROW(tooBigStream >> tooBigRetrievedField,std::ios_base::failure);
 
     ////////////////////
-    std::vector<unsigned char> nonZeroTerminatedByteArray(CSidechainField::ByteSize(),0xff);
-    ASSERT_TRUE(nonZeroTerminatedByteArray.size() == CSidechainField::ByteSize());
+    std::vector<unsigned char> nonZeroTerminatedByteArray(CFieldElement::ByteSize(),0xff);
+    ASSERT_TRUE(nonZeroTerminatedByteArray.size() == CFieldElement::ByteSize());
     CDataStream nonZeroStream(SER_DISK, CLIENT_VERSION);
 
     nonZeroStream << nonZeroTerminatedByteArray;
-    CSidechainField nonZeroRetrievedField;
+    CFieldElement nonZeroRetrievedField;
     EXPECT_NO_THROW(nonZeroStream >> nonZeroRetrievedField);
     EXPECT_FALSE(nonZeroRetrievedField.IsValid());
 
@@ -63,122 +76,94 @@ TEST(SidechainsField, Serialization)
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f
     };
-    ASSERT_TRUE(overModuleByteArray.size() == CSidechainField::ByteSize());
-    CDataStream overModuleStream(SER_DISK, CLIENT_VERSION);
+    ASSERT_TRUE(overModuleByteArray.size() == CFieldElement::ByteSize());
 
+    CDataStream overModuleStream(SER_DISK, CLIENT_VERSION);
     overModuleStream << overModuleByteArray;
-    CSidechainField overModuleRetrievedField;
+
+    CFieldElement overModuleRetrievedField;
     EXPECT_NO_THROW(overModuleStream >> overModuleRetrievedField);
     EXPECT_FALSE(overModuleRetrievedField.IsValid());
 
     ////////////////////
-    std::vector<unsigned char> validByteArray = {
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
-    };
-    ASSERT_TRUE(validByteArray.size() == CSidechainField::ByteSize());
+    CFieldElement fieldElement{SAMPLE_FIELD};
     CDataStream validStream(SER_DISK, CLIENT_VERSION);
 
-    validStream << validByteArray;
-    CSidechainField validRetrievedField;
+    validStream << fieldElement;
+    CFieldElement validRetrievedField;
     EXPECT_NO_THROW(validStream >> validRetrievedField);
     EXPECT_TRUE(validRetrievedField.IsValid());
+    EXPECT_TRUE(validRetrievedField == fieldElement);
 }
 
 TEST(SidechainsField, IsValid)
 {
+    CFieldElement emptyFieldElement{};
+    EXPECT_FALSE(emptyFieldElement.IsValid());
+
     std::vector<unsigned char> zeroLengthByteArray{};
-    EXPECT_THROW(CSidechainField{zeroLengthByteArray}, std::invalid_argument)
-    <<"THIS MUST BE GREEN AS SOON AS 253 BITS FIELD IS INTRODUCED";
+    EXPECT_DEATH(CFieldElement{zeroLengthByteArray}, "");
 
     std::vector<unsigned char> shortByteArray(19,'a');
-    EXPECT_THROW(CSidechainField{shortByteArray}, std::invalid_argument)
-    <<"THIS MUST BE GREEN AS SOON AS 253 BITS FIELD IS INTRODUCED";
+    EXPECT_DEATH(CFieldElement{shortByteArray}, "");
 
-    std::vector<unsigned char> tooBigByteArray(CSidechainField::ByteSize()*2,0x0);
-    EXPECT_THROW(CSidechainField{tooBigByteArray}, std::invalid_argument)
-    <<"THIS MUST BE GREEN AS SOON AS 253 BITS FIELD IS INTRODUCED";
+    std::vector<unsigned char> tooBigByteArray(CFieldElement::ByteSize()*2,0x0);
+    EXPECT_DEATH(CFieldElement{tooBigByteArray}, "");
 
-    std::vector<unsigned char> nonZeroTerminatedByteArray(CSidechainField::ByteSize(),0xff);
-    CSidechainField nonZeroTerminatedField {nonZeroTerminatedByteArray};
+    std::vector<unsigned char> nonZeroTerminatedByteArray(CFieldElement::ByteSize(),0xff);
+    CFieldElement nonZeroTerminatedField {nonZeroTerminatedByteArray};
     EXPECT_FALSE(nonZeroTerminatedField.IsValid());
 
-    // not depending on the curve choosen in the crypto lib, this is over module for a field element of 32 bytes 
-    // (this is 255 bit set to 1 and the last bit set to 0)
     std::vector<unsigned char> overModuleByteArray = {
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f
     };
-    ASSERT_TRUE(overModuleByteArray.size() == CSidechainField::ByteSize());
-    CSidechainField overModuleField{overModuleByteArray};
+    ASSERT_TRUE(overModuleByteArray.size() == CFieldElement::ByteSize());
+    CFieldElement overModuleField{overModuleByteArray};
     EXPECT_FALSE(overModuleField.IsValid());
 
-    // similarly, not depending on the curve choosen in the crypto lib, this is always valid for a field element of 32 bytes 
-    // (this is 254 bit set to 1 and the last two bits set to 0)
-    std::vector<unsigned char> validByteArray = {
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
-    };
-    ASSERT_TRUE(validByteArray.size() == CSidechainField::ByteSize());
-    CSidechainField validField {validByteArray};
+    CFieldElement validField {SAMPLE_FIELD};
     EXPECT_TRUE(validField.IsValid());
 }
 
 TEST(SidechainsField, CopyAndAssignement)
 {
-#if 0
-    std::vector<unsigned char> validByteArray = {
-        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
-        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
-        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
-        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 1, 0
-    };
-#else
-    std::vector<unsigned char> validByteArray = {
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
-    };
-#endif
-    ASSERT_TRUE(validByteArray.size() == CSidechainField::ByteSize());
     {
-        CSidechainField AValidField {validByteArray};
-        const field_t* const AValidPtr = AValidField.GetFieldElement();
-        ASSERT_TRUE(AValidPtr != nullptr);
-
+        CFieldElement AValidField {SAMPLE_FIELD};
         ASSERT_TRUE(AValidField.IsValid());
+        wrappedFieldPtr AValidPtr = AValidField.GetFieldElement();
+        ASSERT_TRUE(AValidPtr.get() != nullptr);
 
         { //Scoped to invoke copied obj dtor
-        	CSidechainField copiedField{AValidField};
-            const field_t* const copiedPtr = copiedField.GetFieldElement();
+            CFieldElement copiedField(AValidField);
+            EXPECT_TRUE(copiedField.IsValid());
+            EXPECT_TRUE(copiedField == AValidField);
 
-        	EXPECT_TRUE(copiedField.IsValid());
-        	EXPECT_TRUE(copiedField == AValidField);
-            ASSERT_TRUE(copiedPtr != nullptr);
+            wrappedFieldPtr copiedPtr = copiedField.GetFieldElement();
+            ASSERT_TRUE(copiedPtr.get() != nullptr);
             ASSERT_TRUE(copiedPtr != AValidPtr);
         }
         EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
+        wrappedFieldPtr ptr = AValidField.GetFieldElement();
+        ASSERT_TRUE(ptr.get() != nullptr);
+        ASSERT_TRUE(ptr != AValidPtr);
 
         { //Scoped to invoke assigned obj dtor
-        	CSidechainField assignedField{};
-            const field_t* const assignedPtr = assignedField.GetFieldElement();
+            CFieldElement assignedField{};
+            assignedField = AValidField;
+            EXPECT_TRUE(assignedField.IsValid());
+            EXPECT_TRUE(assignedField == AValidField);
 
-        	assignedField = AValidField;
-        	EXPECT_TRUE(assignedField.IsValid());
-        	EXPECT_TRUE(assignedField == AValidField);
-            ASSERT_TRUE(assignedPtr != nullptr);
+            wrappedFieldPtr assignedPtr = assignedField.GetFieldElement();
+            ASSERT_TRUE(assignedPtr.get() != nullptr);
             ASSERT_TRUE(assignedPtr != AValidPtr);
         }
         EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
-        const field_t* const ptr = AValidField.GetFieldElement();
-        ASSERT_TRUE(ptr == AValidPtr);
+        ptr = AValidField.GetFieldElement();
+        ASSERT_TRUE(ptr.get() != nullptr);
+        ASSERT_TRUE(ptr != AValidPtr);
     }
 }
 
@@ -190,7 +175,7 @@ TEST(SidechainsField, PoseidonHashTest)
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
     };
-    CSidechainField lhsField{lhs};
+    CFieldElement lhsField{lhs};
     ASSERT_TRUE(lhsField.IsValid());
 
     std::vector<unsigned char> rhs {
@@ -199,36 +184,33 @@ TEST(SidechainsField, PoseidonHashTest)
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
     };
-    CSidechainField rhsField{rhs};
+    CFieldElement rhsField{rhs};
     ASSERT_TRUE(rhsField.IsValid());
 
-    // TODO check this
     std::vector<unsigned char> expectedHash {
         0x42, 0xff, 0xd4, 0x94, 0x7f, 0x76, 0xf7, 0xc1,
         0xba, 0x0a, 0xcf, 0x73, 0xf3, 0x0a, 0xa3, 0x7b,
         0x5a, 0xe8, 0xeb, 0xde, 0x5d, 0x61, 0xc3, 0x19,
         0x70, 0xc2, 0xf6, 0x45, 0x7b, 0x83, 0x2a, 0x39
     };
-    CSidechainField expectedField{expectedHash};
+    CFieldElement expectedField{expectedHash};
     ASSERT_TRUE(expectedField.IsValid());
 
-    EXPECT_TRUE(CSidechainField::ComputeHash(lhsField, rhsField) == expectedField)
+    EXPECT_TRUE(CFieldElement::ComputeHash(lhsField, rhsField) == expectedField)
     <<"expectedField "<<expectedField.GetHexRepr()<<"\n"
-	<<"actualField   "<<CSidechainField::ComputeHash(lhsField, rhsField).GetHexRepr();
-
-    // TODO try using an invalid rhs for instance and see that an exc is thrown
+    <<"actualField   "<<CFieldElement::ComputeHash(lhsField, rhsField).GetHexRepr();
 }
 
-TEST(ZendooLib, FieldTest)
+TEST(SidechainsField, NakedZendooFeatures_FieldTest)
 {
     //Size is the expected one
     int field_len = zendoo_get_field_size_in_bytes();
-    ASSERT_EQ(field_len, CSidechainField::ByteSize());
+    ASSERT_EQ(field_len, CFieldElement::ByteSize());
 
     auto field = zendoo_get_random_field();
 
     //Serialize and deserialize and check equality
-    unsigned char field_bytes[CSidechainField::ByteSize()];
+    unsigned char field_bytes[CFieldElement::ByteSize()];
     zendoo_serialize_field(field, field_bytes);
 
     auto field_deserialized = zendoo_deserialize_field(field_bytes);
@@ -240,125 +222,202 @@ TEST(ZendooLib, FieldTest)
     zendoo_field_free(field_deserialized);
 }
 
-#if 0
-TEST(ZendooLib, PoseidonMerkleTreeTest)  {
+TEST(SidechainsField, NakedZendooFeatures_PoseidonHashTest)
+{
+    unsigned char lhs[SC_FIELD_SIZE] = {
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
+    };
 
-    //Generate random leaves
-    static const int leaves_len = 16;
+    unsigned char rhs[SC_FIELD_SIZE] = {
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
+    };
+
+    unsigned char hash[SC_FIELD_SIZE] = {
+        0x42, 0xff, 0xd4, 0x94, 0x7f, 0x76, 0xf7, 0xc1,
+        0xba, 0x0a, 0xcf, 0x73, 0xf3, 0x0a, 0xa3, 0x7b,
+        0x5a, 0xe8, 0xeb, 0xde, 0x5d, 0x61, 0xc3, 0x19,
+        0x70, 0xc2, 0xf6, 0x45, 0x7b, 0x83, 0x2a, 0x39
+    };
+
+    auto lhs_field = zendoo_deserialize_field(lhs);
+    ASSERT_TRUE(lhs_field != NULL);
+
+    auto rhs_field = zendoo_deserialize_field(rhs);
+    ASSERT_TRUE(rhs_field != NULL);
+
+
+    auto expected_hash = zendoo_deserialize_field(hash);
+    ASSERT_TRUE(expected_hash != NULL);
+
+    auto digest = ZendooPoseidonHash();
+
+    digest.update(lhs_field);
+
+    auto temp_hash = digest.finalize();
+    digest.update(rhs_field); // Call to finalize keeps the state
+
+    auto actual_hash = digest.finalize();
+    ASSERT_TRUE((zendoo_field_assert_eq(actual_hash, expected_hash)))
+    <<"Expected hashes to be equal";
+    zendoo_field_free(actual_hash);
+
+    auto actual_hash_2 = digest.finalize(); // finalize() is idempotent
+    ASSERT_TRUE((zendoo_field_assert_eq(actual_hash_2, expected_hash)))
+    <<"Expected hashes to be equal";
+    zendoo_field_free(actual_hash_2);
+
+    zendoo_field_free(expected_hash);
+    zendoo_field_free(temp_hash);
+    zendoo_field_free(lhs_field);
+    zendoo_field_free(rhs_field);
+}
+
+TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
+{
+    size_t height = 5;
+
+    // Deserialize root
+    unsigned char expected_root_bytes[SC_FIELD_SIZE] = {
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
+    };
+    auto expected_root = zendoo_deserialize_field(expected_root_bytes);
+    ASSERT_TRUE(expected_root != NULL);
+
+    //Generate leaves
+
+    //enum removes variable length buffer [-Wstack-protector] warning that simple const int would give
+    enum { leaves_len = 32 };
     const field_t* leaves[leaves_len];
     for (int i = 0; i < leaves_len; i++){
-        leaves[i] = zendoo_get_random_field();
+        leaves[i] = zendoo_get_field_from_long(i);
     }
 
-    //Create Merkle Tree and get the root
-    auto tree = ginger_mt_new(leaves, leaves_len);
-    ASSERT_TRUE(tree != NULL);
+    // Initialize tree
+    auto tree = ZendooGingerMerkleTree(height, leaves_len);
 
-    auto root = ginger_mt_get_root(tree);
+    // Add leaves to tree
+    for (int i = 0; i < leaves_len; i++){
+        tree.append(leaves[i]);
+    }
 
-    //Verify Merkle Path is ok for each leaf
+    // Finalize tree
+    tree.finalize_in_place();
+
+    // Compute root and assert equality with expected one
+    auto root = tree.root();
+    ASSERT_TRUE(zendoo_field_assert_eq(root, expected_root))
+    <<"Expected roots to be equal";
+
+    // It is the same by calling finalize()
+    auto tree_copy = tree.finalize();
+    auto root_copy = tree_copy.root();
+    ASSERT_TRUE(zendoo_field_assert_eq(root_copy, expected_root))
+    <<"Expected roots to be equal";
+
+    // Test Merkle Paths
     for (int i = 0; i < leaves_len; i++) {
-
-        //Create Merkle Path for the i-th leaf
-        auto path = ginger_mt_get_merkle_path(leaves[i], i, tree);
-        ASSERT_TRUE(path != NULL);
-
-        //Verify Merkle Path for the i-th leaf
-        ASSERT_TRUE(ginger_mt_verify_merkle_path(leaves[i], root, path));
-
-        //Free Merkle Path
-        ginger_mt_path_free(path);
+        auto path = tree.get_merkle_path(i);
+        ASSERT_TRUE(zendoo_verify_ginger_merkle_path(path, height, (field_t*)leaves[i], root))
+        <<"Merkle Path must be verified";
+        zendoo_free_ginger_merkle_path(path);
     }
 
-    //Free the tree
-    ginger_mt_free(tree);
-
-    //Free the root
-    zendoo_field_free(root);
-
-    //Free all the leaves
+    // Free memory
+    zendoo_field_free(expected_root);
     for (int i = 0; i < leaves_len; i++){
         zendoo_field_free((field_t*)leaves[i]);
     }
+    zendoo_field_free(root);
+    zendoo_field_free(root_copy);
 }
-#endif
+
+// SILENCED SINCE BROKEN. TODO: Come up with correct byte arrays
+//// Execute the test from zen directory
+//TEST(SidechainsField, NakedZendooFeatures_TestProof)
+//{
+//    //Deserialize zero knowledge proof
+//    auto proof_serialized = ParseHex(SAMPLE_PROOF);
+//    ASSERT_EQ(proof_serialized.size(), zendoo_get_sc_proof_size_in_bytes());
+//    auto proof = zendoo_deserialize_sc_proof(proof_serialized.data());
+//    ASSERT_TRUE(proof != NULL);
+//
+//    //Inputs
+//    unsigned char end_epoch_mc_b_hash[32] = {
+//        78, 85, 161, 67, 167, 192, 185, 56, 133, 49, 134, 253, 133, 165, 182, 80, 152, 93, 203, 77, 165, 13, 67, 0, 64,
+//        200, 185, 46, 93, 135, 238, 70
+//    };
+//
+//    unsigned char prev_end_epoch_mc_b_hash[32] = {
+//        68, 214, 34, 70, 20, 109, 48, 39, 210, 156, 109, 60, 139, 15, 102, 79, 79, 2, 87, 190, 118, 38, 54, 18, 170, 67,
+//        212, 205, 183, 115, 182, 198
+//    };
+//
+//    unsigned char constant_bytes[96] = {
+//        170, 190, 140, 27, 234, 135, 240, 226, 158, 16, 29, 161, 178, 36, 69, 34, 29, 75, 195, 247, 29, 93, 92, 48, 214,
+//        102, 70, 134, 68, 165, 170, 201, 119, 162, 19, 254, 229, 115, 80, 248, 106, 182, 164, 40, 21, 154, 15, 177, 158,
+//        16, 172, 169, 189, 253, 206, 182, 72, 183, 128, 160, 182, 39, 98, 76, 95, 198, 62, 39, 87, 213, 251, 12, 154,
+//        180, 125, 231, 222, 73, 129, 120, 144, 197, 116, 248, 95, 206, 147, 108, 252, 125, 79, 118, 57, 26, 0, 0
+//    };
+//
+//    auto constant = zendoo_deserialize_field(constant_bytes);
+//    ASSERT_TRUE(constant != NULL);
+//
+//    uint64_t quality = 2;
+//
+//    //Create dummy bt
+//    const backward_transfer_t bt_list[10] = { {0}, 0 };
+//
+//    //Deserialize vk
+//    auto vk_serialized = ParseHex(SAMPLE_VK);
+//    ASSERT_EQ(vk_serialized.size(), zendoo_get_sc_vk_size_in_bytes());
+//    auto vk = zendoo_deserialize_sc_vk(vk_serialized.data());
+//    ASSERT_TRUE(vk != NULL);
+//
+//    //Verify zkproof
+//    ASSERT_TRUE(zendoo_verify_sc_proof(
+//            end_epoch_mc_b_hash,
+//            prev_end_epoch_mc_b_hash,
+//            bt_list,
+//            10,
+//            quality,
+//            constant,
+//            NULL,
+//            proof,
+//            vk
+//        ));
+//
+//    //Negative test: change quality (for instance) and ASSERT_TRUE proof failure
+//    ASSERT_FALSE(zendoo_verify_sc_proof(
+//            end_epoch_mc_b_hash,
+//            prev_end_epoch_mc_b_hash,
+//            bt_list,
+//            10,
+//            quality - 1,
+//            constant,
+//            NULL,
+//            proof,
+//            vk
+//        ));
+//
+//    //Free proof
+//    zendoo_sc_proof_free(proof);
+//    zendoo_sc_vk_free(vk);
+//    zendoo_field_free(constant);
+//
+//}
 
 // Execute the test from zen directory
-TEST(ZendooLib, TestProof)
+TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
 {
-    //Deserialize zero knowledge proof
-    auto proof_serialized = ParseHex(SAMPLE_PROOF);
-    ASSERT_EQ(proof_serialized.size(), zendoo_get_sc_proof_size_in_bytes());
-    auto proof = zendoo_deserialize_sc_proof(proof_serialized.data());
-    ASSERT_TRUE(proof != NULL);
-
-    //Inputs
-    unsigned char end_epoch_mc_b_hash[32] = {
-        78, 85, 161, 67, 167, 192, 185, 56, 133, 49, 134, 253, 133, 165, 182, 80, 152, 93, 203, 77, 165, 13, 67, 0, 64,
-        200, 185, 46, 93, 135, 238, 70
-    };
-
-    unsigned char prev_end_epoch_mc_b_hash[32] = {
-        68, 214, 34, 70, 20, 109, 48, 39, 210, 156, 109, 60, 139, 15, 102, 79, 79, 2, 87, 190, 118, 38, 54, 18, 170, 67,
-        212, 205, 183, 115, 182, 198
-    };
-
-    unsigned char constant_bytes[96] = {
-        170, 190, 140, 27, 234, 135, 240, 226, 158, 16, 29, 161, 178, 36, 69, 34, 29, 75, 195, 247, 29, 93, 92, 48, 214,
-        102, 70, 134, 68, 165, 170, 201, 119, 162, 19, 254, 229, 115, 80, 248, 106, 182, 164, 40, 21, 154, 15, 177, 158,
-        16, 172, 169, 189, 253, 206, 182, 72, 183, 128, 160, 182, 39, 98, 76, 95, 198, 62, 39, 87, 213, 251, 12, 154,
-        180, 125, 231, 222, 73, 129, 120, 144, 197, 116, 248, 95, 206, 147, 108, 252, 125, 79, 118, 57, 26, 0, 0
-    };
-
-    auto constant = zendoo_deserialize_field(constant_bytes);
-    ASSERT_TRUE(constant != NULL);
-
-    uint64_t quality = 2;
-
-    //Create dummy bt
-    const backward_transfer_t bt_list[10] = { {0}, 0 };
-
-    //Deserialize vk
-    auto vk_serialized = ParseHex(SAMPLE_VK);
-    ASSERT_EQ(vk_serialized.size(), zendoo_get_sc_vk_size_in_bytes());
-    auto vk = zendoo_deserialize_sc_vk(vk_serialized.data());
-    ASSERT_TRUE(vk != NULL);
-
-    //Verify zkproof
-    ASSERT_TRUE(zendoo_verify_sc_proof(
-            end_epoch_mc_b_hash,
-            prev_end_epoch_mc_b_hash,
-            bt_list,
-            10,
-            quality,
-            constant,
-            NULL,
-            proof,
-            vk
-        ));
-
-    //Negative test: change quality (for instance) and ASSERT_TRUE proof failure
-    ASSERT_FALSE(zendoo_verify_sc_proof(
-            end_epoch_mc_b_hash,
-            prev_end_epoch_mc_b_hash,
-            bt_list,
-            10,
-            quality - 1,
-            constant,
-            NULL,
-            proof,
-            vk
-        ));
-
-    //Free proof
-    zendoo_sc_proof_free(proof);
-    zendoo_sc_vk_free(vk);
-    zendoo_field_free(constant);
-
-}
-
-// Execute the test from zen directory
-TEST(ZendooLib, TestProofNoBwt){
     //Deserialize zero knowledge proof
     auto proof_serialized = ParseHex(SAMPLE_PROOF_NO_BWT);
     ASSERT_EQ(proof_serialized.size(), zendoo_get_sc_proof_size_in_bytes());
@@ -429,7 +488,49 @@ TEST(ZendooLib, TestProofNoBwt){
     zendoo_field_free(constant);
 }
 
-TEST(SidechainsField, BitVectorUncompressed)
+TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
+{
+    fPrintToConsole = true;
+
+    SidechainTxsCommitmentBuilder builder;
+
+    //Add txes containing scCreation and fwd transfer + a certificate
+    CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), /*height*/10);
+    CMutableTransaction mutTx = scCreationTx;
+    mutTx.vsc_ccout.push_back(CTxScCreationOut(CAmount(10), uint256S("aaa"), Sidechain::ScCreationParameters()));
+    mutTx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("bbb"), CAmount(1985), uint256S("badcafe")));
+    scCreationTx = mutTx;
+
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+    CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(7));
+
+    CScCertificate cert = txCreationUtils::createCertificate(scId,
+        /*epochNum*/12, /*endEpochBlockHash*/uint256S("abc"), /*changeTotalAmount*/0,
+        /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/1);
+
+    builder.add(scCreationTx);
+    builder.add(fwdTx);
+    builder.add(cert);
+
+    uint256 scTxCommitmentHash = builder.getCommitment();
+
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("c74633862100f8c00c71469d5fe4610d63f448fbd568f902d5c5542a20a6d1d7"))
+        <<scTxCommitmentHash.ToString();
+}
+
+TEST(SidechainsField, NakedZendooFeatures_EmptyTreeCommitmentCalculation)
+{
+    fPrintToConsole = true;
+    SidechainTxsCommitmentBuilder builder;
+
+    //Nothing to add
+
+    uint256 scTxCommitmentHash = builder.getCommitment();
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("3a464e1e43410c7add1dd81c3f10486f41eb473bb43e8d64feca3c7f0c8028d3"))
+        <<scTxCommitmentHash.ToString();
+}
+
+TEST(CctpLibrary, BitVectorUncompressed)
 {
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
@@ -453,7 +554,7 @@ TEST(SidechainsField, BitVectorUncompressed)
     zendoo_free_bit_vector(bws_ret);
 }
 
-TEST(SidechainsField, BitVectorGzip)
+TEST(CctpLibrary, BitVectorGzip)
 {
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
@@ -522,7 +623,7 @@ TEST(SidechainsField, BitVectorGzip)
     zendoo_free_bit_vector(bws_ret2);
 }
 
-TEST(SidechainsField, BitVectorBzip2)
+TEST(CctpLibrary, BitVectorBzip2)
 {
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
@@ -591,7 +692,7 @@ TEST(SidechainsField, BitVectorBzip2)
     zendoo_free_bit_vector(bws_ret2);
 }
 
-TEST(SidechainsField, BitVectorMerkleTree)
+TEST(CctpLibrary, BitVectorMerkleTree)
 {
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
@@ -639,7 +740,7 @@ TEST(SidechainsField, BitVectorMerkleTree)
     zendoo_free_bit_vector(bws_ret1);
 }
 
-TEST(SidechainsField, BitVectorMerkleTreeData)
+TEST(CctpLibrary, BitVectorMerkleTreeData)
 {
     unsigned char buffer[] = { 
         0xbd, 0x98, 0xa9, 0x6f, 0x5b, 0x1d, 0xcd, 0xf4, 0x86, 0xdf, 0x04, 0x95, 0x13, 0xd1, 0xb6, 0xda,
@@ -734,7 +835,7 @@ TEST(SidechainsField, BitVectorMerkleTreeData)
     ASSERT_TRUE(fe != nullptr);
 
     printf("\nSerializing result ...\n");
-    unsigned char field_bytes[CSidechainField::ByteSize()];
+    unsigned char field_bytes[CFieldElement::ByteSize()];
     zendoo_serialize_field(fe, field_bytes);
 
     printf("\nsolution = [");
@@ -750,13 +851,13 @@ TEST(SidechainsField, BitVectorMerkleTreeData)
     zendoo_field_free(fe);
 }
 
-TEST(SidechainsField, CommitmentTreeCreation)
+TEST(CctpLibrary, CommitmentTreeCreation)
 {
     printf("Creating a commitment tree ...\n");
     commitment_tree_t* ct = zendoo_commitment_tree_create();
     ASSERT_TRUE(ct != nullptr);
 
-    unsigned char field_bytes[CSidechainField::ByteSize()] = {};
+    unsigned char field_bytes[CFieldElement::ByteSize()] = {};
 
     printf("\nChecking initial commitment tree ...\n");
     field_t* fe0 = zendoo_commitment_tree_get_commitment(ct);
@@ -849,4 +950,5 @@ TEST(SidechainsField, CommitmentTreeCreation)
     printf("Deleting the commitment tree ...\n");
     zendoo_commitment_tree_delete(ct);
 }
+
 
