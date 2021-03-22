@@ -3627,6 +3627,8 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
         CScript expect = CScript() << nHeight;
         if (block.vtx[0].vin[0].scriptSig.size() < expect.size() ||
             !std::equal(expect.begin(), expect.end(), block.vtx[0].vin[0].scriptSig.begin())) {
+            LogPrintf("%s():%d - ERROR: unexpected height in coinbase Script[%s] (exp is %s)\n",
+                __func__, __LINE__, block.vtx[0].vin[0].scriptSig.ToString(), expect.ToString());
             return state.DoS(100, error("%s: block height mismatch in coinbase", __func__), REJECT_INVALID, "bad-cb-height");
         }
     }
@@ -3644,18 +3646,20 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
         CAmount communityReward = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
         if (communityReward > 0) {
-            bool found = false;
+            const CScript& refScript = Params().GetCommunityFundScriptAtHeight(nHeight, cfType);
 
-            BOOST_FOREACH(const CTxOut& output, block.vtx[0].vout) {
-                if (output.scriptPubKey == Params().GetCommunityFundScriptAtHeight(nHeight, cfType)) {
-                    if (output.nValue == communityReward) {
+            bool found = false;
+            for(const CTxOut& output: block.vtx[0].vout)
+            {
+                if ((output.scriptPubKey == refScript) && (output.nValue == communityReward)) {
                         found = true;
                         break;
-                    }
                 }
             }
 
             if (!found) {
+                LogPrintf("%s():%d - ERROR: subsidy quota incorrect or missing: refScript[%s], commReward=%d, type=%d\n",
+                    __func__, __LINE__, refScript.ToString(), communityReward, cfType);
                 return state.DoS(100, error("%s: community fund missing block %d", __func__, nHeight), REJECT_INVALID, "cb-no-community-fund");
             }
         }
@@ -6950,7 +6954,7 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
 
 static int getInitCbhSafeDepth()
 {
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    if (Params().NetworkIDString() == "regtest")
     {
         int val = (int)(GetArg("-cbhsafedepth", Params().CbhSafeDepth() ));
         LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
@@ -6968,7 +6972,7 @@ int getCheckBlockAtHeightSafeDepth()
 
 static int getInitCbhMinAge()
 {
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    if (Params().NetworkIDString() == "regtest")
     {
         int val = (int)(GetArg("-cbhminage", Params().CbhMinimumAge() ));
         LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
@@ -6986,7 +6990,7 @@ int getCheckBlockAtHeightMinAge()
 
 static bool getInitRequireStandard()
 {
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "test") )
     {
         bool val = Params().RequireStandard();
 

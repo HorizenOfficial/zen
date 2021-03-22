@@ -66,6 +66,8 @@
 
 #include "librustzcash.h"
 
+#include <zen/forks/fork2_replayprotectionfork.h>
+
 using namespace std;
 
 extern void ThreadSendAlert();
@@ -514,14 +516,16 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-deprecatedgetblocktemplate", (_("Disable block complexity calculation and use the previous GetBlockTemplate implementation")));
 
     strUsage += HelpMessageOpt("-cbhsafedepth=<n>",
-        "regtest/testnet only - Set safe depth for skipping checkblockatheight in txout scripts (default depends on regtest/testnet params)");
+        "regtest only - Set safe depth for skipping checkblockatheight in txout scripts (default depends on regtest/testnet params)");
         
     strUsage += HelpMessageOpt("-cbhminage=<n>",
-        "regtest/testnet only - Set the minimum legal age of the referenced block for checkblockatheight in txout scripts (default depends on regtest/testnet params)");
+        "regtest only - Set the minimum legal age of the referenced block for checkblockatheight in txout scripts (default depends on regtest/testnet params)");
 
     strUsage += HelpMessageOpt("-allownonstandardtx",
         "regtest/testnet only - allow non-standard tx (default depends on regtest/testnet params)");
 
+    strUsage += HelpMessageOpt("-subsidyhalvinginterval=<n>", "regtest only - Set halving interval for testing purposes (default=2000; must be > 100)");
+        
     if (GetBoolArg("-help-debug", false))
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
 
@@ -990,6 +994,28 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     if (GetBoolArg("-reindex", false) && GetBoolArg("-reindexfast", false))
         return InitError(_("-reindex is incompatible with -reindexfast."));
+
+    if ( (Params().NetworkIDString() == "regtest") && mapArgs.count("-subsidyhalvinginterval"))
+    {
+        int val = (int)(GetArg("-subsidyhalvinginterval", Params().GetConsensus().nSubsidyHalvingInterval));
+        if (val != Params().GetConsensus().nSubsidyHalvingInterval)
+        {
+            LogPrintf("%s():%d - nSubsidyHalvingInterval = %d\n",
+                __func__, __LINE__, Params().GetConsensus().nSubsidyHalvingInterval);
+
+            // Halving period cannot be shortened below fork2 activation height. In fact fork1_chainsplitfork imposes
+            // a maximal height for community rewards generation, currently set to the first halving height.
+            // Should be the first halving height be reduced below fork2 activation, the maximal height constraing could
+            // be violated for otherwise valid height, causing an assert to crash the node
+            ::zen::ReplayProtectionFork targetFork;
+            if (val <= targetFork.getHeight(CBaseChainParams::REGTEST))
+            	assert(!"subsidyhalvinginterval too low");
+
+            Params(CBaseChainParams::REGTEST).SetSubsidyHalvingInterval(val);
+            LogPrintf("%s():%d - %s: set nSubsidyHalvingInterval = %d) \n",
+                __func__, __LINE__, Params().NetworkIDString(), Params().GetConsensus().nSubsidyHalvingInterval);
+        }
+    }
 
     // ********************************************************* Step 3: parameter-to-internal-flags
 

@@ -19,7 +19,7 @@ CommunityFundAndRPFixFork::CommunityFundAndRPFixFork(){
                                      "zt339oiGL6tTgc9Q71f5g1sFTZf6QiXrRUr"
                                      }},
                                 {CBaseChainParams::Network::REGTEST,{ 
-                                     "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa" 
+                                     "zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD" 
                                  }},
                                 {CBaseChainParams::Network::TESTNET,{
                                      "zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1"
@@ -30,6 +30,17 @@ CommunityFundAndRPFixFork::CommunityFundAndRPFixFork(){
         {CBaseChainParams::Network::TESTNET,10000}
     };
 }
+
+/*
+ * This is the prv key used in REGTEST for getting the community fund p2sh address:
+ *
+ * "privkey": "cQqMxnYBJUUS3jERyQSJWFuQV54eKTgS2v68wMNHXtNg9HzuyiAk"
+ * 
+ * After having imported the relevant priv key:
+ *     src/zen-cli --regtest importprivkey <privkey>
+ * The multi sig (m=1) redeemscript can be added to the wallet via:
+ *     src/zen-cli --regtest addmultisigaddress 1 "[\"<zen_addr>\"]
+ */
 
 /**
  * @brief getCommunityFundReward returns the community fund reward based on the height and passed-in reward
