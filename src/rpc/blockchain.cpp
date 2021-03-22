@@ -788,24 +788,32 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
 
 UniValue getchaintips(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() != 0)
+    if (fHelp || params.size() > 1)
         throw runtime_error(
             "getchaintips\n"
             "Return information about all known tips in the block tree,"
             " including the main chain as well as orphaned branches.\n"
+            "\nArguments:\n"
+            "1. \"with-penalties\" (boolean, optional) show informations related to branches penalty\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
-            "    \"height\": xxxx,         (numeric) height of the chain tip\n"
-            "    \"hash\": \"xxxx\",         (string) block hash of the tip\n"
-            "    \"branchlen\": 0          (numeric) zero for main chain\n"
-            "    \"status\": \"active\"      (string) \"active\" for the main chain\n"
+            "    \"height\": xxxx,                  (numeric) height of the chain tip\n"
+            "    \"hash\": \"xxxx\"                   (string) block hash of the tip\n"
+            "    \"branchlen\": 0                   (numeric) zero for main chain\n"
+            "    \"status\": \"active\"               (string) \"active\" for the main chain\n"
+            "    \"penalty-at-start\": \"xxxx\"       (numeric, optional) penalty of the first block in the branch\n"
+            "    \"penalty-at-tip\": \"xxxx\"         (numeric, optional) penalty of the current tip of the branch\n"
+            "    \"blocks-to-mainchain\": \"xxxx\"    (numeric, optional) confirmations needed for current branch to become the active chain (capped to 2000) \n"
             "  },\n"
             "  {\n"
             "    \"height\": xxxx,\n"
             "    \"hash\": \"xxxx\",\n"
-            "    \"branchlen\": 1          (numeric) length of branch connecting the tip to the main chain\n"
-            "    \"status\": \"xxxx\"        (string) status of the chain (active, valid-fork, valid-headers, headers-only, invalid)\n"
+            "    \"branchlen\": 1                   (numeric) length of branch connecting the tip to the main chain\n"
+            "    \"status\": \"xxxx\"                 (string) status of the chain (active, valid-fork, valid-headers, headers-only, invalid)\n"
+            "    \"penalty-at-start\": \"xxxx\"       (numeric, optional) penalty of the first block in the branch\n"
+            "    \"penalty-at-tip\": \"xxxx\"         (numeric, optional) penalty of the current tip of the branch\n"
+            "    \"blocks-to-mainchain\": \"xxxx\"    (numeric, optional) confirmations needed for current branch to become the active chain (capped to 2000) \n"
             "  }\n"
             "]\n"
             "Possible values for status:\n"
@@ -821,14 +829,18 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
 
     LOCK(cs_main);
 
+    if ((params.size() >= 1) && !params[0].isBool())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "\"with-penalties\" paramenter should be boolean");
+
+    bool bShowPenaltyInfo = (params.size() >= 1)? params[0].getBool() : false;
+
     /* Build up a list of chain tips.  We start with the list of all
        known blocks, and successively remove blocks that appear as pprev
        of another block. */
     std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
+    for(const PAIRTYPE(const uint256, CBlockIndex*)& item: mapBlockIndex)
         setTips.insert(item.second);
-    BOOST_FOREACH(const PAIRTYPE(const uint256, CBlockIndex*)& item, mapBlockIndex)
-    {
+    for(const PAIRTYPE(const uint256, CBlockIndex*)& item: mapBlockIndex) {
         const CBlockIndex* pprev = item.second->pprev;
         if (pprev)
             setTips.erase(pprev);
@@ -839,29 +851,28 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
 
     /* Construct the output array.  */
     UniValue res(UniValue::VARR);
-    BOOST_FOREACH(const CBlockIndex* block, setTips)
-    {
+    for(const CBlockIndex* forkTip: setTips) {
         UniValue obj(UniValue::VOBJ);
-        obj.pushKV("height", block->nHeight);
-        obj.pushKV("hash", block->phashBlock->GetHex());
+        obj.pushKV("height", forkTip->nHeight);
+        obj.pushKV("hash", forkTip->phashBlock->GetHex());
 
-        const int branchLen = block->nHeight - chainActive.FindFork(block)->nHeight;
+        const int branchLen = forkTip->nHeight - chainActive.FindFork(forkTip)->nHeight;
         obj.pushKV("branchlen", branchLen);
 
         string status;
-        if (chainActive.Contains(block)) {
+        if (chainActive.Contains(forkTip)) {
             // This block is part of the currently active chain.
             status = "active";
-        } else if (block->nStatus & BLOCK_FAILED_MASK) {
+        } else if (forkTip->nStatus & BLOCK_FAILED_MASK) {
             // This block or one of its ancestors is invalid.
             status = "invalid";
-        } else if (block->nChainTx == 0) {
+        } else if (forkTip->nChainTx == 0) {
             // This block cannot be connected because full block data for it or one of its parents is missing.
             status = "headers-only";
-        } else if (block->IsValid(BLOCK_VALID_SCRIPTS)) {
+        } else if (forkTip->IsValid(BLOCK_VALID_SCRIPTS)) {
             // This block is fully validated, but no longer part of the active chain. It was probably the active block once, but was reorganized.
             status = "valid-fork";
-        } else if (block->IsValid(BLOCK_VALID_TREE)) {
+        } else if (forkTip->IsValid(BLOCK_VALID_TREE)) {
             // The headers for this block are valid, but it has not been validated. It was probably never part of the most-work chain.
             status = "valid-headers";
         } else {
@@ -869,6 +880,21 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
             status = "unknown";
         }
         obj.pushKV("status", status);
+
+        if (bShowPenaltyInfo)
+        {
+            const CBlockIndex* pFirstBlockInBranch = forkTip;
+            for(; pFirstBlockInBranch != nullptr && pFirstBlockInBranch->pprev != nullptr
+                && !chainActive.Contains(pFirstBlockInBranch->pprev);
+                pFirstBlockInBranch = pFirstBlockInBranch->pprev);
+            
+            obj.pushKV("penalty-at-start",    pFirstBlockInBranch->nChainDelay);
+            obj.pushKV("penalty-at-tip",      forkTip->nChainDelay);
+            if (forkTip == chainActive.Tip())
+                obj.pushKV("blocks-to-mainchain", 0);
+            else
+                obj.pushKV("blocks-to-mainchain", blocksToOvertakeTarget(forkTip, chainActive.Tip()));
+        }
 
         res.push_back(obj);
     }
@@ -987,6 +1013,64 @@ UniValue reconsiderblock(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
+int64_t blocksToOvertakeTarget(const CBlockIndex* forkTip, const CBlockIndex* targetBlock)
+{
+    //this function assumes forkTip and targetBlock are non-null.
+    if (!chainActive.Contains(targetBlock))
+        return LLONG_MAX;
+
+    int64_t gap = 0;
+    const int targetBlockHeight = targetBlock->nHeight;
+    const int selectedTipHeight = forkTip->nHeight;
+    const int intersectionHeight = chainActive.FindFork(forkTip)->nHeight;
+
+    LogPrint("forks", "%s():%d - processing tip h(%d) [%s] forkBaseHeight[%d]\n",
+            __func__, __LINE__, forkTip->nHeight, forkTip->GetBlockHash().ToString(),
+            intersectionHeight);
+
+    // during a node's life, there might be many tips in the container, it is not useful
+    // keeping all of them into account for calculating the finality, just consider the most recent ones.
+    // Blocks are ordered by height, stop if we exceed a safe limit in depth, lets say the max age
+    if ((chainActive.Height() - selectedTipHeight) >= MAX_BLOCK_AGE_FOR_FINALITY) {
+        LogPrint("forks", "%s():%d - exiting loop on tips, max age reached: forkBaseHeight[%d], chain[%d]\n",
+                __func__, __LINE__, intersectionHeight, chainActive.Height());
+        gap = LLONG_MAX;
+    } else if (intersectionHeight < targetBlockHeight) {
+        // if the fork base is older than the input block, finality also depends on the current penalty
+        // ongoing on the fork
+        int64_t forkDelay = forkTip->nChainDelay;
+        if (selectedTipHeight >= chainActive.Height()) {
+            // if forkDelay is null one has to mine 1 block only
+            gap = forkDelay ? forkDelay : 1;
+            LogPrint("forks", "%s():%d - gap[%d], forkDelay[%d]\n", __func__,
+                    __LINE__, gap, forkDelay);
+        } else {
+            int64_t dt = chainActive.Height() - selectedTipHeight + 1;
+            dt = dt * (dt + 1) / 2;
+            gap = dt + forkDelay + 1;
+            LogPrint("forks", "%s():%d - gap[%d], forkDelay[%d], dt[%d]\n",
+                    __func__, __LINE__, gap, forkDelay, dt);
+        }
+    } else {
+        int64_t targetToTipDelta = chainActive.Height() - targetBlockHeight + 1;
+
+        // this also handles the main chain tip
+        if (targetToTipDelta < PENALTY_THRESHOLD + 1) {
+            // an attacker can mine from previous block up to tip + 1
+            gap = targetToTipDelta + 1;
+            LogPrint("forks", "%s():%d - gap[%d], delta[%d]\n", __func__,
+                    __LINE__, gap, targetToTipDelta);
+        } else {
+            // penalty applies
+            gap = (targetToTipDelta * (targetToTipDelta + 1) / 2);
+            LogPrint("forks", "%s():%d - gap[%d], delta[%d]\n", __func__,
+                    __LINE__, gap, targetToTipDelta);
+        }
+    }
+
+    return gap;
+}
+
 UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
@@ -1006,33 +1090,20 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     if (hash == Params().GetConsensus().hashGenesisBlock)
         throw JSONRPCError(RPC_INVALID_PARAMS, "Finality does not apply to genesis block");
 
-    CBlockIndex* pblkIndex = mapBlockIndex[hash];
+    CBlockIndex* pTargetBlockIdx = mapBlockIndex[hash];
 
-    if (fHavePruned && !(pblkIndex->nStatus & BLOCK_HAVE_DATA) && pblkIndex->nTx > 0)
+    if (fHavePruned && !(pTargetBlockIdx->nStatus & BLOCK_HAVE_DATA) && pTargetBlockIdx->nTx > 0)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
-/*
- *  CBlock block;
- *  if(!ReadBlockFromDisk(block, pblkIndex))
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk (header only)");
- */
 
     // 0. if the input does not belong to the main chain can not tell finality
-    if (!chainActive.Contains(pblkIndex))
+    if (!chainActive.Contains(pTargetBlockIdx))
     {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't tell finality of a block not on main chain");
     }
 
-    std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
-    BOOST_FOREACH(auto mapPair, mGlobalForkTips)
-    {
-        const CBlockIndex* idx = mapPair.first;
-        setTips.insert(idx);
-    }
-    setTips.insert(chainActive.Tip());
-
-    int inputHeight = pblkIndex->nHeight;
+    int inputHeight = pTargetBlockIdx->nHeight;
     LogPrint("forks", "%s():%d - input h(%d) [%s]\n",
-        __func__, __LINE__, pblkIndex->nHeight, pblkIndex->GetBlockHash().ToString());
+        __func__, __LINE__, pTargetBlockIdx->nHeight, pTargetBlockIdx->GetBlockHash().ToString());
 
     int64_t delta = chainActive.Height() - inputHeight + 1;
     if (delta >= MAX_BLOCK_AGE_FOR_FINALITY)
@@ -1040,68 +1111,23 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Old block: older than 2000!");
     }
 
-//    dump_global_tips();
+    std::set<const CBlockIndex*, CompareBlocksByHeight> setTips;
+    for(auto mapPair: mGlobalForkTips)
+    {
+        const CBlockIndex* idx = mapPair.first;
+        setTips.insert(idx);
+    }
+    setTips.insert(chainActive.Tip());
 
-    int64_t gap = 0;
-    int64_t minGap = LLONG_MAX;
+//    dump_global_tips();
 
     // For each tip find the stemming block on the main chain
     // In case of main tip such a block would be the tip itself
     //-----------------------------------------------------------------------
-    BOOST_FOREACH(auto idx, setTips)
+    int64_t minGap = LLONG_MAX;
+    for(auto selectedTip: setTips)
     {
-        const int forkTipHeight = idx->nHeight;
-        const int forkBaseHeight = chainActive.FindFork(idx)->nHeight;
-
-        LogPrint("forks", "%s():%d - processing tip h(%d) [%s] forkBaseHeight[%d]\n",
-            __func__, __LINE__, idx->nHeight, idx->GetBlockHash().ToString(), forkBaseHeight);
-
-        // during a node's life, there might be many tips in the container, it is not useful
-        // keeping all of them into account for calculating the finality, just consider the most recent ones.
-        // Blocks are ordered by heigth, stop if we exceed a safe limit in depth, lets say the max age
-        if ( (chainActive.Height() - forkTipHeight) >=  MAX_BLOCK_AGE_FOR_FINALITY )
-        {
-            LogPrint("forks", "%s():%d - exiting loop on tips, max age reached: forkBaseHeight[%d], chain[%d]\n",
-                __func__, __LINE__, forkBaseHeight, chainActive.Height());
-            break;
-        }
-
-        if (forkBaseHeight < inputHeight)
-        {
-            // if the fork base is older than the input block, finality also depends on the current penalty
-            // ongoing on the fork
-            int64_t forkDelay  = idx->nChainDelay;
-            if (forkTipHeight >= chainActive.Height())
-            {
-                // if forkDelay is null one has to mine 1 block only
-                gap = forkDelay ? forkDelay : 1;
-                LogPrint("forks", "%s():%d - gap[%d], forkDelay[%d]\n", __func__, __LINE__, gap, forkDelay);
-            }
-            else
-            {
-                int64_t dt = chainActive.Height() - forkTipHeight + 1;
-                dt = dt * ( dt + 1) / 2;
-
-                gap  = dt + forkDelay + 1;
-                LogPrint("forks", "%s():%d - gap[%d], forkDelay[%d], dt[%d]\n", __func__, __LINE__, gap, forkDelay, dt);
-            }
-        }
-        else
-        {
-            // this also handles the main chain tip
-            if (delta < PENALTY_THRESHOLD + 1)
-            {
-                // an attacker can mine from previous block up to tip + 1
-                gap = delta + 1;
-                LogPrint("forks", "%s():%d - gap[%d], delta[%d]\n", __func__, __LINE__, gap, delta);
-            }
-            else
-            {
-                // penalty applies
-                gap = (delta * (delta + 1) / 2);
-                LogPrint("forks", "%s():%d - gap[%d], delta[%d]\n", __func__, __LINE__, gap, delta);
-            }
-        }
+        int64_t gap = blocksToOvertakeTarget(selectedTip, pTargetBlockIdx);
         minGap = std::min(minGap, gap);
     }
 
