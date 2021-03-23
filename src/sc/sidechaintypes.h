@@ -26,6 +26,8 @@ public:
     CZendooCctpObject(const std::vector<unsigned char>& byteArrayIn): byteVector(byteArrayIn) {}
     virtual void SetByteArray(const std::vector<unsigned char>& byteArrayIn) = 0; //Does custom-size check
     const std::vector<unsigned char>& GetByteArray() const;
+    const unsigned char* const GetDataBuffer() const;
+    int GetDataSize() const;
 
     void SetNull();
     bool IsNull() const;

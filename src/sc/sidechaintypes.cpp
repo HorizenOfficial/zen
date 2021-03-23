@@ -7,6 +7,19 @@ const std::vector<unsigned char>&  CZendooCctpObject::GetByteArray() const
     return byteVector;
 }
 
+const unsigned char* const CZendooCctpObject::GetDataBuffer() const
+{
+    if (GetByteArray().empty())
+        return nullptr;
+
+    return &GetByteArray()[0];
+}
+
+int CZendooCctpObject::GetDataSize() const
+{
+    return GetByteArray().size();
+}
+
 void CZendooCctpObject::SetNull() { byteVector.resize(0); }
 bool CZendooCctpObject::IsNull() const { return byteVector.empty();}
 
