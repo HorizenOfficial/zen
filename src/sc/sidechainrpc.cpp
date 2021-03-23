@@ -35,7 +35,7 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
         ScriptPubKeyToJSON(csw.scriptPubKey(), spk, true);
         o.push_back(Pair("scriptPubKey", spk));
 
-        o.push_back(Pair("scProof", HexStr(csw.scProof)));
+        o.push_back(Pair("scProof", csw.scProof.GetHexRepr()));
 
         UniValue rs(UniValue::VOBJ);
         rs.push_back(Pair("asm", csw.redeemScript.ToString()));
@@ -62,7 +62,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
         o.push_back(Pair("value", ValueFromAmount(out.nValue)));
         o.push_back(Pair("address", out.address.GetHex()));
-        o.push_back(Pair("wCertVk", HexStr(out.wCertVk)));
+        o.push_back(Pair("wCertVk", out.wCertVk.GetHexRepr()));
 
         UniValue arrFieldElementConfig(UniValue::VARR);
         for(const auto& cfgEntry: out.vFieldElementCertificateFieldConfig)
@@ -85,9 +85,9 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         if(out.constant.is_initialized())
             o.push_back(Pair("constant", out.constant->GetHexRepr()));
         if(out.wMbtrVk.is_initialized())
-            o.push_back(Pair("wMbtrVk", HexStr(out.wMbtrVk.get())));
+            o.push_back(Pair("wMbtrVk", out.wMbtrVk.get().GetHexRepr()));
         if(out.wCeasedVk.is_initialized())
-            o.push_back(Pair("wCeasedVk", HexStr(out.wCeasedVk.get())));
+            o.push_back(Pair("wCeasedVk", out.wCeasedVk.get().GetHexRepr()));
         vscs.push_back(o);
         nIdx++;
     }
@@ -130,7 +130,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("mcDestinationAddress", mcAddr));
         o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
         o.push_back(Pair("scRequestData", out.scRequestData.GetHexRepr()));
-        o.push_back(Pair("scProof", HexStr(out.scProof)));
+        o.push_back(Pair("scProof", out.scProof.GetHexRepr()));
         vbts.push_back(o);
         nIdx++;
     }
@@ -315,14 +315,14 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
 
         std::string proofError;
         std::vector<unsigned char> scProofVec;
-        if (!AddScData(proof_v.get_str(), scProofVec, SC_PROOF_SIZE, true, proofError))
+        if (!AddScData(proof_v.get_str(), scProofVec, CScProof::ByteSize(), true, proofError))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"scProof\": " + proofError;
             return false;
         }
 
-        libzendoomc::ScProof scProof(scProofVec);
-        if (!libzendoomc::IsValidScProof(scProof))
+        CScProof scProof {scProofVec};
+        if (!scProof.IsValid())
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"scProof\": invalid snark proof data";
             return false;
@@ -401,15 +401,15 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         {
             const std::string& inputString = wCertVk.get_str();
             std::vector<unsigned char> wCertVkVec;
-            if (!AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
+            if (!AddScData(inputString, wCertVkVec, CScVKey::ByteSize(), true, error))
             {
                 error = "wCertVk: " + error;
                 return false;
             }
 
-            sc.wCertVk = libzendoomc::ScVk(wCertVkVec);
+            sc.wCertVk = CScVKey(wCertVkVec);
 
-            if (!libzendoomc::IsValidScVk(sc.wCertVk))
+            if (!sc.wCertVk.IsValid())
             {
                 error = "invalid wCertVk";
                 return false;
@@ -451,15 +451,14 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         {
             const std::string& inputString = wCeasedVk.get_str();
             std::vector<unsigned char> wCeasedVkVec;
-            if (!AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
+            if (!AddScData(inputString, wCeasedVkVec, CScVKey::ByteSize(), true, error))
             {
                 error = "wCeasedVk: " + error;
                 return false;
             }
 
-            sc.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
-
-            if (!libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
+            sc.wCeasedVk = CScVKey(wCeasedVkVec);
+            if (!sc.wCeasedVk.get().IsValid())
             {
                 error = "invalid wCeasedVk";
                 return false;
@@ -471,14 +470,14 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         {
             const std::string& inputString = wMbtrVk.get_str();
             std::vector<unsigned char> wMbtrVkVec;
-            if (!AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
+            if (!AddScData(inputString, wMbtrVkVec, CScVKey::ByteSize(), true, error))
             {
                 error = "wMbtrVk: " + error;
                 return false;
             }
 
-            sc.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
-            if (!libzendoomc::IsValidScVk(sc.wMbtrVk.get()))
+            sc.wMbtrVk = CScVKey(wMbtrVkVec);
+            if (!sc.wMbtrVk.get().IsValid())
             {
                 error = "invalid wMbtrVkVec";
                 return false;
@@ -654,15 +653,14 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
         }
         inputString = scProofVal.get_str();
         std::vector<unsigned char> scProofVec;
-        if (!AddScData(inputString, scProofVec, SC_PROOF_SIZE, true, error))
+        if (!AddScData(inputString, scProofVec, CScProof::ByteSize(), true, error))
         {
             error = "scProof: " + error;
             return false;
         }
 
-        bwtData.scProof = libzendoomc::ScProof(scProofVec);
-
-        if (!libzendoomc::IsValidScProof(bwtData.scProof))
+        bwtData.scProof = CScProof{scProofVec};
+        if (!bwtData.scProof.IsValid())
         {
             error = "invalid scProof";
             return false;

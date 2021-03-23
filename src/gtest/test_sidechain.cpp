@@ -100,7 +100,7 @@ public:
     SidechainsTestSuite():
           fakeChainStateDb(nullptr)
         , sidechainsView(nullptr)
-        , dummyScVerifier(libzendoomc::CScProofVerifier::Disabled()) {};
+        , dummyScVerifier{CScProofVerifier::Verification::Loose} {};
 
     ~SidechainsTestSuite() = default;
 
@@ -126,7 +126,7 @@ protected:
     CNakedCCoinsViewCache *sidechainsView;
 
     //Helpers
-    libzendoomc::CScProofVerifier dummyScVerifier;
+    CScProofVerifier dummyScVerifier;
     CBlockUndo createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash = uint256());
     void storeSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
 };
@@ -276,7 +276,7 @@ TEST_F(SidechainsTestSuite, ValidCSWTx) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -292,7 +292,7 @@ TEST_F(SidechainsTestSuite, InvalidNullifier) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -310,7 +310,7 @@ TEST_F(SidechainsTestSuite, CSWTxNegativeAmount) {
 
     csw.nValue = -1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -328,7 +328,7 @@ TEST_F(SidechainsTestSuite, CSWTxHugeAmount) {
 
     csw.nValue = MAX_MONEY + 1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -346,7 +346,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidNullifier) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -364,7 +364,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidProof) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof({std::vector<unsigned char>(size_t(SC_PROOF_SIZE), 'a')});
+    csw.scProof = CScProof({std::vector<unsigned char>(size_t(CScProof::ByteSize()), 'a')});
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -588,7 +588,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.creationData.withdrawalEpochLength = 14;
-    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.creationData.wMbtrVk = CScVKey(ParseHex(SAMPLE_VK));
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
@@ -597,7 +597,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mcBwtReq.scProof = CScProof(ParseHex(SAMPLE_PROOF));
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
@@ -621,7 +621,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
 
     // setup sidechain initial state
     CMutableTransaction mutScCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
-    mutScCreationTx.vsc_ccout.at(0).wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    mutScCreationTx.vsc_ccout.at(0).wMbtrVk = CScVKey(ParseHex(SAMPLE_VK));
     CTransaction scCreationTx(mutScCreationTx);
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scCreationPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, viewHeight);
@@ -631,7 +631,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mcBwtReq.scProof = CScProof(ParseHex(SAMPLE_PROOF));
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
@@ -679,7 +679,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicabl
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mcBwtReq.scProof = CScProof(ParseHex(SAMPLE_PROOF));
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
@@ -716,7 +716,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithoutKeyIsNotApp
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mcBwtReq.scProof = CScProof(ParseHex(SAMPLE_PROOF));
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
@@ -734,7 +734,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState)
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.creationData.withdrawalEpochLength = 14;
-    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.creationData.wMbtrVk = CScVKey(ParseHex(SAMPLE_VK));
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
@@ -760,7 +760,7 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainIsAccepted) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.creationData.withdrawalEpochLength = 14;
-    initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.creationData.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     initialScState.balance = CAmount{1000};
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
@@ -780,7 +780,7 @@ TEST_F(SidechainsTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.creationData.withdrawalEpochLength = 14;
-    initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.creationData.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     initialScState.balance = CAmount{1000};
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
@@ -811,7 +811,7 @@ TEST_F(SidechainsTestSuite, CSWsToActiveSidechainIsRefused) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.creationData.withdrawalEpochLength = 14;
-    initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.creationData.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     initialScState.balance = CAmount{1000};
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
 

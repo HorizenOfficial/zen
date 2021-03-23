@@ -1185,7 +1185,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 return false;
             }
 
-            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
             if (!view.IsCertApplicableToState(cert, scVerifier))
             {
                 return state.DoS(0, error("%s(): certificate not applicable", __func__),
@@ -1418,7 +1418,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                                      REJECT_DUPLICATE, "bad-txns-inputs-spent");
             }
 
-            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
             if (!view.IsScTxApplicableToState(tx, scVerifier))
             {
                 return state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString()),
@@ -2802,7 +2802,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("%s():%d: tx inputs missing/spent",__func__, __LINE__),
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
-            auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+            CScProofVerifier scVerifier {fExpensiveChecks ?
+                    CScProofVerifier::Verification::Strict:
+                    CScProofVerifier::Verification::Loose};
             if (!view.IsScTxApplicableToState(tx, scVerifier))
             {
                 return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
@@ -2902,7 +2904,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
-        auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+        CScProofVerifier scVerifier {fExpensiveChecks ?
+                CScProofVerifier::Verification::Strict:
+                CScProofVerifier::Verification::Loose};
         if (!view.IsCertApplicableToState(cert, scVerifier) )
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
@@ -4181,8 +4185,8 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
 
     if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
     {
-    	CFieldElement fieldToValidate{block.hashScTxsCommitment};
-    	if (!fieldToValidate.IsValid())
+        CFieldElement fieldToValidate{block.hashScTxsCommitment};
+        if (!fieldToValidate.IsValid())
             return state.DoS(100, error("%s: incorrect hashScTxsCommitment", __func__),
                              REJECT_INVALID, "bad-hashScTxsCommitment");
     }

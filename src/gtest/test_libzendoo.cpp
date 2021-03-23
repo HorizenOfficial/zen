@@ -167,7 +167,25 @@ TEST(SidechainsField, CopyAndAssignement)
     }
 }
 
-TEST(SidechainsField, PoseidonHashTest)
+TEST(SidechainsField, ComputeHash_EmptyField)
+{
+    std::vector<unsigned char> lhs {
+        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
+        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
+        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
+        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 0, 0
+    };
+    CFieldElement lhsField{lhs};
+    ASSERT_TRUE(lhsField.IsValid());
+
+    CFieldElement rhsField{};
+    ASSERT_FALSE(rhsField.IsValid());
+
+    //test
+    EXPECT_THROW(CFieldElement::ComputeHash(lhsField, rhsField), std::runtime_error);
+}
+
+TEST(SidechainsField, ComputeHash_ValidField)
 {
     std::vector<unsigned char> lhs {
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -204,8 +222,7 @@ TEST(SidechainsField, PoseidonHashTest)
 TEST(SidechainsField, NakedZendooFeatures_FieldTest)
 {
     //Size is the expected one
-    int field_len = zendoo_get_field_size_in_bytes();
-    ASSERT_EQ(field_len, CFieldElement::ByteSize());
+    ASSERT_EQ(zendoo_get_field_size_in_bytes(), CFieldElement::ByteSize());
 
     auto field = zendoo_get_random_field();
 
@@ -224,21 +241,21 @@ TEST(SidechainsField, NakedZendooFeatures_FieldTest)
 
 TEST(SidechainsField, NakedZendooFeatures_PoseidonHashTest)
 {
-    unsigned char lhs[SC_FIELD_SIZE] = {
+    unsigned char lhs[CFieldElement::ByteSize()] = {
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
     };
 
-    unsigned char rhs[SC_FIELD_SIZE] = {
+    unsigned char rhs[CFieldElement::ByteSize()] = {
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
     };
 
-    unsigned char hash[SC_FIELD_SIZE] = {
+    unsigned char hash[CFieldElement::ByteSize()] = {
         0x42, 0xff, 0xd4, 0x94, 0x7f, 0x76, 0xf7, 0xc1,
         0xba, 0x0a, 0xcf, 0x73, 0xf3, 0x0a, 0xa3, 0x7b,
         0x5a, 0xe8, 0xeb, 0xde, 0x5d, 0x61, 0xc3, 0x19,
@@ -283,22 +300,24 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
     size_t height = 5;
 
     // Deserialize root
-    unsigned char expected_root_bytes[SC_FIELD_SIZE] = {
+    std::vector<unsigned char> expected_root_bytes {
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
     };
-    auto expected_root = zendoo_deserialize_field(expected_root_bytes);
-    ASSERT_TRUE(expected_root != NULL);
+    ASSERT_TRUE(expected_root_bytes.size() == CFieldElement::ByteSize());
+    CFieldElement expected_root{expected_root_bytes};
+    ASSERT_TRUE(expected_root.IsValid());
 
     //Generate leaves
 
     //enum removes variable length buffer [-Wstack-protector] warning that simple const int would give
     enum { leaves_len = 32 };
-    const field_t* leaves[leaves_len];
-    for (int i = 0; i < leaves_len; i++){
-        leaves[i] = zendoo_get_field_from_long(i);
+    CFieldElement leaves[leaves_len];
+    for (int i = 0; i < leaves_len; i++)
+    {
+        leaves[i] = CFieldElement{wrappedFieldPtr{zendoo_get_field_from_long(i), CFieldPtrDeleter{}}};
     }
 
     // Initialize tree
@@ -306,38 +325,28 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
 
     // Add leaves to tree
     for (int i = 0; i < leaves_len; i++){
-        tree.append(leaves[i]);
+        tree.append(leaves[i].GetFieldElement().get());
     }
 
     // Finalize tree
     tree.finalize_in_place();
 
     // Compute root and assert equality with expected one
-    auto root = tree.root();
-    ASSERT_TRUE(zendoo_field_assert_eq(root, expected_root))
-    <<"Expected roots to be equal";
+    CFieldElement root = CFieldElement{wrappedFieldPtr{tree.root(), CFieldPtrDeleter{}}};
+    EXPECT_TRUE(root == expected_root);
 
     // It is the same by calling finalize()
     auto tree_copy = tree.finalize();
-    auto root_copy = tree_copy.root();
-    ASSERT_TRUE(zendoo_field_assert_eq(root_copy, expected_root))
-    <<"Expected roots to be equal";
+    CFieldElement root_copy = CFieldElement{wrappedFieldPtr{tree_copy.root(), CFieldPtrDeleter{}}};
+    ASSERT_TRUE(root_copy == expected_root);
 
     // Test Merkle Paths
     for (int i = 0; i < leaves_len; i++) {
         auto path = tree.get_merkle_path(i);
-        ASSERT_TRUE(zendoo_verify_ginger_merkle_path(path, height, (field_t*)leaves[i], root))
+        ASSERT_TRUE(zendoo_verify_ginger_merkle_path(path, height, leaves[i].GetFieldElement().get(), root.GetFieldElement().get()))
         <<"Merkle Path must be verified";
         zendoo_free_ginger_merkle_path(path);
     }
-
-    // Free memory
-    zendoo_field_free(expected_root);
-    for (int i = 0; i < leaves_len; i++){
-        zendoo_field_free((field_t*)leaves[i]);
-    }
-    zendoo_field_free(root);
-    zendoo_field_free(root_copy);
 }
 
 // SILENCED SINCE BROKEN. TODO: Come up with correct byte arrays
@@ -514,7 +523,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("c74633862100f8c00c71469d5fe4610d63f448fbd568f902d5c5542a20a6d1d7"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("fbab0ef478db7889c9bd3fe253cac7e976956a186b99f27ac265a07af61393e4"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -526,7 +535,7 @@ TEST(SidechainsField, NakedZendooFeatures_EmptyTreeCommitmentCalculation)
     //Nothing to add
 
     uint256 scTxCommitmentHash = builder.getCommitment();
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("3a464e1e43410c7add1dd81c3f10486f41eb473bb43e8d64feca3c7f0c8028d3"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("0000000000000000000000000000000000000000000000000000000000000000"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -544,7 +553,7 @@ TEST(CctpLibrary, BitVectorUncompressed)
     ASSERT_TRUE(bws_ret != nullptr);
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
-    unsigned char* ptr = bws_ret->data;
+    const unsigned char* ptr = bws_ret->data;
 
     for (int i = 0; i < sizeof(buffer); i++)
     {
@@ -611,7 +620,7 @@ TEST(CctpLibrary, BitVectorGzip)
     ASSERT_TRUE(bws_ret2 != nullptr);
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
-    unsigned char* ptr = bws_ret2->data;
+    const unsigned char* ptr = bws_ret2->data;
 
     for (int i = 0; i < sizeof(buffer); i++)
     {
@@ -680,7 +689,7 @@ TEST(CctpLibrary, BitVectorBzip2)
     ASSERT_TRUE(bws_ret2 != nullptr);
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
-    unsigned char* ptr = bws_ret2->data;
+    const unsigned char* ptr = bws_ret2->data;
 
     for (int i = 0; i < sizeof(buffer); i++)
     {
@@ -851,7 +860,7 @@ TEST(CctpLibrary, BitVectorMerkleTreeData)
     zendoo_field_free(fe);
 }
 
-TEST(CctpLibrary, CommitmentTreeCreation)
+TEST(CctpLibrary, CommitmentTreeBuilding)
 {
     printf("Creating a commitment tree ...\n");
     commitment_tree_t* ct = zendoo_commitment_tree_create();
@@ -867,7 +876,31 @@ TEST(CctpLibrary, CommitmentTreeCreation)
         printf("%02x", ((unsigned char*)field_bytes)[i]);
     printf("]\n");
 
-    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(1000);
+    //------------------------------------------------------------------
+    // Create a tx with a sc creation, a fwt and a bwtr
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    //---
+    mtx.vsc_ccout.resize(1);
+    mtx.vsc_ccout[0].nValue = CAmount(12000);
+    mtx.vsc_ccout[0].withdrawalEpochLength = 150;
+    mtx.vsc_ccout[0].wCertVk = CScVKey(ParseHex(SAMPLE_VK));
+    mtx.vsc_ccout[0].wMbtrVk = CScVKey(ParseHex(SAMPLE_VK));
+    mtx.vsc_ccout[0].wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    //---
+    mtx.vft_ccout.resize(1);
+    mtx.vft_ccout[0].scId = uint256S("abababcdcdcd");
+    mtx.vft_ccout[0].nValue = CAmount(30000);
+    //---
+    mtx.vmbtr_out.resize(1);
+    mtx.vmbtr_out[0].scId = uint256S("abababcdcdcd"); // same as above
+    mtx.vmbtr_out[0].scRequestData = CFieldElement{SAMPLE_FIELD};
+    mtx.vmbtr_out[0].mcDestinationAddress = uint160S("fefefe");
+    mtx.vmbtr_out[0].scFee = CAmount(1);
+
+
+
+    CTransaction aTransaction(mtx);
 
     const uint256& scId = aTransaction.GetScIdFromScCcOut(0);
     BufferWithSize bws_scid((unsigned char*)scId.begin(), scId.size());
@@ -897,24 +930,24 @@ TEST(CctpLibrary, CommitmentTreeCreation)
         BufferWithSize bws_constant(nullptr, 0);
         if(ccout.constant.is_initialized())
         {
-            bws_constant.data = (unsigned char*)(&ccout.constant->GetByteArray()[0]);
-            bws_constant.len = ccout.constant->GetByteArray().size();
+            bws_constant.data = ccout.constant->GetDataBuffer();
+            bws_constant.len = ccout.constant->GetDataSize();
         }
             
-        BufferWithSize bws_cert_vk((unsigned char*)ccout.wCertVk.begin(), ccout.wCertVk.size());
+        BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
  
         BufferWithSize bws_mbtr(nullptr, 0);
         if(ccout.wMbtrVk.is_initialized())
         {
-            bws_mbtr.data = (unsigned char*)ccout.wMbtrVk->begin();
-            bws_mbtr.len = ccout.wMbtrVk->size();
+            bws_mbtr.data = ccout.wMbtrVk->GetDataBuffer();
+            bws_mbtr.len = ccout.wMbtrVk->GetDataSize();
         }
             
         BufferWithSize bws_csw(nullptr, 0);
         if(ccout.wCeasedVk.is_initialized())
         {
-            bws_csw.data = (unsigned char*)ccout.wCeasedVk->begin();
-            bws_csw.len = ccout.wCeasedVk->size();
+            bws_csw.data = ccout.wCeasedVk->GetDataBuffer();
+            bws_csw.len = ccout.wCeasedVk->GetDataSize();
         }
 
         printf("Adding a sc creation to the commitment tree ...\n");

@@ -10,15 +10,47 @@
 #include <boost/variant.hpp>
 
 #include <zendoo/zendoo_mc.h>
-#include <zendoo/error.h>
 
 #include "uint256.h"
 #include "hash.h"
 #include "script/script.h"
 #include "amount.h"
 #include "serialize.h"
-///////////////////////////////// Field types //////////////////////////////////
 
+class CZendooCctpObject
+{
+public:
+	CZendooCctpObject() = default;
+    virtual ~CZendooCctpObject() = default;
+
+    CZendooCctpObject(const std::vector<unsigned char>& byteArrayIn): byteVector(byteArrayIn) {}
+    virtual void SetByteArray(const std::vector<unsigned char>& byteArrayIn) = 0; //Does custom-size check
+    const std::vector<unsigned char>& GetByteArray() const;
+
+    void SetNull();
+    bool IsNull() const;
+
+    virtual bool IsValid() const = 0;
+    bool operator==(const CZendooCctpObject& rhs) const { return this->byteVector == rhs.byteVector; }
+    bool operator!=(const CZendooCctpObject& rhs) { return !(*this == rhs); }
+
+    // SERIALIZATION SECTION
+    ADD_SERIALIZE_METHODS
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(byteVector);
+        //Allow zero-length byteVector for, e.g. serialization/hashing of empty txes/certs
+        if (byteVector.size() != 0 && byteVector.size() != SerializedSize())
+            throw std::ios_base::failure("non-canonical zendoo cctp object size");
+    }
+
+    std::string GetHexRepr() const;
+protected:
+    virtual unsigned int SerializedSize() const = 0;
+    std::vector<unsigned char> byteVector;
+};
+
+///////////////////////////////// CFieldElement ////////////////////////////////
 struct CFieldPtrDeleter
 { // deleter
     CFieldPtrDeleter() = default;
@@ -29,96 +61,104 @@ struct CFieldPtrDeleter
 };
 typedef std::shared_ptr<field_t> wrappedFieldPtr;
 
-class CFieldElement
+class CFieldElement : public CZendooCctpObject
 {
 public:
-    CFieldElement();
+    CFieldElement() = default;
     ~CFieldElement() = default;
-
     explicit CFieldElement(const std::vector<unsigned char>& byteArrayIn);
-    explicit CFieldElement(const uint256& value);
-    void SetByteArray(const std::vector<unsigned char>& byteArrayIn);
+    void SetByteArray(const std::vector<unsigned char>& byteArrayIn) override final;
 
-    CFieldElement(const CFieldElement& rhs) = default;
-    CFieldElement& operator=(const CFieldElement& rhs) = default;
-
-    void SetNull();
-    bool IsNull() const;
+    explicit CFieldElement(const uint256& value); //Currently for backward compability with pre-sidechain fork blockHeader. To re-evaluate its necessity
+    explicit CFieldElement(const wrappedFieldPtr& wrappedField);
 
     static constexpr unsigned int ByteSize() { return SC_FIELD_SIZE; }
     static constexpr unsigned int BitSize() { return ByteSize()*8; }
-    const std::vector<unsigned char>&  GetByteArray() const;
     uint256 GetLegacyHashTO_BE_REMOVED() const;
 
     wrappedFieldPtr GetFieldElement() const;
+    bool IsValid() const override final;
+    bool operator<(const CFieldElement& rhs)  const { return this->byteVector < rhs.byteVector; } // FOR STD::MAP ONLY
 
-    bool IsValid() const;
-    // equality is not tested on deserializedField attribute since it is a ptr to memory specific per instance
-    friend inline bool operator==(const CFieldElement& lhs, const CFieldElement& rhs) { return lhs.byteVector == rhs.byteVector; }
-    friend inline bool operator!=(const CFieldElement& lhs, const CFieldElement& rhs) { return !(lhs == rhs); }
-    friend inline bool operator<(const CFieldElement& lhs, const CFieldElement& rhs)  { return lhs.byteVector < rhs.byteVector; } // FOR STD::MAP ONLY
-
-    // SERIALIZATION SECTION
-    size_t GetSerializeSize(int nType, int nVersion) const //ADAPTED FROM SERIALIZED.H
-    {
-        return 1 + CFieldElement::ByteSize(); //byte for size + byteArray content (each element a single byte)
-    };
-
-    template<typename Stream>
-    void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
-    {
-        char tmp = static_cast<char>(byteVector.size());
-           os.write(&tmp, 1);
-        if (!byteVector.empty())
-            os.write((char*)&byteVector[0], byteVector.size());
-    }
-
-    template<typename Stream> //ADAPTED FROM SERIALIZED.H
-    void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
-    {
-        byteVector.clear();
-
-        char tmp {0};
-        is.read(&tmp, 1);
-        unsigned int nSize = static_cast<unsigned int>(tmp);
-        if (nSize != 0 && nSize != CFieldElement::ByteSize())
-            throw std::ios_base::failure("non-canonical CSidechainField size");
-
-        if (nSize != 0)
-        {
-            byteVector.resize(nSize);
-            is.read((char*)&byteVector[0], nSize);
-        }
-    }
-
-    std::string GetHexRepr() const;
     static CFieldElement ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs);
     static const CFieldElement& GetPhantomHash();
 
+protected:
+    unsigned int SerializedSize() const override final { return ByteSize(); }
+
 private:
-    std::vector<unsigned char> byteVector;
     static CFieldPtrDeleter theFieldPtrDeleter;
 };
 
 typedef CFieldElement ScConstant;
-////////////////////////////// End of Field types //////////////////////////////
+///////////////////////////// End of CFieldElement /////////////////////////////
 
-/////////////////////// libzendoomc namespace definitions //////////////////////
-namespace libzendoomc {
-    typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
+/////////////////////////////////// CScProof ///////////////////////////////////
+struct CProofPtrDeleter
+{ // deleter
+    CProofPtrDeleter() = default;
+    void operator()(sc_proof_t* p) const {
+        zendoo_sc_proof_free(p);
+        p = nullptr;
+    };
+};
+typedef std::shared_ptr<sc_proof_t> wrappedScProofPtr;
 
-    /* Check if scProof is a valid zendoo-mc-cryptolib's sc_proof */
-    bool IsValidScProof(const ScProof& scProof);
+class CScProof : public CZendooCctpObject
+{
+public:
+    CScProof() = default;
+    ~CScProof() = default;
+    explicit CScProof(const std::vector<unsigned char>& byteArrayIn);
+    void SetByteArray(const std::vector<unsigned char>& byteArrayIn) override final;
 
-    typedef base_blob<SC_VK_SIZE * 8> ScVk;
+    static constexpr unsigned int ByteSize() { return SC_PROOF_SIZE; }
+    static constexpr unsigned int BitSize() { return ByteSize()*8; }
 
-    /* Check if scVk is a valid zendoo-mc-cryptolib's sc_vk */
-    bool IsValidScVk(const ScVk& scVk);
+    wrappedScProofPtr GetProofPtr() const;
+    bool IsValid() const override final;
 
-    /* Convert to std::string a zendoo-mc-cryptolib Error. Useful for logging */
-    std::string ToString(Error err);
-}
-/////////////////// end of libzendoomc namespace definitions ///////////////////
+protected:
+    unsigned int SerializedSize() const override final { return ByteSize(); }
+
+private:
+    static CProofPtrDeleter theProofPtrDeleter;
+};
+//////////////////////////////// End of CScProof ///////////////////////////////
+
+//////////////////////////////////// CScVKey ///////////////////////////////////
+struct CVKeyPtrDeleter
+{ // deleter
+	CVKeyPtrDeleter() = default;
+    void operator()(sc_vk_t* p) const {
+    	zendoo_sc_vk_free(p);
+        p = nullptr;
+    };
+};
+typedef std::shared_ptr<sc_vk_t> wrappedScVkeyPtr;
+
+class CScVKey : public CZendooCctpObject
+{
+public:
+	CScVKey() = default;
+    ~CScVKey() = default;
+
+    explicit CScVKey(const std::vector<unsigned char>& byteArrayIn);
+    void SetByteArray(const std::vector<unsigned char>& byteArrayIn) override final;
+
+    static constexpr unsigned int ByteSize() { return SC_VK_SIZE; }
+    static constexpr unsigned int BitSize() { return ByteSize()*8; }
+
+    wrappedScVkeyPtr GetVKeyPtr() const;
+    bool IsValid() const override final;
+
+protected:
+    unsigned int SerializedSize() const override final { return ByteSize(); }
+
+private:
+    static CVKeyPtrDeleter theVkPtrDeleter;
+};
+//////////////////////////////// End of CScVKey ////////////////////////////////
 
 ////////////////////////////// Custom Config types //////////////////////////////
 class CustomCertificateFieldConfig
@@ -301,9 +341,9 @@ struct ScCreationParameters
     // all creation data follows...
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
-    libzendoomc::ScVk wCertVk;
-    boost::optional<libzendoomc::ScVk> wMbtrVk;
-    boost::optional<libzendoomc::ScVk> wCeasedVk;
+    CScVKey wCertVk;
+    boost::optional<CScVKey> wMbtrVk;
+    boost::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
 
@@ -364,7 +404,7 @@ struct ScBwtRequestParameters
 {
     CAmount scFee;
     CFieldElement scRequestData;
-    libzendoomc::ScProof scProof;
+    CScProof scProof;
 
     bool IsNull() const
     {

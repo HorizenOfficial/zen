@@ -214,7 +214,7 @@ std::string CTxIn::ToString() const
 
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                                      const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
-                                                                     const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn)
+                                                                     const CScProof& scProofIn, const CScript& redeemScriptIn)
 {
     nValue = nValueIn;
     scId = scIdIn;
@@ -228,7 +228,7 @@ std::string CTxCeasedSidechainWithdrawalInput::ToString() const
 {
     return strprintf("CTxCeasedSidechainWithdrawalInput(nValue=%d.%08d, scId=%s, nullifier=%s, pubKeyHash=%s, scProof=%s, redeemScript=%s)",
                      nValue / COIN, nValue % COIN, scId.ToString(), nullifier.GetHexRepr().substr(0, 10),
-                     pubKeyHash.ToString(), HexStr(scProof).substr(0, 10), HexStr(redeemScript).substr(0, 24));
+                     pubKeyHash.ToString(), scProof.GetHexRepr().substr(0, 10), HexStr(redeemScript).substr(0, 24));
 }
 
 CScript CTxCeasedSidechainWithdrawalInput::scriptPubKey() const
@@ -317,8 +317,8 @@ std::string CTxScCreationOut::ToString() const
         generatedScId.ToString(), withdrawalEpochLength, nValue / COIN,
         nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
         constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
-        HexStr(wCertVk), wMbtrVk ? HexStr(wMbtrVk.get()) : "",
-        wCeasedVk ? HexStr(wCeasedVk.get()) : "",
+        wCertVk.GetHexRepr(), wMbtrVk ? wMbtrVk.get().GetHexRepr() : "",
+        wCeasedVk ? wCeasedVk.get().GetHexRepr() : "",
         VecToStr(vFieldElementCertificateFieldConfig),
         VecToStr(vBitVectorCertificateFieldConfig) );
 }
@@ -360,7 +360,7 @@ std::string CBwtRequestOut::ToString() const
     return strprintf("CBwtRequestOut(scId=%s, scRequestData=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
         scId.ToString(), scRequestData.GetHexRepr().substr(0, 30),
         mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
-        HexStr(scProof).substr(0, 30));
+        scProof.GetHexRepr().substr(0, 30));
 }
 
 CBwtRequestOut& CBwtRequestOut::operator=(const CBwtRequestOut &out) {

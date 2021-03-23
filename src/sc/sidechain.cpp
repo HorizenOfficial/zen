@@ -1,5 +1,4 @@
 #include "sc/sidechain.h"
-#include "sc/proofverifier.h"
 #include "primitives/transaction.h"
 #include "utilmoneystr.h"
 #include "txmempool.h"
@@ -187,7 +186,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                         __func__, __LINE__, txHash.ToString()), REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
         }
 
-        if (!libzendoomc::IsValidScVk(sc.wCertVk))
+        if (!sc.wCertVk.IsValid())
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid wCert verification key\n",
@@ -203,7 +202,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-creation-invalid-constant");
         }
 
-        if (sc.wMbtrVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wMbtrVk.get()))
+        if (sc.wMbtrVk.is_initialized() && !sc.wMbtrVk.get().IsValid())
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid wMbtrVk verification key\n",
@@ -211,7 +210,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-creation-invalid-w-mbtr-vk");
         }
 
-        if (sc.wCeasedVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
+        if (sc.wCeasedVk.is_initialized() && !sc.wCeasedVk.get().IsValid())
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",
@@ -242,7 +241,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-fee-amount-outside-range");
         }
 
-        if (!libzendoomc::IsValidScProof(bt.scProof))
+        if (!bt.scProof.IsValid())
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scProof\n",
@@ -275,7 +274,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-cswinput-invalid-nullifier");
         }
 
-        if(!libzendoomc::IsValidScProof(csw.scProof))
+        if(!csw.scProof.IsValid())
         {
             return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW proof\n",
                     __func__, __LINE__, txHash.ToString()),
@@ -305,7 +304,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
                 REJECT_INVALID, "bad-cert-invalid-epoch-data");;
     }
 
-    if(!libzendoomc::IsValidScProof(cert.scProof))
+    if(!cert.scProof.IsValid())
     {
         return state.DoS(100,
                 error("%s():%d - ERROR: Invalid cert[%s], invalid scProof\n",
