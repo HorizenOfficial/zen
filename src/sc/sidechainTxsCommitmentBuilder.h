@@ -7,6 +7,12 @@ class CTransaction;
 class CScCertificate;
 class uint256;
 
+class CTxScCreationOut;
+class CTxForwardTransferOut;
+class CBwtRequestOut;
+
+class CTxCeasedSidechainWithdrawalInput;
+
 class SidechainTxsCommitmentBuilder
 {
 public:
@@ -16,8 +22,8 @@ public:
     SidechainTxsCommitmentBuilder(const SidechainTxsCommitmentBuilder&) = delete;
     SidechainTxsCommitmentBuilder& operator=(const SidechainTxsCommitmentBuilder&) = delete;
 
-    void add(const CTransaction& tx);
-    void add(const CScCertificate& cert);
+    bool add(const CTransaction& tx);
+    bool add(const CScCertificate& cert);
     uint256 getCommitment();
 
 private:
@@ -25,6 +31,13 @@ private:
 
     // private initializer for instantiating the const ptr in the ctor initializer lists
     const commitment_tree_t* const initPtr();
+
+    bool add_scc(const CTxScCreationOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code);
+    bool add_fwt(const CTxForwardTransferOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code);
+    bool add_bwtr(const CBwtRequestOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code);
+
+    bool add_csw(const CTxCeasedSidechainWithdrawalInput& ccin, CctpErrorCode& ret_code);
+    bool add_cert(const CScCertificate& cert, CctpErrorCode& ret_code);
 };
 
 #endif

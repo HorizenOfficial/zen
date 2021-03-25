@@ -228,10 +228,10 @@ TEST(SidechainsField, CopyAndAssignement)
 TEST(SidechainsField, ComputeHash_EmptyField)
 {
     std::vector<unsigned char> lhs {
-        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
-        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
-        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
-        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 0, 0
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
     };
     CFieldElement lhsField{lhs};
     ASSERT_TRUE(lhsField.IsValid());
@@ -359,10 +359,10 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
 
     // Deserialize root
     std::vector<unsigned char> expected_root_bytes {
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f
+        0x5d, 0x60, 0x0c, 0x9b, 0x61, 0x31, 0x4c, 0xf8,
+        0xa1, 0x7d, 0x09, 0x30, 0xf6, 0x6e, 0x69, 0x47,
+        0x72, 0x61, 0xe1, 0x80, 0xc8, 0x53, 0x42, 0xeb,
+        0xd6, 0x74, 0x60, 0xf0, 0x09, 0xe4, 0x70, 0x23
     };
     ASSERT_TRUE(expected_root_bytes.size() == CFieldElement::ByteSize());
     CFieldElement expected_root{expected_root_bytes};
@@ -558,13 +558,20 @@ TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
 TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 {
     fPrintToConsole = true;
-
-    SidechainTxsCommitmentBuilder builder;
+    fDebug = true;
 
     //Add txes containing scCreation and fwd transfer + a certificate
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), /*height*/10);
+
     CMutableTransaction mutTx = scCreationTx;
-    mutTx.vsc_ccout.push_back(CTxScCreationOut(CAmount(10), uint256S("aaa"), Sidechain::ScCreationParameters()));
+    auto ccout = CTxScCreationOut(CAmount(10), uint256S("aaa"), Sidechain::ScCreationParameters());
+    // set mandatory/legal params
+    ccout.withdrawalEpochLength = 11;
+    ccout.wCertVk = CScVKey(ParseHex(SAMPLE_VK));
+    ccout.wMbtrVk = CScVKey(ParseHex(SAMPLE_VK));
+    ccout.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    mutTx.vsc_ccout.push_back(ccout);
+
     mutTx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("bbb"), CAmount(1985), uint256S("badcafe")));
     scCreationTx = mutTx;
 
@@ -575,13 +582,15 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
         /*epochNum*/12, /*endEpochBlockHash*/uint256S("abc"), /*changeTotalAmount*/0,
         /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/1);
 
-    builder.add(scCreationTx);
-    builder.add(fwdTx);
-    builder.add(cert);
+    SidechainTxsCommitmentBuilder builder;
+
+    ASSERT_TRUE(builder.add(scCreationTx));
+    ASSERT_TRUE(builder.add(fwdTx));
+    ASSERT_TRUE(builder.add(cert));
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("fbab0ef478db7889c9bd3fe253cac7e976956a186b99f27ac265a07af61393e4"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("2a6206233301a27ca24406edcfd759efc2cefb9ef2009efdb734918d3a43e8b5"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -590,11 +599,12 @@ TEST(SidechainsField, NakedZendooFeatures_EmptyTreeCommitmentCalculation)
     fPrintToConsole = true;
     SidechainTxsCommitmentBuilder builder;
 
+    const CFieldElement& emptyFe = CFieldElement{EMPTY_COMMITMENT_TREE_FIELD};
+    uint256 emptySha = emptyFe.GetLegacyHashTO_BE_REMOVED();
     //Nothing to add
 
     uint256 scTxCommitmentHash = builder.getCommitment();
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("0000000000000000000000000000000000000000000000000000000000000000"))
-        <<scTxCommitmentHash.ToString();
+    EXPECT_TRUE(scTxCommitmentHash == emptySha) <<scTxCommitmentHash.ToString();
 }
 
 TEST(CctpLibrary, BitVectorUncompressed)
@@ -952,14 +962,14 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
     const uint256& tx_hash = tx.GetHash();
     BufferWithSize bws_tx_hash(tx_hash.begin(), tx_hash.size());
 
-    printf("sc creation tx hash=[%s] ...\n", tx_hash.ToString().c_str());
+    printf("tx hash=[%s] ...\n", tx_hash.ToString().c_str());
 
     uint32_t out_idx = 0;
 
     for (const CTxScCreationOut& ccout : tx.GetVscCcOut() )
     {
         const uint256& scId = ccout.GetScId();
-        BufferWithSize bws_scid(scId.begin(), scId.size());
+        BufferWithSize bws_scid((unsigned char*)scId.begin(), scId.size());
 
         CAmount crAmount = ccout.nValue;
 
@@ -1351,7 +1361,6 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Negative)
         out_idx++;
     }
 
-
     printf("Deleting the commitment tree ...\n");
     zendoo_commitment_tree_delete(ct);
 }
@@ -1366,15 +1375,38 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Object)
 
     CTransaction tx = CreateDefaultTx();
 
-    cmtObj.add(tx);
+    ASSERT_TRUE(cmtObj.add(tx));
 
     cmt = cmtObj.getCommitment();
     printf("cmt = [%s]\n", cmt.ToString().c_str());
 
     CScCertificate cert = CreateDefaultCert();
-    cmtObj.add(cert);
+    ASSERT_TRUE(cmtObj.add(cert));
 
     cmt = cmtObj.getCommitment();
     printf("cmt = [%s]\n", cmt.ToString().c_str());
+}
+
+TEST(CctpLibrary, GetPoseidonHashFromByteArray)
+{
+    unsigned char genericArr[37] = {
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff
+    };
+
+    const BufferWithSize bws(genericArr, sizeof(genericArr));
+    field_t* fe = zendoo_poseidon_hash(&bws);
+    ASSERT_TRUE(fe != nullptr);
+
+    unsigned char field_bytes[CFieldElement::ByteSize()];
+    zendoo_serialize_field(fe, field_bytes);
+    printf("ct = [");
+    for (int i = 0; i < sizeof(field_bytes); i++)
+        printf("%02x", ((unsigned char*)field_bytes)[i]);
+    printf("]\n");
+    zendoo_field_free(fe);
 }
 

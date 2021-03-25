@@ -31,7 +31,7 @@ TEST_F(SidechainsTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
     SelectParams(CBaseChainParams::MAIN);
 
     // Previous block
-    std::vector<unsigned char> prevCumHashByteArray(32,'a');
+    std::vector<unsigned char> prevCumHashByteArray(32,0x1d);
     prevCumHashByteArray.resize(CFieldElement::ByteSize(),0x0);
     CFieldElement prevCumulativeHash{prevCumHashByteArray};
 
@@ -46,7 +46,7 @@ TEST_F(SidechainsTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
 	<<prevPindex->hashScTxsCommitment.ToString();
 
     // Current block
-    std::vector<unsigned char> currentHashByteArray(32,'b');
+    std::vector<unsigned char> currentHashByteArray(32, 0x1e);
     currentHashByteArray.resize(CFieldElement::ByteSize(),0x0);
     CFieldElement currentHash{currentHashByteArray};
 

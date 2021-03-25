@@ -332,6 +332,15 @@ void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) con
     LogPrint("sc", "%s():%d - updating scid=%s - tx[%s], pos[%u]\n",
         __func__, __LINE__, scid.ToString(), txHash.ToString(), pos);
 
+    // TODO temporary until we can use a PoseidonHash instead of a SHA one
+    //----
+    // clear last two bits for rendering it a valid tweedle field element
+    unsigned char* ptr = const_cast<unsigned char*>(scid.begin());
+    assert(SC_FIELD_SIZE <= scid.size());
+    ptr[SC_FIELD_SIZE-1] &= 0x3f;
+
+    LogPrint("sc", "%s():%d - trimmed scid=%s\n", __func__, __LINE__, scid.ToString());
+
     *const_cast<uint256*>(&generatedScId) = scid;
 }
 
