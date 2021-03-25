@@ -5360,7 +5360,7 @@ std::string GetWarnings(const std::string& strFor)
 //
 
 
-bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+bool AlreadyHave(const CInv& inv)
 {
     switch (inv.type)
     {
