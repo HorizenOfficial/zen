@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <gtest/tx_creation_utils.h>
+#include <vector>
 
 #include <main.h>
 #include <protocol.h>
@@ -27,10 +28,57 @@ public:
     }
 };
 
-MempoolReturnValue ValidTxInMempool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-                                    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
+struct FakeMempoolProcessor
+{
+    FakeMempoolProcessor(): txHashToNumOfOutputs(), invalidTxes(), DosLevelIfInvalid(0) {}
+    ~FakeMempoolProcessor() {mempool.clear();}
+    std::map<uint256, unsigned int> txHashToNumOfOutputs;
+    std::set<uint256> invalidTxes;
+    int DosLevelIfInvalid;
+
+    void markTxAsInvalid(const uint256& hash)
     {
-        if (txBase.IsCertificate())
+        invalidTxes.insert(hash);
+        txHashToNumOfOutputs.erase(hash);
+
+        if (mempool.exists(hash)) //keep mempool coherent since it is used in AlredyHave, unfortunately
+        {
+            const CTransactionBase * toRm = nullptr;
+            if (mempool.existsTx(hash))
+                toRm = &mempool.mapTx.at(hash).GetTx();
+            else
+                toRm = &mempool.mapCertificate.at(hash).GetCertificate();
+
+            std::list<CTransaction> removedTxs;
+            std::list<CScCertificate> removedCerts;
+            mempool.remove(*toRm, removedTxs, removedCerts, /*fRecursive*/true);
+        }
+    }
+
+    MempoolReturnValue FakeAcceptToMempool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase, LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
+    {
+        // This fake declares:
+        //                     Tx is VALID if it spends coinbase or spends txes in txHashToNumOfOutputs
+        //                     Tx is MISSING_INPUT if at least one input is not coinbase nor spends txes in txHashToNumOfOutputs
+        //                     Tx is INVALID if its hash is registered in invalidTxes set
+
+        if (invalidTxes.count(txBase.GetHash()))
+        {
+            state.DoS(DosLevelIfInvalid, false, REJECT_INVALID);
+            return MempoolReturnValue::INVALID;
+        }
+
+        for (const auto& in: txBase.GetVin())
+        {
+            if (in.prevout.hash.IsNull()) //coinbase input is always accepted
+                continue;
+
+            if (txHashToNumOfOutputs.count(in.prevout.hash) == 0 || in.prevout.n >= txHashToNumOfOutputs.at(in.prevout.hash))
+                return MempoolReturnValue::MISSING_INPUT;
+        }
+
+        txHashToNumOfOutputs[txBase.GetHash()] = txBase.GetVout().size();
+        if (txBase.IsCertificate()) // also add to mempool since this is checked HaveAlready
         {
             CCertificateMemPoolEntry mempoolEntry(dynamic_cast<const CScCertificate&>(txBase), /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
             mempool.addUnchecked(txBase.GetHash(), mempoolEntry);
@@ -39,36 +87,21 @@ MempoolReturnValue ValidTxInMempool(CTxMemPool& pool, CValidationState &state, c
             CTxMemPoolEntry mempoolEntry(dynamic_cast<const CTransaction&>(txBase), /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
             mempool.addUnchecked(txBase.GetHash(), mempoolEntry);
         }
-
         return MempoolReturnValue::VALID;
     }
-
-MempoolReturnValue OrphanTxInMempool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-                                     LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
-    {return MempoolReturnValue::MISSING_INPUT;}
-
-MempoolReturnValue InvalidZeroDosTxInMempool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-                                      LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
-    {
-        state.DoS(0, false, REJECT_INVALID);
-        return MempoolReturnValue::INVALID;
-    }
-
-MempoolReturnValue InvalidHighDosTxInMempool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-                                      LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
-    {
-        state.DoS(100, false, REJECT_INVALID);
-        return MempoolReturnValue::INVALID;
-    }
+};
 
 class ProcessTxBaseMsgTestSuite : public ::testing::Test
 {
 public:
     ProcessTxBaseMsgTestSuite():
-        ValidTxMock(::ValidTxInMempool), OrphanTxMock(::OrphanTxInMempool),
-        InvalidZeroDosTxMock(::InvalidZeroDosTxInMempool), InvalidHighDosTxMock(::InvalidHighDosTxInMempool),
+        fakedMemProcessor(),
         pathTemp(boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()),
-        chainStateDbSize(0), pChainStateDb(nullptr) {};
+        chainStateDbSize(0), pChainStateDb(nullptr), theFake()
+    {
+        fakedMemProcessor = std::bind(&FakeMempoolProcessor::FakeAcceptToMempool, &theFake,
+                 std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4,std::placeholders::_5);
+    };
 
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
@@ -96,10 +129,8 @@ public:
     ~ProcessTxBaseMsgTestSuite() = default;
 
 protected:
-    processMempoolTx ValidTxMock;
-    processMempoolTx OrphanTxMock;
-    processMempoolTx InvalidZeroDosTxMock;
-    processMempoolTx InvalidHighDosTxMock;
+    processMempoolTx fakedMemProcessor;
+    FakeMempoolProcessor     theFake;
 
 private:
     boost::filesystem::path  pathTemp;
@@ -109,8 +140,10 @@ private:
 
 TEST_F(ProcessTxBaseMsgTestSuite, ValidUnknownTxIsRelayed)
 {
-    CTransaction aKnownTx = txCreationUtils::createTransparentTx();
-    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) == 0);
+    CMutableTransaction mutValidTx;
+    mutValidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction validTx(mutValidTx);
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) == 0);
 
     //Prepare node from which tx originates
     CNode::ClearBanned();
@@ -118,16 +151,18 @@ TEST_F(ProcessTxBaseMsgTestSuite, ValidUnknownTxIsRelayed)
     CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
 
     //test
-    ProcessTxBaseMsg(aKnownTx, &sourceNode, ValidTxMock);
+    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
 
     //checks
-    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) != 0);
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
 }
 
 TEST_F(ProcessTxBaseMsgTestSuite, ValidUnknownTxIsRecordedAsKnown)
 {
-    CTransaction aKnownTx = txCreationUtils::createTransparentTx();
-    ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, aKnownTx.GetHash())));
+    CMutableTransaction mutValidTx;
+    mutValidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction validTx(mutValidTx);
+    ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, validTx.GetHash())));
 
     //Prepare node from which tx originates
     CNode::ClearBanned();
@@ -135,16 +170,18 @@ TEST_F(ProcessTxBaseMsgTestSuite, ValidUnknownTxIsRecordedAsKnown)
     CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
 
     //test
-    ProcessTxBaseMsg(aKnownTx, &sourceNode, ValidTxMock);
+    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
 
     //checks
-    EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, aKnownTx.GetHash())));
+    EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, validTx.GetHash())));
 }
 
 TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitUnknownTxIsNotRelayed)
 {
-    CTransaction aKnownTx = txCreationUtils::createTransparentTx();
-    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) == 0);
+    CMutableTransaction mutOrphanTx;
+    mutOrphanTx.vin.push_back(CTxIn(uint256S("aaa"), 0));
+    CTransaction orphanTx(mutOrphanTx);
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx.GetHash())) == 0);
 
     //Prepare node from which tx originates
     CNode::ClearBanned();
@@ -152,16 +189,18 @@ TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitUnknownTxIsNotRelayed
     CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
 
     //test
-    ProcessTxBaseMsg(aKnownTx, &sourceNode, OrphanTxMock);
+    ProcessTxBaseMsg(orphanTx, &sourceNode, fakedMemProcessor);
 
     //checks
-    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) == 0);
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx.GetHash())) == 0);
 }
 
 TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitUnknownTxIsRecordedAsKnown)
 {
-    CTransaction aKnownTx = txCreationUtils::createTransparentTx();
-    ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, aKnownTx.GetHash())));
+    CMutableTransaction mutOrphanTx;
+    mutOrphanTx.vin.push_back(CTxIn(uint256S("aaa"), 0));
+    CTransaction orphanTx(mutOrphanTx);
+    ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, orphanTx.GetHash())));
 
     //Prepare node from which tx originates
     CNode::ClearBanned();
@@ -169,16 +208,20 @@ TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitUnknownTxIsRecordedAs
     CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
 
     //test
-    ProcessTxBaseMsg(aKnownTx, &sourceNode, OrphanTxMock);
+    ProcessTxBaseMsg(orphanTx, &sourceNode, fakedMemProcessor);
 
     //checks
-    EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, aKnownTx.GetHash())));
+    EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, orphanTx.GetHash())));
 }
 
 TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxIsNotRelayed)
 {
-    CTransaction aKnownTx = txCreationUtils::createTransparentTx();
-    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) == 0);
+    CMutableTransaction mutInvalidTx;
+    mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction invalidTx(mutInvalidTx);
+    theFake.markTxAsInvalid(invalidTx.GetHash());
+    theFake.DosLevelIfInvalid = 0;
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) == 0);
 
     //Prepare node from which tx originates
     CNode::ClearBanned();
@@ -186,16 +229,20 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxIsNotRelayed)
     CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
 
     //test
-    ProcessTxBaseMsg(aKnownTx, &sourceNode, InvalidZeroDosTxMock);
+    ProcessTxBaseMsg(invalidTx, &sourceNode, fakedMemProcessor);
 
     //checks
-    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) == 0);
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) == 0);
 }
 
 TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxFromWhitelistedPeerIsRelayed)
 {
-    CTransaction aKnownTx = txCreationUtils::createTransparentTx();
-    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) == 0);
+    CMutableTransaction mutInvalidTx;
+    mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction invalidTx(mutInvalidTx);
+    theFake.markTxAsInvalid(invalidTx.GetHash());
+    theFake.DosLevelIfInvalid = 0;
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) == 0);
 
     //Prepare node from which tx originates
     CNode::ClearBanned();
@@ -204,16 +251,20 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxFromWhitelistedPeerIsRe
     sourceNode.fWhitelisted = true;
 
     //test
-    ProcessTxBaseMsg(aKnownTx, &sourceNode, InvalidZeroDosTxMock);
+    ProcessTxBaseMsg(invalidTx, &sourceNode, fakedMemProcessor);
 
     //checks
-    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) != 0);
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) != 0);
 }
 
 TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxIsRecordedAsKnown)
 {
-    CTransaction aKnownTx = txCreationUtils::createTransparentTx();
-    ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, aKnownTx.GetHash())));
+    CMutableTransaction mutInvalidTx;
+    mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction invalidTx(mutInvalidTx);
+    theFake.markTxAsInvalid(invalidTx.GetHash());
+    theFake.DosLevelIfInvalid = 0;
+    ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, invalidTx.GetHash())));
 
     //Prepare node from which tx originates
     CNode::ClearBanned();
@@ -221,16 +272,20 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxIsRecordedAsKnown)
     CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
 
     //test
-    ProcessTxBaseMsg(aKnownTx, &sourceNode, InvalidZeroDosTxMock);
+    ProcessTxBaseMsg(invalidTx, &sourceNode, fakedMemProcessor);
 
     //checks
-    EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, aKnownTx.GetHash())));
+    EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, invalidTx.GetHash())));
 }
 
 TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxIsNotRelayed)
 {
-    CTransaction aKnownTx = txCreationUtils::createTransparentTx();
-    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) == 0);
+    CMutableTransaction mutInvalidTx;
+    mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction invalidTx(mutInvalidTx);
+    theFake.markTxAsInvalid(invalidTx.GetHash());
+    theFake.DosLevelIfInvalid = 100;
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) == 0);
 
     //Prepare node from which tx originates
     CNode::ClearBanned();
@@ -238,16 +293,20 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxIsNotRelayed)
     CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
 
     //test
-    ProcessTxBaseMsg(aKnownTx, &sourceNode, InvalidHighDosTxMock);
+    ProcessTxBaseMsg(invalidTx, &sourceNode, fakedMemProcessor);
 
     //checks
-    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) == 0);
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) == 0);
 }
 
 TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxFromWhitelistedPeerIsNotRelayed)
 {
-    CTransaction aKnownTx = txCreationUtils::createTransparentTx();
-    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) == 0);
+    CMutableTransaction mutInvalidTx;
+    mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction invalidTx(mutInvalidTx);
+    theFake.markTxAsInvalid(invalidTx.GetHash());
+    theFake.DosLevelIfInvalid = 100;
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) == 0);
 
     //Prepare node from which tx originates
     CNode::ClearBanned();
@@ -256,16 +315,20 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxFromWhitelistedPeerIsNo
     sourceNode.fWhitelisted = true;
 
     //test
-    ProcessTxBaseMsg(aKnownTx, &sourceNode, InvalidHighDosTxMock);
+    ProcessTxBaseMsg(invalidTx, &sourceNode, fakedMemProcessor);
 
     //checks
-    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) == 0);
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) == 0);
 }
 
 TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxIsRecordedAsKnown)
 {
-    CTransaction aKnownTx = txCreationUtils::createTransparentTx();
-    ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, aKnownTx.GetHash())));
+    CMutableTransaction mutInvalidTx;
+    mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction invalidTx(mutInvalidTx);
+    theFake.markTxAsInvalid(invalidTx.GetHash());
+    theFake.DosLevelIfInvalid = 100;
+    ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, invalidTx.GetHash())));
 
     //Prepare node from which tx originates
     CNode::ClearBanned();
@@ -273,17 +336,17 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxIsRecordedAsKnown)
     CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
 
     //test
-    ProcessTxBaseMsg(aKnownTx, &sourceNode, InvalidHighDosTxMock);
+    ProcessTxBaseMsg(invalidTx, &sourceNode, fakedMemProcessor);
 
     //checks
-    EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, aKnownTx.GetHash())));
+    EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, invalidTx.GetHash())));
 }
 
 TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesTurningValidAreRelayed)
 {
     //Generate a valid tx and two more txes zero-spending it
     CMutableTransaction mutValidTx;
-    mutValidTx.vin.push_back(CTxIn(uint256S("PREV-TX-HASH"), 0));
+    mutValidTx.vin.push_back(CTxIn(uint256{}, 0));
     mutValidTx.addOut(CTxOut(CAmount(10), CScript()));
     mutValidTx.addOut(CTxOut(CAmount(20), CScript()));
     CTransaction validTx(mutValidTx);
@@ -302,14 +365,14 @@ TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesTurningValidAreRelayed)
     CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
 
     // Orphan txes are inserted first and not relayed
-    ProcessTxBaseMsg(orphanTx_1, &sourceNode, OrphanTxMock);
+    ProcessTxBaseMsg(orphanTx_1, &sourceNode, fakedMemProcessor);
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx_1.GetHash())) == 0);
 
-    ProcessTxBaseMsg(orphanTx_2, &sourceNode, OrphanTxMock);
+    ProcessTxBaseMsg(orphanTx_2, &sourceNode, fakedMemProcessor);
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx_2.GetHash())) == 0);
 
     //test finally the valid parent tx is processed
-    ProcessTxBaseMsg(validTx, &sourceNode, ValidTxMock);
+    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
@@ -321,13 +384,13 @@ TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesStayingOrphanAreNotRelayed)
 {
     //Generate a valid tx and an orphan tx NOT spending the valid one
     CMutableTransaction mutValidTx;
-    mutValidTx.vin.push_back(CTxIn(uint256S("PREV-TX-HASH"), 0));
+    mutValidTx.vin.push_back(CTxIn(uint256{}, 0)); //Valid since it spends "coinbase"
     mutValidTx.addOut(CTxOut(CAmount(10), CScript()));
     mutValidTx.addOut(CTxOut(CAmount(20), CScript()));
     CTransaction validTx(mutValidTx);
 
     CMutableTransaction mutOrphanTx;
-    mutOrphanTx.vin.push_back(CTxIn(uint256S("aaa"), 0));
+    mutOrphanTx.vin.push_back(CTxIn(uint256S("aaa"), 0)); //Orphan since it spends an unknown input
     CTransaction orphanTx_1(mutOrphanTx);
 
     //Prepare node from which tx originates
@@ -336,45 +399,79 @@ TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesStayingOrphanAreNotRelayed)
     CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
 
     // Orphan txes are inserted first and not relayed
-    ProcessTxBaseMsg(orphanTx_1, &sourceNode, OrphanTxMock);
+    ProcessTxBaseMsg(orphanTx_1, &sourceNode, fakedMemProcessor);
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx_1.GetHash())) == 0);
 
     //test finally the valid parent tx is processed
-    ProcessTxBaseMsg(validTx, &sourceNode, ValidTxMock);
+    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx_1.GetHash())) == 0);
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesTurningInvalidAreNotRelayed)
+TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesTurningZeroDosInvalidAreNotRelayed)
 {
     // Generate a valid tx and an orphan tx zero-spending it
-	// The orphan tx is invalid since WHAt???
     CMutableTransaction mutValidTx;
-    mutValidTx.vin.push_back(CTxIn(uint256S("PREV-TX-HASH"), 0));
+    mutValidTx.vin.push_back(CTxIn(uint256{}, 0));
     mutValidTx.addOut(CTxOut(CAmount(10), CScript()));
-    mutValidTx.addOut(CTxOut(CAmount(20), CScript()));
     CTransaction validTx(mutValidTx);
 
-    CMutableTransaction mutOrphanInvalidTx;
-    mutOrphanInvalidTx.vin.push_back(CTxIn(validTx.GetHash(), 0));
-    //HOW TO REPRESENT THAT THIS IS INVALID?
-    CTransaction orphanInvalidTx(mutOrphanInvalidTx);
+    CMutableTransaction mutInvalidMissingInputsTx;
+    mutInvalidMissingInputsTx.vin.push_back(CTxIn(validTx.GetHash(), 0));
+    CTransaction invalidMissingInputsTx(mutInvalidMissingInputsTx);
 
     //Prepare node from which tx originates
     CNode::ClearBanned();
     CAddress dummyAddr(CService(CNetAddr{}, Params().GetDefaultPort()));
     CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
 
-    // Orphan txes are inserted first and not relayed
-    ProcessTxBaseMsg(orphanInvalidTx, &sourceNode, OrphanTxMock);
-    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanInvalidTx.GetHash())) == 0);
+    // Orphan tx is inserted first and not relayed, classified as missing input
+    ProcessTxBaseMsg(invalidMissingInputsTx, &sourceNode, fakedMemProcessor);
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, invalidMissingInputsTx.GetHash())) == 0);
+
+    // then orphan is marked as invalid
+    theFake.DosLevelIfInvalid = 0;
+    theFake.markTxAsInvalid(invalidMissingInputsTx.GetHash());
 
     //test finally the valid parent tx is processed
-    ProcessTxBaseMsg(validTx, &sourceNode, ValidTxMock);
+    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
-    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanInvalidTx.GetHash())) == 0);
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidMissingInputsTx.GetHash())) == 0);
+}
+
+TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesTurningHighDosInvalidAreNotRelayed)
+{
+    // Generate a valid tx and an orphan tx zero-spending it
+    CMutableTransaction mutValidTx;
+    mutValidTx.vin.push_back(CTxIn(uint256{}, 0));
+    mutValidTx.addOut(CTxOut(CAmount(10), CScript()));
+    CTransaction validTx(mutValidTx);
+
+    CMutableTransaction mutInvalidMissingInputsTx;
+    mutInvalidMissingInputsTx.vin.push_back(CTxIn(validTx.GetHash(), 0));
+    CTransaction invalidMissingInputsTx(mutInvalidMissingInputsTx);
+
+    //Prepare node from which tx originates
+    CNode::ClearBanned();
+    CAddress dummyAddr(CService(CNetAddr{}, Params().GetDefaultPort()));
+    CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
+
+    // Orphan tx is inserted first and not relayed, classified as missing input
+    ProcessTxBaseMsg(invalidMissingInputsTx, &sourceNode, fakedMemProcessor);
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, invalidMissingInputsTx.GetHash())) == 0);
+
+    // then orphan is marked as invalid
+    theFake.DosLevelIfInvalid = 100;
+    theFake.markTxAsInvalid(invalidMissingInputsTx.GetHash());
+
+    //test finally the valid parent tx is processed
+    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+
+    //checks
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidMissingInputsTx.GetHash())) == 0);
 }
