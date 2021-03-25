@@ -214,7 +214,13 @@ void UnloadBlockIndex();
 bool ProcessMessages(CNode* pfrom);
 
 // Utilities refactored out of ProcessMessages
-void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom);
+enum class LimitFreeFlag       { ON, OFF };
+enum class RejectAbsurdFeeFlag { ON, OFF };
+enum class MempoolReturnValue { INVALID, MISSING_INPUT, VALID };
+
+typedef std::function<MempoolReturnValue(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
+	    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)> processMempoolTx;
+void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, const processMempoolTx& mempoolProcess);
 // End of Utilities
 
 /**
@@ -286,10 +292,6 @@ void Misbehaving(NodeId nodeid, int howmuch);
 void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
 void PruneAndFlush();
-
-enum class LimitFreeFlag       { ON, OFF };
-enum class RejectAbsurdFeeFlag { ON, OFF };
-enum class MempoolReturnValue { INVALID, MISSING_INPUT, VALID };
 
 /** (try to) add transaction to memory pool **/
 MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,

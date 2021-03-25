@@ -5591,7 +5591,7 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
-void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
+void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, const processMempoolTx& mempoolProcess)
 {
     CInv inv(MSG_TX, txBase.GetHash());
     pfrom->AddInventoryKnown(inv);
@@ -5605,7 +5605,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     CValidationState state;
     if (!AlreadyHave(inv))
     {
-        res = AcceptTxBaseToMemoryPool(mempool, state, txBase, LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF);
+        res = mempoolProcess(mempool, state, txBase, LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF);
         if (res == MempoolReturnValue::VALID)
         {
             mempool.check(pcoinsTip);
@@ -5638,7 +5638,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
                     if (setMisbehaving.count(fromPeer))
                         continue;
 
-                    MempoolReturnValue resOrphan = AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
+                    MempoolReturnValue resOrphan = mempoolProcess(mempool, stateDummy, orphanTx,
                             LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF);
                     if (resOrphan == MempoolReturnValue::VALID)
                     {
@@ -6307,7 +6307,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CTransaction tx(txVers);
             tx.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
-            ProcessTxBaseMsg(tx, pfrom);
+            ProcessTxBaseMsg(tx, pfrom, &AcceptTxBaseToMemoryPool);
         }
         else
         if (CTransactionBase::IsCertificate(txVers) )
@@ -6315,7 +6315,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CScCertificate cert(txVers);
             cert.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
-            ProcessTxBaseMsg(cert, pfrom);
+            ProcessTxBaseMsg(cert, pfrom, &AcceptTxBaseToMemoryPool);
         }
         else
         {
