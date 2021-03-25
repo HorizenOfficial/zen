@@ -5672,8 +5672,8 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, const proces
                 EraseOrphanTx(hash);
         }
     }
-    // TODO: currently, prohibit joinsplits from entering mapOrphans
-    else if (res == MempoolReturnValue::MISSING_INPUT && txBase.GetVjoinsplit().size() == 0)
+
+    if (res == MempoolReturnValue::MISSING_INPUT && txBase.GetVjoinsplit().size() == 0) // TODO: currently, prohibit joinsplits from entering mapOrphans
     {
         AddOrphanTx(txBase, pfrom->GetId());
 
@@ -5682,7 +5682,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, const proces
         unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
         if (nEvicted > 0)
             LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
-    } else
+    } else //ALREADY KNOWN OR MempoolReturnValue::INVALID OR MempoolReturnValue::MISSING_INPUT && JOINSPLITS
     {
         assert(recentRejects);
         recentRejects->insert(txBase.GetHash());
