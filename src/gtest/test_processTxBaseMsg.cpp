@@ -210,7 +210,7 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxFromWhitelistedPeerIsRe
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) != 0);
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownUnknownTxIsRecordedAsKnown)
+TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxIsRecordedAsKnown)
 {
     CTransaction aKnownTx = txCreationUtils::createTransparentTx();
     ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, aKnownTx.GetHash())));
@@ -262,7 +262,7 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxFromWhitelistedPeerIsNo
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, aKnownTx.GetHash())) == 0);
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownUnknownTxIsRecordedAsKnown)
+TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxIsRecordedAsKnown)
 {
     CTransaction aKnownTx = txCreationUtils::createTransparentTx();
     ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, aKnownTx.GetHash())));

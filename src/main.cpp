@@ -5682,7 +5682,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, const proces
         unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
         if (nEvicted > 0)
             LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
-    } else //ALREADY KNOWN OR MempoolReturnValue::INVALID OR MempoolReturnValue::MISSING_INPUT && JOINSPLITS
+    } else if (res != MempoolReturnValue::VALID) //ALREADY KNOWN OR MempoolReturnValue::INVALID OR MempoolReturnValue::MISSING_INPUT && JOINSPLITS
     {
         assert(recentRejects);
         recentRejects->insert(txBase.GetHash());
