@@ -658,12 +658,6 @@ public:
     static uint64_t GetTotalBytesSent();
 };
 
-
-
-class CTransaction;
-class CScCertificate;
-void Relay(const CTransaction& tx);
-void Relay(const CScCertificate& cert);
 void Relay(const CTransactionBase& tx, const CDataStream& ss);
 
 /** Access to the (IP) address database (peers.dat) */

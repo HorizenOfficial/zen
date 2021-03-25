@@ -1096,7 +1096,13 @@ std::string CTransaction::EncodeHex() const
     return EncodeHexTx(*this);
 }
 
-void CTransaction::Relay() const { ::Relay(*this); }
+void CTransaction::Relay() const
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss.reserve(10000);
+    ss << *this;
+    ::Relay(*this, ss);
+}
 
 std::shared_ptr<const CTransactionBase>
 CTransaction::MakeShared() const {

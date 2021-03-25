@@ -5729,9 +5729,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         return true;
     }
 
-
-
-
     if (strCommand == "version")
     {
         // Each connection can only send one version message

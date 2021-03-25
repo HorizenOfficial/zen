@@ -291,7 +291,13 @@ bool CScCertificate::VerifyScript(
     return true;
 }
 
-void CScCertificate::Relay() const { ::Relay(*this); }
+void CScCertificate::Relay() const
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss.reserve(10000);
+    ss << *this;
+    ::Relay(*this, ss);
+}
 
 std::shared_ptr<const CTransactionBase>
 CScCertificate::MakeShared() const {
