@@ -83,7 +83,7 @@ class subsidyhalving(BitcoinTestFramework):
         # check there are no subsidy quotas in the coinbase tx 
         assert_equal(1, len(decoded_coinbase_tx['vout']))
         # and the miner reward has '0' value
-        assert_equal(0, decoded_coinbase_tx['vout'][0]['valueZat'])
+        assert_equal(0, decoded_coinbase_tx['vout'][0]['valueSat'])
 
         """
         Now 3 nodes are connected with each other, one of them is a malicious one and
