@@ -2378,6 +2378,12 @@ void CNode::AskFor(const CInv& inv)
     mapAskFor.insert(std::make_pair(nRequestTime, inv));
 }
 
+void CNode::StopAskingFor(const CInv& inv)
+{
+    setAskFor.erase(inv.hash);
+    return;
+}
+
 void CNode::BeginMessage(const char* pszCommand) EXCLUSIVE_LOCK_FUNCTION(cs_vSend)
 {
     ENTER_CRITICAL_SECTION(cs_vSend);

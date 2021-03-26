@@ -5591,14 +5591,14 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
-void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, const processMempoolTx& mempoolProcess)
+void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, const processMempoolTx& mempoolProcess)
 {
     CInv inv(MSG_TX, txBase.GetHash());
     pfrom->AddInventoryKnown(inv);
 
     LOCK(cs_main);
 
-    pfrom->setAskFor.erase(inv.hash);
+    pfrom->StopAskingFor(inv);
     mapAlreadyAskedFor.erase(inv);
 
     if(AlreadyHave(inv))
@@ -5606,7 +5606,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, const proces
         assert(recentRejects);
         recentRejects->insert(txBase.GetHash());
 
-        if (pfrom->fWhitelisted)
+        if (pfrom->IsWhiteListed())
         {
             // Always relay transactions received from whitelisted peers, even
             // if they were already in the mempool or rejected from it due
@@ -5615,7 +5615,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, const proces
             //
             // Non-zero DoS txes should never be relayed, but here we are going to relay
             // right away, without re-checking. Why? Because on first reception, node would be banned already
-            LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->id);
+            LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->GetId());
             txBase.Relay();
         }
         return;
@@ -5631,9 +5631,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, const proces
         std::vector<uint256> vEraseQueue;
 
         LogPrint("mempool", "%s(): peer=%d %s: accepted %s (poolsz %u)\n", __func__,
-            pfrom->id, pfrom->cleanSubVer,
-            txBase.GetHash().ToString(),
-            mempool.size());
+            pfrom->GetId(), pfrom->GetCleanSubVer(), txBase.GetHash().ToString(), mempool.size());
 
         // Recursively process any orphan transactions that depended on this one
         set<NodeId> setMisbehaving;
@@ -5695,41 +5693,40 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, const proces
         // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
         unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
         unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
-        if (nEvicted > 0)
-            LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
+        if (nEvicted > 0) LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
     } else
     {
         assert(recentRejects);
         recentRejects->insert(txBase.GetHash());
 
         int nDoS = 0;
-        state.IsInvalid(nDoS);
+        state.IsInvalid(nDoS); //retrieve nDoS
 
         if (state.IsValid())
         {
-            if (pfrom->fWhitelisted)
+            if (pfrom->IsWhiteListed())
             {
-                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->id);
+                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->GetId());
                 txBase.Relay();
             }
         } else  //INVALID
         {
             LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
-                pfrom->id, pfrom->cleanSubVer,
-                state.GetRejectReason());
+                pfrom->GetId(), pfrom->GetCleanSubVer(), state.GetRejectReason());
+
             pfrom->PushMessage("reject", std::string("tx"), state.GetRejectCode(),
                                state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
 
-            if ((nDoS == 0) && (pfrom->fWhitelisted))
+            if ((nDoS == 0) && (pfrom->IsWhiteListed()))
             {
-                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->id);
+                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->GetId());
                 txBase.Relay();
             }
 
-            if ((nDoS > 0) && (pfrom->fWhitelisted))
+            if ((nDoS > 0) && (pfrom->IsWhiteListed()))
             {
                 LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
-                    txBase.GetHash().ToString(), pfrom->id, state.GetRejectReason(), state.GetRejectCode());
+                    txBase.GetHash().ToString(), pfrom->GetId(), state.GetRejectReason(), state.GetRejectCode());
             }
 
             if (nDoS > 0)
@@ -7076,7 +7073,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 }
             } else {
                 //If we're not going to ask, don't expect a response.
-                pto->setAskFor.erase(inv.hash);
+                pto->StopAskingFor(inv);
             }
             pto->mapAskFor.erase(pto->mapAskFor.begin());
         }
