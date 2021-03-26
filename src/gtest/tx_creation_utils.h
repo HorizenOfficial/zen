@@ -32,7 +32,8 @@ void addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount);
 
 CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
                                  CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,
-                                 CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/, const int quality = 3);
+                                 CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/,
+                                 CAmount ftScFee/* = 0*/, CAmount mbtrScFee/* = 0*/, const int quality = 3);
 
 uint256 CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight);
 

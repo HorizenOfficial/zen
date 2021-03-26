@@ -939,7 +939,8 @@ TEST_F(SidechainsTestSuite, RestoreSidechainRestoresLastCertHash) {
     //Update sc with cert and create the associate blockUndo
     int certEpoch = 0;
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/0, /*mbtrScFee*/0);
     CBlockUndo blockUndo;
     ASSERT_TRUE(sidechainsView->UpdateSidechain(cert, blockUndo));
     CSidechain sidechainPostCert;
@@ -1028,7 +1029,8 @@ TEST_F(SidechainsTestSuite, CertificateUpdatesTopCommittedCertHash) {
 
     CBlockUndo blockUndo;
     CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/0, /*mbtrScFee*/0);
     EXPECT_TRUE(sidechainsView->UpdateSidechain(aCertificate, blockUndo));
 
     //check
@@ -1606,4 +1608,44 @@ void SidechainsTestSuite::storeSidechainWithCurrentHeight(const uint256& scId, c
     chainSettingUtils::ExtendChainActiveToHeight(chainActiveHeight);
     sidechainsView->SetBestBlock(chainActive.Tip()->GetBlockHash());
     txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, sidechain);
+}
+
+
+//////////////////////////////////////////////////////////
+//////////////////// Certificate hash ////////////////////
+//////////////////////////////////////////////////////////
+TEST_F(SidechainsTestSuite, CertificateHashComputation)
+{
+    CBlock dummyBlock;
+    CScCertificate originalCert = txCreationUtils::createCertificate(
+        uint256S("aaa"),
+        /*epochNum*/0, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2,
+        /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/0, /*mbtrScFee*/0);
+
+    /**
+     * Check that two certificates with same parameters
+     * have the same hash.
+     */
+    CScCertificate newCert = CScCertificate(originalCert);
+    EXPECT_TRUE(originalCert.GetDataHash() == newCert.GetDataHash());
+
+    /**
+     * Check that two certificates with same parameters but different
+     * forwardTransferScFee have two different hashes.
+     */
+    CMutableScCertificate mutCert = originalCert;
+    mutCert.forwardTransferScFee = 1;
+    newCert = mutCert;
+    EXPECT_TRUE(originalCert.GetDataHash() != newCert.GetDataHash());
+
+    /**
+     * Check that two certificates with same parameters but different
+     * mainchainBackwardTransferRequestScFee have two different hashes.
+     */
+    mutCert = originalCert;
+    mutCert.mainchainBackwardTransferRequestScFee = 1;
+    newCert = mutCert;
+    EXPECT_TRUE(originalCert.GetDataHash() != newCert.GetDataHash());
 }

@@ -32,14 +32,16 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
 CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
     scId(), epochNumber(EPOCH_NOT_INITIALIZED), quality(QUALITY_NULL),
     endEpochBlockHash(), scProof(), vFieldElementCertificateField(),
-    vBitVectorCertificateField(), nFirstBwtPos(0) {}
+    vBitVectorCertificateField(), nFirstBwtPos(0),
+    forwardTransferScFee(0), mainchainBackwardTransferRequestScFee(0) {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
     endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof),
     vFieldElementCertificateField(cert.vFieldElementCertificateField),
     vBitVectorCertificateField(cert.vBitVectorCertificateField),
-    nFirstBwtPos(cert.nFirstBwtPos) {}
+    nFirstBwtPos(cert.nFirstBwtPos), forwardTransferScFee(cert.forwardTransferScFee),
+    mainchainBackwardTransferRequestScFee(cert.mainchainBackwardTransferRequestScFee) {}
 
 CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 {
@@ -52,6 +54,8 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
     *const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField) = cert.vFieldElementCertificateField;
     *const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField) = cert.vBitVectorCertificateField;
     *const_cast<int*>(&nFirstBwtPos) = cert.nFirstBwtPos;
+    *const_cast<CAmount*>(&forwardTransferScFee) = cert.forwardTransferScFee;
+    *const_cast<CAmount*>(&mainchainBackwardTransferRequestScFee) = cert.mainchainBackwardTransferRequestScFee;
     return *this;
 }
 
@@ -60,7 +64,8 @@ CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionB
     endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof),
     vFieldElementCertificateField(cert.vFieldElementCertificateField),
     vBitVectorCertificateField(cert.vBitVectorCertificateField),
-    nFirstBwtPos(cert.nFirstBwtPos)
+    nFirstBwtPos(cert.nFirstBwtPos), forwardTransferScFee(cert.forwardTransferScFee),
+    mainchainBackwardTransferRequestScFee(cert.mainchainBackwardTransferRequestScFee)
 {
     UpdateHash();
 }
@@ -208,13 +213,16 @@ std::string CScCertificate::ToString() const
 {
     CAmount total = GetValueOfBackwardTransfers();
     std::string str;
-    str += strprintf("CScCertificate(hash=%s, ver=%d, vin.size()=%s, vout.size=%u, nFirstBwtPos=%d, totAmount=%d.%08d,\n)",
+    str += strprintf("CScCertificate(hash=%s, ver=%d, vin.size()=%s, vout.size=%u, nFirstBwtPos=%d, ftFee=%d, mbtrFee=%d totAmount=%d.%08d\n)",
         GetHash().ToString().substr(0,10),
         nVersion,
         vin.size(),
         vout.size(),
         nFirstBwtPos,
+        forwardTransferScFee,
+        mainchainBackwardTransferRequestScFee,
         total / COIN, total % COIN);
+
     for (unsigned int i = 0; i < vin.size(); i++)
         str += "    " + vin[i].ToString() + "\n";
     for (unsigned int i = 0; i < vout.size(); i++)
@@ -328,13 +336,15 @@ CAmount CScCertificate::GetValueOfChange() const
 CMutableScCertificate::CMutableScCertificate(): CMutableTransactionBase(),
     scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
     endEpochBlockHash(), scProof(), vFieldElementCertificateField(),
-    vBitVectorCertificateField(), nFirstBwtPos(0) {}
+    vBitVectorCertificateField(), nFirstBwtPos(0),
+    forwardTransferScFee(0), mainchainBackwardTransferRequestScFee(0) {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutableTransactionBase(),
     scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 
     endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), 
     vFieldElementCertificateField(cert.vFieldElementCertificateField),
-    vBitVectorCertificateField(cert.vBitVectorCertificateField), nFirstBwtPos(cert.nFirstBwtPos)
+    vBitVectorCertificateField(cert.vBitVectorCertificateField), nFirstBwtPos(cert.nFirstBwtPos),
+    forwardTransferScFee(cert.forwardTransferScFee), mainchainBackwardTransferRequestScFee(cert.mainchainBackwardTransferRequestScFee)
 {
     nVersion = cert.nVersion;
     vin  = cert.GetVin();
@@ -343,17 +353,19 @@ CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutab
 
 CMutableScCertificate& CMutableScCertificate::operator=(const CMutableScCertificate& rhs)
 {
-    nVersion                      = rhs.nVersion;
-    vin                           = rhs.vin;
-    vout                          = rhs.vout;
-    scId                          = rhs.scId;
-    epochNumber                   = rhs.epochNumber;
-    quality                       = rhs.quality;
-    endEpochBlockHash             = rhs.endEpochBlockHash;
-    scProof                       = rhs.scProof;
-    vFieldElementCertificateField = rhs.vFieldElementCertificateField;
-    vBitVectorCertificateField    = rhs.vBitVectorCertificateField;
-    *const_cast<int*>(&nFirstBwtPos) = rhs.nFirstBwtPos;
+    nVersion                            = rhs.nVersion;
+    vin                                 = rhs.vin;
+    vout                                = rhs.vout;
+    scId                                = rhs.scId;
+    epochNumber                         = rhs.epochNumber;
+    quality                             = rhs.quality;
+    endEpochBlockHash                   = rhs.endEpochBlockHash;
+    scProof                             = rhs.scProof;
+    vFieldElementCertificateField       = rhs.vFieldElementCertificateField;
+    vBitVectorCertificateField          = rhs.vBitVectorCertificateField;
+    forwardTransferScFee                  = rhs.forwardTransferScFee;
+    mainchainBackwardTransferRequestScFee = rhs.mainchainBackwardTransferRequestScFee;
+    *const_cast<int*>(&nFirstBwtPos)    = rhs.nFirstBwtPos;
 
     return *this;
 }
@@ -406,11 +418,14 @@ bool CMutableScCertificate::addBwt(const CTxOut& out) {
 std::string CMutableScCertificate::ToString() const
 {
     std::string str;
-    str += strprintf("CMutableScCertificate(hash=%s, ver=%d, vin.size()=%s, vout.size=%u\n)",
+    str += strprintf("CMutableScCertificate(hash=%s, ver=%d, ftFee=%d, mbtrFee=%d, vin.size()=%s, vout.size=%u\n)",
         GetHash().ToString().substr(0,10),
         nVersion,
+        forwardTransferScFee,
+        mainchainBackwardTransferRequestScFee,
         vin.size(),
         vout.size() );
+
     for (unsigned int i = 0; i < vin.size(); i++)
         str += "    " + vin[i].ToString() + "\n";
     for (unsigned int i = 0; i < vout.size(); i++)

@@ -61,6 +61,8 @@ public:
     const libzendoomc::ScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
+    const CAmount forwardTransferScFee;
+    const CAmount mainchainBackwardTransferRequestScFee;
 
     // memory only
     const int nFirstBwtPos;
@@ -110,6 +112,8 @@ public:
         READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
         READWRITE(*const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField));
         READWRITE(*const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField));
+        READWRITE(*const_cast<CAmount*>(&forwardTransferScFee));
+        READWRITE(*const_cast<CAmount*>(&mainchainBackwardTransferRequestScFee));
 
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
 
@@ -229,6 +233,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
     libzendoomc::ScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
+    CAmount forwardTransferScFee;
+    CAmount mainchainBackwardTransferRequestScFee;
 
     // memory only
     const int nFirstBwtPos;
@@ -252,6 +258,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(scProof);
         READWRITE(vFieldElementCertificateField);
         READWRITE(vBitVectorCertificateField);
+        READWRITE(forwardTransferScFee);
+        READWRITE(mainchainBackwardTransferRequestScFee);
         READWRITE(vin);
 
         if (ser_action.ForRead())

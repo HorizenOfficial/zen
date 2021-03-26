@@ -193,13 +193,17 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
 
 CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
                                                   CAmount changeTotalAmount, unsigned int numChangeOut,
-                                                  CAmount bwtTotalAmount, unsigned int numBwt, const int quality) {
+                                                  CAmount bwtTotalAmount, unsigned int numBwt,
+                                                  CAmount ftScFee, CAmount mbtrScFee, const int quality)
+{
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
     res.quality = quality;
+    res.forwardTransferScFee = ftScFee;
+    res.mainchainBackwardTransferRequestScFee = mbtrScFee;
 
     res.vin.resize(1);
     res.vin[0].prevout.hash = uint256S("1");

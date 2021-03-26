@@ -507,7 +507,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     CScCertificate cert = txCreationUtils::createCertificate(scId,
         /*epochNum*/12, /*endEpochBlockHash*/uint256S("abc"), /*changeTotalAmount*/0,
-        /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/1);
+        /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/1, /*ftScFee*/0, /*mbtrScFee*/0);
 
     builder.add(scCreationTx);
     builder.add(fwdTx);
@@ -515,7 +515,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("c74633862100f8c00c71469d5fe4610d63f448fbd568f902d5c5542a20a6d1d7"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("e61f48dfa9272ca27c7acae67e0a48ec84e8de5eba5ca589d27732f912f0cb1c"))
         <<scTxCommitmentHash.ToString();
 }
 

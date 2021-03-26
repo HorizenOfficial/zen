@@ -488,7 +488,8 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCertRemovalFromMempool) {
 
     //load certificate in mempool
     CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2);
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2,
+        /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry);
 
@@ -513,7 +514,8 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
 
     //load a certificate in mempool
     CScCertificate cert1 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2);
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2,
+        /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry1(cert1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert1.GetHash(), certEntry1);
 
@@ -521,7 +523,8 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
     CScCertificate cert2 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
+        /*ftScFee*/0, /*mbtrScFee*/0);
     mempool.removeConflicts(cert2, removedTxs, removedCerts);
 
     EXPECT_TRUE(removedTxs.size() == 0);
@@ -545,7 +548,8 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffe
 
     //load a certificate in mempool
     CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry1);
 
@@ -579,7 +583,8 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
 
     //load a certificate in mempool
     CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry1);
 
@@ -1265,7 +1270,8 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardAliveSidechainIsNotDrop
     //Add mbtr to mempool
     uint256 dummyEndBlockHash = uint256S("aaa");
     CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, epochReferredByCert, dummyEndBlockHash,
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
+        /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
     mutCert.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
     CScCertificate cert(mutCert);
@@ -1302,7 +1308,8 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardCeasedSidechainIsDroppe
     //Add mbtr to mempool
     uint256 dummyEndBlockHash = uint256S("aaa");
     CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*currentEpoch*/0, dummyEndBlockHash,
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2);
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
+        /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
     mutCert.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
     CScCertificate cert(mutCert);
