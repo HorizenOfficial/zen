@@ -226,15 +226,12 @@ private:
         UniValue rspPayload(UniValue::VOBJ);
         rspPayload.pushKV("size", size);
 
-        //Since the MC explorer is made from zendoo we need certificates field even if it will be empty
         UniValue txHashes(UniValue::VARR);
-        UniValue certHashes(UniValue::VARR);
 
         for(std::list<uint256>::const_iterator it = listHashes.begin(); it != listHashes.end(); ++it) {
         	txHashes.push_back(it->GetHex());
         }
         rspPayload.pushKV("transactions", txHashes);
-        rspPayload.pushKV("certificates", certHashes);
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
@@ -252,13 +249,11 @@ private:
         rspPayload.pushKV("size", size);
 
         UniValue txHashes(UniValue::VARR);
-        UniValue certHashes(UniValue::VARR);
 
         for(std::list<uint256>::const_iterator it = listHashes.begin(); it != listHashes.end(); ++it) {
             txHashes.push_back(it->GetHex());
         }
         rspPayload.pushKV("transactions", txHashes);
-        rspPayload.pushKV("certificates", certHashes);
 
         UniValue* rv = wse->getPayload();
         rv->pushKV("eventType", eventType);
