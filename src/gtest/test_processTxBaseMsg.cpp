@@ -138,7 +138,7 @@ private:
     CCoinsOnlyViewDB*        pChainStateDb;
 };
 
-TEST_F(ProcessTxBaseMsgTestSuite, ValidUnknownTxIsRelayed)
+TEST_F(ProcessTxBaseMsgTestSuite, ValidTxIsRelayed)
 {
     CMutableTransaction mutValidTx;
     mutValidTx.vin.push_back(CTxIn(uint256{}, 0));
@@ -157,7 +157,7 @@ TEST_F(ProcessTxBaseMsgTestSuite, ValidUnknownTxIsRelayed)
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, ValidUnknownTxIsRecordedAsKnown)
+TEST_F(ProcessTxBaseMsgTestSuite, ValidTxIsRecordedAsKnown)
 {
     CMutableTransaction mutValidTx;
     mutValidTx.vin.push_back(CTxIn(uint256{}, 0));
@@ -176,7 +176,54 @@ TEST_F(ProcessTxBaseMsgTestSuite, ValidUnknownTxIsRecordedAsKnown)
     EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, validTx.GetHash())));
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitUnknownTxIsNotRelayed)
+TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedValidTxFromNonWhitelistedNodeIsNotRelayed)
+{
+	//Place a valid transaction in mempool, so that is marked as already known
+    CMutableTransaction mutValidTx;
+    mutValidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction validTx(mutValidTx);
+    CTxMemPoolEntry mempoolEntry(validTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(validTx.GetHash(), mempoolEntry);
+    ASSERT_TRUE(AlreadyHave(CInv(MSG_TX, validTx.GetHash())));
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) == 0);
+
+    //Prepare node from which tx originates
+    CNode::ClearBanned();
+    CAddress dummyAddr(CService(CNetAddr{}, Params().GetDefaultPort()));
+    CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
+
+    //test
+    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+
+    //checks
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) == 0);
+}
+
+TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedValidTxFromWhitelistedNodeIsRelayed)
+{
+	//Place a valid transaction in mempool, so that is marked as already known
+    CMutableTransaction mutValidTx;
+    mutValidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction validTx(mutValidTx);
+    CTxMemPoolEntry mempoolEntry(validTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(validTx.GetHash(), mempoolEntry);
+    ASSERT_TRUE(AlreadyHave(CInv(MSG_TX, validTx.GetHash())));
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) == 0);
+
+    //Prepare node from which tx originates
+    CNode::ClearBanned();
+    CAddress dummyAddr(CService(CNetAddr{}, Params().GetDefaultPort()));
+    CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
+    sourceNode.fWhitelisted = true;
+
+    //test
+    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+
+    //checks
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
+}
+
+TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitTxIsNotRelayed)
 {
     CMutableTransaction mutOrphanTx;
     mutOrphanTx.vin.push_back(CTxIn(uint256S("aaa"), 0));
@@ -195,7 +242,7 @@ TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitUnknownTxIsNotRelayed
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx.GetHash())) == 0);
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitUnknownTxIsRecordedAsKnown)
+TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitTxIsRecordedAsKnown)
 {
     CMutableTransaction mutOrphanTx;
     mutOrphanTx.vin.push_back(CTxIn(uint256S("aaa"), 0));
@@ -214,7 +261,53 @@ TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitUnknownTxIsRecordedAs
     EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, orphanTx.GetHash())));
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxIsNotRelayed)
+TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedMissingInputsNonJoinsplitTxFromNonWhitelistedNodeIsNotRelayed)
+{
+	//Place an orphan non-joinsplit transaction in mempool, so that is marked as already known
+    CMutableTransaction mutOrphanTx;
+    mutOrphanTx.vin.push_back(CTxIn(uint256S("aaa"), 0));
+    CTransaction orphanTx(mutOrphanTx);
+    CTxMemPoolEntry mempoolEntry(orphanTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(orphanTx.GetHash(), mempoolEntry);
+    ASSERT_TRUE(AlreadyHave(CInv(MSG_TX, orphanTx.GetHash())));
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx.GetHash())) == 0);
+
+    //Prepare node from which tx originates
+    CNode::ClearBanned();
+    CAddress dummyAddr(CService(CNetAddr{}, Params().GetDefaultPort()));
+    CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
+
+    //test
+    ProcessTxBaseMsg(orphanTx, &sourceNode, fakedMemProcessor);
+
+    //checks
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx.GetHash())) == 0);
+}
+
+TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedMissingInputsNonJoinsplitTxFromWhitelistedNodeIsRelayed)
+{
+	//Place an orphan non-joinsplit transaction in mempool, so that is marked as already known
+    CMutableTransaction mutOrphanTx;
+    mutOrphanTx.vin.push_back(CTxIn(uint256S("aaa"), 0));
+    CTransaction orphanTx(mutOrphanTx);
+    CTxMemPoolEntry mempoolEntry(orphanTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(orphanTx.GetHash(), mempoolEntry);
+    ASSERT_TRUE(AlreadyHave(CInv(MSG_TX, orphanTx.GetHash())));
+    ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx.GetHash())) == 0);
+    //Prepare node from which tx originates
+    CNode::ClearBanned();
+    CAddress dummyAddr(CService(CNetAddr{}, Params().GetDefaultPort()));
+    CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
+    sourceNode.fWhitelisted = true;
+
+    //test
+    ProcessTxBaseMsg(orphanTx, &sourceNode, fakedMemProcessor);
+
+    //checks
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx.GetHash())) != 0);
+}
+
+TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosTxIsNotRelayed)
 {
     CMutableTransaction mutInvalidTx;
     mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
@@ -235,7 +328,7 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxIsNotRelayed)
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) == 0);
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxFromWhitelistedPeerIsRelayed)
+TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosTxFromWhitelistedPeerIsRelayed)
 {
     CMutableTransaction mutInvalidTx;
     mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
@@ -257,7 +350,7 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxFromWhitelistedPeerIsRe
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) != 0);
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxIsRecordedAsKnown)
+TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosTxIsRecordedAsKnown)
 {
     CMutableTransaction mutInvalidTx;
     mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
@@ -278,7 +371,56 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosUnknownTxIsRecordedAsKnown)
     EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, invalidTx.GetHash())));
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxIsNotRelayed)
+TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedInvalidZeroDosTxFromNonWhitelistedNodeIsNotRelayed)
+{
+	//Record an invalid zeroDos tx as already known. To do this, use the VERY DIRTY TRICK to place it in mempool
+    CMutableTransaction mutInvalidTx;
+    mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction invalidTx(mutInvalidTx);
+
+    // dirty trick
+    CTxMemPoolEntry mempoolEntry(invalidTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(invalidTx.GetHash(), mempoolEntry);
+    ASSERT_TRUE(AlreadyHave(CInv(MSG_TX, invalidTx.GetHash())));
+
+    //Prepare node from which tx originates
+    CNode::ClearBanned();
+    CAddress dummyAddr(CService(CNetAddr{}, Params().GetDefaultPort()));
+    CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
+
+    //test
+    ProcessTxBaseMsg(invalidTx, &sourceNode, fakedMemProcessor);
+
+    //checks
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) == 0);
+}
+
+TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedInvalidZeroDosTxFromWhitelistedNodeIsRelayed)
+{
+	//Record an invalid zeroDos tx as already known. To do this, use the VERY DIRTY TRICK to place it in mempool
+    CMutableTransaction mutInvalidTx;
+    mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
+    CTransaction invalidTx(mutInvalidTx);
+
+    // dirty trick
+    CTxMemPoolEntry mempoolEntry(invalidTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    mempool.addUnchecked(invalidTx.GetHash(), mempoolEntry);
+    ASSERT_TRUE(AlreadyHave(CInv(MSG_TX, invalidTx.GetHash())));
+
+    //Prepare node from which tx originates
+    CNode::ClearBanned();
+    CAddress dummyAddr(CService(CNetAddr{}, Params().GetDefaultPort()));
+    CNode sourceNode(INVALID_SOCKET, dummyAddr, "", true);
+    sourceNode.fWhitelisted = true;
+
+    //test
+    ProcessTxBaseMsg(invalidTx, &sourceNode, fakedMemProcessor);
+
+    //checks
+    EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) != 0);
+}
+
+TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosTxIsNotRelayed)
 {
     CMutableTransaction mutInvalidTx;
     mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
@@ -299,7 +441,7 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxIsNotRelayed)
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) == 0);
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxFromWhitelistedPeerIsNotRelayed)
+TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosTxFromWhitelistedPeerIsNotRelayed)
 {
     CMutableTransaction mutInvalidTx;
     mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
@@ -321,7 +463,7 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxFromWhitelistedPeerIsNo
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidTx.GetHash())) == 0);
 }
 
-TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosUnknownTxIsRecordedAsKnown)
+TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosTxIsRecordedAsKnown)
 {
     CMutableTransaction mutInvalidTx;
     mutInvalidTx.vin.push_back(CTxIn(uint256{}, 0));
