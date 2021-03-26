@@ -5702,38 +5702,39 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, const proces
         assert(recentRejects);
         recentRejects->insert(txBase.GetHash());
 
-        if (pfrom->fWhitelisted)
+        int nDoS = 0;
+        state.IsInvalid(nDoS);
+
+        if (state.IsValid())
         {
-            // Always relay transactions received from whitelisted peers, even
-            // if they were rejected from it due to policy, allowing the node
-            // to function as a gateway for nodes hidden behind it.
-            //
-            // Never relay transactions that we would assign a non-zero DoS
-            // score for, as we expect peers to do the same with us in that
-            // case.
-            int nDoS = 0;
-            if (!state.IsInvalid(nDoS) || nDoS == 0)
+            if (pfrom->fWhitelisted)
             {
                 LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->id);
                 txBase.Relay();
-            } else
+            }
+        } else  //INVALID
+        {
+            LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
+                pfrom->id, pfrom->cleanSubVer,
+                state.GetRejectReason());
+            pfrom->PushMessage("reject", std::string("tx"), state.GetRejectCode(),
+                               state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
+
+            if ((nDoS == 0) && (pfrom->fWhitelisted))
+            {
+                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->id);
+                txBase.Relay();
+            }
+
+            if ((nDoS > 0) && (pfrom->fWhitelisted))
             {
                 LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
                     txBase.GetHash().ToString(), pfrom->id, state.GetRejectReason(), state.GetRejectCode());
             }
-        }
-    }
 
-    int nDoS = 0;
-    if (state.IsInvalid(nDoS))
-    {
-        LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
-            pfrom->id, pfrom->cleanSubVer,
-            state.GetRejectReason());
-        pfrom->PushMessage("reject", std::string("tx"), state.GetRejectCode(),
-                           state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
-        if (nDoS > 0)
-            Misbehaving(pfrom->GetId(), nDoS);
+            if (nDoS > 0)
+                Misbehaving(pfrom->GetId(), nDoS);
+        }
     }
 }
 
