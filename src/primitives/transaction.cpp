@@ -152,6 +152,12 @@ bool JSDescription::Verify(
     libzcash::ProofVerifier& verifier,
     const uint256& joinSplitPubKey
 ) const {
+
+    if (!verifier.isVerificationEnabled())
+    {
+        return true;
+    }
+
     auto pv = SproutProofVerifier(params, verifier, joinSplitPubKey, *this);
     return boost::apply_visitor(pv, proof);
 }

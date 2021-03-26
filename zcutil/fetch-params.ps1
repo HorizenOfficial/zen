@@ -39,11 +39,11 @@ function Start-DownloadCheckFile ($url, $maxAttempts, $filepath, $hash) {
 
 # Define download URLs for file
 
-$Source_sproutprovingkey = "https://downloads.horizen.global/file/TrustedSetup/sprout-proving.key"
-$Source_sproutverifyingkey = "https://downloads.horizen.global/file/TrustedSetup/sprout-verifying.key"
-$Source_saplingspendparams = "https://downloads.horizen.global/file/TrustedSetup/sapling-spend.params"
-$Source_saplingoutputparams = "https://downloads.horizen.global/file/TrustedSetup/sapling-output.params"
-$Source_sproutgroth16params = "https://downloads.horizen.global/file/TrustedSetup/sprout-groth16.params"
+$Source_sproutprovingkey = "https://downloads.horizen.io/file/TrustedSetup/sprout-proving.key"
+$Source_sproutverifyingkey = "https://downloads.horizen.io/file/TrustedSetup/sprout-verifying.key"
+$Source_saplingspendparams = "https://downloads.horizen.io/file/TrustedSetup/sapling-spend.params"
+$Source_saplingoutputparams = "https://downloads.horizen.io/file/TrustedSetup/sapling-output.params"
+$Source_sproutgroth16params = "https://downloads.horizen.io/file/TrustedSetup/sprout-groth16.params"
 
 # Define SHA256 checksums for files
 
