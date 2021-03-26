@@ -45,7 +45,7 @@ class CSidechain {
 public:
     CSidechain():
         sidechainVersion(0), creationBlockHeight(-1), creationTxHash(),
-        pastEpochTopQualityCertDataHash(), lastTopQualityCertDataHash(), lastTopQualityCertHash(),
+        pastTopQualityCertView(), lastTopQualityCertView(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
         balance(0) {}
@@ -55,8 +55,8 @@ public:
         return (
              creationBlockHeight == -1                                        &&
              creationTxHash.IsNull()                                          &&
-             pastEpochTopQualityCertDataHash.IsNull()                         &&
-             lastTopQualityCertDataHash.IsNull()                              &&
+             pastTopQualityCertView.IsNull()                                  &&
+             lastTopQualityCertView.IsNull()                                  &&
              lastTopQualityCertHash.IsNull()                                  &&
              lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL  &&
              lastTopQualityCertQuality == CScCertificate::QUALITY_NULL        &&
@@ -74,9 +74,9 @@ public:
     // hash of the tx who created it
     uint256 creationTxHash;
 
-    // Cert data hash section
-    CFieldElement pastEpochTopQualityCertDataHash;
-    CFieldElement lastTopQualityCertDataHash;
+    // Certificate view section
+    CScCertificateView pastTopQualityCertView;
+    CScCertificateView lastTopQualityCertView;
 
     // Data for latest top quality cert confirmed in blockchain
     uint256 lastTopQualityCertHash;
@@ -114,8 +114,8 @@ public:
         READWRITE(sidechainVersion);
         READWRITE(VARINT(creationBlockHeight));
         READWRITE(creationTxHash);
-        READWRITE(pastEpochTopQualityCertDataHash);
-        READWRITE(lastTopQualityCertDataHash);
+        READWRITE(pastTopQualityCertView);
+        READWRITE(lastTopQualityCertView);
         READWRITE(lastTopQualityCertHash);
         READWRITE(lastTopQualityCertReferencedEpoch);
         READWRITE(lastTopQualityCertQuality);
@@ -130,8 +130,8 @@ public:
         return (this->sidechainVersion                   == rhs.sidechainVersion)                   &&
                (this->creationBlockHeight                == rhs.creationBlockHeight)                &&
                (this->creationTxHash                     == rhs.creationTxHash)                     &&
-               (this->pastEpochTopQualityCertDataHash    == rhs.pastEpochTopQualityCertDataHash)    &&
-               (this->lastTopQualityCertDataHash         == rhs.lastTopQualityCertDataHash)         &&
+               (this->pastTopQualityCertView             == rhs.pastTopQualityCertView)             &&
+               (this->lastTopQualityCertView             == rhs.lastTopQualityCertView)             &&
                (this->lastTopQualityCertHash             == rhs.lastTopQualityCertHash)             &&
                (this->lastTopQualityCertReferencedEpoch  == rhs.lastTopQualityCertReferencedEpoch)  &&
                (this->lastTopQualityCertQuality          == rhs.lastTopQualityCertQuality)          &&

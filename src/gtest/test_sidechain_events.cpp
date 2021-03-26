@@ -73,8 +73,8 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithoutCert
     initialScState.creationData.withdrawalEpochLength = 5;
     initialScState.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
 
-    initialScState.pastEpochTopQualityCertDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'a')};
-    initialScState.lastTopQualityCertDataHash      = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'b')};
+    initialScState.pastTopQualityCertView.certDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'a')};
+    initialScState.lastTopQualityCertView.certDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'b')};
 
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.GetCertSubmissionWindowStart(initialEpochReferencedByCert));
     ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
@@ -83,7 +83,7 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithoutCert
     int currWindowEnd = initialScState.GetCertSubmissionWindowEnd(initialEpochReferencedByCert);
     int nextWindowEnd = initialScState.GetCertSubmissionWindowEnd(initialEpochReferencedByCert+1);
 
-    CFieldElement expectedActiveCertDataHash = initialScState.lastTopQualityCertDataHash;
+    CFieldElement expectedActiveCertDataHash = initialScState.lastTopQualityCertView.certDataHash;
 
     for (int heightToInspect = currWindowEnd+1; heightToInspect <= nextWindowEnd; ++heightToInspect)
     {
@@ -91,9 +91,9 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithoutCert
         view->SetBestBlock(chainActive.Tip()->GetBlockHash());
         EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
-        EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
+        EXPECT_TRUE(view->GetActiveCertView(scId).certDataHash == expectedActiveCertDataHash)
         <<"Inspecting height "<<heightToInspect
-        <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).GetHexRepr()
+        <<"\ncertDataHash is "<<view->GetActiveCertView(scId).certDataHash.GetHexRepr()
         <<"\ninstead of "<<expectedActiveCertDataHash.GetHexRepr();
     }
 }
@@ -107,13 +107,13 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
     sidechain.creationData.withdrawalEpochLength = 100;
     sidechain.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
 
-    sidechain.pastEpochTopQualityCertDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'a')};
-    sidechain.lastTopQualityCertDataHash      = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'b')};
+    sidechain.pastTopQualityCertView.certDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'a')};
+    sidechain.lastTopQualityCertView.certDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'b')};
 
     storeSidechainWithCurrentHeight(*view, scId, sidechain, sidechain.GetCertSubmissionWindowStart(initialEpochReferencedByCert));
     ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
-    CFieldElement expectedActiveCertDataHash = sidechain.lastTopQualityCertDataHash;
+    CFieldElement expectedActiveCertDataHash = sidechain.lastTopQualityCertView.certDataHash;
 
     // test
     int currWindowEnd = sidechain.GetCertSubmissionWindowEnd(initialEpochReferencedByCert);
@@ -130,9 +130,9 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
             view->SetBestBlock(chainActive.Tip()->GetBlockHash());
             EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
-            EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
+            EXPECT_TRUE(view->GetActiveCertView(scId).certDataHash == expectedActiveCertDataHash)
             <<"Inspecting height "<<heightToInspect
-            <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).GetHexRepr()
+            <<"\ncertDataHash is "<<view->GetActiveCertView(scId).certDataHash.GetHexRepr()
             <<"\ninstead of "<<expectedActiveCertDataHash.GetHexRepr();
         } else if (heightToInspect == firstBlockWhereCertIsIncluded)
         {
@@ -140,15 +140,15 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
             view->SetBestBlock(chainActive.Tip()->GetBlockHash());
             EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
-            EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
+            EXPECT_TRUE(view->GetActiveCertView(scId).certDataHash == expectedActiveCertDataHash)
             <<"Inspecting height "<<heightToInspect
-            <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).GetHexRepr()
+            <<"\ncertDataHash is "<<view->GetActiveCertView(scId).certDataHash.GetHexRepr()
             <<"\ninstead of "<<expectedActiveCertDataHash.GetHexRepr();
 
             // simulate certificate reception, as it happens in UpdateSidechain
             sidechain.lastTopQualityCertReferencedEpoch += 1;
-            sidechain.pastEpochTopQualityCertDataHash = sidechain.lastTopQualityCertDataHash; // rotate past certDataHash
-            sidechain.lastTopQualityCertDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'c')};
+            sidechain.pastTopQualityCertView = sidechain.lastTopQualityCertView; // rotate past certDataHash
+            sidechain.lastTopQualityCertView.certDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'c')};
             txCreationUtils::storeSidechain(view->getSidechainMap(), scId, sidechain);
         } else
         {
@@ -156,9 +156,9 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
             view->SetBestBlock(chainActive.Tip()->GetBlockHash());
             EXPECT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
-            EXPECT_TRUE(view->GetActiveCertDataHash(scId) == expectedActiveCertDataHash)
+            EXPECT_TRUE(view->GetActiveCertView(scId).certDataHash == expectedActiveCertDataHash)
             <<"Inspecting height "<<heightToInspect
-            <<"\ncertDataHash is "<<view->GetActiveCertDataHash(scId).GetHexRepr()
+            <<"\ncertDataHash is "<<view->GetActiveCertView(scId).certDataHash.GetHexRepr()
             <<"\ninstead of "<<expectedActiveCertDataHash.GetHexRepr();
         }
     }

@@ -700,7 +700,7 @@ public:
     bool AddCswNullifier(const uint256& scId, const CFieldElement &nullifier);
     bool RemoveCswNullifier(const uint256& scId, const CFieldElement &nullifier);
 
-    CFieldElement GetActiveCertDataHash(const uint256& scId) const;
+    CScCertificateView GetActiveCertView(const uint256& scId) const;
     CSidechain::State GetSidechainState(const uint256& scId) const;
 
     bool Flush();

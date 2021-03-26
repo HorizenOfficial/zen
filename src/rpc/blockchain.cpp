@@ -1330,7 +1330,7 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
     }
 
-    CFieldElement certDataHash = scView.GetActiveCertDataHash(scid);
+    CFieldElement certDataHash = scView.GetActiveCertView(scid).certDataHash;
     if (certDataHash.IsNull() )
     {
         LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());

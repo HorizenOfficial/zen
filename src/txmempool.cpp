@@ -806,7 +806,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
     // mbtr will be removed if they target outdated CertDataHash
     for (auto it = mapSidechains.begin(); it != mapSidechains.end(); it++)
     {
-        if (pCoinsView->GetActiveCertDataHash(it->first) != it->second.mcBtrsCertDataHash)
+        if (pCoinsView->GetActiveCertView(it->first).certDataHash != it->second.mcBtrsCertDataHash)
         {
             txesToRemove.insert(it->second.mcBtrsTxHashes.begin(), it->second.mcBtrsTxHashes.end());
         }

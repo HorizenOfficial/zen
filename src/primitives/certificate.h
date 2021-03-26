@@ -354,4 +354,52 @@ struct CScCertificateStatusUpdateInfo
     }
 };
 
+/**
+ * A structure containing a subset of the sidechain certificate data.
+ */
+struct CScCertificateView
+{
+    CFieldElement certDataHash;
+    CAmount forwardTransferScFee;
+    CAmount mainchainBackwardTransferRequestScFee;
+
+    CScCertificateView(): certDataHash(), forwardTransferScFee(0), mainchainBackwardTransferRequestScFee(0) {};
+    CScCertificateView(const uint256& certDataHash, CAmount ftFee, CAmount mbtrFee):
+        certDataHash(certDataHash), forwardTransferScFee(ftFee), mainchainBackwardTransferRequestScFee(mbtrFee) {};
+    CScCertificateView(const CScCertificate& certificate):
+        certDataHash(certificate.GetDataHash()), forwardTransferScFee(certificate.forwardTransferScFee),
+        mainchainBackwardTransferRequestScFee(certificate.mainchainBackwardTransferRequestScFee) {};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(certDataHash);
+        READWRITE(forwardTransferScFee);
+        READWRITE(mainchainBackwardTransferRequestScFee);
+    }
+
+    inline bool operator==(const CScCertificateView& rhs) const
+    {
+        return (this->certDataHash == rhs.certDataHash) &&
+               (this->forwardTransferScFee == rhs.forwardTransferScFee) &&
+               (this->mainchainBackwardTransferRequestScFee == rhs.mainchainBackwardTransferRequestScFee);
+    }
+    inline bool operator!=(const CScCertificateView& rhs) const { return !(*this == rhs); }
+
+    std::string ToString() const
+    {
+        return strprintf("{ certDataHash=%s, ftScFee=%d, mbtrScFee=%d }", certDataHash.GetHexRepr(), forwardTransferScFee, mainchainBackwardTransferRequestScFee);
+    }
+
+    bool IsNull() const
+    {
+        return (
+            certDataHash.IsNull() &&
+            forwardTransferScFee == 0 &&
+            mainchainBackwardTransferRequestScFee == 0
+        );
+    }
+};
+
 #endif // _CERTIFICATE_H

@@ -1307,7 +1307,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
             return error("%s():%d - ERROR: mbtr not supported\n",  __func__, __LINE__);
         }
 
-        CFieldElement certDataHash = this->GetActiveCertDataHash(mbtr.scId);
+        CScCertificateView certView = this->GetActiveCertView(mbtr.scId);
 //        //TODO: Unlock when we'll handle recovery of fwt of last epoch
 //        if (certDataHash.IsNull())
 //            return error("%s():%d - ERROR: Tx[%s] mbtr request [%s] has missing active cert data hash for required scId[%s]\n",
@@ -1315,7 +1315,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
 
         // Verify mainchain bwt request proof
         if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
-                mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk, certDataHash))
+                mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk, certView.certDataHash))
             return error("%s():%d - ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
                     __func__, __LINE__, mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
 
@@ -1363,7 +1363,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
                 __func__, __LINE__, tx.ToString(), csw.ToString());
         }
 
-        CFieldElement certDataHash = this->GetActiveCertDataHash(csw.scId);
+        CScCertificateView certView = this->GetActiveCertView(csw.scId);
 
 //        //TODO: Unlock when we'll handle recovery of fwt of last epoch
 //        if (certDataHash.IsNull())
@@ -1371,7 +1371,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
 //                            __func__, __LINE__, tx.ToString(), csw.ToString(), csw.scId.ToString());
 
         // Verify CSW proof
-        if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.creationData.wCeasedVk.get(), csw))
+        if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certView.certDataHash, sidechain.creationData.wCeasedVk.get(), csw))
         {
             return error("%s():%d - ERROR: Tx[%s] CSW input [%s] cannot be accepted: proof verification failed\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString());
@@ -1410,11 +1410,11 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
 
     if (cert.epochNumber == (currentSc.lastTopQualityCertReferencedEpoch+1))
     {
-        //Lazy update of pastEpochTopQualityCertDataHash
-        scUndoData.pastEpochTopQualityCertDataHash = currentSc.pastEpochTopQualityCertDataHash;
+        //Lazy update of pastTopQualityCertView
+        scUndoData.pastTopQualityCertView = currentSc.pastTopQualityCertView;
         scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA;
 
-        currentSc.pastEpochTopQualityCertDataHash = currentSc.lastTopQualityCertDataHash;
+        currentSc.pastTopQualityCertView = currentSc.lastTopQualityCertView;
     } else if (cert.epochNumber == currentSc.lastTopQualityCertReferencedEpoch)
     {
         if (cert.quality <= currentSc.lastTopQualityCertQuality) // should never happen
@@ -1439,14 +1439,14 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     scUndoData.prevTopCommittedCertReferencedEpoch = currentSc.lastTopQualityCertReferencedEpoch;
     scUndoData.prevTopCommittedCertQuality         = currentSc.lastTopQualityCertQuality;
     scUndoData.prevTopCommittedCertBwtAmount       = currentSc.lastTopQualityCertBwtAmount;
-    scUndoData.lastTopQualityCertDataHash          = currentSc.lastTopQualityCertDataHash;
+    scUndoData.lastTopQualityCertView              = currentSc.lastTopQualityCertView;
     scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::ANY_EPOCH_CERT_DATA;
 
     currentSc.lastTopQualityCertHash            = certHash;
     currentSc.lastTopQualityCertReferencedEpoch = cert.epochNumber;
     currentSc.lastTopQualityCertQuality         = cert.quality;
     currentSc.lastTopQualityCertBwtAmount       = bwtTotalAmount;
-    currentSc.lastTopQualityCertDataHash        = cert.GetDataHash();
+    currentSc.lastTopQualityCertView            = CScCertificateView(cert);
 
     LogPrint("cert", "%s():%d - updated sc state %s\n", __func__, __LINE__,currentSc.ToString());
 
@@ -1596,9 +1596,9 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     if (certToRevert.epochNumber == (sidechainUndo.prevTopCommittedCertReferencedEpoch+1))
     {
         assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA);
-        currentSc.lastTopQualityCertDataHash = currentSc.pastEpochTopQualityCertDataHash;
+        currentSc.lastTopQualityCertView = currentSc.pastTopQualityCertView;
 
-        currentSc.pastEpochTopQualityCertDataHash = sidechainUndo.pastEpochTopQualityCertDataHash;
+        currentSc.pastTopQualityCertView = sidechainUndo.pastTopQualityCertView;
     } else if (certToRevert.epochNumber == sidechainUndo.prevTopCommittedCertReferencedEpoch)
     {
         // if we are restoring a cert for the same epoch it must have a lower quality than us
@@ -1616,7 +1616,7 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     currentSc.lastTopQualityCertReferencedEpoch = sidechainUndo.prevTopCommittedCertReferencedEpoch;
     currentSc.lastTopQualityCertQuality         = sidechainUndo.prevTopCommittedCertQuality;
     currentSc.lastTopQualityCertBwtAmount       = sidechainUndo.prevTopCommittedCertBwtAmount;
-    currentSc.lastTopQualityCertDataHash        = sidechainUndo.lastTopQualityCertDataHash;
+    currentSc.lastTopQualityCertView            = sidechainUndo.lastTopQualityCertView;
 
     scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
     LogPrint("cert", "%s():%d - updated sc state %s\n", __func__, __LINE__,currentSc.ToString());
@@ -1843,22 +1843,22 @@ CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
         return CSidechain::State::ALIVE;
 }
 
-CFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256& scId) const
+CScCertificateView CCoinsViewCache::GetActiveCertView(const uint256& scId) const
 {
     const CSidechain* const pSidechain = this->AccessSidechain(scId);
 
     if (pSidechain == nullptr)
-        return CFieldElement{};
+        return CScCertificateView();
 
     if (this->GetSidechainState(scId) == CSidechain::State::CEASED)
-        return pSidechain->pastEpochTopQualityCertDataHash;
+        return pSidechain->pastTopQualityCertView;
 
     int certReferencedEpoch = pSidechain->EpochFor(this->GetHeight()+1 - pSidechain->GetCertSubmissionWindowLength()) - 1;
 
     if (pSidechain->lastTopQualityCertReferencedEpoch == certReferencedEpoch)
-        return pSidechain->lastTopQualityCertDataHash;
+        return pSidechain->lastTopQualityCertView;
     else if(pSidechain->lastTopQualityCertReferencedEpoch -1 == certReferencedEpoch)
-        return pSidechain->pastEpochTopQualityCertDataHash;
+        return pSidechain->pastTopQualityCertView;
     else
         assert(false);
 }

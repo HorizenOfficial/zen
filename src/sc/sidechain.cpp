@@ -87,16 +87,16 @@ std::string CSidechain::ToString() const
 {
     std::string str;
     str = strprintf("\n CSidechain(version=%d\n creationBlockHeight=%d\n"
-                      " creationTxHash=%s\n pastEpochTopQualityCertDataHash=%s\n"
-                      " lastTopQualityCertDataHash=%s\n"
+                      " creationTxHash=%s\n pastTopQualityCertView=%s\n"
+                      " lastTopQualityCertView=%s\n"
                       " lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
                       " lastTopQualityCertQuality=%d\n lastTopQualityCertBwtAmount=%s\n balance=%s\n"
                       " creationData=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
         sidechainVersion
         , creationBlockHeight
         , creationTxHash.ToString()
-        , pastEpochTopQualityCertDataHash.GetHexRepr()
-        , lastTopQualityCertDataHash.GetHexRepr()
+        , pastTopQualityCertView.ToString()
+        , lastTopQualityCertView.ToString()
         , lastTopQualityCertHash.ToString()
         , lastTopQualityCertReferencedEpoch
         , lastTopQualityCertQuality

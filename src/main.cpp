@@ -1540,7 +1540,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         std::map<uint256, CFieldElement> scIdToCertDataHash;
         for(const auto& btr: tx.GetVBwtRequestOut())
         {
-            scIdToCertDataHash[btr.scId] = view.GetActiveCertDataHash(btr.scId);
+            scIdToCertDataHash[btr.scId] = view.GetActiveCertView(btr.scId).certDataHash;
         }
 
         pool.addUnchecked(hash, entry, !IsInitialBlockDownload(), scIdToCertDataHash);
