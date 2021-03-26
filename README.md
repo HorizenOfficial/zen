@@ -1,4 +1,4 @@
-Zen 2.0.22
+Zen 2.0.23
 ==============
 
 What is Horizen?
@@ -143,7 +143,7 @@ Copy and paste your wallet.dat from %APPDATA%/Zclassic/ to %APPDATA%/Zen. That's
 About
 --------------
 
-[Zen](https://horizen.global/) is a platform for secure communications and for deniable economic activity.
+[Zen](https://horizen.io/) is a platform for secure communications and for deniable economic activity.
 Horizen is an evolution of the Zclassic codebase aimed at primarily enabling intriniscally secure communications and
 resilient networking.
 
@@ -162,7 +162,7 @@ See important security warnings in
 
 Where do I begin?
 -----------------
-* The easiest way to get started is to download one of the available GUI wallets from [horizen.global](https://horizen.global)
+* The easiest way to get started is to download one of the available GUI wallets from [horizen.io](https://horizen.io)
 
 ### Need Help?
 

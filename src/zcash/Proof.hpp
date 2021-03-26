@@ -270,6 +270,8 @@ public:
         const PrimaryInput& pi,
         const Proof& p
     );
+
+    bool isVerificationEnabled() const;
 };
 
 }
