@@ -44,7 +44,7 @@ public:
 class CSidechain {
 public:
     CSidechain():
-        sidechainVersion(0), creationBlockHeight(-1), creationTxHash(),
+        sidechainVersion(0), creationBlockHeight(-1), creationTxHash(), mainchainBackwardTransferRequestDataLength(0),
         pastTopQualityCertView(), lastTopQualityCertView(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
@@ -55,6 +55,7 @@ public:
         return (
              creationBlockHeight == -1                                        &&
              creationTxHash.IsNull()                                          &&
+             mainchainBackwardTransferRequestDataLength == 0                  &&
              pastTopQualityCertView.IsNull()                                  &&
              lastTopQualityCertView.IsNull()                                  &&
              lastTopQualityCertHash.IsNull()                                  &&
@@ -73,6 +74,9 @@ public:
 
     // hash of the tx who created it
     uint256 creationTxHash;
+
+    // The mandatory size of the field element included in MBTR transaction outputs (0 to disable the MBTR).
+    int32_t mainchainBackwardTransferRequestDataLength;
 
     // Certificate view section
     CScCertificateView pastTopQualityCertView;
@@ -114,6 +118,7 @@ public:
         READWRITE(sidechainVersion);
         READWRITE(VARINT(creationBlockHeight));
         READWRITE(creationTxHash);
+        READWRITE(mainchainBackwardTransferRequestDataLength);
         READWRITE(pastTopQualityCertView);
         READWRITE(lastTopQualityCertView);
         READWRITE(lastTopQualityCertHash);
@@ -127,18 +132,19 @@ public:
 
     inline bool operator==(const CSidechain& rhs) const
     {
-        return (this->sidechainVersion                   == rhs.sidechainVersion)                   &&
-               (this->creationBlockHeight                == rhs.creationBlockHeight)                &&
-               (this->creationTxHash                     == rhs.creationTxHash)                     &&
-               (this->pastTopQualityCertView             == rhs.pastTopQualityCertView)             &&
-               (this->lastTopQualityCertView             == rhs.lastTopQualityCertView)             &&
-               (this->lastTopQualityCertHash             == rhs.lastTopQualityCertHash)             &&
-               (this->lastTopQualityCertReferencedEpoch  == rhs.lastTopQualityCertReferencedEpoch)  &&
-               (this->lastTopQualityCertQuality          == rhs.lastTopQualityCertQuality)          &&
-               (this->lastTopQualityCertBwtAmount        == rhs.lastTopQualityCertBwtAmount)        &&
-               (this->balance                            == rhs.balance)                            &&
-               (this->creationData                       == rhs.creationData)                       &&
-               (this->mImmatureAmounts                   == rhs.mImmatureAmounts);
+        return (this->sidechainVersion                           == rhs.sidechainVersion)                           &&
+               (this->creationBlockHeight                        == rhs.creationBlockHeight)                        &&
+               (this->creationTxHash                             == rhs.creationTxHash)                             &&
+               (this->mainchainBackwardTransferRequestDataLength == rhs.mainchainBackwardTransferRequestDataLength) &&
+               (this->pastTopQualityCertView                     == rhs.pastTopQualityCertView)                     &&
+               (this->lastTopQualityCertView                     == rhs.lastTopQualityCertView)                     &&
+               (this->lastTopQualityCertHash                     == rhs.lastTopQualityCertHash)                     &&
+               (this->lastTopQualityCertReferencedEpoch          == rhs.lastTopQualityCertReferencedEpoch)          &&
+               (this->lastTopQualityCertQuality                  == rhs.lastTopQualityCertQuality)                  &&
+               (this->lastTopQualityCertBwtAmount                == rhs.lastTopQualityCertBwtAmount)                &&
+               (this->balance                                    == rhs.balance)                                    &&
+               (this->creationData                               == rhs.creationData)                               &&
+               (this->mImmatureAmounts                           == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
