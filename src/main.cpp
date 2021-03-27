@@ -5591,6 +5591,43 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
+void HandleInvalidTxBase(const CTransactionBase &txBase, const CValidationState &state, NodeId nodeId, CNodeInterface *pfrom, std::set<NodeId>& setMisbehaving)
+{
+    LogPrint("mempool",
+            "%s from peer=%d was not accepted into the memory pool: %s\n",
+            txBase.GetHash().ToString(), nodeId, state.GetRejectReason());
+
+    assert(recentRejects);
+    recentRejects->insert(txBase.GetHash());
+    int nDoS = 0;
+    assert(state.IsInvalid(nDoS)); //retrieve nDoS
+    if (nDoS > 0)
+    {
+        Misbehaving(nodeId, nDoS);
+        setMisbehaving.insert(nodeId);
+    }
+
+    if (pfrom == nullptr)
+        return; //nothing else to do
+
+    pfrom->PushMessage("reject", std::string("tx"), state.GetRejectCode(),
+            state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH),
+            txBase.GetHash());
+    if ((nDoS == 0) && (pfrom->IsWhiteListed()))
+    {
+        LogPrintf("Force relaying tx %s from whitelisted peer=%d\n",
+                txBase.GetHash().ToString(), pfrom->GetId());
+        txBase.Relay();
+    }
+    if ((nDoS > 0) && (pfrom->IsWhiteListed()))
+    {
+        LogPrintf( "Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
+                   txBase.GetHash().ToString(), pfrom->GetId(),
+                   state.GetRejectReason(), state.GetRejectCode());
+    }
+    return;
+}
+
 void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, const processMempoolTx& mempoolProcess)
 {
     CInv inv(MSG_TX, txBase.GetHash());
@@ -5664,21 +5701,10 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
                 }
                 else if (resOrphan == MempoolReturnValue::INVALID)
                 {
-                    int nDos = 0;
-                    assert(stateDummy.IsInvalid(nDos));
-                    if (nDos > 0)
-                    {
-                        // Punish peer that gave us an invalid orphan tx
-                        Misbehaving(fromPeer, nDos);
-                        setMisbehaving.insert(fromPeer);
-                        LogPrint("mempool", "   invalid orphan tx %s\n", orphanHash.ToString());
-                    }
                     // Has inputs but not accepted to mempool
                     // Probably non-standard or insufficient fee/priority
-                    LogPrint("mempool", "   removed orphan tx %s\n", orphanHash.ToString());
+                    HandleInvalidTxBase(orphanTx, stateDummy, fromPeer, /*pfrom*/nullptr, setMisbehaving);
                     vEraseQueue.push_back(orphanHash);
-                    assert(recentRejects);
-                    recentRejects->insert(orphanHash);
                 }
                 mempool.check(pcoinsTip);
             }
@@ -5710,32 +5736,8 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
         }
     } else
     {
-        assert(recentRejects);
-        recentRejects->insert(txBase.GetHash());
-
-        int nDoS = 0;
-        assert(state.IsInvalid(nDoS)); //retrieve nDoS
-
-        LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
-            pfrom->GetId(), pfrom->GetCleanSubVer(), state.GetRejectReason());
-
-        pfrom->PushMessage("reject", std::string("tx"), state.GetRejectCode(),
-                           state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
-
-        if ((nDoS == 0) && (pfrom->IsWhiteListed()))
-        {
-            LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->GetId());
-            txBase.Relay();
-        }
-
-        if ((nDoS > 0) && (pfrom->IsWhiteListed()))
-        {
-            LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
-                txBase.GetHash().ToString(), pfrom->GetId(), state.GetRejectReason(), state.GetRejectCode());
-        }
-
-        if (nDoS > 0)
-            Misbehaving(pfrom->GetId(), nDoS);
+        std::set<NodeId> dummySetMisbehaving;
+        HandleInvalidTxBase(txBase, state, pfrom->GetId(), pfrom, dummySetMisbehaving);
     }
 }
 
