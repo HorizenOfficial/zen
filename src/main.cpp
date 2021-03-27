@@ -5591,7 +5591,7 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
-void HandleInvalidTxBase(const CTransactionBase &txBase, const CValidationState &state, NodeId nodeId, CNodeInterface *pfrom, std::set<NodeId>& setMisbehaving)
+void HandleInvalidTxBase(const CTransactionBase &txBase, NodeId nodeId, CNodeInterface *pfrom, const CValidationState &state, std::set<NodeId>& setMisbehaving)
 {
     LogPrint("mempool",
             "%s from peer=%d was not accepted into the memory pool: %s\n",
@@ -5613,6 +5613,7 @@ void HandleInvalidTxBase(const CTransactionBase &txBase, const CValidationState 
     pfrom->PushMessage("reject", std::string("tx"), state.GetRejectCode(),
             state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH),
             txBase.GetHash());
+
     if ((nDoS == 0) && (pfrom->IsWhiteListed()))
     {
         LogPrintf("Force relaying tx %s from whitelisted peer=%d\n",
@@ -5626,6 +5627,33 @@ void HandleInvalidTxBase(const CTransactionBase &txBase, const CValidationState 
                    state.GetRejectReason(), state.GetRejectCode());
     }
     return;
+}
+
+void HandleMissingInputTxBase(const CTransactionBase &txBase, NodeId nodeId, CNodeInterface *pfrom)
+{
+    if (txBase.GetVjoinsplit().size() != 0)
+    {
+        // TODO: currently, prohibit joinsplits from entering mapOrphans
+        assert(recentRejects);
+        recentRejects->insert(txBase.GetHash());
+        if (pfrom != nullptr && pfrom->IsWhiteListed())
+        {
+            LogPrintf("Force relaying tx %s from whitelisted peer=%d\n",
+                    txBase.GetHash().ToString(), nodeId);
+            txBase.Relay();
+        }
+    } else
+    {
+        bool newTx = AddOrphanTx(txBase, nodeId);
+        if (newTx)
+        {
+            // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
+            unsigned int nMaxOrphanTx = (unsigned int) (std::max((int64_t) (0), GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS)));
+            unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
+            if (nEvicted > 0)
+                LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
+        }
+    }
 }
 
 void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, const processMempoolTx& mempoolProcess)
@@ -5699,11 +5727,15 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
                     vWorkQueue.push_back(orphanHash);
                     vEraseQueue.push_back(orphanHash);
                 }
-                else if (resOrphan == MempoolReturnValue::INVALID)
+
+                if (resOrphan == MempoolReturnValue::MISSING_INPUT)
+                    HandleMissingInputTxBase(txBase, fromPeer, /*pfrom*/nullptr);
+
+                if (resOrphan == MempoolReturnValue::INVALID)
                 {
                     // Has inputs but not accepted to mempool
                     // Probably non-standard or insufficient fee/priority
-                    HandleInvalidTxBase(orphanTx, stateDummy, fromPeer, /*pfrom*/nullptr, setMisbehaving);
+                    HandleInvalidTxBase(orphanTx, fromPeer, /*pfrom*/nullptr, stateDummy, setMisbehaving);
                     vEraseQueue.push_back(orphanHash);
                 }
                 mempool.check(pcoinsTip);
@@ -5712,32 +5744,15 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
 
         for(const uint256& hash: vEraseQueue)
             EraseOrphanTx(hash);
-    } else if (res == MempoolReturnValue::MISSING_INPUT)
-    {
-        if (txBase.GetVjoinsplit().size() != 0)
-        {
-            // TODO: currently, prohibit joinsplits from entering mapOrphans
-            assert(recentRejects);
-            recentRejects->insert(txBase.GetHash());
+    }
 
-            if (pfrom->IsWhiteListed())
-            {
-                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->GetId());
-                txBase.Relay();
-            }
-        } else
-        {
-            AddOrphanTx(txBase, pfrom->GetId());
+    if (res == MempoolReturnValue::MISSING_INPUT)
+        HandleMissingInputTxBase(txBase, pfrom->GetId(), pfrom);
 
-            // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
-            unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
-            unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
-            if (nEvicted > 0) LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
-        }
-    } else
+    if (res == MempoolReturnValue::INVALID)
     {
         std::set<NodeId> dummySetMisbehaving;
-        HandleInvalidTxBase(txBase, state, pfrom->GetId(), pfrom, dummySetMisbehaving);
+        HandleInvalidTxBase(txBase, pfrom->GetId(), pfrom, state, dummySetMisbehaving);
     }
 }
 
