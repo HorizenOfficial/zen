@@ -5644,7 +5644,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
             {
                 const CTransactionBase& orphanTx = *mapOrphanTransactions[orphanHash].tx;
                 NodeId fromPeer = mapOrphanTransactions[orphanHash].fromPeer;
-                bool fMissingInputs2 = false;
+
                 // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
                 // resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get
                 // anyone relaying LegitTxX banned)
@@ -5665,7 +5665,8 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
                 else if (resOrphan == MempoolReturnValue::INVALID)
                 {
                     int nDos = 0;
-                    if (stateDummy.IsInvalid(nDos) && nDos > 0)
+                    assert(stateDummy.IsInvalid(nDos));
+                    if (nDos > 0)
                     {
                         // Punish peer that gave us an invalid orphan tx
                         Misbehaving(fromPeer, nDos);
@@ -5685,53 +5686,56 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
 
         for(const uint256& hash: vEraseQueue)
             EraseOrphanTx(hash);
-    } else if (res == MempoolReturnValue::MISSING_INPUT && txBase.GetVjoinsplit().size() == 0)
+    } else if (res == MempoolReturnValue::MISSING_INPUT)
     {
-         // TODO: currently, prohibit joinsplits from entering mapOrphans
-        AddOrphanTx(txBase, pfrom->GetId());
+        if (txBase.GetVjoinsplit().size() != 0)
+        {
+            // TODO: currently, prohibit joinsplits from entering mapOrphans
+            assert(recentRejects);
+            recentRejects->insert(txBase.GetHash());
 
-        // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
-        unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
-        unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
-        if (nEvicted > 0) LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
+            if (pfrom->IsWhiteListed())
+            {
+                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->GetId());
+                txBase.Relay();
+            }
+        } else
+        {
+            AddOrphanTx(txBase, pfrom->GetId());
+
+            // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
+            unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
+            unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
+            if (nEvicted > 0) LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
+        }
     } else
     {
         assert(recentRejects);
         recentRejects->insert(txBase.GetHash());
 
         int nDoS = 0;
-        state.IsInvalid(nDoS); //retrieve nDoS
+        assert(state.IsInvalid(nDoS)); //retrieve nDoS
 
-        if (state.IsValid())
+        LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
+            pfrom->GetId(), pfrom->GetCleanSubVer(), state.GetRejectReason());
+
+        pfrom->PushMessage("reject", std::string("tx"), state.GetRejectCode(),
+                           state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
+
+        if ((nDoS == 0) && (pfrom->IsWhiteListed()))
         {
-            if (pfrom->IsWhiteListed())
-            {
-                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->GetId());
-                txBase.Relay();
-            }
-        } else  //INVALID
-        {
-            LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
-                pfrom->GetId(), pfrom->GetCleanSubVer(), state.GetRejectReason());
-
-            pfrom->PushMessage("reject", std::string("tx"), state.GetRejectCode(),
-                               state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
-
-            if ((nDoS == 0) && (pfrom->IsWhiteListed()))
-            {
-                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->GetId());
-                txBase.Relay();
-            }
-
-            if ((nDoS > 0) && (pfrom->IsWhiteListed()))
-            {
-                LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
-                    txBase.GetHash().ToString(), pfrom->GetId(), state.GetRejectReason(), state.GetRejectCode());
-            }
-
-            if (nDoS > 0)
-                Misbehaving(pfrom->GetId(), nDoS);
+            LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->GetId());
+            txBase.Relay();
         }
+
+        if ((nDoS > 0) && (pfrom->IsWhiteListed()))
+        {
+            LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
+                txBase.GetHash().ToString(), pfrom->GetId(), state.GetRejectReason(), state.GetRejectCode());
+        }
+
+        if (nDoS > 0)
+            Misbehaving(pfrom->GetId(), nDoS);
     }
 }
 
