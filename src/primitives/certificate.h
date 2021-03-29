@@ -69,6 +69,7 @@ public:
     CScCertificate(int versionIn = SC_CERT_VERSION);
     CScCertificate(const CScCertificate& tx);
     CScCertificate& operator=(const CScCertificate& tx);
+    CScCertificate* clone() const override final { return new CScCertificate(*this); };
     ~CScCertificate() = default;
 
     /** Convert a CMutableScCertificate into a CScCertificate.  */

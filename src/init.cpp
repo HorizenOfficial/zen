@@ -788,7 +788,7 @@ static void ZC_LoadParams()
     LogPrintf("Loaded Sapling parameters in %fs seconds.\n", elapsed);
 }
 
-bool AppInitServers(boost::thread_group& threadGroup)
+bool AppInitServers()
 {
     RPCServer::OnStopped(&OnRPCStopped);
     RPCServer::OnPreCommand(&OnRPCPreCommand);
@@ -1235,7 +1235,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (fServer)
     {
         uiInterface.InitMessage.connect(SetRPCWarmupStatus);
-        if (!AppInitServers(threadGroup))
+        if (!AppInitServers())
             return InitError(_("Unable to start HTTP server. See debug log for details."));
     }
 

@@ -5593,8 +5593,51 @@ void static ProcessGetData(CNode* pfrom)
 }
 
 
-static std::vector<uint256> processTxBaseMsg_WorkQueue;
-void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, const processMempoolTx& mempoolProcess)
+struct TxBaseMsg_DataToProcess
+{
+    // required data
+    uint256 txBaseHash;
+    NodeId sourceNodeId;
+
+    // optional data, only for txes which has not been processed yet, just to inform sender
+    CTransactionBase* pTxBase; //owning pointer
+    CNodeInterface* pSourceNode; //non-owning pointer. Null if source node already got its answer and we do not need to send any message to it
+
+    TxBaseMsg_DataToProcess(): txBaseHash(), sourceNodeId(-1), pTxBase(nullptr), pSourceNode(nullptr) {};
+
+    TxBaseMsg_DataToProcess(const TxBaseMsg_DataToProcess& rhs)
+    {
+        this->txBaseHash = rhs.txBaseHash;
+        this->sourceNodeId = rhs.sourceNodeId;
+        this->pTxBase = rhs.pTxBase == nullptr? nullptr: rhs.pTxBase->clone();
+        this->pSourceNode = rhs.pSourceNode;
+    }
+
+    TxBaseMsg_DataToProcess& operator=(const TxBaseMsg_DataToProcess& rhs)
+    {
+        if (this != &rhs)
+        {
+            this->txBaseHash = rhs.txBaseHash;
+            this->sourceNodeId = rhs.sourceNodeId;
+            this->pTxBase = rhs.pTxBase == nullptr? nullptr: rhs.pTxBase->clone();
+            this->pSourceNode = rhs.pSourceNode;
+        }
+        return *this;
+    }
+
+    ~TxBaseMsg_DataToProcess()
+    {
+        // Delete pTxBase since it's owning ptr
+        delete pTxBase;
+        pTxBase = nullptr;
+
+        // No delete, since it's non-owning pointer
+        pSourceNode = nullptr;
+    };
+};
+static std::vector<TxBaseMsg_DataToProcess> processTxBaseMsg_WorkQueue;
+
+void addTxBaseMsgToProcess(const CTransactionBase& txBase, CNodeInterface* pfrom)
 {
     CInv inv(MSG_TX, txBase.GetHash());
     pfrom->AddInventoryKnown(inv);
@@ -5621,24 +5664,32 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
         return;
     }
 
-    processTxBaseMsg_WorkQueue.push_back(inv.hash);
+    TxBaseMsg_DataToProcess dataToAdd;
+    dataToAdd.txBaseHash = txBase.GetHash();
+    dataToAdd.sourceNodeId = pfrom->GetId();
+    dataToAdd.pTxBase = txBase.clone();
+    dataToAdd.pSourceNode = pfrom;
+    processTxBaseMsg_WorkQueue.push_back(dataToAdd);
+    return;
+}
+
+void ProcessTxBaseMsg(const processMempoolTx& mempoolProcess)
+{
+    LOCK(cs_main);
     std::vector<uint256> vEraseQueue;
     set<NodeId> setMisbehaving;
 
     while (!processTxBaseMsg_WorkQueue.empty())
     {
-        uint256 hashToProcess = processTxBaseMsg_WorkQueue.at(0); //Copy not reference, to give freedom of deleting vWorkQueue.begin()
-        processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
-
-        const CTransactionBase& txToProcess = (hashToProcess == txBase.GetHash())?
-            txBase : *mapOrphanTransactions.at(hashToProcess).tx;
-        CNodeInterface* pSourceNode = (hashToProcess == txBase.GetHash())? pfrom : nullptr;
-        NodeId sourceNodeId = (hashToProcess == txBase.GetHash())?
-            pfrom->GetId() : mapOrphanTransactions.at(hashToProcess).fromPeer;
+        const uint256& hashToProcess = processTxBaseMsg_WorkQueue.at(0).txBaseHash;
+        NodeId sourceNodeId = processTxBaseMsg_WorkQueue.at(0).sourceNodeId; //just an int, better copy than reference
+        const CTransactionBase& txToProcess = *processTxBaseMsg_WorkQueue.at(0).pTxBase;
+        CNodeInterface* pSourceNode =  processTxBaseMsg_WorkQueue.at(0).pSourceNode;
 
         if (setMisbehaving.count(sourceNodeId))
         {
             vEraseQueue.push_back(hashToProcess);
+            processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
             continue;
         }
 
@@ -5656,9 +5707,23 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
 
             std::map<uint256, set<uint256> >::iterator unlockedOrphansIt = mapOrphanTransactionsByPrev.find(hashToProcess);
             if (unlockedOrphansIt == mapOrphanTransactionsByPrev.end())
+            {
+                processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
                 continue; //hashToProcess does not unlock any orphan
+            }
 
-            processTxBaseMsg_WorkQueue.insert(processTxBaseMsg_WorkQueue.end(), unlockedOrphansIt->second.begin(), unlockedOrphansIt->second.end());
+            for(const uint256& orphanHash: unlockedOrphansIt->second)
+            {
+                TxBaseMsg_DataToProcess dataToAdd;
+                dataToAdd.txBaseHash = orphanHash;
+                dataToAdd.sourceNodeId = mapOrphanTransactions.at(orphanHash).fromPeer;
+                dataToAdd.pTxBase = mapOrphanTransactions.at(orphanHash).tx->clone(); //Clone currently necessary since ptr ownership is assumed
+                dataToAdd.pSourceNode = nullptr;
+
+                processTxBaseMsg_WorkQueue.push_back(dataToAdd);
+            }
+
+            processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
         }
 
         if (res == MempoolReturnValue::MISSING_INPUT)
@@ -5685,6 +5750,8 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
                         LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
                 }
             }
+
+            processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
         }
 
         if (res == MempoolReturnValue::INVALID)
@@ -5723,6 +5790,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
             }
 
             vEraseQueue.push_back(hashToProcess);
+            processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
         }
     }
 
@@ -6315,7 +6383,8 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CTransaction tx(txVers);
             tx.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
-            ProcessTxBaseMsg(tx, pfrom, &AcceptTxBaseToMemoryPool);
+            addTxBaseMsgToProcess(tx, pfrom);
+            ProcessTxBaseMsg(&AcceptTxBaseToMemoryPool);
         }
         else
         if (CTransactionBase::IsCertificate(txVers) )
@@ -6323,7 +6392,8 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CScCertificate cert(txVers);
             cert.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
-            ProcessTxBaseMsg(cert, pfrom, &AcceptTxBaseToMemoryPool);
+            addTxBaseMsgToProcess(cert, pfrom);
+            ProcessTxBaseMsg(&AcceptTxBaseToMemoryPool);
         }
         else
         {

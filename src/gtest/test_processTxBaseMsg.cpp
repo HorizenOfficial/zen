@@ -171,9 +171,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, ValidTxIsRelayed)
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) == 0);
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(validTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
@@ -187,9 +188,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, ValidTxIsRecordedAsKnown)
     ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, validTx.GetHash())));
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(validTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, validTx.GetHash())));
@@ -207,9 +209,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedValidTxFromNonWhitelistedNodeIsNo
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) == 0);
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(validTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) == 0);
@@ -228,9 +231,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedValidTxFromWhitelistedNodeIsRelay
 
     FakeNode sourceNode{};
     sourceNode.fWhitelisted = true;
+    addTxBaseMsgToProcess(validTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
@@ -244,9 +248,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, NoRejectMsgIsSentForValidATx)
 
     FakeNode sourceNode{};
     ASSERT_TRUE(sourceNode.commandInvoked.empty());
+    addTxBaseMsgToProcess(validTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(sourceNode.commandInvoked.empty());
@@ -263,9 +268,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitTxIsNotRelayed)
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanNonJoinsplitTx.GetHash())) == 0);
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(orphanNonJoinsplitTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(orphanNonJoinsplitTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanNonJoinsplitTx.GetHash())) == 0);
@@ -279,9 +285,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsNonJoinsplitTxIsRecordedAsKnown)
     ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, orphanNonJoinsplitTx.GetHash())));
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(orphanNonJoinsplitTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(orphanNonJoinsplitTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, orphanNonJoinsplitTx.GetHash())));
@@ -300,9 +307,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedMissingInputsNonJoinsplitTxFromNo
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanNonJoinsplitTx.GetHash())) == 0);
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(orphanNonJoinsplitTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(orphanNonJoinsplitTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanNonJoinsplitTx.GetHash())) == 0);
@@ -322,9 +330,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedMissingInputsNonJoinsplitTxFromWh
 
     FakeNode sourceNode{};
     sourceNode.fWhitelisted = true;
+    addTxBaseMsgToProcess(orphanNonJoinsplitTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(orphanNonJoinsplitTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanNonJoinsplitTx.GetHash())) != 0);
@@ -338,9 +347,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, NoRejectMsgIsSentForMissingInputsNonJoinsplitT
 
     FakeNode sourceNode{};
     ASSERT_TRUE(sourceNode.commandInvoked.empty());
+    addTxBaseMsgToProcess(orphanNonJoinsplitTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(orphanNonJoinsplitTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(sourceNode.commandInvoked.empty());
@@ -357,9 +367,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsJoinsplitTxIsNotRelayed)
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanJoinsplitTx.GetHash())) == 0);
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(orphanJoinsplitTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(orphanJoinsplitTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanJoinsplitTx.GetHash())) == 0);
@@ -375,9 +386,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsJoinsplitTxFromWhitelistedPeerIsR
 
     FakeNode sourceNode{};
     sourceNode.fWhitelisted = true;
+    addTxBaseMsgToProcess(orphanJoinsplitTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(orphanJoinsplitTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanJoinsplitTx.GetHash())) != 0);
@@ -392,9 +404,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, MissingInputsJoinsplitTxIsRecordedAsKnown)
     ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, orphanJoinsplitTx.GetHash())));
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(orphanJoinsplitTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(orphanJoinsplitTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, orphanJoinsplitTx.GetHash())));
@@ -414,9 +427,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedMissingInputsJoinsplitTxFromNonWh
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanJoinsplitTx.GetHash())) == 0);
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(orphanJoinsplitTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(orphanJoinsplitTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanJoinsplitTx.GetHash())) == 0);
@@ -437,9 +451,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedMissingInputsJoinsplitTxFromWhite
 
     FakeNode sourceNode{};
     sourceNode.fWhitelisted = true;
+    addTxBaseMsgToProcess(orphanJoinsplitTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(orphanJoinsplitTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, orphanJoinsplitTx.GetHash())) != 0);
@@ -454,9 +469,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, NoRejectMsgIsSentForMissingInputsJoinsplitTx)
 
     FakeNode sourceNode{};
     ASSERT_TRUE(sourceNode.commandInvoked.empty());
+    addTxBaseMsgToProcess(orphanJoinsplitTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(orphanJoinsplitTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(sourceNode.commandInvoked.empty());
@@ -475,9 +491,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosTxIsNotRelayed)
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, invalidZeroDoSTx.GetHash())) == 0);
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(invalidZeroDoSTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(invalidZeroDoSTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidZeroDoSTx.GetHash())) == 0);
@@ -494,9 +511,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosTxFromWhitelistedPeerIsRelayed)
 
     FakeNode sourceNode{};
     sourceNode.fWhitelisted = true;
+    addTxBaseMsgToProcess(invalidZeroDoSTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(invalidZeroDoSTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidZeroDoSTx.GetHash())) != 0);
@@ -512,9 +530,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidZeroDosTxIsRecordedAsKnown)
     ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, invalidZeroDoSTx.GetHash())));
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(invalidZeroDoSTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(invalidZeroDoSTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, invalidZeroDoSTx.GetHash())));
@@ -533,11 +552,13 @@ TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedInvalidZeroDosTxFromNonWhiteliste
     FakeNode sourceNode{};
 
     // process first time
-    ProcessTxBaseMsg(invalidZeroDoSTx, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(invalidZeroDoSTx, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
     ASSERT_TRUE(AlreadyHave(CInv(MSG_TX, invalidZeroDoSTx.GetHash())));
 
     //test
-    ProcessTxBaseMsg(invalidZeroDoSTx, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(invalidZeroDoSTx, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidZeroDoSTx.GetHash())) == 0);
@@ -556,14 +577,16 @@ TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedInvalidZeroDosTxFromWhitelistedNo
     FakeNode sourceNode{};
 
     // process first time
-    ProcessTxBaseMsg(invalidZeroDoSTx, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(invalidZeroDoSTx, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
     ASSERT_TRUE(AlreadyHave(CInv(MSG_TX, invalidZeroDoSTx.GetHash())));
 
     // Set whitelist and retry
     sourceNode.fWhitelisted = true;
 
     //test
-    ProcessTxBaseMsg(invalidZeroDoSTx, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(invalidZeroDoSTx, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidZeroDoSTx.GetHash())) != 0);
@@ -578,10 +601,11 @@ TEST_F(ProcessTxBaseMsgTestSuite, RejectMsgIsSentForInvalidZeroDosTx)
     theFake.DosLevelIfInvalid = 0;
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(invalidZeroDoSTx, &sourceNode);
     ASSERT_TRUE(sourceNode.commandInvoked.empty());
 
     //test
-    ProcessTxBaseMsg(invalidZeroDoSTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(sourceNode.commandInvoked == std::string("rejecttx"));
@@ -600,9 +624,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosTxIsNotRelayed)
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, invalidHighDoSTx.GetHash())) == 0);
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(invalidHighDoSTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(invalidHighDoSTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidHighDoSTx.GetHash())) == 0);
@@ -619,9 +644,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosTxFromWhitelistedPeerIsNotRelaye
 
     FakeNode sourceNode{};
     sourceNode.fWhitelisted = true;
+    addTxBaseMsgToProcess(invalidHighDoSTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(invalidHighDoSTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, invalidHighDoSTx.GetHash())) == 0);
@@ -637,9 +663,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, InvalidHighDosTxIsRecordedAsKnown)
     ASSERT_FALSE(AlreadyHave(CInv(MSG_TX, invalidHighDoSTx.GetHash())));
 
     FakeNode sourceNode{};
+    addTxBaseMsgToProcess(invalidHighDoSTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(invalidHighDoSTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(AlreadyHave(CInv(MSG_TX, invalidHighDoSTx.GetHash())));
@@ -655,9 +682,10 @@ TEST_F(ProcessTxBaseMsgTestSuite, RejectMsgIsSentForInvalidHighDosTx)
 
     FakeNode sourceNode{};
     ASSERT_TRUE(sourceNode.commandInvoked.empty());
+    addTxBaseMsgToProcess(invalidHighDoSTx, &sourceNode);
 
     //test
-    ProcessTxBaseMsg(invalidHighDoSTx, &sourceNode, fakedMemProcessor);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(sourceNode.commandInvoked == std::string("rejecttx"));
@@ -686,14 +714,17 @@ TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesTurningValidAreRelayed)
     FakeNode sourceNode{};
 
     // Orphan txes are inserted first and not relayed
-    ProcessTxBaseMsg(orphanTx_1, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(orphanTx_1, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx_1.GetHash())) == 0);
 
-    ProcessTxBaseMsg(orphanTx_2, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(orphanTx_2, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx_2.GetHash())) == 0);
 
     //test finally the valid parent tx is processed
-    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(validTx, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
@@ -717,11 +748,13 @@ TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesStayingOrphanAreNotRelayed)
     FakeNode sourceNode{};
 
     // Orphan txes are inserted first and not relayed
-    ProcessTxBaseMsg(orphanTx_1, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(orphanTx_1, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, orphanTx_1.GetHash())) == 0);
 
     //test finally the valid parent tx is processed
-    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(validTx, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
@@ -743,7 +776,8 @@ TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesTurningZeroDosInvalidAreNotRelayed)
     FakeNode sourceNode{};
 
     // Orphan tx is inserted first and not relayed, classified as missing input
-    ProcessTxBaseMsg(invalidMissingInputsTx, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(invalidMissingInputsTx, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, invalidMissingInputsTx.GetHash())) == 0);
 
     // then orphan is marked as invalid
@@ -751,7 +785,8 @@ TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesTurningZeroDosInvalidAreNotRelayed)
     theFake.markTxAsInvalid(invalidMissingInputsTx.GetHash());
 
     //test finally the valid parent tx is processed
-    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(validTx, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);
@@ -773,7 +808,8 @@ TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesTurningHighDosInvalidAreNotRelayed)
     FakeNode sourceNode{};
 
     // Orphan tx is inserted first and not relayed, classified as missing input
-    ProcessTxBaseMsg(invalidMissingInputsTx, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(invalidMissingInputsTx, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
     ASSERT_TRUE(mapRelay.count(CInv(MSG_TX, invalidMissingInputsTx.GetHash())) == 0);
 
     // then orphan is marked as invalid
@@ -781,7 +817,8 @@ TEST_F(ProcessTxBaseMsgTestSuite, OrphanTxesTurningHighDosInvalidAreNotRelayed)
     theFake.markTxAsInvalid(invalidMissingInputsTx.GetHash());
 
     //test finally the valid parent tx is processed
-    ProcessTxBaseMsg(validTx, &sourceNode, fakedMemProcessor);
+    addTxBaseMsgToProcess(validTx, &sourceNode);
+    ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) != 0);

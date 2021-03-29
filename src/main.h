@@ -219,8 +219,10 @@ enum class RejectAbsurdFeeFlag { ON, OFF };
 enum class MempoolReturnValue { INVALID, MISSING_INPUT, VALID };
 
 typedef std::function<MempoolReturnValue(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-	    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)> processMempoolTx;
-void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, const processMempoolTx& mempoolProcess);
+        LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)> processMempoolTx;
+
+void addTxBaseMsgToProcess(const CTransactionBase& txBase, CNodeInterface* pfrom);
+void ProcessTxBaseMsg(const processMempoolTx& mempoolProcess);
 bool AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 // End of Utilities
 
