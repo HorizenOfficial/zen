@@ -89,8 +89,8 @@ CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 
 CTxMemPool mempool(::minRelayTxFee);
 
-map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(cs_main);;
-map<uint256, set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);;
+map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(cs_main);
+map<uint256, set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);
 
 void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
@@ -937,7 +937,7 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
 
     if (!cert.CheckInputsInteraction(state))
         return false;
-    
+
     if(!Sidechain::checkCertSemanticValidity(cert, state))
         return false;
 
@@ -1199,7 +1199,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
                 return MempoolReturnValue::INVALID;
             }
-            
+
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
             // and only helps with filling in pfMissingInputs (to determine missing vs spent).
@@ -1211,7 +1211,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                     return MempoolReturnValue::MISSING_INPUT;
                 }
             }
- 
+
             // are the actual inputs available?
             if (!view.HaveInputs(cert))
             {
@@ -1223,7 +1223,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
             view.GetBestBlock();
             nFees = cert.GetFeeAmount(view.GetValueIn(cert));
- 
+
             if (!conflictingCertData.first.IsNull() && conflictingCertData.second >= nFees)
             {
                 LogPrintf("%s():%d - Dropping cert %s : low fee and same quality as other cert in mempool\n",
@@ -1427,7 +1427,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             LOCK(pool.cs);
             CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
             view.SetBackend(viewMemPool);
- 
+
             // do we already have it?
             if (view.HaveCoins(hash))
             {
@@ -1446,7 +1446,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                     return MempoolReturnValue::MISSING_INPUT;
                 }
             }
- 
+
             // are the actual inputs available?
             if (!view.HaveInputs(tx))
             {
@@ -1476,7 +1476,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             view.GetBestBlock();
 
             nFees = tx.GetFeeAmount(view.GetValueIn(tx));
- 
+
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
             view.SetBackend(dummy);
         }
@@ -1502,7 +1502,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                       REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
             return MempoolReturnValue::INVALID;
         }
-      
+
         double dPriority = view.GetPriority(tx, chainActive.Height());
         LogPrint("mempool", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
 
@@ -2123,7 +2123,7 @@ CScriptCheck::CScriptCheck(const CScript& scriptPubKeyIn, const CTransactionBase
                             nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR) { }
 
 bool CScriptCheck::operator()() {
-    return ptxTo->VerifyScript(scriptPubKey, nFlags, nIn, chain, cacheStore, &error); 
+    return ptxTo->VerifyScript(scriptPubKey, nFlags, nIn, chain, cacheStore, &error);
 }
 
 void CScriptCheck::swap(CScriptCheck &check) {
@@ -2508,7 +2508,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 fClean = fClean && error("DisconnectBlock(): added certificate mismatch? database corrupted");
                 //LogPrint("cert", "%s():%d - mismatched cert hash [%s]\n", __func__, __LINE__, hash.ToString());
             }
-  
+
             // remove outputs
             LogPrint("cert", "%s():%d - clearing outs of cert[%s]\n", __func__, __LINE__, hash.ToString());
             outs->Clear();
@@ -2580,7 +2580,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 fClean = fClean && error("DisconnectBlock(): added transaction mismatch? database corrupted");
                 LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, hash.ToString());
             }
-  
+
             // remove outputs
             LogPrint("cert", "%s():%d - clearing outs of tx[%s]\n", __func__, __LINE__, hash.ToString());
             outs->Clear();
@@ -2838,7 +2838,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }
 
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
-     
+
     for (unsigned int txIdx = 0; txIdx < block.vtx.size(); ++txIdx) // Processing transactions loop
     {
         const CTransaction &tx = block.vtx[txIdx];
@@ -2898,7 +2898,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                             __func__, __LINE__, tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
             }
-            
+
             for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
                 if (!view.AddCswNullifier(cswIn.scId, cswIn.nullifier)) {
                     return state.DoS(100, error("ConnectBlock(): try to use existed nullifier Tx [%s]", tx.GetHash().ToString()),
@@ -3788,7 +3788,7 @@ bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips)
     }
     else
     {
-        // check from tips downward if we connect to this index and in this case 
+        // check from tips downward if we connect to this index and in this case
         // update the tip instead (for coping with very old tips not in the most recent set)
         if (lookForwardTips)
         {
@@ -3809,7 +3809,7 @@ bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips)
                     LogPrint("forks", "%s():%d - skipping main chain tip\n", __func__, __LINE__);
                     continue;
                 }
- 
+
                 const CBlockIndex* dum = tipIndex;
                 while ( dum != pindex && dum->nHeight >= h)
                 {
@@ -3900,7 +3900,7 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
         const CFieldElement& prevScCumTreeHash =
                 (pindexNew->pprev->nVersion == BLOCK_VERSION_SC_SUPPORT) ?
                         pindexNew->pprev->scCumTreeHash : CBlockIndex::defaultScCumTreeHash;
-        pindexNew->scCumTreeHash = CFieldElement::ComputeHash(prevScCumTreeHash, CFieldElement{block.hashScTxsCommitment}); 
+        pindexNew->scCumTreeHash = CFieldElement::ComputeHash(prevScCumTreeHash, CFieldElement{block.hashScTxsCommitment});
     }
 
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
@@ -4334,7 +4334,7 @@ bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBloc
     if (miSelf != mapBlockIndex.end()) {
         // Block header is already known.
         pindex = miSelf->second;
-        
+
         // update it because if it is a tip, its timestamp is most probably changed
         updateGlobalForkTips(pindex, lookForwardTips);
 
@@ -5592,6 +5592,8 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
+
+static std::vector<uint256> processTxBaseMsg_WorkQueue;
 void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, const processMempoolTx& mempoolProcess)
 {
     CInv inv(MSG_TX, txBase.GetHash());
@@ -5604,9 +5606,6 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
 
     if(AlreadyHave(inv))
     {
-        assert(recentRejects);
-        recentRejects->insert(txBase.GetHash());
-
         if (pfrom->IsWhiteListed())
         {
             // Always relay transactions received from whitelisted peers, even
@@ -5622,14 +5621,14 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
         return;
     }
 
-    std::vector<uint256> vWorkQueue{inv.hash};
+    processTxBaseMsg_WorkQueue.push_back(inv.hash);
     std::vector<uint256> vEraseQueue;
     set<NodeId> setMisbehaving;
 
-    while (!vWorkQueue.empty())
+    while (!processTxBaseMsg_WorkQueue.empty())
     {
-        uint256 hashToProcess = vWorkQueue.at(0); //Copy not reference, to give freedom of deleting vWorkQueue.begin()
-        vWorkQueue.erase(vWorkQueue.begin());
+        uint256 hashToProcess = processTxBaseMsg_WorkQueue.at(0); //Copy not reference, to give freedom of deleting vWorkQueue.begin()
+        processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
 
         const CTransactionBase& txToProcess = (hashToProcess == txBase.GetHash())?
             txBase : *mapOrphanTransactions.at(hashToProcess).tx;
@@ -5649,34 +5648,29 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
 
         if (res == MempoolReturnValue::VALID)
         {
-            txToProcess.Relay();
+            LogPrint("mempool", "%s(): peer=%d %s: accepted (poolsz %u)\n", __func__, sourceNodeId, hashToProcess.ToString(), mempool.size());
 
-            LogPrint("mempool", "%s(): peer=%d %s: accepted (poolsz %u)\n", __func__,
-                    sourceNodeId, hashToProcess.ToString(), mempool.size());
+            txToProcess.Relay();
 
             vEraseQueue.push_back(hashToProcess);
 
             std::map<uint256, set<uint256> >::iterator unlockedOrphansIt = mapOrphanTransactionsByPrev.find(hashToProcess);
             if (unlockedOrphansIt == mapOrphanTransactionsByPrev.end())
-            {
                 continue; //hashToProcess does not unlock any orphan
-            }
 
-            for(const uint256& unlockedOrphanHash: unlockedOrphansIt->second)
-                vWorkQueue.push_back(unlockedOrphanHash);
+            processTxBaseMsg_WorkQueue.insert(processTxBaseMsg_WorkQueue.end(), unlockedOrphansIt->second.begin(), unlockedOrphansIt->second.end());
         }
 
         if (res == MempoolReturnValue::MISSING_INPUT)
         {
             if (txToProcess.GetVjoinsplit().size() != 0)
             {
-                // TODO: currently, prohibit joinsplits from entering mapOrphans
+                // prohibit joinsplits from entering mapOrphans but relay right away if it's from whitelisted node
                 assert(recentRejects);
                 recentRejects->insert(hashToProcess);
                 if (pSourceNode != nullptr && pSourceNode->IsWhiteListed())
                 {
-                    LogPrintf("Force relaying tx %s from whitelisted peer=%d\n",
-                            hashToProcess.ToString(), sourceNodeId);
+                    LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", hashToProcess.ToString(), sourceNodeId);
                     txToProcess.Relay();
                 }
             } else
@@ -5703,7 +5697,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
             assert(recentRejects);
             recentRejects->insert(hashToProcess);
             int nDoS = 0;
-            assert(state.IsInvalid(nDoS)); //retrieve nDoS
+            state.IsInvalid(nDoS); //retrieve nDoS
             if (nDoS > 0)
             {
                 Misbehaving(sourceNodeId, nDoS);
@@ -5718,15 +5712,13 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNodeInterface* pfrom, con
 
                 if ((nDoS == 0) && (pSourceNode->IsWhiteListed()))
                 {
-                    LogPrintf("Force relaying tx %s from whitelisted peer=%d\n",
-                            hashToProcess.ToString(), sourceNodeId);
+                    LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", hashToProcess.ToString(), sourceNodeId);
                     txToProcess.Relay();
                 }
                 if ((nDoS > 0) && (pSourceNode->IsWhiteListed()))
                 {
                     LogPrintf( "Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
-                            hashToProcess.ToString(), sourceNodeId,
-                               state.GetRejectReason(), state.GetRejectCode());
+                            hashToProcess.ToString(), sourceNodeId, state.GetRejectReason(), state.GetRejectCode());
                 }
             }
 
@@ -6144,7 +6136,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 if (pindex)
                     pindex = chainActive.Next(pindex);
             }
- 
+
             // we must use CBlocks, as CBlockHeaders won't include the 0x00 nTx count at the end
             vector<CBlockHeaderForNetwork> vHeaders;
             int nLimit = MAX_HEADERS_RESULTS;
@@ -6170,16 +6162,16 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             if (hashStop != uint256() )
             {
                 BlockMap::iterator mi = mapBlockIndex.find(hashStop);
-                if (mi == mapBlockIndex.end() ) 
+                if (mi == mapBlockIndex.end() )
                 {
                     // should never happen
                     LogPrint("forks", "%s():%d - block [%s] not found\n", __func__, __LINE__, hashStop.ToString() );
                     return true;
                 }
-    
+
                 LogPrint("forks", "%s():%d - peer is not using chain active! Starting from %s at h(%d)\n",
                     __func__, __LINE__, pindexReference->GetBlockHash().ToString(), pindexReference->nHeight );
- 
+
                 std::deque<CBlockHeaderForNetwork> dHeadersAlternative;
 
                 bool found = false;
@@ -6188,24 +6180,24 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 while ( pindexReference )
                 {
                     dHeadersAlternative.push_front(CBlockHeaderForNetwork(pindexReference->GetBlockHeader()));
- 
+
                     BOOST_FOREACH(const uint256& hash, locator.vHave)
                     {
                         if (hash == pindexReference->GetBlockHash() )
                         {
-                            // we found the tip passed along in locator, we must stop here 
+                            // we found the tip passed along in locator, we must stop here
                             LogPrint("forks", "%s():%d - matched fork tip in locator [%s]\n",
                                 __func__, __LINE__, hash.ToString() );
                             found = true;
                             break;
-                        } 
+                        }
                     }
- 
+
                     if (found || pindexReference->pprev == chainActive.Genesis() )
                     {
                         break;
                     }
- 
+
                     pindexReference = pindexReference->pprev;
                 }
 
@@ -6253,7 +6245,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     LogPrint("forks", "%s():%d - tips %s h(%d)\n",
                         __func__, __LINE__, block->GetBlockHash().ToString(), block->nHeight);
 
-                    while (block && 
+                    while (block &&
                            block != pindexReference &&
                            block->nHeight >= h)
                     {
@@ -6375,9 +6367,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 LogPrint("forks", "%s():%d - non continuous sequence\n", __func__, __LINE__);
                 return error("non-continuous headers sequence");
             }
-            
+
             bool lookForwardTips = (++cnt == MAX_HEADERS_RESULTS);
-             
+
             if (!AcceptBlockHeader(header, state, &pindexLast, lookForwardTips)) {
                 int nDoS;
                 if (state.IsInvalid(nDoS)) {
@@ -7173,7 +7165,7 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sF
         __func__, __LINE__, sForkTips->size(), pindex->nHeight, pindex->GetBlockHash().ToString() );
 
     std::vector<CInv> vInv;
-    
+
     BOOST_FOREACH(const CBlockIndex* block, *sForkTips)
     {
         vInv.push_back(CInv(MSG_BLOCK, block->GetBlockHash()) );
@@ -7183,7 +7175,7 @@ bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sF
     int nBlockEstimate = 0;
     if (fCheckpointsEnabled)
         nBlockEstimate = Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints());
- 
+
     int nodeHeight = -1;
     if (nLocalServices & NODE_NETWORK) {
         LOCK(cs_vNodes);
@@ -7298,7 +7290,7 @@ std::string dbg_blk_global_tips()
         bool onForkPrev = false;
         if (onFork && pindex->pprev)
         {
-            // chanches are that the header is temporarly not a tip but will be promoted soon when the full blocks comes 
+            // chanches are that the header is temporarly not a tip but will be promoted soon when the full blocks comes
             onForkPrev = !chainActive.Contains(pindex->pprev);
         }
 
@@ -7340,7 +7332,7 @@ void dump_index(const CBlockIndex* pindex, int val)
     bool onForkPrev = false;
     if (onFork && pindex->pprev)
     {
-        // chanches are that the header is temporarly not a tip but will be promoted soon when the full blocks comes 
+        // chanches are that the header is temporarly not a tip but will be promoted soon when the full blocks comes
         onForkPrev = !chainActive.Contains(pindex->pprev);
     }
 
@@ -7398,7 +7390,7 @@ void dump_db()
         const CBlockIndex* dum = block;
 
         bool onFork = !chainActive.Contains(dum);
-        
+
         while (true)
         {
             if (dum)
@@ -7438,7 +7430,7 @@ void dump_candidates()
     BOOST_FOREACH(const CBlockIndex* block, setBlockIndexCandidates)
     {
         const CBlockIndex* dum = block;
-        
+
         dump_index(dum);
     }
 }
@@ -7461,7 +7453,7 @@ void dump_global_tips(int limit)
             break;
         }
         const CBlockIndex* block = mapPair.first;
-        
+
         dump_index(block, mapPair.second);
     }
 
@@ -7487,13 +7479,13 @@ void dump_dirty()
     BOOST_FOREACH(const CBlockIndex* block, setDirtyBlockIndex)
     {
         const CBlockIndex* dum = block;
-        
+
         dump_index(dum);
     }
 }
 
 bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, CBlockIndex** pindexReference)
-{ 
+{
     LogPrint("forks", "%s():%d - Entering hashStop[%s]\n", __func__, __LINE__, hashStop.ToString() );
     if (locator.IsNull() )
     {
@@ -7508,7 +7500,7 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
     if (hashStop != uint256() )
     {
         BlockMap::iterator mi = mapBlockIndex.find(hashStop);
-        if (mi != mapBlockIndex.end() ) 
+        if (mi != mapBlockIndex.end() )
         {
             *pindexReference = (*mi).second;
             bool onMain = (chainActive.Contains((*mi).second) );
@@ -7546,10 +7538,10 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
                 __func__, __LINE__, hash_0.ToString() );
 
             BlockMap::iterator mi = mapBlockIndex.find(hash_0);
-            if (mi != mapBlockIndex.end() ) 
+            if (mi != mapBlockIndex.end() )
             {
                 CBlockIndex* idx = (*mi).second;
- 
+
                 if (!chainActive.Contains(idx))
                 {
                     // tip of locator not on main
@@ -7575,7 +7567,7 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
     LogPrint("forks", "%s():%d - ##### Exiting returning FALSE\n", __func__, __LINE__);
     return false;
 }
-    
+
 
 static int getInitCbhSafeDepth()
 {
@@ -7628,7 +7620,7 @@ static bool getInitRequireStandard()
 
         if ((bool)(GetBoolArg("-allownonstandardtx",  false ) ) )
         {
-            // if this flag is set the user wants to allow non-standars tx, therefore we override default param and return false  
+            // if this flag is set the user wants to allow non-standars tx, therefore we override default param and return false
             val = false;
         }
         LogPrintf("%s():%d - %s: using val %d (%s)\n", __func__, __LINE__, Params().NetworkIDString(), (int)val, (val?"Y":"N"));
