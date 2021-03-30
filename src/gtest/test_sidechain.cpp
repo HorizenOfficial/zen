@@ -1811,3 +1811,50 @@ TEST_F(SidechainsTestSuite, NewCertificateUpdatesFeesAndDataLength)
     ASSERT_EQ(sc.lastTopQualityCertView.forwardTransferScFee, ftFee);
     ASSERT_EQ(sc.lastTopQualityCertView.mainchainBackwardTransferRequestScFee, mbtrFee);
 }
+
+
+//////////////////////////////////////////////////////////
+///////////////// Cert semantic validity /////////////////
+//////////////////////////////////////////////////////////
+TEST_F(SidechainsTestSuite, CertificatesWithValidFeesAreValid)
+{
+    CValidationState txState;
+    CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/CAmount(0), /*mbtrScFee*/CAmount(0));
+
+    EXPECT_TRUE(Sidechain::checkCertSemanticValidity(cert, txState));
+    EXPECT_TRUE(txState.IsValid());
+
+    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/CAmount(MAX_MONEY / 2), /*mbtrScFee*/CAmount(MAX_MONEY / 2));
+
+    EXPECT_TRUE(Sidechain::checkCertSemanticValidity(cert, txState));
+    EXPECT_TRUE(txState.IsValid());
+
+    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/CAmount(MAX_MONEY), /*mbtrScFee*/CAmount(MAX_MONEY));
+
+    EXPECT_TRUE(Sidechain::checkCertSemanticValidity(cert, txState));
+    EXPECT_TRUE(txState.IsValid());
+}
+
+TEST_F(SidechainsTestSuite, CertificatesWithOutOfRangeFeesAreNotValid)
+{
+    CValidationState txState;
+    CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/CAmount(-1), /*mbtrScFee*/CAmount(-1));
+
+    EXPECT_FALSE(Sidechain::checkCertSemanticValidity(cert, txState));
+    EXPECT_FALSE(txState.IsValid());
+
+    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/CAmount(MAX_MONEY + 1), /*mbtrScFee*/CAmount(MAX_MONEY + 1));
+
+    EXPECT_FALSE(Sidechain::checkCertSemanticValidity(cert, txState));
+    EXPECT_FALSE(txState.IsValid());
+}
