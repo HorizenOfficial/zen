@@ -1740,3 +1740,28 @@ TEST_F(SidechainsTestSuite, CTxScCreationOutHashComputation)
     newOut.mainchainBackwardTransferRequestDataLength = 1;
     EXPECT_NE(originalOut.GetHash(), newOut.GetHash());
 }
+
+TEST_F(SidechainsTestSuite, CTxScCreationOutSetsFeesAndDataLength)
+{
+    CCoinsViewCache dummyView(nullptr);
+
+    // Forge a sidechain creation transaction
+    Sidechain::ScCreationParameters params;
+    params.forwardTransferScFee = CAmount(5);
+    params.mainchainBackwardTransferRequestScFee = CAmount(7);
+    params.mainchainBackwardTransferRequestDataLength = 9;
+    CTransaction scCreationTx = createNewSidechainTx(params);
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+
+    // Update the sidechains view adding the new sidechain
+    int dummyHeight {1};
+    CBlock dummyBlock;
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, dummyHeight));
+
+    // Check that the parameters have been set correctly
+    CSidechain sc;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, sc));
+    ASSERT_EQ(sc.lastTopQualityCertView.forwardTransferScFee, params.forwardTransferScFee);
+    ASSERT_EQ(sc.lastTopQualityCertView.mainchainBackwardTransferRequestScFee, params.mainchainBackwardTransferRequestScFee);
+    ASSERT_EQ(sc.mainchainBackwardTransferRequestDataLength, params.mainchainBackwardTransferRequestDataLength);
+}

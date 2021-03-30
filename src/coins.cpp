@@ -796,6 +796,11 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.lastTopQualityCertHash.SetNull();
         scIt->second.sidechain.lastTopQualityCertQuality = CScCertificate::QUALITY_NULL;
         scIt->second.sidechain.lastTopQualityCertBwtAmount = 0;
+
+        scIt->second.sidechain.lastTopQualityCertView.forwardTransferScFee = cr.forwardTransferScFee;
+        scIt->second.sidechain.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = cr.mainchainBackwardTransferRequestScFee;
+        scIt->second.sidechain.mainchainBackwardTransferRequestDataLength = cr.mainchainBackwardTransferRequestDataLength;
+
         scIt->second.sidechain.creationData.withdrawalEpochLength = cr.withdrawalEpochLength;
         scIt->second.sidechain.creationData.customData = cr.customData;
         scIt->second.sidechain.creationData.constant = cr.constant;
@@ -804,6 +809,9 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.creationData.wCeasedVk = cr.wCeasedVk;
         scIt->second.sidechain.creationData.vFieldElementCertificateFieldConfig = cr.vFieldElementCertificateFieldConfig;
         scIt->second.sidechain.creationData.vBitVectorCertificateFieldConfig = cr.vBitVectorCertificateFieldConfig;
+        scIt->second.sidechain.creationData.forwardTransferScFee = cr.forwardTransferScFee;
+        scIt->second.sidechain.creationData.mainchainBackwardTransferRequestScFee = cr.mainchainBackwardTransferRequestScFee;
+        scIt->second.sidechain.creationData.mainchainBackwardTransferRequestDataLength = cr.mainchainBackwardTransferRequestDataLength;
 
         scIt->second.sidechain.mImmatureAmounts[maturityHeight] = cr.nValue;
 
