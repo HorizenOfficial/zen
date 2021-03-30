@@ -368,8 +368,13 @@ CBwtRequestOut::CBwtRequestOut(
 
 std::string CBwtRequestOut::ToString() const
 {
+    std::string requestDataStr;
+
+    for(auto fe : scRequestData)
+        requestDataStr += strprintf("\n  [%s]\n", fe.GetHexRepr());
+
     return strprintf("CBwtRequestOut(scId=%s, scRequestData=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
-        scId.ToString(), scRequestData.GetHexRepr().substr(0, 30),
+        scId.ToString(), requestDataStr.substr(0, 30),
         mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
         HexStr(scProof).substr(0, 30));
 }

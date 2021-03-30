@@ -1638,22 +1638,35 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scProof"));
 
         // ---------------------------------------------------------
-        std::vector<unsigned char> scRequestDataVec;
+        std::vector<CFieldElement> scRequestData;
+        
         if (setKeyOutputArray.count("scRequestData"))
         {
-            const string& scRequestDataString = find_value(o, "scRequestData").get_str();
-            std::string error;
-            if (!Sidechain::AddScData(scRequestDataString, scRequestDataVec, CFieldElement::ByteSize(), true ,error))
-                throw JSONRPCError(RPC_TYPE_ERROR, string("scRequestData: ") + error);
+            for (auto fe : find_value(o, "scRequestData").get_array().getValues())
+            {
+                std::vector<unsigned char> scRequestDataByteArray;
+                const string& scRequestDataString = fe.get_str();
+                std::string error;
+
+                if (!Sidechain::AddScData(scRequestDataString, scRequestDataByteArray, CFieldElement::ByteSize(), true ,error))
+                {
+                    throw JSONRPCError(RPC_TYPE_ERROR, string("scRequestData element: ") + error);
+                }
+
+                CFieldElement fieldElement {scRequestDataByteArray};
+                
+                if(!fieldElement.IsValid())
+                {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scRequestData element"));
+                }
+
+                scRequestData.push_back(fieldElement);
+            }
         }
         else
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scRequestData\"" );
         }
-
-        CFieldElement scRequestData {scRequestDataVec};
-        if(!scRequestData.IsValid())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scRequestData"));
 
         ScBwtRequestParameters bwtData;
         bwtData.scFee = scFee;

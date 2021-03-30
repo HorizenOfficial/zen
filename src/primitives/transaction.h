@@ -640,7 +640,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 {
   public:
     uint256 scId;
-    CFieldElement scRequestData;
+    std::vector<CFieldElement> scRequestData;
     uint160 mcDestinationAddress;
     CAmount scFee;
     libzendoomc::ScProof scProof;

@@ -1313,12 +1313,6 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
 //            return error("%s():%d - ERROR: Tx[%s] mbtr request [%s] has missing active cert data hash for required scId[%s]\n",
 //                            __func__, __LINE__, tx.ToString(), mbtr.ToString(), mbtr.scId.ToString());
 
-        // Verify mainchain bwt request proof
-        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
-                mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk, certView.certDataHash))
-            return error("%s():%d - ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
-                    __func__, __LINE__, mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
-
         LogPrint("sc", "%s():%d - OK: tx[%s] contains bwt transfer request for scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), scId.ToString());
     }

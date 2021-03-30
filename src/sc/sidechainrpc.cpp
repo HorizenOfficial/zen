@@ -129,7 +129,14 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         
         o.push_back(Pair("mcDestinationAddress", mcAddr));
         o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
-        o.push_back(Pair("scRequestData", out.scRequestData.GetHexRepr()));
+
+        UniValue arrRequestData(UniValue::VARR);
+        for(const auto& requestData: out.scRequestData)
+        {
+            arrRequestData.push_back(requestData.GetHexRepr());
+        }
+        o.push_back(Pair("scRequestData", arrRequestData));
+
         o.push_back(Pair("scProof", HexStr(out.scProof)));
         vbts.push_back(o);
         nIdx++;
@@ -630,19 +637,18 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
             error = "Missing mandatory parameter scRequestData";
             return false;
         }
-        inputString = scRequestDataVal.get_str();
-        std::vector<unsigned char> scRequestDataVec;
-        if (!AddScData(inputString, scRequestDataVec, CFieldElement::ByteSize(), true, error))
-        {
-            error = "scRequestData: " + error;
-            return false;
-        }
 
-        bwtData.scRequestData = CFieldElement{scRequestDataVec};
-        if (!bwtData.scRequestData.IsValid())
+
+        for (UniValue inputElement : scRequestDataVal.get_array().getValues())
         {
-            error = "invalid scRequestData";
-            return false;
+            std::vector<unsigned char> requestDataByteArray {};
+
+            if (!Sidechain::AddScData(inputString, requestDataByteArray, CFieldElement::ByteSize(), true, error))
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, std::string("requestDataByte: ") + error);
+            }
+
+            bwtData.scRequestData.push_back(CFieldElement{requestDataByteArray});
         }
 
         //---------------------------------------------------------------------

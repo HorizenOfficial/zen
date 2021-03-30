@@ -266,12 +266,15 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-proof");
         }
 
-        if (!bt.scRequestData.IsValid())
+        for (const CFieldElement& fe : bt.scRequestData)
         {
-            return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scRequestData\n",
-                    __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-utxo-id");
+            if (!fe.IsValid())
+            {
+                return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scRequestData\n",
+                        __func__, __LINE__, txHash.ToString()),
+                        REJECT_INVALID, "sidechain-sc-bwt-invalid-request-data");
+            }
         }
     }
 

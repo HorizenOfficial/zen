@@ -1594,13 +1594,13 @@ CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId) {
     scTx.vmbtr_out.resize(1);
     scTx.vmbtr_out[0].scId   = scId;
     scTx.vmbtr_out[0].scFee = CAmount(1); //dummy amount
-    scTx.vmbtr_out[0].scRequestData = CFieldElement{SAMPLE_FIELD};
+    scTx.vmbtr_out[0].scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
 
     scTx.vmbtr_out.resize(2); //testing double deletes
     scTx.vmbtr_out[1].scId   = scId;
     scTx.vmbtr_out[1].scFee = CAmount(2); //dummy amount
     scTx.vmbtr_out[1].scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
-    scTx.vmbtr_out[1].scRequestData = CFieldElement{SAMPLE_FIELD};
+    scTx.vmbtr_out[1].scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 

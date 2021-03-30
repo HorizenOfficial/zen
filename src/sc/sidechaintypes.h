@@ -380,12 +380,12 @@ struct ScCreationParameters
 struct ScBwtRequestParameters
 {
     CAmount scFee;
-    CFieldElement scRequestData;
+    std::vector<CFieldElement> scRequestData;
     libzendoomc::ScProof scProof;
 
     bool IsNull() const
     {
-        return ( scFee == 0 && scRequestData.IsNull() && scProof.IsNull());
+        return ( scFee == 0 && scRequestData.empty() && scProof.IsNull());
     }
 
     ADD_SERIALIZE_METHODS;
