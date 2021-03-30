@@ -710,8 +710,6 @@ public:
     CTransactionBase& operator=(const CTransactionBase& tx);
 
     explicit CTransactionBase(const CMutableTransactionBase& mutTxBase);
-    virtual CTransactionBase* clone() const = 0;
-
     virtual ~CTransactionBase() = default;
 
     template <typename Stream>
@@ -856,7 +854,6 @@ public:
     CTransaction(int nVersionIn = TRANSPARENT_TX_VERSION);
     CTransaction& operator=(const CTransaction& tx);
     CTransaction(const CTransaction& tx);
-    CTransaction* clone() const override final { return new CTransaction(*this); };
     ~CTransaction() = default;
 
     /** Convert a CMutableTransaction into a CTransaction. */

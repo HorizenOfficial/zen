@@ -5600,40 +5600,10 @@ struct TxBaseMsg_DataToProcess
     NodeId sourceNodeId;
 
     // optional data, only for txes which has not been processed yet, just to inform sender
-    CTransactionBase* pTxBase; //owning pointer
+    std::shared_ptr<const CTransactionBase> pTxBase; //owning pointer
     CNodeInterface* pSourceNode; //non-owning pointer. Null if source node already got its answer and we do not need to send any message to it
 
     TxBaseMsg_DataToProcess(): txBaseHash(), sourceNodeId(-1), pTxBase(nullptr), pSourceNode(nullptr) {};
-
-    TxBaseMsg_DataToProcess(const TxBaseMsg_DataToProcess& rhs)
-    {
-        this->txBaseHash = rhs.txBaseHash;
-        this->sourceNodeId = rhs.sourceNodeId;
-        this->pTxBase = rhs.pTxBase == nullptr? nullptr: rhs.pTxBase->clone();
-        this->pSourceNode = rhs.pSourceNode;
-    }
-
-    TxBaseMsg_DataToProcess& operator=(const TxBaseMsg_DataToProcess& rhs)
-    {
-        if (this != &rhs)
-        {
-            this->txBaseHash = rhs.txBaseHash;
-            this->sourceNodeId = rhs.sourceNodeId;
-            this->pTxBase = rhs.pTxBase == nullptr? nullptr: rhs.pTxBase->clone();
-            this->pSourceNode = rhs.pSourceNode;
-        }
-        return *this;
-    }
-
-    ~TxBaseMsg_DataToProcess()
-    {
-        // Delete pTxBase since it's owning ptr
-        delete pTxBase;
-        pTxBase = nullptr;
-
-        // No delete, since it's non-owning pointer
-        pSourceNode = nullptr;
-    };
 };
 static std::vector<TxBaseMsg_DataToProcess> processTxBaseMsg_WorkQueue;
 
@@ -5665,10 +5635,10 @@ void addTxBaseMsgToProcess(const CTransactionBase& txBase, CNodeInterface* pfrom
     }
 
     TxBaseMsg_DataToProcess dataToAdd;
-    dataToAdd.txBaseHash = txBase.GetHash();
+    dataToAdd.txBaseHash   = txBase.GetHash();
     dataToAdd.sourceNodeId = pfrom->GetId();
-    dataToAdd.pTxBase = txBase.clone();
-    dataToAdd.pSourceNode = pfrom;
+    dataToAdd.pTxBase      = txBase.MakeShared();
+    dataToAdd.pSourceNode  = pfrom;
     processTxBaseMsg_WorkQueue.push_back(dataToAdd);
     return;
 }
@@ -5681,10 +5651,10 @@ void ProcessTxBaseMsg(const processMempoolTx& mempoolProcess)
 
     while (!processTxBaseMsg_WorkQueue.empty())
     {
-        const uint256& hashToProcess = processTxBaseMsg_WorkQueue.at(0).txBaseHash;
-        NodeId sourceNodeId = processTxBaseMsg_WorkQueue.at(0).sourceNodeId; //just an int, better copy than reference
+        const uint256& hashToProcess        = processTxBaseMsg_WorkQueue.at(0).txBaseHash;
+        NodeId sourceNodeId                 = processTxBaseMsg_WorkQueue.at(0).sourceNodeId;
         const CTransactionBase& txToProcess = *processTxBaseMsg_WorkQueue.at(0).pTxBase;
-        CNodeInterface* pSourceNode =  processTxBaseMsg_WorkQueue.at(0).pSourceNode;
+        CNodeInterface* pSourceNode         =  processTxBaseMsg_WorkQueue.at(0).pSourceNode;
 
         if (setMisbehaving.count(sourceNodeId))
         {
@@ -5715,10 +5685,10 @@ void ProcessTxBaseMsg(const processMempoolTx& mempoolProcess)
             for(const uint256& orphanHash: unlockedOrphansIt->second)
             {
                 TxBaseMsg_DataToProcess dataToAdd;
-                dataToAdd.txBaseHash = orphanHash;
+                dataToAdd.txBaseHash   = orphanHash;
                 dataToAdd.sourceNodeId = mapOrphanTransactions.at(orphanHash).fromPeer;
-                dataToAdd.pTxBase = mapOrphanTransactions.at(orphanHash).tx->clone(); //Clone currently necessary since ptr ownership is assumed
-                dataToAdd.pSourceNode = nullptr;
+                dataToAdd.pTxBase      = mapOrphanTransactions.at(orphanHash).tx;
+                dataToAdd.pSourceNode  = nullptr;
 
                 processTxBaseMsg_WorkQueue.push_back(dataToAdd);
             }

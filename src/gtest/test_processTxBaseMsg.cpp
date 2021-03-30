@@ -144,6 +144,9 @@ public:
         UnloadBlockIndex();
         mapRelay.clear();
 
+        delete pcoinsTip;
+        pcoinsTip = nullptr;
+
         delete pChainStateDb;
         pChainStateDb = nullptr;
     }
