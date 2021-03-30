@@ -299,7 +299,10 @@ CTxScCreationOut::CTxScCreationOut(
      withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant),
      wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), wCeasedVk(paramsIn.wCeasedVk),
      vFieldElementCertificateFieldConfig(paramsIn.vFieldElementCertificateFieldConfig),
-     vBitVectorCertificateFieldConfig(paramsIn.vBitVectorCertificateFieldConfig) {}
+     vBitVectorCertificateFieldConfig(paramsIn.vBitVectorCertificateFieldConfig),
+     forwardTransferScFee(paramsIn.forwardTransferScFee),
+     mainchainBackwardTransferRequestScFee(paramsIn.mainchainBackwardTransferRequestScFee),
+     mainchainBackwardTransferRequestDataLength(paramsIn.mainchainBackwardTransferRequestDataLength) {}
 
 uint256 CTxScCreationOut::GetHash() const
 {
@@ -313,14 +316,18 @@ std::string CTxScCreationOut::ToString() const
                                        "constant=[%s], wCertVk=[%s], wMbtrVk=[%s], "
                                        "wCeasedVk=[%s], "
                                        "vFieldElementCertificateFieldConfig=[%s], "
-                                       "vBitVectorCertificateFieldConfig[%s]",
+                                       "vBitVectorCertificateFieldConfig[%s], "
+                                       "forwardTransferScFee=%d, "
+                                       "mainchainBackwardTransferRequestScFee=%d, "
+                                       "mainchainBackwardTransferRequestDataLength=%d",
         generatedScId.ToString(), withdrawalEpochLength, nValue / COIN,
         nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
         constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
         HexStr(wCertVk), wMbtrVk ? HexStr(wMbtrVk.get()) : "",
         wCeasedVk ? HexStr(wCeasedVk.get()) : "",
         VecToStr(vFieldElementCertificateFieldConfig),
-        VecToStr(vBitVectorCertificateFieldConfig) );
+        VecToStr(vBitVectorCertificateFieldConfig),
+        forwardTransferScFee, mainchainBackwardTransferRequestScFee, mainchainBackwardTransferRequestDataLength );
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
@@ -346,6 +353,10 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     wCeasedVk = ccout.wCeasedVk;
     vFieldElementCertificateFieldConfig = ccout.vFieldElementCertificateFieldConfig;
     vBitVectorCertificateFieldConfig = ccout.vBitVectorCertificateFieldConfig;
+    forwardTransferScFee = ccout.forwardTransferScFee;
+    mainchainBackwardTransferRequestScFee = ccout.mainchainBackwardTransferRequestScFee;
+    mainchainBackwardTransferRequestDataLength = ccout.mainchainBackwardTransferRequestDataLength;
+
     return *this;
 }
 

@@ -578,8 +578,13 @@ public:
     boost::optional<libzendoomc::ScVk> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
+    CAmount forwardTransferScFee;
+    CAmount mainchainBackwardTransferRequestScFee;
+    size_t mainchainBackwardTransferRequestDataLength;
 
-    CTxScCreationOut():withdrawalEpochLength(-1) { }
+    CTxScCreationOut(): withdrawalEpochLength(-1), forwardTransferScFee(0),
+                        mainchainBackwardTransferRequestScFee(0),
+                        mainchainBackwardTransferRequestDataLength(0) { }
 
     CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn, const Sidechain::ScCreationParameters& params);
     CTxScCreationOut& operator=(const CTxScCreationOut &ccout);
@@ -598,6 +603,9 @@ public:
         READWRITE(wCeasedVk);
         READWRITE(vFieldElementCertificateFieldConfig);
         READWRITE(vBitVectorCertificateFieldConfig);
+        READWRITE(forwardTransferScFee);
+        READWRITE(mainchainBackwardTransferRequestScFee);
+        READWRITE(mainchainBackwardTransferRequestDataLength);
     }
 
     const uint256& GetScId() const override final { return generatedScId;}; 
@@ -616,7 +624,10 @@ public:
                  a.wMbtrVk == b.wMbtrVk &&
                  a.wCeasedVk == b.wCeasedVk &&
                  a.vFieldElementCertificateFieldConfig == b.vFieldElementCertificateFieldConfig &&
-                 a.vBitVectorCertificateFieldConfig == b.vBitVectorCertificateFieldConfig;
+                 a.vBitVectorCertificateFieldConfig == b.vBitVectorCertificateFieldConfig &&
+                 a.forwardTransferScFee == b.forwardTransferScFee &&
+                 a.mainchainBackwardTransferRequestScFee == b.mainchainBackwardTransferRequestScFee &&
+                 a.mainchainBackwardTransferRequestDataLength == b.mainchainBackwardTransferRequestDataLength;
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)

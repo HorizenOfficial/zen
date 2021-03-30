@@ -128,6 +128,7 @@ protected:
     //Helpers
     libzendoomc::CScProofVerifier dummyScVerifier;
     CBlockUndo createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash = uint256());
+    CTransaction createNewSidechainTx(const Sidechain::ScCreationParameters& params);
     void storeSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
 };
 
@@ -252,6 +253,50 @@ TEST_F(SidechainsTestSuite, SidechainCreationsWithNegativeForwardTransferNotAreS
     EXPECT_FALSE(txState.IsValid());
     EXPECT_TRUE(txState.GetRejectCode() == REJECT_INVALID)
         <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
+}
+
+TEST_F(SidechainsTestSuite, SidechainCreationsWithValidFeesAreSemanticallyValid) {
+
+    Sidechain::ScCreationParameters params;
+    params.forwardTransferScFee = CAmount(0);
+    params.mainchainBackwardTransferRequestScFee = CAmount(0);
+
+    CTransaction aTransaction = createNewSidechainTx(params);
+    CValidationState txState;
+
+    EXPECT_TRUE(Sidechain::checkTxSemanticValidity(aTransaction, txState));
+    EXPECT_TRUE(txState.IsValid());
+
+    params.forwardTransferScFee = CAmount(MAX_MONEY / 2);
+    params.mainchainBackwardTransferRequestScFee = CAmount(MAX_MONEY / 2);
+    aTransaction = createNewSidechainTx(params);
+    EXPECT_TRUE(Sidechain::checkTxSemanticValidity(aTransaction, txState));
+    EXPECT_TRUE(txState.IsValid());
+
+    params.forwardTransferScFee = CAmount(MAX_MONEY);
+    params.mainchainBackwardTransferRequestScFee = CAmount(MAX_MONEY);
+    aTransaction = createNewSidechainTx(params);
+    EXPECT_TRUE(Sidechain::checkTxSemanticValidity(aTransaction, txState));
+    EXPECT_TRUE(txState.IsValid());
+}
+
+TEST_F(SidechainsTestSuite, SidechainCreationsWithOutOfRangeFeesAreNotSemanticallyValid) {
+
+    Sidechain::ScCreationParameters params;
+    params.forwardTransferScFee = CAmount(-1);
+    params.mainchainBackwardTransferRequestScFee = CAmount(0);
+
+    CTransaction aTransaction = createNewSidechainTx(params);
+    CValidationState txState;
+
+    EXPECT_FALSE(Sidechain::checkTxSemanticValidity(aTransaction, txState));
+    EXPECT_FALSE(txState.IsValid());
+
+    params.forwardTransferScFee = CAmount(0);
+    params.mainchainBackwardTransferRequestScFee = CAmount(-1);
+    aTransaction = createNewSidechainTx(params);
+    EXPECT_FALSE(Sidechain::checkTxSemanticValidity(aTransaction, txState));
+    EXPECT_FALSE(txState.IsValid());
 }
 
 TEST_F(SidechainsTestSuite, FwdTransferCumulatedAmountDoesNotOverFlow) {
@@ -1339,6 +1384,9 @@ TEST_F(SidechainsTestSuite, FlushPersistsNewScsOnTopOfErasedOnes) {
 TEST_F(SidechainsTestSuite, GetScIdsReturnsNonErasedSidechains) {
     CBlock dummyBlock;
     CAmount dummyAmount {10};
+    CAmount dummyFtScFee {0};
+    CAmount dummyMbtrScFee {0};
+    CAmount dummyMbtrDataLength = 0;
 
     int sc1CreationHeight {11};
     int epochLengthSc1 {15};
@@ -1603,6 +1651,22 @@ CBlockUndo SidechainsTestSuite::createBlockUndoWith(const uint256 & scId, int he
     return retVal;
 }
 
+CTransaction SidechainsTestSuite::createNewSidechainTx(const Sidechain::ScCreationParameters& params)
+{
+    CMutableTransaction mtx = txCreationUtils::populateTx(SC_TX_VERSION, CAmount(1000));
+    mtx.resizeOut(0);
+    mtx.vjoinsplit.resize(0);
+    mtx.vft_ccout.resize(0);
+
+    mtx.vsc_ccout[0].forwardTransferScFee = params.forwardTransferScFee;
+    mtx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = params.mainchainBackwardTransferRequestScFee;
+    mtx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = params.mainchainBackwardTransferRequestDataLength;
+
+    txCreationUtils::signTx(mtx);
+
+    return CTransaction(mtx);
+}
+
 void SidechainsTestSuite::storeSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight)
 {
     chainSettingUtils::ExtendChainActiveToHeight(chainActiveHeight);
@@ -1629,7 +1693,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
      * have the same hash.
      */
     CScCertificate newCert = CScCertificate(originalCert);
-    EXPECT_TRUE(originalCert.GetDataHash() == newCert.GetDataHash());
+    EXPECT_EQ(originalCert.GetDataHash(), newCert.GetDataHash());
 
     /**
      * Check that two certificates with same parameters but different
@@ -1638,7 +1702,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     CMutableScCertificate mutCert = originalCert;
     mutCert.forwardTransferScFee = 1;
     newCert = mutCert;
-    EXPECT_TRUE(originalCert.GetDataHash() != newCert.GetDataHash());
+    EXPECT_NE(originalCert.GetDataHash(), newCert.GetDataHash());
 
     /**
      * Check that two certificates with same parameters but different
@@ -1647,5 +1711,32 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     mutCert = originalCert;
     mutCert.mainchainBackwardTransferRequestScFee = 1;
     newCert = mutCert;
-    EXPECT_TRUE(originalCert.GetDataHash() != newCert.GetDataHash());
+    EXPECT_NE(originalCert.GetDataHash(), newCert.GetDataHash());
+}
+
+
+//////////////////////////////////////////////////////////
+/////////////////// Tx Creation Output ///////////////////
+//////////////////////////////////////////////////////////
+TEST_F(SidechainsTestSuite, CTxScCreationOutHashComputation)
+{
+    CTxScCreationOut originalOut;
+
+    EXPECT_EQ(originalOut.forwardTransferScFee, 0);
+    EXPECT_EQ(originalOut.mainchainBackwardTransferRequestScFee, 0);
+    EXPECT_EQ(originalOut.mainchainBackwardTransferRequestDataLength, 0);
+
+    CTxScCreationOut newOut = CTxScCreationOut(originalOut);
+    EXPECT_EQ(originalOut.GetHash(), newOut.GetHash());
+
+    newOut.forwardTransferScFee = 1;
+    EXPECT_NE(originalOut.GetHash(), newOut.GetHash());
+
+    newOut = CTxScCreationOut(originalOut);
+    newOut.mainchainBackwardTransferRequestScFee = 1;
+    EXPECT_NE(originalOut.GetHash(), newOut.GetHash());
+
+    newOut = CTxScCreationOut(originalOut);
+    newOut.mainchainBackwardTransferRequestDataLength = 1;
+    EXPECT_NE(originalOut.GetHash(), newOut.GetHash());
 }

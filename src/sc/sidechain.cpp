@@ -218,6 +218,22 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     __func__, __LINE__, txHash.ToString()),
                     REJECT_INVALID, "sidechain-sc-creation-invalid-wceased-vk");
         }
+
+        if (!MoneyRange(sc.forwardTransferScFee))
+        {
+            return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], forwardTransferScFee out of range\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    REJECT_INVALID, "bad-cert-ft-fee-out-of-range");;
+        }
+
+        if (!MoneyRange(sc.mainchainBackwardTransferRequestScFee))
+        {
+            return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestScFee out of range\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    REJECT_INVALID, "bad-cert-mbtr-fee-out-of-range");;
+        }
     }
 
     // Note: no sence to check FT and ScCr amounts, because they were chacked before in `tx.CheckAmounts`
