@@ -20,6 +20,7 @@
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "uint256.h"
+#include <txBaseMsgProcessor.h>
 
 #include <algorithm>
 #include <exception>
@@ -214,15 +215,6 @@ void UnloadBlockIndex();
 bool ProcessMessages(CNode* pfrom);
 
 // Utilities refactored out of ProcessMessages
-enum class LimitFreeFlag       { ON, OFF };
-enum class RejectAbsurdFeeFlag { ON, OFF };
-enum class MempoolReturnValue { INVALID, MISSING_INPUT, VALID };
-
-typedef std::function<MempoolReturnValue(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-        LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)> processMempoolTx;
-
-void addTxBaseMsgToProcess(const CTransactionBase& txBase, CNodeInterface* pfrom);
-void ProcessTxBaseMsg(const processMempoolTx& mempoolProcess);
 bool AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 // End of Utilities
 
