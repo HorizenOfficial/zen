@@ -1765,3 +1765,49 @@ TEST_F(SidechainsTestSuite, CTxScCreationOutSetsFeesAndDataLength)
     ASSERT_EQ(sc.lastTopQualityCertView.mainchainBackwardTransferRequestScFee, params.mainchainBackwardTransferRequestScFee);
     ASSERT_EQ(sc.mainchainBackwardTransferRequestDataLength, params.mainchainBackwardTransferRequestDataLength);
 }
+
+
+//////////////////////////////////////////////////////////
+/////////////////// Certificate update ///////////////////
+//////////////////////////////////////////////////////////
+TEST_F(SidechainsTestSuite, NewCertificateUpdatesFeesAndDataLength)
+{
+    CAmount ftFee = CAmount(5);
+    CAmount mbtrFee = CAmount(7);
+    CCoinsViewCache dummyView(nullptr);
+
+    // Forge a sidechain creation transaction
+    Sidechain::ScCreationParameters params;
+    CTransaction scCreationTx = createNewSidechainTx(params);
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+
+    // Update the sidechains view adding the new sidechain
+    int scCreationHeight {1987};
+    CBlock dummyBlock;
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight));
+
+    // Check that the parameters have been set correctly
+    CSidechain sc;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, sc));
+    ASSERT_EQ(sc.lastTopQualityCertView.forwardTransferScFee, 0);
+    ASSERT_EQ(sc.lastTopQualityCertView.mainchainBackwardTransferRequestScFee, 0);
+    ASSERT_EQ(sc.mainchainBackwardTransferRequestDataLength, 0);
+
+    //Fully mature initial Sc balance
+    int coinMaturityHeight = scCreationHeight + sidechainsView->getScCoinsMaturity();
+    CBlockUndo dummyBlockUndo;
+    std::vector<CScCertificateStatusUpdateInfo> dummyInfo;
+    ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummyInfo));
+
+    // Create new certificate
+    //CBlockUndo dummyBlockUndo;
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*certEpoch*/0, dummyBlock.GetHash(),
+        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+        /*ftScFee*/ftFee, /*mbtrScFee*/mbtrFee);
+
+    // Update the sidechains view with the new certificate
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(cert, dummyBlockUndo));
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, sc));
+    ASSERT_EQ(sc.lastTopQualityCertView.forwardTransferScFee, ftFee);
+    ASSERT_EQ(sc.lastTopQualityCertView.mainchainBackwardTransferRequestScFee, mbtrFee);
+}
