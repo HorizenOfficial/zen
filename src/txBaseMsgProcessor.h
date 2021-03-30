@@ -12,6 +12,7 @@ class CNodeInterface;
 class CTxMemPool;
 class CValidationState;
 
+// Accept Tx/Cert ToMempool parameters types and signature
 enum class LimitFreeFlag       { ON, OFF };
 enum class RejectAbsurdFeeFlag { ON, OFF };
 enum class MempoolReturnValue { INVALID, MISSING_INPUT, VALID };
@@ -22,14 +23,37 @@ typedef std::function<MempoolReturnValue(CTxMemPool& pool, CValidationState &sta
 class TxBaseMsgProcessor
 {
 public:
-	TxBaseMsgProcessor(const TxBaseMsgProcessor&) = delete;
-	TxBaseMsgProcessor& operator=(const TxBaseMsgProcessor&) = delete;
+    static TxBaseMsgProcessor& get() {static TxBaseMsgProcessor theProcessor{}; return theProcessor; }
 
-	static TxBaseMsgProcessor& getProcessor() {static TxBaseMsgProcessor theProcessor{}; return theProcessor; }
-    ~TxBaseMsgProcessor() = default;
-
+    // Tx/Certs processing Section
     void addTxBaseMsgToProcess(const CTransactionBase& txBase, CNodeInterface* pfrom);
     void ProcessTxBaseMsg(const processMempoolTx& mempoolProcess); // PUBLIC TILL SINGLE THREAD
+    // End of Tx/Certs processing Section
+
+    // Orphan Txes/Certs Tracker section
+    bool AddOrphanTx(const CTransactionBase& txObj, NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void EraseOrphanTx(const uint256& hash)                      EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool IsOrphan(const uint256& txBaseHash) const               EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    const CTransactionBase* PickRandomOrphan()                   EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans)     EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    unsigned int countOrphans() const                            EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
+    void EraseOrphansFor(NodeId peer)                            EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void clearOrphans()                                          EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    // End of Orphan Txes/Certs Tracker section
+
+    // Rejected Txes/Certs Tracker section
+    void SetupRejectionFilter(unsigned int nElements, double nFPRate);
+    void ResetRejectionFilter();
+    bool HasBeenRejected(const uint256& txBaseHash) const;
+    void RefreshRejected(const uint256& currentTipHash);
+    // End of Rejected Txes/Certs Tracker section
+
+private:
+    TxBaseMsgProcessor() = default;
+    ~TxBaseMsgProcessor() = default;
+    TxBaseMsgProcessor(const TxBaseMsgProcessor&) = delete;
+    TxBaseMsgProcessor& operator=(const TxBaseMsgProcessor&) = delete;
 
     struct COrphanTx {
         std::shared_ptr<const CTransactionBase> tx;
@@ -37,11 +61,7 @@ public:
     };
     std::map<uint256, COrphanTx>          mapOrphanTransactions       GUARDED_BY(cs_main);
     std::map<uint256, std::set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);
-    bool AddOrphanTx(const CTransactionBase& txObj, NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    void EraseOrphanTx(uint256 hash)                             EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans)     EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    void EraseOrphansFor(NodeId peer)                            EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-	void clearOrphans() { mapOrphanTransactions.clear(); mapOrphanTransactionsByPrev.clear(); return; }
+
     /**
      * Filter for transactions that were recently rejected by
      * AcceptToMemoryPool. These are not rerequested until the chain tip
@@ -64,9 +84,8 @@ public:
      */
     boost::scoped_ptr<CRollingBloomFilter> recentRejects;
     uint256 hashRecentRejectsChainTip;
+    inline void MarkAsRejected(const uint256& txBaseHash);
 
-private:
-    TxBaseMsgProcessor() = default;
     struct TxBaseMsg_DataToProcess
     {
         // required data

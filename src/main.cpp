@@ -325,7 +325,7 @@ void FinalizeNode(NodeId nodeid) {
 
     BOOST_FOREACH(const QueuedBlock& entry, state->vBlocksInFlight)
         mapBlocksInFlight.erase(entry.hash);
-    TxBaseMsgProcessor::getProcessor().EraseOrphansFor(nodeid);
+    TxBaseMsgProcessor::get().EraseOrphansFor(nodeid);
     nPreferredDownload -= state->fPreferredDownload;
 
     mapNodeState.erase(nodeid);
@@ -4819,8 +4819,8 @@ void UnloadBlockIndex()
     setDirtyBlockIndex.clear();
     setDirtyFileInfo.clear();
     mapNodeState.clear();
-    TxBaseMsgProcessor::getProcessor().recentRejects.reset(nullptr);
-    TxBaseMsgProcessor::getProcessor().clearOrphans();
+    TxBaseMsgProcessor::get().ResetRejectionFilter();
+    TxBaseMsgProcessor::get().clearOrphans();
 
     BOOST_FOREACH(BlockMap::value_type& entry, mapBlockIndex) {
         delete entry.second;
@@ -4843,7 +4843,7 @@ bool InitBlockIndex() {
     LOCK(cs_main);
 
     // Initialize global variables that cannot be constructed at startup.
-    TxBaseMsgProcessor::getProcessor().recentRejects.reset(new CRollingBloomFilter(120000, 0.000001));
+    TxBaseMsgProcessor::get().SetupRejectionFilter(120000, 0.000001);
 
     // Check whether we're already initialized
     if (chainActive.Genesis() != NULL)
@@ -5252,20 +5252,11 @@ bool AlreadyHave(const CInv& inv)
     {
     case MSG_TX:
         {
-            assert(TxBaseMsgProcessor::getProcessor().recentRejects);
-            if (chainActive.Tip()->GetBlockHash() != TxBaseMsgProcessor::getProcessor().hashRecentRejectsChainTip)
-            {
-                // If the chain tip has changed previously rejected transactions
-                // might be now valid, e.g. due to a nLockTime'd tx becoming valid,
-                // or a double-spend. Reset the rejects filter and give those
-                // txs a second chance.
-            	TxBaseMsgProcessor::getProcessor().hashRecentRejectsChainTip = chainActive.Tip()->GetBlockHash();
-                TxBaseMsgProcessor::getProcessor().recentRejects->reset();
-            }
+            TxBaseMsgProcessor::get().RefreshRejected(chainActive.Tip()->GetBlockHash());
 
-            return TxBaseMsgProcessor::getProcessor().recentRejects->contains(inv.hash) ||
+            return TxBaseMsgProcessor::get().HasBeenRejected(inv.hash) ||
                    mempool.exists(inv.hash) ||
-				   TxBaseMsgProcessor::getProcessor().mapOrphanTransactions.count(inv.hash) ||
+                   TxBaseMsgProcessor::get().IsOrphan(inv.hash) ||
                    pcoinsTip->HaveCoins(inv.hash);
         }
         case MSG_BLOCK:
@@ -6062,8 +6053,8 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CTransaction tx(txVers);
             tx.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
-            TxBaseMsgProcessor::getProcessor().addTxBaseMsgToProcess(tx, pfrom);
-            TxBaseMsgProcessor::getProcessor().ProcessTxBaseMsg(&AcceptTxBaseToMemoryPool);
+            TxBaseMsgProcessor::get().addTxBaseMsgToProcess(tx, pfrom);
+            TxBaseMsgProcessor::get().ProcessTxBaseMsg(&AcceptTxBaseToMemoryPool);
         }
         else
         if (CTransactionBase::IsCertificate(txVers) )
@@ -6071,8 +6062,8 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CScCertificate cert(txVers);
             cert.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
-            TxBaseMsgProcessor::getProcessor().addTxBaseMsgToProcess(cert, pfrom);
-            TxBaseMsgProcessor::getProcessor().ProcessTxBaseMsg(&AcceptTxBaseToMemoryPool);
+            TxBaseMsgProcessor::get().addTxBaseMsgToProcess(cert, pfrom);
+            TxBaseMsgProcessor::get().ProcessTxBaseMsg(&AcceptTxBaseToMemoryPool);
         }
         else
         {
@@ -6846,7 +6837,7 @@ public:
         mapBlockIndex.clear();
 
         // orphan transactions
-        TxBaseMsgProcessor::getProcessor().clearOrphans();
+        TxBaseMsgProcessor::get().clearOrphans();
     }
 } instance_of_cmaincleanup;
 

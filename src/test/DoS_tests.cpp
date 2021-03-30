@@ -97,15 +97,6 @@ BOOST_AUTO_TEST_CASE(DoS_bantime)
     SetMockTime(0);
 }
 
-const CTransactionBase* RandomOrphan()
-{
-    std::map<uint256, TxBaseMsgProcessor::COrphanTx>::iterator it;
-    it = TxBaseMsgProcessor::getProcessor().mapOrphanTransactions.lower_bound(GetRandHash());
-    if (it == TxBaseMsgProcessor::getProcessor().mapOrphanTransactions.end())
-        it = TxBaseMsgProcessor::getProcessor().mapOrphanTransactions.begin();
-    return (it->second.tx).get();
-}
-
 BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
 {
     CKey key;
@@ -114,7 +105,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
     keystore.AddKey(key);
 
     // 50 orphan transactions:
-    for (int i = 0; i < 50; i++)
+    for (NodeId nodeId = 0; nodeId < 50; nodeId++)
     {
         CMutableTransaction tx;
         tx.vin.resize(1);
@@ -125,13 +116,13 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.getOut(0).nValue = 1*CENT;
         tx.getOut(0).scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
-        TxBaseMsgProcessor::getProcessor().AddOrphanTx(tx, i);
+        TxBaseMsgProcessor::get().AddOrphanTx(tx, nodeId);
     }
 
     // ... and 50 that depend on other orphans:
-    for (int i = 0; i < 50; i++)
+    for (NodeId nodeId = 0; nodeId < 50; nodeId++)
     {
-        const CTransactionBase* txPrev = RandomOrphan();
+        const CTransactionBase* txPrev = TxBaseMsgProcessor::get().PickRandomOrphan();
 
         CMutableTransaction tx;
         tx.vin.resize(1);
@@ -150,14 +141,14 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
             SignSignature(keystore, *dynamic_cast<const CScCertificate*>(txPrev), tx, 0);
         }
 
-        TxBaseMsgProcessor::getProcessor().AddOrphanTx(tx, i);
+        TxBaseMsgProcessor::get().AddOrphanTx(tx, nodeId);
     }
 
 
     // This really-big orphan should be ignored:
-    for (int i = 0; i < 10; i++)
+    for (NodeId nodeId = 0; nodeId < 10; nodeId++)
     {
-        const CTransactionBase* txPrev = RandomOrphan();
+        const CTransactionBase* txPrev = TxBaseMsgProcessor::get().PickRandomOrphan();
 
         CMutableTransaction tx;
         tx.resizeOut(1);
@@ -183,25 +174,24 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         for (unsigned int j = 1; j < tx.vin.size(); j++)
             tx.vin[j].scriptSig = tx.vin[0].scriptSig;
 
-        BOOST_CHECK(!TxBaseMsgProcessor::getProcessor().AddOrphanTx(tx, i));
+        BOOST_CHECK(!TxBaseMsgProcessor::get().AddOrphanTx(tx, nodeId));
     }
 
     // Test EraseOrphansFor:
-    for (NodeId i = 0; i < 3; i++)
+    for (NodeId nodeId = 0; nodeId < 3; nodeId++)
     {
-        size_t sizeBefore = TxBaseMsgProcessor::getProcessor().mapOrphanTransactions.size();
-        TxBaseMsgProcessor::getProcessor().EraseOrphansFor(i);
-        BOOST_CHECK(TxBaseMsgProcessor::getProcessor().mapOrphanTransactions.size() < sizeBefore);
+        size_t sizeBefore = TxBaseMsgProcessor::get().countOrphans();
+        TxBaseMsgProcessor::get().EraseOrphansFor(nodeId);
+        BOOST_CHECK(TxBaseMsgProcessor::get().countOrphans() < sizeBefore);
     }
 
     // Test LimitOrphanTxSize() function:
-    TxBaseMsgProcessor::getProcessor().LimitOrphanTxSize(40);
-    BOOST_CHECK(TxBaseMsgProcessor::getProcessor().mapOrphanTransactions.size() <= 40);
-    TxBaseMsgProcessor::getProcessor().LimitOrphanTxSize(10);
-    BOOST_CHECK(TxBaseMsgProcessor::getProcessor().mapOrphanTransactions.size() <= 10);
-    TxBaseMsgProcessor::getProcessor().LimitOrphanTxSize(0);
-    BOOST_CHECK(TxBaseMsgProcessor::getProcessor().mapOrphanTransactions.empty());
-    BOOST_CHECK(TxBaseMsgProcessor::getProcessor().mapOrphanTransactionsByPrev.empty());
+    TxBaseMsgProcessor::get().LimitOrphanTxSize(40);
+    BOOST_CHECK(TxBaseMsgProcessor::get().countOrphans() <= 40);
+    TxBaseMsgProcessor::get().LimitOrphanTxSize(10);
+    BOOST_CHECK(TxBaseMsgProcessor::get().countOrphans() <= 10);
+    TxBaseMsgProcessor::get().LimitOrphanTxSize(0);
+    BOOST_CHECK(TxBaseMsgProcessor::get().countOrphans() == 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

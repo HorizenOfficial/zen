@@ -99,8 +99,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
             if (txToProcess.GetVjoinsplit().size() != 0)
             {
                 // prohibit joinsplits from entering mapOrphans but relay right away if it's from whitelisted node
-                assert(recentRejects);
-                recentRejects->insert(hashToProcess);
+                MarkAsRejected(hashToProcess);
                 if (pSourceNode != nullptr && pSourceNode->IsWhiteListed())
                 {
                     LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", hashToProcess.ToString(), sourceNodeId);
@@ -129,8 +128,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
             LogPrint("mempool", "%s from peer=%d was not accepted into the memory pool: %s\n",
                     hashToProcess.ToString(), sourceNodeId, state.GetRejectReason());
 
-            assert(recentRejects);
-            recentRejects->insert(hashToProcess);
+            MarkAsRejected(hashToProcess);
             int nDoS = 0;
             state.IsInvalid(nDoS); //retrieve nDoS
             if (nDoS > 0)
@@ -166,9 +164,11 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
         EraseOrphanTx(hash);
 }
 
+
+// Orphan Txes/Certs Tracker section
 bool TxBaseMsgProcessor::AddOrphanTx(const CTransactionBase& txObj, NodeId peer)
 {
-    uint256 hash = txObj.GetHash();
+    const uint256& hash = txObj.GetHash();
     if (mapOrphanTransactions.count(hash))
         return false;
 
@@ -188,7 +188,7 @@ bool TxBaseMsgProcessor::AddOrphanTx(const CTransactionBase& txObj, NodeId peer)
 
     mapOrphanTransactions[hash].tx = txObj.MakeShared();
     mapOrphanTransactions[hash].fromPeer = peer;
-    BOOST_FOREACH(const CTxIn& txin, txObj.GetVin())
+    for(const CTxIn& txin: txObj.GetVin())
         mapOrphanTransactionsByPrev[txin.prevout.hash].insert(hash);
 
     LogPrint("mempool", "stored orphan tx %s (mapsz %u prevsz %u)\n", hash.ToString(),
@@ -196,7 +196,7 @@ bool TxBaseMsgProcessor::AddOrphanTx(const CTransactionBase& txObj, NodeId peer)
     return true;
 }
 
-void TxBaseMsgProcessor::EraseOrphanTx(uint256 hash)
+void TxBaseMsgProcessor::EraseOrphanTx(const uint256& hash)
 {
     std::map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.find(hash);
     if (it == mapOrphanTransactions.end())
@@ -207,11 +207,44 @@ void TxBaseMsgProcessor::EraseOrphanTx(uint256 hash)
         std::map<uint256, std::set<uint256> >::iterator itPrev = mapOrphanTransactionsByPrev.find(txin.prevout.hash);
         if (itPrev == mapOrphanTransactionsByPrev.end())
             continue;
+
         itPrev->second.erase(hash);
         if (itPrev->second.empty())
             mapOrphanTransactionsByPrev.erase(itPrev);
     }
+
     mapOrphanTransactions.erase(it);
+}
+
+bool TxBaseMsgProcessor::IsOrphan(const uint256& txBaseHash) const
+{
+    return mapOrphanTransactions.count(txBaseHash) != 0;
+}
+
+const CTransactionBase* TxBaseMsgProcessor::PickRandomOrphan()
+{
+    uint256 randomhash = GetRandHash();
+    std::map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.lower_bound(randomhash);
+    if (it == mapOrphanTransactions.end())
+        it = mapOrphanTransactions.begin();
+
+    return (it->second.tx).get();
+}
+
+unsigned int TxBaseMsgProcessor::LimitOrphanTxSize(unsigned int nMaxOrphans)
+{
+    unsigned int nEvicted = 0;
+    while (mapOrphanTransactions.size() > nMaxOrphans)
+    {
+    	EraseOrphanTx(PickRandomOrphan()->GetHash());
+        ++nEvicted;
+    }
+    return nEvicted;
+}
+
+unsigned int TxBaseMsgProcessor::countOrphans() const
+{
+    return mapOrphanTransactions.size();
 }
 
 void TxBaseMsgProcessor::EraseOrphansFor(NodeId peer)
@@ -230,19 +263,48 @@ void TxBaseMsgProcessor::EraseOrphansFor(NodeId peer)
     if (nErased > 0) LogPrint("mempool", "Erased %d orphan tx from peer %d\n", nErased, peer);
 }
 
-
-unsigned int TxBaseMsgProcessor::LimitOrphanTxSize(unsigned int nMaxOrphans)
+void TxBaseMsgProcessor::clearOrphans()
 {
-    unsigned int nEvicted = 0;
-    while (mapOrphanTransactions.size() > nMaxOrphans)
-    {
-        // Evict a random orphan:
-        uint256 randomhash = GetRandHash();
-        std::map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.lower_bound(randomhash);
-        if (it == mapOrphanTransactions.end())
-            it = mapOrphanTransactions.begin();
-        EraseOrphanTx(it->first);
-        ++nEvicted;
-    }
-    return nEvicted;
+	mapOrphanTransactions.clear();
+	mapOrphanTransactionsByPrev.clear();
+	return;
 }
+// End of Orphan Txes/Certs Tracker section
+
+// Rejected Txes/Certs Tracker section
+void TxBaseMsgProcessor::SetupRejectionFilter(unsigned int nElements, double nFPRate)
+{
+    recentRejects.reset(new CRollingBloomFilter(nElements, nFPRate));
+}
+
+void TxBaseMsgProcessor::ResetRejectionFilter()
+{
+    recentRejects.reset(nullptr);
+}
+
+bool TxBaseMsgProcessor::HasBeenRejected(const uint256& txBaseHash) const
+{
+    assert(recentRejects);
+    return recentRejects->contains(txBaseHash);
+}
+
+void TxBaseMsgProcessor::MarkAsRejected(const uint256& txBaseHash)
+{
+    assert(recentRejects);
+    recentRejects->insert(txBaseHash);
+}
+
+void TxBaseMsgProcessor::RefreshRejected(const uint256& currentTipHash)
+{
+    assert(recentRejects);
+    if (currentTipHash != hashRecentRejectsChainTip)
+    {
+        // If the chain tip has changed previously rejected transactions
+        // might be now valid, e.g. due to a nLockTime'd tx becoming valid,
+        // or a double-spend. Reset the rejects filter and give those
+        // txs a second chance.
+        hashRecentRejectsChainTip = currentTipHash;
+        ResetRejectionFilter();
+    }
+}
+// End of Rejected Txes/Certs Tracker section
