@@ -1543,6 +1543,9 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationData.wCeasedVk = scCreation.wCeasedVk;
                 info.creationData.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
                 info.creationData.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;
+                info.creationData.forwardTransferScFee = scCreation.forwardTransferScFee;
+                info.creationData.mainchainBackwardTransferRequestScFee = scCreation.mainchainBackwardTransferRequestScFee;
+                info.mainchainBackwardTransferRequestDataLength = scCreation.mainchainBackwardTransferRequestDataLength;
                 break;
             }
         }

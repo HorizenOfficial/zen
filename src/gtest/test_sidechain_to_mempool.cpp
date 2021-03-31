@@ -1550,6 +1550,8 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creation
     scTx.vsc_ccout.resize(1);
     scTx.vsc_ccout[0].nValue = creationTxAmount;
     scTx.vsc_ccout[0].withdrawalEpochLength = (epochLenght < 0)?getScMinWithdrawalEpochLength(): epochLenght;
+    scTx.vsc_ccout[0].forwardTransferScFee = CAmount(1); // Dummy amount
+    scTx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1;
 
     scTx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     scTx.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));

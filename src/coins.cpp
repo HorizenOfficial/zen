@@ -1291,6 +1291,17 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         if (!CheckScTxTiming(scId))
             return false;
 
+        /**
+         * Check that the Forward Transfer amount is greater than or equal to the
+         * Sidechain Forward Transfer Fee.
+         */
+        CAmount scFtFee = GetActiveCertView(scId).forwardTransferScFee;
+        if (ft.nValue < scFtFee)
+        {
+            return error("%s():%d - ERROR: Invalid tx[%s] : FT amount [%s] cannot be less than SC FT fee [%s]",
+                    __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), FormatMoney(scFtFee));
+        }
+
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
     }
@@ -1308,6 +1319,14 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         if (!CheckScTxTiming(scId))
             return false;
 
+        /**
+         * Check that MBTRs are allowed (i.e. the MBTR data length is greater than zero).
+         */
+        if (this->AccessSidechain(scId)->mainchainBackwardTransferRequestDataLength == 0)
+        {
+            return error("%s():%d - ERROR: mbtr is not allowed\n",  __func__, __LINE__);
+        }
+
         boost::optional<libzendoomc::ScVk> wMbtrVk = this->AccessSidechain(scId)->creationData.wMbtrVk;
 
         if(!wMbtrVk.is_initialized())
@@ -1315,7 +1334,40 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
             return error("%s():%d - ERROR: mbtr not supported\n",  __func__, __LINE__);
         }
 
-        CScCertificateView certView = this->GetActiveCertView(mbtr.scId);
+        /**
+         * Check that the Mainchain Backward Transfer Request amount is greater than or equal to the
+         * Sidechain Mainchain Backward Transfer Request fee.
+         */
+        CAmount scMbtrFee = GetActiveCertView(scId).mainchainBackwardTransferRequestScFee;
+        if (mbtr.scFee < scMbtrFee)
+        {
+            return error("%s():%d - ERROR: Invalid tx[%s] : MBTR fee [%s] cannot be less than SC MBTR fee [%s]",
+                    __func__, __LINE__, txHash.ToString(), FormatMoney(mbtr.scFee), FormatMoney(scMbtrFee));
+        }
+
+        /**
+         * Check that the number of field elements in the Mainchain Backward Transfer Request is the same 
+         * specified during sidechain creation.
+         */
+        CSidechain sidechain;
+
+        if (!GetSidechain(scId, sidechain))
+        {
+            return error("%s():%d - ERROR: tx[%s] MBTR output [%s] refers to unknown scId\n",
+                __func__, __LINE__, tx.ToString(), mbtr.ToString());
+        }
+
+        /**
+         * Check that the size of the Request Data field element is the same specified
+         * during sidechain creation.
+         */
+        if (mbtr.scRequestData.size() != sidechain.mainchainBackwardTransferRequestDataLength)
+        {
+            return error("%s():%d - ERROR: Invalid tx[%s] : MBTR request data size [%d] must be equal to the size specified "
+                         "during sidechain creation [%d]",
+                    __func__, __LINE__, txHash.ToString(), mbtr.scRequestData.size(), sidechain.mainchainBackwardTransferRequestDataLength);
+        }
+
 //        //TODO: Unlock when we'll handle recovery of fwt of last epoch
 //        if (certDataHash.IsNull())
 //            return error("%s():%d - ERROR: Tx[%s] mbtr request [%s] has missing active cert data hash for required scId[%s]\n",
@@ -1854,6 +1906,9 @@ CScCertificateView CCoinsViewCache::GetActiveCertView(const uint256& scId) const
 
     if (this->GetSidechainState(scId) == CSidechain::State::CEASED)
         return pSidechain->pastTopQualityCertView;
+
+    if (this->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED)
+        return pSidechain->lastTopQualityCertView;
 
     int certReferencedEpoch = pSidechain->EpochFor(this->GetHeight()+1 - pSidechain->GetCertSubmissionWindowLength()) - 1;
 

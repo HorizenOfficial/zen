@@ -130,6 +130,8 @@ protected:
     CBlockUndo createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash = uint256());
     CTransaction createNewSidechainTx(const Sidechain::ScCreationParameters& params);
     void storeSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
+    uint256 createAndStoreSidechain(CAmount ftScFee = CAmount(0), CAmount mbtrScFee = CAmount(0), size_t mbtrScDataLength = 0);
+    CMutableTransaction createMtbtrTx(uint256 scId, CAmount scFee);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -634,6 +636,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
     initialScState.creationBlockHeight = 1492;
     initialScState.creationData.withdrawalEpochLength = 14;
     initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.mainchainBackwardTransferRequestDataLength = 1;
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
@@ -643,6 +646,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
     mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mcBwtReq.scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
@@ -667,6 +671,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
     // setup sidechain initial state
     CMutableTransaction mutScCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
     mutScCreationTx.vsc_ccout.at(0).wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    mutScCreationTx.vsc_ccout.at(0).mainchainBackwardTransferRequestDataLength = 1;
     CTransaction scCreationTx(mutScCreationTx);
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
     CTxMemPoolEntry scCreationPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, viewHeight);
@@ -677,6 +682,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
     mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mcBwtReq.scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
@@ -1674,6 +1680,35 @@ void SidechainsTestSuite::storeSidechainWithCurrentHeight(const uint256& scId, c
     txCreationUtils::storeSidechain(sidechainsView->getSidechainMap(), scId, sidechain);
 }
 
+uint256 SidechainsTestSuite::createAndStoreSidechain(CAmount ftScFee, CAmount mbtrScFee, size_t mbtrScDataLength)
+{
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.lastTopQualityCertView.forwardTransferScFee = ftScFee;
+    initialScState.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = mbtrScFee;
+    initialScState.mainchainBackwardTransferRequestDataLength = mbtrScDataLength;
+    int heightWhereAlive = initialScState.GetScheduledCeasingHeight() - 1;
+
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
+
+    return scId;
+}
+
+CMutableTransaction SidechainsTestSuite::createMtbtrTx(uint256 scId, CAmount scFee)
+{
+    CBwtRequestOut mbtrOut;
+    mbtrOut.scId = scId;
+    mbtrOut.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    mbtrOut.scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
+    CMutableTransaction mutTx;
+    mutTx.nVersion = SC_TX_VERSION;
+    mutTx.vmbtr_out.push_back(mbtrOut);
+
+    return mutTx;
+}
 
 //////////////////////////////////////////////////////////
 //////////////////// Certificate hash ////////////////////
@@ -1857,4 +1892,56 @@ TEST_F(SidechainsTestSuite, CertificatesWithOutOfRangeFeesAreNotValid)
 
     EXPECT_FALSE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_FALSE(txState.IsValid());
+}
+
+
+//////////////////////////////////////////////////////////
+//////////////////// Fee validations /////////////////////
+//////////////////////////////////////////////////////////
+TEST_F(SidechainsTestSuite, CheckFtFeeValidations)
+{
+    CAmount scFtFee(5);
+
+    uint256 scId = createAndStoreSidechain(scFtFee);
+
+    CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee - 1));
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier));
+
+    aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier));
+
+    aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee + 1));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier));
+}
+
+TEST_F(SidechainsTestSuite, CheckMbtrFeeValidations)
+{
+    CAmount scMbtrFee(5);
+    uint256 scId = createAndStoreSidechain(0, scMbtrFee, 1);
+    CMutableTransaction mutTx = createMtbtrTx(scId, scMbtrFee - 1);
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(mutTx, dummyScVerifier));
+
+    mutTx.vmbtr_out[0].scFee = scMbtrFee;
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(mutTx, dummyScVerifier));
+
+    mutTx.vmbtr_out[0].scFee = scMbtrFee + 1;
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(mutTx, dummyScVerifier));
+}
+
+
+//////////////////////////////////////////////////////////
+////////////// MBTR data length validation ///////////////
+//////////////////////////////////////////////////////////
+TEST_F(SidechainsTestSuite, MbtrAllowed)
+{
+    uint256 scId = createAndStoreSidechain(0, 0, 1);
+    CMutableTransaction mutTx = createMtbtrTx(scId, 0);
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(mutTx, dummyScVerifier));
+}
+
+TEST_F(SidechainsTestSuite, MbtrNotAllowed)
+{
+    uint256 scId = createAndStoreSidechain();
+    CMutableTransaction mutTx = createMtbtrTx(scId, 0);
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(mutTx, dummyScVerifier));
 }
