@@ -216,7 +216,7 @@ TEST_F(ProcessTxBaseMsgTestSuite, RetransmittedValidTxFromNonWhitelistedNodeIsNo
     TxBaseMsgProcessor::get().addTxBaseMsgToProcess(validTx, &sourceNode);
 
     //test
-    TxBaseMsgProcessor::get().TxBaseMsgProcessor::get().ProcessTxBaseMsg(fakedMemProcessor);
+    TxBaseMsgProcessor::get().ProcessTxBaseMsg(fakedMemProcessor);
 
     //checks
     EXPECT_TRUE(mapRelay.count(CInv(MSG_TX, validTx.GetHash())) == 0);

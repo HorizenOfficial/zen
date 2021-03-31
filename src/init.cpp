@@ -1841,6 +1841,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // SENDALERT
     threadGroup.create_thread(boost::bind(ThreadSendAlert));
 
+    // START THREAD FOR TXBASE MSG PROCESSING
+    threadGroup.create_thread(
+            boost::bind(
+                    &TxBaseMsgProcessor::startLoop,
+                    &TxBaseMsgProcessor::get(),
+                    &AcceptTxBaseToMemoryPool
+            )
+    );
     return !fRequestShutdown;
 }
 

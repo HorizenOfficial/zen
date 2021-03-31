@@ -65,30 +65,42 @@ void TxBaseMsgProcessor::addTxBaseMsgToProcess(const CTransactionBase& txBase, C
     dataToAdd.sourceNodeId = pfrom->GetId();
     dataToAdd.pTxBase      = txBase.MakeShared();
     dataToAdd.pSourceNode  = pfrom;
+
+    boost::unique_lock<boost::mutex> lock(mutex);
+    txBaseMsgQueue.push_back(dataToAdd);
+    lock.unlock();
+    condWorker.notify_one();
+
+    return;
+}
+
+void TxBaseMsgProcessor::startLoop(const processMempoolTx& mempoolProcess)
+{
+    while(true)
     {
-        LOCK(cs_txesUnderProcess);
-        processTxBaseMsg_WorkQueue.push_back(dataToAdd);
+        boost::unique_lock<boost::mutex> lock(mutex);
+        condWorker.wait(lock); // wait
+        ProcessTxBaseMsg(mempoolProcess); //this is automatically protected by the lock
     }
     return;
 }
 
 void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess)
 {
-    LOCK(cs_txesUnderProcess);
     std::vector<uint256> vEraseQueue;
     std::set<NodeId> setMisbehaving;
 
-    while (!processTxBaseMsg_WorkQueue.empty())
+    while (!txBaseMsgQueue.empty())
     {
-        const uint256& hashToProcess        = processTxBaseMsg_WorkQueue.at(0).txBaseHash;
-        NodeId sourceNodeId                 = processTxBaseMsg_WorkQueue.at(0).sourceNodeId;
-        const CTransactionBase& txToProcess = *processTxBaseMsg_WorkQueue.at(0).pTxBase;
-        CNodeInterface* pSourceNode         =  processTxBaseMsg_WorkQueue.at(0).pSourceNode;
+        const uint256& hashToProcess        = txBaseMsgQueue.at(0).txBaseHash;
+        NodeId sourceNodeId                 = txBaseMsgQueue.at(0).sourceNodeId;
+        const CTransactionBase& txToProcess = *txBaseMsgQueue.at(0).pTxBase;
+        CNodeInterface* pSourceNode         =  txBaseMsgQueue.at(0).pSourceNode;
 
         if (setMisbehaving.count(sourceNodeId))
         {
             vEraseQueue.push_back(hashToProcess);
-            processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
+            txBaseMsgQueue.erase(txBaseMsgQueue.begin());
             continue;
         }
 
@@ -112,7 +124,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
             std::map<uint256, std::set<uint256> >::iterator unlockedOrphansIt = mapOrphanTransactionsByPrev.find(hashToProcess);
             if (unlockedOrphansIt == mapOrphanTransactionsByPrev.end())
             {
-                processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
+                txBaseMsgQueue.erase(txBaseMsgQueue.begin());
                 continue; //hashToProcess does not unlock any orphan
             }
 
@@ -124,10 +136,10 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                 dataToAdd.pTxBase      = mapOrphanTransactions.at(orphanHash).tx;
                 dataToAdd.pSourceNode  = nullptr;
 
-                processTxBaseMsg_WorkQueue.push_back(dataToAdd);
+                txBaseMsgQueue.push_back(dataToAdd);
             }
 
-            processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
+            txBaseMsgQueue.erase(txBaseMsgQueue.begin());
         }
 
         if (res == MempoolReturnValue::MISSING_INPUT)
@@ -154,7 +166,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                 }
             }
 
-            processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
+            txBaseMsgQueue.erase(txBaseMsgQueue.begin());
         }
 
         if (res == MempoolReturnValue::INVALID)
@@ -195,12 +207,14 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
             }
 
             vEraseQueue.push_back(hashToProcess);
-            processTxBaseMsg_WorkQueue.erase(processTxBaseMsg_WorkQueue.begin());
+            txBaseMsgQueue.erase(txBaseMsgQueue.begin());
         }
     }
 
     for(const uint256& hash: vEraseQueue)
         EraseOrphanTx(hash);
+
+    return;
 }
 
 
