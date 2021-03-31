@@ -557,9 +557,6 @@ TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
 
 TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 {
-    fPrintToConsole = true;
-    fDebug = true;
-
     //Add txes containing scCreation and fwd transfer + a certificate
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), /*height*/10);
 
@@ -930,11 +927,6 @@ TEST(CctpLibrary, BitVectorMerkleTreeData)
 
 TEST(CctpLibrary, BitVectorCertificateFieldNull)
 {
-fDebug = true;
-fPrintToConsole = true;
-mapMultiArgs["-debug"].push_back("sc");
-mapMultiArgs["-debug"].push_back("cert");
-
     const BitVectorCertificateFieldConfig cfg(1024, 2048);
     BitVectorCertificateField bvField;
 
@@ -1365,8 +1357,31 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Negative)
             bws_csw_vk.len = ccout.wCeasedVk->GetDataSize();
         }
 
-        printf("Adding a sc creation to the commitment tree - invert params ...\n");
+        BufferWithSize bws_bad_custom_data(nullptr, 0);
+        unsigned char bad_buf[SC_CUSTOM_DATA_MAX_SIZE+1] = {};
+        bws_bad_custom_data.data = bad_buf;
+        bws_bad_custom_data.len = sizeof(bad_buf);
+ 
+        printf("Adding a sc creation to the commitment tree - too big custom data size params ...\n");
         bool ret = zendoo_commitment_tree_add_scc(ct,
+             &bws_scid,
+             crAmount,
+             &bws_pk,
+             epoch_len,
+             &bws_bad_custom_data,
+             &bws_constant,
+             &bws_cert_vk,
+             &bws_mbtr_vk,
+             &bws_csw_vk,
+             &bws_tx_hash,
+             out_idx,
+             &ret_code
+        );
+        ASSERT_TRUE(ret == false);
+        ASSERT_TRUE(ret_code == CctpErrorCode::InvalidBufferLength);
+ 
+        printf("Adding a sc creation to the commitment tree - invert params ...\n");
+        ret = zendoo_commitment_tree_add_scc(ct,
              &bws_scid,
              crAmount,
              &bws_pk,
