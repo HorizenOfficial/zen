@@ -144,7 +144,6 @@ public:
     void TearDown() override {
         UnloadBlockIndex();
         mapRelay.clear();
-        TxBaseMsgProcessor::get().ResetRejectionFilter();
 
         delete pcoinsTip;
         pcoinsTip = nullptr;

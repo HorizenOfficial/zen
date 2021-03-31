@@ -6,6 +6,7 @@
 
 #include <uint256.h>
 #include <net.h>
+#include <sync.h>
 
 class CTransactionBase;
 class CNodeInterface;
@@ -24,43 +25,43 @@ class TxBaseMsgProcessor
 {
 public:
     static TxBaseMsgProcessor& get() {static TxBaseMsgProcessor theProcessor{}; return theProcessor; }
+    void reset();
 
     // Tx/Certs processing Section
-    void addTxBaseMsgToProcess(const CTransactionBase& txBase, CNodeInterface* pfrom);
-    void ProcessTxBaseMsg(const processMempoolTx& mempoolProcess); // PUBLIC TILL SINGLE THREAD
+    void addTxBaseMsgToProcess(const CTransactionBase& txBase, CNodeInterface* pfrom) GUARDED_BY(cs_txesUnderProcess);
+    void ProcessTxBaseMsg(const processMempoolTx& mempoolProcess)                     GUARDED_BY(cs_txesUnderProcess); // PUBLIC TILL SINGLE THREAD
     // End of Tx/Certs processing Section
 
     // Orphan Txes/Certs Tracker section
-    bool AddOrphanTx(const CTransactionBase& txObj, NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    void EraseOrphanTx(const uint256& hash)                      EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    bool IsOrphan(const uint256& txBaseHash) const               EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    const CTransactionBase* PickRandomOrphan()                   EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans)     EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    unsigned int countOrphans() const                            EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    bool AddOrphanTx(const CTransactionBase& txObj, NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_orphanTxes);
+    void EraseOrphanTx(const uint256& hash)                      EXCLUSIVE_LOCKS_REQUIRED(cs_orphanTxes);
+    bool IsOrphan(const uint256& txBaseHash) const               EXCLUSIVE_LOCKS_REQUIRED(cs_orphanTxes);
+    const CTransactionBase* PickRandomOrphan()                   EXCLUSIVE_LOCKS_REQUIRED(cs_orphanTxes);
+    unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans)     EXCLUSIVE_LOCKS_REQUIRED(cs_orphanTxes);
+    unsigned int countOrphans() const                            EXCLUSIVE_LOCKS_REQUIRED(cs_orphanTxes);
 
-    void EraseOrphansFor(NodeId peer)                            EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-    void clearOrphans()                                          EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+    void EraseOrphansFor(NodeId peer)                            EXCLUSIVE_LOCKS_REQUIRED(cs_orphanTxes);
     // End of Orphan Txes/Certs Tracker section
 
     // Rejected Txes/Certs Tracker section
-    void SetupRejectionFilter(unsigned int nElements, double nFPRate);
-    void ResetRejectionFilter();
-    bool HasBeenRejected(const uint256& txBaseHash) const;
-    void RefreshRejected(const uint256& currentTipHash);
+    void SetupRejectionFilter(unsigned int nElements, double nFPRate) EXCLUSIVE_LOCKS_REQUIRED(cs_rejectedTxes);
+    bool HasBeenRejected(const uint256& txBaseHash) const             EXCLUSIVE_LOCKS_REQUIRED(cs_rejectedTxes);
+    void RefreshRejected(const uint256& currentTipHash)               EXCLUSIVE_LOCKS_REQUIRED(cs_rejectedTxes);
     // End of Rejected Txes/Certs Tracker section
 
 private:
-    TxBaseMsgProcessor() = default;
-    ~TxBaseMsgProcessor() = default;
+    TxBaseMsgProcessor();
+    ~TxBaseMsgProcessor();
     TxBaseMsgProcessor(const TxBaseMsgProcessor&) = delete;
     TxBaseMsgProcessor& operator=(const TxBaseMsgProcessor&) = delete;
 
+    mutable CCriticalSection cs_orphanTxes;
     struct COrphanTx {
         std::shared_ptr<const CTransactionBase> tx;
         NodeId fromPeer;
     };
-    std::map<uint256, COrphanTx>          mapOrphanTransactions       GUARDED_BY(cs_main);
-    std::map<uint256, std::set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);
+    std::map<uint256, COrphanTx>          mapOrphanTransactions       GUARDED_BY(cs_orphanTxes);
+    std::map<uint256, std::set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_orphanTxes);
 
     /**
      * Filter for transactions that were recently rejected by
@@ -82,9 +83,10 @@ private:
      *
      * Memory used: 1.7MB
      */
-    boost::scoped_ptr<CRollingBloomFilter> recentRejects;
-    uint256 hashRecentRejectsChainTip;
-    inline void MarkAsRejected(const uint256& txBaseHash);
+    mutable CCriticalSection cs_rejectedTxes;
+    boost::scoped_ptr<CRollingBloomFilter> recentRejects  GUARDED_BY(cs_rejectedTxes);
+    uint256 hashRecentRejectsChainTip                     GUARDED_BY(cs_rejectedTxes);
+    inline void MarkAsRejected(const uint256& txBaseHash) EXCLUSIVE_LOCKS_REQUIRED(cs_rejectedTxes);
 
     struct TxBaseMsg_DataToProcess
     {
@@ -98,7 +100,8 @@ private:
 
         TxBaseMsg_DataToProcess(): txBaseHash(), sourceNodeId(-1), pTxBase(nullptr), pSourceNode(nullptr) {};
     };
-    std::vector<TxBaseMsg_DataToProcess> processTxBaseMsg_WorkQueue;
+    mutable CCriticalSection cs_txesUnderProcess;
+    std::vector<TxBaseMsg_DataToProcess> processTxBaseMsg_WorkQueue GUARDED_BY(cs_txesUnderProcess);
 };
 
 #endif

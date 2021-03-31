@@ -5,17 +5,45 @@
 
 #include <set>
 
+TxBaseMsgProcessor::TxBaseMsgProcessor()
+{
+    this->reset();
+}
+TxBaseMsgProcessor::~TxBaseMsgProcessor()
+{
+    this->reset();
+}
+
+void TxBaseMsgProcessor::reset()
+{
+    {
+        LOCK(cs_rejectedTxes);
+        recentRejects.reset(nullptr);
+        recentRejects.reset(new CRollingBloomFilter(120000, 0.000001));
+    }
+
+    {
+        LOCK(cs_orphanTxes);
+        mapOrphanTransactions.clear();
+        mapOrphanTransactionsByPrev.clear();
+    }
+    return;
+}
+
 void TxBaseMsgProcessor::addTxBaseMsgToProcess(const CTransactionBase& txBase, CNodeInterface* pfrom)
 {
     CInv inv(MSG_TX, txBase.GetHash());
     pfrom->AddInventoryKnown(inv);
 
-    LOCK(cs_main);
-
     pfrom->StopAskingFor(inv);
     mapAlreadyAskedFor.erase(inv);
 
-    if(AlreadyHave(inv))
+    bool bAlreadyHave = false;
+    {
+        LOCK(cs_main);
+        bAlreadyHave = AlreadyHave(inv);
+    }
+    if(bAlreadyHave)
     {
         if (pfrom->IsWhiteListed())
         {
@@ -37,13 +65,16 @@ void TxBaseMsgProcessor::addTxBaseMsgToProcess(const CTransactionBase& txBase, C
     dataToAdd.sourceNodeId = pfrom->GetId();
     dataToAdd.pTxBase      = txBase.MakeShared();
     dataToAdd.pSourceNode  = pfrom;
-    processTxBaseMsg_WorkQueue.push_back(dataToAdd);
+    {
+        LOCK(cs_txesUnderProcess);
+        processTxBaseMsg_WorkQueue.push_back(dataToAdd);
+    }
     return;
 }
 
 void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess)
 {
-    LOCK(cs_main);
+    LOCK(cs_txesUnderProcess);
     std::vector<uint256> vEraseQueue;
     std::set<NodeId> setMisbehaving;
 
@@ -62,8 +93,13 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
         }
 
         CValidationState state;
-        MempoolReturnValue res = mempoolProcess(mempool, state, txToProcess, LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF);
-        mempool.check(pcoinsTip);
+        MempoolReturnValue res = MempoolReturnValue::INVALID;
+
+        {
+            LOCK(cs_main);
+            res = mempoolProcess(mempool, state, txToProcess, LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF);
+            mempool.check(pcoinsTip);
+        }
 
         if (res == MempoolReturnValue::VALID)
         {
@@ -133,7 +169,10 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
             state.IsInvalid(nDoS); //retrieve nDoS
             if (nDoS > 0)
             {
-                Misbehaving(sourceNodeId, nDoS);
+                {
+                    LOCK(cs_main);
+                    Misbehaving(sourceNodeId, nDoS);
+                }
                 setMisbehaving.insert(sourceNodeId);
             }
 
@@ -168,6 +207,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
 // Orphan Txes/Certs Tracker section
 bool TxBaseMsgProcessor::AddOrphanTx(const CTransactionBase& txObj, NodeId peer)
 {
+    LOCK(cs_orphanTxes);
     const uint256& hash = txObj.GetHash();
     if (mapOrphanTransactions.count(hash))
         return false;
@@ -198,6 +238,7 @@ bool TxBaseMsgProcessor::AddOrphanTx(const CTransactionBase& txObj, NodeId peer)
 
 void TxBaseMsgProcessor::EraseOrphanTx(const uint256& hash)
 {
+    LOCK(cs_orphanTxes);
     std::map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.find(hash);
     if (it == mapOrphanTransactions.end())
         return;
@@ -218,11 +259,13 @@ void TxBaseMsgProcessor::EraseOrphanTx(const uint256& hash)
 
 bool TxBaseMsgProcessor::IsOrphan(const uint256& txBaseHash) const
 {
+    LOCK(cs_orphanTxes);
     return mapOrphanTransactions.count(txBaseHash) != 0;
 }
 
 const CTransactionBase* TxBaseMsgProcessor::PickRandomOrphan()
 {
+    LOCK(cs_orphanTxes);
     uint256 randomhash = GetRandHash();
     std::map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.lower_bound(randomhash);
     if (it == mapOrphanTransactions.end())
@@ -233,10 +276,11 @@ const CTransactionBase* TxBaseMsgProcessor::PickRandomOrphan()
 
 unsigned int TxBaseMsgProcessor::LimitOrphanTxSize(unsigned int nMaxOrphans)
 {
+    LOCK(cs_orphanTxes);
     unsigned int nEvicted = 0;
     while (mapOrphanTransactions.size() > nMaxOrphans)
     {
-    	EraseOrphanTx(PickRandomOrphan()->GetHash());
+        EraseOrphanTx(PickRandomOrphan()->GetHash());
         ++nEvicted;
     }
     return nEvicted;
@@ -244,11 +288,13 @@ unsigned int TxBaseMsgProcessor::LimitOrphanTxSize(unsigned int nMaxOrphans)
 
 unsigned int TxBaseMsgProcessor::countOrphans() const
 {
+    LOCK(cs_orphanTxes);
     return mapOrphanTransactions.size();
 }
 
 void TxBaseMsgProcessor::EraseOrphansFor(NodeId peer)
 {
+    LOCK(cs_orphanTxes);
     int nErased = 0;
     std::map<uint256, COrphanTx>::iterator iter = mapOrphanTransactions.begin();
     while (iter != mapOrphanTransactions.end())
@@ -262,40 +308,32 @@ void TxBaseMsgProcessor::EraseOrphansFor(NodeId peer)
     }
     if (nErased > 0) LogPrint("mempool", "Erased %d orphan tx from peer %d\n", nErased, peer);
 }
-
-void TxBaseMsgProcessor::clearOrphans()
-{
-	mapOrphanTransactions.clear();
-	mapOrphanTransactionsByPrev.clear();
-	return;
-}
 // End of Orphan Txes/Certs Tracker section
 
 // Rejected Txes/Certs Tracker section
 void TxBaseMsgProcessor::SetupRejectionFilter(unsigned int nElements, double nFPRate)
 {
+    LOCK(cs_rejectedTxes);
     recentRejects.reset(new CRollingBloomFilter(nElements, nFPRate));
-}
-
-void TxBaseMsgProcessor::ResetRejectionFilter()
-{
-    recentRejects.reset(nullptr);
 }
 
 bool TxBaseMsgProcessor::HasBeenRejected(const uint256& txBaseHash) const
 {
+    LOCK(cs_rejectedTxes);
     assert(recentRejects);
     return recentRejects->contains(txBaseHash);
 }
 
 void TxBaseMsgProcessor::MarkAsRejected(const uint256& txBaseHash)
 {
+    LOCK(cs_rejectedTxes);
     assert(recentRejects);
     recentRejects->insert(txBaseHash);
 }
 
 void TxBaseMsgProcessor::RefreshRejected(const uint256& currentTipHash)
 {
+    LOCK(cs_rejectedTxes);
     assert(recentRejects);
     if (currentTipHash != hashRecentRejectsChainTip)
     {
@@ -304,7 +342,8 @@ void TxBaseMsgProcessor::RefreshRejected(const uint256& currentTipHash)
         // or a double-spend. Reset the rejects filter and give those
         // txs a second chance.
         hashRecentRejectsChainTip = currentTipHash;
-        ResetRejectionFilter();
+        recentRejects.reset(nullptr);
+        recentRejects.reset(new CRollingBloomFilter(120000, 0.000001));
     }
 }
 // End of Rejected Txes/Certs Tracker section

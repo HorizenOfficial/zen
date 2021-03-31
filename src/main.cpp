@@ -4801,6 +4801,8 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
 
 void UnloadBlockIndex()
 {
+    TxBaseMsgProcessor::get().reset();
+
     LOCK(cs_main);
     setBlockIndexCandidates.clear();
     chainActive.SetTip(NULL);
@@ -4819,8 +4821,6 @@ void UnloadBlockIndex()
     setDirtyBlockIndex.clear();
     setDirtyFileInfo.clear();
     mapNodeState.clear();
-    TxBaseMsgProcessor::get().ResetRejectionFilter();
-    TxBaseMsgProcessor::get().clearOrphans();
 
     BOOST_FOREACH(BlockMap::value_type& entry, mapBlockIndex) {
         delete entry.second;
@@ -4839,11 +4839,8 @@ bool LoadBlockIndex()
 
 
 bool InitBlockIndex() {
-    const CChainParams& chainparams = Params();
     LOCK(cs_main);
-
-    // Initialize global variables that cannot be constructed at startup.
-    TxBaseMsgProcessor::get().SetupRejectionFilter(120000, 0.000001);
+    const CChainParams& chainparams = Params();
 
     // Check whether we're already initialized
     if (chainActive.Genesis() != NULL)
@@ -5254,10 +5251,10 @@ bool AlreadyHave(const CInv& inv)
         {
             TxBaseMsgProcessor::get().RefreshRejected(chainActive.Tip()->GetBlockHash());
 
-            return TxBaseMsgProcessor::get().HasBeenRejected(inv.hash) ||
+            return pcoinsTip->HaveCoins(inv.hash) ||
                    mempool.exists(inv.hash) ||
                    TxBaseMsgProcessor::get().IsOrphan(inv.hash) ||
-                   pcoinsTip->HaveCoins(inv.hash);
+                   TxBaseMsgProcessor::get().HasBeenRejected(inv.hash);
         }
         case MSG_BLOCK:
         {
@@ -6835,9 +6832,6 @@ public:
         for (; it1 != mapBlockIndex.end(); it1++)
             delete (*it1).second;
         mapBlockIndex.clear();
-
-        // orphan transactions
-        TxBaseMsgProcessor::get().clearOrphans();
     }
 } instance_of_cmaincleanup;
 
