@@ -1227,6 +1227,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Initialize Zcash circuit parameters
     ZC_LoadParams();
 
+    // check type sizes in crypto lib are as expected and assert() in case of failure
+    CZendooCctpLibraryChecker::CheckTypeSizes();
+
     /* Start the RPC server already.  It will be started in "warmup" mode
      * and not really process calls already (but it will signify connections
      * that the server is there and will be ready later).  Warmup mode will

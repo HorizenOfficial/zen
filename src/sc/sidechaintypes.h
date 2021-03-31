@@ -17,6 +17,14 @@
 #include "amount.h"
 #include "serialize.h"
 
+class CZendooCctpLibraryChecker
+{
+    public:
+    // assert the size of exported types are as expected by comparing static const declarations in header
+    // file and lib rust getters values
+    static void CheckTypeSizes();
+};
+
 class CZendooCctpObject
 {
 public:
@@ -466,8 +474,6 @@ struct CRecipientBwtRequest
     CRecipientBwtRequest(): bwtRequestData() {}
     CAmount GetScValue() const { return bwtRequestData.scFee; }
 };
-
-static const int MAX_SC_DATA_LEN = 1024;
 
 }; // end of namespace
 

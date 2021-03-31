@@ -858,7 +858,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         // it is optional
         if (!inputString.empty())
         {
-            if(!Sidechain::AddScData(inputString, sc.creationData.customData, MAX_SC_DATA_LEN, false, error))
+            if(!Sidechain::AddScData(inputString, sc.creationData.customData, SC_CUSTOM_DATA_MAX_SIZE, false, error))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
             }
@@ -1165,7 +1165,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("customData"))
     {
         string inputString = find_value(inputObject, "customData").get_str();
-        if (!Sidechain::AddScData(inputString, creationData.customData, MAX_SC_DATA_LEN, false, error))
+        if (!Sidechain::AddScData(inputString, creationData.customData, SC_CUSTOM_DATA_MAX_SIZE, false, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
         }

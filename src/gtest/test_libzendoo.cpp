@@ -647,7 +647,7 @@ TEST(CctpLibrary, BitVectorGzip)
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
     // make a copy
-    unsigned char ptr2[BV_SIZE_IN_BYTES] = {};
+    unsigned char ptr2[SC_BV_SIZE_IN_BYTES] = {};
     memcpy(ptr2, bws_ret1->data, bws_ret1->len);
     ptr2[0] = (unsigned char)CompressionAlgorithm::Bzip2;
     BufferWithSize bws_in2(ptr2, bws_ret1->len);
@@ -716,7 +716,7 @@ TEST(CctpLibrary, BitVectorBzip2)
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
     // make a copy
-    unsigned char ptr2[BV_SIZE_IN_BYTES] = {};
+    unsigned char ptr2[SC_BV_SIZE_IN_BYTES] = {};
     memcpy(ptr2, bws_ret1->data, bws_ret1->len);
     ptr2[0] = (unsigned char)CompressionAlgorithm::Gzip;
     BufferWithSize bws_in2(ptr2, bws_ret1->len);
@@ -927,6 +927,86 @@ TEST(CctpLibrary, BitVectorMerkleTreeData)
     zendoo_free_bit_vector(bws_ret);
     zendoo_field_free(fe);
 }
+
+TEST(CctpLibrary, BitVectorCertificateFieldNull)
+{
+fDebug = true;
+fPrintToConsole = true;
+mapMultiArgs["-debug"].push_back("sc");
+mapMultiArgs["-debug"].push_back("cert");
+
+    const BitVectorCertificateFieldConfig cfg(1024, 2048);
+    BitVectorCertificateField bvField;
+
+    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    EXPECT_FALSE(fe.IsValid());
+}
+
+TEST(CctpLibrary, BitVectorCertificateFieldUnsuppComprAlgo)
+{
+    // unsupported compression algo (header bytes in compressed buffer report used algo)
+    const std::vector<unsigned char> bvVec(1024, 0xcc);
+
+    const BitVectorCertificateFieldConfig cfg(1024, 2048);
+    BitVectorCertificateField bvField(bvVec);
+
+    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    EXPECT_FALSE(fe.IsValid());
+}
+
+TEST(CctpLibrary, BitVectorCertificateFieldBadSize)
+{
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+    // too short an uncompressed data buffer
+    unsigned char buffer[5] = {0xad, 0xde, 0xef, 0xbe, 0x00};
+    CompressionAlgorithm e = CompressionAlgorithm::Gzip;
+
+    BufferWithSize bws_in(buffer, sizeof(buffer));
+
+    printf("Compressing using gzip...\n");
+    BufferWithSize* bws_ret1 = nullptr;
+    bws_ret1 = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
+    ASSERT_TRUE(bws_ret1 != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
+
+    const std::vector<unsigned char> bvVec(bws_ret1->data, bws_ret1->data + bws_ret1->len);
+
+    const BitVectorCertificateFieldConfig cfg(1024, 2048);
+    BitVectorCertificateField bvField(bvVec);
+
+    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    EXPECT_FALSE(fe.IsValid());
+    zendoo_free_bit_vector(bws_ret1);
+}
+
+TEST(CctpLibrary, BitVectorCertificateFieldFull)
+{
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+    // correct uncompressed buffer size
+    unsigned char buffer[SC_BV_SIZE_IN_BYTES] = {};
+    buffer[0] = 0xff;
+    buffer[SC_BV_SIZE_IN_BYTES-1] = 0xff;
+    
+    CompressionAlgorithm e = CompressionAlgorithm::Gzip;
+
+    BufferWithSize bws_in(buffer, sizeof(buffer));
+
+    printf("Compressing using gzip...\n");
+    BufferWithSize* bws_ret1 = nullptr;
+    bws_ret1 = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
+    ASSERT_TRUE(bws_ret1 != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
+
+    const std::vector<unsigned char> bvVec(bws_ret1->data, bws_ret1->data + bws_ret1->len);
+
+    const BitVectorCertificateFieldConfig cfg(bws_ret1->len, SC_BV_SIZE_IN_BYTES);
+    BitVectorCertificateField bvField(bvVec);
+
+    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    EXPECT_TRUE(fe.IsValid());
+    zendoo_free_bit_vector(bws_ret1);
+}
+
 
 TEST(CctpLibrary, CommitmentTreeBuilding)
 {
@@ -1387,26 +1467,59 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Object)
     printf("cmt = [%s]\n", cmt.ToString().c_str());
 }
 
+static unsigned char genericArr[37] = {
+    0x3e, 0x61, 0xea, 0xe3, 0x11, 0xa5, 0xe1, 0x1a,
+    0x52, 0xdf, 0xb5, 0xe1, 0xc0, 0x06, 0xe1, 0x77,
+    0x8a, 0xb8, 0x8d, 0xd3, 0x32, 0x8f, 0xff, 0xe8,
+    0x9d, 0xdf, 0xa6, 0xc2, 0x1a, 0xff, 0xe4, 0x33,
+    0x6a, 0xf1, 0x36, 0xb2, 0x1b
+};
+
+static const int NUM_OF_ITER = 1000000;
+//static const int NUM_OF_ITER = 10;
+
 TEST(CctpLibrary, GetPoseidonHashFromByteArray)
 {
-    unsigned char genericArr[37] = {
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff
-    };
+    unsigned char field_bytes[CFieldElement::ByteSize()] = {};
 
-    const BufferWithSize bws(genericArr, sizeof(genericArr));
-    field_t* fe = zendoo_poseidon_hash(&bws);
-    ASSERT_TRUE(fe != nullptr);
+    for (int i = 0; i < NUM_OF_ITER; i++)
+    {
+        const BufferWithSize bws(genericArr, sizeof(genericArr));
+        field_t* fe = zendoo_poseidon_hash(&bws);
+        //ASSERT_TRUE(fe != nullptr);
+ 
+        zendoo_serialize_field(fe, field_bytes);
 
-    unsigned char field_bytes[CFieldElement::ByteSize()];
-    zendoo_serialize_field(fe, field_bytes);
+        zendoo_field_free(fe);
+    }
+
     printf("ct = [");
     for (int i = 0; i < sizeof(field_bytes); i++)
         printf("%02x", ((unsigned char*)field_bytes)[i]);
     printf("]\n");
-    zendoo_field_free(fe);
+}
+
+TEST(CctpLibrary, GetShaHashFromByteArray)
+{
+    std::vector<unsigned char> vbuf(genericArr, genericArr + sizeof(genericArr));
+    uint256 theHash;
+
+    for (int i = 0; i < NUM_OF_ITER; i++)
+    {
+        CHashWriter ss(SER_GETHASH, 0);
+        ss << vbuf;
+        theHash = ss.GetHash();
+    }
+    printf("hash = [%s]\n", theHash.ToString().c_str());
+}
+
+TEST(CctpLibrary, CheckTypeSize)
+{
+    // check rust getters are aligned with mc crypto lib header file
+    ASSERT_TRUE(SC_FIELD_SIZE           == zendoo_get_field_size_in_bytes());
+    ASSERT_TRUE(SC_VK_SIZE              == zendoo_get_sc_vk_size_in_bytes());
+    ASSERT_TRUE(SC_PROOF_SIZE           == zendoo_get_sc_proof_size_in_bytes());
+    ASSERT_TRUE(SC_BV_SIZE_IN_BYTES     == zendoo_get_sc_bit_vector_size_in_bytes());
+    ASSERT_TRUE(SC_CUSTOM_DATA_MAX_SIZE == zendoo_get_sc_custom_data_size_in_bytes());
 }
 

@@ -420,7 +420,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         if (!cd.isNull())
         {
             const std::string& inputString = cd.get_str();
-            if (!AddScData(inputString, sc.customData, MAX_SC_DATA_LEN, false, error))
+            if (!AddScData(inputString, sc.customData, SC_CUSTOM_DATA_MAX_SIZE, false, error))
             {
                 error = "customData: " + error;
                 return false;
