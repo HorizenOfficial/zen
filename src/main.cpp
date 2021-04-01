@@ -6204,7 +6204,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     pindex = chainActive.Next(pindex);
             }
  
-            // we must use CBlocks, as CBlockHeaders won't include the 0x00 nTx count at the end
+            // we cannot use CBlockHeaders since it won't include the 0x00 nTx count at the end
+            // we cannot use CBlock, since we added Certificates and its serialization is not backward compatible
+            // We must use CBlockHeaderForNetwork, and ad-hoc class for this task
             vector<CBlockHeaderForNetwork> vHeaders;
             int nLimit = MAX_HEADERS_RESULTS;
             LogPrint("net", "getheaders from h(%d) to %s from peer=%d\n", (pindex ? pindex->nHeight : -1), hashStop.ToString(), pfrom->id);

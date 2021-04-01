@@ -489,15 +489,14 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     mtx.vin[0].scriptSig = CScript() << exceedHeight << OP_0;
 
-    mtx.vout.resize(3);
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
-    mtx.vout[0].nValue = 2.5 * COIN;
+    CTxOut out_0(CAmount(2.5 * COIN),CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL);
+    mtx.addOut(out_0);
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-    mtx.vout[1].nValue = 1.25 * COIN;
+    CTxOut out_1(CAmount(1.25 * COIN), CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL);
+    mtx.addOut(out_1);
 
-    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-    mtx.vout[2].nValue = 1.25 * COIN;
+    CTxOut out_2(CAmount(1.25 * COIN), CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL);
+    mtx.addOut(out_2);
 
     indexPrev.nHeight = exceedHeight -1;
     block.vtx[0] = CTransaction(mtx);
@@ -519,19 +518,18 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     mtx.vin[0].scriptSig = CScript() << exceedHeight << OP_0;
 
-    mtx.vout.resize(4);
     // add also miner subsidy quote, even if it is not checked by ContextualCheckBlock()
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ParseHex("28daa861e86d49694937c3ee6e637d50e8343e4b") << OP_EQUAL;
-    mtx.vout[0].nValue = 1.8755 * COIN;
+    CTxOut output_0(1.8755 * COIN,CScript() << OP_HASH160 << ParseHex("28daa861e86d49694937c3ee6e637d50e8343e4b") << OP_EQUAL);
+    mtx.addOut(output_0);
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
-    mtx.vout[1].nValue = 0.625 * COIN;
+    CTxOut output_1(1.0 * COIN, CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL);
+    mtx.addOut(output_1);
 
-    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-    mtx.vout[2].nValue = 0.3125 * COIN;
+    CTxOut output_2(0.3125 * COIN, CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL);
+    mtx.addOut(output_2);
 
-    mtx.vout[3].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-    mtx.vout[3].nValue = 0.3125 * COIN;
+    CTxOut output_3(0.3125 * COIN, CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL);
+    mtx.addOut(output_3);
 
     indexPrev.nHeight = exceedHeight -1;
     block.vtx[0] = CTransaction(mtx);
