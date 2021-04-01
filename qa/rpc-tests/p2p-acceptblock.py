@@ -10,7 +10,7 @@ from test_framework.mininode import CBlockHeader, CInv, NodeConn, NodeConnCB, \
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_node, p2p_port
-from test_framework.blocktools import create_block, create_coinbase
+from test_framework.blocktools import create_block, get_nBits, create_coinbase_h
 
 import os
 import time
@@ -29,7 +29,7 @@ this test.
 We have one NodeConn connection to each, test_node and white_node respectively.
 
 The test:
-1. Generate one block on each node, to leave IBD.
+1. Generate one block on each node, to leave IBD (Initial Block Download).
 
 2. Mine a new block on each tip, and deliver to each node from node's peer.
    The tip should advance.
@@ -158,7 +158,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         blocks_h2 = []  # the height 2 blocks on each node's chain
         block_time = time.time() + 1
         for i in xrange(2):
-            blocks_h2.append(create_block(tips[i], create_coinbase(), block_time))
+            blocks_h2.append(create_block(tips[i], create_coinbase_h(2), block_time))
             blocks_h2[i].solve()
             block_time += 1
         test_node.send_message(msg_block(blocks_h2[0]))
@@ -172,7 +172,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         # 3. Send another block that builds on the original tip.
         blocks_h2f = []  # Blocks at height 2 that fork off the main chain
         for i in xrange(2):
-            blocks_h2f.append(create_block(tips[i], create_coinbase(), blocks_h2[i].nTime+1))
+            blocks_h2f.append(create_block(tips[i], create_coinbase_h(2), blocks_h2[i].nTime+1))
             blocks_h2f[i].solve()
         test_node.send_message(msg_block(blocks_h2f[0]))
         white_node.send_message(msg_block(blocks_h2f[1]))
@@ -191,7 +191,7 @@ class AcceptBlockTest(BitcoinTestFramework):
         # 4. Now send another block that builds on the forking chain.
         blocks_h3 = []
         for i in xrange(2):
-            blocks_h3.append(create_block(blocks_h2f[i].sha256, create_coinbase(), blocks_h2f[i].nTime+1))
+            blocks_h3.append(create_block(blocks_h2f[i].sha256, create_coinbase_h(3), blocks_h2f[i].nTime+1))
             blocks_h3[i].solve()
         test_node.send_message(msg_block(blocks_h3[0]))
         white_node.send_message(msg_block(blocks_h3[1]))
@@ -218,18 +218,27 @@ class AcceptBlockTest(BitcoinTestFramework):
         # the last (height-too-high) on node0.  Node1 should process the tip if
         # we give it the headers chain leading to the tip.
         tips = blocks_h3
-        headers_message = msg_headers()
+        headers_message_1 = msg_headers()
+        headers_message_2 = msg_headers()
         all_blocks = []   # node0's blocks
         for j in xrange(2):
+            chainHeight = 3
             for i in xrange(288):
-                next_block = create_block(tips[j].sha256, create_coinbase(), tips[j].nTime+1)
+                next_block = create_block(tips[j].sha256, create_coinbase_h(chainHeight+1), tips[j].nTime+1, get_nBits(chainHeight))
                 next_block.solve()
+                chainHeight += 1
                 if j==0:
                     test_node.send_message(msg_block(next_block))
                     all_blocks.append(next_block)
                 else:
-                    headers_message.headers.append(CBlockHeader(next_block))
+                    # we can not send more than zend::MAX_HEADERS_RESULTS=160 to a zend node 
+                    if len(headers_message_1.headers) < 160:
+                        headers_message_1.headers.append(CBlockHeader(next_block))
+                    else:
+                        headers_message_2.headers.append(CBlockHeader(next_block))
                 tips[j] = next_block
+                if ((i+1) % 10) == 0:
+                    print "... {} blocks created".format(i+1)
 
         time.sleep(2)
         for x in all_blocks:
@@ -243,8 +252,9 @@ class AcceptBlockTest(BitcoinTestFramework):
                 else:
                     raise AssertionError("Unrequested block with more work should have been accepted")
 
-        headers_message.headers.pop() # Ensure the last block is unrequested
-        white_node.send_message(headers_message) # Send headers leading to tip
+        headers_message_2.headers.pop() # Ensure the last block is unrequested
+        white_node.send_message(headers_message_1) # Send headers leading to tip
+        white_node.send_message(headers_message_2) # Send headers leading to tip
         white_node.send_message(msg_block(tips[1]))  # Now deliver the tip
         try:
             white_node.sync_with_ping()

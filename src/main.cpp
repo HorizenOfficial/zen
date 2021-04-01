@@ -44,11 +44,7 @@
 #include "script/sigcache.h"
 #include "script/standard.h"
 
-#include "script/sigcache.h"
-#include "script/standard.h"
-
 using namespace zen;
-
 using namespace std;
 
 #if defined(NDEBUG)
@@ -74,6 +70,7 @@ int nScriptCheckThreads = 0;
 bool fExperimentalMode = false;
 bool fImporting = false;
 bool fReindex = false;
+bool fReindexFast = false;
 bool fTxIndex = false;
 bool fHavePruned = false;
 bool fPruneMode = false;
@@ -1814,7 +1811,7 @@ bool IsInitialBlockDownload()
     // from commit: https://github.com/HorizenOfficial/zen/commit/0c479520d29cae571dc531e54aa01813daacd1e1
     if (!ForkManager::getInstance().isAfterChainsplit(chainActive.Height()))
         return false;
-    if (fImporting || fReindex)
+    if (fImporting || fReindex || fReindexFast)
         return true;
     if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
         return true;
@@ -3112,7 +3109,8 @@ bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode) {
     std::set<int> setFilesToPrune;
     bool fFlushForPrune = false;
     try {
-    if (fPruneMode && fCheckForPruning && !fReindex) {
+    if (fPruneMode && fCheckForPruning && !fReindex && !fReindexFast)
+    {
         FindFilesToPrune(setFilesToPrune);
         fCheckForPruning = false;
         if (!setFilesToPrune.empty()) {
@@ -3971,43 +3969,43 @@ bool ReceivedBlockTransactions(const CBlock &block, CValidationState& state, CBl
     return true;
 }
 
-bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAddSize, unsigned int nHeight, uint64_t nTime, bool fKnown = false)
+bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAddSize, unsigned int nHeight, uint64_t nTime, bool fKnown)
 {
+    // Currently fKnown is false for blocks coming from network, true for blocks loaded from files upon reindexing
     LOCK(cs_LastBlockFile);
 
     unsigned int nFile = fKnown ? pos.nFile : nLastBlockFile;
-    if (vinfoBlockFile.size() <= nFile) {
-        vinfoBlockFile.resize(nFile + 1);
-    }
+    vinfoBlockFile.resize(std::max<unsigned int>(vinfoBlockFile.size(), nFile + 1));
 
-    if (!fKnown) {
-        while (vinfoBlockFile[nFile].nSize + nAddSize >= MAX_BLOCKFILE_SIZE) {
+    if (!fKnown)
+    {
+        while (vinfoBlockFile[nFile].nSize + nAddSize >= MAX_BLOCKFILE_SIZE)
+        {
             nFile++;
-            if (vinfoBlockFile.size() <= nFile) {
-                vinfoBlockFile.resize(nFile + 1);
-            }
+            vinfoBlockFile.resize(nFile + 1);
         }
+        
         pos.nFile = nFile;
         pos.nPos = vinfoBlockFile[nFile].nSize;
     }
 
     if (nFile != nLastBlockFile) {
         if (!fKnown) {
-            LogPrintf("Leaving block file %i: %s\n", nFile, vinfoBlockFile[nFile].ToString());
+            LogPrintf("Leaving block file %i: %s\n", nFile, vinfoBlockFile.at(nFile).ToString());
         }
         FlushBlockFile(!fKnown);
         nLastBlockFile = nFile;
     }
 
-    vinfoBlockFile[nFile].AddBlock(nHeight, nTime);
+    vinfoBlockFile.at(nFile).AddBlock(nHeight, nTime);
     if (fKnown)
-        vinfoBlockFile[nFile].nSize = std::max(pos.nPos + nAddSize, vinfoBlockFile[nFile].nSize);
+        vinfoBlockFile.at(nFile).nSize = std::max(pos.nPos + nAddSize, vinfoBlockFile.at(nFile).nSize);
     else
-        vinfoBlockFile[nFile].nSize += nAddSize;
+        vinfoBlockFile.at(nFile).nSize += nAddSize;
 
     if (!fKnown) {
         unsigned int nOldChunks = (pos.nPos + BLOCKFILE_CHUNK_SIZE - 1) / BLOCKFILE_CHUNK_SIZE;
-        unsigned int nNewChunks = (vinfoBlockFile[nFile].nSize + BLOCKFILE_CHUNK_SIZE - 1) / BLOCKFILE_CHUNK_SIZE;
+        unsigned int nNewChunks = (vinfoBlockFile.at(nFile).nSize + BLOCKFILE_CHUNK_SIZE - 1) / BLOCKFILE_CHUNK_SIZE;
         if (nNewChunks > nOldChunks) {
             if (fPruneMode)
                 fCheckForPruning = true;
@@ -4280,18 +4278,21 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
         CAmount communityReward = ForkManager::getInstance().getCommunityFundReward(nHeight, reward, cfType);
         if (communityReward > 0) {
-            bool found = false;
+            const CScript& refScript = Params().GetCommunityFundScriptAtHeight(nHeight, cfType);
 
-            BOOST_FOREACH(const CTxOut& output, block.vtx[0].GetVout()) {
-                if (output.scriptPubKey == Params().GetCommunityFundScriptAtHeight(nHeight, cfType)) {
-                    if (output.nValue == communityReward) {
-                        found = true;
-                        break;
-                    }
+            bool found = false;
+            for(const CTxOut& output: block.vtx[0].GetVout())
+            {
+                if ((output.scriptPubKey == refScript) && (output.nValue == communityReward))
+                {
+                    found = true;
+                    break;
                 }
             }
 
             if (!found) {
+                LogPrintf("%s():%d - ERROR: subsidy quota incorrect or missing: refScript[%s], commReward=%d, type=%d\n",
+                    __func__, __LINE__, refScript.ToString(), communityReward, cfType);
                 return state.DoS(100, error("%s: community fund missing block %d", __func__, nHeight), REJECT_INVALID, "cb-no-community-fund");
             }
         }
@@ -4757,6 +4758,10 @@ bool static LoadBlockIndexDB()
     pblocktree->ReadReindexing(fReindexing);
     fReindex |= fReindexing;
 
+    bool fReindexingFast = false;
+    pblocktree->ReadFastReindexing(fReindexingFast);
+    fReindexFast |= fReindexingFast;
+
     // Check whether we have a transaction index
     pblocktree->ReadFlag("txindex", fTxIndex);
     LogPrintf("%s: transaction index %s\n", __func__, fTxIndex ? "enabled" : "disabled");
@@ -4926,9 +4931,10 @@ void UnloadBlockIndex()
 bool LoadBlockIndex()
 {
     // Load block index from databases
-    if (!fReindex && !LoadBlockIndexDB())
-        return false;
-    return true;
+    if (fReindex || fReindexFast)
+        return true;
+
+    return LoadBlockIndexDB();
 }
 
 
@@ -4949,47 +4955,104 @@ bool InitBlockIndex() {
     LogPrintf("Initializing databases...\n");
 
     // Only add the genesis block if not reindexing (in which case we reuse the one already on disk)
-    if (!fReindex) {
-        try {
-            CBlock &block = const_cast<CBlock&>(Params().GenesisBlock());
-            // Start new block file
-            unsigned int nBlockSize = ::GetSerializeSize(block, SER_DISK, CLIENT_VERSION);
-            CDiskBlockPos blockPos;
-            CValidationState state;
-            if (!FindBlockPos(state, blockPos, nBlockSize+8, 0, block.GetBlockTime()))
-                return error("LoadBlockIndex(): FindBlockPos failed");
-            if (!WriteBlockToDisk(block, blockPos, chainparams.MessageStart()))
-                return error("LoadBlockIndex(): writing genesis block to disk failed");
-            CBlockIndex *pindex = AddToBlockIndex(block);
-            if (!ReceivedBlockTransactions(block, state, pindex, blockPos, NULL))
-                return error("LoadBlockIndex(): genesis block not accepted");
-            if (!ActivateBestChain(state, &block))
-                return error("LoadBlockIndex(): genesis block cannot be activated");
-            // Force a chainstate write so that when we VerifyDB in a moment, it doesn't check stale data
-            return FlushStateToDisk(state, FLUSH_STATE_ALWAYS);
-        } catch (const std::runtime_error& e) {
-            return error("LoadBlockIndex(): failed to initialize block database: %s", e.what());
-        }
+    if (fReindex || fReindexFast)
+        return true;
+
+    try {
+        CBlock &block = const_cast<CBlock&>(Params().GenesisBlock());
+        // Start new block file
+        unsigned int nBlockSize = ::GetSerializeSize(block, SER_DISK, CLIENT_VERSION);
+        CDiskBlockPos blockPos;
+        CValidationState state;
+        if (!FindBlockPos(state, blockPos, nBlockSize+8, 0, block.GetBlockTime()))
+            return error("LoadBlockIndex(): FindBlockPos failed");
+        if (!WriteBlockToDisk(block, blockPos, chainparams.MessageStart()))
+            return error("LoadBlockIndex(): writing genesis block to disk failed");
+        CBlockIndex *pindex = AddToBlockIndex(block);
+        if (!ReceivedBlockTransactions(block, state, pindex, blockPos, NULL))
+            return error("LoadBlockIndex(): genesis block not accepted");
+        if (!ActivateBestChain(state, &block))
+            return error("LoadBlockIndex(): genesis block cannot be activated");
+        // Force a chainstate write so that when we VerifyDB in a moment, it doesn't check stale data
+        return FlushStateToDisk(state, FLUSH_STATE_ALWAYS);
+    } catch (const std::runtime_error& e) {
+        return error("LoadBlockIndex(): failed to initialize block database: %s", e.what());
     }
 
     return true;
 }
 
+CBlock LoadBlockFrom(CBufferedFile& blkdat, CDiskBlockPos* pLastLoadedBlkPos)
+{
+    CBlock res{};
 
+    if (blkdat.eof())
+        return res;
 
-bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
+    int blkSize = -1;
+
+    //locate Header
+    for(uint64_t nRewind = blkdat.GetPos(); !blkdat.eof() && (blkSize == -1);)
+    {
+        blkdat.SetPos(nRewind); // Note: setPos does NOT simply overwrite the var returned by GetPos()!!
+        nRewind++;              // start one byte further next time, in case of failure
+        blkdat.SetLimit();      // remove former limit
+
+        try
+        {
+            unsigned char buf[MESSAGE_START_SIZE];
+            blkdat.FindByte(Params().MessageStart()[0]); //throws upon eof
+            nRewind = blkdat.GetPos()+1;
+            blkdat >> FLATDATA(buf);
+            if (memcmp(buf, Params().MessageStart(), MESSAGE_START_SIZE))
+                continue; // just first byte of magic number matches. Keep searching
+
+            blkdat >> blkSize; // read size
+            if (blkSize < 80 || blkSize > MAX_BLOCK_SIZE) {
+                blkSize = -1;
+                continue; // while whole magic number matches, it can't be block size. Keep searching
+            }
+        } catch (const std::exception&) {
+            // no valid block header found; don't complain
+            break;
+        }
+    }
+
+    if (blkSize == -1)
+        return res;
+
+    //Here block has been found. Load it!
+    unsigned int blkStartPos = blkdat.GetPos();
+    if (pLastLoadedBlkPos != nullptr) pLastLoadedBlkPos->nPos = blkStartPos;
+    blkdat.SetLimit(blkStartPos + blkSize);
+    blkdat.SetPos(blkStartPos);
+    try {
+        blkdat >> res;
+    } catch (const std::exception& e) {
+        LogPrintf("%s: Deserialize or I/O error - %s\n", __func__, e.what());
+    }
+
+    blkdat.SetPos(blkdat.GetPos()); // Note: setPos does NOT simply overwrite the var returned by GetPos()!!
+    return res;
+}
+
+bool LoadBlocksFromExternalFile(FILE* fileIn, CDiskBlockPos *dbp, bool loadHeadersOnly)
 {
     const CChainParams& chainparams = Params();
     // Map of disk positions for blocks with unknown parent (only used for reindex)
     static std::multimap<uint256, CDiskBlockPos> mapBlocksUnknownParent;
     int64_t nStart = GetTimeMillis();
 
-    int nLoaded = 0;
-    try {
+    int nLoadedHeaders = 0;
+    int nLoadedBlocks = 0;
+
+    try
+    {
         // This takes over fileIn and calls fclose() on it in the CBufferedFile destructor
         CBufferedFile blkdat(fileIn, 2*MAX_BLOCK_SIZE, MAX_BLOCK_SIZE+8, SER_DISK, CLIENT_VERSION);
         uint64_t nRewind = blkdat.GetPos();
-        while (!blkdat.eof()) {
+        while (!blkdat.eof())
+        {
             boost::this_thread::interruption_point();
 
             blkdat.SetPos(nRewind);
@@ -5003,71 +5066,97 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
                 nRewind = blkdat.GetPos()+1;
                 blkdat >> FLATDATA(buf);
                 if (memcmp(buf, Params().MessageStart(), MESSAGE_START_SIZE))
-                    continue;
+                    continue; //only first byte of magic number matches. Keep searching...
                 // read size
                 blkdat >> nSize;
                 if (nSize < 80 || nSize > MAX_BLOCK_SIZE)
-                    continue;
+                    continue; //magic number matches but size can't be block one. Keep searching...
             } catch (const std::exception&) {
                 // no valid block header found; don't complain
                 break;
             }
-            try {
+            try
+            {
                 // read block
                 uint64_t nBlockPos = blkdat.GetPos();
                 if (dbp)
                     dbp->nPos = nBlockPos;
                 blkdat.SetLimit(nBlockPos + nSize);
                 blkdat.SetPos(nBlockPos);
-                CBlock block;
-                blkdat >> block;
+                CBlock loadedBlk;
+                blkdat >> loadedBlk;
                 nRewind = blkdat.GetPos();
-
                 // detect out of order blocks, and store them for later
-                uint256 hash = block.GetHash();
-                if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex.find(block.hashPrevBlock) == mapBlockIndex.end()) {
+                uint256 hash = loadedBlk.GetHash();
+                if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex.find(loadedBlk.hashPrevBlock) == mapBlockIndex.end()) {
                     LogPrint("reindex", "%s: Out of order block %s, parent %s not known\n", __func__, hash.ToString(),
-                            block.hashPrevBlock.ToString());
+                            loadedBlk.hashPrevBlock.ToString());
                     if (dbp)
-                        mapBlocksUnknownParent.insert(std::make_pair(block.hashPrevBlock, *dbp));
+                        mapBlocksUnknownParent.insert(std::make_pair(loadedBlk.hashPrevBlock, *dbp));
                     continue;
                 }
 
                 // process in case the block isn't known yet
-                if (mapBlockIndex.count(hash) == 0 || (mapBlockIndex[hash]->nStatus & BLOCK_HAVE_DATA) == 0) {
+                if (mapBlockIndex.count(hash) == 0 || (mapBlockIndex[hash]->nStatus & BLOCK_HAVE_DATA) == 0)
+                {
                     CValidationState state;
-                    if (ProcessNewBlock(state, NULL, &block, true, dbp))
-                        nLoaded++;
-                    if (state.IsError())
-                        break;
+                    if (loadHeadersOnly)
+                    {
+                        if (AcceptBlockHeader(loadedBlk, state, /*ppindex*/nullptr, /*lookForwardTips*/false)) //Todo: verify lookForwardTips
+                            ++nLoadedHeaders;
+
+                        if (state.IsError())
+                            break;
+                    } else
+                    {
+                        if (ProcessNewBlock(state, NULL, &loadedBlk, true, dbp))
+                            nLoadedBlocks++;
+
+                        if (state.IsError())
+                            break;
+                    }
                 } else if (hash != chainparams.GetConsensus().hashGenesisBlock && mapBlockIndex[hash]->nHeight % 1000 == 0) {
                     LogPrintf("Block Import: already had block %s at height %d\n", hash.ToString(), mapBlockIndex[hash]->nHeight);
                 }
 
-                // Recursively process earlier encountered successors of this block
-                deque<uint256> queue;
-                queue.push_back(hash);
-                while (!queue.empty()) {
+                // Breath-first process earlier encountered successors of this block
+                deque<uint256> queue{hash};
+                do
+                {
                     uint256 head = queue.front();
                     queue.pop_front();
-                    std::pair<std::multimap<uint256, CDiskBlockPos>::iterator, std::multimap<uint256, CDiskBlockPos>::iterator> range = mapBlocksUnknownParent.equal_range(head);
-                    while (range.first != range.second) {
+                    auto range = mapBlocksUnknownParent.equal_range(head);
+                    while (range.first != range.second)
+                    {
                         std::multimap<uint256, CDiskBlockPos>::iterator it = range.first;
-                        if (ReadBlockFromDisk(block, it->second))
+                        if (ReadBlockFromDisk(loadedBlk, it->second))
                         {
-                            LogPrintf("%s: Processing out of order child %s of %s\n", __func__, block.GetHash().ToString(),
-                                    head.ToString());
                             CValidationState dummy;
-                            if (ProcessNewBlock(dummy, NULL, &block, true, &it->second))
+                            if (loadHeadersOnly)
                             {
-                                nLoaded++;
-                                queue.push_back(block.GetHash());
+                                LogPrintf("%s: Processing out of order header, child %s of %s\n", __func__, loadedBlk.GetHash().ToString(),
+                                        head.ToString());
+                                if (AcceptBlockHeader(loadedBlk, dummy, /*ppindex*/nullptr, /*lookForwardTips*/false))
+                                { //Todo: verify lookForwardTips and correctness of not breaking up
+                                    nLoadedHeaders++;
+                                    queue.push_back(loadedBlk.GetHash());
+                                }
+                            } else {
+                                LogPrintf("%s: Processing out of order block, child %s of %s\n", __func__, loadedBlk.GetHash().ToString(),
+                                        head.ToString());
+
+                                //Todo: verify that issue on Process Block does not cause whole stop as before
+                                if (ProcessNewBlock(dummy, NULL, &loadedBlk, true, &it->second))
+                                {
+                                    nLoadedBlocks++;
+                                    queue.push_back(loadedBlk.GetHash());
+                                }
                             }
                         }
                         range.first++;
                         mapBlocksUnknownParent.erase(it);
                     }
-                }
+                } while (!queue.empty());
             } catch (const std::exception& e) {
                 LogPrintf("%s: Deserialize or I/O error - %s\n", __func__, e.what());
             }
@@ -5075,9 +5164,10 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
     } catch (const std::runtime_error& e) {
         AbortNode(std::string("System error: ") + e.what());
     }
-    if (nLoaded > 0)
-        LogPrintf("Loaded %i blocks from external file in %dms\n", nLoaded, GetTimeMillis() - nStart);
-    return nLoaded > 0;
+
+    if (nLoadedBlocks > 0)
+        LogPrintf("Loaded %i blocks from external file in %dms\n", nLoadedBlocks, GetTimeMillis() - nStart);
+    return (loadHeadersOnly && (nLoadedHeaders > 0)) || (!loadHeadersOnly && (nLoadedBlocks > 0));
 }
 
 void static CheckBlockIndex()
@@ -5092,18 +5182,22 @@ void static CheckBlockIndex()
     // During a reindex, we read the genesis block and call CheckBlockIndex before ActivateBestChain,
     // so we have the genesis block in mapBlockIndex but no active chain.  (A few of the tests when
     // iterating the block tree require that chainActive has been initialized.)
-    if (chainActive.Height() < 0) {
+    if (fReindex &&(chainActive.Height() < 0))
+    {
         assert(mapBlockIndex.size() <= 1);
         return;
     }
 
+    // fReindexFast loads all headers first, hence no assert on mapBlockIndex size
+    if (fReindexFast && (chainActive.Height() < 0))
+        return;
+
     // Build forward-pointing map of the entire block tree.
     std::multimap<CBlockIndex*,CBlockIndex*> forward;
-    for (BlockMap::iterator it = mapBlockIndex.begin(); it != mapBlockIndex.end(); ++it) {
+    for(BlockMap::iterator it = mapBlockIndex.begin(); it != mapBlockIndex.end(); ++it)
         forward.insert(std::make_pair(it->second->pprev, it->second));
-    }
 
-    assert(forward.size() == mapBlockIndex.size());
+    assert(forward.size() == mapBlockIndex.size()); //would fail if same CBlockIndex* is mapped to two different hashes
 
     std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeGenesis = forward.equal_range(NULL);
     CBlockIndex *pindex = rangeGenesis.first->second;
@@ -5946,12 +6040,12 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             LogPrint("net", "got inv: %s  %s peer=%d,%d/%d\n",
                 inv.ToString(), fAlreadyHave ? "have" : "new", pfrom->id, (nInv+1), vInv.size());
 
-            if (!fAlreadyHave && !fImporting && !fReindex && inv.type != MSG_BLOCK)
+            if (!fAlreadyHave && !fImporting && !fReindex && !fReindexFast && inv.type != MSG_BLOCK)
                 pfrom->AskFor(inv);
 
             if (inv.type == MSG_BLOCK) {
                 UpdateBlockAvailability(pfrom->GetId(), inv.hash);
-                if (!fAlreadyHave && !fImporting && !fReindex && !mapBlocksInFlight.count(inv.hash)) {
+                if (!fAlreadyHave && !fImporting && !fReindex && !fReindexFast && !mapBlocksInFlight.count(inv.hash)) {
                     // First request the headers preceding the announced block. In the normal fully-synced
                     // case where a new block is announced that succeeds the current tip (no reorganization),
                     // there are no such headers.
@@ -6311,7 +6405,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         }
     }
 
-    else if (strCommand == "headers" && !fImporting && !fReindex) // Ignore headers received while importing
+    else if (strCommand == "headers" && !fImporting && !fReindex && !fReindexFast) // Ignore headers received while importing
     {
         std::vector<CBlockHeader> headers;
 
@@ -6379,7 +6473,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         CheckBlockIndex();
     }
 
-    else if (strCommand == "block" && !fImporting && !fReindex) // Ignore blocks received while importing
+    else if (strCommand == "block" && !fImporting && !fReindex && !fReindexFast) // Ignore blocks received while importing
     {
         CBlock block;
         vRecv >> block;
@@ -6885,7 +6979,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         if (pindexBestHeader == NULL)
             pindexBestHeader = chainActive.Tip();
         bool fFetch = state.fPreferredDownload || (nPreferredDownload == 0 && !pto->fClient && !pto->fOneShot); // Download if this is a nice peer, or we have no nice peers and this one might do.
-        if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex) {
+        if (!state.fSyncStarted && !pto->fClient && !fImporting && !fReindex && !fReindexFast) {
             // Only actively request headers from a single peer, unless we're close to today.
             time_t t = time(0);
             int height = chainActive.Tip()->nHeight;
@@ -6915,7 +7009,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         // Resend wallet transactions that haven't gotten in a block yet
         // Except during reindex, importing and IBD, when old wallet
         // transactions become unconfirmed and spams other nodes.
-        if (!fReindex && !fImporting && !IsInitialBlockDownload())
+        if (!fReindex && !fReindexFast && !fImporting && !IsInitialBlockDownload())
         {
             GetMainSignals().Broadcast(nTimeBestReceived);
         }
@@ -7258,7 +7352,7 @@ std::string dbg_blk_global_tips()
         return ret;
     }
 
-    BOOST_FOREACH(auto mapPair, mGlobalForkTips)
+    for(auto mapPair: mGlobalForkTips)
     {
         const CBlockIndex* pindex = mapPair.first;
 
@@ -7295,7 +7389,7 @@ std::string dbg_blk_global_tips()
     getMostRecentGlobalForkTips(vOutput);
 
     ret += "Ordered: ---------------\n";
-    BOOST_FOREACH(const uint256& hash, vOutput)
+    for(const uint256& hash: vOutput)
     {
         ret += "  [" + hash.GetHex() + "]\n";
     }
@@ -7547,7 +7641,7 @@ bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, C
 
 static int getInitCbhSafeDepth()
 {
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    if (Params().NetworkIDString() == "regtest")
     {
         int val = (int)(GetArg("-cbhsafedepth", Params().CbhSafeDepth() ));
         LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
@@ -7572,7 +7666,7 @@ int getScMinWithdrawalEpochLength()
 
 static int getInitCbhMinAge()
 {
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    if (Params().NetworkIDString() == "regtest")
     {
         int val = (int)(GetArg("-cbhminage", Params().CbhMinimumAge() ));
         LogPrint("cbh", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
@@ -7590,7 +7684,7 @@ int getCheckBlockAtHeightMinAge()
 
 static bool getInitRequireStandard()
 {
-    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "testnet") )
+    if ( (Params().NetworkIDString() == "regtest") || (Params().NetworkIDString() == "test") )
     {
         bool val = Params().RequireStandard();
 

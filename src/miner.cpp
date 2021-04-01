@@ -96,8 +96,9 @@ void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, 
    auto medianTimePast = pindexPrev->GetMedianTimePast();
    auto nTime = std::max(medianTimePast + 1, GetTime());
 
-   if ( ForkManager::getInstance().isFutureMiningTimeStampActive(pindexPrev->nHeight))  {
-        nTime = std::min(nTime, medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP);
+   if ( ForkManager::getInstance().isFutureMiningTimeStampActive(pindexPrev->nHeight))
+   {
+      nTime = std::min(nTime, medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP);
    }
    pblock->nTime = nTime;
 
@@ -492,6 +493,7 @@ CMutableTransaction createCoinbase(const CScript &scriptPubKeyIn, CAmount fees, 
     coinbaseOutputList.at(0).scriptPubKey = scriptPubKeyIn;
     CAmount reward = GetBlockSubsidy(nHeight, chainparams.GetConsensus());
     coinbaseOutputList.at(0).nValue = reward;
+
     for (Fork::CommunityFundType cfType = Fork::CommunityFundType::FOUNDATION;
             cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1))
     {
@@ -887,6 +889,7 @@ void static BitcoinMiner()
     LogPrintf("HorizenMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
     RenameThread("horizen-miner");
+
     const CChainParams& chainparams = Params();
 
 #ifdef ENABLE_WALLET

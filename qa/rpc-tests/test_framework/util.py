@@ -21,7 +21,6 @@ import subprocess
 import time
 import re
 import codecs
-
 from authproxy import AuthServiceProxy, JSONRPCException
 
 
@@ -550,4 +549,7 @@ def advance_epoch(mcTest, node, sync_call,
     assert_true(cert in node.getrawmempool())
 
     return cert, epoch_block_hash, epoch_number
+
+def swap_bytes(input_buf):
+    return codecs.encode(codecs.decode(input_buf, 'hex')[::-1], 'hex').decode()
 
