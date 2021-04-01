@@ -92,15 +92,18 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
 
     while (!txBaseMsgQueue.empty())
     {
-        const uint256& hashToProcess        = txBaseMsgQueue.at(0).txBaseHash;
-        NodeId sourceNodeId                 = txBaseMsgQueue.at(0).sourceNodeId;
-        const CTransactionBase& txToProcess = *txBaseMsgQueue.at(0).pTxBase;
-        CNodeInterface* pSourceNode         =  txBaseMsgQueue.at(0).pSourceNode;
+    	 //Copy to allow immediate erasure from queue
+    	TxBaseMsg_DataToProcess dataToProcess = txBaseMsgQueue.at(0);
+    	txBaseMsgQueue.erase(txBaseMsgQueue.begin());
+
+        const uint256& hashToProcess        = dataToProcess.txBaseHash;
+        NodeId sourceNodeId                 = dataToProcess.sourceNodeId;
+        const CTransactionBase& txToProcess = *dataToProcess.pTxBase;
+        CNodeInterface* pSourceNode         = dataToProcess.pSourceNode;
 
         if (setMisbehaving.count(sourceNodeId))
         {
             vEraseQueue.push_back(hashToProcess);
-            txBaseMsgQueue.erase(txBaseMsgQueue.begin());
             continue;
         }
 
@@ -124,7 +127,6 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
             std::map<uint256, std::set<uint256> >::iterator unlockedOrphansIt = mapOrphanTransactionsByPrev.find(hashToProcess);
             if (unlockedOrphansIt == mapOrphanTransactionsByPrev.end())
             {
-                txBaseMsgQueue.erase(txBaseMsgQueue.begin());
                 continue; //hashToProcess does not unlock any orphan
             }
 
@@ -138,8 +140,6 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
 
                 txBaseMsgQueue.push_back(dataToAdd);
             }
-
-            txBaseMsgQueue.erase(txBaseMsgQueue.begin());
         }
 
         if (res == MempoolReturnValue::MISSING_INPUT)
@@ -165,8 +165,6 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                         LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
                 }
             }
-
-            txBaseMsgQueue.erase(txBaseMsgQueue.begin());
         }
 
         if (res == MempoolReturnValue::INVALID)
@@ -207,7 +205,6 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
             }
 
             vEraseQueue.push_back(hashToProcess);
-            txBaseMsgQueue.erase(txBaseMsgQueue.begin());
         }
     }
 
