@@ -108,7 +108,7 @@ protected:
     CTxMemPool aMempool;
     CTransaction GenerateScTx(const CAmount & creationTxAmount, int epochLenght = -1, bool ceasedVkDefined = true);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
-    CTransaction GenerateBtrTx(const uint256 & scId);
+    CTransaction GenerateBtrTx(const uint256 & scId, const CAmount & mbtrFee = CAmount(1));
     CTxCeasedSidechainWithdrawalInput GenerateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount);
     CTransaction GenerateCSWTx(const std::vector<CTxCeasedSidechainWithdrawalInput>& csws);
     CTransaction GenerateCSWTx(const CTxCeasedSidechainWithdrawalInput& csw);
@@ -117,6 +117,8 @@ protected:
                                  CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/, int64_t quality,
                                  const CTransactionBase* inputTxBase = nullptr);
     void storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
+    uint256 createAndStoreSidechain(CAmount ftScFee = CAmount(0), CAmount mbtrScFee = CAmount(0), size_t mbtrScDataLength = 0);
+    
 
 private:
     boost::filesystem::path  pathTemp;
@@ -131,7 +133,7 @@ private:
 
     void InitCoinGeneration();
     std::pair<uint256, CCoinsCacheEntry> GenerateCoinsAmount(const CAmount & amountToGenerate);
-    bool StoreCoins(const std::pair<uint256, CCoinsCacheEntry>& entryToStore);
+    bool StoreCoins(std::pair<uint256, CCoinsCacheEntry> entryToStore);
 
     //Critical sections below needed when compiled with --enable-debug, which activates ASSERT_HELD
     CCriticalBlock csMainLock;
@@ -1491,6 +1493,97 @@ TEST_F(SidechainsInMempoolTestSuite, DependenciesOfTDAG) {
     EXPECT_TRUE(aMempool.mempoolDependenciesOf(tx_grandchild_1).empty());
 }
 
+
+//////////////////////////////////////////////////////////
+//////////////////// Fee validations /////////////////////
+//////////////////////////////////////////////////////////
+TEST_F(SidechainsInMempoolTestSuite, CheckFtFeeValidationOnMempool)
+{
+    CAmount ftScFee(7);
+    uint256 scId = createAndStoreSidechain(/*FT fee*/ftScFee, /*MBTR fee*/0, /*MBTR data length*/0);
+
+    CTransaction fwdTx = GenerateFwdTransferTx(scId, ftScFee);
+    CValidationState fwdTxState;
+    bool missingInputs = false;
+
+    // Check that a FT with the fee equal to the minimum specified in the sidechain is accepted
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+
+    // Check that a FT with the fee greater than the minimum specified in the sidechain is accepted
+    fwdTx = GenerateFwdTransferTx(scId, ftScFee + 1);
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+
+    // Check that a FT with the fee less than the minimum specified in the sidechain is rejected
+    fwdTx = GenerateFwdTransferTx(scId, ftScFee - 1);
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, CheckMbtrFeeValidationOnMempool)
+{
+    CAmount mbtrScFee(7);
+    uint256 scId = createAndStoreSidechain(/*FT fee*/0, /*MBTR fee*/mbtrScFee, /*MBTR data length*/1);
+
+    CMutableTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
+    CValidationState mbtrTxState;
+    bool missingInputs = false;
+
+    // Check that a MBTR with the fee equal to the minimum specified in the sidechain is accepted
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+
+    // Check that a MBTR with the fee greater than the minimum specified in the sidechain is accepted
+    mbtrTx = GenerateBtrTx(scId, mbtrScFee + 1);
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+
+    // Check that a MBTR with the fee less than the minimum specified in the sidechain is rejected
+    mbtrTx = GenerateBtrTx(scId, mbtrScFee - 1);
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+}
+
+
+//////////////////////////////////////////////////////////
+//////////////////// MBTR data length ////////////////////
+//////////////////////////////////////////////////////////
+TEST_F(SidechainsInMempoolTestSuite, MbtrDataLengthGreaterThanZeroEnablesMbtr)
+{
+    CAmount mbtrScFee(7);
+    uint256 scId = createAndStoreSidechain(/*FT fee*/0, /*MBTR fee*/mbtrScFee, /*MBTR data length*/1);
+
+    CMutableTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
+    CValidationState mbtrTxState;
+    bool missingInputs = false;
+
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, MbtrDataLengthZeroDisablesMbtr)
+{
+    CAmount mbtrScFee(7);
+    uint256 scId = createAndStoreSidechain(/*FT fee*/0, /*MBTR fee*/mbtrScFee, /*MBTR data length*/0);
+
+    CMutableTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
+    CValidationState mbtrTxState;
+    bool missingInputs = false;
+
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+}
+
+
+//////////////////////////////////////////////////////////
+/////////////////// Certificate update ///////////////////
+//////////////////////////////////////////////////////////
+TEST_F(SidechainsInMempoolTestSuite, NewFtFeeUpdatesMempool)
+{
+    CAmount ftScFee(7);
+    uint256 scId = createAndStoreSidechain(/*FT fee*/ftScFee, /*MBTR fee*/0, /*MBTR data length*/0);
+
+    CTransaction fwdTx = GenerateFwdTransferTx(scId, ftScFee);
+    CValidationState fwdTxState;
+    bool missingInputs = false;
+
+    // Check that a FT with the fee equal to the minimum specified in the sidechain is accepted
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////// Test Fixture definitions ///////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -1520,21 +1613,11 @@ std::pair<uint256, CCoinsCacheEntry> SidechainsInMempoolTestSuite::GenerateCoins
     return std::pair<uint256, CCoinsCacheEntry>(uint256S(num.str()), entry);
 }
 
-bool SidechainsInMempoolTestSuite::StoreCoins(const std::pair<uint256, CCoinsCacheEntry>& entryToStore) {
+bool SidechainsInMempoolTestSuite::StoreCoins(std::pair<uint256, CCoinsCacheEntry> entryToStore)
+{
+    pcoinsTip->WriteCoins(entryToStore.first, entryToStore.second);
+    
     CCoinsViewCache view(pcoinsTip);
-    CCoinsMap tmpCoinsMap;
-    tmpCoinsMap[entryToStore.first] = entryToStore.second;
-
-    const uint256 hashBlock = pcoinsTip->GetBestBlock(); //keep same best block as set in Fixture setup
-    const uint256 hashAnchor;
-    CAnchorsMap mapAnchors;
-    CNullifiersMap mapNullifiers;
-    CSidechainsMap mapSidechains;
-    CSidechainEventsMap mapCeasingScs;
-    CCswNullifiersMap cswNullifiers;
-
-    pcoinsTip->BatchWrite(tmpCoinsMap, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapCeasingScs, cswNullifiers);
-
     return view.HaveCoins(entryToStore.first) == true;
 }
 
@@ -1584,7 +1667,7 @@ CTransaction SidechainsInMempoolTestSuite::GenerateFwdTransferTx(const uint256 &
     return scTx;
 }
 
-CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId) {
+CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId, const CAmount& mbtrFee) {
     std::pair<uint256, CCoinsCacheEntry> coinData = GenerateCoinsAmount(1000);
     StoreCoins(coinData);
 
@@ -1595,12 +1678,12 @@ CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId) {
 
     scTx.vmbtr_out.resize(1);
     scTx.vmbtr_out[0].scId   = scId;
-    scTx.vmbtr_out[0].scFee = CAmount(1); //dummy amount
+    scTx.vmbtr_out[0].scFee = mbtrFee;
     scTx.vmbtr_out[0].scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
 
     scTx.vmbtr_out.resize(2); //testing double deletes
     scTx.vmbtr_out[1].scId   = scId;
-    scTx.vmbtr_out[1].scFee = CAmount(2); //dummy amount
+    scTx.vmbtr_out[1].scFee = mbtrFee;
     scTx.vmbtr_out[1].scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     scTx.vmbtr_out[1].scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
 
@@ -1695,4 +1778,25 @@ void SidechainsInMempoolTestSuite::storeSidechainWithCurrentHeight(CNakedCCoinsV
     chainSettingUtils::ExtendChainActiveToHeight(chainActiveHeight);
     view.SetBestBlock(chainActive.Tip()->GetBlockHash());
     txCreationUtils::storeSidechain(view.getSidechainMap(), scId, sidechain);
+}
+
+uint256 SidechainsInMempoolTestSuite::createAndStoreSidechain(CAmount ftScFee, CAmount mbtrScFee, size_t mbtrScDataLength)
+{
+    int creationHeight = 1789;
+    chainSettingUtils::ExtendChainActiveToHeight(creationHeight);
+
+    CMutableTransaction scTx = GenerateScTx(CAmount(10));
+    scTx.vsc_ccout[0].forwardTransferScFee = ftScFee;
+    scTx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = mbtrScFee;
+    scTx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = mbtrScDataLength;
+    uint256 scId = CTransaction(scTx).GetScIdFromScCcOut(0);
+
+
+    CBlock aBlock;
+    CCoinsViewCache sidechainsView(pcoinsTip);
+    sidechainsView.UpdateSidechain(scTx, aBlock, creationHeight);
+    sidechainsView.SetBestBlock(chainActive.Tip()->GetBlockHash());
+    sidechainsView.Flush();
+
+    return scId;
 }

@@ -560,6 +560,48 @@ bool CCoinsViewCache::RemoveCswNullifier(const uint256& scId, const CFieldElemen
     return true;
 }
 
+size_t CCoinsViewCache::WriteCoins(const uint256& key, CCoinsCacheEntry& value)
+{
+    size_t res = 0;
+    if (value.flags & CCoinsCacheEntry::DIRTY)
+    { // Ignore non-dirty entries (optimization).
+        CCoinsMap::iterator itUs = this->cacheCoins.find(key);
+        if (itUs == this->cacheCoins.end())
+        {
+            if (!value.coins.IsPruned())
+            {
+                    // The parent cache does not have an entry, while the child
+                    // cache does have (a non-pruned) one. Move the data up, and
+                    // mark it as fresh (if the grandparent did have it, we
+                    // would have pulled it in at first GetCoins).
+                assert(value.flags & CCoinsCacheEntry::FRESH);
+                CCoinsCacheEntry& entry = this->cacheCoins[key];
+                entry.coins.swap(value.coins);
+                res += entry.coins.DynamicMemoryUsage();
+                    entry.flags = CCoinsCacheEntry::DIRTY | CCoinsCacheEntry::FRESH;
+                }
+        } else 
+        {
+            if ((itUs->second.flags & CCoinsCacheEntry::FRESH) && value.coins.IsPruned())
+            {
+                    // The grandparent does not have an entry, and the child is
+                    // modified and being pruned. This means we can just delete
+                    // it from the parent.
+                res -= itUs->second.coins.DynamicMemoryUsage();
+                this->cacheCoins.erase(itUs);
+            } else
+            {
+                    // A normal modification.
+                res -= itUs->second.coins.DynamicMemoryUsage();
+                itUs->second.coins.swap(value.coins);
+                res += itUs->second.coins.DynamicMemoryUsage();
+                    itUs->second.flags |= CCoinsCacheEntry::DIRTY;
+                }
+            }
+        }
+    return res;
+    }
+
 bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  const uint256 &hashBlockIn,
                                  const uint256 &hashAnchorIn,
@@ -569,40 +611,10 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  CSidechainEventsMap& mapSidechainEvents,
                                  CCswNullifiersMap& cswNullifiers) {
     assert(!hasModifier);
-    for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
-        if (it->second.flags & CCoinsCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
-            CCoinsMap::iterator itUs = cacheCoins.find(it->first);
-            if (itUs == cacheCoins.end()) {
-                if (!it->second.coins.IsPruned()) {
-                    // The parent cache does not have an entry, while the child
-                    // cache does have (a non-pruned) one. Move the data up, and
-                    // mark it as fresh (if the grandparent did have it, we
-                    // would have pulled it in at first GetCoins).
-                    assert(it->second.flags & CCoinsCacheEntry::FRESH);
-                    CCoinsCacheEntry& entry = cacheCoins[it->first];
-                    entry.coins.swap(it->second.coins);
-                    cachedCoinsUsage += entry.coins.DynamicMemoryUsage();
-                    entry.flags = CCoinsCacheEntry::DIRTY | CCoinsCacheEntry::FRESH;
-                }
-            } else {
-                if ((itUs->second.flags & CCoinsCacheEntry::FRESH) && it->second.coins.IsPruned()) {
-                    // The grandparent does not have an entry, and the child is
-                    // modified and being pruned. This means we can just delete
-                    // it from the parent.
-                    cachedCoinsUsage -= itUs->second.coins.DynamicMemoryUsage();
-                    cacheCoins.erase(itUs);
-                } else {
-                    // A normal modification.
-                    cachedCoinsUsage -= itUs->second.coins.DynamicMemoryUsage();
-                    itUs->second.coins.swap(it->second.coins);
-                    cachedCoinsUsage += itUs->second.coins.DynamicMemoryUsage();
-                    itUs->second.flags |= CCoinsCacheEntry::DIRTY;
-                }
-            }
-        }
-        CCoinsMap::iterator itOld = it++;
-        mapCoins.erase(itOld);
-    }
+    for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); ++it)
+        WriteCoins(it->first, it->second);
+
+    mapCoins.clear();
 
     for (CAnchorsMap::iterator child_it = mapAnchors.begin(); child_it != mapAnchors.end();)
     {

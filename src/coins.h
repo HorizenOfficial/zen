@@ -626,6 +626,7 @@ public:
     uint256 GetBestAnchor()                                            const override;
     int GetHeight() const; // Return view height, which is inputs.GetBestBlock() (aka parent block) one.
     void SetBestBlock(const uint256 &hashBlock);
+    size_t WriteCoins(const uint256& key, CCoinsCacheEntry& value);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
