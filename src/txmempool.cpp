@@ -803,12 +803,45 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
         }
     }
 
-    // mbtr will be removed if they target outdated CertDataHash
+    // Check if any transaction is now invalid due to a certificate update
     for (auto it = mapSidechains.begin(); it != mapSidechains.end(); it++)
     {
-        if (pCoinsView->GetActiveCertView(it->first).certDataHash != it->second.mcBtrsCertDataHash)
+        CScCertificateView certView = pCoinsView->GetActiveCertView(it->first);
+        
+        // mbtr will be removed if they target outdated CertDataHash
+        if (certView.certDataHash != it->second.mcBtrsCertDataHash)
         {
             txesToRemove.insert(it->second.mcBtrsTxHashes.begin(), it->second.mcBtrsTxHashes.end());
+        }
+
+        // Remove transactions containing at least one FT with amount less than FT fee (according to the current active sidechain certificate).
+        for (auto ftTxHash: it->second.fwdTxHashes)
+        {
+            const CTransaction& tx = mapTx.at(ftTxHash).GetTx();
+
+            for (auto ftOut: tx.GetVftCcOut())
+            {
+                if (ftOut.nValue < certView.forwardTransferScFee)
+                {
+                    txesToRemove.insert(ftTxHash);
+                    break;
+                }
+            }
+        }
+
+        // Remove transactions containing at least one MBTR with amount less than MBTR fee (according to the current active sidechain certificate).
+        for (auto mbtrTxHash: it->second.mcBtrsTxHashes)
+        {
+            const CTransaction& tx = mapTx.at(mbtrTxHash).GetTx();
+
+            for (auto mbtrOut: tx.GetVBwtRequestOut())
+            {
+                if (mbtrOut.scFee < certView.mainchainBackwardTransferRequestScFee)
+                {
+                    txesToRemove.insert(mbtrTxHash);
+                    break;
+                }
+            }
         }
     }
 
