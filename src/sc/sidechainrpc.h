@@ -125,6 +125,7 @@ class ScRpcCmdCert : public ScRpcCmd
   private:
     void addBackwardTransfers();
     void addCustomFields();
+    void addFees();
 
   public:
     struct sBwdParams
@@ -142,11 +143,14 @@ class ScRpcCmdCert : public ScRpcCmd
     std::vector<sBwdParams> _bwdParams;
     std::vector<FieldElementCertificateField> _vCfe;
     std::vector<BitVectorCertificateField> _vCmt;
+    CAmount _ftScFee;
+    CAmount _mbtrScFee;
 
     ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
-        const std::vector<FieldElementCertificateField>& vCfe, const std::vector<BitVectorCertificateField>& vCmt);
+        const std::vector<FieldElementCertificateField>& vCfe, const std::vector<BitVectorCertificateField>& vCmt,
+        const CAmount& ftScFee, const CAmount& mbtrScFee);
 
     void execute() override;
 };

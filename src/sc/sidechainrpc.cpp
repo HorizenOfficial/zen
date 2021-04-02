@@ -88,6 +88,9 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
             o.push_back(Pair("wMbtrVk", HexStr(out.wMbtrVk.get())));
         if(out.wCeasedVk.is_initialized())
             o.push_back(Pair("wCeasedVk", HexStr(out.wCeasedVk.get())));
+        o.push_back(Pair("ftScFee", ValueFromAmount(out.forwardTransferScFee)));
+        o.push_back(Pair("mbtrScFee", ValueFromAmount(out.mainchainBackwardTransferRequestScFee)));
+        o.push_back(Pair("mbtrRequestDataLength", out.mainchainBackwardTransferRequestDataLength));
         vscs.push_back(o);
         nIdx++;
     }
@@ -523,6 +526,54 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             }
         }
 
+        const UniValue& uniFtScFee = find_value(o, "forwardTransferScFee");
+        if (!uniFtScFee.isNull())
+        {
+            CAmount ftScFee = AmountFromValue(uniFtScFee);
+
+            if (!MoneyRange(ftScFee))
+            {
+                error = "Invalid forwardTransferScFee: out of range";
+                return false;
+            }
+
+            sc.forwardTransferScFee = ftScFee;
+        }
+
+        const UniValue& uniMbtrScFee = find_value(o, "mainchainBackwardTransferScFee");
+        if (!uniMbtrScFee.isNull())
+        {
+            CAmount mbtrScFee = AmountFromValue(uniMbtrScFee);
+
+            if (!MoneyRange(mbtrScFee))
+            {
+                error = "Invalid mainchainBackwardTransferScFee: out of range";
+                return false;
+            }
+
+            sc.mainchainBackwardTransferRequestScFee = mbtrScFee;
+        }
+
+        const UniValue& uniMbtrDataLength = find_value(o, "mainchainBackwardTransferRequestDataLength");
+        if (!uniMbtrDataLength.isNull())
+        {
+            if (!uniMbtrDataLength.isNum())
+            {
+                error = "Invalid mainchainBackwardTransferRequestDataLength: numeric value expected";
+                return false;
+            }
+            
+            size_t mbtrDataLength = uniMbtrDataLength.get_int();
+
+            if (mbtrDataLength < 0)
+            {
+                error = "Invalid mainchainBackwardTransferRequestDataLength: value cannot be negative";
+                return false;
+            }
+
+            sc.mainchainBackwardTransferRequestDataLength = mbtrDataLength;
+        }
+
         CTxScCreationOut txccout(nAmount, address, sc);
 
         rawTx.vsc_ccout.push_back(txccout);
@@ -892,9 +943,11 @@ void ScRpcCmd::addChange()
 ScRpcCmdCert::ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
-        const std::vector<FieldElementCertificateField>& vCfe, const std::vector<BitVectorCertificateField>& vCmt):
+        const std::vector<FieldElementCertificateField>& vCfe, const std::vector<BitVectorCertificateField>& vCmt,
+        const CAmount& ftScFee, const CAmount& mbtrScFee):
         ScRpcCmd(fromaddress, changeaddress, minConf, nFee),
-        _cert(cert),_bwdParams(bwdParams), _vCfe(vCfe), _vCmt(vCmt)
+        _cert(cert),_bwdParams(bwdParams), _vCfe(vCfe), _vCmt(vCmt),
+        _ftScFee(ftScFee), _mbtrScFee(mbtrScFee)
 {
 }
 
@@ -904,6 +957,7 @@ void ScRpcCmdCert::execute()
     addChange();
     addBackwardTransfers();
     addCustomFields();
+    addFees();
     sign();
     send();
 }
@@ -985,6 +1039,12 @@ void ScRpcCmdCert::addCustomFields()
         _cert.vFieldElementCertificateField = _vCfe;
     if (!_vCmt.empty())
         _cert.vBitVectorCertificateField = _vCmt;
+}
+
+void ScRpcCmdCert::addFees()
+{
+    _cert.forwardTransferScFee = _ftScFee;
+    _cert.mainchainBackwardTransferRequestScFee = _mbtrScFee;
 }
 
 ScRpcCmdTx::ScRpcCmdTx(

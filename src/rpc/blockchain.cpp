@@ -1098,6 +1098,13 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         sc.push_back(Pair("last certificate hash", info.lastTopQualityCertHash.GetHex()));
         sc.push_back(Pair("last certificate quality", info.lastTopQualityCertQuality));
         sc.push_back(Pair("last certificate amount", ValueFromAmount(info.lastTopQualityCertBwtAmount)));
+
+        sc.push_back(Pair("past ftScFee", ValueFromAmount(info.pastTopQualityCertView.forwardTransferScFee)));
+        sc.push_back(Pair("past mbtrScFee", ValueFromAmount(info.pastTopQualityCertView.mainchainBackwardTransferRequestScFee)));
+        sc.push_back(Pair("last ftScFee", ValueFromAmount(info.lastTopQualityCertView.forwardTransferScFee)));
+        sc.push_back(Pair("last mbtrScFee", ValueFromAmount(info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee)));
+
+        sc.push_back(Pair("mbtrRequestDataLength", info.mainchainBackwardTransferRequestDataLength));
  
         // creation parameters
         sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
@@ -1369,6 +1376,11 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"created at block height\": xxxxx,   (numeric) height of the above block\n"
             "     \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
             "     \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
+            "     \"past ftScFee\":            xxxxx,   (numeric) The (previous epoch) fee required to create a Forward Transfer to sidechain\n"
+            "     \"past mbtrScFee\":          xxxxx,   (numeric) The (previous epoch) fee required to create a Mainchain Backward Transfer Request to sidechain\n"
+            "     \"last ftScFee\":            xxxxx,   (numeric) The (last epoch) fee required to create a Forward Transfer to sidechain\n"
+            "     \"last mbtrScFee\":          xxxxx,   (numeric) The (last epoch) fee required to create a Mainchain Backward Transfer Request to sidechain\n"
+            "     \"mbtrRequestDataLength\":   xxxxx,   (numeric) The size of the MBTR request data length\n"
             "     \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
             "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
             "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
@@ -1377,6 +1389,9 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"wCeasedVk\":               xxxxx,   (string, optional)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
             "     \"vFieldElementCertificateFieldConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
             "     \"vBitVectorCertificateFieldConfig\"    xxxxx,   (string) A string representation of an array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom vBitVectorCertificateField with the corresponding sizes\n"
+            "     \"ftScFee\"                  xxxxx,   (numeric) The fee required to create a Forward Transfer to sidechain\n"
+            "     \"mbtrScFee\"                xxxxx,   (numeric) The fee required to create a Mainchain Backward Transfer Request to sidechain\n"
+            "     \"mbtrRequestDataLength\"    xxxxx,   (numeric) The size of the MBTR request data length\n"
             "     \"immature amounts\": [\n"
             "       {\n"
             "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
