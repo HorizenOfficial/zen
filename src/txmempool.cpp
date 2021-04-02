@@ -155,8 +155,7 @@ void CTxMemPool::AddTransactionsUpdated(unsigned int n)
 }
 
 
-bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate,
-                              const std::map<uint256, CFieldElement>& scIdToCertDataHash)
+bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate)
 {
     // Add to memory pool without checking anything.
     // Used by main.cpp AcceptToMemoryPool(), which DOES do
@@ -200,8 +199,6 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
         if (mapSidechains.count(btr.scId) == 0)
             LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain [%s], mcBtrsTxHashes\n", __func__, __LINE__, hash.ToString(), btr.scId.ToString());
         mapSidechains[btr.scId].mcBtrsTxHashes.insert(hash);
-        if (mapSidechains[btr.scId].mcBtrsCertDataHash.IsNull())
-            mapSidechains[btr.scId].mcBtrsCertDataHash = scIdToCertDataHash.at(btr.scId);
     }
 
     nTransactionsUpdated++;
@@ -422,8 +419,6 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             for(const auto& btr: tx.GetVBwtRequestOut()) {
                 if (mapSidechains.count(btr.scId)) { //Guard against double-delete on multiple btrs toward the same sc in same tx
                     mapSidechains.at(btr.scId).mcBtrsTxHashes.erase(tx.GetHash());
-                    if (mapSidechains.at(btr.scId).mcBtrsTxHashes.empty())
-                        mapSidechains.at(btr.scId).mcBtrsCertDataHash.SetNull();
 
                     if (mapSidechains.at(btr.scId).IsNull())
                     {
@@ -807,12 +802,6 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
     for (auto it = mapSidechains.begin(); it != mapSidechains.end(); it++)
     {
         CScCertificateView certView = pCoinsView->GetActiveCertView(it->first);
-        
-        // mbtr will be removed if they target outdated CertDataHash
-        if (certView.certDataHash != it->second.mcBtrsCertDataHash)
-        {
-            txesToRemove.insert(it->second.mcBtrsTxHashes.begin(), it->second.mcBtrsTxHashes.end());
-        }
 
         // Remove transactions containing at least one FT with amount less than FT fee (according to the current active sidechain certificate).
         for (auto ftTxHash: it->second.fwdTxHashes)
