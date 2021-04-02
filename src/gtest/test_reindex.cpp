@@ -546,7 +546,7 @@ TEST_F(ReindexTestSuite, CreateNewBlockFile)
 CBlockHeader ReindexTestSuite::createCoinBaseOnlyBlockHeader(const uint256& prevBlockHash)
 {
     CBlockHeader res;
-    res.nVersion = MIN_BLOCK_VERSION;
+    res.nVersion = BLOCK_VERSION_ORIGINAL;
     res.hashPrevBlock = prevBlockHash;
     res.hashMerkleRoot = uint256();
     res.hashScTxsCommitment.SetNull();

@@ -105,6 +105,9 @@ testScripts=(
   'sc_cert_memcleanup_split.py'
   'sc_cert_ceasing_split.py'
   'subsidyhalving.py'
+  'cbh_rpfix.py'
+  'cbh_rpcheck.py'
+  'tlsprotocols.py'
 );
 
 testScriptsExt=(
