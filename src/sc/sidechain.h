@@ -9,6 +9,14 @@
 class CValidationState;
 class CTransaction;
 
+namespace Sidechain
+{
+    static const boost::filesystem::path GetSidechainDataDir();
+    bool InitSidechainsFolder();
+    void ClearSidechainsFolder();
+    void LoadCumulativeProofsParameters();
+};
+
 class CSidechainEvents {
 public:
     CSidechainEvents(): sidechainEventsVersion(0), ceasingScs(), maturingScs() {};

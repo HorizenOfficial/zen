@@ -12,7 +12,44 @@
 #include <undo.h>
 #include <main.h>
 #include "leveldbwrapper.h"
+#include <boost/filesystem.hpp>
 
+static const boost::filesystem::path Sidechain::GetSidechainDataDir()
+{
+    static const boost::filesystem::path sidechainsDataDir = GetDataDir() / "sidechains";
+    return sidechainsDataDir;
+}
+
+bool Sidechain::InitSidechainsFolder()
+{
+    // Note: sidechainsDataDir cannot be global since
+    // at start of the program network parameters are not initilized yet
+
+    if (!boost::filesystem::exists(Sidechain::GetSidechainDataDir()))
+    {
+        boost::filesystem::create_directories(Sidechain::GetSidechainDataDir());
+        //Todo: validate (possible here) availability (rw) of files with precalculated keys or create them
+    }
+    return false;
+}
+
+void Sidechain::ClearSidechainsFolder()
+{
+    LogPrintf("Removing sidechains files [CURRENTLY ALL] for -reindex. Subfolders untouched.\n");
+
+    for (boost::filesystem::directory_iterator it(Sidechain::GetSidechainDataDir());
+         it != boost::filesystem::directory_iterator(); it++)
+    {
+        if (is_regular_file(*it))
+            remove(it->path());
+    }
+}
+
+void Sidechain::LoadCumulativeProofsParameters()
+{
+    //Todo: call rust circuitry, passing the files hosting keys
+    return;
+}
 
 int CSidechain::EpochFor(int targetHeight) const
 {
