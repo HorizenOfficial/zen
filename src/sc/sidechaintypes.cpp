@@ -4,7 +4,7 @@
 
 void CZendooCctpLibraryChecker::CheckTypeSizes()
 {
-    if (SC_FIELD_SIZE+1 != zendoo_get_field_size_in_bytes())
+    if (SC_FIELD_SIZE != zendoo_get_field_size_in_bytes())
     {
         LogPrintf("%s():%d - ERROR: unexpected CCTP field element size: %d (rust lib returns %d)\n", 
             __func__, __LINE__, SC_FIELD_SIZE, zendoo_get_field_size_in_bytes());
