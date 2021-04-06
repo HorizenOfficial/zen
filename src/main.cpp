@@ -1185,11 +1185,17 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 return false;
             }
 
-            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
-            if (!view.IsCertApplicableToState(cert, scVerifier))
+            if (!view.IsCertApplicableToState(cert))
             {
                 return state.DoS(0, error("%s(): certificate not applicable", __func__),
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
+            }
+
+            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
+            if (!view.IsCertProofVerified(cert, scVerifier))
+            {
+                return state.DoS(100, error("%s(): cert proof failed to verify", __func__),
+                            REJECT_INVALID, "bad-sc-cert-proof");
             }
             
             // do all inputs exist?
@@ -2902,8 +2908,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
+        if (!view.IsCertApplicableToState(cert) )
+        {
+            // TODO check DoS value in this case
+            return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
+                             REJECT_INVALID, "bad-sc-cert-not-applicable");
+        }
+
         auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-        if (!view.IsCertApplicableToState(cert, scVerifier) )
+        if (!view.IsCertProofVerified(cert, scVerifier) )
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");

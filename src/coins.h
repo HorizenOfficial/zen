@@ -679,8 +679,10 @@ public:
     int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToState(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const;
+    bool IsCertApplicableToState(const CScCertificate& cert) const;
+    bool IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const;
     bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
+    bool CheckEndEpochCumScTxCommTreeRoot(const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot) const;
     bool CheckCertTiming(const uint256& scId, int certEpoch) const;
     bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
     bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
