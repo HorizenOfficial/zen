@@ -304,6 +304,14 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
                 __func__, __LINE__, certHash.ToString()),
                 REJECT_INVALID, "bad-cert-invalid-epoch-data");;
     }
+    
+    if (!cert.endEpochCumScTxCommTreeRoot.IsValid() )
+    {
+        return state.DoS(100,
+                error("%s():%d - ERROR: Invalid cert[%s], invalid endEpochCumScTxCommTreeRoot [%s]\n",
+                __func__, __LINE__, certHash.ToString(), cert.endEpochCumScTxCommTreeRoot.GetHexRepr()),
+                REJECT_INVALID, "bad-cert-invalid-cum-comm-tree");;
+    }
 
     if(!libzendoomc::IsValidScProof(cert.scProof))
     {

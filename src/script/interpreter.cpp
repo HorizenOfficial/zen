@@ -1175,6 +1175,7 @@ public:
             ::Serialize(s, certTo.epochNumber, nType, nVersion);
             ::Serialize(s, certTo.quality, nType, nVersion);
             ::Serialize(s, certTo.endEpochBlockHash, nType, nVersion);
+            ::Serialize(s, certTo.endEpochCumScTxCommTreeRoot, nType, nVersion);
             ::Serialize(s, certTo.scProof, nType, nVersion);
             ::Serialize(s, certTo.vFieldElementCertificateField, nType, nVersion);
             ::Serialize(s, certTo.vBitVectorCertificateField, nType, nVersion);
