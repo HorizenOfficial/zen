@@ -1078,14 +1078,21 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                 return MempoolReturnValue::INVALID;
             }
 
-            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-            if (!view.IsCertApplicableToState(cert, scVerifier))
+            if (!view.IsCertApplicableToStateWithoutProof(cert))
             {
                 state.DoS(0, error("%s(): certificate not applicable", __func__),
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
                 return MempoolReturnValue::INVALID;
             }
 
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
+            if (!view.CheckCertificateProof(cert, scVerifier))
+            {
+                state.DoS(100, error("%s(): cert proof failed to verify", __func__),
+                            REJECT_INVALID, "bad-sc-cert-proof");
+                return MempoolReturnValue::INVALID;
+            }
+            
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
             // and only helps with filling in pfMissingInputs (to determine missing vs spent).
@@ -1342,10 +1349,17 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 return MempoolReturnValue::INVALID;
             }
 
-            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-            if (!view.IsScTxApplicableToState(tx, scVerifier))
+            if (!view.IsScTxApplicableToStateWithoutProof(tx))
             {
                 state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n",
+                              __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx");
+                return MempoolReturnValue::INVALID;
+            }
+
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
+            if (!view.CheckScTxProof(tx, scVerifier))
+            {
+                state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
                               __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx");
                 return MempoolReturnValue::INVALID;
             }
@@ -2741,10 +2755,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("%s():%d: tx inputs missing/spent",__func__, __LINE__),
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
+            if (!view.IsScTxApplicableToStateWithoutProof(tx))
+            {
+                return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
+                                 REJECT_INVALID, "bad-sc-tx");
+            }
+
             CScProofVerifier scVerifier {fExpensiveChecks ?
                     CScProofVerifier::Verification::Strict:
                     CScProofVerifier::Verification::Loose};
-            if (!view.IsScTxApplicableToState(tx, scVerifier))
+            if (!view.CheckScTxProof(tx, scVerifier))
             {
                 return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx");
@@ -2843,10 +2863,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
+        if (!view.IsCertApplicableToStateWithoutProof(cert))
+        {
+            return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
+                             REJECT_INVALID, "bad-sc-cert-not-applicable");
+        }
+
         CScProofVerifier scVerifier {fExpensiveChecks ?
                 CScProofVerifier::Verification::Strict:
                 CScProofVerifier::Verification::Loose};
-        if (!view.IsCertApplicableToState(cert, scVerifier) )
+        if (!view.CheckCertificateProof(cert, scVerifier) )
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
                              REJECT_INVALID, "bad-sc-cert-not-applicable");

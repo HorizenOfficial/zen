@@ -92,9 +92,9 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
 
     while (!txBaseMsgQueue.empty())
     {
-    	 //Copy to allow immediate erasure from queue
-    	TxBaseMsg_DataToProcess dataToProcess = txBaseMsgQueue.at(0);
-    	txBaseMsgQueue.erase(txBaseMsgQueue.begin());
+         //Copy to allow immediate erasure from queue
+        TxBaseMsg_DataToProcess dataToProcess = txBaseMsgQueue.at(0);
+        txBaseMsgQueue.erase(txBaseMsgQueue.begin());
 
         const uint256& hashToProcess        = dataToProcess.txBaseHash;
         NodeId sourceNodeId                 = dataToProcess.sourceNodeId;

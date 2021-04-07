@@ -672,14 +672,16 @@ public:
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
-    bool IsScTxApplicableToState(const CTransaction& tx, CScProofVerifier& scVerifier) const;
+    bool IsScTxApplicableToStateWithoutProof(const CTransaction& tx) const;
+    bool CheckScTxProof(const CTransaction& scTx, CScProofVerifier& scVerifier) const;
     bool CheckScTxTiming(const uint256& scId) const;
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToState(const CScCertificate& cert, CScProofVerifier& scVerifier) const;
+    bool IsCertApplicableToStateWithoutProof(const CScCertificate& cert) const;
+    bool CheckCertificateProof(const CScCertificate& cert, CScProofVerifier& scVerifier) const;
     bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
     bool CheckCertTiming(const uint256& scId, int certEpoch) const;
     bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);

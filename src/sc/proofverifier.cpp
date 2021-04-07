@@ -50,12 +50,12 @@ bool CScProofVerifier::verifyCScCertificate(
             cert.quality,
             constant.GetFieldElement().get(),
             proofdata.GetFieldElement().get(),
-			cert.scProof.GetProofPtr().get(),
-			wCertVk.GetVKeyPtr().get()))
+            cert.scProof.GetProofPtr().get(),
+            wCertVk.GetVKeyPtr().get()))
     {
         Error err = zendoo_get_last_error();
         if (err.category == CRYPTO_ERROR){ // Proof verification returned false due to an error, we must log it
-        	std::string errorStr = strprintf( "%s: [%d - %s]\n",
+            std::string errorStr = strprintf( "%s: [%d - %s]\n",
                 err.msg, err.category,
                 zendoo_get_category_name(err.category));
 

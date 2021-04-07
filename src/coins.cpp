@@ -1075,8 +1075,10 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 #ifdef BITCOIN_TX
 int CCoinsViewCache::GetHeight() const {return -1;}
 bool CCoinsViewCache::CheckEndEpochBlockHash(const CSidechain& info, int epochNumber, const uint256& endEpochBlockHash) const {return true;}
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, CScProofVerifier& scVerifier) const {return true;}
-bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, CScProofVerifier& scVerifier) const { return true;}
+bool CCoinsViewCache::IsCertApplicableToStateWithoutProof(const CScCertificate& cert) const {return true;}
+bool CCoinsViewCache::CheckCertificateProof(const CScCertificate& cert, CScProofVerifier& scVerifier) const {return true;}
+bool CCoinsViewCache::IsScTxApplicableToStateWithoutProof(const CTransaction& tx) const { return true;}
+bool CCoinsViewCache::CheckScTxProof(const CTransaction& scTx, CScProofVerifier& scVerifier) const { return true;}
 #else
 
 int CCoinsViewCache::GetHeight() const
@@ -1125,7 +1127,7 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certEpoch) const
     return true;
 }
 
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, CScProofVerifier& scVerifier) const
+bool CCoinsViewCache::IsCertApplicableToStateWithoutProof(const CScCertificate& cert) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -1154,12 +1156,12 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, CScPro
 
     if (!CheckCertTiming(cert.GetScId(), cert.epochNumber))
     {
-        return false;
+        return error("%s():%d - ERROR: cert %s timing is not valid\n", __func__, __LINE__, certHash.ToString());
     }
 
     if (!CheckQuality(cert))
     {
-        return error("%s():%d - ERROR Dropping cert %s : invalid quality\n", __func__, __LINE__, certHash.ToString());
+        return error("%s():%d - ERROR: cert %s with invalid quality %d\n", __func__, __LINE__, certHash.ToString(), cert.quality);
     }
 
     CAmount bwtTotalAmount = cert.GetValueOfBackwardTransfers(); 
@@ -1180,6 +1182,23 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, CScPro
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
+    return true;
+}
+
+bool CCoinsViewCache::CheckCertificateProof(const CScCertificate& cert, CScProofVerifier& scVerifier) const
+{
+    const uint256& certHash = cert.GetHash();
+
+    LogPrint("cert", "%s():%d - called: cert[%s], scId[%s]\n",
+        __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+
+    CSidechain sidechain;
+    if (!GetSidechain(cert.GetScId(), sidechain))
+    {
+        return error("%s():%d - ERROR: cert[%s] refers to scId[%s] not yet created\n",
+                __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+    }
+
     // Retrieve current and previous end epoch block info for certificate proof verification
     int curr_end_epoch_block_height = sidechain.GetEndHeightForEpoch(cert.epochNumber);
     int prev_end_epoch_block_height = curr_end_epoch_block_height - sidechain.creationData.withdrawalEpochLength;
@@ -1194,12 +1213,13 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, CScPro
     const CFieldElement& scCumTreeHash_end   = curr_end_epoch_block_index->scCumTreeHash;
 
     // TODO Remove prev_end_epoch_block_hash after changing of verification circuit.
-    uint256 prev_end_epoch_block_hash = prev_end_epoch_block_index->GetBlockHash();
+    const uint256& prev_end_epoch_block_hash = prev_end_epoch_block_index->GetBlockHash();
 
     // Verify certificate proof
     CFieldElement constant{};
     if (sidechain.creationData.constant.is_initialized())
         constant = sidechain.creationData.constant.get();
+
     if (!scVerifier.verifyCScCertificate(constant, sidechain.creationData.wCertVk, prev_end_epoch_block_hash, cert))
     {
         return error("%s():%d - ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
@@ -1248,7 +1268,7 @@ bool CCoinsViewCache::CheckScTxTiming(const uint256& scId) const
     return true;
 }
 
-bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, CScProofVerifier& scVerifier) const
+bool CCoinsViewCache::IsScTxApplicableToStateWithoutProof(const CTransaction& tx) const
 {
     if (tx.IsCoinBase())
         return true;
@@ -1305,21 +1325,6 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, CScProofVe
         {
             return error("%s():%d - ERROR: mbtr not supported\n",  __func__, __LINE__);
         }
-
-        CFieldElement certDataHash = this->GetActiveCertDataHash(mbtr.scId);
-//        //TODO: Unlock when we'll handle recovery of fwt of last epoch
-//        if (certDataHash.IsNull())
-//            return error("%s():%d - ERROR: Tx[%s] mbtr request [%s] has missing active cert data hash for required scId[%s]\n",
-//                            __func__, __LINE__, tx.ToString(), mbtr.ToString(), mbtr.scId.ToString());
-
-        // Verify mainchain bwt request proof
-        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
-                mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk, certDataHash))
-            return error("%s():%d - ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
-                    __func__, __LINE__, mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
-
-        LogPrint("sc", "%s():%d - OK: tx[%s] contains bwt transfer request for scId[%s]\n",
-            __func__, __LINE__, txHash.ToString(), scId.ToString());
     }
 
     // Check CSW inputs
@@ -1361,8 +1366,40 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, CScProofVe
             return error("%s():%d - ERROR: Tx[%s] CSW input [%s] nullifier had been already used\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString());
         }
+    }
 
+    return true;
+}
+
+bool CCoinsViewCache::CheckScTxProof(const CTransaction& scTx, CScProofVerifier& scVerifier) const
+{
+    // verify mbtr
+    for(size_t idx = 0; idx < scTx.GetVBwtRequestOut().size(); ++idx)
+    {
+        const CBwtRequestOut& mbtr = scTx.GetVBwtRequestOut().at(idx);
+
+        boost::optional<CScVKey> wMbtrVk = this->AccessSidechain(mbtr.scId)->creationData.wMbtrVk;
+        CFieldElement certDataHash = this->GetActiveCertDataHash(mbtr.scId);
+//        //TODO: Unlock when we'll handle recovery of fwt of last epoch
+//        if (certDataHash.IsNull())
+//            return error("%s():%d - ERROR: Tx[%s] mbtr request [%s] has missing active cert data hash for required scId[%s]\n",
+//                            __func__, __LINE__, tx.ToString(), mbtr.ToString(), mbtr.scId.ToString());
+
+        // Verify mainchain bwt request proof
+        if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
+                mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk, certDataHash))
+            return error("%s():%d - ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
+                    __func__, __LINE__, mbtr.scId.ToString(), scTx.GetHash().ToString(), idx);
+
+        LogPrint("sc", "%s():%d - OK: tx[%s] contains bwt transfer request for scId[%s]\n",
+            __func__, __LINE__, scTx.GetHash().ToString(), mbtr.scId.ToString());
+    }
+
+    // verify csws
+    for(const CTxCeasedSidechainWithdrawalInput& csw: scTx.GetVcswCcIn())
+    {
         CFieldElement certDataHash = this->GetActiveCertDataHash(csw.scId);
+        boost::optional<CScVKey> wCeasedVk = this->AccessSidechain(csw.scId)->creationData.wCeasedVk;
 
 //        //TODO: Unlock when we'll handle recovery of fwt of last epoch
 //        if (certDataHash.IsNull())
@@ -1370,10 +1407,10 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, CScProofVe
 //                            __func__, __LINE__, tx.ToString(), csw.ToString(), csw.scId.ToString());
 
         // Verify CSW proof
-        if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.creationData.wCeasedVk.get(), csw))
+        if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, wCeasedVk.get(), csw))
         {
             return error("%s():%d - ERROR: Tx[%s] CSW input [%s] cannot be accepted: proof verification failed\n",
-                __func__, __LINE__, tx.ToString(), csw.ToString());
+                __func__, __LINE__, scTx.GetHash().ToString(), csw.ToString());
         }
     }
 

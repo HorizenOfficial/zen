@@ -20,7 +20,7 @@
 class CZendooCctpObject
 {
 public:
-	CZendooCctpObject() = default;
+    CZendooCctpObject() = default;
     virtual ~CZendooCctpObject() = default;
 
     CZendooCctpObject(const std::vector<unsigned char>& byteArrayIn): byteVector(byteArrayIn) {}
@@ -129,9 +129,9 @@ private:
 //////////////////////////////////// CScVKey ///////////////////////////////////
 struct CVKeyPtrDeleter
 { // deleter
-	CVKeyPtrDeleter() = default;
+    CVKeyPtrDeleter() = default;
     void operator()(sc_vk_t* p) const {
-    	zendoo_sc_vk_free(p);
+        zendoo_sc_vk_free(p);
         p = nullptr;
     };
 };
@@ -140,7 +140,7 @@ typedef std::shared_ptr<sc_vk_t> wrappedScVkeyPtr;
 class CScVKey : public CZendooCctpObject
 {
 public:
-	CScVKey() = default;
+    CScVKey() = default;
     ~CScVKey() = default;
 
     explicit CScVKey(const std::vector<unsigned char>& byteArrayIn);
