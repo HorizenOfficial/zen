@@ -112,7 +112,8 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
 
         {
             LOCK(cs_main);
-            res = mempoolProcess(mempool, state, txToProcess, LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::OFF);
+            // TEMPORARILY ValidateSidechainProof::ON BEFORE HANDLING PARTIALLY_VALIDATED CASE
+            res = mempoolProcess(mempool, state, txToProcess, LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
             mempool.check(pcoinsTip);
         }
 

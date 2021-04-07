@@ -38,7 +38,7 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTransaction& _tx, const CAmount& _nFee,
     CMemPoolEntry(_nFee, _nTime, _dPriority, _nHeight),
     tx(_tx), hadNoDependencies(poolHasNoInputsOf)
 {
-    nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+    nTxSize = tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     nModSize = tx.CalculateModifiedSize(nTxSize);
     nUsageSize = RecursiveDynamicUsage(tx);
 }
@@ -63,7 +63,7 @@ CCertificateMemPoolEntry::CCertificateMemPoolEntry(const CScCertificate& _cert, 
     CMemPoolEntry(_nFee, _nTime, _dPriority, _nHeight),
     cert(_cert) 
 {
-    nCertificateSize = ::GetSerializeSize(cert, SER_NETWORK, PROTOCOL_VERSION);
+    nCertificateSize = cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     nModSize = cert.CalculateModifiedSize(nCertificateSize);
     nUsageSize = RecursiveDynamicUsage(cert);
 }
@@ -1606,12 +1606,12 @@ std::pair<uint256, CAmount> CTxMemPool::FindCertWithQuality(const uint256& scId,
     return res;
 }
 
-bool CTxMemPool::RemoveCertAndSync(const uint256& certToRmHash)
+void CTxMemPool::RemoveCertAndSync(const uint256& certToRmHash)
 {
     LOCK(cs);
 
     if(mapCertificate.count(certToRmHash) == 0)
-        return true; //nothing to remove
+        return; //nothing to remove
 
     CScCertificate certToRm = mapCertificate.at(certToRmHash).GetCertificate();
     std::list<CTransaction> conflictingTxs;
@@ -1628,5 +1628,5 @@ bool CTxMemPool::RemoveCertAndSync(const uint256& certToRmHash)
         SyncWithWallets(c, nullptr);
     }
 
-    return true;
+    return;
 }

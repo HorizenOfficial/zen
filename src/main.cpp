@@ -1020,6 +1020,18 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
     return nMinFee;
 }
 
+void StoreCertToMempool(const CScCertificate &cert, CTxMemPool &pool, const CCoinsViewCache &view)
+{
+    std::pair<uint256, CAmount> conflictingCertData = pool.FindCertWithQuality(cert.GetScId(), cert.quality);
+    pool.RemoveCertAndSync(conflictingCertData.first);
+
+    CAmount nCertFees = cert.GetFeeAmount(view.GetValueIn(cert));
+    double dCertPriority = view.GetPriority(cert, chainActive.Height());
+    CCertificateMemPoolEntry entry(cert, nCertFees, GetTime(), dCertPriority, chainActive.Height());
+    pool.addUnchecked(cert.GetHash(), entry, !IsInitialBlockDownload());
+    return;
+}
+
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
     LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs)
 {
@@ -1084,14 +1096,6 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                             REJECT_INVALID, "bad-sc-cert-not-applicable");
                 return MempoolReturnValue::INVALID;
             }
-
-            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-            if (!view.CheckCertificateProof(cert, scVerifier))
-            {
-                state.DoS(100, error("%s(): cert proof failed to verify", __func__),
-                            REJECT_INVALID, "bad-sc-cert-proof");
-                return MempoolReturnValue::INVALID;
-            }
             
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
@@ -1149,8 +1153,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         double dPriority = view.GetPriority(cert, chainActive.Height());
         LogPrint("mempool", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
 
-        CCertificateMemPoolEntry entry(cert, nFees, GetTime(), dPriority, chainActive.Height());
-        unsigned int nSize = entry.GetCertificateSize();
+        unsigned int nSize = cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
         // Don't accept it if it can't get into a block
         CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
@@ -1231,19 +1234,36 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             return MempoolReturnValue::INVALID;
         }
 
-        if (!pool.RemoveCertAndSync(conflictingCertData.first))
+        if (validateScProofs == ValidateSidechainProof::OFF)
+            return MempoolReturnValue::PARTIALLY_VALIDATED;
+
+        CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
+        if (!view.CheckCertificateProof(cert, scVerifier))
         {
-            error("%s(): cert %s depends on some conflicting quality certs", __func__, certHash.ToString());
+            state.DoS(100, error("%s(): cert proof failed to verify", __func__),
+                        REJECT_INVALID, "bad-sc-cert-proof");
             return MempoolReturnValue::INVALID;
         }
 
-        // Store transaction in memory
-        pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());
+        StoreCertToMempool(cert, pool, view);
     }
 
     return MempoolReturnValue::VALID;;
 }
 
+void StoreTxToMempool(const CTransaction &tx, CTxMemPool &pool, const CCoinsViewCache &view)
+{
+    // Store transaction in memory
+    std::map<uint256, CFieldElement> scIdToCertDataHash;
+    for (const auto &btr : tx.GetVBwtRequestOut())
+        scIdToCertDataHash[btr.scId] = view.GetActiveCertDataHash(btr.scId);
+
+    CAmount nTxFees = tx.GetFeeAmount(view.GetValueIn(tx));
+    double dTxPriority = view.GetPriority(tx, chainActive.Height());
+    CTxMemPoolEntry entry(tx, nTxFees, GetTime(), dTxPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
+    pool.addUnchecked(tx.GetHash(), entry, !IsInitialBlockDownload(), scIdToCertDataHash);
+    return;
+}
 
 MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, LimitFreeFlag fLimitFree,
                         RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs)
@@ -1356,14 +1376,6 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 return MempoolReturnValue::INVALID;
             }
 
-            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-            if (!view.CheckScTxProof(tx, scVerifier))
-            {
-                state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
-                              __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
-                return MempoolReturnValue::INVALID;
-            }
-
             // are the joinsplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
             {
@@ -1406,8 +1418,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         double dPriority = view.GetPriority(tx, chainActive.Height());
         LogPrint("mempool", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
 
-        CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
-        unsigned int nSize = entry.GetTxSize();
+        unsigned int nSize = tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
         // Accept a tx if it contains joinsplits and has at least the default fee specified by z_sendmany.
         if (tx.GetVjoinsplit().size() > 0 && nFees >= ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE) {
@@ -1491,14 +1502,18 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             return MempoolReturnValue::INVALID;
         }
 
-        // Store transaction in memory
-        std::map<uint256, CFieldElement> scIdToCertDataHash;
-        for(const auto& btr: tx.GetVBwtRequestOut())
+        if (validateScProofs == ValidateSidechainProof::OFF)
+            return MempoolReturnValue::PARTIALLY_VALIDATED;
+
+        CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
+        if (!view.CheckScTxProof(tx, scVerifier))
         {
-            scIdToCertDataHash[btr.scId] = view.GetActiveCertDataHash(btr.scId);
+            state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
+                          __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
+            return MempoolReturnValue::INVALID;
         }
 
-        pool.addUnchecked(hash, entry, !IsInitialBlockDownload(), scIdToCertDataHash);
+        StoreTxToMempool(tx, pool, view);
     }
 
     return MempoolReturnValue::VALID;

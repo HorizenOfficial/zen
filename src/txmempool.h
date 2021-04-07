@@ -191,7 +191,7 @@ public:
     void setSanityCheck(bool _fSanityCheck) { fSanityCheck = _fSanityCheck; }
 
     std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality);
-    bool RemoveCertAndSync(const uint256& certToRmHash);
+    void RemoveCertAndSync(const uint256& certToRmHash);
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true,
                       const std::map<uint256, CFieldElement>& scIdToCertDataHash = std::map<uint256, CFieldElement>{});
