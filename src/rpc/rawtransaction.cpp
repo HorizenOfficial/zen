@@ -1782,7 +1782,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     {
         // push to local node and sync with wallets
         CValidationState state;
-        MempoolReturnValue res = AcceptTxToMemoryPool(mempool, state, tx, LimitFreeFlag::OFF, fRejectAbsurdFee);
+        MempoolReturnValue res = AcceptTxToMemoryPool(mempool, state, tx, LimitFreeFlag::OFF, fRejectAbsurdFee, ValidateSidechainProof::ON);
 
         if (res == MempoolReturnValue::MISSING_INPUT)
             throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
@@ -1846,7 +1846,7 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
     {
         // push to local node and sync with wallets
         CValidationState state;
-        MempoolReturnValue res = AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee);
+        MempoolReturnValue res = AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee, ValidateSidechainProof::ON);
 
         if (res == MempoolReturnValue::MISSING_INPUT)
             throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");

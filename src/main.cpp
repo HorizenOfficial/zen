@@ -1021,7 +1021,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
 }
 
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs)
 {
     AssertLockHeld(cs_main);
 
@@ -1239,7 +1239,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
 
 MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, LimitFreeFlag fLimitFree,
-                        RejectAbsurdFeeFlag fRejectAbsurdFee)
+                        RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs)
 {
     AssertLockHeld(cs_main);
 
@@ -1491,17 +1491,17 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
 }
 
 MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs)
 {
     try
     {
         if (txBase.IsCertificate())
         {
-            return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree, fRejectAbsurdFee);
+            return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree, fRejectAbsurdFee, validateScProofs);
         }
         else
         {
-            return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree, fRejectAbsurdFee);
+            return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree, fRejectAbsurdFee, validateScProofs);
         }
     }
     catch (...)
@@ -3175,7 +3175,7 @@ bool static DisconnectTip(CValidationState &state) {
 
         if (tx.IsCoinBase() ||
             MempoolReturnValue::VALID != AcceptTxToMemoryPool(mempool, stateDummy, tx,
-                    LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF))
+                    LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON))
         {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
@@ -3190,7 +3190,7 @@ bool static DisconnectTip(CValidationState &state) {
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
         if (MempoolReturnValue::VALID != AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
-                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF))
+                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON))
         {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
