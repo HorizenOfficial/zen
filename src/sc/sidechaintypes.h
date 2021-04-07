@@ -302,7 +302,6 @@ struct ScCreationParameters
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
     libzendoomc::ScVk wCertVk;
-    boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
@@ -317,7 +316,6 @@ struct ScCreationParameters
             customData.empty()                    &&
             constant == boost::none     &&
             wCertVk.IsNull()                      &&
-            wMbtrVk == boost::none                &&
             wCeasedVk == boost::none              &&
             vFieldElementCertificateFieldConfig.empty() &&
             vBitVectorCertificateFieldConfig.empty() &&
@@ -333,7 +331,6 @@ struct ScCreationParameters
         READWRITE(customData);
         READWRITE(constant);
         READWRITE(wCertVk);
-        READWRITE(wMbtrVk);
         READWRITE(wCeasedVk);
         READWRITE(vFieldElementCertificateFieldConfig);
         READWRITE(vBitVectorCertificateFieldConfig);
@@ -351,7 +348,6 @@ struct ScCreationParameters
                (customData == rhs.customData) &&
                (constant == rhs.constant) &&
                (wCertVk == rhs.wCertVk)  &&
-               (wMbtrVk == rhs.wMbtrVk)  &&
                (wCeasedVk == rhs.wCeasedVk) &&
                (vFieldElementCertificateFieldConfig == rhs.vFieldElementCertificateFieldConfig) &&
                (vBitVectorCertificateFieldConfig == rhs.vBitVectorCertificateFieldConfig) &&
@@ -366,7 +362,6 @@ struct ScCreationParameters
         customData                    = cp.customData;
         constant                      = cp.constant;
         wCertVk                       = cp.wCertVk;
-        wMbtrVk                       = cp.wMbtrVk;
         wCeasedVk                     = cp.wCeasedVk;
         vFieldElementCertificateFieldConfig = cp.vFieldElementCertificateFieldConfig;
         vBitVectorCertificateFieldConfig   = cp.vBitVectorCertificateFieldConfig;
@@ -381,11 +376,10 @@ struct ScBwtRequestParameters
 {
     CAmount scFee;
     std::vector<CFieldElement> scRequestData;
-    libzendoomc::ScProof scProof;
 
     bool IsNull() const
     {
-        return ( scFee == 0 && scRequestData.empty() && scProof.IsNull());
+        return ( scFee == 0 && scRequestData.empty());
     }
 
     ADD_SERIALIZE_METHODS;
@@ -393,22 +387,19 @@ struct ScBwtRequestParameters
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(scFee);
         READWRITE(scRequestData);
-        READWRITE(scProof);
     }
     ScBwtRequestParameters() :scFee(0) {}
 
     inline bool operator==(const ScBwtRequestParameters& rhs) const
     {
         return (scFee == rhs.scFee) &&
-               (scRequestData == rhs.scRequestData) &&
-               (scProof == rhs.scProof); 
+               (scRequestData == rhs.scRequestData); 
     }
     inline bool operator!=(const ScBwtRequestParameters& rhs) const { return !(*this == rhs); }
     inline ScBwtRequestParameters& operator=(const ScBwtRequestParameters& cp)
     {
         scFee = cp.scFee;
         scRequestData = cp.scRequestData;
-        scProof = cp.scProof;
         return *this;
     }
 };

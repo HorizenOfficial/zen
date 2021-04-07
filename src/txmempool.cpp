@@ -1561,7 +1561,6 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.creationData.customData = scCreation.customData;
                 info.creationData.constant = scCreation.constant;
                 info.creationData.wCertVk = scCreation.wCertVk;
-                info.creationData.wMbtrVk = scCreation.wMbtrVk;
                 info.creationData.wCeasedVk = scCreation.wCeasedVk;
                 info.creationData.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
                 info.creationData.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;

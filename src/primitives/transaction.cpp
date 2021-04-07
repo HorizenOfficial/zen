@@ -297,7 +297,7 @@ CTxScCreationOut::CTxScCreationOut(
     const Sidechain::ScCreationParameters& paramsIn)
     :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
      withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant),
-     wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), wCeasedVk(paramsIn.wCeasedVk),
+     wCertVk(paramsIn.wCertVk), wCeasedVk(paramsIn.wCeasedVk),
      vFieldElementCertificateFieldConfig(paramsIn.vFieldElementCertificateFieldConfig),
      vBitVectorCertificateFieldConfig(paramsIn.vBitVectorCertificateFieldConfig),
      forwardTransferScFee(paramsIn.forwardTransferScFee),
@@ -313,8 +313,7 @@ std::string CTxScCreationOut::ToString() const
 {
     return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, "
                                        "nValue=%d.%08d, address=%s, customData=[%s], "
-                                       "constant=[%s], wCertVk=[%s], wMbtrVk=[%s], "
-                                       "wCeasedVk=[%s], "
+                                       "constant=[%s], wCertVk=[%s], wCeasedVk=[%s], "
                                        "vFieldElementCertificateFieldConfig=[%s], "
                                        "vBitVectorCertificateFieldConfig[%s], "
                                        "forwardTransferScFee=%d, "
@@ -323,8 +322,7 @@ std::string CTxScCreationOut::ToString() const
         generatedScId.ToString(), withdrawalEpochLength, nValue / COIN,
         nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
         constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
-        HexStr(wCertVk), wMbtrVk ? HexStr(wMbtrVk.get()) : "",
-        wCeasedVk ? HexStr(wCeasedVk.get()) : "",
+        HexStr(wCertVk), wCeasedVk ? HexStr(wCeasedVk.get()) : "",
         VecToStr(vFieldElementCertificateFieldConfig),
         VecToStr(vBitVectorCertificateFieldConfig),
         forwardTransferScFee, mainchainBackwardTransferRequestScFee, mainchainBackwardTransferRequestDataLength );
@@ -349,7 +347,6 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     customData = ccout.customData;
     constant = ccout.constant;
     wCertVk = ccout.wCertVk;
-    wMbtrVk = ccout.wMbtrVk;
     wCeasedVk = ccout.wCeasedVk;
     vFieldElementCertificateFieldConfig = ccout.vFieldElementCertificateFieldConfig;
     vBitVectorCertificateFieldConfig = ccout.vBitVectorCertificateFieldConfig;
@@ -363,7 +360,7 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
 CBwtRequestOut::CBwtRequestOut(
     const uint256& scIdIn, const uint160& pkhIn, const Sidechain::ScBwtRequestParameters& paramsIn):
     scId(scIdIn), scRequestData(paramsIn.scRequestData), mcDestinationAddress(pkhIn),
-    scFee(paramsIn.scFee), scProof(paramsIn.scProof) {}
+    scFee(paramsIn.scFee) {}
 
 
 std::string CBwtRequestOut::ToString() const
@@ -375,8 +372,7 @@ std::string CBwtRequestOut::ToString() const
 
     return strprintf("CBwtRequestOut(scId=%s, scRequestData=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
         scId.ToString(), requestDataStr.substr(0, 30),
-        mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
-        HexStr(scProof).substr(0, 30));
+        mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN);
 }
 
 CBwtRequestOut& CBwtRequestOut::operator=(const CBwtRequestOut &out) {
@@ -384,7 +380,6 @@ CBwtRequestOut& CBwtRequestOut::operator=(const CBwtRequestOut &out) {
     scRequestData        = out.scRequestData;
     mcDestinationAddress = out.mcDestinationAddress;
     scFee                = out.scFee;
-    scProof              = out.scProof;
     return *this;
 }
 

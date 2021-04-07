@@ -817,7 +817,6 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.creationData.customData = cr.customData;
         scIt->second.sidechain.creationData.constant = cr.constant;
         scIt->second.sidechain.creationData.wCertVk = cr.wCertVk;
-        scIt->second.sidechain.creationData.wMbtrVk = cr.wMbtrVk;
         scIt->second.sidechain.creationData.wCeasedVk = cr.wCeasedVk;
         scIt->second.sidechain.creationData.vFieldElementCertificateFieldConfig = cr.vFieldElementCertificateFieldConfig;
         scIt->second.sidechain.creationData.vBitVectorCertificateFieldConfig = cr.vBitVectorCertificateFieldConfig;
@@ -1337,13 +1336,6 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         if (this->AccessSidechain(scId)->mainchainBackwardTransferRequestDataLength == 0)
         {
             return error("%s():%d - ERROR: mbtr is not allowed\n",  __func__, __LINE__);
-        }
-
-        boost::optional<libzendoomc::ScVk> wMbtrVk = this->AccessSidechain(scId)->creationData.wMbtrVk;
-
-        if(!wMbtrVk.is_initialized())
-        {
-            return error("%s():%d - ERROR: mbtr not supported\n",  __func__, __LINE__);
         }
 
         /**

@@ -84,8 +84,6 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("customData", HexStr(out.customData)));
         if(out.constant.is_initialized())
             o.push_back(Pair("constant", out.constant->GetHexRepr()));
-        if(out.wMbtrVk.is_initialized())
-            o.push_back(Pair("wMbtrVk", HexStr(out.wMbtrVk.get())));
         if(out.wCeasedVk.is_initialized())
             o.push_back(Pair("wCeasedVk", HexStr(out.wCeasedVk.get())));
         o.push_back(Pair("ftScFee", ValueFromAmount(out.forwardTransferScFee)));
@@ -139,8 +137,6 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
             arrRequestData.push_back(requestData.GetHexRepr());
         }
         o.push_back(Pair("scRequestData", arrRequestData));
-
-        o.push_back(Pair("scProof", HexStr(out.scProof)));
         vbts.push_back(o);
         nIdx++;
     }
@@ -476,25 +472,6 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             }
         }
 
-        const UniValue& wMbtrVk = find_value(o, "wMbtrVk");
-        if (!wMbtrVk.isNull())
-        {
-            const std::string& inputString = wMbtrVk.get_str();
-            std::vector<unsigned char> wMbtrVkVec;
-            if (!AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
-            {
-                error = "wMbtrVk: " + error;
-                return false;
-            }
-
-            sc.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
-            if (!libzendoomc::IsValidScVk(sc.wMbtrVk.get()))
-            {
-                error = "invalid wMbtrVkVec";
-                return false;
-            }
-        }
-
         const UniValue& FeCfg = find_value(o, "vFieldElementCertificateFieldConfig");
         if (!FeCfg.isNull())
         {
@@ -694,35 +671,12 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
         {
             std::vector<unsigned char> requestDataByteArray {};
 
-            if (!Sidechain::AddScData(inputString, requestDataByteArray, CFieldElement::ByteSize(), true, error))
+            if (!Sidechain::AddScData(inputElement.get_str(), requestDataByteArray, CFieldElement::ByteSize(), true, error))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, std::string("requestDataByte: ") + error);
             }
 
             bwtData.scRequestData.push_back(CFieldElement{requestDataByteArray});
-        }
-
-        //---------------------------------------------------------------------
-        const UniValue& scProofVal = find_value(o, "scProof");
-        if (scProofVal.isNull())
-        {
-            error = "Missing mandatory parameter scProof";
-            return false;
-        }
-        inputString = scProofVal.get_str();
-        std::vector<unsigned char> scProofVec;
-        if (!AddScData(inputString, scProofVec, SC_PROOF_SIZE, true, error))
-        {
-            error = "scProof: " + error;
-            return false;
-        }
-
-        bwtData.scProof = libzendoomc::ScProof(scProofVec);
-
-        if (!libzendoomc::IsValidScProof(bwtData.scProof))
-        {
-            error = "invalid scProof";
-            return false;
         }
 
 
@@ -744,7 +698,6 @@ void fundCcRecipients(const CTransaction& tx,
         sc.address = entry.address;
         sc.creationData.withdrawalEpochLength               = entry.withdrawalEpochLength;
         sc.creationData.wCertVk                             = entry.wCertVk;
-        sc.creationData.wMbtrVk                             = entry.wMbtrVk;
         sc.creationData.wCeasedVk                           = entry.wCeasedVk;
         sc.creationData.vFieldElementCertificateFieldConfig = entry.vFieldElementCertificateFieldConfig;
         sc.creationData.vBitVectorCertificateFieldConfig    = entry.vBitVectorCertificateFieldConfig;
@@ -771,7 +724,6 @@ void fundCcRecipients(const CTransaction& tx,
         bt.mcDestinationAddress = entry.mcDestinationAddress;
         bt.bwtRequestData.scFee = entry.scFee;
         bt.bwtRequestData.scRequestData = entry.scRequestData;
-        bt.bwtRequestData.scProof = entry.scProof;
 
         vecBwtRequest.push_back(bt);
     }

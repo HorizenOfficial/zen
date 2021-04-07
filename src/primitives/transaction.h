@@ -574,7 +574,6 @@ public:
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
     libzendoomc::ScVk wCertVk;
-    boost::optional<libzendoomc::ScVk> wMbtrVk;
     boost::optional<libzendoomc::ScVk> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
@@ -599,7 +598,6 @@ public:
         READWRITE(customData);
         READWRITE(constant);
         READWRITE(wCertVk);
-        READWRITE(wMbtrVk);
         READWRITE(wCeasedVk);
         READWRITE(vFieldElementCertificateFieldConfig);
         READWRITE(vBitVectorCertificateFieldConfig);
@@ -621,7 +619,6 @@ public:
                  a.customData == b.customData &&
                  a.constant == b.constant &&
                  a.wCertVk == b.wCertVk &&
-                 a.wMbtrVk == b.wMbtrVk &&
                  a.wCeasedVk == b.wCeasedVk &&
                  a.vFieldElementCertificateFieldConfig == b.vFieldElementCertificateFieldConfig &&
                  a.vBitVectorCertificateFieldConfig == b.vBitVectorCertificateFieldConfig &&
@@ -643,7 +640,6 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     std::vector<CFieldElement> scRequestData;
     uint160 mcDestinationAddress;
     CAmount scFee;
-    libzendoomc::ScProof scProof;
 
     CBwtRequestOut():scFee(0) {}
 
@@ -658,7 +654,6 @@ class CBwtRequestOut : public CTxCrosschainOutBase
         READWRITE(scRequestData);
         READWRITE(mcDestinationAddress);
         READWRITE(scFee);
-        READWRITE(scProof);
     }
 
     CAmount GetScValue() const override { return scFee; };
@@ -669,8 +664,8 @@ class CBwtRequestOut : public CTxCrosschainOutBase
         return ( a.scId                 == b.scId                 &&
                  a.scRequestData        == b.scRequestData        &&
                  a.mcDestinationAddress == b.mcDestinationAddress &&
-                 a.scFee                == b.scFee                &&
-                 a.scProof              == b.scProof );
+                 a.scFee                == b.scFee
+                );
     }
 
     friend bool operator!=(const CBwtRequestOut& a, const CBwtRequestOut& b)

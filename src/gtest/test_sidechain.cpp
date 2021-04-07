@@ -635,7 +635,6 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.creationData.withdrawalEpochLength = 14;
-    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     initialScState.mainchainBackwardTransferRequestDataLength = 1;
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
 
@@ -645,7 +644,6 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     mcBwtReq.scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
@@ -670,7 +668,6 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
 
     // setup sidechain initial state
     CMutableTransaction mutScCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
-    mutScCreationTx.vsc_ccout.at(0).wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     mutScCreationTx.vsc_ccout.at(0).mainchainBackwardTransferRequestDataLength = 1;
     CTransaction scCreationTx(mutScCreationTx);
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
@@ -681,7 +678,6 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     mcBwtReq.scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
@@ -711,81 +707,12 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnknownSidechainIsNotApplicableToState
     EXPECT_FALSE(res);
 }
 
-TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicableToState) {
-    // setup sidechain initial state
-    CSidechain initialScState;
-    uint256 scId = uint256S("aaaa");
-    initialScState.creationBlockHeight = 1492;
-    initialScState.creationData.withdrawalEpochLength = 14;
-    ASSERT_FALSE(initialScState.creationData.wMbtrVk.is_initialized());
-    int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
-
-    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
-    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
-
-    CSidechain storedSc;
-    ASSERT_TRUE(sidechainsView->GetSidechain(scId, storedSc));
-    ASSERT_TRUE(!storedSc.creationData.wMbtrVk.is_initialized());
-
-    // create mc Bwt request
-    CBwtRequestOut mcBwtReq;
-    mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
-    CMutableTransaction mutTx;
-    mutTx.nVersion = SC_TX_VERSION;
-    mutTx.vmbtr_out.push_back(mcBwtReq);
-
-    //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
-
-    //checks
-    EXPECT_FALSE(res);
-}
-
-TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithoutKeyIsNotApplicableToState) {
-    //back sidechainsView with mempool
-    CCoinsViewCache dummyView(nullptr);
-    CCoinsViewMemPool viewMemPool(&dummyView, mempool);
-    sidechainsView->SetBackend(viewMemPool);
-
-    int viewHeight {1963};
-    chainSettingUtils::ExtendChainActiveToHeight(viewHeight);
-    sidechainsView->SetBestBlock(*(chainActive.Tip()->phashBlock));
-
-    // setup sidechain initial state
-    CMutableTransaction mutScCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(1953));
-    mutScCreationTx.vsc_ccout.at(0).wMbtrVk.reset();
-    CTransaction scCreationTx(mutScCreationTx);
-    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
-    CTxMemPoolEntry scCreationPoolEntry(scCreationTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, viewHeight);
-    mempool.addUnchecked(scCreationTx.GetHash(), scCreationPoolEntry);
-    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
-    CSidechain storedSc;
-    ASSERT_TRUE(sidechainsView->GetSidechain(scId, storedSc));
-    ASSERT_FALSE(storedSc.creationData.wMbtrVk.is_initialized());
-
-    // create mc Bwt request
-    CBwtRequestOut mcBwtReq;
-    mcBwtReq.scId = scId;
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
-    CMutableTransaction mutTx;
-    mutTx.nVersion = SC_TX_VERSION;
-    mutTx.vmbtr_out.push_back(mcBwtReq);
-
-    //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
-
-    //checks
-    EXPECT_FALSE(res);
-}
-
 TEST_F(SidechainsTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState) {
     // setup sidechain initial state
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.creationData.withdrawalEpochLength = 14;
-    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
@@ -1686,7 +1613,6 @@ uint256 SidechainsTestSuite::createAndStoreSidechain(CAmount ftScFee, CAmount mb
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.creationData.withdrawalEpochLength = 14;
-    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     initialScState.lastTopQualityCertView.forwardTransferScFee = ftScFee;
     initialScState.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = mbtrScFee;
     initialScState.mainchainBackwardTransferRequestDataLength = mbtrScDataLength;
@@ -1701,7 +1627,6 @@ CMutableTransaction SidechainsTestSuite::createMtbtrTx(uint256 scId, CAmount scF
 {
     CBwtRequestOut mbtrOut;
     mbtrOut.scId = scId;
-    mbtrOut.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     mbtrOut.scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;

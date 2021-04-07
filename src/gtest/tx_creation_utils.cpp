@@ -39,7 +39,6 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
     mtx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    mtx.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     mtx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
 
     return mtx;

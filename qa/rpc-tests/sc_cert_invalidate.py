@@ -16,6 +16,8 @@ import time
 
 DEBUG_MODE = 1
 EPOCH_LENGTH = 5
+FT_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0')
 CERT_FEE = 0.0001
 
 
@@ -150,7 +152,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
             "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [bwt_amount_1])
 
-        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
+        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()
@@ -201,7 +203,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
             "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node2], [bwt_amount_2])
 
-        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
+        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()

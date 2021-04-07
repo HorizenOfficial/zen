@@ -68,7 +68,6 @@ class SCCreateTest(BitcoinTestFramework):
         vk_tag = "sc1"
         vk = mcTest.generate_params(vk_tag)
         constant = generate_random_field_element_hex()
-        mbtrVk = mcTest.generate_params("sc1_mbtrVk")
         cswVk  = ""
         feCfg = []
         bvCfg = []
@@ -82,7 +81,7 @@ class SCCreateTest(BitcoinTestFramework):
         mbtrFee = Decimal(mbtrScFee)
 
         try:
-            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, mbtrVk, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -99,7 +98,7 @@ class SCCreateTest(BitcoinTestFramework):
         mbtrFee = Decimal(mbtrScFee)
 
         try:
-            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, mbtrVk, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -115,7 +114,7 @@ class SCCreateTest(BitcoinTestFramework):
         mbtrFee = Decimal(-mbtrScFee)
 
         try:
-            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, mbtrVk, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -132,7 +131,7 @@ class SCCreateTest(BitcoinTestFramework):
         mbtrFee = Decimal(MAX_MONEY + 1)
 
         try:
-            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, mbtrVk, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -149,7 +148,7 @@ class SCCreateTest(BitcoinTestFramework):
         mbtrFee = Decimal(mbtrScFee)
 
         try:
-            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, mbtrVk, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -210,8 +209,7 @@ class SCCreateTest(BitcoinTestFramework):
         vk1  = mcTest.generate_params(scid)
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
-        p1 = mcTest.create_test_proof(scid, 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
-        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee - 1), 'scid':scid, 'scProof':p1, 'pubkeyhash':pkh1 }]
+        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee - 1), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
             self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {});
@@ -250,7 +248,7 @@ class SCCreateTest(BitcoinTestFramework):
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
         p1 = mcTest.create_test_proof(scid, 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
-        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'scProof':p1, 'pubkeyhash':pkh1 }]
+        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
             self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {});
@@ -290,7 +288,7 @@ class SCCreateTest(BitcoinTestFramework):
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
         p1 = mcTest.create_test_proof(scid, 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
-        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'scProof':p1, 'pubkeyhash':pkh1 }]
+        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
             self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {});
@@ -363,8 +361,8 @@ class SCCreateTest(BitcoinTestFramework):
             assert_true(False)
 
         mark_logs("Node 0 creates two MBTRs", self.nodes, DEBUG_MODE)
-        mbtrOuts1 = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'scProof':p1, 'pubkeyhash':pkh1 }]
-        mbtrOuts2 = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee + 1), 'scid':scid, 'scProof':p1, 'pubkeyhash':pkh1 }]
+        mbtrOuts1 = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mbtrOuts2 = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee + 1), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
             mbtr_tx_1 = self.nodes[0].request_transfer_from_sidechain(mbtrOuts1, {});

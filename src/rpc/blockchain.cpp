@@ -1119,11 +1119,6 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             else
                 sc.push_back(Pair("constant", std::string{"NOT INITIALIZED"}));
 
-            if (info.creationData.wMbtrVk.is_initialized())
-                sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
-            else
-                sc.push_back(Pair("wMbtrVk", std::string{"NOT INITIALIZED"}));
-
             if(info.creationData.wCeasedVk.is_initialized())
                 sc.push_back(Pair("wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
             else
@@ -1188,7 +1183,6 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     info.creationData.customData = scCreation.customData;
                     info.creationData.constant = scCreation.constant;
                     info.creationData.wCertVk = scCreation.wCertVk;
-                    info.creationData.wMbtrVk = scCreation.wMbtrVk;
                     info.creationData.wCeasedVk = scCreation.wCeasedVk;
                     info.creationData.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
                     info.creationData.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;
@@ -1209,11 +1203,6 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     sc.push_back(Pair("unconf constant", info.creationData.constant->GetHexRepr()));
                 else
                     sc.push_back(Pair("unconf constant", std::string{"NOT INITIALIZED"}));
-
-                if(info.creationData.wMbtrVk.is_initialized())
-                    sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
-                else
-                    sc.push_back(Pair("unconf wMbtrVk", std::string{"NOT INITIALIZED"}));
 
                 if(info.creationData.wCeasedVk.is_initialized())
                     sc.push_back(Pair("unconf wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
@@ -1385,7 +1374,6 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
             "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
             "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
-            "     \"wMbtrVk\":                 xxxxx,   (string)  The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
             "     \"wCeasedVk\":               xxxxx,   (string, optional)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
             "     \"vFieldElementCertificateFieldConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
             "     \"vBitVectorCertificateFieldConfig\"    xxxxx,   (string) A string representation of an array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom vBitVectorCertificateField with the corresponding sizes\n"

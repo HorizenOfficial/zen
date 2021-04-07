@@ -203,14 +203,6 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-creation-invalid-constant");
         }
 
-        if (sc.wMbtrVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wMbtrVk.get()))
-        {
-            return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid wMbtrVk verification key\n",
-                    __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-creation-invalid-w-mbtr-vk");
-        }
-
         if (sc.wCeasedVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
         {
             return state.DoS(100,
@@ -256,14 +248,6 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     error("%s():%d - ERROR: Invalid tx[%s], sc fee amount is non-positive or larger than %s\n",
                     __func__, __LINE__, txHash.ToString(), FormatMoney(MAX_MONEY)),
                     REJECT_INVALID, "sidechain-sc-fee-amount-outside-range");
-        }
-
-        if (!libzendoomc::IsValidScProof(bt.scProof))
-        {
-            return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scProof\n",
-                    __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-proof");
         }
 
         for (const CFieldElement& fe : bt.scRequestData)

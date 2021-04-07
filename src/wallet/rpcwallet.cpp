@@ -798,15 +798,14 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "                                     hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
             " 6. \"constant\"                (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                     hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
-            " 7. \"wMbtrVk\"                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                     hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            " 8. \"wCeasedVk\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            " 7. \"wCeasedVk\"               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                 hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            " 9. \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElementCertificateField with the corresponding size.\n"
-            "10. \"vBitVectorCertificateFieldConfig\" (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
-            "11. \"forwardTransferScFee\" (numeric, optional) The amount of fee due to sidechain actors when creating a FT\n"
-            "12. \"mainchainBackwardTransferScFee\" (numeric, optional) The amount of fee due to sidechain actors when creating a MBTR\n"
-            "13. \"mainchainBackwardTransferRequestDataLength\" (numeric, optional) The expected size of the request data vector (made of field elements) in a MBTR\n"
+            " 8. \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElementCertificateField with the corresponding size.\n"
+            " 9. \"vBitVectorCertificateFieldConfig\" (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
+            "10. \"forwardTransferScFee\" (numeric, optional) The amount of fee due to sidechain actors when creating a FT\n"
+            "11. \"mainchainBackwardTransferScFee\" (numeric, optional) The amount of fee due to sidechain actors when creating a MBTR\n"
+            "12. \"mainchainBackwardTransferRequestDataLength\" (numeric, optional) The expected size of the request data vector (made of field elements) in a MBTR\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -894,25 +893,6 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         // it is optional
         if (!inputString.empty())
         {
-            std::vector<unsigned char> wMbtrVkVec;
-            if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
-            {
-                throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
-            }
-            sc.creationData.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
-            if (!libzendoomc::IsValidScVk(sc.creationData.wMbtrVk.get()))
-            {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
-            }
-        }
-    }
-
-    if (params.size() > 7)
-    {
-        const std::string& inputString = params[7].get_str();
-        // it is optional
-        if (!inputString.empty())
-        {
             std::vector<unsigned char> wCeasedVkVec;
             if (!Sidechain::AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
             {
@@ -927,9 +907,9 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         }
     }
 
-    if (params.size() > 8)
+    if (params.size() > 7)
     {
-        UniValue intArray = params[8].get_array();
+        UniValue intArray = params[7].get_array();
         if (!Sidechain::AddScData(intArray, sc.creationData.vFieldElementCertificateFieldConfig))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
@@ -937,10 +917,10 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
     }
 
-    if (params.size() > 9)
+    if (params.size() > 8)
     {
         // TODO as soon as CSW are supported, check against wCeasedVk presence: in that case must be size() > 0
-        UniValue PairsArray = params[9].get_array();
+        UniValue PairsArray = params[8].get_array();
         if (!PairsArray.isNull())
         {
             for(auto& pairEntry: PairsArray.getValues())
@@ -958,27 +938,27 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         }
     }
 
-    if (params.size() > 10)
+    if (params.size() > 9)
     {
-        CAmount ftScFee = AmountFromValue(params[10]);
+        CAmount ftScFee = AmountFromValue(params[9]);
         if (ftScFee < 0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, ftScFee must be non-negative");
 
         sc.creationData.forwardTransferScFee = ftScFee;
     }
 
-    if (params.size() > 11)
+    if (params.size() > 10)
     {
-        CAmount mbtrScFee = AmountFromValue(params[11]);
+        CAmount mbtrScFee = AmountFromValue(params[10]);
         if (mbtrScFee < 0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, mbtrScFee must be non-negative");
 
         sc.creationData.mainchainBackwardTransferRequestScFee = mbtrScFee;
     }
 
-    if (params.size() > 12)
+    if (params.size() > 11)
     {
-        int requestDataLength = params[12].get_int();
+        int requestDataLength = params[11].get_int();
         if (requestDataLength < 0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, mbtrScFee must be non-negative");
 
@@ -1007,36 +987,34 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
     if (fHelp ||  params.size() != 1)
         throw runtime_error(
-            "create_sidechain {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":... \"wMbtrVk\":...}\n"
+            "create_sidechain {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":...}\n"
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             "{\n"                     
-            "   \"withdrawalEpochLength\": epoch  (numeric, optional, default=" + strprintf("%d", SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH) +
+            "1.  \"withdrawalEpochLength\": epoch  (numeric, optional, default=" + strprintf("%d", SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH) +
                                                   ") length of the withdrawal epochs. The minimum valid value in " + Params().NetworkIDString() +
                                                   " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
-            "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
-            "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
-            "   \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "   \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
-            "   \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
-            "   \"fee\":fee                       (numeric, optional, default=" +
+            "2.  \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
+            "3.  \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
+            "4.  \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "5.  \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
+            "6.  \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
+            "7.  \"fee\":fee                       (numeric, optional, default=" +
                                                       strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
                                                       ") The fee amount to attach to this transaction.\n"
-            "   \"wCertVk\":data                  (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "8.  \"wCertVk\":data                  (string, required) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            "   \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "9.  \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. A max limit of 1024 bytes will be checked\n"
-            "   \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "10. \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
-            "   \"wMbtrVk\":data                  (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            "   \"wCeasedVk\":data                (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "11. \"wCeasedVk\":data                (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                          hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
-            "   \"vFieldElementCertificateFieldConfig\"         (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
-            "   \"vBitVectorCertificateFieldConfig\"            (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
-            "   \"forwardTransferScFee\"                        (numeric, optional) The amount of fee due to sidechain actors when creating a FT\n"
-            "   \"mainchainBackwardTransferScFee\"              (numeric, optional) The amount of fee due to sidechain actors when creating a MBTR\n"
-            "   \"mainchainBackwardTransferRequestDataLength\"  (numeric, optional) The expected size of the request data vector (made of field elements) in a MBTR\n"
+            "12. \"vFieldElementCertificateFieldConfig\"         (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            "13. \"vBitVectorCertificateFieldConfig\"            (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
+            "14. \"forwardTransferScFee\"                        (numeric, optional) The amount of fee due to sidechain actors when creating a FT\n"
+            "15. \"mainchainBackwardTransferScFee\"              (numeric, optional) The amount of fee due to sidechain actors when creating a MBTR\n"
+            "16. \"mainchainBackwardTransferRequestDataLength\"  (numeric, optional) The expected size of the request data vector (made of field elements) in a MBTR\n"
             "}\n"
             "\nResult:\n"
             "{\n"
@@ -1052,7 +1030,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
         {"withdrawalEpochLength", "fromaddress", "changeaddress", "toaddress", "amount", "minconf", "fee",
-         "wCertVk", "customData", "constant", "wMbtrVk","wCeasedVk", "vFieldElementCertificateFieldConfig", "vBitVectorCertificateFieldConfig",
+         "wCertVk", "customData", "constant","wCeasedVk", "vFieldElementCertificateFieldConfig", "vBitVectorCertificateFieldConfig",
          "forwardTransferScFee", "mainchainBackwardTransferScFee", "mainchainBackwardTransferRequestDataLength" };
 
     UniValue inputObject = params[0].get_obj();
@@ -1219,24 +1197,6 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         if (!creationData.constant->IsValid())
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
-        }
-    }
-
-    // ---------------------------------------------------------
-    if (setKeyArgs.count("wMbtrVk"))
-    {
-        string inputString = find_value(inputObject, "wMbtrVk").get_str();
-        std::vector<unsigned char> wMbtrVkVec;
-        if (!Sidechain::AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
-        {
-            throw JSONRPCError(RPC_TYPE_ERROR, string("wMbtrVk: ") + error);
-        }
-
-        creationData.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
-
-        if (!libzendoomc::IsValidScVk(creationData.wMbtrVk.get()))
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wMbtrVk");
         }
     }
 
@@ -1598,7 +1558,6 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
                                                       strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "   \"pubkeyhash\":pkh                 (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
             "   \"scFee\":amount,                  (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
-            "   \"scProof\":hexstr,                (string, required) SNARK proof. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
             "},...,]\n"
             "2. \"params\"                        (string, optional) A json object with the command parameters\n"
             "{\n"                     
@@ -1612,7 +1571,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"    (string) The resulting transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("request_transfer_from_sidechain", "'{TODO}]'")
+            + HelpExampleCli("request_transfer_from_sidechain", "'[{ \"pubkeyhash\": \"aa57c2e03eb533b361e748acb6f25ffc2f1e5e20\", \"scRequestData\": [\"06f75b4e1c1f49e6f329aa23f57e42bf305644b5b85c4d4ac60d7ef3b50679e81ec06841065f425fe3f11f903672c73be5a70e3e254efca4ac01a5795d125c3ded49dedac58a48ee94070b24106126bc1ffd57653f0974a0e93ab5729e870000\"], \"scid\": \"13a3083bdcf42635c8ce5d46c2cae26cfed7dc889d9b4ac0b9939c6631a73bdc\", \"scFee\": 19.0 }]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1620,7 +1579,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
 
     // valid keywords in cmd arguments
     static const std::set<std::string> validKeyOutputArray =
-        {"scid", "scRequestData", "pubkeyhash", "scFee", "scProof"};
+        {"scid", "scRequestData", "pubkeyhash", "scFee"};
 
     // valid keywords in optional params
     static const std::set<std::string> validKeyArgs =
@@ -1714,24 +1673,6 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
         }
 
         // ---------------------------------------------------------
-        std::vector<unsigned char> scProofVec;
-        if (setKeyOutputArray.count("scProof"))
-        {
-            const string& scProofString = find_value(o, "scProof").get_str();
-            std::string error;
-            if (!Sidechain::AddScData(scProofString, scProofVec, SC_PROOF_SIZE, true ,error))
-                throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
-        }
-        else
-        {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scProof\"" );
-        }
-        libzendoomc::ScProof scProof = libzendoomc::ScProof(scProofVec);
-
-        if(!libzendoomc::IsValidScProof(scProof))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scProof"));
-
-        // ---------------------------------------------------------
         std::vector<CFieldElement> scRequestData;
         
         if (setKeyOutputArray.count("scRequestData"))
@@ -1764,7 +1705,6 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
 
         ScBwtRequestParameters bwtData;
         bwtData.scFee = scFee;
-        bwtData.scProof = scProof;
         bwtData.scRequestData = scRequestData;
 
         vOutputs.push_back(ScRpcRetrieveCmdTx::sBtOutParams(scId, pkeyValue, bwtData));
@@ -2990,11 +2930,11 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
             "getunconfirmedtxdata ( \"address\")\n"
             "\nReturns the server's total unconfirmed data relevanto to the input address\n"
             "\nArguments:\n"
-            " \"address\"            (string, mandatory) consider transactions involving this address\n"
-            " spendzeroconfchange  (boolean, optional) If provided the command will force zero confirmation change\n"
+            "1. \"address\"            (string, mandatory) consider transactions involving this address\n"
+            "2. spendzeroconfchange  (boolean, optional) If provided the command will force zero confirmation change\n"
             "                         spendability as specified, otherwise the value set by zend option \'spendzeroconfchange\' \n"
             "                         will be used instead\n"
-            " includeNonFinalTxes  (boolean, optional, default=true) If true the command will consider also non final txes in the\n"
+            "3. includeNonFinalTxes  (boolean, optional, default=true) If true the command will consider also non final txes in the\n"
             "                         computation of unconfirmed quantities\n"
 
             "\nExamples:\n"
@@ -5538,9 +5478,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     UniValue feArray(UniValue::VARR);
-    if (params.size() > 8)
+    if (params.size() > 9)
     {
-        feArray = params[8].get_array();
+        feArray = params[9].get_array();
         int count = 0;
         for (const UniValue& o : feArray.getValues())
         {
@@ -5571,9 +5511,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
     UniValue cmtArray(UniValue::VARR);
-    if (params.size() > 9)
+    if (params.size() > 10)
     {
-        cmtArray = params[9].get_array();
+        cmtArray = params[10].get_array();
         int count = 0;
         for (const UniValue& o : cmtArray.getValues())
         {

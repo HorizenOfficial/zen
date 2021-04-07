@@ -1200,7 +1200,6 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedMbtrTowardCeasedSidechainIsDroppe
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.creationData.withdrawalEpochLength = 14;
-    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
@@ -1745,7 +1744,6 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creation
     scTx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1;
 
     scTx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    scTx.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk();
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
@@ -1792,7 +1790,6 @@ CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId, c
     scTx.vmbtr_out.resize(2); //testing double deletes
     scTx.vmbtr_out[1].scId   = scId;
     scTx.vmbtr_out[1].scFee = mbtrFee;
-    scTx.vmbtr_out[1].scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     scTx.vmbtr_out[1].scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);

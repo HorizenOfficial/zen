@@ -500,7 +500,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_I
     scCreation.vsc_ccout.resize(1);
     scCreation.vsc_ccout[0].nValue = CAmount(1);
     scCreation.vsc_ccout[0].withdrawalEpochLength = 15;
-    scCreation.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     scCreation.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1; // The size of mcBwtReq.scRequestData
 
     CMutableTransaction mbtrTx;
@@ -508,7 +507,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_I
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = CTransaction(scCreation).GetScIdFromScCcOut(0);
     mcBwtReq.scFee = CAmount(0);
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
     mcBwtReq.scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
     mbtrTx.nVersion = SC_TX_VERSION;
     mbtrTx.vmbtr_out.push_back(mcBwtReq);

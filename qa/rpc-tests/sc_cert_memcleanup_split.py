@@ -97,7 +97,6 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         # generate wCertVk and constant
         vk = mcTest.generate_params("sc1")
         cswVk = mcTest.generate_params("csw1")
-        mbtrVk = mcTest.generate_params("sc1_mbtrVk")
         constant = generate_random_field_element_hex()
 
         cmdInput = {
@@ -106,7 +105,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
             'toaddress': sc_address,
             'wCertVk': vk,
             'constant': constant,
-            'wMbtrVk': mbtrVk
+            'mainchainBackwardTransferRequestDataLength': 1
         }
 
         res = self.nodes[0].create_sidechain(cmdInput)
@@ -116,8 +115,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         mark_logs("tx {} created SC {}".format(tx, scid), self.nodes, DEBUG_MODE)
 
         pkh1 = self.nodes[1].getnewaddress("", True)
-        fe1 = generate_random_field_element_hex()
-        p1 = mcTest.create_test_proof("sc1", 0, block_2, block_1, 1, fe1, [pkh1], []) 
+        fe1 = [generate_random_field_element_hex()]
 
         # advance two epochs
         mark_logs("\nLet 2 epochs pass by...".  format(sc_epoch_len), self.nodes, DEBUG_MODE)
@@ -165,7 +163,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         mark_logs("              Check fwd tx {} is in mempool".format(tx_fwd), self.nodes, DEBUG_MODE)
         assert_true(tx_fwd in self.nodes[0].getrawmempool()) 
 
-        outputs = [{'scRequestData':fe1, 'scFee':Decimal("0.001"), 'scid':scid, 'scProof' :p1, 'pubkeyhash':pkh1 }]
+        outputs = [{'scRequestData':fe1, 'scFee':Decimal("0.001"), 'scid':scid, 'pubkeyhash':pkh1 }]
         cmdParms = { "minconf":0, "fee":0.0}
         mark_logs("\nNTW part 1) Node1 creates a tx with a bwt request", self.nodes, DEBUG_MODE)
         try:
@@ -193,7 +191,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:
-            cert_bad = self.nodes[2].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert, 0.01)
+            cert_bad = self.nodes[2].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert, 0, 0, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "Send certificate failed with reason {}".format(errorString)
@@ -219,7 +217,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount_2}]
         try:
-            cert = self.nodes[3].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert, 0.01)
+            cert = self.nodes[3].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert, 0, 0, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "Send certificate failed with reason {}".format(errorString)

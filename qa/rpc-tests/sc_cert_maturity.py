@@ -19,6 +19,8 @@ from collections import namedtuple
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
 EPOCH_LENGTH = 5
+FT_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal('0.00015')
 
 
@@ -113,7 +115,7 @@ class sc_cert_maturity(BitcoinTestFramework):
                 "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [pkh_node1, pkh_node1], [bwt_amount1, bwt_amount2])
 
-            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
+            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
             self.sync_all()
         except JSONRPCException, e:
@@ -168,7 +170,7 @@ class sc_cert_maturity(BitcoinTestFramework):
                 "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [pkh_node1], [bwt_amount3])
 
-            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
+            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
             self.sync_all()
         except JSONRPCException, e:
@@ -265,7 +267,7 @@ class sc_cert_maturity(BitcoinTestFramework):
                 "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [], [])
 
-            cert_3 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, [], CERT_FEE)
+            cert_3 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_3), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']

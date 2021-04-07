@@ -114,9 +114,7 @@ namespace libzendoomc
                 const uint256& scId,
                 const CFieldElement& scRequestData,
                 const uint160& mcDestinationAddress,
-                CAmount scFees,
-                const libzendoomc::ScProof& scProof,
-                const boost::optional<libzendoomc::ScVk>& wMbtrVk
+                CAmount scFees
             ) const;
     };
 }
