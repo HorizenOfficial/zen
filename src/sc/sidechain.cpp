@@ -29,7 +29,7 @@ bool Sidechain::InitSidechainsFolder()
         boost::filesystem::create_directories(Sidechain::GetSidechainDataDir());
         //Todo: validate (possible here) availability (rw) of files with precalculated keys or create them
     }
-    return false;
+    return true;
 }
 
 void Sidechain::ClearSidechainsFolder()

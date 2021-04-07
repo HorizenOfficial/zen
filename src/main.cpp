@@ -1352,7 +1352,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             if (!view.IsScTxApplicableToStateWithoutProof(tx))
             {
                 state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n",
-                              __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx");
+                              __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx-not-applicable");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -1360,7 +1360,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             if (!view.CheckScTxProof(tx, scVerifier))
             {
                 state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
-                              __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx");
+                              __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -2758,7 +2758,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (!view.IsScTxApplicableToStateWithoutProof(tx))
             {
                 return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
-                                 REJECT_INVALID, "bad-sc-tx");
+                                 REJECT_INVALID, "bad-sc-tx-not-applicable");
             }
 
             CScProofVerifier scVerifier {fExpensiveChecks ?
@@ -2767,7 +2767,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (!view.CheckScTxProof(tx, scVerifier))
             {
                 return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
-                                 REJECT_INVALID, "bad-sc-tx");
+                                 REJECT_INVALID, "bad-sc-tx-proof");
             }
 
             // are the JoinSplit's requirements met?
@@ -2875,7 +2875,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (!view.CheckCertificateProof(cert, scVerifier) )
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
-                             REJECT_INVALID, "bad-sc-cert-not-applicable");
+                             REJECT_INVALID, "bad-sc-cert-proof");
         }
 
         blockundo.vtxundo.push_back(CTxUndo());
