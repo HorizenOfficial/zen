@@ -778,7 +778,7 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected)
     ASSERT_TRUE(cswTx.GetHash() != duplicatedCswTx.GetHash());
 
     CValidationState dummyState;
-    libzendoomc::CScProofVerifier verifier = libzendoomc::CScProofVerifier::Disabled();
+    CScProofVerifier verifier{CScProofVerifier::Verification::Loose};
     EXPECT_FALSE(mempool.checkIncomingTxConflicts(duplicatedCswTx));
 }
 
@@ -929,7 +929,7 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCswRemovalFromMempool) {
     //load csw tx to mempool
     CAmount dummyAmount(1);
     uint160 dummyPubKeyHash;
-    libzendoomc::ScProof dummyScProof;
+    CScProof dummyScProof;
     CScript dummyRedeemScript;
 
     CMutableTransaction mutTx;
@@ -1009,7 +1009,7 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
     //load csw tx to mempool
     CAmount dummyAmount(1);
     uint160 dummyPubKeyHash;
-    libzendoomc::ScProof dummyScProof;
+    CScProof dummyScProof;
     CScript dummyRedeemScript;
 
     CMutableTransaction mutTx;
@@ -1210,7 +1210,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedMbtrTowardCeasedSidechainIsDroppe
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.creationData.withdrawalEpochLength = 14;
-    initialScState.creationData.wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.creationData.wMbtrVk = CScVKey(ParseHex(SAMPLE_VK));
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
@@ -1548,9 +1548,9 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creation
     scTx.vsc_ccout[0].nValue = creationTxAmount;
     scTx.vsc_ccout[0].withdrawalEpochLength = (epochLenght < 0)?getScMinWithdrawalEpochLength(): epochLenght;
 
-    scTx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    scTx.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk();
+    scTx.vsc_ccout[0].wCertVk = CScVKey(ParseHex(SAMPLE_VK));
+    scTx.vsc_ccout[0].wMbtrVk = CScVKey(ParseHex(SAMPLE_VK));
+    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 
@@ -1592,11 +1592,12 @@ CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId) {
     scTx.vmbtr_out[0].scId   = scId;
     scTx.vmbtr_out[0].scFee = CAmount(1); //dummy amount
     scTx.vmbtr_out[0].scRequestData = CFieldElement{SAMPLE_FIELD};
+    scTx.vmbtr_out[0].scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
 
     scTx.vmbtr_out.resize(2); //testing double deletes
     scTx.vmbtr_out[1].scId   = scId;
     scTx.vmbtr_out[1].scFee = CAmount(2); //dummy amount
-    scTx.vmbtr_out[1].scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    scTx.vmbtr_out[1].scProof = CScProof{ParseHex(SAMPLE_PROOF)};
     scTx.vmbtr_out[1].scRequestData = CFieldElement{SAMPLE_FIELD};
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
@@ -1612,7 +1613,7 @@ CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput
     nullifier.SetByteArray(tmp);
 
     uint160 dummyPubKeyHash = coinsKey.GetPubKey().GetID();
-    libzendoomc::ScProof dummyScProof;
+    CScProof dummyScProof;
     CScript dummyRedeemScript;
 
     return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript);
@@ -1658,7 +1659,7 @@ CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(const uint256 &
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
     res.quality = quality;
-    res.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    res.scProof = CScProof{ParseHex(SAMPLE_PROOF)};
 
     CScript dummyScriptPubKey =
             GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/true);

@@ -1078,7 +1078,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                 return MempoolReturnValue::INVALID;
             }
 
-            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
             if (!view.IsCertApplicableToState(cert, scVerifier))
             {
                 state.DoS(0, error("%s(): certificate not applicable", __func__),
@@ -1342,7 +1342,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 return MempoolReturnValue::INVALID;
             }
 
-            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
             if (!view.IsScTxApplicableToState(tx, scVerifier))
             {
                 state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n",
@@ -2741,7 +2741,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("%s():%d: tx inputs missing/spent",__func__, __LINE__),
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
-            auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+            CScProofVerifier scVerifier {fExpensiveChecks ?
+                    CScProofVerifier::Verification::Strict:
+                    CScProofVerifier::Verification::Loose};
             if (!view.IsScTxApplicableToState(tx, scVerifier))
             {
                 return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
@@ -2841,7 +2843,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
-        auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+        CScProofVerifier scVerifier {fExpensiveChecks ?
+                CScProofVerifier::Verification::Strict:
+                CScProofVerifier::Verification::Loose};
         if (!view.IsCertApplicableToState(cert, scVerifier) )
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),

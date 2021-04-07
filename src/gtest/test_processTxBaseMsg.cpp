@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <gtest/tx_creation_utils.h>
 #include <vector>
+#include <boost/filesystem.hpp>
 
 #include <txBaseMsgProcessor.h>
 #include <main.h>

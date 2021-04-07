@@ -10,6 +10,7 @@
 #include "util.h"
 #include <gtest/tx_creation_utils.h>
 #include "txdb.h"
+#include <boost/filesystem.hpp>
 
 extern CMutableTransaction GetValidTransaction();
 extern CMutableTransaction GetValidTransaction(int txVersion);

@@ -69,9 +69,11 @@ CMutableTransaction GetValidTransaction(int txVersion) {
         csw_ccin.scId = GetRandHash();
         std::vector<unsigned char> nullifierStr(CFieldElement::ByteSize(), 0x0);
         GetRandBytes((unsigned char*)&nullifierStr[0], CFieldElement::ByteSize()-2);
-        csw_ccin.nullifier = CFieldElement{nullifierStr};
+        csw_ccin.nullifier.SetByteArray(nullifierStr);
         GetRandBytes((unsigned char*)&csw_ccin.pubKeyHash, csw_ccin.pubKeyHash.size());
-        GetRandBytes((unsigned char*)&csw_ccin.scProof, csw_ccin.scProof.size());
+        std::vector<unsigned char> proofStr(CScProof::ByteSize(), 0x0);
+        GetRandBytes((unsigned char*)&proofStr[0], CScProof::ByteSize());
+        csw_ccin.scProof.SetByteArray(proofStr);
         csw_ccin.redeemScript = CScript();
         mtx.vcsw_ccin.push_back(csw_ccin);
 

@@ -2,7 +2,6 @@
 #define _SIDECHAIN_CORE_H
 
 #include "amount.h"
-#include "hash.h"
 #include "sc/sidechaintypes.h"
 #include <primitives/certificate.h>
 

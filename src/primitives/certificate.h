@@ -2,8 +2,7 @@
 #define _CERTIFICATE_H
 
 #include "transaction.h"
-#include "sc/proofverifier.h"
-#include "policy/fees.h"
+#include "sc/sidechaintypes.h"
 
 struct CMutableScCertificate;
 
@@ -33,9 +32,6 @@ public:
     bool IsNull() const { return (nValue == -1);  }
 };
 
-class FieldElementCertificateField;
-class BitVectorCertificateField;
-
 class CScCertificate : public CTransactionBase
 {
     /** Memory only. */
@@ -58,7 +54,7 @@ public:
     const int32_t epochNumber;
     const int64_t quality;
     const uint256 endEpochBlockHash;
-    const libzendoomc::ScProof scProof;
+    const CScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
 
@@ -107,7 +103,7 @@ public:
         READWRITE(*const_cast<int32_t*>(&epochNumber));
         READWRITE(*const_cast<int64_t*>(&quality));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
-        READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
+        READWRITE(*const_cast<CScProof*>(&scProof));
         READWRITE(*const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField));
         READWRITE(*const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField));
 
@@ -226,7 +222,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     int32_t epochNumber;
     int64_t quality;
     uint256 endEpochBlockHash;
-    libzendoomc::ScProof scProof;
+    CScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
 

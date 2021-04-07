@@ -14,7 +14,6 @@
 #include "chain.h"
 #include "chainparams.h"
 #include "net.h"
-#include "sc/proofverifier.h"
 #include "script/script.h"
 #include "sync.h"
 #include "tinyformat.h"
