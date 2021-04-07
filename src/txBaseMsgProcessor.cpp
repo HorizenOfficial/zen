@@ -5,6 +5,11 @@
 
 #include <set>
 
+TxBaseMsgProcessor::TxBaseMsg_DataToProcess::TxBaseMsg_DataToProcess():
+    txBaseHash(), sourceNodeId(-1),
+    pTxBase(nullptr), pSourceNode(nullptr),
+    txBaseProcessingState(MempoolReturnValue::NOT_PROCESSED_YET), txBaseValidationState() {};
+
 TxBaseMsgProcessor::TxBaseMsgProcessor()
 {
     this->reset();
@@ -61,10 +66,11 @@ void TxBaseMsgProcessor::addTxBaseMsgToProcess(const CTransactionBase& txBase, C
     }
 
     TxBaseMsg_DataToProcess dataToAdd;
-    dataToAdd.txBaseHash   = txBase.GetHash();
-    dataToAdd.sourceNodeId = pfrom->GetId();
-    dataToAdd.pTxBase      = txBase.MakeShared();
-    dataToAdd.pSourceNode  = pfrom;
+    dataToAdd.txBaseHash             = txBase.GetHash();
+    dataToAdd.sourceNodeId           = pfrom->GetId();
+    dataToAdd.pTxBase                = txBase.MakeShared();
+    dataToAdd.pSourceNode            = pfrom;
+    dataToAdd.txBaseProcessingState  = MempoolReturnValue::NOT_PROCESSED_YET;
 
     boost::unique_lock<boost::mutex> lock(mutex);
     txBaseMsgQueue.push_back(dataToAdd);
@@ -100,24 +106,22 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
         NodeId sourceNodeId                 = dataToProcess.sourceNodeId;
         const CTransactionBase& txToProcess = *dataToProcess.pTxBase;
         CNodeInterface* pSourceNode         = dataToProcess.pSourceNode;
-
+        CValidationState& dataState         = dataToProcess.txBaseValidationState;
         if (setMisbehaving.count(sourceNodeId))
         {
             vEraseQueue.push_back(hashToProcess);
             continue;
         }
 
-        CValidationState state;
-        MempoolReturnValue res = MempoolReturnValue::INVALID;
-
+        if (dataToProcess.txBaseProcessingState == MempoolReturnValue::NOT_PROCESSED_YET)
         {
             LOCK(cs_main);
-            // TEMPORARILY ValidateSidechainProof::ON BEFORE HANDLING PARTIALLY_VALIDATED CASE
-            res = mempoolProcess(mempool, state, txToProcess, LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
-            mempool.check(pcoinsTip);
-        }
+            //Note: sc proof validation is skipped here, to be able to batch it with potentially others
+            dataToProcess.txBaseProcessingState = mempoolProcess(mempool, dataState,
+                txToProcess, LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::OFF);
 
-        if (res == MempoolReturnValue::VALID)
+            txBaseMsgQueue.push_back(dataToProcess); //Reinsert dataToProcess
+        } else if (dataToProcess.txBaseProcessingState == MempoolReturnValue::VALID)
         {
             LogPrint("mempool", "%s(): peer=%d %s: accepted (poolsz %u)\n", __func__, sourceNodeId, hashToProcess.ToString(), mempool.size());
 
@@ -141,9 +145,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
 
                 txBaseMsgQueue.push_back(dataToAdd);
             }
-        }
-
-        if (res == MempoolReturnValue::MISSING_INPUT)
+        } else if (dataToProcess.txBaseProcessingState == MempoolReturnValue::MISSING_INPUT)
         {
             if (txToProcess.GetVjoinsplit().size() != 0)
             {
@@ -166,18 +168,16 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                         LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
                 }
             }
-        }
-
-        if (res == MempoolReturnValue::INVALID)
+        } else if (dataToProcess.txBaseProcessingState == MempoolReturnValue::INVALID)
         {
             // Has inputs but not accepted to mempool
             // Probably non-standard or insufficient fee/priority
             LogPrint("mempool", "%s from peer=%d was not accepted into the memory pool: %s\n",
-                    hashToProcess.ToString(), sourceNodeId, state.GetRejectReason());
+                    hashToProcess.ToString(), sourceNodeId, dataState.GetRejectReason());
 
             MarkAsRejected(hashToProcess);
             int nDoS = 0;
-            state.IsInvalid(nDoS); //retrieve nDoS
+            dataState.IsInvalid(nDoS); //retrieve nDoS
             if (nDoS > 0)
             {
                 {
@@ -189,8 +189,8 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
 
             if (pSourceNode != nullptr)
             {
-                pSourceNode->PushMessage("reject", std::string("tx"), state.GetRejectCode(),
-                        state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH),
+                pSourceNode->PushMessage("reject", std::string("tx"), dataState.GetRejectCode(),
+                        dataState.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH),
                         hashToProcess);
 
                 if ((nDoS == 0) && (pSourceNode->IsWhiteListed()))
@@ -201,11 +201,51 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                 if ((nDoS > 0) && (pSourceNode->IsWhiteListed()))
                 {
                     LogPrintf( "Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
-                            hashToProcess.ToString(), sourceNodeId, state.GetRejectReason(), state.GetRejectCode());
+                            hashToProcess.ToString(), sourceNodeId, dataState.GetRejectReason(), dataState.GetRejectCode());
                 }
             }
 
             vEraseQueue.push_back(hashToProcess);
+        } else if (dataToProcess.txBaseProcessingState == MempoolReturnValue::PARTIALLY_VALIDATED)
+        {
+            //TODO: once batch processing is integrated, pull all PARTIALLY_VALIDATED txes and process them altogether
+            LOCK2(cs_main, mempool.cs);
+            CCoinsViewMemPool backingView(pcoinsTip, mempool);
+            CCoinsViewCache supportView(&backingView);
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
+            if (txToProcess.IsCertificate())
+            {
+                const CScCertificate& cert = dynamic_cast<const CScCertificate&>(txToProcess);
+                if (supportView.CheckCertificateProof(cert, scVerifier))
+                {
+                    StoreCertToMempool(cert, mempool, supportView);
+                    dataToProcess.txBaseProcessingState = MempoolReturnValue::VALID;
+                } else
+                {
+                    dataState.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
+                                  __func__, __LINE__, cert.GetHash().ToString()), REJECT_INVALID, "bad-sc-tx-proof");
+                    dataToProcess.txBaseProcessingState = MempoolReturnValue::INVALID;
+                }
+            }
+            else
+            {
+                const CTransaction& tx = dynamic_cast<const CTransaction&>(txToProcess);
+                if (supportView.CheckScTxProof(tx, scVerifier))
+                {
+                    StoreTxToMempool(tx, mempool, supportView);
+                    dataToProcess.txBaseProcessingState = MempoolReturnValue::VALID;
+                } else
+                {
+                    dataState.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
+                                  __func__, __LINE__, tx.GetHash().ToString()), REJECT_INVALID, "bad-sc-tx-proof");
+                    dataToProcess.txBaseProcessingState = MempoolReturnValue::INVALID;
+                }
+            }
+            txBaseMsgQueue.push_back(dataToProcess); //Reinsert dataToProcess to complete processing
+            mempool.check(pcoinsTip);
+        } else
+        {
+            assert(false && "Unhandled MempoolReturnValue");
         }
     }
 

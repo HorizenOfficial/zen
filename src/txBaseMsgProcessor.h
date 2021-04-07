@@ -7,17 +7,17 @@
 #include <uint256.h>
 #include <net.h>
 #include <sync.h>
+#include <consensus/validation.h>
 
 class CTransactionBase;
 class CNodeInterface;
 class CTxMemPool;
-class CValidationState;
 
 // Accept Tx/Cert ToMempool parameters types and signature
 enum class LimitFreeFlag       { ON, OFF };
 enum class RejectAbsurdFeeFlag { ON, OFF };
 enum class ValidateSidechainProof { ON, OFF};
-enum class MempoolReturnValue { INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
+enum class MempoolReturnValue { NOT_PROCESSED_YET, INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
 
 typedef std::function<MempoolReturnValue(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
         LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProof)> processMempoolTx;
@@ -101,7 +101,11 @@ private:
         std::shared_ptr<const CTransactionBase> pTxBase; //owning pointer
         CNodeInterface* pSourceNode; //non-owning pointer. Null if source node already got its answer and we do not need to send any message to it
 
-        TxBaseMsg_DataToProcess(): txBaseHash(), sourceNodeId(-1), pTxBase(nullptr), pSourceNode(nullptr) {};
+        // data following tx processing, needed in case a re-processing will occur (e.g. partial validation)
+        MempoolReturnValue txBaseProcessingState;
+        CValidationState   txBaseValidationState;
+
+        TxBaseMsg_DataToProcess();
     };
 
     mutable boost::mutex mutex;
