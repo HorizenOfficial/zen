@@ -85,7 +85,7 @@ class sc_cert_change(BitcoinTestFramework):
         prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         self.nodes[0].generate(5)
         self.sync_all()
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_block_hash, epoch_number), self.nodes, DEBUG_MODE)
 
         # (2) node0 create a cert_ep0 for funding node1 1.0 coins
@@ -95,12 +95,13 @@ class sc_cert_change(BitcoinTestFramework):
 
         quality = 0
         proof = mcTest.create_test_proof(
-        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-        quality, constant, [pkh_node1], [bwt_amount])
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            quality, constant, [pkh_node1], [bwt_amount])
         
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)
         try:
-            cert_ep0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
+            cert_ep0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amounts, CERT_FEE)
             assert(len(cert_ep0) > 0)
             mark_logs("Certificate is {}".format(cert_ep0), self.nodes, DEBUG_MODE)
             self.sync_all()
@@ -113,7 +114,7 @@ class sc_cert_change(BitcoinTestFramework):
         self.nodes[0].generate(5)
         self.sync_all()
         prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         # (3) node0 create a cert_ep1 for funding node1 1.0 coins
@@ -123,12 +124,13 @@ class sc_cert_change(BitcoinTestFramework):
 
         quality = 1
         proof = mcTest.create_test_proof(
-        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-        quality, constant, [pkh_node2], [bwt_amount])
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            quality, constant, [pkh_node2], [bwt_amount])
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            cert_ep1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
+            cert_ep1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amounts, CERT_FEE)
             assert(len(cert_ep1) > 0)
             mark_logs("Certificate is {}".format(cert_ep1), self.nodes, DEBUG_MODE)
             self.sync_all()
@@ -141,7 +143,7 @@ class sc_cert_change(BitcoinTestFramework):
         self.nodes[0].generate(5)
         self.sync_all()
         prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         # (4) node1 create a cert_ep2 for funding node3 3.0 coins: he uses cert_ep0 as input, change will be obtained out of a fee=0.0001
@@ -151,12 +153,13 @@ class sc_cert_change(BitcoinTestFramework):
 
         quality = 2
         proof = mcTest.create_test_proof(
-        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-        quality, constant, [pkh_node3], [bwt_amount])
+            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
+            quality, constant, [pkh_node3], [bwt_amount])
 
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 pkh".format(bwt_amount, pkh_node3), self.nodes, DEBUG_MODE)
         try:
-            cert_ep2 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
+            cert_ep2 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amounts, CERT_FEE)
             assert(len(cert_ep2) > 0)
             mark_logs("Certificate is {}".format(cert_ep2), self.nodes, DEBUG_MODE)
             self.sync_all()

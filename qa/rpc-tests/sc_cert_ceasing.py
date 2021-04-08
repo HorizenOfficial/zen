@@ -104,7 +104,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         assert_equal(get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH), get_epoch_data(scids[1], self.nodes[0], EPOCH_LENGTH))
         assert_equal(get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH), get_epoch_data(scids[2], self.nodes[0], EPOCH_LENGTH))
 
-        epoch_block_hash, epoch_number = get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         last_cert_epochs = []
@@ -123,7 +123,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
                 "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [pkh_node1], [bwt_amount[0]])
 
-            cert_1 = self.nodes[0].send_certificate(scids[0], epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
+            cert_1 = self.nodes[0].send_certificate(scids[0], epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amounts, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -141,7 +142,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
                 "sc2", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [], [])
 
-            cert_2 = self.nodes[0].send_certificate(scids[1], epoch_number, quality, epoch_block_hash, proof, [], CERT_FEE)
+            cert_2 = self.nodes[0].send_certificate(scids[1], epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, [], CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']

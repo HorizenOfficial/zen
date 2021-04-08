@@ -114,7 +114,7 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
     CleanUpAll();
     SelectParams(CBaseChainParams::MAIN);
 
-    const CBlockIndex* fm = helpMakeMain(117576);
+    const CBlockIndex* fm = helpMakeMain(117576); // this is ReplayProtectionFork height
 
     // the block to be checked
     CBlock block;

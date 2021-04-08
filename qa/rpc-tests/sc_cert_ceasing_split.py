@@ -120,7 +120,7 @@ class CeasingSplitTest(BitcoinTestFramework):
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
             mcTest, self.nodes[0], self.sync_all,
-             scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
+            scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
@@ -128,7 +128,7 @@ class CeasingSplitTest(BitcoinTestFramework):
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
             mcTest, self.nodes[0], self.sync_all,
-             scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
+            scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}l".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
@@ -183,7 +183,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         assert_true(tx_bwt in self.nodes[0].getrawmempool()) 
 
         mark_logs("\nNTW part 1) Node2 sends a certificate for keeping the SC alive", self.nodes, DEBUG_MODE)
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[2], sc_epoch_len)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], sc_epoch_len)
 
         bt_amount = Decimal("5.0")
         pkh_node1 = self.nodes[1].getnewaddress("", True)
@@ -195,7 +195,8 @@ class CeasingSplitTest(BitcoinTestFramework):
  
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:
-            cert_bad = self.nodes[2].send_certificate(scid, epoch_number, 10, epoch_block_hash, proof, amount_cert, 0.01)
+            cert_bad = self.nodes[2].send_certificate(scid, epoch_number, 10, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amount_cert, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "Send certificate failed with reason {}".format(errorString)

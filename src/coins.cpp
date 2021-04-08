@@ -1075,8 +1075,8 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
 #ifdef BITCOIN_TX
 int CCoinsViewCache::GetHeight() const {return -1;}
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const {return true;}
-bool CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const { return true;}
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, unsigned char& ret_code) const {return true;}
+bool CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier, unsigned char& ret_code) const { return true;}
 bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const { return true;}
 #else
 
@@ -1126,7 +1126,7 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certEpoch) const
     return true;
 }
 
-bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const
+bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, unsigned char& ret_code) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -1136,12 +1136,14 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const
     CSidechain sidechain;
     if (!GetSidechain(cert.GetScId(), sidechain))
     {
+        ret_code = REJECT_SCID_NOT_FOUND;
         return error("%s():%d - ERROR: cert[%s] refers to scId[%s] not yet created\n",
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
     if (!Sidechain::checkCertCustomFields(sidechain, cert) )
     {
+        ret_code = REJECT_INVALID;
         return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
@@ -1149,22 +1151,26 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const
     // TODO Remove cert.endEpochBlockHash checks after changing of verification circuit.
     if (!CheckEndEpochBlockHash(sidechain, cert.epochNumber, cert.endEpochBlockHash) )
     {
+        ret_code = REJECT_INVALID;
         return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid epoch data\n",
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
-    if (!CheckEndEpochCumScTxCommTreeRoot(sidechain, cert.epochNumber, cert.endEpochCumScTxCommTreeRoot) )
+    if (!CheckEndEpochCumScTxCommTreeRoot(sidechain, cert.epochNumber, cert.endEpochCumScTxCommTreeRoot, ret_code) )
     {
-        return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid epoch data\n",
+        ret_code = REJECT_SC_CUM_COMM_TREE;
+        return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid sc cum commitment tree hash\n",
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
     if (!CheckCertTiming(cert.GetScId(), cert.epochNumber))
     {
+        ret_code = REJECT_INVALID;
         return error("%s():%d - ERROR: cert %s timing is not valid\n", __func__, __LINE__, certHash.ToString());
     }
 
     if (!CheckQuality(cert))
     {
+        ret_code = REJECT_INVALID;
         return error("%s():%d - ERROR: cert %s with invalid quality %d\n", __func__, __LINE__, certHash.ToString(), cert.quality);
     }
 
@@ -1179,6 +1185,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const
 
     if (bwtTotalAmount > scBalance)
     {
+        ret_code = REJECT_INSUFFICIENT_SCID_FUNDS;
         return error("%s():%d - ERROR: insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
                 __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount));
     }
@@ -1186,10 +1193,11 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
+    ret_code = VALIDATION_OK;
     return true;
 }
 
-bool CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const
+bool CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier, unsigned char& ret_code) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -1199,6 +1207,7 @@ bool CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, libzendoom
     CSidechain sidechain;
     if (!GetSidechain(cert.GetScId(), sidechain))
     {
+        ret_code = REJECT_SCID_NOT_FOUND;
         return error("%s():%d - ERROR: cert[%s] refers to scId[%s] not yet created\n",
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
@@ -1226,15 +1235,18 @@ bool CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, libzendoom
 
     if (!scVerifier.verifyCScCertificate(constant, sidechain.creationData.wCertVk, prev_end_epoch_block_hash, cert))
     {
+        ret_code = REJECT_PROOF_VER_FAILED;
         return error("%s():%d - ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
                 __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
+    ret_code = VALIDATION_OK;
     return true;
 }
 
 bool CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
-    const CSidechain& sidechain, int epochNumber, const CFieldElement& endEpochCumScTxCommTreeRoot) const
+    const CSidechain& sidechain, int epochNumber, const CFieldElement& endEpochCumScTxCommTreeRoot,
+    unsigned char& ret_code) const
 {
     LOCK(cs_main);
     int endEpochHeight = sidechain.GetEndHeightForEpoch(epochNumber);
@@ -1242,18 +1254,21 @@ bool CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
 
     if (!pblockindex)
     {
+        ret_code = REJECT_INVALID;
         return error("%s():%d - ERROR: end height %d for certificate epoch %d is not in current chain active (height %d)\n",
                 __func__, __LINE__, endEpochHeight, epochNumber, chainActive.Height());
     }
 
     if (pblockindex->scCumTreeHash != endEpochCumScTxCommTreeRoot)
     {
+        ret_code = REJECT_SC_CUM_COMM_TREE;
         // TODO if !ret, then we could search into mGlobalForkTips backwards if at this height we have the matching block
         // in a fork: that would be the only 'honest' reason for a node to submit this certificate     
         return error("%s():%d - ERROR: cert cumulative commitment tree root does not match the value found at block hight[%d]\n",
                 __func__, __LINE__, endEpochHeight);
     }
 
+    ret_code = VALIDATION_OK;
     return true;
 }
 

@@ -9,6 +9,8 @@
 #include <string>
 
 /** "reject" message codes */
+static const unsigned char VALIDATION_OK = 0x00;
+
 static const unsigned char REJECT_MALFORMED = 0x01;
 static const unsigned char REJECT_INVALID = 0x10;
 static const unsigned char REJECT_OBSOLETE = 0x11;
@@ -21,6 +23,10 @@ static const unsigned char REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND = 0x44;
 static const unsigned char REJECT_SCID_NOT_FOUND = 0x45;
 static const unsigned char REJECT_INSUFFICIENT_SCID_FUNDS = 0x46;
 static const unsigned char REJECT_ABSURDLY_HIGH_FEE = 0x47;
+static const unsigned char REJECT_HAS_CONFLICTS = 0x48;
+static const unsigned char REJECT_NO_COINS_FOR_INPUT = 0x49;
+static const unsigned char REJECT_PROOF_VER_FAILED = 0x4a;
+static const unsigned char REJECT_SC_CUM_COMM_TREE = 0x4b;
 
 /** Capture information about block/transaction validation */
 class CValidationState {
@@ -35,7 +41,7 @@ private:
     unsigned char chRejectCode;
     bool corruptionPossible;
 public:
-    CValidationState() : mode(MODE_VALID), nDoS(0), chRejectCode(0), corruptionPossible(false) {}
+    CValidationState() : mode(MODE_VALID), nDoS(0), chRejectCode(VALIDATION_OK), corruptionPossible(false) {}
     virtual bool DoS(int level, bool ret = false,
              unsigned char chRejectCodeIn=0, std::string strRejectReasonIn="",
              bool corruptionIn=false) {
@@ -49,7 +55,7 @@ public:
         return ret;
     }
     virtual bool Invalid(bool ret = false,
-                 unsigned char _chRejectCode=0, std::string _strRejectReason="") {
+                 unsigned char _chRejectCode=VALIDATION_OK, std::string _strRejectReason="") {
         return DoS(0, ret, _chRejectCode, _strRejectReason);
     }
     virtual bool Error(const std::string& strRejectReasonIn) {

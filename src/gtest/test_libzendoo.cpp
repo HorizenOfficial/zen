@@ -491,7 +491,7 @@ TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
 
 TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 {
-    fPrintToConsole = true;
+    //fPrintToConsole = true;
 
     SidechainTxsCommitmentBuilder builder;
 
@@ -506,7 +506,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(7));
 
     CScCertificate cert = txCreationUtils::createCertificate(scId,
-        /*epochNum*/12, /*endEpochBlockHash*/uint256S("abc"), /*changeTotalAmount*/0,
+        /*epochNum*/12, /*endEpochBlockHash*/uint256S("abc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/0,
         /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/1);
 
     builder.add(scCreationTx);
@@ -515,13 +515,13 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("c74633862100f8c00c71469d5fe4610d63f448fbd568f902d5c5542a20a6d1d7"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("34700bf5038263d9034574ba4a507b480a88b74600b194dcf86cfb3ec6393e8b"))
         <<scTxCommitmentHash.ToString();
 }
 
 TEST(SidechainsField, NakedZendooFeatures_EmptyTreeCommitmentCalculation)
 {
-    fPrintToConsole = true;
+    //fPrintToConsole = true;
     SidechainTxsCommitmentBuilder builder;
 
     //Nothing to add

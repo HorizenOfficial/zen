@@ -37,6 +37,7 @@
 #include <numeric>
 
 #include "sc/sidechainrpc.h"
+#include "consensus/validation.h"
 
 using namespace std;
 
@@ -5342,10 +5343,11 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     // sanity check of the endEpochCumScTxCommTreeRoot: it must correspond to the end-epoch block hash 
-    if (!scView.CheckEndEpochCumScTxCommTreeRoot(sidechain, epochNumber, cert.endEpochCumScTxCommTreeRoot))
+    unsigned char ret_code = VALIDATION_OK;
+    if (!scView.CheckEndEpochCumScTxCommTreeRoot(sidechain, epochNumber, cert.endEpochCumScTxCommTreeRoot, ret_code))
     {
-        LogPrintf("%s():%d - ERROR: endEpochCumScTxCommTreeRoot[%s]/epochNumber[%d] are not legal\n",
-            __func__, __LINE__, cert.endEpochCumScTxCommTreeRoot.GetHexRepr(), epochNumber);
+        LogPrintf("%s():%d - ERROR: endEpochCumScTxCommTreeRoot[%s]/epochNumber[%d] are not legal, ret_code[0x%x]\n",
+            __func__, __LINE__, cert.endEpochCumScTxCommTreeRoot.GetHexRepr(), epochNumber, ret_code);
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid end cum commitment tree root"));
     }
 

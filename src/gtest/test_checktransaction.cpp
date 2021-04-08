@@ -8,6 +8,8 @@
 #include <streams.h>
 #include <clientversion.h>
 
+#include <gtest/libzendoo_test_files.h>
+
 TEST(checktransaction_tests, check_vpub_not_both_nonzero) {
     CMutableTransaction tx;
     tx.nVersion = 2;
@@ -133,6 +135,7 @@ CMutableScCertificate GetValidCertificate() {
     mcert.scId = GetRandHash();
     mcert.epochNumber = 3;
     mcert.endEpochBlockHash = GetRandHash();
+    mcert.endEpochCumScTxCommTreeRoot = CFieldElement{SAMPLE_FIELD};
 
     return mcert;
 }

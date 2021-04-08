@@ -928,6 +928,7 @@ TEST_F(SidechainsTestSuite, RestoreSidechainRestoresLastCertHash) {
     const uint256& scId = scCreationTx.GetScIdFromScCcOut(0);
     int scCreationHeight {71};
     CBlock dummyBlock;
+    CFieldElement dummyCumTree{SAMPLE_FIELD};
     sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, scCreationHeight);
     CSidechain sidechainAtCreation;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainAtCreation));
@@ -938,7 +939,7 @@ TEST_F(SidechainsTestSuite, RestoreSidechainRestoresLastCertHash) {
 
     //Update sc with cert and create the associate blockUndo
     int certEpoch = 0;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(), dummyCumTree,
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
     CBlockUndo blockUndo;
     ASSERT_TRUE(sidechainsView->UpdateSidechain(cert, blockUndo));
@@ -1027,8 +1028,9 @@ TEST_F(SidechainsTestSuite, CertificateUpdatesTopCommittedCertHash) {
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
 
     CBlockUndo blockUndo;
+    CFieldElement dummyCumTree{SAMPLE_FIELD};
     CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
+        dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2);
     EXPECT_TRUE(sidechainsView->UpdateSidechain(aCertificate, blockUndo));
 
     //check

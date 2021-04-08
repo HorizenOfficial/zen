@@ -191,14 +191,16 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
     return;
 }
 
-CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
-                                                  CAmount changeTotalAmount, unsigned int numChangeOut,
-                                                  CAmount bwtTotalAmount, unsigned int numBwt, const int quality) {
+CScCertificate txCreationUtils::createCertificate(
+    const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, const CFieldElement& endEpochCumScTxCommTreeRoot,
+    CAmount changeTotalAmount, unsigned int numChangeOut, CAmount bwtTotalAmount, unsigned int numBwt, const int quality)
+{
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
+    res.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     res.quality = quality;
 
     res.vin.resize(1);
@@ -261,9 +263,17 @@ void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)
         pNewBlockIdx->nBits = 0x1e7fffff;
         pNewBlockIdx->nChainWork = height == 0 ? arith_uint256(0) : mapBlockIndex.at(prevBlockHash)->nChainWork + GetBlockProof(*(mapBlockIndex.at(prevBlockHash)));
         pNewBlockIdx->hashAnchor = dummyTree.root();
+        pNewBlockIdx->nVersion = ForkManager::getInstance().getNewBlockVersion(height);
 
         BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
         pNewBlockIdx->phashBlock = &(mi->first);
+
+        if (pNewBlockIdx->pprev && pNewBlockIdx->nVersion == BLOCK_VERSION_SC_SUPPORT )
+        {
+            // don't do a real cumulative poseidon hash if it is not necessary
+            pNewBlockIdx->scCumTreeHash = CFieldElement{SAMPLE_FIELD};
+        }
+
         chainActive.SetTip(mapBlockIndex.at(currBlockHash));
 
         prevBlockHash = currBlockHash;

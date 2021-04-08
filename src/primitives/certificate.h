@@ -183,7 +183,7 @@ public:
     bool CheckInputsOutputsNonEmpty(CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
-    bool CheckInputsLimit() const override;
+    bool CheckInputsLimit(CValidationState &state) const override;
 
     //END OF CHECK FUNCTIONS
 

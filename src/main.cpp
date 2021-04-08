@@ -1083,7 +1083,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
             try {
                 dataToBeSigned = SignatureHash(scriptCode, tx, NOT_AN_INPUT, SIGHASH_ALL);
             } catch (std::logic_error& ex) {
-                return state.DoS(100, error("CheckTransaction(): error computing signature hash"),
+                return state.DoS(100, error("%s():%d error computing signature hash", __func__, __LINE__),
                                  REJECT_INVALID, "error-computing-signature-hash");
             }
 
@@ -1095,7 +1095,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
                                             dataToBeSigned.begin(), 32,
                                             tx.joinSplitPubKey.begin()
                                            ) != 0) {
-                return state.DoS(100, error("CheckTransaction(): invalid joinsplit signature"),
+                return state.DoS(100, error("%s():%d invalid joinsplit signature", __func__, __LINE__),
                                  REJECT_INVALID, "bad-txns-invalid-joinsplit-signature");
             }
         }
@@ -1144,15 +1144,15 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
     // is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
     int nextBlockHeight = pcoinsTip->GetHeight() + 1;
 
-    if (!cert.CheckInputsLimit())
-        return false;
+    if (!cert.CheckInputsLimit(state))
+        return error("%s(): CheckInputsLimit failed", __func__);
 
     if(!CheckCertificate(cert, state))
         return error("%s(): CheckCertificate failed", __func__);
 
     static const int DOS_LEVEL = 10;
     if(!cert.ContextualCheck(state, nextBlockHeight, DOS_LEVEL))
-        return error("%s(): ContextualCheck failed", __func__);
+        return state.DoS(0, error("%s(): ContextualCheck failed", __func__), REJECT_INVALID, "bad-sc-cert-contextual");
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
@@ -1161,7 +1161,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                             REJECT_NONSTANDARD, reason);
 
     if (!pool.checkIncomingCertConflicts(cert))
-        return false;
+        return state.DoS(0, error("%s(): certificate has conflicts in mempool", __func__),
+                            REJECT_HAS_CONFLICTS, "bad-sc-cert-has-conflicts");
 
     // Check if cert is already in mempool or if there are conflicts with in-memory certs
     std::pair<uint256, CAmount> conflictingCertData = pool.FindCertWithQuality(cert.GetScId(), cert.quality);
@@ -1181,21 +1182,30 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             // do we already have it?
             if (view.HaveCoins(certHash))
             {
-                LogPrint("mempool", "Dropping cert %s : already have coins\n", certHash.ToString());
-                return false;
+                return state.Invalid(
+                    error("%s():%d Dropping cert %s : view already has coins\n",
+                        __func__, __LINE__, certHash.ToString()),
+                    REJECT_HAS_CONFLICTS, "bad-sc-cert-has-conflicts");
             }
 
-            if (!view.IsCertApplicableToState(cert))
+            unsigned char ret_code = VALIDATION_OK;
+            if (!view.IsCertApplicableToState(cert, ret_code))
             {
-                return state.DoS(0, error("%s(): certificate not applicable", __func__),
-                            REJECT_INVALID, "bad-sc-cert-not-applicable");
+                int nDoS = 100;
+                if (ret_code == REJECT_SC_CUM_COMM_TREE)
+                    nDoS = 0;
+
+                return state.DoS(nDoS, error("%s():%d - certificate not applicable: ret_code[0x%x]",
+                    __func__, __LINE__, ret_code),
+                    ret_code, "bad-sc-cert-not-applicable");
             }
 
             auto scVerifier = libzendoomc::CScProofVerifier::Strict();
-            if (!view.IsCertProofVerified(cert, scVerifier))
+            if (!view.IsCertProofVerified(cert, scVerifier, ret_code))
             {
-                return state.DoS(100, error("%s(): cert proof failed to verify", __func__),
-                            REJECT_INVALID, "bad-sc-cert-proof");
+                return state.DoS(100, error("%s():%d - cert proof failed to verify: ret_code[0x%x]",
+                    __func__, __LINE__, ret_code),
+                    ret_code, "bad-sc-cert-proof");
             }
             
             // do all inputs exist?
@@ -1206,8 +1216,10 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 if (!view.HaveCoins(txin.prevout.hash))
                 {
                     if (pfMissingInputs) { *pfMissingInputs = true; }
-                    LogPrint("mempool", "Dropping cert %s : no coins for vin (tx=%s)\n", certHash.ToString(), txin.prevout.hash.ToString());
-                    return false;
+                    return state.Invalid(
+                        error("%s(): Dropping cert %s : no coins for vin (tx=%s)\n",
+                            __func__, certHash.ToString(), txin.prevout.hash.ToString()),
+                        REJECT_NO_COINS_FOR_INPUT, "bad-sc-cert-has-no-coins-for-vin");
                 }
             }
  
@@ -1215,8 +1227,9 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             if (!view.HaveInputs(cert))
             {
                 LogPrintf("%s():%d - ERROR: cert[%s]\n", __func__, __LINE__, certHash.ToString());
-                return state.Invalid(error("%s():d - inputs already spent", __func__, __LINE__),
-                                     REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
+                return state.Invalid(
+                    error("%s():%d - inputs already spent", __func__, __LINE__),
+                    REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
             }
 
             // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
@@ -1225,9 +1238,10 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
  
             if (!conflictingCertData.first.IsNull() && conflictingCertData.second >= nFees)
             {
-                LogPrintf("%s():%d - Dropping cert %s : low fee and same quality as other cert in mempool\n",
-                        __func__, __LINE__, certHash.ToString());
-                return error("invalid quality");
+                return state.Invalid(
+                    error("%s():%d - Dropping cert %s : low fee and same quality as other cert in mempool\n",
+                        __func__, __LINE__, certHash.ToString()),
+                    REJECT_INVALID, "bad-sc-cert-quality");
             }
 
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -1236,7 +1250,10 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         // Check for non-standard pay-to-script-hash in inputs
         if (getRequireStandard() && !AreInputsStandard(cert, view)) {
-            return error("%s(): nonstandard transaction input", __func__);
+            return state.Invalid(
+                error("%s():%d - Dropping cert %s : nonstandard transaction input\n",
+                    __func__, __LINE__, certHash.ToString()),
+                REJECT_NONSTANDARD, "bad-sc-cert-non-standard");
         }
 
         unsigned int nSigOps = GetLegacySigOpCount(cert);
@@ -1244,7 +1261,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         {
             return state.DoS(0, error("%s(): too many sigops %s, %d > %d",
                                    __func__, certHash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
-                             REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
+                             REJECT_NONSTANDARD, "bad-sc-cert-too-many-sigops");
         }
 
         // cert: this computes priority based on input amount and depth in blockchain, as transparent txes.
@@ -1295,9 +1312,10 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
         if (fRejectAbsurdFee == RejectAbsurdFeeFlag::ON && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
         {
-            LogPrintf("%s():%d - absurdly high fees cert[%s], %d > %d\n", __func__, __LINE__, certHash.ToString(),
-                         nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
-            return false;
+            return state.Invalid(
+                error("%s():%d - absurdly high fees cert[%s], %d > %d\n",
+                    __func__, __LINE__, certHash.ToString(), nFees, ::minRelayTxFee.GetFee(nSize) * 10000),
+                REJECT_ABSURDLY_HIGH_FEE, "bad-sc-cert-absurd-fee");
         }
 
         // Check against previous transactions
@@ -1322,7 +1340,12 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         }
 
         if (!pool.RemoveCertAndSync(conflictingCertData.first))
-            return error("%s(): cert %s depends on some conflicting quality certs", __func__, certHash.ToString());
+        {
+            return state.Invalid(
+                error("%s():%d - Dropping cert %s : depends on some conflicting quality certs\n",
+                    __func__, __LINE__, certHash.ToString()),
+                REJECT_INVALID, "bad-sc-cert-quality");
+        }
 
         // Store transaction in memory
         pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());
@@ -1343,8 +1366,8 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
     // is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
     int nextBlockHeight = pcoinsTip->GetHeight() + 1;
 
-    if (!tx.CheckInputsLimit())
-        return false;
+    if (!tx.CheckInputsLimit(state))
+        return error("%s(): CheckInputsLimit failed", __func__);
 
     auto verifier = libzcash::ProofVerifier::Strict();
     if (!CheckTransaction(tx, state, verifier))
@@ -1383,7 +1406,9 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
 
     if (!pool.checkIncomingTxConflicts(tx))
-        return false;
+        return state.Invalid(
+            error("%s():%d: tx[%s] has conflicts in mempool", __func__, __LINE__, tx.GetHash().ToString()),
+            REJECT_HAS_CONFLICTS, "bad-tx-has-conflicts");
 
     {
         uint256 hash = tx.GetHash();
@@ -1399,8 +1424,10 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             // do we already have it?
             if (view.HaveCoins(hash))
             {
-                LogPrint("mempool", "Dropping txid %s : already have coins\n", hash.ToString());
-                return false;
+                return state.Invalid(
+                    error("%s():%d Dropping tx %s : view already has coins\n",
+                        __func__, __LINE__, tx.GetHash().ToString()),
+                    REJECT_HAS_CONFLICTS, "bad-tx-has-conflicts");
             }
 
             // do all inputs exist?
@@ -1410,9 +1437,11 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             {
                 if (!view.HaveCoins(txin.prevout.hash))
                 {
-                    if (pfMissingInputs)  *pfMissingInputs = true;
-                    LogPrint("mempool", "Dropping txid %s : no coins for vin\n", hash.ToString());
-                    return false;
+                    if (pfMissingInputs) { *pfMissingInputs = true; }
+                    return state.Invalid(
+                        error("%s(): Dropping tx %s : no coins for vin (tx=%s)\n",
+                            __func__, tx.GetHash().ToString(), txin.prevout.hash.ToString()),
+                        REJECT_NO_COINS_FOR_INPUT, "bad-tx-has-no-coins-for-vin");
                 }
             }
  
@@ -1448,7 +1477,10 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         // Check for non-standard pay-to-script-hash in inputs
         if (getRequireStandard() && !AreInputsStandard(tx, view))
         {
-            return error("%s(): nonstandard transaction input", __func__);
+            return state.Invalid(
+                error("%s():%d - Dropping tx %s : nonstandard transaction input\n",
+                    __func__, __LINE__, tx.GetHash().ToString()),
+                REJECT_NONSTANDARD, "bad-tx-non-standard");
         }
 
         // Check that the transaction doesn't have an excessive number of
@@ -1460,10 +1492,10 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         nSigOps += GetP2SHSigOpCount(tx, view);
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
         {
-            return state.DoS(0,
-                             error("%s(): too many sigops %s, %d > %d",
-                                   __func__, hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
-                             REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
+            return state.Invalid(
+                error("%s(): too many sigops %s, %d > %d",
+                    __func__, hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
+                REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
         }
       
         double dPriority = view.GetPriority(tx, chainActive.Height());
@@ -1516,9 +1548,10 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
 
         if (fRejectAbsurdFee == RejectAbsurdFeeFlag::ON && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
         {
-            LogPrint("mempool", "%s(): absurdly high fees tx[%s], %d > %d", __func__, hash.ToString(),
-                         nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
-            return false;
+            return state.Invalid(
+                error("%s():%d - absurdly high fees tx[%s], %d > %d\n",
+                    __func__, __LINE__, hash.ToString(), nFees, ::minRelayTxFee.GetFee(nSize) * 10000),
+                REJECT_ABSURDLY_HIGH_FEE, "bad-tx-absurd-fee");
         }
 
         // Check against previous transactions
@@ -2908,18 +2941,20 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
-        if (!view.IsCertApplicableToState(cert) )
+        unsigned char ret_code = VALIDATION_OK;
+        if (!view.IsCertApplicableToState(cert, ret_code))
         {
-            // TODO check DoS value in this case
-            return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
-                             REJECT_INVALID, "bad-sc-cert-not-applicable");
+            return state.DoS(100, error("%s():%d: invalid sc certificate [%s], ret_code[0x%x]",
+                __func__, __LINE__, cert.GetHash().ToString(), ret_code),
+                ret_code, "bad-sc-cert-not-applicable");
         }
 
         auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-        if (!view.IsCertProofVerified(cert, scVerifier) )
+        if (!view.IsCertProofVerified(cert, scVerifier, ret_code) )
         {
-            return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
-                             REJECT_INVALID, "bad-sc-cert-not-applicable");
+            return state.DoS(100, error("%s():%d: cert [%s] proof failed, ret_code[0x%x]",
+                __func__, __LINE__, cert.GetHash().ToString(), ret_code),
+                ret_code, "bad-sc-cert-proof");
         }
 
         blockundo.vtxundo.push_back(CTxUndo());

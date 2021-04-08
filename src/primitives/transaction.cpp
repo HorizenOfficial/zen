@@ -882,15 +882,15 @@ std::string CTransaction::ToString() const
     return str;
 }
 
-bool CTransaction::CheckInputsLimit() const {
+bool CTransaction::CheckInputsLimit(CValidationState& state) const {
     // Node operator can choose to reject tx by number of transparent inputs and csw inputs
     static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
     size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
     if (limit > 0) {
         size_t n = GetVin().size() + GetVcswCcIn().size();
         if (n > limit) {
-            LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n",
-                    GetHash().ToString(), n, limit );
+            return state.DoS(10, error("%s():%d - Dropping tx %s : too many transparent inputs %zu > limit %zu\n",
+                __func__, __LINE__, GetHash().ToString(), n, limit), REJECT_INVALID, "bad-tx-vin-input-limit");
             return false;
         }
     }

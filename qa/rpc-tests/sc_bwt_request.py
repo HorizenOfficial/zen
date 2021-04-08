@@ -415,8 +415,9 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Check btr is still in mempool", self.nodes, DEBUG_MODE)
         assert_true(bwt3 in self.nodes[0].getrawmempool())
 
-        epoch_block_hash, epoch_number = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        mark_logs("epoch_cum_tree_hash = {}".format(epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         #empty sc1 balance
         bwt_amount = creation_amount1
@@ -427,7 +428,8 @@ class sc_bwt_request(BitcoinTestFramework):
 
         mark_logs("Node1 sends a cert withdrawing the contribution of the creation amount to the sc balance", self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_0 = self.nodes[1].send_certificate(scid1, epoch_number, 0, epoch_block_hash, proof, amounts, CERT_FEE)
+            cert_epoch_0 = self.nodes[1].send_certificate(scid1, epoch_number, 0, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amounts, CERT_FEE)
             mark_logs("Node 1 sent a cert with bwd transfer of {} coins to Node1 pkh via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException, e:
@@ -533,7 +535,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         # 1) send a cert
         mark_logs("\nNode0 sends a certificate to SC2", self.nodes, DEBUG_MODE)
-        epoch_block_hash, epoch_number = get_epoch_data(scid2, self.nodes[0], epoch_len_2)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid2, self.nodes[0], epoch_len_2)
 
         bt_amount = Decimal("1.0")
         pkh_node1 = self.nodes[1].getnewaddress("", True)
@@ -545,7 +547,8 @@ class sc_bwt_request(BitcoinTestFramework):
  
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:
-            cert_bad = self.nodes[0].send_certificate(scid2, epoch_number, quality, epoch_block_hash, proof, amount_cert, 0.01)
+            cert_bad = self.nodes[0].send_certificate(scid2, epoch_number, quality, epoch_block_hash,
+            epoch_cum_tree_hash, proof, amount_cert, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "Send certificate failed with reason {}".format(errorString)
