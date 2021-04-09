@@ -310,11 +310,11 @@ TEST(relayforks_test, checkisonmain) {
 
 #if !defined(TEST_ALT_DEBUG)
 
-static const int MAIN_CHAIN_TEST_LEN = 500000;
+static const int MAIN_CHAIN_TEST_LEN = 5000;
 static const int FORK1_TEST_POS = 3;
-static const int FORK2_TEST_POS = 200000;
-static const int FORK3_TEST_POS = 400000;
-static const int FORK4_TEST_POS = 498000;
+static const int FORK2_TEST_POS = 2000;
+static const int FORK3_TEST_POS = 4000;
+static const int FORK4_TEST_POS = 4980;
 
 //    [0]- .. -[4]- .. -[200001]- .. -[400001]- .. -[498001]- .. -[500000]         (Main)
 //               \          \            \              \                             #
