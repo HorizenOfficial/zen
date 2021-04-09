@@ -441,7 +441,8 @@ TEST_F(SidechainsTestSuite, ScCreationIsApplicableToStateIfScDoesntNotExistYet) 
     ASSERT_FALSE(sidechainsView->HaveSidechain(scId));
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, ret_code);
 
     //checks
     EXPECT_TRUE(res);
@@ -461,7 +462,8 @@ TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyUnconfi
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED);
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(scCreationTx, dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(scCreationTx, ret_code);
 
     //checks
     EXPECT_FALSE(res);
@@ -481,7 +483,8 @@ TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyAlive) 
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, ret_code);
 
     //checks
     EXPECT_FALSE(res);
@@ -501,7 +504,8 @@ TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyCeased)
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, ret_code);
 
     //checks
     EXPECT_FALSE(res);
@@ -515,7 +519,8 @@ TEST_F(SidechainsTestSuite, ForwardTransferToUnknownSCsIsApplicableToState) {
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, ret_code);
 
     //checks
     EXPECT_FALSE(res);
@@ -536,7 +541,8 @@ TEST_F(SidechainsTestSuite, ForwardTransferToUnconfirmedSCsIsApplicableToState) 
 
     //test
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
-    bool res = sidechainsView->IsScTxApplicableToState(fwdTx, dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(fwdTx, ret_code);
 
     //checks
     EXPECT_TRUE(res);
@@ -556,7 +562,8 @@ TEST_F(SidechainsTestSuite, ForwardTransferToAliveSCsIsApplicableToState) {
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, ret_code);
 
     //checks
     EXPECT_TRUE(res);
@@ -576,7 +583,8 @@ TEST_F(SidechainsTestSuite, ForwardTransferToCeasedSCsIsNotApplicableToState) {
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(aTransaction, ret_code);
 
     //checks
     EXPECT_FALSE(res);
@@ -603,7 +611,8 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), ret_code);
 
     //checks
     EXPECT_TRUE(res);
@@ -637,7 +646,8 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), ret_code);
 
     //checks
     EXPECT_TRUE(res);
@@ -654,7 +664,8 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnknownSidechainIsNotApplicableToState
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), ret_code);
 
     //checks
     EXPECT_FALSE(res);
@@ -685,7 +696,8 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicabl
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), ret_code);
 
     //checks
     EXPECT_FALSE(res);
@@ -722,7 +734,8 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithoutKeyIsNotApp
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), ret_code);
 
     //checks
     EXPECT_FALSE(res);
@@ -748,7 +761,8 @@ TEST_F(SidechainsTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState)
     mutTx.vmbtr_out.push_back(mcBwtReq);
 
     //test
-    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), dummyScVerifier);
+    unsigned char ret_code = VALIDATION_OK;
+    bool res = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), ret_code);
 
     //checks
     EXPECT_FALSE(res);
@@ -762,16 +776,45 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainIsAccepted) {
     initialScState.creationData.withdrawalEpochLength = 14;
     initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     initialScState.balance = CAmount{1000};
+    initialScState.pastEpochTopQualityCertDataHash = CFieldElement{SAMPLE_FIELD};
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
 
     CAmount cswTxCoins = initialScState.balance/2;
-    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins, 0);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx, dummyScVerifier));
+    unsigned char ret_code = VALIDATION_OK;
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx, ret_code));
+}
+
+TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainWithWrongActiveCertDataIsRefused) {
+    // setup sidechain initial state
+    CSidechain initialScState;
+    uint256 scId = uint256S("aaaa");
+    initialScState.creationBlockHeight = 1492;
+    initialScState.creationData.withdrawalEpochLength = 14;
+    initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.balance = CAmount{1000};
+
+    std::vector<unsigned char> badVec(size_t(CFieldElement::ByteSize()-2), 0xaa);
+    badVec.resize(CFieldElement::ByteSize());
+    initialScState.pastEpochTopQualityCertDataHash = CFieldElement{badVec};
+
+    int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
+
+    storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
+
+    CAmount cswTxCoins = initialScState.balance/2;
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins, 0);
+    CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
+
+    unsigned char ret_code = VALIDATION_OK;
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(cswTx, ret_code));
+    EXPECT_TRUE(ret_code == REJECT_ACTIVE_CERT_DATA_HASH);
 }
 
 TEST_F(SidechainsTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
@@ -788,10 +831,11 @@ TEST_F(SidechainsTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
 
     CAmount cswTxCoins = initialScState.balance*2;
-    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins, 0);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
-    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(cswTx, dummyScVerifier));
+    unsigned char ret_code = VALIDATION_OK;
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(cswTx, ret_code));
 }
 
 TEST_F(SidechainsTestSuite, CSWsToUnknownSidechainIsRefused) {
@@ -799,10 +843,11 @@ TEST_F(SidechainsTestSuite, CSWsToUnknownSidechainIsRefused) {
     ASSERT_FALSE(sidechainsView->HaveSidechain(unknownScId));
 
     CAmount cswTxCoins = 10;
-    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(unknownScId, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(unknownScId, "aabb", cswTxCoins, 0);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
-    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(cswTx, dummyScVerifier));
+    unsigned char ret_code = VALIDATION_OK;
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(cswTx, ret_code));
 }
 
 TEST_F(SidechainsTestSuite, CSWsToActiveSidechainIsRefused) {
@@ -819,10 +864,11 @@ TEST_F(SidechainsTestSuite, CSWsToActiveSidechainIsRefused) {
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     CAmount cswTxCoins = 10;
-    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins, 0);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
-    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(cswTx, dummyScVerifier));
+    unsigned char ret_code = VALIDATION_OK;
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(cswTx, ret_code));
 }
 /////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// RevertTxOutputs ///////////////////////////////

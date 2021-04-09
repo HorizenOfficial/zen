@@ -259,32 +259,78 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
         }
     }
 
+    uint32_t vActCertDataSize = tx.GetVActCertData().size();
+    if (vActCertDataSize == 0 && !tx.GetVcswCcIn().empty())
+    {
+        return state.DoS(100,
+            error("%s():%d - ERROR: Invalid tx[%s] : empty vector of active cert data with csw inputs\n",
+                __func__, __LINE__, txHash.ToString()),
+            REJECT_INVALID, "sidechain-cswinput-invalid-act-cert-data-vec");
+    }
+
+    std::set<uint32_t> sActCertDataIdxs;
+
     for(const CTxCeasedSidechainWithdrawalInput& csw : tx.GetVcswCcIn())
     {
         if (csw.nValue == 0 || !MoneyRange(csw.nValue))
         {
-            return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : CSW value %d is non-positive or out of range\n",
+            return state.DoS(100,
+                error("%s():%d - ERROR: Invalid tx[%s] : CSW value %d is non-positive or out of range\n",
                     __func__, __LINE__, txHash.ToString(), csw.nValue),
-                    REJECT_INVALID, "sidechain-cswinput-value-not-valid");
+                REJECT_INVALID, "sidechain-cswinput-value-not-valid");
         }
 
         if(!csw.nullifier.IsValid())
         {
-            return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW nullifier\n",
+            return state.DoS(100,
+                error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW nullifier\n",
                     __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-cswinput-invalid-nullifier");
+                REJECT_INVALID, "sidechain-cswinput-invalid-nullifier");
+        }
+        
+        uint32_t idx = csw.actCertDataIdx;
+        if(idx > (vActCertDataSize-1))
+        {
+            return state.DoS(100,
+                error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW actCertDataIdx[%d] (vActCertDataSize=%d)\n",
+                    __func__, __LINE__, txHash.ToString(), idx, vActCertDataSize),
+                REJECT_INVALID, "sidechain-cswinput-invalid-act-cert-data-idx");
+        }
+
+        if (!sActCertDataIdxs.count(idx))
+        {
+            sActCertDataIdxs.insert(idx);
+
+            if(!tx.GetVActCertData()[idx].IsValid())
+            {
+                return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW active cert data hash at idx[%d]\n",
+                        __func__, __LINE__, txHash.ToString(), idx),
+                    REJECT_INVALID, "sidechain-cswinput-invalid-act-cert-data");
+            }
         }
 
         if(!libzendoomc::IsValidScProof(csw.scProof))
         {
-            return state.DoS(100, error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW proof\n",
+            return state.DoS(100,
+                error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW proof\n",
                     __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-cswinput-invalid-proof");
+                REJECT_INVALID, "sidechain-cswinput-invalid-proof");
         }
+    }
+
+    // check we processed all and only relevant cert data hashes
+    if (sActCertDataIdxs.size() != vActCertDataSize)
+    {
+        return state.DoS(100,
+            error("%s():%d - ERROR: Invalid tx[%s] : invalid vector for active cert data (size=%d, processed=%d)\n",
+                __func__, __LINE__, txHash.ToString(), vActCertDataSize, sActCertDataIdxs.size()),
+            REJECT_INVALID, "sidechain-cswinput-invalid-act-cert-data-vec");
     }
 
     return true;
 }
+
 bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state)
 {
     const uint256& certHash = cert.GetHash();

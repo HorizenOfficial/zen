@@ -672,7 +672,8 @@ public:
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
-    bool IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const;
+    bool IsScTxApplicableToState(const CTransaction& tx, unsigned char& ret_code) const;
+    bool IsScTxCswProofVerified(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier, unsigned char& ret_code) const;
     bool CheckScTxTiming(const uint256& scId) const;
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);

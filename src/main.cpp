@@ -1226,9 +1226,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             // are the actual inputs available?
             if (!view.HaveInputs(cert))
             {
-                LogPrintf("%s():%d - ERROR: cert[%s]\n", __func__, __LINE__, certHash.ToString());
                 return state.Invalid(
-                    error("%s():%d - inputs already spent", __func__, __LINE__),
+                    error("%s():%d - ERROR: cert[%s] inputs already spent\n", __func__, __LINE__, certHash.ToString()),
                     REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
             }
 
@@ -1259,9 +1258,10 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         unsigned int nSigOps = GetLegacySigOpCount(cert);
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
         {
-            return state.DoS(0, error("%s(): too many sigops %s, %d > %d",
-                                   __func__, certHash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
-                             REJECT_NONSTANDARD, "bad-sc-cert-too-many-sigops");
+            return state.DoS(0,
+                error("%s():%d - too many sigops %s, %d > %d",
+                    __func__, __LINE__, certHash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
+                REJECT_NONSTANDARD, "bad-sc-cert-too-many-sigops");
         }
 
         // cert: this computes priority based on input amount and depth in blockchain, as transparent txes.
@@ -1453,17 +1453,34 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                                      REJECT_DUPLICATE, "bad-txns-inputs-spent");
             }
 
-            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
-            if (!view.IsScTxApplicableToState(tx, scVerifier))
+            unsigned char ret_code = VALIDATION_OK;
+            if (!view.IsScTxApplicableToState(tx, ret_code))
             {
-                return state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] is not applicable\n", __func__, __LINE__, hash.ToString()),
-                                 REJECT_INVALID, "bad-sc-tx");
+                int nDoS = 100;
+                if (ret_code == REJECT_ACTIVE_CERT_DATA_HASH)
+                    nDoS = 0;
+
+                return state.DoS(nDoS,
+                    error("%s():%d - ERROR: sc-related tx [%s] is not applicable: ret_code[0x%x]\n",
+                        __func__, __LINE__, hash.ToString(), ret_code),
+                    ret_code, "bad-sc-tx-not-applicable");
+            }
+            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
+            if (!view.IsScTxCswProofVerified(tx, scVerifier, ret_code))
+            {
+                return state.DoS(100,
+                    error("%s():%d - ERROR: sc-related tx [%s] proof failed: ret_code[0x%x]",
+                        __func__, __LINE__, hash.ToString(), ret_code),
+                    ret_code, "bad-sc-tx-proof");
             }
 
             // are the joinsplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
-                return state.Invalid(error("%s(): joinsplit requirements not met", __func__),
-                                     REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
+            {
+                return state.Invalid(
+                    error("%s():%d - joinsplit requirements not met", __func__, __LINE__),
+                    REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
+            }
  
             // Bring the best block into scope
             view.GetBestBlock();
@@ -1493,8 +1510,8 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
         if (nSigOps > MAX_STANDARD_TX_SIGOPS)
         {
             return state.Invalid(
-                error("%s(): too many sigops %s, %d > %d",
-                    __func__, hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
+                error("%s():%d - too many sigops %s, %d > %d",
+                    __func__, __LINE__, hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
                 REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
         }
       
@@ -2841,11 +2858,20 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("%s():%d: tx inputs missing/spent",__func__, __LINE__),
                                      REJECT_INVALID, "bad-txns-inputs-missingorspent");
 
-            auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-            if (!view.IsScTxApplicableToState(tx, scVerifier))
+            unsigned char ret_code = VALIDATION_OK;
+            if (!view.IsScTxApplicableToState(tx, ret_code))
             {
-                return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
-                                 REJECT_INVALID, "bad-sc-tx");
+                return state.DoS(100,
+                    error("%s():%d - invalid tx[%s], ret_code[0x%x]", __func__, __LINE__, tx.GetHash().ToString(), ret_code),
+                    ret_code, "bad-sc-tx-not-applicable");
+            }
+            auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+            if (!view.IsScTxCswProofVerified(tx, scVerifier, ret_code))
+            {
+                return state.DoS(100,
+                    error("%s():%d - ERROR: sc-related tx [%s] proof failed: ret_code[0x%x]",
+                        __func__, __LINE__, tx.GetHash().ToString(), ret_code),
+                    ret_code, "bad-sc-tx-proof");
             }
 
             // are the JoinSplit's requirements met?

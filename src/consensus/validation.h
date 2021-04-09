@@ -27,6 +27,7 @@ static const unsigned char REJECT_HAS_CONFLICTS = 0x48;
 static const unsigned char REJECT_NO_COINS_FOR_INPUT = 0x49;
 static const unsigned char REJECT_PROOF_VER_FAILED = 0x4a;
 static const unsigned char REJECT_SC_CUM_COMM_TREE = 0x4b;
+static const unsigned char REJECT_ACTIVE_CERT_DATA_HASH = 0x4c;
 
 /** Capture information about block/transaction validation */
 class CValidationState {

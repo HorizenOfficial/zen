@@ -1077,7 +1077,8 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 int CCoinsViewCache::GetHeight() const {return -1;}
 bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, unsigned char& ret_code) const {return true;}
 bool CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier, unsigned char& ret_code) const { return true;}
-bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const { return true;}
+bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, unsigned char& ret_code) const { return true;}
+bool CCoinsViewCache::IsScTxCswProofVerified(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier, unsigned char& ret_code) const { return true;}
 #else
 
 int CCoinsViewCache::GetHeight() const
@@ -1197,7 +1198,8 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, unsign
     return true;
 }
 
-bool CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier, unsigned char& ret_code) const
+bool CCoinsViewCache::IsCertProofVerified(
+    const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier, unsigned char& ret_code) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -1311,10 +1313,13 @@ bool CCoinsViewCache::CheckScTxTiming(const uint256& scId) const
     return true;
 }
 
-bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const
+bool CCoinsViewCache::IsScTxApplicableToState( const CTransaction& tx, unsigned char& ret_code) const
 {
     if (tx.IsCoinBase())
+    {
+        ret_code = VALIDATION_OK;
         return true;
+    }
 
     const uint256& txHash = tx.GetHash();
 
@@ -1324,6 +1329,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         const uint256& scId = sc.GetScId();
         if (HaveSidechain(scId))
         {
+            ret_code = REJECT_INVALID;
             return error("%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString());
         }
@@ -1343,7 +1349,10 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         // has been created. Therefore here we do not bother checking whether tx contains scId creation
 
         if (!CheckScTxTiming(scId))
-            return false;
+        {
+            ret_code = REJECT_INVALID;
+            return error("%s():%d - ERROR: tx %s timing is not valid\n", __func__, __LINE__, txHash.ToString());
+        }
 
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), scId.ToString());
@@ -1360,14 +1369,20 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         // containing scCreationOutput and mbtr, so mbtr.scId cannot be specified before the whole tx
         // has been created. Therefore here we do not bother checking whether tx contains scId creation
         if (!CheckScTxTiming(scId))
-            return false;
+        {
+            ret_code = REJECT_INVALID;
+            return error("%s():%d - ERROR: tx %s timing is not valid\n", __func__, __LINE__, txHash.ToString());
+        }
 
         boost::optional<libzendoomc::ScVk> wMbtrVk = this->AccessSidechain(scId)->creationData.wMbtrVk;
 
         if(!wMbtrVk.is_initialized())
         {
+            ret_code = REJECT_INVALID;
             return error("%s():%d - ERROR: mbtr not supported\n",  __func__, __LINE__);
         }
+
+#if 0 // TODO check this - proof verification not needed anymore
 
         CFieldElement certDataHash = this->GetActiveCertDataHash(mbtr.scId);
 //        //TODO: Unlock when we'll handle recovery of fwt of last epoch
@@ -1378,8 +1393,12 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         // Verify mainchain bwt request proof
         if (!scVerifier.verifyCBwtRequest(mbtr.scId, mbtr.scRequestData,
                 mbtr.mcDestinationAddress, mbtr.scFee, mbtr.scProof, wMbtrVk, certDataHash))
+        {
+            ret_code = REJECT_PROOF_VER_FAILED;
             return error("%s():%d - ERROR: mbtr for scId [%s], tx[%s], pos[%d] cannot be accepted : proof verification failed\n",
                     __func__, __LINE__, mbtr.scId.ToString(), tx.GetHash().ToString(), idx);
+        }
+#endif
 
         LogPrint("sc", "%s():%d - OK: tx[%s] contains bwt transfer request for scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), scId.ToString());
@@ -1393,21 +1412,24 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         CSidechain sidechain;
         if (!GetSidechain(csw.scId, sidechain))
         {
-            return error("%s():%d - ERROR: tx[%s] CSW input [%s] refers to unknown scId\n",
+            ret_code = REJECT_SCID_NOT_FOUND;
+            return error("%s():%d - ERROR: tx[%s] CSW input [%s]\n refers to unknown scId\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString());
         }
 
         auto s = this->GetSidechainState(csw.scId);
         if (s != CSidechain::State::CEASED)
         {
-            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] cannot be accepted, sidechain is not ceased\n",
+            ret_code = REJECT_INVALID;
+            return error("%s():%d - ERROR: Tx[%s] CSW input [%s]\n cannot be accepted, sidechain is not ceased\n",
                     __func__, __LINE__, tx.ToString(), csw.ToString());
         }
 
         if(!sidechain.creationData.wCeasedVk.is_initialized())
         {
-            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] refers to SC without CSW support\n",
-                __func__, __LINE__, tx.ToString(), csw.ToString());
+            ret_code = REJECT_INVALID;
+            return error("%s():%d - ERROR: Tx[%s] CSW input [%s]\n refers to SC without CSW support\n",
+                __func__, __LINE__, tx.GetHash().ToString(), csw.ToString());
         }
 
         // add a new balance entry in the map or increment it if already there
@@ -1416,16 +1438,46 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         // Check that SC CSW balances don't exceed the SC balance
         if(cswTotalBalances[csw.scId] > sidechain.balance)
         {
+            ret_code = REJECT_INSUFFICIENT_SCID_FUNDS;
             return error("%s():%d - ERROR: Tx[%s] CSW inputs total amount[%s] is greater than sc[%s] total balance[%s]\n",
                 __func__, __LINE__, tx.ToString(), FormatMoney(cswTotalBalances[csw.scId]), csw.scId.ToString(), FormatMoney(sidechain.balance));
         }
 
         if (this->HaveCswNullifier(csw.scId, csw.nullifier)) {
+            ret_code = REJECT_INVALID;
             return error("%s():%d - ERROR: Tx[%s] CSW input [%s] nullifier had been already used\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString());
         }
+        
+        uint32_t idx = csw.actCertDataIdx;
+        CFieldElement certDataHash = tx.GetVActCertData().at(idx);
+        if (GetActiveCertDataHash(csw.scId) != certDataHash)
+        {
+            ret_code = REJECT_ACTIVE_CERT_DATA_HASH;
+            return error("%s():%d - ERROR: Tx[%s] CSW input [%s]\n active cert data hash does not match\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString());
+        }
+    }
 
-        CFieldElement certDataHash = this->GetActiveCertDataHash(csw.scId);
+    ret_code = VALIDATION_OK;
+    return true;
+}
+
+bool CCoinsViewCache::IsScTxCswProofVerified(
+    const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier, unsigned char& ret_code) const
+{
+    for(const CTxCeasedSidechainWithdrawalInput& csw : tx.GetVcswCcIn())
+    {
+        CSidechain sidechain;
+        if (!GetSidechain(csw.scId, sidechain))
+        {
+            ret_code = REJECT_SCID_NOT_FOUND;
+            return error("%s():%d - ERROR: csw of tx[%s] refers to scId[%s] not yet created\n",
+                    __func__, __LINE__, tx.GetHash().ToString(), csw.scId.ToString());
+        }
+
+        uint32_t idx = csw.actCertDataIdx;
+        CFieldElement certDataHash = tx.GetVActCertData().at(idx);
 
 //        //TODO: Unlock when we'll handle recovery of fwt of last epoch
 //        if (certDataHash.IsNull())
@@ -1435,11 +1487,11 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         // Verify CSW proof
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.creationData.wCeasedVk.get(), csw))
         {
-            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] cannot be accepted: proof verification failed\n",
+            ret_code = REJECT_PROOF_VER_FAILED;
+            return error("%s():%d - ERROR: Tx[%s] CSW input [%s]\n cannot be accepted: proof verification failed\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString());
         }
     }
-
     return true;
 }
 

@@ -109,7 +109,8 @@ protected:
     CTransaction GenerateScTx(const CAmount & creationTxAmount, int epochLenght = -1, bool ceasedVkDefined = true);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
     CTransaction GenerateBtrTx(const uint256 & scId);
-    CTxCeasedSidechainWithdrawalInput GenerateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount);
+    CTxCeasedSidechainWithdrawalInput GenerateCSWInput(
+        const uint256& scId, const std::string& nullifierHex, CAmount amount, uint32_t actCertDataIdx = 0);
     CTransaction GenerateCSWTx(const std::vector<CTxCeasedSidechainWithdrawalInput>& csws);
     CTransaction GenerateCSWTx(const CTxCeasedSidechainWithdrawalInput& csw);
 
@@ -935,8 +936,12 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCswRemovalFromMempool) {
     CMutableTransaction mutTx;
     CFieldElement nullfier_1{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     CFieldElement nullfier_2{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'b')};
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(
+        dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript, 0));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(
+        dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript, 0));
+    mutTx.vact_cert_data.resize(0);
+    mutTx.vact_cert_data.push_back(CFieldElement{SAMPLE_FIELD});
 
     CTransaction cswTx(mutTx);
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -1016,8 +1021,12 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
     mutTx.nVersion = SC_TX_VERSION;
     CFieldElement nullfier_1{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     CFieldElement nullfier_2{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'b')};
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(
+        dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript, 0));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(
+        dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript, 0));
+    mutTx.vact_cert_data.resize(0);
+    mutTx.vact_cert_data.push_back(CFieldElement{SAMPLE_FIELD});
 
     CTransaction cswTx(mutTx);
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -1028,7 +1037,11 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
     std::list<CScCertificate> removedCerts;
 
     CMutableTransaction mutConfirmedTx;
-    mutConfirmedTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutConfirmedTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(
+        dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript, 1));
+    mutConfirmedTx.vact_cert_data.resize(1);
+    mutConfirmedTx.vact_cert_data.push_back(CFieldElement{SAMPLE_FIELD});
+
     CTransaction cswConfirmedTx(mutConfirmedTx);
     ASSERT_TRUE(cswTx.GetHash() != cswConfirmedTx.GetHash());
     mempool.removeConflicts(cswConfirmedTx, removedTxs, removedCerts);
@@ -1604,7 +1617,8 @@ CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId) {
     return scTx;
 }
 
-CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
+CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput(
+    const uint256& scId, const std::string& nullifierHex, CAmount amount, uint32_t actCertDataIdx)
 {
     CFieldElement nullifier{};
     std::vector<unsigned char> tmp{nullifierHex.begin(), nullifierHex.end()};
@@ -1615,7 +1629,7 @@ CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput
     libzendoomc::ScProof dummyScProof;
     CScript dummyRedeemScript;
 
-    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript);
+    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript, actCertDataIdx);
 }
 
 CTransaction SidechainsInMempoolTestSuite::GenerateCSWTx(const std::vector<CTxCeasedSidechainWithdrawalInput>& csws)
@@ -1623,6 +1637,7 @@ CTransaction SidechainsInMempoolTestSuite::GenerateCSWTx(const std::vector<CTxCe
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vcsw_ccin.insert(mutTx.vcsw_ccin.end(), csws.begin(), csws.end());
+    mutTx.vact_cert_data.resize(csws.size(), CFieldElement{SAMPLE_FIELD});
 
     CScript dummyScriptPubKey =
             GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/true);
