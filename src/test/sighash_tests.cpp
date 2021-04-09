@@ -49,8 +49,10 @@ uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, un
     {
         // Wildcard payee
         txTmp.resizeOut(0);
-        txTmp.vft_ccout.resize(0);
         txTmp.vsc_ccout.resize(0);
+        txTmp.vft_ccout.resize(0);
+        txTmp.vmbtr_out.resize(0);
+        txTmp.vact_cert_data.resize(0);
 
         // Let the others update at will
         for (unsigned int i = 0; i < txTmp.vin.size(); i++)
@@ -160,6 +162,12 @@ uint256 static SignatureHashCert(CScript scriptCode, const CScCertificate& certT
     return ss.GetHash();
 }
 
+static uint160 random_uint160()
+{
+    uint160 ret;
+    randombytes_buf(ret.begin(), 20);
+    return ret;
+}
 
 void static RandomScript(CScript &script) {
     static const opcodetype oplist[] = {OP_FALSE, OP_1, OP_2, OP_3, OP_CHECKSIG, OP_IF, OP_VERIF, OP_RETURN};
@@ -246,6 +254,9 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
     tx.vcsw_ccin.clear();
     tx.vsc_ccout.clear();
     tx.vft_ccout.clear();
+    tx.vmbtr_out.clear();
+    tx.vact_cert_data.clear();
+
     tx.nLockTime = (insecure_rand() % 2) ? insecure_rand() : 0;
     int ins = (insecure_rand() % 4) + 1;
     int csws = isSidechain ? (insecure_rand() % 4) + 1 : 0;
@@ -253,6 +264,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
     int joinsplits = (insecure_rand() % 4);
     int scs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
     int fts = isSidechain ? (insecure_rand() % 4) + 1 : 0;
+    int mbtrs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
     for (int in = 0; in < ins; in++) {
         tx.vin.push_back(CTxIn());
         CTxIn &txin = tx.vin.back();
@@ -330,6 +342,10 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
           } else {
               RandomScript(csw_in.redeemScript);
           }
+          csw_in.actCertDataIdx = csw;
+          CFieldElement actCertData;
+          RandomSidechainField(actCertData);
+          tx.vact_cert_data.push_back(actCertData);
         }
 
         for (int sc = 0; sc < scs; sc++) {
@@ -356,6 +372,16 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             ft_out.address = libzcash::random_uint256();
             ft_out.scId = libzcash::random_uint256();
         }
+        for (int mbtr = 0; mbtr < mbtrs; mbtr++) {
+            tx.vmbtr_out.push_back(CBwtRequestOut());
+            CBwtRequestOut& mbtr_out = tx.vmbtr_out.back();
+
+            mbtr_out.scFee = insecure_rand() % 100000000;
+            mbtr_out.mcDestinationAddress = random_uint160();
+            mbtr_out.scId = libzcash::random_uint256();
+            RandomScProof(mbtr_out.scProof);
+            RandomSidechainField(mbtr_out.scRequestData);
+        }
     }
 }
 
@@ -366,9 +392,10 @@ void static RandomCertificate(CMutableScCertificate &cert, bool fSingle, bool em
     cert.resizeOut(0);
     cert.scId = GetRandHash();
     cert.quality = 3;
-//    cert.scProof
+    RandomScProof(cert.scProof);
     cert.epochNumber = (insecure_rand() % NUM_R) + 1;
     cert.endEpochBlockHash = GetRandHash();
+    RandomSidechainField(cert.endEpochCumScTxCommTreeRoot);
 
     int ins = (insecure_rand() % NUM_R) + 1;
     int outs = fSingle ? ins : (insecure_rand() % NUM_R) + 1;

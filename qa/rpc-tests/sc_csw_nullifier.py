@@ -465,6 +465,7 @@ class CswNullifierTest(BitcoinTestFramework):
         
         prev_epoch_hash = self.nodes[0].getbestblockhash()
         vk2 = mcTest.generate_params("sc2")
+        mbtrVk2 = mcTest.generate_params("mbtr2")
         cswVk2 = mcTest.generate_params("csw2")
 
         ret = self.nodes[0].sc_create(sc_epoch_len, "dada", sc_cr_amount, vk2, "abcdef", constant, mbtrVk2, cswVk2)

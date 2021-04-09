@@ -233,8 +233,8 @@ std::string CTxCeasedSidechainWithdrawalInput::ToString() const
 {
     return strprintf(
         "CTxCeasedSidechainWithdrawalInput("
-        "nValue=%d.%08d, scId=%s, nullifier=%s, pubKeyHash=%s, scProof=%s, "
-        "redeemScript=%s, actCertDayaIdx=%d)",
+        "nValue=%d.%08d, scId=%s,\nnullifier=%s,\npubKeyHash=%s,\nscProof=%s,\n"
+        "redeemScript=%s,\nactCertDataIdx=%d)\n",
                      nValue / COIN, nValue % COIN, scId.ToString(), nullifier.GetHexRepr().substr(0, 10),
         pubKeyHash.ToString(), HexStr(scProof).substr(0, 10), HexStr(redeemScript).substr(0, 24), actCertDataIdx);
 }

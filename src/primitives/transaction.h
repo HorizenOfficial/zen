@@ -362,6 +362,7 @@ public:
     uint160 pubKeyHash;
     libzendoomc::ScProof scProof;
     CScript redeemScript;
+    // index in the list of active cert data in tx obj
     uint32_t actCertDataIdx; 
 
     CTxCeasedSidechainWithdrawalInput();

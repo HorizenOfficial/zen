@@ -104,6 +104,7 @@ testScripts=(
   'sc_csw_nullifier.py'
   'sc_cert_memcleanup_split.py'
   'sc_cert_ceasing_split.py'
+  'sc_csw_actcertdata.py'
 );
 
 testScriptsExt=(

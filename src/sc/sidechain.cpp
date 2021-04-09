@@ -265,7 +265,15 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
         return state.DoS(100,
             error("%s():%d - ERROR: Invalid tx[%s] : empty vector of active cert data with csw inputs\n",
                 __func__, __LINE__, txHash.ToString()),
-            REJECT_INVALID, "sidechain-cswinput-invalid-act-cert-data-vec");
+            REJECT_INVALID, "sidechain-cswinput-empty-act-cert-data-vec");
+    }
+
+    if (vActCertDataSize > tx.GetVcswCcIn().size())
+    {
+        return state.DoS(100,
+            error("%s():%d - ERROR: Invalid tx[%s] : vector of active cert data hash has to many entries\n",
+                __func__, __LINE__, txHash.ToString()),
+            REJECT_INVALID, "sidechain-cswinput-too-big-act-cert-data-vec");
     }
 
     std::set<uint32_t> sActCertDataIdxs;

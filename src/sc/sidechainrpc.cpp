@@ -341,6 +341,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
         if (!sActCertData.count(actCertData))
         {
             rawTx.add(actCertData);
+            LogPrint("sc", "%s():%d - added actCertData[%s]\n", __func__, __LINE__, actCertData.GetHexRepr());
             sActCertData.insert(actCertData);
         }
         int idx = rawTx.GetIndexOfActCertData(actCertData);

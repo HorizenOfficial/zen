@@ -377,6 +377,151 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidProof) {
         <<"wrong reject code. Value returned: "<<txState.GetRejectCode();
 }
 
+TEST_F(SidechainsTestSuite, CSWTxInvalidActCertDataVector_BadData) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = 100;
+    csw.nullifier = CFieldElement{SAMPLE_FIELD};
+    csw.scProof = libzendoomc::ScProof();
+    csw.actCertDataIdx = 0;
+
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vcsw_ccin.resize(1);
+    mtx.vcsw_ccin[0] = csw;
+
+    // idx points at entry 0 to this vector
+    mtx.vact_cert_data.resize(0);
+    mtx.vact_cert_data.push_back(CFieldElement{});
+
+    CValidationState state;
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(mtx, state);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(state.IsValid());
+    EXPECT_TRUE(state.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<state.GetRejectCode();
+    EXPECT_EQ(state.GetRejectReason(), "sidechain-cswinput-invalid-act-cert-data");
+}
+
+TEST_F(SidechainsTestSuite, CSWTxInvalidActCertDataVector_Empty) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = 100;
+    csw.nullifier = CFieldElement{SAMPLE_FIELD};
+    csw.scProof = libzendoomc::ScProof();
+    csw.actCertDataIdx = 0;
+
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vcsw_ccin.resize(1);
+    mtx.vcsw_ccin[0] = csw;
+
+    // idx points at an entry to this vector
+    mtx.vact_cert_data.resize(0);
+
+    CValidationState state;
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(mtx, state);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(state.IsValid());
+    EXPECT_TRUE(state.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<state.GetRejectCode();
+    EXPECT_EQ(state.GetRejectReason(), "sidechain-cswinput-empty-act-cert-data-vec");
+}
+
+TEST_F(SidechainsTestSuite, CSWTxInvalidActCertDataVector_TooBig) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = 100;
+    csw.nullifier = CFieldElement{SAMPLE_FIELD};
+    csw.scProof = libzendoomc::ScProof();
+    csw.actCertDataIdx = 0;
+
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vcsw_ccin.resize(1);
+    mtx.vcsw_ccin[0] = csw;
+
+    // idx points at an entry to this vector
+    mtx.vact_cert_data.resize(2, CFieldElement{SAMPLE_FIELD});
+
+    CValidationState state;
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(mtx, state);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(state.IsValid());
+    EXPECT_TRUE(state.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<state.GetRejectCode();
+    EXPECT_EQ(state.GetRejectReason(), "sidechain-cswinput-too-big-act-cert-data-vec");
+}
+
+TEST_F(SidechainsTestSuite, CSWTxInvalidActCertDataVector_NotReferencedEntry) {
+
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vcsw_ccin.resize(0);
+
+    static const int NUM_CSWS = 10;
+    for (int i = 0; i < NUM_CSWS; i++)
+    {
+        CTxCeasedSidechainWithdrawalInput csw;
+        csw.nValue = 100+i;
+        csw.nullifier = CFieldElement{SAMPLE_FIELD};
+        csw.scProof = libzendoomc::ScProof();
+        csw.actCertDataIdx = i%2;
+        mtx.vcsw_ccin.push_back(csw);
+    }
+
+
+    // all ids above point just at entries 0,1 in this vector
+    mtx.vact_cert_data.resize(NUM_CSWS, CFieldElement{SAMPLE_FIELD});
+
+    CValidationState state;
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(mtx, state);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(state.IsValid());
+    EXPECT_TRUE(state.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<state.GetRejectCode();
+    EXPECT_EQ(state.GetRejectReason(), "sidechain-cswinput-invalid-act-cert-data-vec");
+}
+
+TEST_F(SidechainsTestSuite, CSWTxInvalidActCertDataVector_BadIndex) {
+
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vcsw_ccin.resize(0);
+
+    static const int NUM_CSWS = 10;
+    for (int i = 0; i < NUM_CSWS; i++)
+    {
+        CTxCeasedSidechainWithdrawalInput csw;
+        csw.nValue = 100+i;
+        csw.nullifier = CFieldElement{SAMPLE_FIELD};
+        csw.scProof = libzendoomc::ScProof();
+        csw.actCertDataIdx = i+1;
+        mtx.vcsw_ccin.push_back(csw);
+    }
+
+    // the last id above points out of the vector bound
+    mtx.vact_cert_data.resize(NUM_CSWS, CFieldElement{SAMPLE_FIELD});
+
+    CValidationState state;
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(mtx, state);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(state.IsValid());
+    EXPECT_TRUE(state.GetRejectCode() == REJECT_INVALID)
+        <<"wrong reject code. Value returned: "<<state.GetRejectCode();
+    EXPECT_EQ(state.GetRejectReason(), "sidechain-cswinput-invalid-act-cert-data-idx");
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////// checkCcOutputAmounts /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
