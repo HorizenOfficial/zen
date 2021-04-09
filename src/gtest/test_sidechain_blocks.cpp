@@ -211,10 +211,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     CreateCheckpointAfter(certBlockIndex);
 
     bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
+    bool fScRelatedChecks = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -284,10 +284,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     CreateCheckpointAfter(certBlockIndex);
 
     bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
+    bool fScRelatedChecks = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -369,10 +369,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     CreateCheckpointAfter(certBlockIndex);
 
     bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
+    bool fScRelatedChecks = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -456,10 +456,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     CreateCheckpointAfter(certBlockIndex);
 
     bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
+    bool fScRelatedChecks = false;
 
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -527,10 +527,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_I
     CreateCheckpointAfter(blockIndex);
 
     bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
+    bool fScRelatedChecks = false;
 
     // test
-    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -588,10 +588,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_I
     CreateCheckpointAfter(blockIndex);
 
     bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
+    bool fScRelatedChecks = false;
 
     // test
-    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
 
     //checks
     EXPECT_FALSE(res);

@@ -550,7 +550,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             if (block.hashPrevBlock != pindexPrev->GetBlockHash())
                 return "inconclusive-not-best-prevblk";
             CValidationState state;
-            TestBlockValidity(state, block, pindexPrev, false, true/*checkMklRoot*/, true/*checkScTxesCommitment*/);
+            TestBlockValidity(state, block, pindexPrev, /*fCheckPOW*/false, /*fCheckMerkleRoot*/true, /*fScRelatedChecks*/true);
             return BIP22ValidationResult(state);
         }
     }

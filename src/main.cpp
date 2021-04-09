@@ -2655,13 +2655,14 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    const CChain& chain, bool fJustCheck, bool fCheckScTxesCommitment, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
+    const CChain& chain, bool fJustCheck, bool fScRelatedChecks, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
 
-    if(block.nVersion != BLOCK_VERSION_SC_SUPPORT) {
-        fCheckScTxesCommitment = false;
+    if(block.nVersion != BLOCK_VERSION_SC_SUPPORT)
+    {
+        fScRelatedChecks = false;
     }
 
     bool fExpensiveChecks = true;
@@ -2779,7 +2780,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             CScProofVerifier scVerifier {fExpensiveChecks ?
                     CScProofVerifier::Verification::Strict:
                     CScProofVerifier::Verification::Loose};
-            if (!view.CheckScTxProof(tx, scVerifier))
+            if (fScRelatedChecks && !view.CheckScTxProof(tx, scVerifier))
             {
                 return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
                                  REJECT_INVALID, "bad-sc-tx-proof");
@@ -2840,7 +2841,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 
-        if (fCheckScTxesCommitment)
+        if (fScRelatedChecks)
         {
             scCommitmentBuilder.add(tx);
         }
@@ -2887,7 +2888,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         CScProofVerifier scVerifier {fExpensiveChecks ?
                 CScProofVerifier::Verification::Strict:
                 CScProofVerifier::Verification::Loose};
-        if (!view.CheckCertificateProof(cert, scVerifier) )
+        if (fScRelatedChecks && !view.CheckCertificateProof(cert, scVerifier) )
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
                              REJECT_INVALID, "bad-sc-cert-proof");
@@ -2938,7 +2939,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         vPos.push_back(std::make_pair(cert.GetHash(), pos));
         pos.nTxOffset += cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
-        if (fCheckScTxesCommitment)
+        if (fScRelatedChecks)
         {
             scCommitmentBuilder.add(cert);
         }
@@ -2971,7 +2972,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  __func__, __LINE__, block.vtx[0].GetValueOut(), blockReward),
                         REJECT_INVALID, "bad-cb-amount");
 
-    if (fCheckScTxesCommitment)
+    if (fScRelatedChecks)
     {
         const uint256& scTxsCommittment = scCommitmentBuilder.getCommitment();
         if (block.hashScTxsCommitment != scTxsCommittment)
@@ -3313,8 +3314,8 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     {
         CCoinsViewCache view(pcoinsTip);
         static const bool JUST_CHECK_FALSE = false;
-        static const bool CHECK_SC_TXES_COMMITMENT = true;
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE, CHECK_SC_TXES_COMMITMENT, &certsStateInfo);
+        static const bool SC_RELATED_CHECKS = true;
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE, SC_RELATED_CHECKS, &certsStateInfo);
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -4409,7 +4410,7 @@ bool ProcessNewBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, bool
 }
 
 bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex * const pindexPrev,
-    bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckScTxesCommitment)
+    bool fCheckPOW, bool fCheckMerkleRoot, bool fScRelatedChecks)
 {
     AssertLockHeld(cs_main);
     assert(pindexPrev == chainActive.Tip());
@@ -4430,7 +4431,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
         return false;
 
     static const bool JUST_CHECK_TRUE = true;
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, JUST_CHECK_TRUE, fCheckScTxesCommitment))
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, JUST_CHECK_TRUE, fScRelatedChecks))
         return false;
     assert(state.IsValid());
 
@@ -4833,8 +4834,8 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             chainHistorical.SetHeight(pindex->nHeight - 1);
             static const bool JUST_CHECK_FALSE = false;
-            static const bool CHECK_SC_TXES_COMMITMENT = true;
-            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, JUST_CHECK_FALSE, CHECK_SC_TXES_COMMITMENT))
+            static const bool SC_RELATED_CHECKS = true;
+            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, JUST_CHECK_FALSE, SC_RELATED_CHECKS))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }
