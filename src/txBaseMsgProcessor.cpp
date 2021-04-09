@@ -218,7 +218,8 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                 const CScCertificate& cert = dynamic_cast<const CScCertificate&>(txToProcess);
                 if (supportView.CheckCertificateProof(cert, scVerifier))
                 {
-                    StoreCertToMempool(cert, mempool, supportView);
+                    if(!mempool.existsCert(hashToProcess))
+                        StoreCertToMempool(cert, mempool, supportView);
                     dataToProcess.txBaseProcessingState = MempoolReturnValue::VALID;
                 } else
                 {
@@ -232,7 +233,8 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                 const CTransaction& tx = dynamic_cast<const CTransaction&>(txToProcess);
                 if (supportView.CheckScTxProof(tx, scVerifier))
                 {
-                    StoreTxToMempool(tx, mempool, supportView);
+                    if(!mempool.existsTx(hashToProcess))
+                        StoreTxToMempool(tx, mempool, supportView);
                     dataToProcess.txBaseProcessingState = MempoolReturnValue::VALID;
                 } else
                 {
