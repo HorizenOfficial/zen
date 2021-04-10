@@ -7,6 +7,7 @@
 
 #include "chain.h"
 #include "pow.h"
+#include "consensus/params.h"
 #include <map>
 
 /** What block version to use for new blocks (pre versionbits) */

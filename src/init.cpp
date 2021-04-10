@@ -66,6 +66,8 @@
 
 #include "librustzcash.h"
 
+#include <zen/forks/fork2_replayprotectionfork.h>
+
 using namespace std;
 
 extern void ThreadSendAlert();
@@ -366,7 +368,8 @@ std::string HelpMessage(HelpMessageMode mode)
             "Warning: Reverting this setting requires re-downloading the entire blockchain. "
             "(default: 0 = disable pruning blocks, >%u = target size in MiB to use for block files)"), MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024));
     strUsage += HelpMessageOpt("-reindex", _("Rebuild block chain index from current blk000??.dat files on startup"));
-#if !defined(WIN32)
+    strUsage += HelpMessageOpt("-reindexfast", _("Rebuild block chain index from current blk000??.dat files on startup, skipping expensive checks for blocks below checkpoints. It is incompatible with reindex"));
+    #if !defined(WIN32)
     strUsage += HelpMessageOpt("-sysperms", _("Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)"));
 #endif
     strUsage += HelpMessageOpt("-txindex", strprintf(_("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)"), 0));
@@ -513,14 +516,16 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-deprecatedgetblocktemplate", (_("Disable block complexity calculation and use the previous GetBlockTemplate implementation")));
 
     strUsage += HelpMessageOpt("-cbhsafedepth=<n>",
-        "regtest/testnet only - Set safe depth for skipping checkblockatheight in txout scripts (default depends on regtest/testnet params)");
+        "regtest only - Set safe depth for skipping checkblockatheight in txout scripts (default depends on regtest/testnet params)");
         
     strUsage += HelpMessageOpt("-cbhminage=<n>",
-        "regtest/testnet only - Set the minimum legal age of the referenced block for checkblockatheight in txout scripts (default depends on regtest/testnet params)");
+        "regtest only - Set the minimum legal age of the referenced block for checkblockatheight in txout scripts (default depends on regtest/testnet params)");
 
     strUsage += HelpMessageOpt("-allownonstandardtx",
         "regtest/testnet only - allow non-standard tx (default depends on regtest/testnet params)");
 
+    strUsage += HelpMessageOpt("-subsidyhalvinginterval=<n>", "regtest only - Set halving interval for testing purposes (default=2000; must be > 100)");
+        
     if (GetBoolArg("-help-debug", false))
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
 
@@ -634,24 +639,48 @@ void CleanupBlockRevFiles()
 void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
 {
     RenameThread("horizen-loadblk");
-    // -reindex
-    if (fReindex) {
+
+    // -reindex or -reindexfast
+    if (fReindex || fReindexFast)
+    {
         CImportingNow imp;
         int nFile = 0;
-        while (true) {
+        if (fReindexFast) uiInterface.InitMessage(_("Reindexing block headers from files..."));
+        while (fReindexFast)
+        {
             CDiskBlockPos pos(nFile, 0);
             if (!boost::filesystem::exists(GetBlockPosFilename(pos, "blk")))
                 break; // No block files left to reindex
             FILE *file = OpenBlockFile(pos, true);
-            if (!file)
-                break; // This error is logged in OpenBlockFile
-            LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
-            LoadExternalBlockFile(file, &pos);
+            if (!file) break; // This error is logged in OpenBlockFile
+            LogPrintf("Reindexing block file blk%05u.dat, headers-only...\n", (unsigned int)nFile);
+            LoadBlocksFromExternalFile(file, &pos, /*loadHeadersOnly*/true);
             nFile++;
         }
+        if (fReindexFast)
+            LogPrintf("Headers-only reindexing finished. Going on with blocks\n");
+
+        nFile = 0;
+        uiInterface.InitMessage(_("Reindexing block from files..."));
+        while (true)
+        {
+            CDiskBlockPos pos(nFile, 0);
+            if (!boost::filesystem::exists(GetBlockPosFilename(pos, "blk")))
+                break; // No block files left to reindex
+            FILE *file = OpenBlockFile(pos, true);
+            if (!file) break; // This error is logged in OpenBlockFile
+            LogPrintf("Reindexing block file blk%05u.dat...\n", (unsigned int)nFile);
+            LoadBlocksFromExternalFile(file, &pos, /*loadHeadersOnly*/false);
+            nFile++;
+        }
+
         pblocktree->WriteReindexing(false);
         fReindex = false;
+        pblocktree->WriteFastReindexing(false);
+        fReindexFast = false;
         LogPrintf("Reindexing finished\n");
+        uiInterface.InitMessage(_("Reindexing finished"));
+
         // To avoid ending up in a situation without genesis block, re-try initializing (no-op if reindexing worked):
         InitBlockIndex();
     }
@@ -664,7 +693,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
             CImportingNow imp;
             boost::filesystem::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LogPrintf("Importing bootstrap.dat...\n");
-            LoadExternalBlockFile(file);
+            LoadBlocksFromExternalFile(file, nullptr, /*loadHeadersOnly*/false);
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
             LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
@@ -677,7 +706,7 @@ void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
         if (file) {
             CImportingNow imp;
             LogPrintf("Importing blocks file %s...\n", path.string());
-            LoadExternalBlockFile(file);
+            LoadBlocksFromExternalFile(file, nullptr, /*loadHeadersOnly*/false);
         } else {
             LogPrintf("Warning: Could not open blocks file %s\n", path.string());
         }
@@ -961,6 +990,31 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 return InitError(_("Can't run with a wallet in prune mode."));
         }
 #endif
+    }
+
+    if (GetBoolArg("-reindex", false) && GetBoolArg("-reindexfast", false))
+        return InitError(_("-reindex is incompatible with -reindexfast."));
+
+    if ( (Params().NetworkIDString() == "regtest") && mapArgs.count("-subsidyhalvinginterval"))
+    {
+        int val = (int)(GetArg("-subsidyhalvinginterval", Params().GetConsensus().nSubsidyHalvingInterval));
+        if (val != Params().GetConsensus().nSubsidyHalvingInterval)
+        {
+            LogPrintf("%s():%d - nSubsidyHalvingInterval = %d\n",
+                __func__, __LINE__, Params().GetConsensus().nSubsidyHalvingInterval);
+
+            // Halving period cannot be shortened below fork2 activation height. In fact fork1_chainsplitfork imposes
+            // a maximal height for community rewards generation, currently set to the first halving height.
+            // Should be the first halving height be reduced below fork2 activation, the maximal height constraing could
+            // be violated for otherwise valid height, causing an assert to crash the node
+            ::zen::ReplayProtectionFork targetFork;
+            if (val <= targetFork.getHeight(CBaseChainParams::REGTEST))
+            	assert(!"subsidyhalvinginterval too low");
+
+            Params(CBaseChainParams::REGTEST).SetSubsidyHalvingInterval(val);
+            LogPrintf("%s():%d - %s: set nSubsidyHalvingInterval = %d) \n",
+                __func__, __LINE__, Params().NetworkIDString(), Params().GetConsensus().nSubsidyHalvingInterval);
+        }
     }
 
     // ********************************************************* Step 3: parameter-to-internal-flags
@@ -1393,6 +1447,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // ********************************************************* Step 7: load block chain
 
     fReindex = GetBoolArg("-reindex", false);
+    fReindexFast = GetBoolArg("-reindexfast", false);
 
     // Upgrading to 0.8; hard-link the old blknnnn.dat files into /blocks/
     boost::filesystem::path blocksDir = GetDataDir() / "blocks";
@@ -1439,7 +1494,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     bool fLoaded = false;
     while (!fLoaded) {
-        bool fReset = fReindex;
+        bool fReset = fReindex || fReindexFast;
         std::string strLoadError;
 
         uiInterface.InitMessage(_("Loading block index..."));
@@ -1453,13 +1508,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 delete pcoinscatcher;
                 delete pblocktree;
 
-                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex);
-                pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex);
+                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex || fReindexFast);
+                pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex || fReindexFast);
                 pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
                 pcoinsTip = new CCoinsViewCache(pcoinscatcher);
 
-                if (fReindex) {
-                    pblocktree->WriteReindexing(true);
+                if (fReindex || fReindexFast) {
+                    if (fReindex) pblocktree->WriteReindexing(true);
+                    if (fReindexFast) pblocktree->WriteFastReindexing(true);
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (fPruneMode)
                         CleanupBlockRevFiles();
@@ -1490,7 +1546,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks
                 // in the past, but is now trying to run unpruned.
                 if (fHavePruned && !fPruneMode) {
-                    strLoadError = _("You need to rebuild the database using -reindex to go back to unpruned mode.  This will redownload the entire blockchain");
+                    strLoadError = _("You need to rebuild the database using -reindex or -reindexfast to go back to unpruned mode.  This will redownload the entire blockchain");
                     break;
                 }
 
@@ -1727,7 +1783,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (fPruneMode) {
         LogPrintf("Unsetting NODE_NETWORK on prune mode\n");
         nLocalServices &= ~NODE_NETWORK;
-        if (!fReindex) {
+        if (!(fReindex || fReindexFast)) {
             uiInterface.InitMessage(_("Pruning blockstore..."));
             PruneAndFlush();
         }

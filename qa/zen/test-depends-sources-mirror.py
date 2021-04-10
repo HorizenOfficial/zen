@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-# This script tests that the package mirror at https://horizen.global/depends-sources/
+# This script tests that the package mirror at https://horizen.io/depends-sources/
 # contains all of the packages required to build this version of Zen.
 #
 # This script assumes you've just built Zen, and that as a result of that
@@ -12,7 +12,7 @@ import sys
 import os
 import requests
 
-MIRROR_URL_DIR="https://downloads.horizen.global/file/depends-sources/"
+MIRROR_URL_DIR="https://downloads.horizen.io/file/depends-sources/"
 DEPENDS_SOURCES_DIR=os.path.realpath(os.path.join(
     os.path.dirname(__file__),
     "..", "..", "depends", "sources"

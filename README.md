@@ -1,4 +1,4 @@
-Zen 2.0.22
+Zen 2.0.23
 ==============
 
 What is Horizen?
@@ -143,9 +143,9 @@ Copy and paste your wallet.dat from %APPDATA%/Zclassic/ to %APPDATA%/Zen. That's
 About
 --------------
 
-[Zen](https://horizen.global/) is a platform for secure communications and for deniable economic activity.
-Horizen is an evolution of the Zclassic codebase aimed at primarily enabling intriniscally secure communications and
-resilient networking.
+[Horizen](https://horizen.io/) is the most secure interoperable blockchain ecosystem that enables businesses and developers to build fully customized blockchains and dapps.
+
+Launched in 2017, our leading-edge platform enables real-life uses outside of our cryptocurrency - ZEN. Horizen is a massively scalable general-purpose blockchain system that enables businesses and developers to custom build their own public or private blockchains using our unique sidechain technology, [Zendoo](https://github.com/HorizenOfficial/Sidechains-SDK).
 
 This software is the Horizen client. It downloads and stores the entire history
 of Horizen transactions; depending on the speed of your computer and network
@@ -162,7 +162,7 @@ See important security warnings in
 
 Where do I begin?
 -----------------
-* The easiest way to get started is to download one of the available GUI wallets from [horizen.global](https://horizen.global)
+* The easiest way to get started is to download one of the available GUI wallets from [horizen.io](https://horizen.io)
 
 ### Need Help?
 
