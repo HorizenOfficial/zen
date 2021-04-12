@@ -531,7 +531,7 @@ def advance_epoch(mcTest, node, sync_call,
     scid, prev_epoch_hash, sc_tag, constant, epoch_length, cert_quality=1, cert_fee=Decimal("0.00001"), generate=True):
 
     if (generate == True):
-    node.generate(epoch_length)
+        node.generate(epoch_length)
     sync_call()
 
     epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, node, epoch_length)
