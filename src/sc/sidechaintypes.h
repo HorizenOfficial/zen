@@ -352,7 +352,7 @@ struct ScCreationParameters
         return (
             withdrawalEpochLength == -1           &&
             customData.empty()                    &&
-            constant == boost::none     &&
+            constant == boost::none               &&
             wCertVk.IsNull()                      &&
             wMbtrVk == boost::none                &&
             wCeasedVk == boost::none              &&

@@ -18,7 +18,6 @@
 #include <boost/unordered_map.hpp>
 #include "zcash/IncrementalMerkleTree.hpp"
 #include <sc/sidechain.h>
-#include <sc/proofverifier.h>
 
 class CBlockUndo;
 class CTxInUndo;
@@ -673,7 +672,6 @@ public:
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
     bool IsScTxApplicableToStateWithoutProof(const CTransaction& tx) const;
-    bool CheckScTxProof(const CTransaction& scTx, CScProofVerifier& scVerifier) const;
     bool CheckScTxTiming(const uint256& scId) const;
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
@@ -681,7 +679,6 @@ public:
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
     bool IsCertApplicableToStateWithoutProof(const CScCertificate& cert) const;
-    bool CheckCertificateProof(const CScCertificate& cert, CScProofVerifier& scVerifier) const;
     bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
     bool CheckCertTiming(const uint256& scId, int certEpoch) const;
     bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);

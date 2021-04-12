@@ -41,6 +41,8 @@
 
 #include "sc/sidechain.h"
 #include <sc/sidechainTxsCommitmentBuilder.h>
+#include <sc/proofverifier.h>
+
 #include "script/sigcache.h"
 #include "script/standard.h"
 
@@ -1238,7 +1240,11 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             return MempoolReturnValue::PARTIALLY_VALIDATED;
 
         CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-        if (!view.CheckCertificateProof(cert, scVerifier))
+        scVerifier.LoadDataForCertVerification(view, cert);
+        std::map<uint256, bool> res = scVerifier.batchVerifyCerts();
+        assert(res.size() == 1);
+        assert(res.count(certHash));
+        if (!res.at(certHash))
         {
             state.DoS(100, error("%s(): cert proof failed to verify", __func__),
                         REJECT_INVALID, "bad-sc-cert-proof");
@@ -1502,11 +1508,30 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             return MempoolReturnValue::INVALID;
         }
 
+        if (tx.GetVcswCcIn().empty() && tx.GetVBwtRequestOut().empty())
+        {
+        	//No sc proofs to be validated, job done. Store and exit
+        	StoreTxToMempool(tx, pool, view);
+        	return MempoolReturnValue::VALID;
+        }
+
         if (validateScProofs == ValidateSidechainProof::OFF)
             return MempoolReturnValue::PARTIALLY_VALIDATED;
 
         CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-        if (!view.CheckScTxProof(tx, scVerifier))
+
+        scVerifier.LoadDataForMbtrVerification(view, tx);
+        std::map<uint256, bool> resMbtr = scVerifier.batchVerifyMbtrs();
+        if (resMbtr.count(hash) != 0 && !resMbtr.at(hash))
+        {
+            state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
+                          __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
+            return MempoolReturnValue::INVALID;
+        }
+
+        scVerifier.LoadDataForCswVerification(view, tx);
+        std::map<uint256, bool> resCsw = scVerifier.batchVerifyCsws();
+        if (resCsw.count(hash) != 0 && !resCsw.at(hash))
         {
             state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
                           __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
@@ -2754,7 +2779,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }
 
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
-
+    CScProofVerifier scVerifier {fExpensiveChecks ? CScProofVerifier::Verification::Strict: CScProofVerifier::Verification::Loose};
     for (unsigned int txIdx = 0; txIdx < block.vtx.size(); ++txIdx) // Processing transactions loop
     {
         const CTransaction &tx = block.vtx[txIdx];
@@ -2777,13 +2802,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  REJECT_INVALID, "bad-sc-tx-not-applicable");
             }
 
-            CScProofVerifier scVerifier {fExpensiveChecks ?
-                    CScProofVerifier::Verification::Strict:
-                    CScProofVerifier::Verification::Loose};
-            if (fScRelatedChecks && !view.CheckScTxProof(tx, scVerifier))
+            if (fScRelatedChecks)
             {
-                return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, tx.GetHash().ToString()),
-                                 REJECT_INVALID, "bad-sc-tx-proof");
+                scVerifier.LoadDataForMbtrVerification(view, tx);
+                scVerifier.LoadDataForCswVerification(view, tx);
             }
 
             // are the JoinSplit's requirements met?
@@ -2847,6 +2869,28 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
     }  //end of Processing transactions loop
 
+    if (fScRelatedChecks)
+    {
+        std::map<uint256, bool> resMbtr = scVerifier.batchVerifyMbtrs();
+        for(const auto& mbtrItem: resMbtr)
+        {
+            if (!resMbtr.at(mbtrItem.first))
+            {
+                return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, mbtrItem.first.ToString()),
+                        REJECT_INVALID, "bad-sc-tx-proof");
+            }
+        }
+
+        std::map<uint256, bool> resCsw = scVerifier.batchVerifyCsws();
+        for(const auto& cswItem: resCsw)
+        {
+            if (!resCsw.at(cswItem.first))
+            {
+                return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, cswItem.first.ToString()),
+                        REJECT_INVALID, "bad-sc-tx-proof");
+            }
+        }
+    }
 
     std::map<uint256,uint256> highQualityCertData = HighQualityCertData(block, view);
     // key: current block top quality cert for given sc --> value: prev block superseeded cert hash (possibly null)
@@ -2885,14 +2929,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                              REJECT_INVALID, "bad-sc-cert-not-applicable");
         }
 
-        CScProofVerifier scVerifier {fExpensiveChecks ?
-                CScProofVerifier::Verification::Strict:
-                CScProofVerifier::Verification::Loose};
-        if (fScRelatedChecks && !view.CheckCertificateProof(cert, scVerifier) )
-        {
-            return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
-                             REJECT_INVALID, "bad-sc-cert-proof");
-        }
+        if (fScRelatedChecks)
+            scVerifier.LoadDataForCertVerification(view, cert);
 
         blockundo.vtxundo.push_back(CTxUndo());
         bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
@@ -2946,6 +2984,19 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
+
+    if (fScRelatedChecks)
+    {
+        std::map<uint256, bool> res = scVerifier.batchVerifyCerts();
+        for(const auto& cert: block.vcert)
+        {
+            assert(res.count(cert.GetHash())!= 0 && "cert not validated in batch processing");
+            if (!res.at(cert.GetHash()))
+                return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
+                                 REJECT_INVALID, "bad-sc-cert-proof");
+        }
+        assert(res.size() == block.vcert.size());
+    }
 
     if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pCertsStateInfo))
     {

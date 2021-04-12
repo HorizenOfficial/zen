@@ -1,4 +1,5 @@
 #include <txBaseMsgProcessor.h>
+#include <sc/proofverifier.h>
 #include <main.h>
 #include <util.h>
 #include <consensus/validation.h>
@@ -208,42 +209,88 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
             vEraseQueue.push_back(hashToProcess);
         } else if (dataToProcess.txBaseProcessingState == MempoolReturnValue::PARTIALLY_VALIDATED)
         {
-            //TODO: once batch processing is integrated, pull all PARTIALLY_VALIDATED txes and process them altogether
             LOCK2(cs_main, mempool.cs);
             CCoinsViewMemPool backingView(pcoinsTip, mempool);
             CCoinsViewCache supportView(&backingView);
             CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-            if (txToProcess.IsCertificate())
+            std::map<uint256,unsigned int> hashToIdx;
+
+            // update in-place all PARTIALLY_VALIDATED txes/certs
+            txBaseMsgQueue.push_back(dataToProcess); //Reinsert dataToProcess to process all PARTIALLY_VALIDATED txes
+            for(unsigned int idx = 0; idx < txBaseMsgQueue.size(); ++idx)
             {
-                const CScCertificate& cert = dynamic_cast<const CScCertificate&>(txToProcess);
-                if (supportView.CheckCertificateProof(cert, scVerifier))
+            	const TxBaseMsg_DataToProcess& enqueuedItem = txBaseMsgQueue.at(idx);
+                if(enqueuedItem.pTxBase->IsCertificate())
                 {
-                    if(!mempool.existsCert(hashToProcess))
+                    const CScCertificate& cert = dynamic_cast<const CScCertificate&>(*enqueuedItem.pTxBase);
+                    scVerifier.LoadDataForCertVerification(supportView, cert);
+                } else
+                {
+                    const CTransaction& tx = dynamic_cast<const CTransaction&>(*enqueuedItem.pTxBase);
+                    scVerifier.LoadDataForMbtrVerification(supportView, tx);
+                    scVerifier.LoadDataForCswVerification(supportView, tx);
+                }
+                hashToIdx[enqueuedItem.pTxBase->GetHash()] = idx;
+            }
+
+            std::map</*certHash*/uint256, bool> resCert = scVerifier.batchVerifyCerts();
+            for(const auto& certItem: resCert)
+            {
+            	TxBaseMsg_DataToProcess& processedCert = txBaseMsgQueue.at(hashToIdx.at(certItem.first));
+                if (certItem.second)
+                {
+                	const CScCertificate& cert = dynamic_cast<const CScCertificate&>(*processedCert.pTxBase);
+                    if(!mempool.existsCert(cert.GetHash()))
                         StoreCertToMempool(cert, mempool, supportView);
-                    dataToProcess.txBaseProcessingState = MempoolReturnValue::VALID;
+                    processedCert.txBaseProcessingState = MempoolReturnValue::VALID;
                 } else
                 {
-                    dataState.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
-                                  __func__, __LINE__, cert.GetHash().ToString()), REJECT_INVALID, "bad-sc-tx-proof");
-                    dataToProcess.txBaseProcessingState = MempoolReturnValue::INVALID;
+                	processedCert.txBaseValidationState.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
+                                  __func__, __LINE__, certItem.first.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
+                    processedCert.txBaseProcessingState = MempoolReturnValue::INVALID;
                 }
             }
-            else
+
+            std::map</*scTxHash*/uint256, bool> resMbtr = scVerifier.batchVerifyMbtrs();
+            std::map</*scTxHash*/uint256, bool> resCsw = scVerifier.batchVerifyCsws();
+            for(const auto& scTxItem: resMbtr)
             {
-                const CTransaction& tx = dynamic_cast<const CTransaction&>(txToProcess);
-                if (supportView.CheckScTxProof(tx, scVerifier))
+            	TxBaseMsg_DataToProcess& processedScTx = txBaseMsgQueue.at(hashToIdx.at(scTxItem.first));
+
+                if((resMbtr.count(scTxItem.first) && !resMbtr.at(scTxItem.first)) &&
+                   (resCsw.count(scTxItem.first) && !resCsw.at(scTxItem.first)))
                 {
-                    if(!mempool.existsTx(hashToProcess))
-                        StoreTxToMempool(tx, mempool, supportView);
-                    dataToProcess.txBaseProcessingState = MempoolReturnValue::VALID;
+                	processedScTx.txBaseValidationState.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
+                                  __func__, __LINE__, scTxItem.first.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
+                    processedScTx.txBaseProcessingState = MempoolReturnValue::INVALID;
                 } else
                 {
-                    dataState.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
-                                  __func__, __LINE__, tx.GetHash().ToString()), REJECT_INVALID, "bad-sc-tx-proof");
-                    dataToProcess.txBaseProcessingState = MempoolReturnValue::INVALID;
+                	const CTransaction& scTx = dynamic_cast<const CTransaction&>(*processedScTx.pTxBase);
+                    if(!mempool.existsTx(scTx.GetHash()))
+                        StoreTxToMempool(scTx, mempool, supportView);
+                    processedScTx.txBaseProcessingState = MempoolReturnValue::VALID;
                 }
             }
-            txBaseMsgQueue.push_back(dataToProcess); //Reinsert dataToProcess to complete processing
+
+            for(const auto& scTxItem: resCsw)
+            {
+            	TxBaseMsg_DataToProcess& processedScTx = txBaseMsgQueue.at(hashToIdx.at(scTxItem.first));
+
+                if((resMbtr.count(scTxItem.first) && !resMbtr.at(scTxItem.first)) &&
+                   (resCsw.count(scTxItem.first) && !resCsw.at(scTxItem.first)))
+                {
+                	processedScTx.txBaseValidationState.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
+                                  __func__, __LINE__, scTxItem.first.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
+                    processedScTx.txBaseProcessingState = MempoolReturnValue::INVALID;
+                } else
+                {
+                	const CTransaction& scTx = dynamic_cast<const CTransaction&>(*processedScTx.pTxBase);
+                    if(!mempool.existsTx(scTx.GetHash()))
+                        StoreTxToMempool(scTx, mempool, supportView);
+                    processedScTx.txBaseProcessingState = MempoolReturnValue::VALID;
+                }
+            }
+
             mempool.check(pcoinsTip);
         } else
         {
