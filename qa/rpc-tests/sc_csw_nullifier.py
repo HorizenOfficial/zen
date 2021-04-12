@@ -475,7 +475,7 @@ class CswNullifierTest(BitcoinTestFramework):
         scid2 = self.nodes[0].getrawtransaction(creating_tx, 1)['vsc_ccout'][0]['scid']
         mark_logs("==> created SC ids {}".format(scid2), self.nodes, DEBUG_MODE)
             
-        # advance just one epoch and cease it
+        # advance two epochs and cease it
         mark_logs("\nLet 2 epochs pass by...".  format(sc_epoch_len), self.nodes, DEBUG_MODE)
 
         cert, epoch_block_hash, epoch_number = advance_epoch(

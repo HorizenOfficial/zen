@@ -1095,13 +1095,13 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certEpoch) const
     if (!GetSidechain(scId, sidechain))
     {
         return error("%s():%d - ERROR: certificate cannot be accepted, scId[%s] not yet created\n",
-                __func__, __LINE__, scId.ToString());
+           __func__, __LINE__, scId.ToString());
     }
 
     if (this->GetSidechainState(scId) != CSidechain::State::ALIVE)
     {
         return error("%s():%d - ERROR: certificate cannot be accepted, sidechain [%s] already ceased\n",
-                __func__, __LINE__, scId.ToString());
+            __func__, __LINE__, scId.ToString());
     }
 
     // Adding handling of quality, we can have also certificates for the same epoch of the last certificate
@@ -1121,7 +1121,7 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certEpoch) const
     if ((inclusionHeight < certWindowStartHeight) || (inclusionHeight > certWindowEndHeight))
     {
         return error("%s():%d - ERROR: certificate cannot be accepted, cert received outside safeguard\n",
-                __func__, __LINE__);
+            __func__, __LINE__);
     }
 
     return true;
@@ -1139,14 +1139,14 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, unsign
     {
         ret_code = REJECT_SCID_NOT_FOUND;
         return error("%s():%d - ERROR: cert[%s] refers to scId[%s] not yet created\n",
-                __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+            __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
     if (!Sidechain::checkCertCustomFields(sidechain, cert) )
     {
         ret_code = REJECT_INVALID;
         return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
-                __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+            __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
     // TODO Remove cert.endEpochBlockHash checks after changing of verification circuit.
@@ -1154,13 +1154,13 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, unsign
     {
         ret_code = REJECT_INVALID;
         return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid epoch data\n",
-                __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+            __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
     if (!CheckEndEpochCumScTxCommTreeRoot(sidechain, cert.epochNumber, cert.endEpochCumScTxCommTreeRoot, ret_code) )
     {
         ret_code = REJECT_SC_CUM_COMM_TREE;
         return error("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid sc cum commitment tree hash\n",
-                __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+            __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
     if (!CheckCertTiming(cert.GetScId(), cert.epochNumber))
@@ -1188,7 +1188,7 @@ bool CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, unsign
     {
         ret_code = REJECT_INSUFFICIENT_SCID_FUNDS;
         return error("%s():%d - ERROR: insufficent balance in scId[%s]: balance[%s], cert amount[%s]\n",
-                __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount));
+            __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount));
     }
 
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
@@ -1211,7 +1211,7 @@ bool CCoinsViewCache::IsCertProofVerified(
     {
         ret_code = REJECT_SCID_NOT_FOUND;
         return error("%s():%d - ERROR: cert[%s] refers to scId[%s] not yet created\n",
-                __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+            __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
     // Retrieve current and previous end epoch block info for certificate proof verification
@@ -1239,7 +1239,7 @@ bool CCoinsViewCache::IsCertProofVerified(
     {
         ret_code = REJECT_PROOF_VER_FAILED;
         return error("%s():%d - ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
-                __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+            __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
     }
 
     ret_code = VALIDATION_OK;
@@ -1258,7 +1258,7 @@ bool CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
     {
         ret_code = REJECT_INVALID;
         return error("%s():%d - ERROR: end height %d for certificate epoch %d is not in current chain active (height %d)\n",
-                __func__, __LINE__, endEpochHeight, epochNumber, chainActive.Height());
+            __func__, __LINE__, endEpochHeight, epochNumber, chainActive.Height());
     }
 
     if (pblockindex->scCumTreeHash != endEpochCumScTxCommTreeRoot)
@@ -1267,7 +1267,7 @@ bool CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
         // TODO if !ret, then we could search into mGlobalForkTips backwards if at this height we have the matching block
         // in a fork: that would be the only 'honest' reason for a node to submit this certificate     
         return error("%s():%d - ERROR: cert cumulative commitment tree root does not match the value found at block hight[%d]\n",
-                __func__, __LINE__, endEpochHeight);
+            __func__, __LINE__, endEpochHeight);
     }
 
     ret_code = VALIDATION_OK;
@@ -1283,7 +1283,7 @@ bool CCoinsViewCache::CheckEndEpochBlockHash(const CSidechain& sidechain, int ep
     if (!pblockindex)
     {
         return error("%s():%d - ERROR: end height %d for certificate epoch %d is not in current chain active (height %d)\n",
-                __func__, __LINE__, endEpochHeight, epochNumber, chainActive.Height());
+            __func__, __LINE__, endEpochHeight, epochNumber, chainActive.Height());
     }
 
     const uint256& hash = pblockindex->GetBlockHash();
@@ -1292,7 +1292,7 @@ bool CCoinsViewCache::CheckEndEpochBlockHash(const CSidechain& sidechain, int ep
         if (mapBlockIndex.count(endEpochBlockHash) != 0)
         {
             return error("%s():%d - ERROR: endEpochBlockHash %s at height %d is in fork\n",
-                    __func__, __LINE__, endEpochBlockHash.ToString(), endEpochHeight);
+                __func__, __LINE__, endEpochBlockHash.ToString(), endEpochHeight);
         }
 
         return error("%s():%d - ERROR: endEpochBlockHash is unknown\n", __func__, __LINE__);
@@ -1307,7 +1307,7 @@ bool CCoinsViewCache::CheckScTxTiming(const uint256& scId) const
     if (s != CSidechain::State::ALIVE && s != CSidechain::State::UNCONFIRMED)
     {
         return error("%s():%d - ERROR: attempt to send scTx to scId[%s] in state[%s]\n",
-                __func__, __LINE__, scId.ToString(), CSidechain::stateToString(s));
+            __func__, __LINE__, scId.ToString(), CSidechain::stateToString(s));
     }
 
     return true;
@@ -1331,7 +1331,7 @@ bool CCoinsViewCache::IsScTxApplicableToState( const CTransaction& tx, unsigned 
         {
             ret_code = REJECT_INVALID;
             return error("%s():%d - ERROR: Invalid tx[%s] : scid[%s] already created\n",
-                    __func__, __LINE__, txHash.ToString(), scId.ToString());
+                __func__, __LINE__, txHash.ToString(), scId.ToString());
         }
 
         LogPrint("sc", "%s():%d - OK: tx[%s] is creating scId[%s]\n",
@@ -1422,7 +1422,7 @@ bool CCoinsViewCache::IsScTxApplicableToState( const CTransaction& tx, unsigned 
         {
             ret_code = REJECT_INVALID;
             return error("%s():%d - ERROR: Tx[%s] CSW input [%s]\n cannot be accepted, sidechain is not ceased\n",
-                    __func__, __LINE__, tx.ToString(), csw.ToString());
+                __func__, __LINE__, tx.ToString(), csw.ToString());
         }
 
         if(!sidechain.creationData.wCeasedVk.is_initialized())
@@ -1473,18 +1473,21 @@ bool CCoinsViewCache::IsScTxCswProofVerified(
         {
             ret_code = REJECT_SCID_NOT_FOUND;
             return error("%s():%d - ERROR: csw of tx[%s] refers to scId[%s] not yet created\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), csw.scId.ToString());
+                __func__, __LINE__, tx.GetHash().ToString(), csw.scId.ToString());
         }
 
         uint32_t idx = csw.actCertDataIdx;
         CFieldElement certDataHash = tx.GetVActCertData().at(idx);
 
-//        //TODO: Unlock when we'll handle recovery of fwt of last epoch
-//        if (certDataHash.IsNull())
-//            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] has missing active cert data hash for required scId[%s]\n",
-//                            __func__, __LINE__, tx.ToString(), csw.ToString(), csw.scId.ToString());
+        CFieldElement lastEpochEndBlockCum, ceasedBlockCum;
+        if (!sidechain.GetCeasedCumTreeHashes(lastEpochEndBlockCum, ceasedBlockCum))
+        {
+            ret_code = REJECT_SC_CUM_COMM_TREE;
+            return error("%s():%d - ERROR: Tx[%s] CSW input [%s]\n could not retrieve cum tree hashes\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString());
+        }
 
-        // Verify CSW proof
+        // Verify CSW proof // TODO update this call as soon as the final signature is defined
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.creationData.wCeasedVk.get(), csw))
         {
             ret_code = REJECT_PROOF_VER_FAILED;
@@ -1509,7 +1512,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     if (!HaveSidechain(scId)) // should not happen
     {
         return error("%s():%d - ERROR: cannot update balance, could not find scId=%s\n",
-                __func__, __LINE__, scId.ToString());
+            __func__, __LINE__, scId.ToString());
     }
 
     CSidechainsMap::iterator scIt = ModifySidechain(scId);
@@ -1534,18 +1537,18 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
         if (cert.quality <= currentSc.lastTopQualityCertQuality) // should never happen
         {
             return error("%s():%d - ERROR: cert quality %d not greater than last seen %d",
-                    __func__, __LINE__, cert.quality, currentSc.lastTopQualityCertQuality);
+                __func__, __LINE__, cert.quality, currentSc.lastTopQualityCertQuality);
         }
 
         currentSc.balance += currentSc.lastTopQualityCertBwtAmount;
     } else
         return error("%s():%d - ERROR: bad epoch value: %d (should be %d)\n",
-                __func__, __LINE__, cert.epochNumber, currentSc.lastTopQualityCertReferencedEpoch+1);
+            __func__, __LINE__, cert.epochNumber, currentSc.lastTopQualityCertReferencedEpoch+1);
 
     if (currentSc.balance < bwtTotalAmount)
     {
         return error("%s():%d - ERROR: Can not update balance %s with amount[%s] for scId=%s, would be negative\n",
-                __func__, __LINE__, FormatMoney(currentSc.balance), FormatMoney(bwtTotalAmount), scId.ToString());
+            __func__, __LINE__, FormatMoney(currentSc.balance), FormatMoney(bwtTotalAmount), scId.ToString());
     }
     currentSc.balance                          -= bwtTotalAmount;
 
@@ -1574,7 +1577,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
         if (!HaveSidechainEvents(prevCeasingHeight))
         {
             return error("%s():%d - ERROR-SIDECHAIN-EVENT: scId[%s]: Could not find scheduling for current ceasing height [%d] nor next ceasing height [%d]\n",
-                    __func__, __LINE__, cert.GetScId().ToString(), prevCeasingHeight, nextCeasingHeight);
+                __func__, __LINE__, cert.GetScId().ToString(), prevCeasingHeight, nextCeasingHeight);
         }
 
         CSidechainEventsMap::iterator scPrevCeasingEventIt = ModifySidechainEvents(prevCeasingHeight);
@@ -1690,7 +1693,7 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     if (!HaveSidechain(scId)) // should not happen
     {
         return error("%s():%d - ERROR: cannot restore sidechain, could not find scId=%s\n",
-                __func__, __LINE__, scId.ToString());
+            __func__, __LINE__, scId.ToString());
     }
 
     CSidechainsMap::iterator scIt = ModifySidechain(scId);
@@ -1744,7 +1747,7 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
         if (!HaveSidechainEvents(ceasingHeightToErase))
         {
             return error("%s():%d - ERROR-SIDECHAIN-EVENT: scId[%s]: Could not find scheduling for current ceasing height [%d] nor previous ceasing height [%d]\n",
-                    __func__, __LINE__, certToRevert.GetScId().ToString(), ceasingHeightToErase, ceasingHeightToRestore);
+                __func__, __LINE__, certToRevert.GetScId().ToString(), ceasingHeightToErase, ceasingHeightToRestore);
         }
 
         CSidechainEventsMap::iterator scCeasingEventToEraseIt = ModifySidechainEvents(ceasingHeightToErase);

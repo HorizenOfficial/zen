@@ -983,6 +983,60 @@ TEST_F(SidechainsTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
     EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(cswTx, ret_code));
 }
 
+TEST_F(SidechainsTestSuite, ValidCeasedCumTreeHashesForCeasedSidechain) {
+    // setup sidechain initial state
+    CSidechain sc;
+    uint256 scId = uint256S("aaaa");
+    sc.creationBlockHeight = 1492;
+    sc.creationData.withdrawalEpochLength = 14;
+    sc.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    sc.balance = CAmount{1000};
+    int heightWhereCeased = sc.GetScheduledCeasingHeight();
+
+    storeSidechainWithCurrentHeight(scId, sc, heightWhereCeased);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
+
+    CFieldElement scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight;
+    EXPECT_FALSE(scCumTreeHash_lastEpochEndHeight.IsValid());
+    EXPECT_FALSE(scCumTreeHash_ceasedHeight.IsValid());
+    EXPECT_TRUE(sc.GetCeasedCumTreeHashes(scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight));
+    EXPECT_TRUE(scCumTreeHash_lastEpochEndHeight.IsValid());
+    EXPECT_TRUE(scCumTreeHash_ceasedHeight.IsValid());
+}
+
+TEST_F(SidechainsTestSuite, InvalidCeasedCumTreeHashesForUnceasedSidechain) {
+    // setup sidechain initial state
+    CSidechain sc;
+    uint256 scId = uint256S("aaaa");
+    sc.creationBlockHeight = 1492;
+    sc.creationData.withdrawalEpochLength = 14;
+    sc.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    sc.balance = CAmount{1000};
+    int heightWhereCeased = sc.GetScheduledCeasingHeight();
+
+    storeSidechainWithCurrentHeight(scId, sc, heightWhereCeased-1);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+    CFieldElement scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight;
+    EXPECT_FALSE(sc.GetCeasedCumTreeHashes(scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight));
+}
+
+TEST_F(SidechainsTestSuite, InvalidCeasedCumTreeHashesForJustStartedSidechain) {
+    // setup sidechain initial state
+    CSidechain sc;
+    uint256 scId = uint256S("aaaa");
+    sc.creationBlockHeight = 1492;
+    sc.creationData.withdrawalEpochLength = 14;
+    sc.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    sc.balance = CAmount{1000};
+
+    storeSidechainWithCurrentHeight(scId, sc, sc.creationBlockHeight+1);
+    ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
+
+    CFieldElement scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight;
+    EXPECT_FALSE(sc.GetCeasedCumTreeHashes(scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight));
+}
+
 TEST_F(SidechainsTestSuite, CSWsToUnknownSidechainIsRefused) {
     uint256 unknownScId = uint256S("aaa");
     ASSERT_FALSE(sidechainsView->HaveSidechain(unknownScId));

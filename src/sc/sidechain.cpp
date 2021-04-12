@@ -118,6 +118,8 @@ size_t CSidechainEvents::DynamicMemoryUsage() const {
 #ifdef BITCOIN_TX
 bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state) { return true; }
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state) { return true; }
+bool CSidechain::GetCeasedCumTreeHashes(
+    CFieldElement& lastEpochEndBlockCum, CFieldElement& ceasedBlockCum) const { return true; }
 #else
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
@@ -414,4 +416,36 @@ bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCert
     }
     return true;
 }
+
+bool CSidechain::GetCeasedCumTreeHashes(CFieldElement& lastEpochEndBlockCum, CFieldElement& ceasedBlockCum) const
+{
+    // last block of the last valid epoch
+    int lastEpoch          = lastTopQualityCertReferencedEpoch;
+    int lastEpochEndHeight = GetEndHeightForEpoch(lastEpoch);
+    CBlockIndex* lastEpochEndBlockIndex = chainActive[lastEpochEndHeight];
+
+    if (lastEpochEndBlockIndex == nullptr)
+    {
+        LogPrint("sc", "%s():%d - invalid height %d for last end epoch: not in active chain\n",
+            __func__, __LINE__, lastEpochEndHeight);
+        return false;
+    }
+
+    lastEpochEndBlockCum = lastEpochEndBlockIndex->scCumTreeHash;
+
+    // block where the sc has ceased. In case the sidechain were not ceased the block index would be null
+    int nCeasedHeight = GetScheduledCeasingHeight();
+    CBlockIndex* ceasedBlockIndex = chainActive[nCeasedHeight];
+
+    if (ceasedBlockIndex == nullptr)
+    {
+        LogPrint("sc", "%s():%d - invalid height %d for sc ceasing block: not in active chain\n",
+            __func__, __LINE__, nCeasedHeight);
+        return false;
+    }
+
+    ceasedBlockCum = ceasedBlockIndex->scCumTreeHash;
+    return true;
+}
+
 #endif
