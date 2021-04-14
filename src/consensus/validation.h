@@ -33,7 +33,7 @@ enum class RejectionCode : unsigned char
 };
 
 // The following makes RejectionCode printable in logs
-std::ostream& operator<<(std::ostream& os, const RejectionCode& code)
+inline std::ostream& operator<<(std::ostream& os, const RejectionCode& code)
 {
     os << static_cast<unsigned char>(code);
     return os;
@@ -58,7 +58,7 @@ public:
     virtual ~CValidationState() {};
 
     virtual bool DoS(int level, bool ret = false,
-    		RejectionCode chRejectCodeIn =RejectionCode::VALIDATION_OK,
+    		RejectionCode chRejectCodeIn = RejectionCode::VALIDATION_OK,
             std::string strRejectReasonIn="", bool corruptionIn=false)
     {
         chRejectCode = chRejectCodeIn;
