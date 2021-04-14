@@ -579,13 +579,15 @@ public:
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
     CAmount forwardTransferScFee;
     CAmount mainchainBackwardTransferRequestScFee;
-    size_t mainchainBackwardTransferRequestDataLength;
+    int32_t mainchainBackwardTransferRequestDataLength;
 
-    CTxScCreationOut(): withdrawalEpochLength(-1), forwardTransferScFee(0),
-                        mainchainBackwardTransferRequestScFee(0),
-                        mainchainBackwardTransferRequestDataLength(0) { }
+    CTxScCreationOut(): withdrawalEpochLength(-1), forwardTransferScFee(-1),
+                        mainchainBackwardTransferRequestScFee(-1),
+                        mainchainBackwardTransferRequestDataLength(-1) { }
 
-    CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn, const Sidechain::ScCreationParameters& params);
+    CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn,
+                     const CAmount& ftScFee, const CAmount& mbtrScFee,
+                     const Sidechain::ScFixedParameters& params);
     CTxScCreationOut& operator=(const CTxScCreationOut &ccout);
 
     ADD_SERIALIZE_METHODS;

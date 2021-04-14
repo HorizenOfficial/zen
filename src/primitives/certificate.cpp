@@ -33,7 +33,7 @@ CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
     scId(), epochNumber(EPOCH_NOT_INITIALIZED), quality(QUALITY_NULL),
     endEpochBlockHash(), scProof(), vFieldElementCertificateField(),
     vBitVectorCertificateField(), nFirstBwtPos(0),
-    forwardTransferScFee(0), mainchainBackwardTransferRequestScFee(0) {}
+    forwardTransferScFee(INT_NULL), mainchainBackwardTransferRequestScFee(INT_NULL) {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
@@ -337,7 +337,7 @@ CMutableScCertificate::CMutableScCertificate(): CMutableTransactionBase(),
     scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
     endEpochBlockHash(), scProof(), vFieldElementCertificateField(),
     vBitVectorCertificateField(), nFirstBwtPos(0),
-    forwardTransferScFee(0), mainchainBackwardTransferRequestScFee(0) {}
+    forwardTransferScFee(CScCertificate::INT_NULL), mainchainBackwardTransferRequestScFee(CScCertificate::INT_NULL) {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutableTransactionBase(),
     scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 

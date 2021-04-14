@@ -769,9 +769,10 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             if (hasSidechainCreationTx(ft.scId))
                 continue;
 
-            if (!pCoinsView->CheckScTxTiming(ft.scId))
+            if (!pCoinsView->CheckScTxTiming(ft.scId) || !pCoinsView->CheckScFtFee(ft))
             {
                 txesToRemove.insert(tx.GetHash());
+                break;
             }
         }
 
@@ -782,9 +783,10 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             if (hasSidechainCreationTx(mbtr.scId))
                 continue;
 
-            if (!pCoinsView->CheckScTxTiming(mbtr.scId))
+            if (!pCoinsView->CheckScTxTiming(mbtr.scId) || !pCoinsView->CheckScMbtrFee(mbtr))
             {
                 txesToRemove.insert(tx.GetHash());
+                break;
             }
         }
 
@@ -798,42 +800,6 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
         }
     }
 
-    // Check if any transaction is now invalid due to a certificate update
-    for (auto it = mapSidechains.begin(); it != mapSidechains.end(); it++)
-    {
-        CScCertificateView certView = pCoinsView->GetActiveCertView(it->first);
-
-        // Remove transactions containing at least one FT with amount less than FT fee (according to the current active sidechain certificate).
-        for (auto ftTxHash: it->second.fwdTxHashes)
-        {
-            const CTransaction& tx = mapTx.at(ftTxHash).GetTx();
-
-            for (auto ftOut: tx.GetVftCcOut())
-            {
-                if (ftOut.nValue < certView.forwardTransferScFee)
-                {
-                    txesToRemove.insert(ftTxHash);
-                    break;
-                }
-            }
-        }
-
-        // Remove transactions containing at least one MBTR with amount less than MBTR fee (according to the current active sidechain certificate).
-        for (auto mbtrTxHash: it->second.mcBtrsTxHashes)
-        {
-            const CTransaction& tx = mapTx.at(mbtrTxHash).GetTx();
-
-            for (auto mbtrOut: tx.GetVBwtRequestOut())
-            {
-                if (mbtrOut.scFee < certView.mainchainBackwardTransferRequestScFee)
-                {
-                    txesToRemove.insert(mbtrTxHash);
-                    break;
-                }
-            }
-        }
-    }
-
     for(const auto& hash: txesToRemove)
     {
         // there can be dependancy also between txes, so check that a tx is still in map during the loop
@@ -843,6 +809,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             remove(tx, outdatedTxs, outdatedCerts, true);
         }
     }
+    
     LogPrint("mempool", "%s():%d - removed %d certs and %d txes", __func__, __LINE__, outdatedCerts.size(), outdatedTxs.size());
 }
 
@@ -1557,16 +1524,18 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 //info.creationBlockHash doesn't exist here!
                 info.creationBlockHeight = -1; //default null value for creationBlockHeight
                 info.creationTxHash = scCreationHash;
-                info.creationData.withdrawalEpochLength = scCreation.withdrawalEpochLength;
-                info.creationData.customData = scCreation.customData;
-                info.creationData.constant = scCreation.constant;
-                info.creationData.wCertVk = scCreation.wCertVk;
-                info.creationData.wCeasedVk = scCreation.wCeasedVk;
-                info.creationData.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
-                info.creationData.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;
-                info.creationData.forwardTransferScFee = scCreation.forwardTransferScFee;
-                info.creationData.mainchainBackwardTransferRequestScFee = scCreation.mainchainBackwardTransferRequestScFee;
-                info.mainchainBackwardTransferRequestDataLength = scCreation.mainchainBackwardTransferRequestDataLength;
+                info.fixedParams.withdrawalEpochLength = scCreation.withdrawalEpochLength;
+                info.fixedParams.customData = scCreation.customData;
+                info.fixedParams.constant = scCreation.constant;
+                info.fixedParams.wCertVk = scCreation.wCertVk;
+                info.fixedParams.wCeasedVk = scCreation.wCeasedVk;
+                info.fixedParams.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
+                info.fixedParams.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;
+                info.pastEpochTopQualityCertView.forwardTransferScFee = CScCertificate::INT_NULL;
+                info.pastEpochTopQualityCertView.mainchainBackwardTransferRequestScFee = CScCertificate::INT_NULL;
+                info.lastTopQualityCertView.forwardTransferScFee = scCreation.forwardTransferScFee;
+                info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = scCreation.mainchainBackwardTransferRequestScFee;
+                info.fixedParams.mainchainBackwardTransferRequestDataLength = scCreation.mainchainBackwardTransferRequestDataLength;
                 break;
             }
         }

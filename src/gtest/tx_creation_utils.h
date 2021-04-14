@@ -15,7 +15,10 @@ namespace txCreationUtils
 {
 CMutableTransaction populateTx(int txVersion,
                                const CAmount & creationTxAmount = CAmount(0),
-                               int epochLength = 5);
+                               int epochLength = 5,
+                               const CAmount& ftScFee = CAmount(0),
+                               const CAmount& mbtrScFee = CAmount(0),
+                               int mbtrDataLength = 0);
 void signTx(CMutableTransaction& mtx);
 void signTx(CMutableScCertificate& mcert);
 

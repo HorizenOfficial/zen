@@ -498,7 +498,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
     //Add txes containing scCreation and fwd transfer + a certificate
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), /*height*/10);
     CMutableTransaction mutTx = scCreationTx;
-    mutTx.vsc_ccout.push_back(CTxScCreationOut(CAmount(10), uint256S("aaa"), Sidechain::ScCreationParameters()));
+    mutTx.vsc_ccout.push_back(CTxScCreationOut(CAmount(10), uint256S("aaa"), CAmount(0), CAmount(0), Sidechain::ScFixedParameters()));
     mutTx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("bbb"), CAmount(1985), uint256S("badcafe")));
     scCreationTx = mutTx;
 
@@ -515,7 +515,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("3d1d041e522f13eb96a545a9cf301da18fc1dc9cd607276941fb75d0cdc3d050"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("a06587e86c154c749e46ca4547e6b5c1fea1c639c1ea58e8362429a0309533e3"))
         <<scTxCommitmentHash.ToString();
 }
 

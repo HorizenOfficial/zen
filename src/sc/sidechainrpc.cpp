@@ -347,7 +347,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
 
     for (size_t i = 0; i < sc_crs.size(); i++)
     {
-        ScCreationParameters sc;
+        ScFixedParameters sc;
 
         const UniValue& input = sc_crs[i];
         const UniValue& o = input.get_obj();
@@ -503,32 +503,30 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             }
         }
 
+        CAmount ftScFee(0);
         const UniValue& uniFtScFee = find_value(o, "forwardTransferScFee");
         if (!uniFtScFee.isNull())
         {
-            CAmount ftScFee = AmountFromValue(uniFtScFee);
+            ftScFee = AmountFromValue(uniFtScFee);
 
             if (!MoneyRange(ftScFee))
             {
                 error = "Invalid forwardTransferScFee: out of range";
                 return false;
             }
-
-            sc.forwardTransferScFee = ftScFee;
         }
 
+        CAmount mbtrScFee(0);
         const UniValue& uniMbtrScFee = find_value(o, "mainchainBackwardTransferScFee");
         if (!uniMbtrScFee.isNull())
         {
-            CAmount mbtrScFee = AmountFromValue(uniMbtrScFee);
+            mbtrScFee = AmountFromValue(uniMbtrScFee);
 
             if (!MoneyRange(mbtrScFee))
             {
                 error = "Invalid mainchainBackwardTransferScFee: out of range";
                 return false;
             }
-
-            sc.mainchainBackwardTransferRequestScFee = mbtrScFee;
         }
 
         const UniValue& uniMbtrDataLength = find_value(o, "mainchainBackwardTransferRequestDataLength");
@@ -551,7 +549,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             sc.mainchainBackwardTransferRequestDataLength = mbtrDataLength;
         }
 
-        CTxScCreationOut txccout(nAmount, address, sc);
+        CTxScCreationOut txccout(nAmount, address, ftScFee, mbtrScFee, sc);
 
         rawTx.vsc_ccout.push_back(txccout);
     }
@@ -696,13 +694,13 @@ void fundCcRecipients(const CTransaction& tx,
         CRecipientScCreation sc;
         sc.nValue = entry.nValue;
         sc.address = entry.address;
-        sc.creationData.withdrawalEpochLength               = entry.withdrawalEpochLength;
-        sc.creationData.wCertVk                             = entry.wCertVk;
-        sc.creationData.wCeasedVk                           = entry.wCeasedVk;
-        sc.creationData.vFieldElementCertificateFieldConfig = entry.vFieldElementCertificateFieldConfig;
-        sc.creationData.vBitVectorCertificateFieldConfig    = entry.vBitVectorCertificateFieldConfig;
-        sc.creationData.customData                          = entry.customData;
-        sc.creationData.constant                            = entry.constant;
+        sc.fixedParams.withdrawalEpochLength               = entry.withdrawalEpochLength;
+        sc.fixedParams.wCertVk                             = entry.wCertVk;
+        sc.fixedParams.wCeasedVk                           = entry.wCeasedVk;
+        sc.fixedParams.vFieldElementCertificateFieldConfig = entry.vFieldElementCertificateFieldConfig;
+        sc.fixedParams.vBitVectorCertificateFieldConfig    = entry.vBitVectorCertificateFieldConfig;
+        sc.fixedParams.customData                          = entry.customData;
+        sc.fixedParams.constant                            = entry.constant;
 
         vecScSend.push_back(sc);
     }
@@ -1077,8 +1075,9 @@ void ScRpcCmdTx::execute()
 ScRpcCreationCmdTx::ScRpcCreationCmdTx(
         CMutableTransaction& tx, const std::vector<sCrOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
-        int minConf, const CAmount& nFee, const ScCreationParameters& cd):
-        ScRpcCmdTx(tx, fromaddress, changeaddress, minConf, nFee), _creationData(cd), _outParams(outParams)
+        int minConf, const CAmount& nFee, const CAmount& ftScFee, const CAmount& mbtrScFee,
+        const ScFixedParameters& cd):
+        ScRpcCmdTx(tx, fromaddress, changeaddress, minConf, nFee), _fixedParams(cd), _outParams(outParams), _ftScFee(ftScFee), _mbtrScFee(mbtrScFee)
 {
     for (const auto& entry : _outParams)
     {
@@ -1094,7 +1093,7 @@ void ScRpcCreationCmdTx::addCcOutputs()
         throw JSONRPCError(RPC_WALLET_ERROR, strprintf("invalid number of output: %d!", _outParams.size()));
     }
 
-    CTxScCreationOut txccout(_outParams[0]._nAmount, _outParams[0]._toScAddress, _creationData);
+    CTxScCreationOut txccout(_outParams[0]._nAmount, _outParams[0]._toScAddress, _ftScFee, _mbtrScFee, _fixedParams);
     _tx.add(txccout);
 }
 

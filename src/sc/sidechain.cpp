@@ -19,7 +19,7 @@ int CSidechain::EpochFor(int targetHeight) const
     if (!isCreationConfirmed()) //default value
         return CScCertificate::EPOCH_NULL;
 
-    return (targetHeight - creationBlockHeight) / creationData.withdrawalEpochLength;
+    return (targetHeight - creationBlockHeight) / fixedParams.withdrawalEpochLength;
 }
 
 int CSidechain::GetStartHeightForEpoch(int targetEpoch) const
@@ -27,7 +27,7 @@ int CSidechain::GetStartHeightForEpoch(int targetEpoch) const
     if (!isCreationConfirmed()) //default value
         return -1;
 
-    return creationBlockHeight + targetEpoch * creationData.withdrawalEpochLength;
+    return creationBlockHeight + targetEpoch * fixedParams.withdrawalEpochLength;
 }
 
 int CSidechain::GetEndHeightForEpoch(int targetEpoch) const
@@ -35,7 +35,7 @@ int CSidechain::GetEndHeightForEpoch(int targetEpoch) const
     if (!isCreationConfirmed()) //default value
         return -1;
 
-    return GetStartHeightForEpoch(targetEpoch) + creationData.withdrawalEpochLength - 1;
+    return GetStartHeightForEpoch(targetEpoch) + fixedParams.withdrawalEpochLength - 1;
 }
 
 int CSidechain::GetCertSubmissionWindowStart(int certEpoch) const
@@ -56,7 +56,7 @@ int CSidechain::GetCertSubmissionWindowEnd(int certEpoch) const
 
 int CSidechain::GetCertSubmissionWindowLength() const
 {
-    return std::max(2,creationData.withdrawalEpochLength/5);
+    return std::max(2,fixedParams.withdrawalEpochLength/5);
 }
 
 int CSidechain::GetCertMaturityHeight(int certEpoch) const
@@ -87,15 +87,15 @@ std::string CSidechain::ToString() const
 {
     std::string str;
     str = strprintf("\n CSidechain(version=%d\n creationBlockHeight=%d\n"
-                      " creationTxHash=%s\n pastTopQualityCertView=%s\n"
+                      " creationTxHash=%s\n pastEpochTopQualityCertView=%s\n"
                       " lastTopQualityCertView=%s\n"
                       " lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
                       " lastTopQualityCertQuality=%d\n lastTopQualityCertBwtAmount=%s\n balance=%s\n"
-                      " creationData=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
+                      " fixedParams=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
         sidechainVersion
         , creationBlockHeight
         , creationTxHash.ToString()
-        , pastTopQualityCertView.ToString()
+        , pastEpochTopQualityCertView.ToString()
         , lastTopQualityCertView.ToString()
         , lastTopQualityCertHash.ToString()
         , lastTopQualityCertReferencedEpoch
@@ -337,8 +337,8 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 
 bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert)
 {
-    const std::vector<FieldElementCertificateFieldConfig>& vCfeCfg = sidechain.creationData.vFieldElementCertificateFieldConfig;
-    const std::vector<BitVectorCertificateFieldConfig>& vCmtCfg = sidechain.creationData.vBitVectorCertificateFieldConfig;
+    const std::vector<FieldElementCertificateFieldConfig>& vCfeCfg = sidechain.fixedParams.vFieldElementCertificateFieldConfig;
+    const std::vector<BitVectorCertificateFieldConfig>& vCmtCfg = sidechain.fixedParams.vBitVectorCertificateFieldConfig;
 
     const std::vector<FieldElementCertificateField>& vCfe = cert.vFieldElementCertificateField;
     const std::vector<BitVectorCertificateField>& vCmt = cert.vBitVectorCertificateField;

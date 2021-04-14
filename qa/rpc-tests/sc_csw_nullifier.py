@@ -491,7 +491,17 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_bal = self.nodes[0].getscinfo(scid2, False, False)['items'][0]['balance']
         assert_equal(sc_bal, sc_cr_amount)
 
-        # TODO: this test has been temporarily disabled because the final behavior will be different
+        # TODO: this test has been temporarily disabled because it is now failing.
+        # It was working before "by mistake", since the CSW request was rejected because
+        # of the CSW verification key not being initialized. This was due to an error while
+        # creating the sidechain scid2, the MBTR verification key was initialized in place of
+        # the CSW one. After the last changes, having removed the usage of the MBTR verification
+        # key, the issue popped out.
+        # The check might be re-enabled in the future after fixing the CSW checks in
+        # CCoinsViewCache::IsScTxApplicableToState().
+        # Please note that the expected behavior might be changed in the future, in which case
+        # the test would require some refactoring.
+        #
         # (it will be possible to do a CSW even though there is not an active certificate data hash).
         #
         # Try to create a CSW with less than minimal number of certificates (min is 2)

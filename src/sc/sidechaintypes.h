@@ -295,7 +295,7 @@ typedef struct sPowRelatedData_tag
     }
 } ScPowRelatedData;
 
-struct ScCreationParameters
+struct ScFixedParameters
 {
     int withdrawalEpochLength;
     // all creation data follows...
@@ -305,23 +305,19 @@ struct ScCreationParameters
     boost::optional<libzendoomc::ScVk> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
-    CAmount forwardTransferScFee;
-    CAmount mainchainBackwardTransferRequestScFee;
-    size_t mainchainBackwardTransferRequestDataLength;
+    int32_t mainchainBackwardTransferRequestDataLength;  /**< The mandatory size of the field element included in MBTR transaction outputs (0 to disable the MBTR). */
 
     bool IsNull() const
     {
         return (
-            withdrawalEpochLength == -1           &&
-            customData.empty()                    &&
-            constant == boost::none     &&
-            wCertVk.IsNull()                      &&
-            wCeasedVk == boost::none              &&
-            vFieldElementCertificateFieldConfig.empty() &&
-            vBitVectorCertificateFieldConfig.empty() &&
-            forwardTransferScFee == 0                  &&
-            mainchainBackwardTransferRequestScFee == 0 &&
-            mainchainBackwardTransferRequestDataLength == 0);
+            withdrawalEpochLength == -1                     &&
+            customData.empty()                              &&
+            constant == boost::none                         &&
+            wCertVk.IsNull()                                &&
+            wCeasedVk == boost::none                        &&
+            vFieldElementCertificateFieldConfig.empty()     &&
+            vBitVectorCertificateFieldConfig.empty()        &&
+            mainchainBackwardTransferRequestDataLength == -1);
     }
 
     ADD_SERIALIZE_METHODS;
@@ -334,15 +330,13 @@ struct ScCreationParameters
         READWRITE(wCeasedVk);
         READWRITE(vFieldElementCertificateFieldConfig);
         READWRITE(vBitVectorCertificateFieldConfig);
-        READWRITE(forwardTransferScFee);
-        READWRITE(mainchainBackwardTransferRequestScFee);
         READWRITE(mainchainBackwardTransferRequestDataLength);
     }
-    ScCreationParameters() :withdrawalEpochLength(-1), forwardTransferScFee(0),
-                            mainchainBackwardTransferRequestScFee(0),
-                            mainchainBackwardTransferRequestDataLength(0) {}
+    
+    ScFixedParameters(): withdrawalEpochLength(-1),
+                         mainchainBackwardTransferRequestDataLength(-1) {}
 
-    inline bool operator==(const ScCreationParameters& rhs) const
+    inline bool operator==(const ScFixedParameters& rhs) const
     {
         return (withdrawalEpochLength == rhs.withdrawalEpochLength) &&
                (customData == rhs.customData) &&
@@ -351,12 +345,10 @@ struct ScCreationParameters
                (wCeasedVk == rhs.wCeasedVk) &&
                (vFieldElementCertificateFieldConfig == rhs.vFieldElementCertificateFieldConfig) &&
                (vBitVectorCertificateFieldConfig == rhs.vBitVectorCertificateFieldConfig) &&
-               (forwardTransferScFee == rhs.forwardTransferScFee) &&
-               (mainchainBackwardTransferRequestScFee == rhs.mainchainBackwardTransferRequestScFee) &&
                (mainchainBackwardTransferRequestDataLength == rhs.mainchainBackwardTransferRequestDataLength);
     }
-    inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
-    inline ScCreationParameters& operator=(const ScCreationParameters& cp)
+    inline bool operator!=(const ScFixedParameters& rhs) const { return !(*this == rhs); }
+    inline ScFixedParameters& operator=(const ScFixedParameters& cp)
     {
         withdrawalEpochLength         = cp.withdrawalEpochLength;
         customData                    = cp.customData;
@@ -365,8 +357,6 @@ struct ScCreationParameters
         wCeasedVk                     = cp.wCeasedVk;
         vFieldElementCertificateFieldConfig = cp.vFieldElementCertificateFieldConfig;
         vBitVectorCertificateFieldConfig   = cp.vBitVectorCertificateFieldConfig;
-        forwardTransferScFee          = cp.forwardTransferScFee;
-        mainchainBackwardTransferRequestScFee = cp.mainchainBackwardTransferRequestScFee;
         mainchainBackwardTransferRequestDataLength = cp.mainchainBackwardTransferRequestDataLength;
         return *this;
     }
@@ -416,7 +406,14 @@ struct CRecipientCrossChainBase
 
 struct CRecipientScCreation : public CRecipientCrossChainBase
 {
-    ScCreationParameters creationData;
+    ScFixedParameters fixedParams;     /**< Fixed creation parameters */
+    CAmount ftScFee;                    /**< Forward transfer sidechain fee */
+    CAmount mbtrScFee;                  /**< Mainchain backward transfer request fee */
+
+    CRecipientScCreation():
+        ftScFee(-1),
+        mbtrScFee(-1)
+    {}
 };
 
 struct CRecipientForwardTransfer : public CRecipientCrossChainBase

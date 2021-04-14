@@ -109,13 +109,6 @@ namespace libzendoomc
                 const ScVk& wCeasedVk,
                 const CTxCeasedSidechainWithdrawalInput& csw
             ) const;
-
-            bool verifyCBwtRequest(
-                const uint256& scId,
-                const CFieldElement& scRequestData,
-                const uint160& mcDestinationAddress,
-                CAmount scFees
-            ) const;
     };
 }
 

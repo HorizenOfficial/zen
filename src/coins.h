@@ -675,6 +675,8 @@ public:
 
     bool IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const;
     bool CheckScTxTiming(const uint256& scId) const;
+    bool CheckScFtFee(const CTxForwardTransferOut& ftOutput) const;
+    bool CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const;
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     int getScCoinsMaturity();

@@ -82,6 +82,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         try:
             ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -99,6 +100,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         try:
             ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -115,6 +117,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         try:
             ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -132,6 +135,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         try:
             ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -188,10 +192,12 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 creates an invalid FT output with amount less than sidechain FT fee", self.nodes, DEBUG_MODE)
 
         errorString = ""
-        forwardTransferOuts = [{'toaddress': address, 'amount': ftFee - 1, "scid":scid}]
+        ftFee = Decimal(ftScFee - 1)
+        forwardTransferOuts = [{'toaddress': address, 'amount': ftFee, "scid":scid}]
 
         try:
             tx = self.nodes[1].send_to_sidechain(forwardTransferOuts)
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -205,14 +211,16 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 creates an invalid MBTR output with fee less than sidechain MBTR fee", self.nodes, DEBUG_MODE)
 
         errorString = ""
+        mbtrFee = Decimal(mbtrScFee - 1)
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk1  = mcTest.generate_params(scid)
+        vk1 = mcTest.generate_params(scid)
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
-        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee - 1), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
-            self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {});
+            self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {})
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -222,19 +230,21 @@ class SCCreateTest(BitcoinTestFramework):
 
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 - Check that FT outputs with amount equal to sidechain FT fee are accepted
-        mark_logs("\nNode 1 creates a valid FT output with amount equal to sidechain FT fee", self.nodes, DEBUG_MODE)
+        # Node 1 - Check that FT outputs with amount equal to sidechain FT fee are rejected
+        mark_logs("\nNode 1 creates an invalid FT output with amount equal to sidechain FT fee", self.nodes, DEBUG_MODE)
 
         errorString = ""
+        ftFee = Decimal(ftScFee)
         forwardTransferOuts = [{'toaddress': address, 'amount': ftFee, "scid":scid}]
 
         try:
             tx = self.nodes[1].send_to_sidechain(forwardTransferOuts)
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true(False)
 
+        assert_true("bad-sc-tx" in errorString)
         self.sync_all()
 
 
@@ -243,12 +253,13 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 creates a valid MBTR output with fee equal to sidechain MBTR fee", self.nodes, DEBUG_MODE)
 
         errorString = ""
+        mbtrFee = Decimal(mbtrScFee)
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk1  = mcTest.generate_params(scid)
+        vk1 = mcTest.generate_params(scid)
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
         p1 = mcTest.create_test_proof(scid, 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
-        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
             self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {});
@@ -265,6 +276,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 creates a valid FT output with amount greater than sidechain FT fee", self.nodes, DEBUG_MODE)
 
         errorString = ""
+        ftFee = Decimal(ftScFee + 1)
         forwardTransferOuts = [{'toaddress': address, 'amount': ftFee, "scid":scid}]
 
         try:
@@ -283,12 +295,13 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 creates a valid MBTR output with fee greater than sidechain MBTR fee", self.nodes, DEBUG_MODE)
 
         errorString = ""
+        mbtrFee = Decimal(mbtrScFee + 1)
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk1  = mcTest.generate_params(scid)
+        vk1 = mcTest.generate_params(scid)
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
         p1 = mcTest.create_test_proof(scid, 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
-        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
             self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {});
@@ -318,11 +331,16 @@ class SCCreateTest(BitcoinTestFramework):
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         cert_amount = Decimal("10.0")
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": cert_amount}]
+
+        ftFee = ftScFee
+        mbtrFee = mbtrScFee
+        newFtFee = ftFee + 1
+        newMbtrFee = mbtrFee + 1
         
         proof = mcTest.create_test_proof(
             vk_tag, epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [cert_amount])
-        cert_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, ftFee + 1, mbtrFee + 1)
+        cert_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, newFtFee, newMbtrFee)
         
         mark_logs("Certificate sent to mempool, node 1 generates " + str(EPOCH_LENGTH / 2) + " blocks", self.nodes, DEBUG_MODE)
         self.nodes[1].generate(EPOCH_LENGTH / 2)
@@ -330,9 +348,9 @@ class SCCreateTest(BitcoinTestFramework):
         # Check that Node 1 has updated the sidechain fees
         mark_logs("\nCheck that node 1 has updated the sidechain fees", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['past ftScFee'], ftFee)
-        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['last ftScFee'], ftFee + 1)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['last ftScFee'], newFtFee)
         assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['past mbtrScFee'], mbtrFee)
-        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['last mbtrScFee'], mbtrFee + 1)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['last mbtrScFee'], newMbtrFee)
 
         # Check that Node 0 still has the old fees (since it is not connected to node 1)
         mark_logs("\nCheck that node 0 has not updated the sidechain fees", self.nodes, DEBUG_MODE)
@@ -347,13 +365,13 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("Node 0 creates two FTs", self.nodes, DEBUG_MODE)
         errorString = ""
-        forwardTransferOuts1 = [{'toaddress': address, 'amount': ftFee, "scid":scid}]
-        forwardTransferOuts2 = [{'toaddress': address, 'amount': ftFee + 1, "scid":scid}]
+        forwardTransferOuts1 = [{'toaddress': address, 'amount': newFtFee, "scid":scid}]
+        forwardTransferOuts2 = [{'toaddress': address, 'amount': newFtFee + 1, "scid":scid}]
 
         try:
-            ft_tx_1 = tx = self.nodes[0].send_to_sidechain(forwardTransferOuts1)
+            ft_tx_1 = self.nodes[0].send_to_sidechain(forwardTransferOuts1)
             time.sleep(2)
-            ft_tx_2 = tx = self.nodes[0].send_to_sidechain(forwardTransferOuts2)
+            ft_tx_2 = self.nodes[0].send_to_sidechain(forwardTransferOuts2)
             time.sleep(2)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -362,7 +380,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("Node 0 creates two MBTRs", self.nodes, DEBUG_MODE)
         mbtrOuts1 = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
-        mbtrOuts2 = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee + 1), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mbtrOuts2 = [{'scRequestData':[fe1], 'scFee':Decimal(newMbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
             mbtr_tx_1 = self.nodes[0].request_transfer_from_sidechain(mbtrOuts1, {});
@@ -437,7 +455,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 0 creates a new sidechain with create_sidechain()", self.nodes, DEBUG_MODE)
 
         cmdInput = { "toaddress": address, "amount": creation_amount, 'wCertVk': vk,
-                    "forwardTransferScFee": ftFee, "mainchainBackwardTransferScFee": mbtrFee,
+                    "forwardTransferScFee": ftFee, "mainchainBackwardTransferScFee": newMbtrFee,
                     "mainchainBackwardTransferRequestDataLength": mbtrRequestDataLength }
         
         try:
@@ -452,8 +470,34 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("Verify that FT fee, MBTR fee and MBTR request data length have been set correctly on the transaction JSON object", self.nodes, DEBUG_MODE)
         decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
         assert_equal(ftFee, decoded_tx['vsc_ccout'][0]['ftScFee'])
-        assert_equal(mbtrFee, decoded_tx['vsc_ccout'][0]['mbtrScFee'])
+        assert_equal(newMbtrFee, decoded_tx['vsc_ccout'][0]['mbtrScFee'])
         assert_equal(mbtrRequestDataLength, decoded_tx['vsc_ccout'][0]['mbtrRequestDataLength'])
+
+
+        # ---------------------------------------------------------------------------------------
+        # Check that FT fees are correctly checked even though the sidechain is still in mempool
+        mark_logs("\nNode 0 creates a new FT transaction with invalid amount", self.nodes, DEBUG_MODE)
+
+        scid = decoded_tx['vsc_ccout'][0]['scid']
+        forwardTransferOuts = [{'toaddress': address, 'amount': ftFee, "scid":scid}]
+
+        try:
+            self.nodes[0].send_to_sidechain(forwardTransferOuts)
+            assert_true(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+
+        mark_logs("\nNode 0 creates a new FT transaction with valid amount", self.nodes, DEBUG_MODE)
+
+        forwardTransferOuts = [{'toaddress': address, 'amount': newFtFee, "scid":scid}]
+
+        try:
+            self.nodes[0].send_to_sidechain(forwardTransferOuts)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true(False)
 
 
 if __name__ == '__main__':

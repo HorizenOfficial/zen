@@ -166,21 +166,27 @@ class ScRpcCreationCmdTx : public ScRpcCmdTx
     {
         uint256 _toScAddress;
         CAmount _nAmount;
-        sCrOutParams(): _toScAddress(), _nAmount(0) {}
 
-        sCrOutParams(
-            const uint256& toaddress, const CAmount nAmount):
-            _toScAddress(toaddress), _nAmount(nAmount) {}
+        sCrOutParams():
+            _toScAddress(), _nAmount(0)
+        {}
+
+        sCrOutParams(const uint256& toaddress, const CAmount nAmount):
+            _toScAddress(toaddress), _nAmount(nAmount)
+        {}
     };
 
     // cmd params
     std::vector<sCrOutParams> _outParams;
-    ScCreationParameters _creationData;
+    ScFixedParameters _fixedParams;
+    CAmount _ftScFee;     /**< Forward Transfer sidechain fee */
+    CAmount _mbtrScFee;   /**< Mainchain Backward Transfer Request sidechain fee */
 
     ScRpcCreationCmdTx(
         CMutableTransaction& tx, const std::vector<sCrOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
-        int minConf, const CAmount& nFee, const ScCreationParameters& cd);
+        int minConf, const CAmount& nFee, const CAmount& ftScFee, const CAmount& mbtrScFee,
+        const ScFixedParameters& cd);
 };
 
 class ScRpcSendCmdTx : public ScRpcCmdTx

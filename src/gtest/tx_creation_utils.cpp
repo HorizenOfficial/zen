@@ -11,7 +11,8 @@
 #include <pow.h>
 #include <coins.h>
 
-CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength)
+CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength,
+                                                const CAmount& ftScFee, const CAmount& mbtrScFee, int mbtrDataLength)
 {
     CMutableTransaction mtx;
     mtx.nVersion = txVersion;
@@ -40,6 +41,9 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
     mtx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     mtx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    mtx.vsc_ccout[0].forwardTransferScFee = ftScFee;
+    mtx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = mbtrScFee;
+    mtx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = mbtrDataLength;
 
     return mtx;
 }

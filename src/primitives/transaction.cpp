@@ -294,14 +294,15 @@ bool CTxCrosschainOutBase::CheckAmountRange(CAmount& cumulatedAmount) const
 
 CTxScCreationOut::CTxScCreationOut(
     const CAmount& nValueIn, const uint256& addressIn,
-    const Sidechain::ScCreationParameters& paramsIn)
+    const CAmount& ftScFee, const CAmount& mbtrScFee,
+    const Sidechain::ScFixedParameters& paramsIn)
     :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
      withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant),
      wCertVk(paramsIn.wCertVk), wCeasedVk(paramsIn.wCeasedVk),
      vFieldElementCertificateFieldConfig(paramsIn.vFieldElementCertificateFieldConfig),
      vBitVectorCertificateFieldConfig(paramsIn.vBitVectorCertificateFieldConfig),
-     forwardTransferScFee(paramsIn.forwardTransferScFee),
-     mainchainBackwardTransferRequestScFee(paramsIn.mainchainBackwardTransferRequestScFee),
+     forwardTransferScFee(ftScFee),
+     mainchainBackwardTransferRequestScFee(mbtrScFee),
      mainchainBackwardTransferRequestDataLength(paramsIn.mainchainBackwardTransferRequestDataLength) {}
 
 uint256 CTxScCreationOut::GetHash() const
@@ -370,8 +371,8 @@ std::string CBwtRequestOut::ToString() const
     for(auto fe : scRequestData)
         requestDataStr += strprintf("\n  [%s]\n", fe.GetHexRepr());
 
-    return strprintf("CBwtRequestOut(scId=%s, scRequestData=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
-        scId.ToString(), requestDataStr.substr(0, 30),
+    return strprintf("CBwtRequestOut(scId=%s, scRequestData=%s, pkh=%s, scFee=%d.%08d",
+        scId.ToString(), requestDataStr,
         mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN);
 }
 

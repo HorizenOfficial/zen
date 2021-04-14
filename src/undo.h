@@ -147,7 +147,7 @@ struct CSidechainUndoData
     CAmount appliedMaturedAmount;
 
     // CROSS_EPOCH_CERT_DATA section
-    CScCertificateView pastTopQualityCertView;
+    CScCertificateView pastEpochTopQualityCertView;
 
     // ANY_EPOCH_CERT_DATA section
     uint256 prevTopCommittedCertHash;
@@ -163,7 +163,7 @@ struct CSidechainUndoData
     std::vector<CTxInUndo> ceasedBwts;
 
     CSidechainUndoData(): sidechainUndoDataVersion(0), contentBitMask(AvailableSections::UNDEFINED),
-        appliedMaturedAmount(0), pastTopQualityCertView(),
+        appliedMaturedAmount(0), pastEpochTopQualityCertView(),
         prevTopCommittedCertHash(), prevTopCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         prevTopCommittedCertQuality(CScCertificate::QUALITY_NULL), prevTopCommittedCertBwtAmount(0),
         lastTopQualityCertView(), lowQualityBwts(), ceasedBwts() {}
@@ -178,7 +178,7 @@ struct CSidechainUndoData
         }
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
-            totalSize += ::GetSerializeSize(pastTopQualityCertView, nType, nVersion);
+            totalSize += ::GetSerializeSize(pastEpochTopQualityCertView, nType, nVersion);
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -210,7 +210,7 @@ struct CSidechainUndoData
         }
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
-            ::Serialize(s, pastTopQualityCertView, nType, nVersion);
+            ::Serialize(s, pastEpochTopQualityCertView, nType, nVersion);
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -242,7 +242,7 @@ struct CSidechainUndoData
         }
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
-            ::Unserialize(s, pastTopQualityCertView, nType, nVersion);
+            ::Unserialize(s, pastEpochTopQualityCertView, nType, nVersion);
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -271,7 +271,7 @@ struct CSidechainUndoData
              res += strprintf("appliedMaturedAmount=%d.%08d\n", appliedMaturedAmount / COIN, appliedMaturedAmount % COIN);
 
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
-            res += strprintf("pastTopQualityCertView=%s\n", pastTopQualityCertView.ToString());
+            res += strprintf("pastEpochTopQualityCertView=%s\n", pastEpochTopQualityCertView.ToString());
 
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {

@@ -820,7 +820,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     int withdrawalEpochLength = params[0].get_int(); 
     if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid withdrawalEpochLength, less that minimum value allowed\n");
-    sc.creationData.withdrawalEpochLength = withdrawalEpochLength;
+    sc.fixedParams.withdrawalEpochLength = withdrawalEpochLength;
 
     {
         uint256 address;
@@ -846,9 +846,9 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
         }
-        sc.creationData.wCertVk = libzendoomc::ScVk(wCertVkVec);
+        sc.fixedParams.wCertVk = libzendoomc::ScVk(wCertVkVec);
 
-        if (!libzendoomc::IsValidScVk(sc.creationData.wCertVk))
+        if (!libzendoomc::IsValidScVk(sc.fixedParams.wCertVk))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
         }
@@ -860,7 +860,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         // it is optional
         if (!inputString.empty())
         {
-            if(!Sidechain::AddScData(inputString, sc.creationData.customData, MAX_SC_DATA_LEN, false, error))
+            if(!Sidechain::AddScData(inputString, sc.fixedParams.customData, MAX_SC_DATA_LEN, false, error))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
             }
@@ -879,8 +879,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
                 throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
             }
  
-            sc.creationData.constant = CFieldElement{scConstantByteArray};
-            if(!sc.creationData.constant->IsValid())
+            sc.fixedParams.constant = CFieldElement{scConstantByteArray};
+            if(!sc.fixedParams.constant->IsValid())
             {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid constant");
             }
@@ -899,8 +899,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
                 throw JSONRPCError(RPC_TYPE_ERROR, string("wCeasedVk: ") + error);
             }
  
-            sc.creationData.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
-            if (!libzendoomc::IsValidScVk(sc.creationData.wCeasedVk.get()))
+            sc.fixedParams.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
+            if (!libzendoomc::IsValidScVk(sc.fixedParams.wCeasedVk.get()))
             {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
             }
@@ -910,7 +910,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (params.size() > 7)
     {
         UniValue intArray = params[7].get_array();
-        if (!Sidechain::AddScData(intArray, sc.creationData.vFieldElementCertificateFieldConfig))
+        if (!Sidechain::AddScData(intArray, sc.fixedParams.vFieldElementCertificateFieldConfig))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
         }
@@ -933,36 +933,36 @@ UniValue sc_create(const UniValue& params, bool fHelp)
                     throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig, expected integers");
                 }
 
-                sc.creationData.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});
+                sc.fixedParams.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});
             }
         }
     }
 
+    CAmount ftScFee(0);
     if (params.size() > 9)
     {
-        CAmount ftScFee = AmountFromValue(params[9]);
+        ftScFee = AmountFromValue(params[9]);
         if (ftScFee < 0)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, ftScFee must be non-negative");
-
-        sc.creationData.forwardTransferScFee = ftScFee;
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, ftScFee out of range");
     }
+    sc.ftScFee = ftScFee;
 
+    CAmount mbtrScFee(0);
     if (params.size() > 10)
     {
-        CAmount mbtrScFee = AmountFromValue(params[10]);
+        mbtrScFee = AmountFromValue(params[10]);
         if (mbtrScFee < 0)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, mbtrScFee must be non-negative");
-
-        sc.creationData.mainchainBackwardTransferRequestScFee = mbtrScFee;
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, mbtrScFee out of range");
     }
+    sc.mbtrScFee = mbtrScFee;
 
     if (params.size() > 11)
     {
         int requestDataLength = params[11].get_int();
         if (requestDataLength < 0)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, mbtrScFee must be non-negative");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, mbtrScDataLength must be non-negative");
 
-        sc.creationData.mainchainBackwardTransferRequestDataLength = requestDataLength;
+        sc.fixedParams.mainchainBackwardTransferRequestDataLength = requestDataLength;
     }
 
     vector<CRecipientScCreation> vecScSend;
@@ -1060,8 +1060,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid withdrawalEpochLength: must be greater that 1");
     }
 
-    ScCreationParameters creationData;
-    creationData.withdrawalEpochLength = withdrawalEpochLength;
+    ScFixedParameters fixedParams;
+    fixedParams.withdrawalEpochLength = withdrawalEpochLength;
 
     // ---------------------------------------------------------
     CBitcoinAddress fromaddress;
@@ -1161,9 +1161,9 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
         }
 
-        creationData.wCertVk = libzendoomc::ScVk(wCertVkVec);
+        fixedParams.wCertVk = libzendoomc::ScVk(wCertVkVec);
 
-        if (!libzendoomc::IsValidScVk(creationData.wCertVk))
+        if (!libzendoomc::IsValidScVk(fixedParams.wCertVk))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCertVk");
         }
@@ -1177,7 +1177,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("customData"))
     {
         string inputString = find_value(inputObject, "customData").get_str();
-        if (!Sidechain::AddScData(inputString, creationData.customData, MAX_SC_DATA_LEN, false, error))
+        if (!Sidechain::AddScData(inputString, fixedParams.customData, MAX_SC_DATA_LEN, false, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
         }
@@ -1193,8 +1193,8 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
 
-        creationData.constant = CFieldElement{scConstantByteArray};
-        if (!creationData.constant->IsValid())
+        fixedParams.constant = CFieldElement{scConstantByteArray};
+        if (!fixedParams.constant->IsValid())
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid constant");
         }
@@ -1210,9 +1210,9 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_TYPE_ERROR, string("wCeasedVk: ") + error);
         }
 
-        creationData.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
+        fixedParams.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
 
-        if (!libzendoomc::IsValidScVk(creationData.wCeasedVk.get()))
+        if (!libzendoomc::IsValidScVk(fixedParams.wCeasedVk.get()))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid wCeasedVk");
         }
@@ -1222,7 +1222,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("vFieldElementCertificateFieldConfig"))
     {
         UniValue intArray = find_value(inputObject, "vFieldElementCertificateFieldConfig").get_array();
-        if (!Sidechain::AddScData(intArray, creationData.vFieldElementCertificateFieldConfig))
+        if (!Sidechain::AddScData(intArray, fixedParams.vFieldElementCertificateFieldConfig))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected integer");
         }
@@ -1246,44 +1246,42 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
                     throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vBitVectorCertificateFieldConfig, expected integers");
                 }
 
-                creationData.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});
+                fixedParams.vBitVectorCertificateFieldConfig.push_back(BitVectorCertificateFieldConfig{pairEntry[0].get_int(), pairEntry[1].get_int()});
             }
         }
     }
 
     // ---------------------------------------------------------
+    CAmount ftScFee(0);
     if (setKeyArgs.count("forwardTransferScFee"))
     {
         UniValue uniFtScFee = find_value(inputObject, "forwardTransferScFee");
 
         if (!uniFtScFee.isNull())
         {
-            CAmount ftScFee = AmountFromValue(uniFtScFee);
+            ftScFee = AmountFromValue(uniFtScFee);
 
             if (!MoneyRange(ftScFee))
             {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid forwardTransferScFee, amount out of range");
             }
-
-            creationData.forwardTransferScFee = ftScFee;
         }
     }
 
     // ---------------------------------------------------------
+    CAmount mbtrScFee(0);
     if (setKeyArgs.count("mainchainBackwardTransferScFee"))
     {
         UniValue uniMbtrScFee = find_value(inputObject, "mainchainBackwardTransferScFee");
 
         if (!uniMbtrScFee.isNull())
         {
-            CAmount mbtrScFee = AmountFromValue(uniMbtrScFee);
+            mbtrScFee = AmountFromValue(uniMbtrScFee);
 
             if (!MoneyRange(mbtrScFee))
             {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mainchainBackwardTransferScFee, amount out of range");
             }
-
-            creationData.mainchainBackwardTransferRequestScFee = mbtrScFee;
         }
     }
 
@@ -1306,7 +1304,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mainchainBackwardTransferRequestDataLength: value cannot be negative");
             }
 
-            creationData.mainchainBackwardTransferRequestDataLength = mbtrDataLength;
+            fixedParams.mainchainBackwardTransferRequestDataLength = mbtrDataLength;
         }
     }
 
@@ -1316,7 +1314,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     std::vector<ScRpcCreationCmdTx::sCrOutParams> vOutputs;
     vOutputs.push_back(ScRpcCreationCmdTx::sCrOutParams(toaddress, nAmount));
 
-    Sidechain::ScRpcCreationCmdTx cmd(tx_create, vOutputs, fromaddress, changeaddress, nMinDepth, nFee, creationData);
+    Sidechain::ScRpcCreationCmdTx cmd(tx_create, vOutputs, fromaddress, changeaddress, nMinDepth, nFee, ftScFee, mbtrScFee, fixedParams);
 
     cmd.execute();
         
@@ -5473,8 +5471,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     // get fe cfg from creation params if any
-    const auto & vFieldElementCertificateFieldConfig = sidechain.creationData.vFieldElementCertificateFieldConfig;
-    const auto & vBitVectorCertificateFieldConfig = sidechain.creationData.vBitVectorCertificateFieldConfig;
+    const auto & vFieldElementCertificateFieldConfig = sidechain.fixedParams.vFieldElementCertificateFieldConfig;
+    const auto & vBitVectorCertificateFieldConfig = sidechain.fixedParams.vBitVectorCertificateFieldConfig;
 
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     UniValue feArray(UniValue::VARR);

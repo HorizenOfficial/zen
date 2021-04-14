@@ -363,7 +363,7 @@ struct CScCertificateView
     CAmount forwardTransferScFee;
     CAmount mainchainBackwardTransferRequestScFee;
 
-    CScCertificateView(): certDataHash(), forwardTransferScFee(0), mainchainBackwardTransferRequestScFee(0) {};
+    CScCertificateView(): certDataHash(), forwardTransferScFee(CScCertificate::INT_NULL), mainchainBackwardTransferRequestScFee(CScCertificate::INT_NULL) {};
     CScCertificateView(const uint256& certDataHash, CAmount ftFee, CAmount mbtrFee):
         certDataHash(certDataHash), forwardTransferScFee(ftFee), mainchainBackwardTransferRequestScFee(mbtrFee) {};
     CScCertificateView(const CScCertificate& certificate):
@@ -396,8 +396,8 @@ struct CScCertificateView
     {
         return (
             certDataHash.IsNull() &&
-            forwardTransferScFee == 0 &&
-            mainchainBackwardTransferRequestScFee == 0
+            forwardTransferScFee == CScCertificate::INT_NULL &&
+            mainchainBackwardTransferRequestScFee == CScCertificate::INT_NULL
         );
     }
 };

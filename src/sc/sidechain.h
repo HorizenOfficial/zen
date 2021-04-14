@@ -44,8 +44,8 @@ public:
 class CSidechain {
 public:
     CSidechain():
-        sidechainVersion(0), creationBlockHeight(-1), creationTxHash(), mainchainBackwardTransferRequestDataLength(0),
-        pastTopQualityCertView(), lastTopQualityCertView(), lastTopQualityCertHash(),
+        sidechainVersion(0), creationBlockHeight(-1), creationTxHash(),
+        pastEpochTopQualityCertView(), lastTopQualityCertView(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
         balance(0) {}
@@ -55,15 +55,14 @@ public:
         return (
              creationBlockHeight == -1                                        &&
              creationTxHash.IsNull()                                          &&
-             mainchainBackwardTransferRequestDataLength == 0                  &&
-             pastTopQualityCertView.IsNull()                                  &&
+             pastEpochTopQualityCertView.IsNull()                                  &&
              lastTopQualityCertView.IsNull()                                  &&
              lastTopQualityCertHash.IsNull()                                  &&
              lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL  &&
              lastTopQualityCertQuality == CScCertificate::QUALITY_NULL        &&
              lastTopQualityCertBwtAmount == 0                                 &&
              balance == 0                                                     &&
-             creationData.IsNull()                                            &&
+             fixedParams.IsNull()                                            &&
              mImmatureAmounts.empty());
     }
 
@@ -75,11 +74,8 @@ public:
     // hash of the tx who created it
     uint256 creationTxHash;
 
-    // The mandatory size of the field element included in MBTR transaction outputs (0 to disable the MBTR).
-    int32_t mainchainBackwardTransferRequestDataLength;
-
     // Certificate view section
-    CScCertificateView pastTopQualityCertView;
+    CScCertificateView pastEpochTopQualityCertView;
     CScCertificateView lastTopQualityCertView;
 
     // Data for latest top quality cert confirmed in blockchain
@@ -92,7 +88,7 @@ public:
     CAmount balance;
 
     // creation data
-    Sidechain::ScCreationParameters creationData;
+    Sidechain::ScFixedParameters fixedParams;
 
     // immature amounts
     // key   = height at which amount will be considered as mature and will be part of the sc balance
@@ -118,15 +114,14 @@ public:
         READWRITE(sidechainVersion);
         READWRITE(VARINT(creationBlockHeight));
         READWRITE(creationTxHash);
-        READWRITE(mainchainBackwardTransferRequestDataLength);
-        READWRITE(pastTopQualityCertView);
+        READWRITE(pastEpochTopQualityCertView);
         READWRITE(lastTopQualityCertView);
         READWRITE(lastTopQualityCertHash);
         READWRITE(lastTopQualityCertReferencedEpoch);
         READWRITE(lastTopQualityCertQuality);
         READWRITE(lastTopQualityCertBwtAmount);
         READWRITE(balance);
-        READWRITE(creationData);
+        READWRITE(fixedParams);
         READWRITE(mImmatureAmounts);
     }
 
@@ -135,15 +130,14 @@ public:
         return (this->sidechainVersion                           == rhs.sidechainVersion)                           &&
                (this->creationBlockHeight                        == rhs.creationBlockHeight)                        &&
                (this->creationTxHash                             == rhs.creationTxHash)                             &&
-               (this->mainchainBackwardTransferRequestDataLength == rhs.mainchainBackwardTransferRequestDataLength) &&
-               (this->pastTopQualityCertView                     == rhs.pastTopQualityCertView)                     &&
+               (this->pastEpochTopQualityCertView                == rhs.pastEpochTopQualityCertView)                &&
                (this->lastTopQualityCertView                     == rhs.lastTopQualityCertView)                     &&
                (this->lastTopQualityCertHash                     == rhs.lastTopQualityCertHash)                     &&
                (this->lastTopQualityCertReferencedEpoch          == rhs.lastTopQualityCertReferencedEpoch)          &&
                (this->lastTopQualityCertQuality                  == rhs.lastTopQualityCertQuality)                  &&
                (this->lastTopQualityCertBwtAmount                == rhs.lastTopQualityCertBwtAmount)                &&
                (this->balance                                    == rhs.balance)                                    &&
-               (this->creationData                               == rhs.creationData)                               &&
+               (this->fixedParams                               == rhs.fixedParams)                               &&
                (this->mImmatureAmounts                           == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
