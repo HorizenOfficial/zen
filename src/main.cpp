@@ -244,7 +244,7 @@ namespace {
 namespace {
 
 struct CBlockReject {
-	RejectionCode chRejectCode;
+    CValidationState::Code chRejectCode;
     string strRejectReason;
     uint256 hashBlock;
 };
@@ -1011,14 +1011,14 @@ bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CVal
                 LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an invalid epoch in block for scid = %s\n",
                     __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
                 return state.DoS(100, error("%s: certificate for the same scid with different epochs",
-                    __func__), RejectionCode::REJECT_INVALID, "bad-cert-epoch");
+                    __func__), CValidationState::Code::INVALID, "bad-cert-epoch");
             }
             if (mBestCertDataByScId.at(scid).second >= cert.quality)
             {
                 LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect order in block for scid = %s\n",
                     __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
                 return state.DoS(100, error("%s: certificate with quality not ordered in block",
-                    __func__), RejectionCode::REJECT_INVALID, "bad-cert-quality-in-block");
+                    __func__), CValidationState::Code::INVALID, "bad-cert-quality-in-block");
             }
         }
         LogPrint("cert", "%s():%d - setting cert %s / q=%d / epoch=%d as current best in block for scid = %s\n",
@@ -1044,7 +1044,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state,
     BOOST_FOREACH(const JSDescription &joinsplit, tx.GetVjoinsplit()) {
         if (!joinsplit.Verify(*pzcashParams, verifier, tx.joinSplitPubKey)) {
             return state.DoS(100, error("CheckTransaction(): joinsplit does not verify"),
-                                RejectionCode::REJECT_INVALID, "bad-txns-joinsplit-verification-failed");
+                                CValidationState::Code::INVALID, "bad-txns-joinsplit-verification-failed");
         }
     }
 
@@ -1084,7 +1084,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
                 dataToBeSigned = SignatureHash(scriptCode, tx, NOT_AN_INPUT, SIGHASH_ALL);
             } catch (std::logic_error& ex) {
                 return state.DoS(100, error("%s():%d error computing signature hash", __func__, __LINE__),
-                                 RejectionCode::REJECT_INVALID, "error-computing-signature-hash");
+                                 CValidationState::Code::INVALID, "error-computing-signature-hash");
             }
 
             BOOST_STATIC_ASSERT(crypto_sign_PUBLICKEYBYTES == 32);
@@ -1096,7 +1096,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
                                             tx.joinSplitPubKey.begin()
                                            ) != 0) {
                 return state.DoS(100, error("%s():%d invalid joinsplit signature", __func__, __LINE__),
-                                 RejectionCode::REJECT_INVALID, "bad-txns-invalid-joinsplit-signature");
+                                 CValidationState::Code::INVALID, "bad-txns-invalid-joinsplit-signature");
             }
         }
     }
@@ -1152,17 +1152,17 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
 
     static const int DOS_LEVEL = 10;
     if(!cert.ContextualCheck(state, nextBlockHeight, DOS_LEVEL))
-        return state.DoS(0, error("%s(): ContextualCheck failed", __func__), RejectionCode::REJECT_INVALID, "bad-sc-cert-contextual");
+        return state.DoS(0, error("%s(): ContextualCheck failed", __func__), CValidationState::Code::INVALID, "bad-sc-cert-contextual");
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
     if (getRequireStandard() &&  !IsStandardTx(cert, reason, nextBlockHeight))
         return state.DoS(0, error("%s(): nonstandard certificate: %s", __func__, reason),
-                            RejectionCode::REJECT_NONSTANDARD, reason);
+                            CValidationState::Code::NONSTANDARD, reason);
 
     if (!pool.checkIncomingCertConflicts(cert))
         return state.DoS(0, error("%s(): certificate has conflicts in mempool", __func__),
-                            RejectionCode::REJECT_HAS_CONFLICTS, "bad-sc-cert-has-conflicts");
+                            CValidationState::Code::HAS_CONFLICTS, "bad-sc-cert-has-conflicts");
 
     // Check if cert is already in mempool or if there are conflicts with in-memory certs
     std::pair<uint256, CAmount> conflictingCertData = pool.FindCertWithQuality(cert.GetScId(), cert.quality);
@@ -1185,18 +1185,18 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 return state.Invalid(
                     error("%s():%d Dropping cert %s : view already has coins\n",
                         __func__, __LINE__, certHash.ToString()),
-                    RejectionCode::REJECT_HAS_CONFLICTS, "bad-sc-cert-has-conflicts");
+                    CValidationState::Code::HAS_CONFLICTS, "bad-sc-cert-has-conflicts");
             }
 
-            RejectionCode ret_code = RejectionCode::VALIDATION_OK;
+            CValidationState::Code ret_code = CValidationState::Code::OK;
             if (!view.IsCertApplicableToState(cert, ret_code))
             {
                 int nDoS = 100;
-                if (ret_code == RejectionCode::REJECT_SC_CUM_COMM_TREE)
+                if (ret_code == CValidationState::Code::SC_CUM_COMM_TREE)
                     nDoS = 0;
 
                 return state.DoS(nDoS, error("%s():%d - certificate not applicable: ret_code[0x%x]",
-                    __func__, __LINE__, ret_code),
+                    __func__, __LINE__, CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-cert-not-applicable");
             }
 
@@ -1204,7 +1204,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             if (!view.IsCertProofVerified(cert, scVerifier, ret_code))
             {
                 return state.DoS(100, error("%s():%d - cert proof failed to verify: ret_code[0x%x]",
-                    __func__, __LINE__, ret_code),
+                    __func__, __LINE__, CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-cert-proof");
             }
             
@@ -1219,7 +1219,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                     return state.Invalid(
                         error("%s(): Dropping cert %s : no coins for vin (tx=%s)\n",
                             __func__, certHash.ToString(), txin.prevout.hash.ToString()),
-                        RejectionCode::REJECT_NO_COINS_FOR_INPUT, "bad-sc-cert-has-no-coins-for-vin");
+                        CValidationState::Code::NO_COINS_FOR_INPUT, "bad-sc-cert-has-no-coins-for-vin");
                 }
             }
  
@@ -1228,7 +1228,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             {
                 return state.Invalid(
                     error("%s():%d - ERROR: cert[%s] inputs already spent\n", __func__, __LINE__, certHash.ToString()),
-                    RejectionCode::REJECT_DUPLICATE, "bad-sc-cert-inputs-spent");
+                    CValidationState::Code::DUPLICATE, "bad-sc-cert-inputs-spent");
             }
 
             // Bring the best block into scope: it's gonna be needed for CheckInputsTx hereinafter
@@ -1240,7 +1240,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 return state.Invalid(
                     error("%s():%d - Dropping cert %s : low fee and same quality as other cert in mempool\n",
                         __func__, __LINE__, certHash.ToString()),
-                    RejectionCode::REJECT_INVALID, "bad-sc-cert-quality");
+                    CValidationState::Code::INVALID, "bad-sc-cert-quality");
             }
 
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -1252,7 +1252,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return state.Invalid(
                 error("%s():%d - Dropping cert %s : nonstandard transaction input\n",
                     __func__, __LINE__, certHash.ToString()),
-                RejectionCode::REJECT_NONSTANDARD, "bad-sc-cert-non-standard");
+                CValidationState::Code::NONSTANDARD, "bad-sc-cert-non-standard");
         }
 
         unsigned int nSigOps = GetLegacySigOpCount(cert);
@@ -1261,7 +1261,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return state.DoS(0,
                 error("%s():%d - too many sigops %s, %d > %d",
                     __func__, __LINE__, certHash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
-                RejectionCode::REJECT_NONSTANDARD, "bad-sc-cert-too-many-sigops");
+                CValidationState::Code::NONSTANDARD, "bad-sc-cert-too-many-sigops");
         }
 
         // cert: this computes priority based on input amount and depth in blockchain, as transparent txes.
@@ -1279,11 +1279,11 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
         if (fLimitFree == LimitFreeFlag::ON && nFees < txMinFee)
             return state.DoS(0, error("%s(): not enough fees %s, %d < %d",
                                     __func__, certHash.ToString(), nFees, txMinFee),
-                            RejectionCode::REJECT_INSUFFICIENTFEE, "insufficient fee");
+                            CValidationState::Code::INSUFFICIENT_FEE, "insufficient fee");
 
         // Require that free transactions have sufficient priority to be mined in the next block.
         if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(view.GetPriority(cert, chainActive.Height() + 1))) {
-            return state.DoS(0, false, RejectionCode::REJECT_INSUFFICIENTFEE, "insufficient priority");
+            return state.DoS(0, false, CValidationState::Code::INSUFFICIENT_FEE, "insufficient priority");
         }
 
         // Continuously rate-limit free (really, very-low-fee) transactions
@@ -1305,7 +1305,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             // At default rate it would take over a month to fill 1GB
             if (dFreeCount >= GetArg("-limitfreerelay", 15)*10*1000)
                 return state.DoS(0, error("%s(): free transaction rejected by rate limiter", __func__),
-                                 RejectionCode::REJECT_INSUFFICIENTFEE, "rate limited free transaction");
+                                 CValidationState::Code::INSUFFICIENT_FEE, "rate limited free transaction");
             LogPrint("mempool", "Rate limit dFreeCount: %g => %g\n", dFreeCount, dFreeCount+nSize);
             dFreeCount += nSize;
         }
@@ -1315,7 +1315,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return state.Invalid(
                 error("%s():%d - absurdly high fees cert[%s], %d > %d\n",
                     __func__, __LINE__, certHash.ToString(), nFees, ::minRelayTxFee.GetFee(nSize) * 10000),
-                RejectionCode::REJECT_ABSURDLY_HIGH_FEE, "bad-sc-cert-absurd-fee");
+                CValidationState::Code::ABSURDLY_HIGH_FEE, "bad-sc-cert-absurd-fee");
         }
 
         // Check against previous transactions
@@ -1344,7 +1344,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             return state.Invalid(
                 error("%s():%d - Dropping cert %s : depends on some conflicting quality certs\n",
                     __func__, __LINE__, certHash.ToString()),
-                RejectionCode::REJECT_INVALID, "bad-sc-cert-quality");
+                CValidationState::Code::INVALID, "bad-sc-cert-quality");
         }
 
         // Store transaction in memory
@@ -1390,25 +1390,25 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
     // Coinbase is only valid in a block, not as a loose transaction
     if (tx.IsCoinBase())
         return state.DoS(100, error("%s(): coinbase as individual tx", __func__),
-                         RejectionCode::REJECT_INVALID, "coinbase");
+                         CValidationState::Code::INVALID, "coinbase");
 
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
     if (getRequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
         return state.DoS(0,
                          error("%s(): nonstandard transaction: %s", __func__, reason),
-                         RejectionCode::REJECT_NONSTANDARD, reason);
+                         CValidationState::Code::NONSTANDARD, reason);
 
     // Only accept nLockTime-using transactions that can be mined in the next
     // block; we don't want our mempool filled up with transactions that can't
     // be mined yet.
     if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))
-        return state.DoS(0, false, RejectionCode::REJECT_NONSTANDARD, "non-final");
+        return state.DoS(0, false, CValidationState::Code::NONSTANDARD, "non-final");
 
     if (!pool.checkIncomingTxConflicts(tx))
         return state.Invalid(
             error("%s():%d: tx[%s] has conflicts in mempool", __func__, __LINE__, tx.GetHash().ToString()),
-            RejectionCode::REJECT_HAS_CONFLICTS, "bad-tx-has-conflicts");
+            CValidationState::Code::HAS_CONFLICTS, "bad-tx-has-conflicts");
 
     {
         uint256 hash = tx.GetHash();
@@ -1427,7 +1427,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                 return state.Invalid(
                     error("%s():%d Dropping tx %s : view already has coins\n",
                         __func__, __LINE__, tx.GetHash().ToString()),
-                    RejectionCode::REJECT_HAS_CONFLICTS, "bad-tx-has-conflicts");
+                    CValidationState::Code::HAS_CONFLICTS, "bad-tx-has-conflicts");
             }
 
             // do all inputs exist?
@@ -1441,7 +1441,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                     return state.Invalid(
                         error("%s(): Dropping tx %s : no coins for vin (tx=%s)\n",
                             __func__, tx.GetHash().ToString(), txin.prevout.hash.ToString()),
-                        RejectionCode::REJECT_NO_COINS_FOR_INPUT, "bad-tx-has-no-coins-for-vin");
+                        CValidationState::Code::NO_COINS_FOR_INPUT, "bad-tx-has-no-coins-for-vin");
                 }
             }
  
@@ -1450,19 +1450,19 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             {
                 LogPrintf("%s():%d - ERROR: tx[%s]\n", __func__, __LINE__, hash.ToString());
                 return state.Invalid(error("%s(): inputs already spent", __func__),
-                                     RejectionCode::REJECT_DUPLICATE, "bad-txns-inputs-spent");
+                                     CValidationState::Code::DUPLICATE, "bad-txns-inputs-spent");
             }
 
-            RejectionCode ret_code = RejectionCode::VALIDATION_OK;
+            CValidationState::Code ret_code = CValidationState::Code::OK;
             if (!view.IsScTxApplicableToState(tx, ret_code))
             {
                 int nDoS = 100;
-                if (ret_code == RejectionCode::REJECT_ACTIVE_CERT_DATA_HASH)
+                if (ret_code == CValidationState::Code::ACTIVE_CERT_DATA_HASH)
                     nDoS = 0;
 
                 return state.DoS(nDoS,
                     error("%s():%d - ERROR: sc-related tx [%s] is not applicable: ret_code[0x%x]\n",
-                        __func__, __LINE__, hash.ToString(), ret_code),
+                        __func__, __LINE__, hash.ToString(), CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-tx-not-applicable");
             }
             auto scVerifier = libzendoomc::CScProofVerifier::Strict();
@@ -1470,7 +1470,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             {
                 return state.DoS(100,
                     error("%s():%d - ERROR: sc-related tx [%s] proof failed: ret_code[0x%x]",
-                        __func__, __LINE__, hash.ToString(), ret_code),
+                        __func__, __LINE__, hash.ToString(),CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-tx-proof");
             }
 
@@ -1479,7 +1479,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             {
                 return state.Invalid(
                     error("%s():%d - joinsplit requirements not met", __func__, __LINE__),
-                    RejectionCode::REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
+                    CValidationState::Code::DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
             }
  
             // Bring the best block into scope
@@ -1497,7 +1497,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             return state.Invalid(
                 error("%s():%d - Dropping tx %s : nonstandard transaction input\n",
                     __func__, __LINE__, tx.GetHash().ToString()),
-                RejectionCode::REJECT_NONSTANDARD, "bad-tx-non-standard");
+                CValidationState::Code::NONSTANDARD, "bad-tx-non-standard");
         }
 
         // Check that the transaction doesn't have an excessive number of
@@ -1512,7 +1512,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             return state.Invalid(
                 error("%s():%d - too many sigops %s, %d > %d",
                     __func__, __LINE__, hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),
-                RejectionCode::REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
+                CValidationState::Code::NONSTANDARD, "bad-txns-too-many-sigops");
         }
       
         double dPriority = view.GetPriority(tx, chainActive.Height());
@@ -1531,12 +1531,12 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             if (fLimitFree == LimitFreeFlag::ON && nFees < txMinFee)
                 return state.DoS(0, error("%s(): not enough fees %s, %d < %d",
                                         __func__, hash.ToString(), nFees, txMinFee),
-                                RejectionCode::REJECT_INSUFFICIENTFEE, "insufficient fee");
+                                CValidationState::Code::INSUFFICIENT_FEE, "insufficient fee");
         }
 
         // Require that free transactions have sufficient priority to be mined in the next block.
         if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(view.GetPriority(tx, chainActive.Height() + 1))) {
-            return state.DoS(0, false, RejectionCode::REJECT_INSUFFICIENTFEE, "insufficient priority");
+            return state.DoS(0, false, CValidationState::Code::INSUFFICIENT_FEE, "insufficient priority");
         }
 
         // Continuously rate-limit free (really, very-low-fee) transactions
@@ -1558,7 +1558,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             // At default rate it would take over a month to fill 1GB
             if (dFreeCount >= GetArg("-limitfreerelay", 15)*10*1000)
                 return state.DoS(0, error("%s(): free transaction rejected by rate limiter", __func__),
-                                 RejectionCode::REJECT_INSUFFICIENTFEE, "rate limited free transaction");
+                                 CValidationState::Code::INSUFFICIENT_FEE, "rate limited free transaction");
             LogPrint("mempool", "Rate limit dFreeCount: %g => %g\n", dFreeCount, dFreeCount+nSize);
             dFreeCount += nSize;
         }
@@ -1568,7 +1568,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
             return state.Invalid(
                 error("%s():%d - absurdly high fees tx[%s], %d > %d\n",
                     __func__, __LINE__, hash.ToString(), nFees, ::minRelayTxFee.GetFee(nSize) * 10000),
-                RejectionCode::REJECT_ABSURDLY_HIGH_FEE, "bad-tx-absurd-fee");
+                CValidationState::Code::ABSURDLY_HIGH_FEE, "bad-tx-absurd-fee");
         }
 
         // Check against previous transactions
@@ -1985,18 +1985,22 @@ void static InvalidChainFound(CBlockIndex* pindexNew)
     CheckForkWarningConditions();
 }
 
-void static InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state) {
-    int nDoS = 0;
-    if (state.IsInvalid(nDoS)) {
+void static InvalidBlockFound(CBlockIndex *pindex, const CValidationState &state)
+{
+    if (state.IsInvalid())
+    {
         std::map<uint256, NodeId>::iterator it = mapBlockSource.find(pindex->GetBlockHash());
-        if (it != mapBlockSource.end() && State(it->second)) {
+        if (it != mapBlockSource.end() && State(it->second))
+        {
             CBlockReject reject = {state.GetRejectCode(), state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), pindex->GetBlockHash()};
             State(it->second)->rejects.push_back(reject);
-            if (nDoS > 0)
-                Misbehaving(it->second, nDoS);
+            if (state.GetDoS() > 0)
+                Misbehaving(it->second, state.GetDoS());
         }
     }
-    if (!state.CorruptionPossible()) {
+
+    if (!state.CorruptionPossible())
+    {
         pindex->nStatus |= BLOCK_FAILED_VALID;
         setDirtyBlockIndex.insert(pindex);
         setBlockIndexCandidates.erase(pindex);
@@ -2193,11 +2197,11 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                 if (coins->IsCoinBase())
                     return state.Invalid(
                         error("%s(): tried to spend coinbase at depth %d", __func__, nSpendHeight - coins->nHeight),
-                        RejectionCode::REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
+                        CValidationState::Code::INVALID, "bad-txns-premature-spend-of-coinbase");
                 if (coins->IsFromCert())
                     return state.Invalid(
                         error("%s(): tried to spend certificate before next epoch certificate is received", __func__),
-                        RejectionCode::REJECT_INVALID, "bad-txns-premature-spend-of-certificate");
+                        CValidationState::Code::INVALID, "bad-txns-premature-spend-of-certificate");
             }
         }
 
@@ -2215,7 +2219,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
             if (!fDisableProtectionForFR || !IsCommunityFund(coins, prevout.n)) {
                 return state.Invalid(
                     error("%s(): tried to spend coinbase with transparent outputs", __func__),
-                    RejectionCode::REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+                    CValidationState::Code::INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
                 }
             }
         }
@@ -2224,23 +2228,23 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         nValueIn += coins->vout[prevout.n].nValue;
         if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
             return state.DoS(100, error("%s(): txin values out of range", __func__),
-                RejectionCode::REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+                CValidationState::Code::INVALID, "bad-txns-inputvalues-outofrange");
     }
 
     try {
         nValueIn += txBase.GetCSWValueIn();
         if (!MoneyRange(nValueIn))
             return state.DoS(100, error("CheckInputs(): Total inputs value out of range."),
-                RejectionCode::REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+                CValidationState::Code::INVALID, "bad-txns-inputvalues-outofrange");
     } catch (const std::runtime_error& e) {
         return state.DoS(100, error("CheckInputs(): tx csw input values out of range"),
-            RejectionCode::REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+            CValidationState::Code::INVALID, "bad-txns-inputvalues-outofrange");
     }
 
     nValueIn += txBase.GetJoinSplitValueIn();
     if (!MoneyRange(nValueIn))
         return state.DoS(100, error("%s(): vpub_old values out of range", __func__),
-                         RejectionCode::REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+                         CValidationState::Code::INVALID, "bad-txns-inputvalues-outofrange");
 
     if (!txBase.CheckFeeAmount(nValueIn, state))
         return false;
@@ -2259,7 +2263,7 @@ bool InputScriptCheck(const CScript& scriptPubKey, const CTransactionBase& tx, u
         check.swap(pvChecks->back());
     } else if (!check()) {
         if (check.GetScriptError() == SCRIPT_ERR_NOT_FINAL) {
-            return state.DoS(0, false, RejectionCode::REJECT_NONSTANDARD, "non-final");
+            return state.DoS(0, false, CValidationState::Code::NONSTANDARD, "non-final");
         }
         if (flags & STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS) {
             // Check whether the failure was caused by a
@@ -2271,7 +2275,7 @@ bool InputScriptCheck(const CScript& scriptPubKey, const CTransactionBase& tx, u
             CScriptCheck check(scriptPubKey, tx, nIn, &chain,
                     flags & ~STANDARD_CONTEXTUAL_NOT_MANDATORY_VERIFY_FLAGS, cacheStore);
             if (check())
-                return state.Invalid(false, RejectionCode::REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
+                return state.Invalid(false, CValidationState::Code::NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
         }
         // Failures of other flags indicate a transaction that is
         // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
@@ -2280,7 +2284,7 @@ bool InputScriptCheck(const CScript& scriptPubKey, const CTransactionBase& tx, u
         // as to the correct behavior - we may want to continue
         // peering with non-upgraded nodes even after a soft-fork
         // super-majority vote has passed.
-        return state.DoS(100,false, RejectionCode::REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+        return state.DoS(100,false, CValidationState::Code::INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
     }
 
     return true;
@@ -2793,14 +2797,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         const CCoins* coins = view.AccessCoins(tx.GetHash());
         if (coins && !coins->IsPruned())
             return state.DoS(100, error("%s():%d: tried to overwrite transaction",__func__, __LINE__),
-                             RejectionCode::REJECT_INVALID, "bad-txns-BIP30");
+                             CValidationState::Code::INVALID, "bad-txns-BIP30");
     }
     for(const CScCertificate& cert: block.vcert)
     {
         const CCoins* coins = view.AccessCoins(cert.GetHash());
         if (coins && !coins->IsPruned())
             return state.DoS(100, error("%s():%d: tried to overwrite certificate",__func__, __LINE__),
-                             RejectionCode::REJECT_INVALID, "bad-txns-BIP30");
+                             CValidationState::Code::INVALID, "bad-txns-BIP30");
     }
 
 
@@ -2850,19 +2854,19 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         nSigOps += GetLegacySigOpCount(tx);
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("%s():%d: too many sigops",__func__, __LINE__),
-                             RejectionCode::REJECT_INVALID, "bad-blk-sigops");
+                             CValidationState::Code::INVALID, "bad-blk-sigops");
 
         if (!tx.IsCoinBase())
         {
             if (!view.HaveInputs(tx))
                 return state.DoS(100, error("%s():%d: tx inputs missing/spent",__func__, __LINE__),
-                                     RejectionCode::REJECT_INVALID, "bad-txns-inputs-missingorspent");
+                                     CValidationState::Code::INVALID, "bad-txns-inputs-missingorspent");
 
-            RejectionCode ret_code = RejectionCode::VALIDATION_OK;
+            CValidationState::Code ret_code = CValidationState::Code::OK;
             if (!view.IsScTxApplicableToState(tx, ret_code))
             {
                 return state.DoS(100,
-                    error("%s():%d - invalid tx[%s], ret_code[0x%x]", __func__, __LINE__, tx.GetHash().ToString(), ret_code),
+                    error("%s():%d - invalid tx[%s], ret_code[0x%x]", __func__, __LINE__, tx.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-tx-not-applicable");
             }
             auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
@@ -2870,14 +2874,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             {
                 return state.DoS(100,
                     error("%s():%d - ERROR: sc-related tx [%s] proof failed: ret_code[0x%x]",
-                        __func__, __LINE__, tx.GetHash().ToString(), ret_code),
+                        __func__, __LINE__, tx.GetHash().ToString(),CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-tx-proof");
             }
 
             // are the JoinSplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
                 return state.DoS(100, error("%s():%d: JoinSplit requirements not met",__func__, __LINE__),
-                                 RejectionCode::REJECT_INVALID, "bad-txns-joinsplit-requirements-not-met");
+                                 CValidationState::Code::INVALID, "bad-txns-joinsplit-requirements-not-met");
 
             // Add in sigops done by pay-to-script-hash inputs;
             // this is to prevent a "rogue miner" from creating
@@ -2885,7 +2889,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             nSigOps += GetP2SHSigOpCount(tx, view);
             if (nSigOps > MAX_BLOCK_SIGOPS)
                 return state.DoS(100, error("%s():%d: too many sigops",__func__, __LINE__),
-                                 RejectionCode::REJECT_INVALID, "bad-blk-sigops");
+                                 CValidationState::Code::INVALID, "bad-blk-sigops");
 
             nFees += tx.GetFeeAmount(view.GetValueIn(tx));
 
@@ -2908,13 +2912,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             {
                 return state.DoS(100, error("%s():%d: could not add sidechain in view: tx[%s]",
                                             __func__, __LINE__, tx.GetHash().ToString()),
-                                 RejectionCode::REJECT_INVALID, "bad-sc-tx");
+                                 CValidationState::Code::INVALID, "bad-sc-tx");
             }
             
             for (const CTxCeasedSidechainWithdrawalInput& cswIn:tx.GetVcswCcIn()) {
                 if (!view.AddCswNullifier(cswIn.scId, cswIn.nullifier)) {
                     return state.DoS(100, error("ConnectBlock(): try to use existed nullifier Tx [%s]", tx.GetHash().ToString()),
-                             RejectionCode::REJECT_INVALID, "bad-txns-csw-input-nullifier");
+                             CValidationState::Code::INVALID, "bad-txns-csw-input-nullifier");
                 }
             }
         }
@@ -2945,11 +2949,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         nSigOps += GetLegacySigOpCount(cert);
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("%s():%d: too many sigops",__func__, __LINE__),
-                             RejectionCode::REJECT_INVALID, "bad-blk-sigops");
+                             CValidationState::Code::INVALID, "bad-blk-sigops");
 
         if (!view.HaveInputs(cert))
             return state.DoS(100, error("%s():%d: certificate inputs missing/spent",__func__, __LINE__),
-                                 RejectionCode::REJECT_INVALID, "bad-cert-inputs-missingorspent");
+                                 CValidationState::Code::INVALID, "bad-cert-inputs-missingorspent");
 
         // Add in sigops done by pay-to-script-hash inputs;
         // this is to prevent a "rogue miner" from creating
@@ -2957,7 +2961,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         nSigOps += GetP2SHSigOpCount(cert, view);
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("%s():%d: too many sigops",__func__, __LINE__),
-                             RejectionCode::REJECT_INVALID, "bad-blk-sigops");
+                             CValidationState::Code::INVALID, "bad-blk-sigops");
 
         nFees += cert.GetFeeAmount(view.GetValueIn(cert));
 
@@ -2967,11 +2971,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
-        RejectionCode ret_code = RejectionCode::VALIDATION_OK;
+        CValidationState::Code ret_code = CValidationState::Code::OK;
         if (!view.IsCertApplicableToState(cert, ret_code))
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s], ret_code[0x%x]",
-                __func__, __LINE__, cert.GetHash().ToString(), ret_code),
+                __func__, __LINE__, cert.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),
                 ret_code, "bad-sc-cert-not-applicable");
         }
 
@@ -2979,7 +2983,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (!view.IsCertProofVerified(cert, scVerifier, ret_code) )
         {
             return state.DoS(100, error("%s():%d: cert [%s] proof failed, ret_code[0x%x]",
-                __func__, __LINE__, cert.GetHash().ToString(), ret_code),
+                __func__, __LINE__, cert.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),
                 ret_code, "bad-sc-cert-proof");
         }
 
@@ -2992,7 +2996,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (!view.UpdateSidechain(cert, blockundo) )
             {
                 return state.DoS(100, error("%s():%d: could not add in scView: cert[%s]",__func__, __LINE__, cert.GetHash().ToString()),
-                                 RejectionCode::REJECT_INVALID, "bad-sc-cert-not-updated");
+                                 CValidationState::Code::INVALID, "bad-sc-cert-not-updated");
             }
 
             const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
@@ -3039,7 +3043,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pCertsStateInfo))
     {
         return state.DoS(100, error("%s():%d - SIDECHAIN-EVENT: could not handle scheduled event",__func__, __LINE__),
-                                 RejectionCode::REJECT_INVALID, "bad-sc-events-handling");
+                                 CValidationState::Code::INVALID, "bad-sc-events-handling");
     }
 
     view.PushAnchor(tree);
@@ -3059,7 +3063,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         return state.DoS(100,
                          error("%s():%d: coinbase pays too much (actual=%d vs limit=%d)",
                                  __func__, __LINE__, block.vtx[0].GetValueOut(), blockReward),
-                        RejectionCode::REJECT_INVALID, "bad-cb-amount");
+                        CValidationState::Code::INVALID, "bad-cb-amount");
 
     if (fCheckScTxesCommitment)
     {
@@ -3071,7 +3075,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             // that means sc txes/cert are verified, and yet their contribution to scTxsCommittment is not
             return state.DoS(100, error("%s():%d: SCTxsCommitment verification failed; block[%s] vs computed[%s]",__func__, __LINE__,
                                         block.hashScTxsCommitment.ToString(), scTxsCommittment.ToString()),
-                               RejectionCode::REJECT_INVALID, "bad-sc-txs-committment");
+                               CValidationState::Code::INVALID, "bad-sc-txs-committment");
         }
         LogPrint("cert", "%s():%d - Successfully verified SCTxsCommitment %s\n",
             __func__, __LINE__, block.hashScTxsCommitment.ToString());
@@ -4103,17 +4107,17 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool f
     // Check block version
     if (block.nVersion < MIN_BLOCK_VERSION)
         return state.DoS(100, error("CheckBlockHeader(): block version not valid"),
-                         RejectionCode::REJECT_INVALID, "version-invalid");
+                         CValidationState::Code::INVALID, "version-invalid");
 
     // Check Equihash solution is valid
     if (fCheckPOW && !CheckEquihashSolution(&block, Params()))
         return state.DoS(100, error("CheckBlockHeader(): Equihash solution invalid"),
-                         RejectionCode::REJECT_INVALID, "invalid-solution");
+                         CValidationState::Code::INVALID, "invalid-solution");
 
     // Check proof of work matches claimed amount
     if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus()))
         return state.DoS(50, error("CheckBlockHeader(): proof of work failed"),
-                         RejectionCode::REJECT_INVALID, "high-hash");
+                         CValidationState::Code::INVALID, "high-hash");
 
     return true;
 }
@@ -4135,14 +4139,14 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
         uint256 hashMerkleRoot2 = block.BuildMerkleTree(&mutated);
         if (block.hashMerkleRoot != hashMerkleRoot2)
             return state.DoS(100, error("CheckBlock(): hashMerkleRoot mismatch"),
-                             RejectionCode::REJECT_INVALID, "bad-txnmrklroot", true);
+                             CValidationState::Code::INVALID, "bad-txnmrklroot", true);
 
         // Check for merkle tree malleability (CVE-2012-2459): repeating sequences
         // of transactions in a block without affecting the merkle root of a block,
         // while still invalidating it.
         if (mutated)
             return state.DoS(100, error("CheckBlock(): duplicate transaction"),
-                             RejectionCode::REJECT_INVALID, "bad-txns-duplicate", true);
+                             CValidationState::Code::INVALID, "bad-txns-duplicate", true);
     }
 
     // All potential-corruption validation must be done before we do any
@@ -4152,16 +4156,16 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
     // Size limits
     if (block.vtx.empty() || (block.vtx.size() + block.vcert.size()) > MAX_BLOCK_SIZE || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > MAX_BLOCK_SIZE)
         return state.DoS(100, error("CheckBlock(): size limits failed"),
-                         RejectionCode::REJECT_INVALID, "bad-blk-length");
+                         CValidationState::Code::INVALID, "bad-blk-length");
 
     // First transaction must be coinbase, the rest must not be
     if (block.vtx.empty() || !block.vtx[0].IsCoinBase())
         return state.DoS(100, error("CheckBlock(): first tx is not coinbase"),
-                         RejectionCode::REJECT_INVALID, "bad-cb-missing");
+                         CValidationState::Code::INVALID, "bad-cb-missing");
     for (unsigned int i = 1; i < block.vtx.size(); i++)
         if (block.vtx[i].IsCoinBase())
             return state.DoS(100, error("CheckBlock(): more than one coinbase"),
-                             RejectionCode::REJECT_INVALID, "bad-cb-multiple");
+                             CValidationState::Code::INVALID, "bad-cb-multiple");
 
     // Check transactions and certificates
     for(const CTransaction& tx: block.vtx) {
@@ -4191,7 +4195,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
 
     if (nSigOps > MAX_BLOCK_SIGOPS)
         return state.DoS(100, error("CheckBlock(): out-of-bounds SigOpCount"),
-                         RejectionCode::REJECT_INVALID, "bad-blk-sigops", true);
+                         CValidationState::Code::INVALID, "bad-blk-sigops", true);
 
     return true;
 }
@@ -4211,7 +4215,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     // Check proof of work
     if (block.nBits != GetNextWorkRequired(pindexPrev, &block, consensusParams))
         return state.DoS(100, error("%s: incorrect proof of work", __func__),
-                         RejectionCode::REJECT_INVALID, "bad-diffbits");
+                         CValidationState::Code::INVALID, "bad-diffbits");
 
 
     // Check timestamp against prev
@@ -4219,7 +4223,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     if (block.GetBlockTime() <= medianTimePast) {
         return state.Invalid(error("%s: block at height %d, timestamp %d is not later than median-time-past %d",
                 __func__, nHeight, block.GetBlockTime(), medianTimePast),
-                RejectionCode::REJECT_INVALID, "time-too-old");
+                CValidationState::Code::INVALID, "time-too-old");
     }
 
 
@@ -4227,7 +4231,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
             block.GetBlockTime() > medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP) {
         return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of median-time-past, limit is %d",
                 __func__, nHeight, block.GetBlockTime(), medianTimePast + MAX_FUTURE_BLOCK_TIME_MTP),
-                RejectionCode::REJECT_INVALID, "time-too-far-ahead-of-mtp");
+                CValidationState::Code::INVALID, "time-too-far-ahead-of-mtp");
     }
 
 
@@ -4236,7 +4240,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     if (block.GetBlockTime() > nTimeLimit) {
         return state.Invalid(error("%s: block at height %d, timestamp %d is too far ahead of local time, limit is %d",
                 __func__, nHeight, block.GetBlockTime(), nTimeLimit),
-                RejectionCode::REJECT_INVALID, "time-too-new");
+                CValidationState::Code::INVALID, "time-too-new");
     }
 
     if (fCheckpointsEnabled)
@@ -4250,15 +4254,15 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     if (!ForkManager::getInstance().isValidBlockVersion(nHeight, block.nVersion) )
     {
         return state.Invalid(error("%s : rejected nVersion block %d not supported at height %d", __func__, block.nVersion, nHeight),
-            RejectionCode::REJECT_INVALID, "bad-version");
+            CValidationState::Code::INVALID, "bad-version");
     }
 
     if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
     {
-    	CFieldElement fieldToValidate{block.hashScTxsCommitment};
-    	if (!fieldToValidate.IsValid())
+        CFieldElement fieldToValidate{block.hashScTxsCommitment};
+        if (!fieldToValidate.IsValid())
             return state.DoS(100, error("%s: incorrect hashScTxsCommitment", __func__),
-                             RejectionCode::REJECT_INVALID, "bad-hashScTxsCommitment");
+                             CValidationState::Code::INVALID, "bad-hashScTxsCommitment");
     }
 
     return true;
@@ -4282,7 +4286,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
                                 ? pindexPrev->GetMedianTimePast()
                                 : block.GetBlockTime();
         if (!IsFinalTx(tx, nHeight, nLockTimeCutoff)) {
-            return state.DoS(10, error("%s: contains a non-final transaction", __func__), RejectionCode::REJECT_INVALID, "bad-txns-nonfinal");
+            return state.DoS(10, error("%s: contains a non-final transaction", __func__), CValidationState::Code::INVALID, "bad-txns-nonfinal");
         }
     }
 
@@ -4302,14 +4306,14 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
         CScript expect = CScript() << nHeight;
         if (block.vtx[0].GetVin()[0].scriptSig.size() < expect.size() ||
             !std::equal(expect.begin(), expect.end(), block.vtx[0].GetVin()[0].scriptSig.begin())) {
-            return state.DoS(100, error("%s: block height mismatch in coinbase", __func__), RejectionCode::REJECT_INVALID, "bad-cb-height");
+            return state.DoS(100, error("%s: block height mismatch in coinbase", __func__), CValidationState::Code::INVALID, "bad-cb-height");
         }
     }
 
     // Reject the post-chainsplit block until a specific time is reached
     if (ForkManager::getInstance().isAfterChainsplit(nHeight) && !ForkManager::getInstance().isAfterChainsplit(nHeight-1)  && block.GetBlockTime() < ForkManager::getInstance().getMinimumTime(nHeight))
     {
-        return state.DoS(10, error("%s: post-chainsplit block received prior to scheduled time", __func__), RejectionCode::REJECT_INVALID, "bad-cs-time");
+        return state.DoS(10, error("%s: post-chainsplit block received prior to scheduled time", __func__), CValidationState::Code::INVALID, "bad-cs-time");
     }
 
     CAmount reward = GetBlockSubsidy(nHeight, consensusParams);
@@ -4331,7 +4335,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
             }
 
             if (!found) {
-                return state.DoS(100, error("%s: community fund missing block %d", __func__, nHeight), RejectionCode::REJECT_INVALID, "cb-no-community-fund");
+                return state.DoS(100, error("%s: community fund missing block %d", __func__, nHeight), CValidationState::Code::INVALID, "cb-no-community-fund");
             }
         }
     }
@@ -4359,7 +4363,7 @@ bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBloc
         if (ppindex)
             *ppindex = pindex;
         if (pindex->nStatus & BLOCK_FAILED_MASK)
-            return state.Invalid(error("%s: block is marked invalid", __func__), RejectionCode::VALIDATION_OK, "duplicate");
+            return state.Invalid(error("%s: block is marked invalid", __func__), CValidationState::Code::OK, "duplicate");
         return true;
     }
 
@@ -4374,11 +4378,11 @@ bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBloc
         {
             LogPrint("forks", "%s():%d - prev block not found: [%s]\n",
                 __func__, __LINE__, block.hashPrevBlock.ToString());
-            return state.DoS(10, error("%s: prev block not found", __func__), RejectionCode::VALIDATION_OK, "bad-prevblk");
+            return state.DoS(10, error("%s: prev block not found", __func__), CValidationState::Code::OK, "bad-prevblk");
         }
         pindexPrev = (*mi).second;
         if (pindexPrev->nStatus & BLOCK_FAILED_MASK)
-            return state.DoS(100, error("%s: prev block invalid", __func__), RejectionCode::REJECT_INVALID, "bad-prevblk");
+            return state.DoS(100, error("%s: prev block invalid", __func__), CValidationState::Code::INVALID, "bad-prevblk");
     }
 
     if (!ContextualCheckBlockHeader(block, state, pindexPrev))
@@ -5671,11 +5675,10 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
                 }
                 else if (!fMissingInputs2)
                 {
-                    int nDos = 0;
-                    if (stateDummy.IsInvalid(nDos) && nDos > 0)
+                    if (stateDummy.IsInvalid() && stateDummy.GetDoS() > 0)
                     {
                         // Punish peer that gave us an invalid orphan tx
-                        Misbehaving(fromPeer, nDos);
+                        Misbehaving(fromPeer, stateDummy.GetDoS());
                         setMisbehaving.insert(fromPeer);
                         LogPrint("mempool", "   invalid orphan tx %s\n", orphanHash.ToString());
                     }
@@ -5716,26 +5719,26 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
             // Never relay transactions that we would assign a non-zero DoS
             // score for, as we expect peers to do the same with us in that
             // case.
-            int nDoS = 0;
-            if (!state.IsInvalid(nDoS) || nDoS == 0) {
+            if (!state.IsInvalid() || state.GetDoS() == 0)
+            {
                 LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->id);
                 txBase.Relay();
             } else {
                 LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
-                    txBase.GetHash().ToString(), pfrom->id, state.GetRejectReason(), state.GetRejectCode());
+                    txBase.GetHash().ToString(), pfrom->id, state.GetRejectReason(), CValidationState::CodeToChar(state.GetRejectCode()));
             }
         }
     }
-    int nDoS = 0;
-    if (state.IsInvalid(nDoS))
+
+    if (state.IsInvalid())
     {
         LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
             pfrom->id, pfrom->cleanSubVer,
             state.GetRejectReason());
-        pfrom->PushMessage("reject", strCommand, static_cast<unsigned char>(state.GetRejectCode()),
+        pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(state.GetRejectCode()),
                            state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
-        if (nDoS > 0)
-            Misbehaving(pfrom->GetId(), nDoS);
+        if (state.GetDoS() > 0)
+            Misbehaving(pfrom->GetId(), state.GetDoS());
     }
 }
 
@@ -5757,7 +5760,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         // Each connection can only send one version message
         if (pfrom->nVersion != 0)
         {
-            pfrom->PushMessage("reject", strCommand, static_cast<unsigned char>(RejectionCode::REJECT_DUPLICATE), string("Duplicate version message"));
+            pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(CValidationState::Code::DUPLICATE), string("Duplicate version message"));
             Misbehaving(pfrom->GetId(), 1);
             return false;
         }
@@ -5771,7 +5774,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         {
             // disconnect from peers older than this proto version
             LogPrintf("peer=%d using obsolete version %i; disconnecting\n", pfrom->id, pfrom->nVersion);
-            pfrom->PushMessage("reject", strCommand, static_cast<unsigned char>(RejectionCode::REJECT_OBSOLETE),
+            pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(CValidationState::Code::OBSOLETE),
                                strprintf("Version must be %d or greater", MIN_PEER_PROTO_VERSION));
             pfrom->fDisconnect = true;
             return false;
@@ -6346,7 +6349,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             // which is not handled here
             LogPrintf("%s():%d - pushing reject: invalid obj got from peer=%d %s\n",
                 __func__, __LINE__, pfrom->id, pfrom->cleanSubVer);
-            pfrom->PushMessage("reject", strCommand, static_cast<unsigned char>(RejectionCode::REJECT_MALFORMED), string("error parsing message"));
+            pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(CValidationState::Code::MALFORMED), string("error parsing message"));
         }
     }
 
@@ -6385,11 +6388,12 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             
             bool lookForwardTips = (++cnt == MAX_HEADERS_RESULTS);
              
-            if (!AcceptBlockHeader(header, state, &pindexLast, lookForwardTips)) {
-                int nDoS;
-                if (state.IsInvalid(nDoS)) {
-                    if (nDoS > 0)
-                        Misbehaving(pfrom->GetId(), nDoS);
+            if (!AcceptBlockHeader(header, state, &pindexLast, lookForwardTips))
+            {
+                if (state.IsInvalid())
+                {
+                    if (state.GetDoS() > 0)
+                        Misbehaving(pfrom->GetId(), state.GetDoS());
                     return error("invalid header received");
                 }
             }
@@ -6435,17 +6439,17 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         // conditions in AcceptBlock().
         bool forceProcessing = pfrom->fWhitelisted && !IsInitialBlockDownload();
         ProcessNewBlock(state, pfrom, &block, forceProcessing, NULL);
-        int nDoS;
-        if (state.IsInvalid(nDoS)) {
-            LogPrint("forks", "%s():%d - Pushing reject, DoS[%d]\n", __func__, __LINE__, nDoS);
-            pfrom->PushMessage("reject", strCommand, static_cast<unsigned char>(state.GetRejectCode()),
+        if (state.IsInvalid())
+        {
+            LogPrint("forks", "%s():%d - Pushing reject, DoS[%d]\n", __func__, __LINE__, state.GetDoS());
+            pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(state.GetRejectCode()),
                                state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
-            if (nDoS > 0) {
+            if (state.GetDoS() > 0)
+            {
                 LOCK(cs_main);
-                Misbehaving(pfrom->GetId(), nDoS);
+                Misbehaving(pfrom->GetId(), state.GetDoS());
             }
         }
-
     }
 
 
@@ -6776,7 +6780,7 @@ bool ProcessMessages(CNode* pfrom)
         }
         catch (const std::ios_base::failure& e)
         {
-            pfrom->PushMessage("reject", strCommand, static_cast<unsigned char>(RejectionCode::REJECT_MALFORMED), string("error parsing message"));
+            pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(CValidationState::Code::MALFORMED), string("error parsing message"));
             if (strstr(e.what(), "end of data"))
             {
                 // Allow exceptions from under-length message on vRecv
@@ -6917,7 +6921,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         }
 
         BOOST_FOREACH(const CBlockReject& reject, state.rejects)
-            pto->PushMessage("reject", (string)"block", static_cast<unsigned char>(reject.chRejectCode), reject.strRejectReason, reject.hashBlock);
+            pto->PushMessage("reject", (string)"block", CValidationState::CodeToChar(reject.chRejectCode), reject.strRejectReason, reject.hashBlock);
         state.rejects.clear();
 
         // Start block sync

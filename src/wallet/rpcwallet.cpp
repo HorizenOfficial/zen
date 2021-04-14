@@ -5343,11 +5343,11 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     // sanity check of the endEpochCumScTxCommTreeRoot: it must correspond to the end-epoch block hash 
-    RejectionCode ret_code = RejectionCode::VALIDATION_OK;
+    CValidationState::Code ret_code = CValidationState::Code::OK;
     if (!scView.CheckEndEpochCumScTxCommTreeRoot(sidechain, epochNumber, cert.endEpochCumScTxCommTreeRoot, ret_code))
     {
         LogPrintf("%s():%d - ERROR: endEpochCumScTxCommTreeRoot[%s]/epochNumber[%d] are not legal, ret_code[0x%x]\n",
-            __func__, __LINE__, cert.endEpochCumScTxCommTreeRoot.GetHexRepr(), epochNumber, ret_code);
+            __func__, __LINE__, cert.endEpochCumScTxCommTreeRoot.GetHexRepr(), epochNumber, CValidationState::CodeToChar(ret_code));
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid end cum commitment tree root"));
     }
 

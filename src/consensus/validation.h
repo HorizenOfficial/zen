@@ -7,58 +7,44 @@
 #define BITCOIN_CONSENSUS_VALIDATION_H
 
 #include <string>
-#include <iostream>
-
-/** "reject" message codes */
-enum class RejectionCode : unsigned char
-{
-	VALIDATION_OK = 0x00,
-	REJECT_MALFORMED = 0x01,
-	REJECT_INVALID = 0x10,
-	REJECT_OBSOLETE = 0x11,
-	REJECT_DUPLICATE = 0x12,
-	REJECT_NONSTANDARD = 0x40,
-	REJECT_DUST = 0x41,       //unused apparently
-	REJECT_INSUFFICIENTFEE = 0x42,
-	REJECT_CHECKPOINT = 0x43, //unused apparently
-	REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND = 0x44,
-	REJECT_SCID_NOT_FOUND = 0x45,
-	REJECT_INSUFFICIENT_SCID_FUNDS = 0x46,
-	REJECT_ABSURDLY_HIGH_FEE = 0x47,
-	REJECT_HAS_CONFLICTS = 0x48,
-	REJECT_NO_COINS_FOR_INPUT = 0x49,
-	REJECT_PROOF_VER_FAILED = 0x4a,
-	REJECT_SC_CUM_COMM_TREE = 0x4b,
-	REJECT_ACTIVE_CERT_DATA_HASH = 0x4c
-};
-
-// The following makes RejectionCode printable in logs
-inline std::ostream& operator<<(std::ostream& os, const RejectionCode& code)
-{
-    os << static_cast<unsigned char>(code);
-    return os;
-}
 
 /** Capture information about block/transaction validation */
 class CValidationState
 {
-private:
-    enum class State
-	{
-        VALID,   //! everything ok
-        INVALID, //! network rule violation (DoS value may be set)
-        ERROR,   //! run-time error
-    } mode;
-    int nDoS;
-    std::string strRejectReason;
-    RejectionCode chRejectCode;
-    bool corruptionPossible;
 public:
-    CValidationState() : mode(State::VALID), nDoS(0), chRejectCode(RejectionCode::VALIDATION_OK), corruptionPossible(false) {}
-    virtual ~CValidationState() {};
+    CValidationState() : mode(State::VALID), nDoS(0), chRejectCode(Code::OK), corruptionPossible(false) {}
+    ~CValidationState() {};
 
-    virtual bool DoS(int level, bool ret = false,
-    		RejectionCode chRejectCodeIn = RejectionCode::VALIDATION_OK,
+    /** "reject" message codes */
+    enum class Code : unsigned char
+    {
+        OK = 0x00,
+        MALFORMED = 0x01,
+        INVALID = 0x10,
+        OBSOLETE = 0x11,
+        DUPLICATE = 0x12,
+        NONSTANDARD = 0x40,
+        DUST = 0x41,       //unused apparently
+        INSUFFICIENT_FEE = 0x42,
+        CHECKPOINT = 0x43, //unused apparently
+        CHECKBLOCKATHEIGHT_NOT_FOUND = 0x44,
+        SCID_NOT_FOUND = 0x45,
+        INSUFFICIENT_SCID_FUNDS = 0x46,
+        ABSURDLY_HIGH_FEE = 0x47,
+        HAS_CONFLICTS = 0x48,
+        NO_COINS_FOR_INPUT = 0x49,
+        INVALID_PROOF = 0x4a,
+        SC_CUM_COMM_TREE = 0x4b,
+        ACTIVE_CERT_DATA_HASH = 0x4c
+    };
+
+    // The following makes CValidationState::Code serializable
+    static unsigned char CodeToChar(Code code)
+    {
+        return static_cast<unsigned char>(code);
+    }
+
+    bool DoS(int level, bool ret = false, Code chRejectCodeIn = Code::OK,
             std::string strRejectReasonIn="", bool corruptionIn=false)
     {
         chRejectCode = chRejectCodeIn;
@@ -71,14 +57,12 @@ public:
         return ret;
     }
 
-    virtual bool Invalid(bool ret = false,
-                         RejectionCode _chRejectCode=RejectionCode::VALIDATION_OK,
-                         std::string _strRejectReason="")
+    bool Invalid(bool ret = false, Code _chRejectCode=Code::OK, std::string _strRejectReason="")
     {
         return DoS(0, ret, _chRejectCode, _strRejectReason);
     }
 
-    virtual bool Error(const std::string& strRejectReasonIn)
+    bool Error(const std::string& strRejectReasonIn)
     {
         if (mode == State::VALID)
             strRejectReason = strRejectReasonIn;
@@ -86,21 +70,28 @@ public:
         return false;
     }
 
-    virtual bool IsValid()   const { return mode == State::VALID; }
-    virtual bool IsInvalid() const { return mode == State::INVALID; }
-    virtual bool IsError()   const { return mode == State::ERROR; }
+    bool IsValid()   const { return mode == State::VALID; }
+    bool IsInvalid() const { return mode == State::INVALID; }
+    bool IsError()   const { return mode == State::ERROR; }
 
-    virtual bool IsInvalid(int &nDoSOut) const {
-        if (IsInvalid())
-        {
-            nDoSOut = nDoS;
-            return true;
-        }
-        return false;
-    }
-    virtual bool CorruptionPossible()     const { return corruptionPossible; }
-    virtual RejectionCode GetRejectCode() const { return chRejectCode; }
-    virtual std::string GetRejectReason() const { return strRejectReason; }
+    int GetDoS() const { return nDoS; }
+
+    bool CorruptionPossible()     const { return corruptionPossible; }
+    Code GetRejectCode() const { return chRejectCode; }
+    std::string GetRejectReason() const { return strRejectReason; }
+
+private:
+    enum class State
+    {
+        VALID,   //! everything ok
+        INVALID, //! network rule violation (DoS value may be set)
+        ERROR,   //! run-time error
+    } mode;
+
+    int nDoS;
+    std::string strRejectReason;
+    Code chRejectCode;
+    bool corruptionPossible;
 };
 
 #endif // BITCOIN_CONSENSUS_VALIDATION_H
