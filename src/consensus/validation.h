@@ -7,84 +7,99 @@
 #define BITCOIN_CONSENSUS_VALIDATION_H
 
 #include <string>
+#include <iostream>
 
 /** "reject" message codes */
-static const unsigned char VALIDATION_OK = 0x00;
+enum class RejectionCode : unsigned char
+{
+	VALIDATION_OK = 0x00,
+	REJECT_MALFORMED = 0x01,
+	REJECT_INVALID = 0x10,
+	REJECT_OBSOLETE = 0x11,
+	REJECT_DUPLICATE = 0x12,
+	REJECT_NONSTANDARD = 0x40,
+	REJECT_DUST = 0x41,       //unused apparently
+	REJECT_INSUFFICIENTFEE = 0x42,
+	REJECT_CHECKPOINT = 0x43, //unused apparently
+	REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND = 0x44,
+	REJECT_SCID_NOT_FOUND = 0x45,
+	REJECT_INSUFFICIENT_SCID_FUNDS = 0x46,
+	REJECT_ABSURDLY_HIGH_FEE = 0x47,
+	REJECT_HAS_CONFLICTS = 0x48,
+	REJECT_NO_COINS_FOR_INPUT = 0x49,
+	REJECT_PROOF_VER_FAILED = 0x4a,
+	REJECT_SC_CUM_COMM_TREE = 0x4b,
+	REJECT_ACTIVE_CERT_DATA_HASH = 0x4c
+};
 
-static const unsigned char REJECT_MALFORMED = 0x01;
-static const unsigned char REJECT_INVALID = 0x10;
-static const unsigned char REJECT_OBSOLETE = 0x11;
-static const unsigned char REJECT_DUPLICATE = 0x12;
-static const unsigned char REJECT_NONSTANDARD = 0x40;
-static const unsigned char REJECT_DUST = 0x41;
-static const unsigned char REJECT_INSUFFICIENTFEE = 0x42;
-static const unsigned char REJECT_CHECKPOINT = 0x43;
-static const unsigned char REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND = 0x44;
-static const unsigned char REJECT_SCID_NOT_FOUND = 0x45;
-static const unsigned char REJECT_INSUFFICIENT_SCID_FUNDS = 0x46;
-static const unsigned char REJECT_ABSURDLY_HIGH_FEE = 0x47;
-static const unsigned char REJECT_HAS_CONFLICTS = 0x48;
-static const unsigned char REJECT_NO_COINS_FOR_INPUT = 0x49;
-static const unsigned char REJECT_PROOF_VER_FAILED = 0x4a;
-static const unsigned char REJECT_SC_CUM_COMM_TREE = 0x4b;
-static const unsigned char REJECT_ACTIVE_CERT_DATA_HASH = 0x4c;
+// The following makes RejectionCode printable in logs
+std::ostream& operator<<(std::ostream& os, const RejectionCode& code)
+{
+    os << static_cast<unsigned char>(code);
+    return os;
+}
 
 /** Capture information about block/transaction validation */
-class CValidationState {
+class CValidationState
+{
 private:
-    enum mode_state {
-        MODE_VALID,   //! everything ok
-        MODE_INVALID, //! network rule violation (DoS value may be set)
-        MODE_ERROR,   //! run-time error
+    enum class State
+	{
+        VALID,   //! everything ok
+        INVALID, //! network rule violation (DoS value may be set)
+        ERROR,   //! run-time error
     } mode;
     int nDoS;
     std::string strRejectReason;
-    unsigned char chRejectCode;
+    RejectionCode chRejectCode;
     bool corruptionPossible;
 public:
-    CValidationState() : mode(MODE_VALID), nDoS(0), chRejectCode(VALIDATION_OK), corruptionPossible(false) {}
+    CValidationState() : mode(State::VALID), nDoS(0), chRejectCode(RejectionCode::VALIDATION_OK), corruptionPossible(false) {}
+    virtual ~CValidationState() {};
+
     virtual bool DoS(int level, bool ret = false,
-             unsigned char chRejectCodeIn=0, std::string strRejectReasonIn="",
-             bool corruptionIn=false) {
+    		RejectionCode chRejectCodeIn =RejectionCode::VALIDATION_OK,
+            std::string strRejectReasonIn="", bool corruptionIn=false)
+    {
         chRejectCode = chRejectCodeIn;
         strRejectReason = strRejectReasonIn;
         corruptionPossible = corruptionIn;
-        if (mode == MODE_ERROR)
+        if (mode == State::ERROR)
             return ret;
         nDoS += level;
-        mode = MODE_INVALID;
+        mode = State::INVALID;
         return ret;
     }
+
     virtual bool Invalid(bool ret = false,
-                 unsigned char _chRejectCode=VALIDATION_OK, std::string _strRejectReason="") {
+                         RejectionCode _chRejectCode=RejectionCode::VALIDATION_OK,
+                         std::string _strRejectReason="")
+    {
         return DoS(0, ret, _chRejectCode, _strRejectReason);
     }
-    virtual bool Error(const std::string& strRejectReasonIn) {
-        if (mode == MODE_VALID)
+
+    virtual bool Error(const std::string& strRejectReasonIn)
+    {
+        if (mode == State::VALID)
             strRejectReason = strRejectReasonIn;
-        mode = MODE_ERROR;
+        mode = State::ERROR;
         return false;
     }
-    virtual bool IsValid() const {
-        return mode == MODE_VALID;
-    }
-    virtual bool IsInvalid() const {
-        return mode == MODE_INVALID;
-    }
-    virtual bool IsError() const {
-        return mode == MODE_ERROR;
-    }
+
+    virtual bool IsValid()   const { return mode == State::VALID; }
+    virtual bool IsInvalid() const { return mode == State::INVALID; }
+    virtual bool IsError()   const { return mode == State::ERROR; }
+
     virtual bool IsInvalid(int &nDoSOut) const {
-        if (IsInvalid()) {
+        if (IsInvalid())
+        {
             nDoSOut = nDoS;
             return true;
         }
         return false;
     }
-    virtual bool CorruptionPossible() const {
-        return corruptionPossible;
-    }
-    virtual unsigned char GetRejectCode() const { return chRejectCode; }
+    virtual bool CorruptionPossible()     const { return corruptionPossible; }
+    virtual RejectionCode GetRejectCode() const { return chRejectCode; }
     virtual std::string GetRejectReason() const { return strRejectReason; }
 };
 

@@ -19,6 +19,7 @@
 #include "zcash/IncrementalMerkleTree.hpp"
 #include <sc/sidechain.h>
 #include <sc/proofverifier.h>
+#include <consensus/validation.h>
 
 class CBlockUndo;
 class CTxInUndo;
@@ -672,21 +673,21 @@ public:
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
-    bool IsScTxApplicableToState(const CTransaction& tx, unsigned char& ret_code) const;
-    bool IsScTxCswProofVerified(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier, unsigned char& ret_code) const;
+    bool IsScTxApplicableToState(const CTransaction& tx, RejectionCode& ret_code) const;
+    bool IsScTxCswProofVerified(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier, RejectionCode& ret_code) const;
     bool CheckScTxTiming(const uint256& scId) const;
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToState(const CScCertificate& cert, unsigned char& ret_code) const;
-    bool IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier, unsigned char& ret_code) const;
+    bool IsCertApplicableToState(const CScCertificate& cert, RejectionCode& ret_code) const;
+    bool IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier, RejectionCode& ret_code) const;
     bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
 
     bool CheckEndEpochCumScTxCommTreeRoot(
         const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot,
-        unsigned char& ret_code) const;
+		RejectionCode& ret_code) const;
 
     bool CheckCertTiming(const uint256& scId, int certEpoch) const;
     bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);

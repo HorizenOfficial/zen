@@ -130,7 +130,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
         {
             return state.DoS(100,
                 error("mismatch between transaction version and sidechain output presence"),
-                REJECT_INVALID, "sidechain-tx-version");
+                RejectionCode::REJECT_INVALID, "sidechain-tx-version");
         }
 
         // anyway skip non sc related tx
@@ -143,7 +143,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
         {
             return state.DoS(100,
                 error("mismatch between transaction version and joinsplit presence"),
-                REJECT_INVALID, "sidechain-tx-version");
+                RejectionCode::REJECT_INVALID, "sidechain-tx-version");
         }
     }
 
@@ -162,7 +162,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], sc creation withdrawalEpochLength %d is non-positive\n",
                     __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength),
-                    REJECT_INVALID, "sidechain-sc-creation-epoch-not-valid");
+                    RejectionCode::REJECT_INVALID, "sidechain-sc-creation-epoch-not-valid");
         }
 
         if (!sc.CheckAmountRange(cumulatedAmount) )
@@ -170,7 +170,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], sc creation amount is non-positive or larger than %s\n",
                     __func__, __LINE__, txHash.ToString(), FormatMoney(MAX_MONEY)),
-                    REJECT_INVALID, "sidechain-sc-creation-amount-outside-range");
+                    RejectionCode::REJECT_INVALID, "sidechain-sc-creation-amount-outside-range");
         }
 
         for(const auto& config: sc.vFieldElementCertificateFieldConfig)
@@ -178,7 +178,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             if (!config.IsValid())
                 return state.DoS(100,
                         error("%s():%d - ERROR: Invalid tx[%s], invalid config parameters for vFieldElementCertificateFieldConfig\n",
-                        __func__, __LINE__, txHash.ToString()), REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
+                        __func__, __LINE__, txHash.ToString()), RejectionCode::REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
         }
 
         for(const auto& config: sc.vBitVectorCertificateFieldConfig)
@@ -186,7 +186,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             if (!config.IsValid())
                 return state.DoS(100,
                         error("%s():%d - ERROR: Invalid tx[%s], invalid config parameters for vBitVectorCertificateFieldConfig\n",
-                        __func__, __LINE__, txHash.ToString()), REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
+                        __func__, __LINE__, txHash.ToString()), RejectionCode::REJECT_INVALID, "sidechain-sc-creation-invalid-custom-config");
         }
 
         if (!libzendoomc::IsValidScVk(sc.wCertVk))
@@ -194,7 +194,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid wCert verification key\n",
                     __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-creation-invalid-wcert-vk");
+                    RejectionCode::REJECT_INVALID, "sidechain-sc-creation-invalid-wcert-vk");
         }
 
         if(sc.constant.is_initialized() && !sc.constant->IsValid())
@@ -202,7 +202,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid constant\n",
                     __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-creation-invalid-constant");
+                    RejectionCode::REJECT_INVALID, "sidechain-sc-creation-invalid-constant");
         }
 
         if (sc.wMbtrVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wMbtrVk.get()))
@@ -210,7 +210,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid wMbtrVk verification key\n",
                     __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-creation-invalid-w-mbtr-vk");
+                    RejectionCode::REJECT_INVALID, "sidechain-sc-creation-invalid-w-mbtr-vk");
         }
 
         if (sc.wCeasedVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
@@ -218,7 +218,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",
                     __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-creation-invalid-wceased-vk");
+                    RejectionCode::REJECT_INVALID, "sidechain-sc-creation-invalid-wceased-vk");
         }
     }
 
@@ -230,7 +230,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], sc fwd amount is non-positive or larger than %s\n",
                     __func__, __LINE__, txHash.ToString(), FormatMoney(MAX_MONEY)),
-                    REJECT_INVALID, "sidechain-sc-fwd-amount-outside-range");
+                    RejectionCode::REJECT_INVALID, "sidechain-sc-fwd-amount-outside-range");
         }
     }
 
@@ -241,7 +241,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], sc fee amount is non-positive or larger than %s\n",
                     __func__, __LINE__, txHash.ToString(), FormatMoney(MAX_MONEY)),
-                    REJECT_INVALID, "sidechain-sc-fee-amount-outside-range");
+                    RejectionCode::REJECT_INVALID, "sidechain-sc-fee-amount-outside-range");
         }
 
         if (!libzendoomc::IsValidScProof(bt.scProof))
@@ -249,7 +249,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scProof\n",
                     __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-proof");
+                    RejectionCode::REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-proof");
         }
 
         if (!bt.scRequestData.IsValid())
@@ -257,25 +257,24 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scRequestData\n",
                     __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-utxo-id");
+                    RejectionCode::REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-utxo-id");
         }
     }
 
-    uint32_t vActCertDataSize = tx.GetVActCertData().size();
-    if (vActCertDataSize == 0 && !tx.GetVcswCcIn().empty())
+    if (!tx.GetVcswCcIn().empty() && tx.GetVActCertData().size() == 0)
     {
         return state.DoS(100,
-            error("%s():%d - ERROR: Invalid tx[%s] : empty vector of active cert data with csw inputs\n",
+            error("%s():%d - ERROR: Invalid tx[%s] : Missing active cert data for some csw inputs\n",
                 __func__, __LINE__, txHash.ToString()),
-            REJECT_INVALID, "sidechain-cswinput-empty-act-cert-data-vec");
+            RejectionCode::REJECT_INVALID, "sidechain-cswinput-empty-act-cert-data-vec");
     }
 
-    if (vActCertDataSize > tx.GetVcswCcIn().size())
+    if (tx.GetVActCertData().size() > tx.GetVcswCcIn().size())
     {
         return state.DoS(100,
             error("%s():%d - ERROR: Invalid tx[%s] : vector of active cert data hash has to many entries\n",
                 __func__, __LINE__, txHash.ToString()),
-            REJECT_INVALID, "sidechain-cswinput-too-big-act-cert-data-vec");
+            RejectionCode::REJECT_INVALID, "sidechain-cswinput-too-big-act-cert-data-vec");
     }
 
     std::set<uint32_t> sActCertDataIdxs;
@@ -287,7 +286,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                 error("%s():%d - ERROR: Invalid tx[%s] : CSW value %d is non-positive or out of range\n",
                     __func__, __LINE__, txHash.ToString(), csw.nValue),
-                REJECT_INVALID, "sidechain-cswinput-value-not-valid");
+                RejectionCode::REJECT_INVALID, "sidechain-cswinput-value-not-valid");
         }
 
         if(!csw.nullifier.IsValid())
@@ -295,16 +294,16 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                 error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW nullifier\n",
                     __func__, __LINE__, txHash.ToString()),
-                REJECT_INVALID, "sidechain-cswinput-invalid-nullifier");
+                RejectionCode::REJECT_INVALID, "sidechain-cswinput-invalid-nullifier");
         }
         
         uint32_t idx = csw.actCertDataIdx;
-        if(idx > (vActCertDataSize-1))
+        if(idx > (tx.GetVActCertData().size()-1))
         {
             return state.DoS(100,
                 error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW actCertDataIdx[%d] (vActCertDataSize=%d)\n",
-                    __func__, __LINE__, txHash.ToString(), idx, vActCertDataSize),
-                REJECT_INVALID, "sidechain-cswinput-invalid-act-cert-data-idx");
+                    __func__, __LINE__, txHash.ToString(), idx, tx.GetVActCertData().size()),
+                RejectionCode::REJECT_INVALID, "sidechain-cswinput-invalid-act-cert-data-idx");
         }
 
         if (!sActCertDataIdxs.count(idx))
@@ -316,7 +315,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                 return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW active cert data hash at idx[%d]\n",
                         __func__, __LINE__, txHash.ToString(), idx),
-                    REJECT_INVALID, "sidechain-cswinput-invalid-act-cert-data");
+                    RejectionCode::REJECT_INVALID, "sidechain-cswinput-invalid-act-cert-data");
             }
         }
 
@@ -325,17 +324,17 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                 error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW proof\n",
                     __func__, __LINE__, txHash.ToString()),
-                REJECT_INVALID, "sidechain-cswinput-invalid-proof");
+                RejectionCode::REJECT_INVALID, "sidechain-cswinput-invalid-proof");
         }
     }
 
     // check we processed all and only relevant cert data hashes
-    if (sActCertDataIdxs.size() != vActCertDataSize)
+    if (sActCertDataIdxs.size() != tx.GetVActCertData().size())
     {
         return state.DoS(100,
             error("%s():%d - ERROR: Invalid tx[%s] : invalid vector for active cert data (size=%d, processed=%d)\n",
-                __func__, __LINE__, txHash.ToString(), vActCertDataSize, sActCertDataIdxs.size()),
-            REJECT_INVALID, "sidechain-cswinput-invalid-act-cert-data-vec");
+                __func__, __LINE__, txHash.ToString(), tx.GetVActCertData().size(), sActCertDataIdxs.size()),
+            RejectionCode::REJECT_INVALID, "sidechain-cswinput-invalid-act-cert-data-vec");
     }
 
     return true;
@@ -350,7 +349,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
         return state.DoS(100,
                 error("%s():%d - ERROR: Invalid cert[%s], negative quality\n",
                 __func__, __LINE__, certHash.ToString()),
-                REJECT_INVALID, "bad-cert-quality-negative");
+                RejectionCode::REJECT_INVALID, "bad-cert-quality-negative");
     }
 
     if (cert.epochNumber < 0 || cert.endEpochBlockHash.IsNull())
@@ -358,7 +357,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
         return state.DoS(100,
                 error("%s():%d - ERROR: Invalid cert[%s], negative epoch number or null endEpochBlockHash\n",
                 __func__, __LINE__, certHash.ToString()),
-                REJECT_INVALID, "bad-cert-invalid-epoch-data");;
+                RejectionCode::REJECT_INVALID, "bad-cert-invalid-epoch-data");;
     }
     
     if (!cert.endEpochCumScTxCommTreeRoot.IsValid() )
@@ -366,7 +365,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
         return state.DoS(100,
                 error("%s():%d - ERROR: Invalid cert[%s], invalid endEpochCumScTxCommTreeRoot [%s]\n",
                 __func__, __LINE__, certHash.ToString(), cert.endEpochCumScTxCommTreeRoot.GetHexRepr()),
-                REJECT_INVALID, "bad-cert-invalid-cum-comm-tree");;
+                RejectionCode::REJECT_INVALID, "bad-cert-invalid-cum-comm-tree");;
     }
 
     if(!libzendoomc::IsValidScProof(cert.scProof))
@@ -374,7 +373,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
         return state.DoS(100,
                 error("%s():%d - ERROR: Invalid cert[%s], invalid scProof\n",
                 __func__, __LINE__, certHash.ToString()),
-                REJECT_INVALID, "bad-cert-invalid-sc-proof");
+                RejectionCode::REJECT_INVALID, "bad-cert-invalid-sc-proof");
     }
 
     return true;

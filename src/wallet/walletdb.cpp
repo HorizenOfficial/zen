@@ -493,9 +493,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             if (!(CheckTransaction(wtx.getWrappedTx(), state, verifier) && (wtx.getWrappedTx().GetHash() == hash) && state.IsValid()))
             {
                 LogPrintf("%s: failure: tx id = %s, rejext code = %d", __func__, wtx.getWrappedTx().GetHash().ToString(), state.GetRejectCode());
-                // Don't consider REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND error code as a failure. It can appear because a tx
+                // Don't consider RejectionCode::REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND error code as a failure. It can appear because a tx
                 // is a pre-chainsplit tx, so it is perfectly fine in this case.
-                if (state.GetRejectCode() != REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND)
+                if (state.GetRejectCode() != RejectionCode::REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND)
                     return false;
             }
 

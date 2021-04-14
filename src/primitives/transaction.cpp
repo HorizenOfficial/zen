@@ -482,7 +482,7 @@ bool CTransaction::CheckSerializedSize(CValidationState &state) const
     if (size > MAX_TX_SIZE) {
         LogPrintf("CheckSerializedSize: Tx id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_TX_SIZE, ToString());
         return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
-                         REJECT_INVALID, "bad-txns-oversize");
+                         RejectionCode::REJECT_INVALID, "bad-txns-oversize");
     }
 
     return true;
@@ -496,14 +496,14 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
     {
         if (txout.nValue < 0)
             return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
-                             REJECT_INVALID, "bad-txns-vout-negative");
+                             RejectionCode::REJECT_INVALID, "bad-txns-vout-negative");
         if (txout.nValue > MAX_MONEY)
             return state.DoS(100, error("CheckAmounts(): txout.nValue too high"),
-                             REJECT_INVALID, "bad-txns-vout-toolarge");
+                             RejectionCode::REJECT_INVALID, "bad-txns-vout-toolarge");
         nCumulatedValueOut += txout.nValue;
         if (!MoneyRange(nCumulatedValueOut))
             return state.DoS(100, error("CheckAmounts(): txout total out of range"),
-                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+                             RejectionCode::REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
     // Ensure that joinsplit values are well-formed
@@ -511,33 +511,33 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
     {
         if (joinsplit.vpub_old < 0) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_old negative"),
-                             REJECT_INVALID, "bad-txns-vpub_old-negative");
+                             RejectionCode::REJECT_INVALID, "bad-txns-vpub_old-negative");
         }
 
         if (joinsplit.vpub_new < 0) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new negative"),
-                             REJECT_INVALID, "bad-txns-vpub_new-negative");
+                             RejectionCode::REJECT_INVALID, "bad-txns-vpub_new-negative");
         }
 
         if (joinsplit.vpub_old > MAX_MONEY) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_old too high"),
-                             REJECT_INVALID, "bad-txns-vpub_old-toolarge");
+                             RejectionCode::REJECT_INVALID, "bad-txns-vpub_old-toolarge");
         }
 
         if (joinsplit.vpub_new > MAX_MONEY) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new too high"),
-                             REJECT_INVALID, "bad-txns-vpub_new-toolarge");
+                             RejectionCode::REJECT_INVALID, "bad-txns-vpub_new-toolarge");
         }
 
         if (joinsplit.vpub_new != 0 && joinsplit.vpub_old != 0) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new and joinsplit.vpub_old both nonzero"),
-                             REJECT_INVALID, "bad-txns-vpubs-both-nonzero");
+                             RejectionCode::REJECT_INVALID, "bad-txns-vpubs-both-nonzero");
         }
 
         nCumulatedValueOut += joinsplit.vpub_old;
         if (!MoneyRange(nCumulatedValueOut)) {
             return state.DoS(100, error("CheckAmounts(): txout total out of range"),
-                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+                             RejectionCode::REJECT_INVALID, "bad-txns-txouttotal-toolarge");
         }
     }
 
@@ -545,21 +545,21 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
     {
         if (!scOut.CheckAmountRange(nCumulatedValueOut))
             return state.DoS(100, error("%s(): ccout total out of range", __func__),
-                             REJECT_INVALID, "bad-txns-ccout-range");
+                             RejectionCode::REJECT_INVALID, "bad-txns-ccout-range");
     }
 
     for(const CTxForwardTransferOut& fwdOut: vft_ccout)
     {
         if (!fwdOut.CheckAmountRange(nCumulatedValueOut))
             return state.DoS(100, error("%s(): ccout total out of range", __func__),
-                             REJECT_INVALID, "bad-txns-ccout-range");
+                             RejectionCode::REJECT_INVALID, "bad-txns-ccout-range");
     }
 
     for(const CBwtRequestOut& mbwtr: vmbtr_out)
     {
         if (!mbwtr.CheckAmountRange(nCumulatedValueOut))
             return state.DoS(100, error("%s(): ccout total out of range", __func__),
-                             REJECT_INVALID, "bad-txns-ccout-range");
+                             RejectionCode::REJECT_INVALID, "bad-txns-ccout-range");
     }
 
     // Ensure input values do not exceed MAX_MONEY
@@ -572,7 +572,7 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
 
         if (!MoneyRange(joinsplit.vpub_new) || !MoneyRange(nCumulatedValueIn)) {
             return state.DoS(100, error("CheckAmounts(): txin total out of range"),
-                             REJECT_INVALID, "bad-txns-txintotal-toolarge");
+                             RejectionCode::REJECT_INVALID, "bad-txns-txintotal-toolarge");
         }
     }
 
@@ -582,11 +582,11 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
 
         if (!MoneyRange(cswIn.nValue)) {
             return state.DoS(100, error("CheckAmounts(): txin total out of range"),
-                             REJECT_INVALID, "bad-txns-txcswin-invalid");
+                             RejectionCode::REJECT_INVALID, "bad-txns-txcswin-invalid");
         }
         if (!MoneyRange(nCumulatedValueIn)) {
             return state.DoS(100, error("CheckAmounts(): txin total out of range"),
-                             REJECT_INVALID, "bad-txns-txintotal-toolarge");
+                             RejectionCode::REJECT_INVALID, "bad-txns-txintotal-toolarge");
         }
     }
 
@@ -601,7 +601,7 @@ bool CTransactionBase::CheckInputsDuplication(CValidationState &state) const
     {
         if (vInOutPoints.count(txin.prevout))
             return state.DoS(100, error("CheckInputsDuplications(): duplicate inputs"),
-                             REJECT_INVALID, "bad-txns-inputs-duplicate");
+                             RejectionCode::REJECT_INVALID, "bad-txns-inputs-duplicate");
         vInOutPoints.insert(txin.prevout);
     }
 
@@ -613,7 +613,7 @@ bool CTransactionBase::CheckInputsDuplication(CValidationState &state) const
         {
             if (vJoinSplitNullifiers.count(nf))
                 return state.DoS(100, error("CheckInputsDuplications(): duplicate nullifiers"),
-                             REJECT_INVALID, "bad-joinsplits-nullifiers-duplicate");
+                             RejectionCode::REJECT_INVALID, "bad-joinsplits-nullifiers-duplicate");
 
             vJoinSplitNullifiers.insert(nf);
         }
@@ -635,7 +635,7 @@ bool CTransaction::CheckInputsDuplication(CValidationState &state) const
     {
         if(vNullifiers.count(cswIn.nullifier))
             return state.DoS(100, error("CheckInputsDuplications(): duplicate ceased sidechain withdrawal inputs"),
-                             REJECT_INVALID, "bad-txns-csw-inputs-duplicate");
+                             RejectionCode::REJECT_INVALID, "bad-txns-csw-inputs-duplicate");
 
         vNullifiers.insert(cswIn.nullifier);
     }
@@ -650,25 +650,25 @@ bool CTransaction::CheckInputsInteraction(CValidationState &state) const
         // There should be no joinsplits in a coinbase transaction
         if (vjoinsplit.size() > 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase has joinsplits"),
-                             REJECT_INVALID, "bad-cb-has-joinsplits");
+                             RejectionCode::REJECT_INVALID, "bad-cb-has-joinsplits");
 
         if (vin[0].scriptSig.size() < 2 || vin[0].scriptSig.size() > 100)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase script size"),
-                             REJECT_INVALID, "bad-cb-length");
+                             RejectionCode::REJECT_INVALID, "bad-cb-length");
 
         if (vsc_ccout.size() != 0 || vft_ccout.size() != 0 || vmbtr_out.size() != 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase contains sidechains related outputs"),
-                                         REJECT_INVALID, "bad-cb-destination");
+                                         RejectionCode::REJECT_INVALID, "bad-cb-destination");
         if (vcsw_ccin.size() != 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase has CSW inputs"),
-                                         REJECT_INVALID, "bad-cb-has-cswinputs");
+                                         RejectionCode::REJECT_INVALID, "bad-cb-has-cswinputs");
     }
     else
     {
         for(const CTxIn& txin: vin)
             if (txin.prevout.IsNull())
                 return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
-                                 REJECT_INVALID, "bad-txns-prevout-null");
+                                 RejectionCode::REJECT_INVALID, "bad-txns-prevout-null");
     }
     return true;
 }
@@ -766,7 +766,7 @@ bool CTransaction::IsValidVersion(CValidationState &state) const
     if (nVersion < MIN_OLD_TX_VERSION && nVersion != GROTH_TX_VERSION && !IsScVersion() )
     {
         return state.DoS(100, error("BasicVersionCheck(): version too low"),
-                         REJECT_INVALID, "bad-txns-version-too-low");
+                         RejectionCode::REJECT_INVALID, "bad-txns-version-too-low");
     }
 
     return true;
@@ -780,7 +780,7 @@ bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
     {
         LogPrint("sc", "%s():%d - Error: tx[%s]\n", __func__, __LINE__, GetHash().ToString() );
         return state.DoS(10, error("CheckNonEmpty(): vin empty"),
-                         REJECT_INVALID, "bad-txns-vin-empty");
+                         RejectionCode::REJECT_INVALID, "bad-txns-vin-empty");
     }
 
     // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
@@ -788,7 +788,7 @@ bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
     if (GetVout().empty() && GetVjoinsplit().empty() && ccOutIsNull())
     {
         return state.DoS(10, error("CheckNonEmpty(): vout empty"),
-                         REJECT_INVALID, "bad-txns-vout-empty");
+                         RejectionCode::REJECT_INVALID, "bad-txns-vout-empty");
     }
 
     return true;
@@ -797,7 +797,7 @@ bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
 bool CTransaction::CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const {
     if (!MoneyRange(totalVinAmount))
         return state.DoS(100, error("%s(): total input amount out of range", __func__),
-                         REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+                         RejectionCode::REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
     if (!CheckAmounts(state))
         return false;
@@ -806,16 +806,16 @@ bool CTransaction::CheckFeeAmount(const CAmount& totalVinAmount, CValidationStat
         return state.DoS(100, error("%s(): %s value in (%s) < value out (%s)", __func__,
                                     GetHash().ToString(),
                                     FormatMoney(totalVinAmount), FormatMoney(GetValueOut()) ),
-                         REJECT_INVALID, "bad-txns-in-belowout");
+                         RejectionCode::REJECT_INVALID, "bad-txns-in-belowout");
 
     CAmount nTxFee = totalVinAmount - GetValueOut();
     if (nTxFee < 0)
         return state.DoS(100, error("%s(): %s nTxFee < 0", __func__, GetHash().ToString()),
-                         REJECT_INVALID, "bad-txns-fee-negative");
+                         RejectionCode::REJECT_INVALID, "bad-txns-fee-negative");
 
     if (!MoneyRange(nTxFee))
         return state.DoS(100, error("%s(): nTxFee out of range", __func__),
-                         REJECT_INVALID, "bad-txns-fee-outofrange");
+                         RejectionCode::REJECT_INVALID, "bad-txns-fee-outofrange");
 
     return true;
 }
@@ -906,7 +906,7 @@ bool CTransaction::CheckInputsLimit(CValidationState& state) const {
         size_t n = GetVin().size() + GetVcswCcIn().size();
         if (n > limit) {
             return state.DoS(10, error("%s():%d - Dropping tx %s : too many transparent inputs %zu > limit %zu\n",
-                __func__, __LINE__, GetHash().ToString(), n, limit), REJECT_INVALID, "bad-tx-vin-input-limit");
+                __func__, __LINE__, GetHash().ToString(), n, limit), RejectionCode::REJECT_INVALID, "bad-tx-vin-input-limit");
             return false;
         }
     }
@@ -957,7 +957,7 @@ bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, 
         {
             return state.DoS(dosLevel, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s",
                     __FILE__, __func__, ::GetTxnOutputType(whichType), nHeight, GetHash().ToString()),
-                REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
+                RejectionCode::REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
 
@@ -1034,7 +1034,7 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
             //enforce empty joinsplit for transparent txs and sidechain tx
             if(!GetVjoinsplit().empty()) {
                 return state.DoS(dosLevel, error("ContextualCheck(): transparent or sc tx but vjoinsplit not empty"),
-                                     REJECT_INVALID, "bad-txns-transparent-jsnotempty");
+                                     RejectionCode::REJECT_INVALID, "bad-txns-transparent-jsnotempty");
             }
             return true;
         }
@@ -1046,7 +1046,7 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
                 __func__, __LINE__, nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
             return state.DoS(dosLevel,
                              error("ContextualCheck(): unexpected tx version"),
-                             REJECT_INVALID, "bad-tx-version-unexpected");
+                             RejectionCode::REJECT_INVALID, "bad-tx-version-unexpected");
         }
         return true;
     }
@@ -1061,7 +1061,7 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
                 __func__, __LINE__, nVersion, nHeight, (int)isGROTHActive, shieldedTxVersion, (int)areSidechainsSupported);
             return state.DoS(0,
                              error("ContextualCheck(): unexpected tx version"),
-                             REJECT_INVALID, "bad-tx-version-unexpected");
+                             RejectionCode::REJECT_INVALID, "bad-tx-version-unexpected");
         }
         return true;
     }

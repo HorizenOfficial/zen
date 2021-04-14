@@ -83,7 +83,7 @@ bool CScCertificate::IsValidVersion(CValidationState &state) const
     {
         LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate bad version %d\n",
             __func__, __LINE__, GetHash().ToString(), nVersion );
-        return state.DoS(100, error("cert version"), REJECT_INVALID, "bad-cert-version");
+        return state.DoS(100, error("cert version"), RejectionCode::REJECT_INVALID, "bad-cert-version");
     }
 
     return true;
@@ -101,7 +101,7 @@ bool CScCertificate::CheckInputsOutputsNonEmpty(CValidationState &state) const
     {
         LogPrint("sc", "%s():%d - Error: cert[%s]\n", __func__, __LINE__, GetHash().ToString() );
         return state.DoS(10, error("%s(): vin empty", __func__),
-                         REJECT_INVALID, "bad-cert-vin-empty");
+                         RejectionCode::REJECT_INVALID, "bad-cert-vin-empty");
     }
 
     return true;
@@ -114,7 +114,7 @@ bool CScCertificate::CheckSerializedSize(CValidationState &state) const
     if (size > MAX_CERT_SIZE) {
         LogPrintf("CheckSerializedSize: Cert id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_CERT_SIZE, ToString());
         return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
-                         REJECT_INVALID, "bad-txns-oversize");
+                         RejectionCode::REJECT_INVALID, "bad-txns-oversize");
     }
 
     return true;
@@ -129,18 +129,18 @@ bool CScCertificate::CheckAmounts(CValidationState &state) const
         const CTxOut & txout = vout[pos];
         if (txout.nValue < 0)
             return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
-                             REJECT_INVALID, "bad-txns-vout-negative");
+                             RejectionCode::REJECT_INVALID, "bad-txns-vout-negative");
         if (txout.nValue > MAX_MONEY)
             return state.DoS(100, error("CheckAmounts(): txout.nValue too high"),
-                             REJECT_INVALID, "bad-txns-vout-toolarge");
+                             RejectionCode::REJECT_INVALID, "bad-txns-vout-toolarge");
 
         if (pos >= nFirstBwtPos && txout.nValue == 0)
             return state.DoS(100, error("CheckAmounts(): backward transfer has zero amount"),
-                             REJECT_INVALID, "bad-txns-bwd-vout-zero");
+                             RejectionCode::REJECT_INVALID, "bad-txns-bwd-vout-zero");
         nCumulatedValueOut += txout.nValue;
         if (!MoneyRange(nCumulatedValueOut))
             return state.DoS(100, error("CheckAmounts(): txout total out of range"),
-                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+                             RejectionCode::REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
     if (!MoneyRange(GetValueOfBackwardTransfers()))
@@ -148,7 +148,7 @@ bool CScCertificate::CheckAmounts(CValidationState &state) const
         LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate amount is outside range\n",
             __func__, __LINE__, GetHash().ToString() );
         return state.DoS(100, error("%s: certificate amount is outside range",
-            __func__), REJECT_INVALID, "bwd-transfer-amount-outside-range");
+            __func__), RejectionCode::REJECT_INVALID, "bwd-transfer-amount-outside-range");
     }
 
     return true;
@@ -158,7 +158,7 @@ bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationSt
 {
     if (!MoneyRange(totalVinAmount))
         return state.DoS(100, error("CheckFeeAmount(): total input amount out of range"),
-                         REJECT_INVALID, "bad-cert-inputvalues-outofrange");
+                         RejectionCode::REJECT_INVALID, "bad-cert-inputvalues-outofrange");
 
     // check all of the outputs because change is computed subtracting bwd transfers from them
     if (!CheckAmounts(state))
@@ -168,16 +168,16 @@ bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationSt
         return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
                                     GetHash().ToString(),
                                     FormatMoney(totalVinAmount), FormatMoney(GetValueOfChange()) ),
-                         REJECT_INVALID, "bad-cert-in-belowout");
+                         RejectionCode::REJECT_INVALID, "bad-cert-in-belowout");
 
     CAmount nCertFee = totalVinAmount - GetValueOfChange();
     if (nCertFee < 0)
         return state.DoS(100, error("CheckFeeAmount(): %s nCertFee < 0", GetHash().ToString()),
-                         REJECT_INVALID, "bad-cert-fee-negative");
+                         RejectionCode::REJECT_INVALID, "bad-cert-fee-negative");
 
     if (!MoneyRange(nCertFee))
         return state.DoS(100, error("CheckFeeAmount(): nCertFee out of range"),
-                         REJECT_INVALID, "bad-cert-fee-outofrange");
+                         RejectionCode::REJECT_INVALID, "bad-cert-fee-outofrange");
 
     return true;
 }
@@ -187,7 +187,7 @@ bool CScCertificate::CheckInputsInteraction(CValidationState &state) const
     for(const CTxIn& txin: vin)
         if (txin.prevout.IsNull())
             return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
-                             REJECT_INVALID, "bad-txns-prevout-null");
+                             RejectionCode::REJECT_INVALID, "bad-txns-prevout-null");
 
     return true;
 }
@@ -232,7 +232,7 @@ bool CScCertificate::CheckInputsLimit(CValidationState &state) const {
         size_t n = GetVin().size();
         if (n > limit) {
             return state.DoS(10, error("%s(): Dropping cert %s : too many inputs %zu > limit %zu\n",
-                __func__, GetHash().ToString(), n, limit), REJECT_INVALID, "bad-cert-vin-input-limit");
+                __func__, GetHash().ToString(), n, limit), RejectionCode::REJECT_INVALID, "bad-cert-vin-input-limit");
         }
     }
     return true;
@@ -263,7 +263,7 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
     bool areScSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
 
     if (!areScSupported)
-         return state.DoS(dosLevel, error("Sidechain are not supported"), REJECT_INVALID, "bad-cert-version");
+         return state.DoS(dosLevel, error("Sidechain are not supported"), RejectionCode::REJECT_INVALID, "bad-cert-version");
 
     if (!CheckBlockAtHeight(state, nHeight, dosLevel))
         return false;

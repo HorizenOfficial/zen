@@ -166,7 +166,7 @@ TEST(checktransaction_tests, BadVersionTooLow) {
 
     CTransaction tx(mtx);
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -177,7 +177,7 @@ TEST(checktransaction_tests, bad_txns_vin_empty) {
 
     CTransaction tx(mtx);
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(10, false, REJECT_INVALID, "bad-txns-vin-empty", false)).Times(1);
+    EXPECT_CALL(state, DoS(10, false, RejectionCode::REJECT_INVALID, "bad-txns-vin-empty", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -189,7 +189,7 @@ TEST(checktransaction_tests, bad_txns_vout_empty) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(10, false, REJECT_INVALID, "bad-txns-vout-empty", false)).Times(1);
+    EXPECT_CALL(state, DoS(10, false, RejectionCode::REJECT_INVALID, "bad-txns-vout-empty", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -219,7 +219,7 @@ TEST(checktransaction_tests, bad_txns_oversize) {
         ASSERT_EQ(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION), 100202);
     
         MockCValidationState state;
-        EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-oversize", false)).Times(1);
+        EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-oversize", false)).Times(1);
         CheckTransactionWithoutProofVerification(tx, state);
     }
 }
@@ -231,7 +231,7 @@ TEST(checktransaction_tests, bad_txns_vout_negative) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vout-negative", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-vout-negative", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -242,7 +242,7 @@ TEST(checktransaction_tests, bad_txns_vout_toolarge) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vout-toolarge", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-vout-toolarge", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -254,7 +254,7 @@ TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_outputs) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-txouttotal-toolarge", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -266,7 +266,7 @@ TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_joinsplit) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-txouttotal-toolarge", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -278,7 +278,7 @@ TEST(checktransaction_tests, bad_txns_txintotal_toolarge_joinsplit) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txintotal-toolarge", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-txintotal-toolarge", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -289,7 +289,7 @@ TEST(checktransaction_tests, bad_txns_vpub_old_negative) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vpub_old-negative", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-vpub_old-negative", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -300,7 +300,7 @@ TEST(checktransaction_tests, bad_txns_vpub_new_negative) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vpub_new-negative", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-vpub_new-negative", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -311,7 +311,7 @@ TEST(checktransaction_tests, bad_txns_vpub_old_toolarge) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vpub_old-toolarge", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-vpub_old-toolarge", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -322,7 +322,7 @@ TEST(checktransaction_tests, bad_txns_vpub_new_toolarge) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vpub_new-toolarge", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-vpub_new-toolarge", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -334,7 +334,7 @@ TEST(checktransaction_tests, bad_txns_vpubs_both_nonzero) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vpubs-both-nonzero", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-vpubs-both-nonzero", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -346,7 +346,7 @@ TEST(checktransaction_tests, bad_txns_inputs_duplicate) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-inputs-duplicate", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-inputs-duplicate", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -358,7 +358,7 @@ TEST(checktransaction_tests, bad_joinsplits_nullifiers_duplicate_same_joinsplit)
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-joinsplits-nullifiers-duplicate", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-joinsplits-nullifiers-duplicate", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -370,7 +370,7 @@ TEST(checktransaction_tests, bad_joinsplits_nullifiers_duplicate_different_joins
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-joinsplits-nullifiers-duplicate", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-joinsplits-nullifiers-duplicate", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -386,7 +386,7 @@ TEST(checktransaction_tests, bad_cb_has_joinsplits) {
     EXPECT_TRUE(tx.IsCoinBase());
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-cb-has-joinsplits", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-cb-has-joinsplits", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -402,7 +402,7 @@ TEST(checktransaction_tests, bad_cb_empty_scriptsig) {
     EXPECT_TRUE(tx.IsCoinBase());
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-cb-length", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-cb-length", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -414,7 +414,7 @@ TEST(checktransaction_tests, bad_txns_prevout_null) {
     EXPECT_FALSE(tx.IsCoinBase());
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(10, false, REJECT_INVALID, "bad-txns-prevout-null", false)).Times(1);
+    EXPECT_CALL(state, DoS(10, false, RejectionCode::REJECT_INVALID, "bad-txns-prevout-null", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -424,7 +424,7 @@ TEST(checktransaction_tests, bad_txns_invalid_joinsplit_signature) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-invalid-joinsplit-signature", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-invalid-joinsplit-signature", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -455,7 +455,7 @@ TEST(checktransaction_tests, non_canonical_ed25519_signature) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-invalid-joinsplit-signature", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-invalid-joinsplit-signature", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -470,7 +470,7 @@ TEST(checktransaction_tests, SproutTxVersionTooLow) {
     CTransaction tx(mtx);
     MockCValidationState state;
 
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -481,7 +481,7 @@ TEST(checktransaction_tests, TransparentTxVersionWithJoinsplit) {
     MockCValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
     EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-transparent-jsnotempty", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-transparent-jsnotempty", false)).Times(1);
     EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
 }
 
@@ -491,7 +491,7 @@ TEST(checktransaction_tests, GrothTxVersion) {
     CTransaction tx(mtx);
     MockCValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-    EXPECT_CALL(state, DoS(0, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+    EXPECT_CALL(state, DoS(0, false, RejectionCode::REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
     EXPECT_FALSE(tx.ContextualCheck(state, 1, 100));
     EXPECT_TRUE(tx.ContextualCheck(state, 200, 100));
 }
@@ -503,7 +503,7 @@ TEST(checktransaction_tests, PhgrTxVersion) {
     MockCValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
     EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
     EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
 }
 
@@ -516,7 +516,7 @@ TEST(checktransaction_tests, ScTxVersion) {
     MockCValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
     EXPECT_TRUE(tx.ContextualCheck(state, 220, 100));
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
     EXPECT_FALSE(tx.ContextualCheck(state, 219, 100));
 }
 
@@ -538,7 +538,7 @@ TEST(checktransaction_tests, bad_txns_txcswin_toosmall) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txcswin-invalid", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-txcswin-invalid", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -549,7 +549,7 @@ TEST(checktransaction_tests, bad_txns_txcswin_toolarge) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txcswin-invalid", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-txcswin-invalid", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -563,7 +563,7 @@ TEST(checktransaction_tests, bad_txns_txintotal_toolarge) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txintotal-toolarge", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-txintotal-toolarge", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 
@@ -577,7 +577,7 @@ TEST(checktransaction_tests, bad_txns_csw_inputs_duplicate) {
     CTransaction tx(mtx);
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-csw-inputs-duplicate", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-csw-inputs-duplicate", false)).Times(1);
     CheckTransactionWithoutProofVerification(tx, state);
 }
 

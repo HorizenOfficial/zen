@@ -5343,7 +5343,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     // sanity check of the endEpochCumScTxCommTreeRoot: it must correspond to the end-epoch block hash 
-    unsigned char ret_code = VALIDATION_OK;
+    unsigned char ret_code = RejectionCode::VALIDATION_OK;
     if (!scView.CheckEndEpochCumScTxCommTreeRoot(sidechain, epochNumber, cert.endEpochCumScTxCommTreeRoot, ret_code))
     {
         LogPrintf("%s():%d - ERROR: endEpochCumScTxCommTreeRoot[%s]/epochNumber[%d] are not legal, ret_code[0x%x]\n",

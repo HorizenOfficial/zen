@@ -38,7 +38,7 @@ TEST(CheckBlock, VersionTooLow) {
     block.nVersion = 1;
 
     MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "version-invalid", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "version-invalid", false)).Times(1);
     EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
 }
 
@@ -68,7 +68,7 @@ TEST(CheckBlock, BlockRejectsBadVersion) {
 
     auto verifier = libzcash::ProofVerifier::Strict();
 
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
     EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
 }
 
@@ -153,7 +153,7 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
 
     MockCValidationState state;
 
-    EXPECT_CALL(state, DoS(100, false, REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, fm->pprev));
 
     CleanUpAll();
@@ -227,7 +227,7 @@ protected:
 
         // We now expect this to be an invalid block, for the given reason.
         MockCValidationState state;
-        EXPECT_CALL(state, DoS(level, false, REJECT_INVALID, reason, false)).Times(1);
+        EXPECT_CALL(state, DoS(level, false, RejectionCode::REJECT_INVALID, reason, false)).Times(1);
         EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
     }
 
@@ -260,14 +260,14 @@ TEST_F(ContextualCheckBlockTest, BadCoinbaseHeight) {
     CBlock prev;
     CBlockIndex indexPrev {prev};
     indexPrev.nHeight = 0;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-cb-height", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-cb-height", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Setting to an incorrect height should fail
     mtx.vin[0].scriptSig = CScript() << 2 << OP_0;
     CTransaction tx3 {mtx};
     block.vtx[0] = tx3;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-cb-height", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "bad-cb-height", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // After correcting the scriptSig, should pass
@@ -365,7 +365,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     mtx.vin[0].scriptSig = CScript() << 110001 << OP_0;
     block.vtx[0] = CTransaction(mtx);
     indexPrev.nHeight = 110000;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Add community reward output for post chain split block
@@ -498,11 +498,11 @@ TEST(ContextualCheckBlockHeader, CheckBlockVersion) {
     EXPECT_TRUE(newBlockVersion == BLOCK_VERSION_SC_SUPPORT);
 
     block.nVersion = BLOCK_VERSION_ORIGINAL;
-    EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
+    EXPECT_CALL(state, Invalid(false, RejectionCode::REJECT_INVALID, "bad-version")).Times(1);
     EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
 
     block.nVersion = BLOCK_VERSION_BEFORE_SC;
-    EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
+    EXPECT_CALL(state, Invalid(false, RejectionCode::REJECT_INVALID, "bad-version")).Times(1);
     EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
 
     block.nVersion = BLOCK_VERSION_SC_SUPPORT;
@@ -517,7 +517,7 @@ TEST(ContextualCheckBlockHeader, CheckBlockVersion) {
     // set a suited prev block time not to have errors since sc fork is after timeblock fork 
     indexPrev.nTime = block.nTime - MAX_FUTURE_BLOCK_TIME_LOCAL/2;
     block.nVersion = BLOCK_VERSION_SC_SUPPORT;
-    EXPECT_CALL(state, Invalid(false, REJECT_INVALID, "bad-version")).Times(1);
+    EXPECT_CALL(state, Invalid(false, RejectionCode::REJECT_INVALID, "bad-version")).Times(1);
     EXPECT_FALSE(ContextualCheckBlockHeader(block, state, &indexPrev));
 
     // and before sidechain fork the new block version is the legacy BLOCK_VERSION_0x2000000
@@ -550,7 +550,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     CBlock block;
     block.vtx.push_back(CTransaction(mtx));
     block.nTime = chainplitFork.getMinimumTime(CBaseChainParams::Network::MAIN);
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test bad amount for community reward output after hard fork
@@ -562,7 +562,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     mtx.getOut(0).nValue = 1.0625 * COIN;
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     mtx.resizeOut(3);
@@ -593,7 +593,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
 
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // this is the correct amount for the FOUNDATION
@@ -629,7 +629,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
 
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // this is the correct amount for the FOUNDATION
@@ -661,7 +661,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     CBlock block;
     block.vtx.push_back(CTransaction(mtx));
     block.nTime = chainsplitFork.getMinimumTime(CBaseChainParams::Network::MAIN);
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test bad addr for community reward output after hardfork
@@ -671,7 +671,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     mtx.getOut(0).nValue = 1.5 * COIN;
     indexPrev.nHeight = 139199;
     block.vtx[0] = CTransaction(mtx);;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
+    EXPECT_CALL(state, DoS(100, false, RejectionCode::REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
     // Test community reward address rotation. Addresses should change every 50000 blocks in a round-robin fashion.
