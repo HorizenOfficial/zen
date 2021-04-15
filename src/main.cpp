@@ -943,14 +943,14 @@ bool CheckCertificate(const CScCertificate& cert, CValidationState& state)
     return true;
 }
 
-std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToConnect, const CCoinsViewCache& view)
+std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToConnect, const CCoinsViewCache& view)
 {
     // The function assumes that certs of given scId are ordered by increasing quality and
     // reference all the same epoch as CheckBlock() guarantees.
     // It returns key: highQualityCert hash -> value: hash of superseeded certificate to be voided (or null hash)
 
     std::set<uint256> visitedScIds;
-    std::map<uint256,uint256> res;
+    std::map<uint256, uint256> res;
     for(auto itCert = blockToConnect.vcert.rbegin(); itCert != blockToConnect.vcert.rend(); ++itCert)
     {
         if (visitedScIds.count(itCert->GetScId()) != 0)
@@ -971,14 +971,14 @@ std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToConnect, cons
     return res;
 }
 
-std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToDisconnect, const CBlockUndo& blockUndo)
+std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToDisconnect, const CBlockUndo& blockUndo)
 {
     // The function assumes that certs of given scId are ordered by increasing quality and
     // reference all the same epoch as CheckBlock() guarantees.
     // It returns key: highQualityCert hash -> value: hash of superseeded certificate to be restored (or null hash)
 
     std::set<uint256> visitedScIds;
-    std::map<uint256,uint256> res;
+    std::map<uint256, uint256> res;
 
     for (int certPos = blockToDisconnect.vcert.size() - 1; certPos >= 0; certPos--)
     {
@@ -999,7 +999,7 @@ std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToDisconnect, c
 
 bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CValidationState& state)
 {
-    std::map<uint256, std::pair<int32_t,int64_t>> mBestCertDataByScId;
+    std::map<uint256, std::pair<int32_t, int64_t>> mBestCertDataByScId;
 
     for(const CScCertificate& cert: certList)
     {
@@ -1023,7 +1023,7 @@ bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CVal
         }
         LogPrint("cert", "%s():%d - setting cert %s / q=%d / epoch=%d as current best in block for scid = %s\n",
             __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
-        mBestCertDataByScId[scid] = std::make_pair(cert.epochNumber,cert.quality);
+        mBestCertDataByScId[scid] = std::make_pair(cert.epochNumber, cert.quality);
     }
 
     return true;
@@ -1453,10 +1453,12 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                                      CValidationState::Code::DUPLICATE, "bad-txns-inputs-spent");
             }
 
-            CValidationState::Code ret_code = CValidationState::Code::OK;
-            if (!view.IsScTxApplicableToState(tx, ret_code))
+
+            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx);
+            if (ret_code != CValidationState::Code::OK)
             {
                 int nDoS = 100;
+                // ban node unless the error is about active cert data hash matching
                 if (ret_code == CValidationState::Code::ACTIVE_CERT_DATA_HASH)
                     nDoS = 0;
 
@@ -1465,12 +1467,14 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                         __func__, __LINE__, hash.ToString(), CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-tx-not-applicable");
             }
+
             auto scVerifier = libzendoomc::CScProofVerifier::Strict();
-            if (!view.IsScTxCswProofVerified(tx, scVerifier, ret_code))
+            ret_code = view.IsScTxCswProofVerified(tx, scVerifier);
+            if (ret_code != CValidationState::Code::OK)
             {
                 return state.DoS(100,
                     error("%s():%d - ERROR: sc-related tx [%s] proof failed: ret_code[0x%x]",
-                        __func__, __LINE__, hash.ToString(),CValidationState::CodeToChar(ret_code)),
+                        __func__, __LINE__, hash.ToString(), CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-tx-proof");
             }
 
@@ -2284,7 +2288,7 @@ bool InputScriptCheck(const CScript& scriptPubKey, const CTransactionBase& tx, u
         // as to the correct behavior - we may want to continue
         // peering with non-upgraded nodes even after a soft-fork
         // super-majority vote has passed.
-        return state.DoS(100,false, CValidationState::Code::INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+        return state.DoS(100, false, CValidationState::Code::INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
     }
 
     return true;
@@ -2478,7 +2482,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
     // not including coinbase
     const int certOffset = block.vtx.size() - 1;
-    std::map<uint256,uint256> highQualityCertData = HighQualityCertData(block, blockUndo);
+    std::map<uint256, uint256> highQualityCertData = HighQualityCertData(block, blockUndo);
     // key: current block top quality cert for given sc --> value: prev block superseeded cert hash (possibly null)
 
     // undo certificates in reverse order
@@ -2862,19 +2866,22 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("%s():%d: tx inputs missing/spent",__func__, __LINE__),
                                      CValidationState::Code::INVALID, "bad-txns-inputs-missingorspent");
 
-            CValidationState::Code ret_code = CValidationState::Code::OK;
-            if (!view.IsScTxApplicableToState(tx, ret_code))
+            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx);
+            if (ret_code != CValidationState::Code::OK)
             {
                 return state.DoS(100,
-                    error("%s():%d - invalid tx[%s], ret_code[0x%x]", __func__, __LINE__, tx.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),
+                    error("%s():%d - invalid tx[%s], ret_code[0x%x]",
+                        __func__, __LINE__, tx.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-tx-not-applicable");
             }
+
             auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-            if (!view.IsScTxCswProofVerified(tx, scVerifier, ret_code))
+            ret_code = view.IsScTxCswProofVerified(tx, scVerifier);
+            if (ret_code != CValidationState::Code::OK)
             {
                 return state.DoS(100,
                     error("%s():%d - ERROR: sc-related tx [%s] proof failed: ret_code[0x%x]",
-                        __func__, __LINE__, tx.GetHash().ToString(),CValidationState::CodeToChar(ret_code)),
+                        __func__, __LINE__, tx.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-tx-proof");
             }
 
@@ -2940,7 +2947,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }  //end of Processing transactions loop
 
 
-    std::map<uint256,uint256> highQualityCertData = HighQualityCertData(block, view);
+    std::map<uint256, uint256> highQualityCertData = HighQualityCertData(block, view);
     // key: current block top quality cert for given sc --> value: prev block superseeded cert hash (possibly null)
 
     for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
@@ -3914,7 +3921,7 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
         pindexNew->nChainDelay = 0 ;
     }
     if(pindexNew->nChainDelay != 0) {
-        LogPrintf("%s: Block belong to a chain under punishment Delay VAL: %i BLOCKHEIGHT: %d\n",__func__, pindexNew->nChainDelay,pindexNew->nHeight);
+        LogPrintf("%s: Block belong to a chain under punishment Delay VAL: %i BLOCKHEIGHT: %d\n",__func__, pindexNew->nChainDelay, pindexNew->nHeight);
     }
 
     if (pindexNew->pprev && pindexNew->nVersion == BLOCK_VERSION_SC_SUPPORT )
@@ -5148,7 +5155,7 @@ void static CheckBlockIndex()
 
     assert(forward.size() == mapBlockIndex.size());
 
-    std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeGenesis = forward.equal_range(NULL);
+    std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator, std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeGenesis = forward.equal_range(NULL);
     CBlockIndex *pindex = rangeGenesis.first->second;
     rangeGenesis.first++;
     assert(rangeGenesis.first == rangeGenesis.second); // There is only one index entry with parent NULL.
@@ -5226,7 +5233,7 @@ void static CheckBlockIndex()
             assert(setBlockIndexCandidates.count(pindex) == 0);
         }
         // Check whether this block is in mapBlocksUnlinked.
-        std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeUnlinked = mapBlocksUnlinked.equal_range(pindex->pprev);
+        std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator, std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangeUnlinked = mapBlocksUnlinked.equal_range(pindex->pprev);
         bool foundInUnlinked = false;
         while (rangeUnlinked.first != rangeUnlinked.second) {
             assert(rangeUnlinked.first->first == pindex->pprev);
@@ -5263,7 +5270,7 @@ void static CheckBlockIndex()
         // End: actual consistency checks.
 
         // Try descending into the first subnode.
-        std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> range = forward.equal_range(pindex);
+        std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator, std::multimap<CBlockIndex*,CBlockIndex*>::iterator> range = forward.equal_range(pindex);
         if (range.first != range.second) {
             // A subnode was found.
             pindex = range.first->second;
@@ -5285,7 +5292,7 @@ void static CheckBlockIndex()
             // Find our parent.
             CBlockIndex* pindexPar = pindex->pprev;
             // Find which child we just visited.
-            std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator,std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangePar = forward.equal_range(pindexPar);
+            std::pair<std::multimap<CBlockIndex*,CBlockIndex*>::iterator, std::multimap<CBlockIndex*,CBlockIndex*>::iterator> rangePar = forward.equal_range(pindexPar);
             while (rangePar.first->second != pindex) {
                 assert(rangePar.first != rangePar.second); // Our parent must have at least the node we're coming from as child.
                 rangePar.first++;
