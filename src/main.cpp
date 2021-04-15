@@ -1510,9 +1510,9 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
 
         if (tx.GetVcswCcIn().empty() && tx.GetVBwtRequestOut().empty())
         {
-        	//No sc proofs to be validated, job done. Store and exit
-        	StoreTxToMempool(tx, pool, view);
-        	return MempoolReturnValue::VALID;
+            //No sc proofs to be validated, job done. Store and exit
+            StoreTxToMempool(tx, pool, view);
+            return MempoolReturnValue::VALID;
         }
 
         if (validateScProofs == ValidateSidechainProof::OFF)
