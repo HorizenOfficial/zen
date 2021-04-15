@@ -125,7 +125,7 @@ class ScRpcCmdCert : public ScRpcCmd
   private:
     void addBackwardTransfers();
     void addCustomFields();
-    void addFees();
+    void addScFees();
 
   public:
     struct sBwdParams

@@ -365,31 +365,31 @@ struct ScFixedParameters
 struct ScBwtRequestParameters
 {
     CAmount scFee;
-    std::vector<CFieldElement> scRequestData;
+    std::vector<CFieldElement> vScRequestData;
 
     bool IsNull() const
     {
-        return ( scFee == 0 && scRequestData.empty());
+        return ( scFee == 0 && vScRequestData.empty());
     }
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(scFee);
-        READWRITE(scRequestData);
+        READWRITE(vScRequestData);
     }
     ScBwtRequestParameters() :scFee(0) {}
 
     inline bool operator==(const ScBwtRequestParameters& rhs) const
     {
         return (scFee == rhs.scFee) &&
-               (scRequestData == rhs.scRequestData); 
+               (vScRequestData == rhs.vScRequestData); 
     }
     inline bool operator!=(const ScBwtRequestParameters& rhs) const { return !(*this == rhs); }
     inline ScBwtRequestParameters& operator=(const ScBwtRequestParameters& cp)
     {
         scFee = cp.scFee;
-        scRequestData = cp.scRequestData;
+        vScRequestData = cp.vScRequestData;
         return *this;
     }
 };
@@ -430,7 +430,8 @@ struct CRecipientBwtRequest
     CAmount GetScValue() const { return bwtRequestData.scFee; }
 };
 
-static const int MAX_SC_DATA_LEN = 1024;
+static const int MAX_SC_CUSTOM_DATA_LEN = 1024;     /**< Maximum data length for custom data (optional attribute for sidechain creation) in bytes. */
+static const int MAX_SC_MBTR_DATA_LEN = 16;         /**< Maximum number of field elements contained in a mainchain backward transfer request (optional attribute for sidechain creation). */
 
 }; // end of namespace
 

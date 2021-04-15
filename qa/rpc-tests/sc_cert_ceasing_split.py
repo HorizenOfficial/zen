@@ -165,7 +165,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         mark_logs("              Check fwd tx {} is in mempool".format(tx_fwd), self.nodes, DEBUG_MODE)
         assert_true(tx_fwd in self.nodes[0].getrawmempool()) 
 
-        outputs = [{'scRequestData':fe1, 'scFee':Decimal("0.001"), 'scid':scid, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData':fe1, 'scFee':Decimal("0.001"), 'scid':scid, 'pubkeyhash':pkh1 }]
         cmdParms = { "minconf":0, "fee":0.0}
         mark_logs("\nNTW part 1) Node1 creates a tx with a bwt request", self.nodes, DEBUG_MODE)
         try:

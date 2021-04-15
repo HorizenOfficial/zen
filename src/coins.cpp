@@ -612,7 +612,7 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
                                  CCswNullifiersMap& cswNullifiers) {
     assert(!hasModifier);
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); ++it)
-        WriteCoins(it->first, it->second);
+        cachedCoinsUsage += WriteCoins(it->first, it->second);
 
     mapCoins.clear();
 
@@ -1330,8 +1330,8 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         CAmount scFtFee = GetActiveCertView(scId).forwardTransferScFee;
         if (ft.nValue <= scFtFee)
         {
-            return error("%s():%d - ERROR: Invalid tx[%s] : FT amount [%s] must be greater than SC FT fee [%s]",
-                    __func__, __LINE__, txHash.ToString(), FormatMoney(ft.nValue), FormatMoney(scFtFee));
+            return error("%s():%d - ERROR: Invalid tx[%s] to scId[%s]: FT amount [%s] must be greater than SC FT fee [%s]",
+                    __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(ft.nValue), FormatMoney(scFtFee));
         }
 
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
@@ -1359,19 +1359,19 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
          */
         if (!GetSidechain(scId, sidechain))
         {
-            return error("%s():%d - ERROR: tx[%s] MBTR output [%s] refers to unknown scId\n",
-                __func__, __LINE__, tx.ToString(), mbtr.ToString());
+            return error("%s():%d - ERROR: tx[%s] MBTR output [%s] refers to unknown scId[%s]\n",
+                __func__, __LINE__, tx.ToString(), mbtr.ToString(), scId.ToString());
         }
 
         /**
          * Check that the size of the Request Data field element is the same specified
          * during sidechain creation.
          */
-        if (mbtr.scRequestData.size() != sidechain.fixedParams.mainchainBackwardTransferRequestDataLength)
+        if (mbtr.vScRequestData.size() != sidechain.fixedParams.mainchainBackwardTransferRequestDataLength)
         {
             return error("%s():%d - ERROR: Invalid tx[%s] : MBTR request data size [%d] must be equal to the size specified "
-                         "during sidechain creation [%d]",
-                    __func__, __LINE__, txHash.ToString(), mbtr.scRequestData.size(), sidechain.fixedParams.mainchainBackwardTransferRequestDataLength);
+                         "during sidechain creation [%d] for scId[%s]",
+                    __func__, __LINE__, txHash.ToString(), mbtr.vScRequestData.size(), sidechain.fixedParams.mainchainBackwardTransferRequestDataLength, scId.ToString());
         }
 
         /**
@@ -1379,7 +1379,7 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
          */
         if (sidechain.fixedParams.mainchainBackwardTransferRequestDataLength == 0)
         {
-            return error("%s():%d - ERROR: mbtr is not allowed\n",  __func__, __LINE__);
+            return error("%s():%d - ERROR: mbtr is not allowed for scId[%s]\n",  __func__, __LINE__, scId.ToString());
         }
 
         /**
@@ -1389,8 +1389,8 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
         CAmount scMbtrFee = GetActiveCertView(scId).mainchainBackwardTransferRequestScFee;
         if (mbtr.scFee < scMbtrFee)
         {
-            return error("%s():%d - ERROR: Invalid tx[%s] : MBTR fee [%s] cannot be less than SC MBTR fee [%s]",
-                    __func__, __LINE__, txHash.ToString(), FormatMoney(mbtr.scFee), FormatMoney(scMbtrFee));
+            return error("%s():%d - ERROR: Invalid tx[%s] : MBTR fee [%s] cannot be less than SC MBTR fee [%s] for scId[%s]",
+                    __func__, __LINE__, txHash.ToString(), FormatMoney(mbtr.scFee), FormatMoney(scMbtrFee), scId.ToString());
         }
 
         LogPrint("sc", "%s():%d - OK: tx[%s] contains bwt transfer request for scId[%s]\n",
@@ -1917,12 +1917,16 @@ CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
         return CSidechain::State::ALIVE;
 }
 
-CScCertificateView CCoinsViewCache::GetActiveCertView(const uint256& scId) const
+
+const CScCertificateView& CCoinsViewCache::GetActiveCertView(const uint256& scId) const
 {
     const CSidechain* const pSidechain = this->AccessSidechain(scId);
 
     if (pSidechain == nullptr)
-        return CScCertificateView();
+    {
+        static CScCertificateView nullView;
+        return nullView;
+    }
 
     if (this->GetSidechainState(scId) == CSidechain::State::CEASED)
         return pSidechain->pastEpochTopQualityCertView;
@@ -1930,11 +1934,11 @@ CScCertificateView CCoinsViewCache::GetActiveCertView(const uint256& scId) const
     if (this->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED)
         return pSidechain->lastTopQualityCertView;
 
-    int certReferencedEpoch = pSidechain->EpochFor(this->GetHeight()+1 - pSidechain->GetCertSubmissionWindowLength()) - 1;
+    int certReferencedEpoch = pSidechain->EpochFor(this->GetHeight() + 1 - pSidechain->GetCertSubmissionWindowLength()) - 1;
 
     if (pSidechain->lastTopQualityCertReferencedEpoch == certReferencedEpoch)
         return pSidechain->lastTopQualityCertView;
-    else if(pSidechain->lastTopQualityCertReferencedEpoch -1 == certReferencedEpoch)
+    else if (pSidechain->lastTopQualityCertReferencedEpoch - 1 == certReferencedEpoch)
         return pSidechain->pastEpochTopQualityCertView;
     else
         assert(false);

@@ -639,7 +639,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 {
   public:
     uint256 scId;
-    std::vector<CFieldElement> scRequestData;
+    std::vector<CFieldElement> vScRequestData;
     uint160 mcDestinationAddress;
     CAmount scFee;
 
@@ -653,7 +653,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
         READWRITE(scId);
-        READWRITE(scRequestData);
+        READWRITE(vScRequestData);
         READWRITE(mcDestinationAddress);
         READWRITE(scFee);
     }
@@ -664,7 +664,7 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     friend bool operator==(const CBwtRequestOut& a, const CBwtRequestOut& b)
     {
         return ( a.scId                 == b.scId                 &&
-                 a.scRequestData        == b.scRequestData        &&
+                 a.vScRequestData       == b.vScRequestData       &&
                  a.mcDestinationAddress == b.mcDestinationAddress &&
                  a.scFee                == b.scFee
                 );

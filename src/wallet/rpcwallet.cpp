@@ -795,7 +795,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             " 4. \"wCertVk\"                 (string, required) It is an arbitrary byte string of even length expressed in\n"
             "                                     hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             " 5. \"customData\"              (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                     hexadecimal format. A max limit of 1024 bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
+            "                                     hexadecimal format. A max limit of " + strprintf("%d", MAX_SC_CUSTOM_DATA_LEN) + " bytes will be checked. If not specified, an empty string \"\" must be passed.\n"
             " 6. \"constant\"                (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                     hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", SC_FIELD_SIZE) + " bytes\n"
             "                                     hexadecimal format. Required to verify a mainchain bwt request proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
@@ -803,9 +803,9 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "                                 hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
             " 8. \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElementCertificateField with the corresponding size.\n"
             " 9. \"vBitVectorCertificateFieldConfig\" (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
-            "10. \"forwardTransferScFee\" (numeric, optional) The amount of fee due to sidechain actors when creating a FT\n"
-            "11. \"mainchainBackwardTransferScFee\" (numeric, optional) The amount of fee due to sidechain actors when creating a MBTR\n"
-            "12. \"mainchainBackwardTransferRequestDataLength\" (numeric, optional) The expected size of the request data vector (made of field elements) in a MBTR\n"
+            "10. \"forwardTransferScFee\" (numeric, optional, default=0) The amount of fee in " + CURRENCY_UNIT + " due to sidechain actors when creating a FT\n"
+            "11. \"mainchainBackwardTransferScFee\" (numeric, optional, default=0) The amount of fee in " + CURRENCY_UNIT + " due to sidechain actors when creating a MBTR\n"
+            "12. \"mainchainBackwardTransferRequestDataLength\" (numeric, optional, default=0) The expected size (max=" + strprintf("%d", MAX_SC_MBTR_DATA_LEN) + ") of the request data vector (made of field elements) in a MBTR\n"
             "\nResult:\n"
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -860,7 +860,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         // it is optional
         if (!inputString.empty())
         {
-            if(!Sidechain::AddScData(inputString, sc.fixedParams.customData, MAX_SC_DATA_LEN, false, error))
+            if(!Sidechain::AddScData(inputString, sc.fixedParams.customData, MAX_SC_CUSTOM_DATA_LEN, false, error))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
             }
@@ -943,7 +943,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     {
         ftScFee = AmountFromValue(params[9]);
         if (ftScFee < 0)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, ftScFee out of range");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameter, ftScFee out of range [%d, %d]", 0, MAX_MONEY));
     }
     sc.ftScFee = ftScFee;
 
@@ -952,18 +952,18 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     {
         mbtrScFee = AmountFromValue(params[10]);
         if (mbtrScFee < 0)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, mbtrScFee out of range");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameter, mbtrScFee out of range [%d, %d]", 0, MAX_MONEY));
     }
     sc.mbtrScFee = mbtrScFee;
 
+    int32_t requestDataLength = 0;
     if (params.size() > 11)
     {
-        int requestDataLength = params[11].get_int();
-        if (requestDataLength < 0)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, mbtrScDataLength must be non-negative");
-
-        sc.fixedParams.mainchainBackwardTransferRequestDataLength = requestDataLength;
+        requestDataLength = params[11].get_int();
+        if (requestDataLength < 0 || requestDataLength > MAX_SC_MBTR_DATA_LEN)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameter, mbtrScDataLength out of range [%d, %d]", 0, MAX_SC_MBTR_DATA_LEN));
     }
+    sc.fixedParams.mainchainBackwardTransferRequestDataLength = requestDataLength;
 
     vector<CRecipientScCreation> vecScSend;
     vecScSend.push_back(sc);
@@ -991,30 +991,30 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             "{\n"                     
-            "1.  \"withdrawalEpochLength\": epoch  (numeric, optional, default=" + strprintf("%d", SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH) +
-                                                  ") length of the withdrawal epochs. The minimum valid value in " + Params().NetworkIDString() +
-                                                  " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
-            "2.  \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
-            "3.  \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
-            "4.  \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "5.  \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
-            "6.  \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
-            "7.  \"fee\":fee                       (numeric, optional, default=" +
-                                                      strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
-                                                      ") The fee amount to attach to this transaction.\n"
-            "8.  \"wCertVk\":data                  (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
-            "9.  \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. A max limit of 1024 bytes will be checked\n"
-            "10. \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
-            "11. \"wCeasedVk\":data                (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                          hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
-            "12. \"vFieldElementCertificateFieldConfig\"         (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
-            "13. \"vBitVectorCertificateFieldConfig\"            (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
-            "14. \"forwardTransferScFee\"                        (numeric, optional) The amount of fee due to sidechain actors when creating a FT\n"
-            "15. \"mainchainBackwardTransferScFee\"              (numeric, optional) The amount of fee due to sidechain actors when creating a MBTR\n"
-            "16. \"mainchainBackwardTransferRequestDataLength\"  (numeric, optional) The expected size of the request data vector (made of field elements) in a MBTR\n"
+            " \"withdrawalEpochLength\": epoch  (numeric, optional, default=" + strprintf("%d", SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH) +
+                                               ") length of the withdrawal epochs. The minimum valid value in " + Params().NetworkIDString() +
+                                               " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
+            " \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
+            " \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
+            " \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            " \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
+            " \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
+            " \"fee\":fee                       (numeric, optional, default=" +
+                                                   strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
+                                                   ") The fee amount to attach to this transaction.\n"
+            " \"wCertVk\":data                  (string, required) It is an arbitrary byte string of even length expressed in\n"
+            "                                       hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            " \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                       hexadecimal format. A max limit of " + strprintf("%d", MAX_SC_CUSTOM_DATA_LEN) + " bytes will be checked\n"
+            " \"constant\":data                 (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
+            " \"wCeasedVk\":data                (string, optional) It is an arbitrary byte string of even length expressed in\n"
+            "                                       hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
+            " \"vFieldElementCertificateFieldConfig\"         (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            " \"vBitVectorCertificateFieldConfig\"            (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
+            " \"forwardTransferScFee\"                        (numeric, optional, default=0) The amount of fee in " + CURRENCY_UNIT + " due to sidechain actors when creating a FT\n"
+            " \"mainchainBackwardTransferScFee\"              (numeric, optional, default=0) The amount of fee in " + CURRENCY_UNIT + " due to sidechain actors when creating a MBTR\n"
+            " \"mainchainBackwardTransferRequestDataLength\"  (numeric, optional, default=0) The expected size (max=" + strprintf("%d", MAX_SC_MBTR_DATA_LEN) + ") of the request data vector (made of field elements) in a MBTR\n"
             "}\n"
             "\nResult:\n"
             "{\n"
@@ -1177,7 +1177,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("customData"))
     {
         string inputString = find_value(inputObject, "customData").get_str();
-        if (!Sidechain::AddScData(inputString, fixedParams.customData, MAX_SC_DATA_LEN, false, error))
+        if (!Sidechain::AddScData(inputString, fixedParams.customData, MAX_SC_CUSTOM_DATA_LEN, false, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
         }
@@ -1263,7 +1263,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
             if (!MoneyRange(ftScFee))
             {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid forwardTransferScFee, amount out of range");
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid forwardTransferScFee, amount out of range [%d, %d]", 0, MAX_MONEY));
             }
         }
     }
@@ -1280,12 +1280,13 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
 
             if (!MoneyRange(mbtrScFee))
             {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mainchainBackwardTransferScFee, amount out of range");
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid mainchainBackwardTransferScFee, amount out of range [%d, %d]", 0, MAX_MONEY));
             }
         }
     }
 
     // ---------------------------------------------------------
+    int32_t mbtrDataLength = 0;
     if (setKeyArgs.count("mainchainBackwardTransferRequestDataLength"))
     {
         UniValue uniMbtrDataLength = find_value(inputObject, "mainchainBackwardTransferRequestDataLength");
@@ -1297,16 +1298,15 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mainchainBackwardTransferRequestDataLength, expected integer");
             }
 
-            size_t mbtrDataLength = uniMbtrDataLength.get_int();
+            mbtrDataLength = uniMbtrDataLength.get_int();
 
-            if (mbtrDataLength < 0)
+            if (mbtrDataLength < 0 || mbtrDataLength > MAX_SC_MBTR_DATA_LEN)
             {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mainchainBackwardTransferRequestDataLength: value cannot be negative");
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid mainchainBackwardTransferRequestDataLength: out of range [%d, %d]", 0, MAX_SC_MBTR_DATA_LEN));
             }
-
-            fixedParams.mainchainBackwardTransferRequestDataLength = mbtrDataLength;
         }
     }
+    fixedParams.mainchainBackwardTransferRequestDataLength = mbtrDataLength;
 
     CMutableTransaction tx_create;
     tx_create.nVersion = SC_TX_VERSION;
@@ -1551,7 +1551,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
             "[{\n"
             "   \"scid\":side chain ID             (string, required) The uint256 side chain ID\n"
-            "   \"scRequestData\":                 (array, required) It is an arbitrary array of byte strings of even length expressed in\n"
+            "   \"vScRequestData\":                 (array, required) It is an arbitrary array of byte strings of even length expressed in\n"
             "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. The size of each string must be \n" +
                                                       strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "   \"pubkeyhash\":pkh                 (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
@@ -1569,7 +1569,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"    (string) The resulting transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("request_transfer_from_sidechain", "'[{ \"pubkeyhash\": \"aa57c2e03eb533b361e748acb6f25ffc2f1e5e20\", \"scRequestData\": [\"06f75b4e1c1f49e6f329aa23f57e42bf305644b5b85c4d4ac60d7ef3b50679e81ec06841065f425fe3f11f903672c73be5a70e3e254efca4ac01a5795d125c3ded49dedac58a48ee94070b24106126bc1ffd57653f0974a0e93ab5729e870000\"], \"scid\": \"13a3083bdcf42635c8ce5d46c2cae26cfed7dc889d9b4ac0b9939c6631a73bdc\", \"scFee\": 19.0 }]'")
+            + HelpExampleCli("request_transfer_from_sidechain", "'[{ \"pubkeyhash\": \"aa57c2e03eb533b361e748acb6f25ffc2f1e5e20\", \"vScRequestData\": [\"06f75b4e1c1f49e6f329aa23f57e42bf305644b5b85c4d4ac60d7ef3b50679e81ec06841065f425fe3f11f903672c73be5a70e3e254efca4ac01a5795d125c3ded49dedac58a48ee94070b24106126bc1ffd57653f0974a0e93ab5729e870000\"], \"scid\": \"13a3083bdcf42635c8ce5d46c2cae26cfed7dc889d9b4ac0b9939c6631a73bdc\", \"scFee\": 19.0 }]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1577,7 +1577,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
 
     // valid keywords in cmd arguments
     static const std::set<std::string> validKeyOutputArray =
-        {"scid", "scRequestData", "pubkeyhash", "scFee"};
+        {"scid", "vScRequestData", "pubkeyhash", "scFee"};
 
     // valid keywords in optional params
     static const std::set<std::string> validKeyArgs =
@@ -1671,39 +1671,39 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
         }
 
         // ---------------------------------------------------------
-        std::vector<CFieldElement> scRequestData;
+        std::vector<CFieldElement> vScRequestData;
         
-        if (setKeyOutputArray.count("scRequestData"))
+        if (setKeyOutputArray.count("vScRequestData"))
         {
-            for (auto fe : find_value(o, "scRequestData").get_array().getValues())
+            for (auto fe : find_value(o, "vScRequestData").get_array().getValues())
             {
-                std::vector<unsigned char> scRequestDataByteArray;
-                const string& scRequestDataString = fe.get_str();
+                std::vector<unsigned char> vScRequestDataByteArray;
+                const string& vScRequestDataString = fe.get_str();
                 std::string error;
 
-                if (!Sidechain::AddScData(scRequestDataString, scRequestDataByteArray, CFieldElement::ByteSize(), true ,error))
+                if (!Sidechain::AddScData(vScRequestDataString, vScRequestDataByteArray, CFieldElement::ByteSize(), true ,error))
                 {
-                    throw JSONRPCError(RPC_TYPE_ERROR, string("scRequestData element: ") + error);
+                    throw JSONRPCError(RPC_TYPE_ERROR, string("vScRequestData element: ") + error);
                 }
 
-                CFieldElement fieldElement {scRequestDataByteArray};
+                CFieldElement fieldElement {vScRequestDataByteArray};
                 
                 if(!fieldElement.IsValid())
                 {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt scRequestData element"));
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt vScRequestData element"));
                 }
 
-                scRequestData.push_back(fieldElement);
+                vScRequestData.push_back(fieldElement);
             }
         }
         else
         {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"scRequestData\"" );
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"vScRequestData\"" );
         }
 
         ScBwtRequestParameters bwtData;
         bwtData.scFee = scFee;
-        bwtData.scRequestData = scRequestData;
+        bwtData.vScRequestData = vScRequestData;
 
         vOutputs.push_back(ScRpcRetrieveCmdTx::sBtOutParams(scId, pkeyValue, bwtData));
     }

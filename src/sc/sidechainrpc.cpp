@@ -132,11 +132,11 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
 
         UniValue arrRequestData(UniValue::VARR);
-        for(const auto& requestData: out.scRequestData)
+        for(const auto& requestData: out.vScRequestData)
         {
             arrRequestData.push_back(requestData.GetHexRepr());
         }
-        o.push_back(Pair("scRequestData", arrRequestData));
+        o.push_back(Pair("vScRequestData", arrRequestData));
         vbts.push_back(o);
         nIdx++;
     }
@@ -426,7 +426,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         if (!cd.isNull())
         {
             const std::string& inputString = cd.get_str();
-            if (!AddScData(inputString, sc.customData, MAX_SC_DATA_LEN, false, error))
+            if (!AddScData(inputString, sc.customData, MAX_SC_CUSTOM_DATA_LEN, false, error))
             {
                 error = "customData: " + error;
                 return false;
@@ -511,7 +511,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
 
             if (!MoneyRange(ftScFee))
             {
-                error = "Invalid forwardTransferScFee: out of range";
+                error = strprintf("Invalid forwardTransferScFee: out of range [%d, %d]", 0, MAX_MONEY);
                 return false;
             }
         }
@@ -524,11 +524,12 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
 
             if (!MoneyRange(mbtrScFee))
             {
-                error = "Invalid mainchainBackwardTransferScFee: out of range";
+                error = strprintf("Invalid mainchainBackwardTransferScFee: out of range [%d, %d]", 0, MAX_MONEY);
                 return false;
             }
         }
 
+        int32_t mbtrDataLength = 0;
         const UniValue& uniMbtrDataLength = find_value(o, "mainchainBackwardTransferRequestDataLength");
         if (!uniMbtrDataLength.isNull())
         {
@@ -538,16 +539,15 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
                 return false;
             }
             
-            size_t mbtrDataLength = uniMbtrDataLength.get_int();
+            mbtrDataLength = uniMbtrDataLength.get_int();
 
-            if (mbtrDataLength < 0)
+            if (mbtrDataLength < 0 || mbtrDataLength > MAX_SC_MBTR_DATA_LEN)
             {
-                error = "Invalid mainchainBackwardTransferRequestDataLength: value cannot be negative";
+                error = strprintf("Invalid mainchainBackwardTransferRequestDataLength: out of range [%d, %d]", 0, MAX_SC_MBTR_DATA_LEN);
                 return false;
             }
-
-            sc.mainchainBackwardTransferRequestDataLength = mbtrDataLength;
         }
+        sc.mainchainBackwardTransferRequestDataLength = mbtrDataLength;
 
         CTxScCreationOut txccout(nAmount, address, ftScFee, mbtrScFee, sc);
 
@@ -657,15 +657,15 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
         bwtData.scFee = scFee;
 
         //---------------------------------------------------------------------
-        const UniValue& scRequestDataVal = find_value(o, "scRequestData");
-        if (scRequestDataVal.isNull())
+        const UniValue& vScRequestDataVal = find_value(o, "vScRequestData");
+        if (vScRequestDataVal.isNull())
         {
-            error = "Missing mandatory parameter scRequestData";
+            error = "Missing mandatory parameter vScRequestData";
             return false;
         }
 
 
-        for (UniValue inputElement : scRequestDataVal.get_array().getValues())
+        for (UniValue inputElement : vScRequestDataVal.get_array().getValues())
         {
             std::vector<unsigned char> requestDataByteArray {};
 
@@ -674,7 +674,7 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
                 throw JSONRPCError(RPC_TYPE_ERROR, std::string("requestDataByte: ") + error);
             }
 
-            bwtData.scRequestData.push_back(CFieldElement{requestDataByteArray});
+            bwtData.vScRequestData.push_back(CFieldElement{requestDataByteArray});
         }
 
 
@@ -721,7 +721,7 @@ void fundCcRecipients(const CTransaction& tx,
         bt.scId = entry.scId;
         bt.mcDestinationAddress = entry.mcDestinationAddress;
         bt.bwtRequestData.scFee = entry.scFee;
-        bt.bwtRequestData.scRequestData = entry.scRequestData;
+        bt.bwtRequestData.vScRequestData = entry.vScRequestData;
 
         vecBwtRequest.push_back(bt);
     }
@@ -907,7 +907,7 @@ void ScRpcCmdCert::execute()
     addChange();
     addBackwardTransfers();
     addCustomFields();
-    addFees();
+    addScFees();
     sign();
     send();
 }
@@ -991,7 +991,7 @@ void ScRpcCmdCert::addCustomFields()
         _cert.vBitVectorCertificateField = _vCmt;
 }
 
-void ScRpcCmdCert::addFees()
+void ScRpcCmdCert::addScFees()
 {
     _cert.forwardTransferScFee = _ftScFee;
     _cert.mainchainBackwardTransferRequestScFee = _mbtrScFee;

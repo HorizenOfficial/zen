@@ -260,6 +260,7 @@ TEST_F(SidechainsTestSuite, SidechainCreationsWithNegativeForwardTransferNotAreS
 TEST_F(SidechainsTestSuite, SidechainCreationsWithValidFeesAreSemanticallyValid) {
 
     Sidechain::ScFixedParameters params;
+    params.mainchainBackwardTransferRequestDataLength = 1;
     CAmount forwardTransferScFee(0);
     CAmount mainchainBackwardTransferRequestScFee(0);
 
@@ -644,7 +645,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
+    mcBwtReq.vScRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
@@ -678,7 +679,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
     // create mc Bwt request
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = scId;
-    mcBwtReq.scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
+    mcBwtReq.vScRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mcBwtReq);
@@ -1627,7 +1628,7 @@ CMutableTransaction SidechainsTestSuite::createMtbtrTx(uint256 scId, CAmount scF
 {
     CBwtRequestOut mbtrOut;
     mbtrOut.scId = scId;
-    mbtrOut.scRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
+    mbtrOut.vScRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     mutTx.vmbtr_out.push_back(mbtrOut);
@@ -1873,4 +1874,13 @@ TEST_F(SidechainsTestSuite, MbtrNotAllowed)
     uint256 scId = createAndStoreSidechain();
     CMutableTransaction mutTx = createMtbtrTx(scId, 0);
     EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(mutTx, dummyScVerifier));
+}
+
+//////////////////////////////////////////////////////////
+//////////////////// Certificate View ////////////////////
+//////////////////////////////////////////////////////////
+TEST_F(SidechainsTestSuite, CertificateViewInitialization)
+{
+    CScCertificateView certView;
+    ASSERT_TRUE(certView.IsNull());
 }

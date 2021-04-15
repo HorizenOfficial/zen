@@ -214,17 +214,25 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
         if (!MoneyRange(sc.forwardTransferScFee))
         {
             return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], forwardTransferScFee out of range\n",
-                    __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "bad-cert-ft-fee-out-of-range");;
+                    error("%s():%d - ERROR: Invalid tx[%s], forwardTransferScFee out of range [%d, %d]\n",
+                    __func__, __LINE__, txHash.ToString(), 0, MAX_MONEY),
+                    REJECT_INVALID, "bad-cert-ft-fee-out-of-range");
         }
 
         if (!MoneyRange(sc.mainchainBackwardTransferRequestScFee))
         {
             return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestScFee out of range\n",
-                    __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "bad-cert-mbtr-fee-out-of-range");;
+                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestScFee out of range [%d, %d]\n",
+                    __func__, __LINE__, txHash.ToString(), 0, MAX_MONEY),
+                    REJECT_INVALID, "bad-cert-mbtr-fee-out-of-range");
+        }
+
+        if (sc.mainchainBackwardTransferRequestDataLength < 0 || sc.mainchainBackwardTransferRequestDataLength > MAX_SC_MBTR_DATA_LEN)
+        {
+            return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength out of range [%d, %d]\n",
+                    __func__, __LINE__, txHash.ToString(), 0, MAX_SC_MBTR_DATA_LEN),
+                    REJECT_INVALID, "bad-cert-mbtr-data-length-out-of-range");
         }
     }
 
@@ -250,12 +258,12 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-fee-amount-outside-range");
         }
 
-        for (const CFieldElement& fe : bt.scRequestData)
+        for (const CFieldElement& fe : bt.vScRequestData)
         {
             if (!fe.IsValid())
             {
                 return state.DoS(100,
-                        error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scRequestData\n",
+                        error("%s():%d - ERROR: Invalid tx[%s], invalid bwt vScRequestData\n",
                         __func__, __LINE__, txHash.ToString()),
                         REJECT_INVALID, "sidechain-sc-bwt-invalid-request-data");
             }

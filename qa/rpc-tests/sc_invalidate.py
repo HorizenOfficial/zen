@@ -168,7 +168,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         fe1 = [generate_random_field_element_hex()]
         pkh1 = self.nodes[1].getnewaddress("", True)
         TX_FEE = Decimal("0.000123")
-        outputs = [{'scRequestData':fe1, 'scFee':SC_FEE, 'scid':scid, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid, 'pubkeyhash':pkh1 }]
         cmdParms = { "minconf":0, "fee":TX_FEE}
 
         try:

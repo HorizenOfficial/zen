@@ -360,7 +360,7 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
 
 CBwtRequestOut::CBwtRequestOut(
     const uint256& scIdIn, const uint160& pkhIn, const Sidechain::ScBwtRequestParameters& paramsIn):
-    scId(scIdIn), scRequestData(paramsIn.scRequestData), mcDestinationAddress(pkhIn),
+    scId(scIdIn), vScRequestData(paramsIn.vScRequestData), mcDestinationAddress(pkhIn),
     scFee(paramsIn.scFee) {}
 
 
@@ -368,17 +368,17 @@ std::string CBwtRequestOut::ToString() const
 {
     std::string requestDataStr;
 
-    for(auto fe : scRequestData)
+    for(auto fe : vScRequestData)
         requestDataStr += strprintf("\n  [%s]\n", fe.GetHexRepr());
 
-    return strprintf("CBwtRequestOut(scId=%s, scRequestData=%s, pkh=%s, scFee=%d.%08d",
+    return strprintf("CBwtRequestOut(scId=%s, vScRequestData=%s, pkh=%s, scFee=%d.%08d",
         scId.ToString(), requestDataStr,
         mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN);
 }
 
 CBwtRequestOut& CBwtRequestOut::operator=(const CBwtRequestOut &out) {
     scId                 = out.scId;
-    scRequestData        = out.scRequestData;
+    vScRequestData       = out.vScRequestData;
     mcDestinationAddress = out.mcDestinationAddress;
     scFee                = out.scFee;
     return *this;

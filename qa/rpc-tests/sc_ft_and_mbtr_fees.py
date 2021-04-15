@@ -21,7 +21,7 @@ SC_COINS_MAT = 2
 EPOCH_LENGTH = 10
 MAX_MONEY = 21000000
 
-class SCCreateTest(BitcoinTestFramework):
+class SCFtAndMbtrFeesTest(BitcoinTestFramework):
     alert_filename = None
 
     def setup_chain(self, split=False):
@@ -44,6 +44,11 @@ class SCCreateTest(BitcoinTestFramework):
         self.sync_all()
 
     def run_test(self):
+
+        '''
+        This test checks that sidechain Forward Transfer fee, Mainchain Backward Transfer Request fee,
+        and Mainchain Backward Transfer Request data length are set and handled correctly.
+        '''
 
         # network topology: (0)--(1)
 
@@ -216,7 +221,7 @@ class SCCreateTest(BitcoinTestFramework):
         vk1 = mcTest.generate_params(scid)
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
-        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
             self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {})
@@ -259,10 +264,10 @@ class SCCreateTest(BitcoinTestFramework):
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
         p1 = mcTest.create_test_proof(scid, 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
-        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
-            self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {});
+            self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {})
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -301,10 +306,10 @@ class SCCreateTest(BitcoinTestFramework):
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
         p1 = mcTest.create_test_proof(scid, 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
-        mbtrOuts = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
-            self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {});
+            self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {})
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -379,13 +384,13 @@ class SCCreateTest(BitcoinTestFramework):
             assert_true(False)
 
         mark_logs("Node 0 creates two MBTRs", self.nodes, DEBUG_MODE)
-        mbtrOuts1 = [{'scRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
-        mbtrOuts2 = [{'scRequestData':[fe1], 'scFee':Decimal(newMbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mbtrOuts1 = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mbtrOuts2 = [{'vScRequestData':[fe1], 'scFee':Decimal(newMbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
-            mbtr_tx_1 = self.nodes[0].request_transfer_from_sidechain(mbtrOuts1, {});
+            mbtr_tx_1 = self.nodes[0].request_transfer_from_sidechain(mbtrOuts1, {})
             time.sleep(2)
-            mbtr_tx_2 = self.nodes[0].request_transfer_from_sidechain(mbtrOuts2, {});
+            mbtr_tx_2 = self.nodes[0].request_transfer_from_sidechain(mbtrOuts2, {})
             time.sleep(2)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -439,7 +444,7 @@ class SCCreateTest(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true(False);
+            assert_true(False)
 
         self.sync_all()
 
@@ -463,7 +468,7 @@ class SCCreateTest(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true(False);
+            assert_true(False)
 
         self.sync_all()
 
@@ -501,4 +506,4 @@ class SCCreateTest(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    SCCreateTest().main()
+    SCFtAndMbtrFeesTest().main()

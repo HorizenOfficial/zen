@@ -703,7 +703,7 @@ public:
     bool AddCswNullifier(const uint256& scId, const CFieldElement &nullifier);
     bool RemoveCswNullifier(const uint256& scId, const CFieldElement &nullifier);
 
-    CScCertificateView GetActiveCertView(const uint256& scId) const;
+    const CScCertificateView& GetActiveCertView(const uint256& scId) const;
     CSidechain::State GetSidechainState(const uint256& scId) const;
 
     bool Flush();
