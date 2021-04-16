@@ -22,12 +22,6 @@ void CZendooCctpLibraryChecker::CheckTypeSizes()
             __func__, __LINE__, SC_PROOF_SIZE, zendoo_get_sc_proof_size_in_bytes());
         assert(!"ERROR: proof size mismatch between rust CCTP lib and c header!");
     }
-    if (SC_BV_SIZE_IN_BYTES != zendoo_get_sc_bit_vector_size_in_bytes())
-    {
-        LogPrintf("%s():%d - ERROR: unexpected CCTP bit vector size: %d (rust lib returns %d)\n", 
-            __func__, __LINE__, SC_BV_SIZE_IN_BYTES, zendoo_get_sc_bit_vector_size_in_bytes());
-        assert(!"ERROR: bit vector size mismatch between rust CCTP lib and c header!");
-    }
     if (SC_CUSTOM_DATA_MAX_SIZE != zendoo_get_sc_custom_data_size_in_bytes())
     {
         LogPrintf("%s():%d - ERROR: unexpected CCTP custom data size: %d (rust lib returns %d)\n", 
@@ -248,10 +242,10 @@ bool BitVectorCertificateFieldConfig::IsValid() const
     return true;
 }
 
-BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVectorSizeBits, int32_t maxCompressedSizeBytes):
+BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVectorSizeBitsIn, int32_t maxCompressedSizeBytesIn):
     CustomCertificateFieldConfig(),
-    bitVectorSizeBits(bitVectorSizeBits),
-    maxCompressedSizeBytes(maxCompressedSizeBytes) {
+    bitVectorSizeBits(bitVectorSizeBitsIn),
+    maxCompressedSizeBytes(maxCompressedSizeBytesIn) {
     BOOST_STATIC_ASSERT(MAX_COMPRESSED_SIZE_BYTES <= MAX_CERT_SIZE); // sanity
 }
 
@@ -398,13 +392,16 @@ const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorC
     CctpErrorCode ret_code = CctpErrorCode::OK;
     BufferWithSize compressedData(&vRawData[0], vRawData.size());
 
+    int rem = 0;
+    int nBitVectorSizeBytes = getBytesFromBits(cfg.getBitVectorSizeBits(), rem);
+
     // the second parameter is the expected size of the uncompressed data. If this size is not matched the function returns
     // an error and a null filed element ptr
-    field_t* fe = zendoo_merkle_root_from_compressed_bytes(&compressedData, SC_BV_SIZE_IN_BYTES, &ret_code);
+    field_t* fe = zendoo_merkle_root_from_compressed_bytes(&compressedData, nBitVectorSizeBytes, &ret_code);
     if (fe == nullptr)
     {
         LogPrint("sc", "%s():%d - ERROR(%d): could not get merkle root field el from compr bit vector of size %d, exp uncompr size %d\n",
-            __func__, __LINE__, (int)ret_code, vRawData.size(), SC_BV_SIZE_IN_BYTES);
+            __func__, __LINE__, (int)ret_code, vRawData.size(), nBitVectorSizeBytes);
         this->fieldElement = CFieldElement{};
         return fieldElement;
     }

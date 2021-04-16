@@ -643,6 +643,7 @@ TEST(CctpLibrary, BitVectorGzip)
     ASSERT_TRUE(bws_ret1 != nullptr);
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
+    static const int SC_BV_SIZE_IN_BYTES = 12345;
     // make a copy
     unsigned char ptr2[SC_BV_SIZE_IN_BYTES] = {};
     memcpy(ptr2, bws_ret1->data, bws_ret1->len);
@@ -711,6 +712,7 @@ TEST(CctpLibrary, BitVectorBzip2)
     bws_ret1 = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
     ASSERT_TRUE(bws_ret1 != nullptr);
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
+    static const int SC_BV_SIZE_IN_BYTES = 254;
 
     // make a copy
     unsigned char ptr2[SC_BV_SIZE_IN_BYTES] = {};
@@ -974,7 +976,10 @@ TEST(CctpLibrary, BitVectorCertificateFieldBadSize)
 TEST(CctpLibrary, BitVectorCertificateFieldFull)
 {
     CctpErrorCode ret_code = CctpErrorCode::OK;
-    // correct uncompressed buffer size
+
+    // uncompressed buffer size, use the max size
+    static const int SC_BV_SIZE_IN_BYTES = BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS / 8;
+
     unsigned char buffer[SC_BV_SIZE_IN_BYTES] = {};
     buffer[0] = 0xff;
     buffer[SC_BV_SIZE_IN_BYTES-1] = 0xff;
@@ -991,7 +996,10 @@ TEST(CctpLibrary, BitVectorCertificateFieldFull)
 
     const std::vector<unsigned char> bvVec(bws_ret1->data, bws_ret1->data + bws_ret1->len);
 
-    const BitVectorCertificateFieldConfig cfg(bws_ret1->len, SC_BV_SIZE_IN_BYTES);
+    int bitVectorSizeBits = SC_BV_SIZE_IN_BYTES*8; // the original size of the buffer
+    int maxCompressedSizeBytes = bvVec.size(); // take the compressed data buf as max value 
+
+    const BitVectorCertificateFieldConfig cfg(bitVectorSizeBits, maxCompressedSizeBytes);
     BitVectorCertificateField bvField(bvVec);
 
     const CFieldElement& fe = bvField.GetFieldElement(cfg);
@@ -1534,7 +1542,6 @@ TEST(CctpLibrary, CheckTypeSize)
     ASSERT_TRUE(SC_FIELD_SIZE           == zendoo_get_field_size_in_bytes());
     ASSERT_TRUE(SC_VK_SIZE              == zendoo_get_sc_vk_size_in_bytes());
     ASSERT_TRUE(SC_PROOF_SIZE           == zendoo_get_sc_proof_size_in_bytes());
-    ASSERT_TRUE(SC_BV_SIZE_IN_BYTES     == zendoo_get_sc_bit_vector_size_in_bytes());
     ASSERT_TRUE(SC_CUSTOM_DATA_MAX_SIZE == zendoo_get_sc_custom_data_size_in_bytes());
 }
 

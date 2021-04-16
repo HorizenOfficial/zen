@@ -229,7 +229,7 @@ public:
     //for serialization only, which requires the default ctor. No checkValid call here
     BitVectorCertificateFieldConfig(): CustomCertificateFieldConfig(), bitVectorSizeBits(-1), maxCompressedSizeBytes(-1) {}
 
-    static const int32_t MAX_BIT_VECTOR_SIZE_BITS = 1000760;
+    static const int32_t MAX_BIT_VECTOR_SIZE_BITS = 1024*1024;
     static const int32_t MAX_COMPRESSED_SIZE_BYTES = MAX_BIT_VECTOR_SIZE_BITS / 8;
 
     bool IsValid() const override final;
