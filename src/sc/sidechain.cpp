@@ -277,7 +277,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             CValidationState::Code::INVALID, "sidechain-cswinput-too-big-act-cert-data-vec");
     }
 
-    std::set<uint32_t> sActCertDataIdxs;
+    std::set<int32_t> sActCertDataIdxs;
 
     for(const CTxCeasedSidechainWithdrawalInput& csw : tx.GetVcswCcIn())
     {
@@ -297,8 +297,8 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                 CValidationState::Code::INVALID, "sidechain-cswinput-invalid-nullifier");
         }
         
-        uint32_t idx = csw.actCertDataIdx;
-        if(idx > (tx.GetVActCertData().size()-1))
+        int32_t idx = csw.actCertDataIdx;
+        if(idx < 0 || idx > (tx.GetVActCertData().size()-1))
         {
             return state.DoS(100,
                 error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW actCertDataIdx[%d] (vActCertDataSize=%d)\n",

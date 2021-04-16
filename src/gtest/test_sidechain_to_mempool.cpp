@@ -110,7 +110,7 @@ protected:
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
     CTransaction GenerateBtrTx(const uint256 & scId);
     CTxCeasedSidechainWithdrawalInput GenerateCSWInput(
-        const uint256& scId, const std::string& nullifierHex, CAmount amount, uint32_t actCertDataIdx = 0);
+        const uint256& scId, const std::string& nullifierHex, CAmount amount, int32_t actCertDataIdx = 0);
     CTransaction GenerateCSWTx(const std::vector<CTxCeasedSidechainWithdrawalInput>& csws);
     CTransaction GenerateCSWTx(const CTxCeasedSidechainWithdrawalInput& csw);
 
@@ -1618,7 +1618,7 @@ CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId) {
 }
 
 CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput(
-    const uint256& scId, const std::string& nullifierHex, CAmount amount, uint32_t actCertDataIdx)
+    const uint256& scId, const std::string& nullifierHex, CAmount amount, int32_t actCertDataIdx)
 {
     CFieldElement nullifier{};
     std::vector<unsigned char> tmp{nullifierHex.begin(), nullifierHex.end()};

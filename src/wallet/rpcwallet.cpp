@@ -237,7 +237,7 @@ void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefi
     entry.push_back(Pair("walletconflicts", conflicts));
     entry.push_back(Pair("time", wtx.GetTxTime()));
     entry.push_back(Pair("timereceived", (int64_t)wtx.nTimeReceived));
-    BOOST_FOREACH(const PAIRTYPE(string,string)& item, wtx.mapValue)
+    BOOST_FOREACH(const PAIRTYPE(string, string)& item, wtx.mapValue)
         entry.push_back(Pair(item.first, item.second));
 
     // add the cross chain outputs if any
@@ -1888,7 +1888,7 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
 
     /* Get script for addr without OP_CHECKBLOCKATHEIGHT, cause we will use it only for searching */
     CScript scriptPubKey = GetScriptForDestination(address.Get(), false);
-    if (!IsMine(*pwalletMain,scriptPubKey))
+    if (!IsMine(*pwalletMain, scriptPubKey))
         return (double)0.0;
 
     // Minimum confirmations
@@ -5269,7 +5269,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     CCoinsViewMemPool vm(pcoinsTip, mempool);
     scView.SetBackend(vm);
     CSidechain sidechain;
-    if (!scView.GetSidechain(scId,sidechain))
+    if (!scView.GetSidechain(scId, sidechain))
     {
         LogPrint("sc", "scid[%s] does not exists \n", scId.ToString() );
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid does not exists: ") + scId.ToString());
@@ -5343,8 +5343,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
 
     // sanity check of the endEpochCumScTxCommTreeRoot: it must correspond to the end-epoch block hash 
-    CValidationState::Code ret_code = CValidationState::Code::OK;
-    if (!scView.CheckEndEpochCumScTxCommTreeRoot(sidechain, epochNumber, cert.endEpochCumScTxCommTreeRoot, ret_code))
+    CValidationState::Code ret_code =
+        scView.CheckEndEpochCumScTxCommTreeRoot(sidechain, epochNumber, cert.endEpochCumScTxCommTreeRoot);
+
+    if (ret_code != CValidationState::Code::OK)
     {
         LogPrintf("%s():%d - ERROR: endEpochCumScTxCommTreeRoot[%s]/epochNumber[%d] are not legal, ret_code[0x%x]\n",
             __func__, __LINE__, cert.endEpochCumScTxCommTreeRoot.GetHexRepr(), epochNumber, CValidationState::CodeToChar(ret_code));

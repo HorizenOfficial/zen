@@ -1188,8 +1188,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                     CValidationState::Code::HAS_CONFLICTS, "bad-sc-cert-has-conflicts");
             }
 
-            CValidationState::Code ret_code = CValidationState::Code::OK;
-            if (!view.IsCertApplicableToState(cert, ret_code))
+            CValidationState::Code ret_code = view.IsCertApplicableToState(cert);
+            if (ret_code != CValidationState::Code::OK)
             {
                 int nDoS = 100;
                 if (ret_code == CValidationState::Code::SC_CUM_COMM_TREE)
@@ -1201,7 +1201,8 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
             }
 
             auto scVerifier = libzendoomc::CScProofVerifier::Strict();
-            if (!view.IsCertProofVerified(cert, scVerifier, ret_code))
+            ret_code = view.IsCertProofVerified(cert, scVerifier);
+            if (ret_code != CValidationState::Code::OK)
             {
                 return state.DoS(100, error("%s():%d - cert proof failed to verify: ret_code[0x%x]",
                     __func__, __LINE__, CValidationState::CodeToChar(ret_code)),
@@ -2978,8 +2979,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
-        CValidationState::Code ret_code = CValidationState::Code::OK;
-        if (!view.IsCertApplicableToState(cert, ret_code))
+        CValidationState::Code ret_code = view.IsCertApplicableToState(cert);
+        if (ret_code != CValidationState::Code::OK)
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s], ret_code[0x%x]",
                 __func__, __LINE__, cert.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),
@@ -2987,7 +2988,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
-        if (!view.IsCertProofVerified(cert, scVerifier, ret_code) )
+        ret_code = view.IsCertProofVerified(cert, scVerifier);
+        if (ret_code != CValidationState::Code::OK)
         {
             return state.DoS(100, error("%s():%d: cert [%s] proof failed, ret_code[0x%x]",
                 __func__, __LINE__, cert.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),

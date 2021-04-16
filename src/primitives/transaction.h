@@ -363,14 +363,14 @@ public:
     libzendoomc::ScProof scProof;
     CScript redeemScript;
     // index in the list of active cert data in tx obj
-    uint32_t actCertDataIdx; 
+    int32_t actCertDataIdx; 
 
     CTxCeasedSidechainWithdrawalInput();
 
     explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
                                                const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn,
-                                               uint32_t actCertDataIdxIn);
+                                               int32_t actCertDataIdxIn);
 
     ADD_SERIALIZE_METHODS
 

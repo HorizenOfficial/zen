@@ -109,7 +109,7 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
 }
 
 CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(
-    const uint256& scId, const std::string& nullifierHex, CAmount amount, uint32_t actCertDataIdx)
+    const uint256& scId, const std::string& nullifierHex, CAmount amount, int32_t actCertDataIdx)
 {
     std::vector<unsigned char> tmp(nullifierHex.begin(), nullifierHex.end());
     tmp.resize(CFieldElement::ByteSize());
@@ -130,6 +130,7 @@ CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawal
     mtx.vcsw_ccin[0] = csw;
 
     // idx points at an entry to this vector
+    assert(csw.actCertDataIdx >= 0);
     mtx.vact_cert_data.resize(csw.actCertDataIdx);
     mtx.vact_cert_data.push_back(CFieldElement{SAMPLE_FIELD});
 

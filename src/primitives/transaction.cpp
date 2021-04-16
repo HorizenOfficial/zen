@@ -215,7 +215,7 @@ std::string CTxIn::ToString() const
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(
     const CAmount& nValueIn, const uint256& scIdIn, const CFieldElement& nullifierIn,
     const uint160& pubKeyHashIn, const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn,
-    uint32_t actCertDataIdxIn)
+    int32_t actCertDataIdxIn)
 {
     nValue = nValueIn;
     scId = scIdIn;
@@ -227,7 +227,7 @@ CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(
 }
 
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput():
-    nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript(), actCertDataIdx(0) {}
+    nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript(), actCertDataIdx(-1) {}
 
 std::string CTxCeasedSidechainWithdrawalInput::ToString() const
 {
