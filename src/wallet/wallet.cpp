@@ -3343,7 +3343,7 @@ bool CWallet::CreateTransaction(
                 // vccouts to the payees
                 for (const auto& entry : vecScSend)
                 {
-                    CTxScCreationOut txccout(entry.nValue, entry.address, entry.creationData);
+                    CTxScCreationOut txccout(entry.nValue, entry.address, entry.ftScFee, entry.mbtrScFee, entry.fixedParams);
                     txNew.add(txccout);
                 }
 

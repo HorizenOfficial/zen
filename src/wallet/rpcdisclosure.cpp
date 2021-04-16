@@ -55,8 +55,8 @@ UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp)
             + strPaymentDisclosureDisabledMsg +
             "\nArguments:\n"
             "1. \"txid\"            (string, required) \n"
-            "2. \"js_index\"        (string, required) \n"
-            "3. \"output_index\"    (string, required) \n"
+            "2. \"js_index\"        (numeric, required) \n"
+            "3. \"output_index\"    (numeric, required) \n"
             "4. \"message\"         (string, optional) \n"
             "\nResult:\n"
             "\"paymentdisclosure\"  (string) Hex data string, with \"zpd:\" prefix.\n"

@@ -15,7 +15,10 @@ namespace txCreationUtils
 {
 CMutableTransaction populateTx(int txVersion,
                                const CAmount & creationTxAmount = CAmount(0),
-                               int epochLength = 5);
+                               int epochLength = 5,
+                               const CAmount& ftScFee = CAmount(0),
+                               const CAmount& mbtrScFee = CAmount(0),
+                               int mbtrDataLength = 0);
 void signTx(CMutableTransaction& mtx);
 void signTx(CMutableScCertificate& mcert);
 
@@ -32,7 +35,8 @@ void addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount);
 
 CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
                                  CAmount changeTotalAmount, unsigned int numChangeOut,
-                                 CAmount bwtTotalAmount, unsigned int numBwt, const int quality = 3);
+                                 CAmount bwtTotalAmount, unsigned int numBwt,
+                                 CAmount ftScFee, CAmount mbtrScFee, const int quality = 3);
 
 uint256 CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight);
 

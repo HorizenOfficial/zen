@@ -335,29 +335,29 @@ typedef struct sPowRelatedData_tag
     }
 } ScPowRelatedData;
 
-struct ScCreationParameters
+struct ScFixedParameters
 {
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
     CScVKey wCertVk;
-    boost::optional<CScVKey> wMbtrVk;
     boost::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
+    int32_t mainchainBackwardTransferRequestDataLength;  /**< The mandatory size of the field element included in MBTR transaction outputs (0 to disable the MBTR). */
 
     bool IsNull() const
     {
         return (
-            withdrawalEpochLength == -1           &&
-            customData.empty()                    &&
-            constant == boost::none               &&
-            wCertVk.IsNull()                      &&
-            wMbtrVk == boost::none                &&
-            wCeasedVk == boost::none              &&
-            vFieldElementCertificateFieldConfig.empty() &&
-            vBitVectorCertificateFieldConfig.empty() );
+            withdrawalEpochLength == -1                     &&
+            customData.empty()                              &&
+            constant == boost::none                         &&
+            wCertVk.IsNull()                                &&
+            wCeasedVk == boost::none                        &&
+            vFieldElementCertificateFieldConfig.empty()     &&
+            vBitVectorCertificateFieldConfig.empty()        &&
+            mainchainBackwardTransferRequestDataLength == -1);
     }
 
     ADD_SERIALIZE_METHODS;
@@ -367,35 +367,37 @@ struct ScCreationParameters
         READWRITE(customData);
         READWRITE(constant);
         READWRITE(wCertVk);
-        READWRITE(wMbtrVk);
         READWRITE(wCeasedVk);
         READWRITE(vFieldElementCertificateFieldConfig);
         READWRITE(vBitVectorCertificateFieldConfig);
+        READWRITE(mainchainBackwardTransferRequestDataLength);
     }
-    ScCreationParameters() :withdrawalEpochLength(-1) {}
+    
+    ScFixedParameters(): withdrawalEpochLength(-1),
+                         mainchainBackwardTransferRequestDataLength(-1) {}
 
-    inline bool operator==(const ScCreationParameters& rhs) const
+    inline bool operator==(const ScFixedParameters& rhs) const
     {
         return (withdrawalEpochLength == rhs.withdrawalEpochLength) &&
                (customData == rhs.customData) &&
                (constant == rhs.constant) &&
                (wCertVk == rhs.wCertVk)  &&
-               (wMbtrVk == rhs.wMbtrVk)  &&
                (wCeasedVk == rhs.wCeasedVk) &&
                (vFieldElementCertificateFieldConfig == rhs.vFieldElementCertificateFieldConfig) &&
-               (vBitVectorCertificateFieldConfig == rhs.vBitVectorCertificateFieldConfig);
+               (vBitVectorCertificateFieldConfig == rhs.vBitVectorCertificateFieldConfig) &&
+               (mainchainBackwardTransferRequestDataLength == rhs.mainchainBackwardTransferRequestDataLength);
     }
-    inline bool operator!=(const ScCreationParameters& rhs) const { return !(*this == rhs); }
-    inline ScCreationParameters& operator=(const ScCreationParameters& cp)
+    inline bool operator!=(const ScFixedParameters& rhs) const { return !(*this == rhs); }
+    inline ScFixedParameters& operator=(const ScFixedParameters& cp)
     {
         withdrawalEpochLength         = cp.withdrawalEpochLength;
         customData                    = cp.customData;
         constant                      = cp.constant;
         wCertVk                       = cp.wCertVk;
-        wMbtrVk                       = cp.wMbtrVk;
         wCeasedVk                     = cp.wCeasedVk;
         vFieldElementCertificateFieldConfig = cp.vFieldElementCertificateFieldConfig;
         vBitVectorCertificateFieldConfig   = cp.vBitVectorCertificateFieldConfig;
+        mainchainBackwardTransferRequestDataLength = cp.mainchainBackwardTransferRequestDataLength;
         return *this;
     }
 };
@@ -403,35 +405,31 @@ struct ScCreationParameters
 struct ScBwtRequestParameters
 {
     CAmount scFee;
-    CFieldElement scRequestData;
-    CScProof scProof;
+    std::vector<CFieldElement> vScRequestData;
 
     bool IsNull() const
     {
-        return ( scFee == 0 && scRequestData.IsNull() && scProof.IsNull());
+        return ( scFee == 0 && vScRequestData.empty());
     }
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(scFee);
-        READWRITE(scRequestData);
-        READWRITE(scProof);
+        READWRITE(vScRequestData);
     }
     ScBwtRequestParameters() :scFee(0) {}
 
     inline bool operator==(const ScBwtRequestParameters& rhs) const
     {
         return (scFee == rhs.scFee) &&
-               (scRequestData == rhs.scRequestData) &&
-               (scProof == rhs.scProof); 
+               (vScRequestData == rhs.vScRequestData); 
     }
     inline bool operator!=(const ScBwtRequestParameters& rhs) const { return !(*this == rhs); }
     inline ScBwtRequestParameters& operator=(const ScBwtRequestParameters& cp)
     {
         scFee = cp.scFee;
-        scRequestData = cp.scRequestData;
-        scProof = cp.scProof;
+        vScRequestData = cp.vScRequestData;
         return *this;
     }
 };
@@ -448,7 +446,14 @@ struct CRecipientCrossChainBase
 
 struct CRecipientScCreation : public CRecipientCrossChainBase
 {
-    ScCreationParameters creationData;
+    ScFixedParameters fixedParams;     /**< Fixed creation parameters */
+    CAmount ftScFee;                    /**< Forward transfer sidechain fee */
+    CAmount mbtrScFee;                  /**< Mainchain backward transfer request fee */
+
+    CRecipientScCreation():
+        ftScFee(-1),
+        mbtrScFee(-1)
+    {}
 };
 
 struct CRecipientForwardTransfer : public CRecipientCrossChainBase
@@ -465,7 +470,8 @@ struct CRecipientBwtRequest
     CAmount GetScValue() const { return bwtRequestData.scFee; }
 };
 
-static const int MAX_SC_DATA_LEN = 1024;
+static const int MAX_SC_CUSTOM_DATA_LEN = 1024;     /**< Maximum data length for custom data (optional attribute for sidechain creation) in bytes. */
+static const int MAX_SC_MBTR_DATA_LEN = 16;         /**< Maximum number of field elements contained in a mainchain backward transfer request (optional attribute for sidechain creation). */
 
 }; // end of namespace
 

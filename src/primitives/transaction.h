@@ -571,14 +571,20 @@ public:
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
     CScVKey wCertVk;
-    boost::optional<CScVKey> wMbtrVk;
     boost::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
+    CAmount forwardTransferScFee;
+    CAmount mainchainBackwardTransferRequestScFee;
+    int32_t mainchainBackwardTransferRequestDataLength;
 
-    CTxScCreationOut():withdrawalEpochLength(-1) { }
+    CTxScCreationOut(): withdrawalEpochLength(-1), forwardTransferScFee(-1),
+                        mainchainBackwardTransferRequestScFee(-1),
+                        mainchainBackwardTransferRequestDataLength(-1) { }
 
-    CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn, const Sidechain::ScCreationParameters& params);
+    CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn,
+                     const CAmount& ftScFee, const CAmount& mbtrScFee,
+                     const Sidechain::ScFixedParameters& params);
     CTxScCreationOut& operator=(const CTxScCreationOut &ccout);
 
     ADD_SERIALIZE_METHODS;
@@ -591,10 +597,12 @@ public:
         READWRITE(customData);
         READWRITE(constant);
         READWRITE(wCertVk);
-        READWRITE(wMbtrVk);
         READWRITE(wCeasedVk);
         READWRITE(vFieldElementCertificateFieldConfig);
         READWRITE(vBitVectorCertificateFieldConfig);
+        READWRITE(forwardTransferScFee);
+        READWRITE(mainchainBackwardTransferRequestScFee);
+        READWRITE(mainchainBackwardTransferRequestDataLength);
     }
 
     const uint256& GetScId() const override final { return generatedScId;}; 
@@ -610,10 +618,12 @@ public:
                  a.customData == b.customData &&
                  a.constant == b.constant &&
                  a.wCertVk == b.wCertVk &&
-                 a.wMbtrVk == b.wMbtrVk &&
                  a.wCeasedVk == b.wCeasedVk &&
                  a.vFieldElementCertificateFieldConfig == b.vFieldElementCertificateFieldConfig &&
-                 a.vBitVectorCertificateFieldConfig == b.vBitVectorCertificateFieldConfig;
+                 a.vBitVectorCertificateFieldConfig == b.vBitVectorCertificateFieldConfig &&
+                 a.forwardTransferScFee == b.forwardTransferScFee &&
+                 a.mainchainBackwardTransferRequestScFee == b.mainchainBackwardTransferRequestScFee &&
+                 a.mainchainBackwardTransferRequestDataLength == b.mainchainBackwardTransferRequestDataLength;
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)
@@ -626,10 +636,9 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 {
   public:
     uint256 scId;
-    CFieldElement scRequestData;
+    std::vector<CFieldElement> vScRequestData;
     uint160 mcDestinationAddress;
     CAmount scFee;
-    CScProof scProof;
 
     CBwtRequestOut():scFee(0) {}
 
@@ -641,10 +650,9 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
         READWRITE(scId);
-        READWRITE(scRequestData);
+        READWRITE(vScRequestData);
         READWRITE(mcDestinationAddress);
         READWRITE(scFee);
-        READWRITE(scProof);
     }
 
     CAmount GetScValue() const override { return scFee; };
@@ -653,10 +661,10 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     friend bool operator==(const CBwtRequestOut& a, const CBwtRequestOut& b)
     {
         return ( a.scId                 == b.scId                 &&
-                 a.scRequestData        == b.scRequestData        &&
+                 a.vScRequestData       == b.vScRequestData       &&
                  a.mcDestinationAddress == b.mcDestinationAddress &&
-                 a.scFee                == b.scFee                &&
-                 a.scProof              == b.scProof );
+                 a.scFee                == b.scFee
+                );
     }
 
     friend bool operator!=(const CBwtRequestOut& a, const CBwtRequestOut& b)

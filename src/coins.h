@@ -625,6 +625,7 @@ public:
     uint256 GetBestAnchor()                                            const override;
     int GetHeight() const; // Return view height, which is inputs.GetBestBlock() (aka parent block) one.
     void SetBestBlock(const uint256 &hashBlock);
+    size_t WriteCoins(const uint256& key, CCoinsCacheEntry& value);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
@@ -673,6 +674,8 @@ public:
 
     bool IsScTxApplicableToStateWithoutProof(const CTransaction& tx) const;
     bool CheckScTxTiming(const uint256& scId) const;
+    bool CheckScFtFee(const CTxForwardTransferOut& ftOutput) const;
+    bool CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const;
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     int getScCoinsMaturity();
@@ -699,7 +702,7 @@ public:
     bool AddCswNullifier(const uint256& scId, const CFieldElement &nullifier);
     bool RemoveCswNullifier(const uint256& scId, const CFieldElement &nullifier);
 
-    CFieldElement GetActiveCertDataHash(const uint256& scId) const;
+    const CScCertificateView& GetActiveCertView(const uint256& scId) const;
     CSidechain::State GetSidechainState(const uint256& scId) const;
 
     bool Flush();

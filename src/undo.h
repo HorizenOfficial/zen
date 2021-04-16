@@ -146,14 +146,14 @@ struct CSidechainUndoData
     CAmount appliedMaturedAmount;
 
     // CROSS_EPOCH_CERT_DATA section
-    CFieldElement pastEpochTopQualityCertDataHash;
+    CScCertificateView pastEpochTopQualityCertView;
 
     // ANY_EPOCH_CERT_DATA section
     uint256 prevTopCommittedCertHash;
     int32_t prevTopCommittedCertReferencedEpoch;
     int64_t prevTopCommittedCertQuality;
     CAmount prevTopCommittedCertBwtAmount;
-    CFieldElement lastTopQualityCertDataHash;
+    CScCertificateView lastTopQualityCertView;
 
     // LOW_QUALITY_CERT_DATA
     std::vector<CTxInUndo> lowQualityBwts;
@@ -162,10 +162,10 @@ struct CSidechainUndoData
     std::vector<CTxInUndo> ceasedBwts;
 
     CSidechainUndoData(): sidechainUndoDataVersion(0), contentBitMask(AvailableSections::UNDEFINED),
-        appliedMaturedAmount(0), pastEpochTopQualityCertDataHash(),
+        appliedMaturedAmount(0), pastEpochTopQualityCertView(),
         prevTopCommittedCertHash(), prevTopCommittedCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         prevTopCommittedCertQuality(CScCertificate::QUALITY_NULL), prevTopCommittedCertBwtAmount(0),
-        lastTopQualityCertDataHash(), lowQualityBwts(), ceasedBwts() {}
+        lastTopQualityCertView(), lowQualityBwts(), ceasedBwts() {}
 
     size_t GetSerializeSize(int nType, int nVersion) const
     {
@@ -177,7 +177,7 @@ struct CSidechainUndoData
         }
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
-            totalSize += ::GetSerializeSize(pastEpochTopQualityCertDataHash,     nType, nVersion);
+            totalSize += ::GetSerializeSize(pastEpochTopQualityCertView, nType, nVersion);
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -185,7 +185,7 @@ struct CSidechainUndoData
             totalSize += ::GetSerializeSize(prevTopCommittedCertReferencedEpoch, nType, nVersion);
             totalSize += ::GetSerializeSize(prevTopCommittedCertQuality,         nType, nVersion);
             totalSize += ::GetSerializeSize(prevTopCommittedCertBwtAmount,       nType, nVersion);
-            totalSize += ::GetSerializeSize(lastTopQualityCertDataHash,          nType, nVersion);
+            totalSize += ::GetSerializeSize(lastTopQualityCertView,              nType, nVersion);
         }
         if (contentBitMask & AvailableSections::SUPERSEDED_CERT_DATA)
         {
@@ -209,7 +209,7 @@ struct CSidechainUndoData
         }
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
-            ::Serialize(s, pastEpochTopQualityCertDataHash,     nType, nVersion);
+            ::Serialize(s, pastEpochTopQualityCertView, nType, nVersion);
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -217,7 +217,7 @@ struct CSidechainUndoData
             ::Serialize(s, prevTopCommittedCertReferencedEpoch, nType, nVersion);
             ::Serialize(s, prevTopCommittedCertQuality,         nType, nVersion);
             ::Serialize(s, prevTopCommittedCertBwtAmount,       nType, nVersion);
-            ::Serialize(s, lastTopQualityCertDataHash,          nType, nVersion);
+            ::Serialize(s, lastTopQualityCertView,              nType, nVersion);
         }
         if (contentBitMask & AvailableSections::SUPERSEDED_CERT_DATA)
         {
@@ -241,7 +241,7 @@ struct CSidechainUndoData
         }
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
         {
-            ::Unserialize(s, pastEpochTopQualityCertDataHash,     nType, nVersion);
+            ::Unserialize(s, pastEpochTopQualityCertView, nType, nVersion);
         }
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -249,7 +249,7 @@ struct CSidechainUndoData
             ::Unserialize(s, prevTopCommittedCertReferencedEpoch, nType, nVersion);
             ::Unserialize(s, prevTopCommittedCertQuality,         nType, nVersion);
             ::Unserialize(s, prevTopCommittedCertBwtAmount,       nType, nVersion);
-            ::Unserialize(s, lastTopQualityCertDataHash,          nType, nVersion);
+            ::Unserialize(s, lastTopQualityCertView,              nType, nVersion);
         }
         if (contentBitMask & AvailableSections::SUPERSEDED_CERT_DATA)
         {
@@ -270,7 +270,7 @@ struct CSidechainUndoData
              res += strprintf("appliedMaturedAmount=%d.%08d\n", appliedMaturedAmount / COIN, appliedMaturedAmount % COIN);
 
         if (contentBitMask & AvailableSections::CROSS_EPOCH_CERT_DATA)
-            res += strprintf("pastEpochTopQualityCertDataHash=%s\n", pastEpochTopQualityCertDataHash.GetHexRepr());
+            res += strprintf("pastEpochTopQualityCertView=%s\n", pastEpochTopQualityCertView.ToString());
 
         if (contentBitMask & AvailableSections::ANY_EPOCH_CERT_DATA)
         {
@@ -278,7 +278,7 @@ struct CSidechainUndoData
             res += strprintf("prevTopCommittedCertReferencedEpoch=%d\n", prevTopCommittedCertReferencedEpoch);
             res += strprintf("prevTopCommittedCertQuality=%d\n", prevTopCommittedCertQuality);
             res += strprintf("prevTopCommittedCertBwtAmount=%d.%08d\n", prevTopCommittedCertBwtAmount / COIN, prevTopCommittedCertBwtAmount % COIN);
-            res += strprintf("lastTopQualityCertDataHash=%s\n", lastTopQualityCertDataHash.GetHexRepr());
+            res += strprintf("lastTopQualityCertView=%s\n", lastTopQualityCertView.ToString());
         }
 
         res += strprintf("ceasedBwts.size()=%u\n", ceasedBwts.size());
