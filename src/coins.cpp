@@ -1327,11 +1327,10 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
          * Check that the Forward Transfer amount is strictly greater than the
          * Sidechain Forward Transfer Fee.
          */
-        CAmount scFtFee = GetActiveCertView(scId).forwardTransferScFee;
-        if (ft.nValue <= scFtFee)
+        if (!CheckScFtFee(ft))
         {
             return error("%s():%d - ERROR: Invalid tx[%s] to scId[%s]: FT amount [%s] must be greater than SC FT fee [%s]",
-                    __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(ft.nValue), FormatMoney(scFtFee));
+                    __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(ft.nValue), FormatMoney(GetActiveCertView(scId).forwardTransferScFee));
         }
 
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
@@ -1386,11 +1385,11 @@ bool CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, libzendoom
          * Check that the Mainchain Backward Transfer Request amount is greater than or equal to the
          * Sidechain Mainchain Backward Transfer Request fee.
          */
-        CAmount scMbtrFee = GetActiveCertView(scId).mainchainBackwardTransferRequestScFee;
-        if (mbtr.scFee < scMbtrFee)
+        if (!CheckScMbtrFee(mbtr))
         {
             return error("%s():%d - ERROR: Invalid tx[%s] : MBTR fee [%s] cannot be less than SC MBTR fee [%s] for scId[%s]",
-                    __func__, __LINE__, txHash.ToString(), FormatMoney(mbtr.scFee), FormatMoney(scMbtrFee), scId.ToString());
+                    __func__, __LINE__, txHash.ToString(), FormatMoney(mbtr.scFee),
+                    FormatMoney(GetActiveCertView(scId).mainchainBackwardTransferRequestScFee), scId.ToString());
         }
 
         LogPrint("sc", "%s():%d - OK: tx[%s] contains bwt transfer request for scId[%s]\n",
