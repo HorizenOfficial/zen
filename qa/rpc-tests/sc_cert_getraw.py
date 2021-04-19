@@ -194,13 +194,9 @@ class sc_cert_getraw(BitcoinTestFramework):
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
-        # if txindex has not been specified when starting zend, this certificate can be retrieved only while is
-        # in mempool, since it has no coins to be searched in the coins db
         mark_logs("Check the certificate for this scid has no vin and no vouts", self.nodes, DEBUG_MODE)
         decoded_cert_mempool = self.nodes[0].getrawtransaction(cert_epoch_1, 1)
         assert_equal(decoded_cert_mempool['cert']['scid'], scid)
-        assert_equal(len(decoded_cert_mempool['vin']), 0)
-        assert_equal(len(decoded_cert_mempool['vout']), 0)
     
         mark_logs("Node0 confims bwd transfer generating 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)

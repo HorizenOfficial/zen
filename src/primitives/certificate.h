@@ -33,15 +33,23 @@ public:
     bool IsNull() const { return (nValue == -1);  }
 };
 
-class CScCertificate : virtual public CTransactionBase
+class FieldElementCertificateField;
+class BitVectorCertificateField;
+
+class CScCertificate : public CTransactionBase
 {
     /** Memory only. */
     void UpdateHash() const override;
 
 public:
-    static const int32_t EPOCH_NULL = -1;
-    static const int32_t EPOCH_NOT_INITIALIZED = -2;
-    static const int64_t QUALITY_NULL = -1;
+    static const int32_t INT_NULL = -1;
+    static const int32_t INT_NOT_INITIALIZED = -2;
+
+    static const int32_t EPOCH_NULL = INT_NULL;
+    static const int32_t EPOCH_NOT_INITIALIZED = INT_NOT_INITIALIZED;
+
+    static const int64_t QUALITY_NULL = INT_NULL;
+    static const int64_t QUALITY_NOT_INITIALIZED = INT_NOT_INITIALIZED;
 
 private:
     const uint256 scId;
@@ -51,6 +59,10 @@ public:
     const int64_t quality;
     const uint256 endEpochBlockHash;
     const libzendoomc::ScProof scProof;
+    std::vector<FieldElementCertificateField> vFieldElementCertificateField;
+    std::vector<BitVectorCertificateField> vBitVectorCertificateField;
+
+    // memory only
     const int nFirstBwtPos;
 
     /** Construct a CScCertificate that qualifies as IsNull() */
@@ -96,8 +108,21 @@ public:
         READWRITE(*const_cast<int64_t*>(&quality));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
         READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
+        READWRITE(*const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField));
+        READWRITE(*const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField));
+
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
 
+        //  - in the in-memory representation, ordinary outputs and backward transfer outputs are contained
+        //    in the same vout vector which is parted in two segments.
+        //    The first segment contains ordinary outputs (if any) and nFirstBwtPos is a positional index
+        //    in vout pointing at the first backward transfer entry (if any).
+        //
+        //  - when serializing a certificate, ordinary outputs and backward transfer outputs are splitted
+        //    in two separate vectors:
+        //       vout_ser      - ordinary outputs, CTxOut objects
+        //       vbt_ccout_ser - backward transfer outputs, CBackwardTransferOut objects 
+        //    
         if (ser_action.ForRead())
         {
             // reading from data stream to memory
@@ -112,7 +137,6 @@ public:
         else
         {
             // reading from memory and writing to data stream
-            // we must not modify vout
             std::vector<CTxOut> vout_ser;
             for(int pos = 0; pos < nFirstBwtPos; ++pos)
                 vout_ser.push_back(vout[pos]);
@@ -140,10 +164,11 @@ public:
     CScCertificate(deserialize_type, Stream& s) : CScCertificate(CMutableScCertificate(deserialize, s)) {}
 
     //GETTERS
-    const uint256&                            GetJoinSplitPubKey() const override { static const uint256 nullKey; return nullKey;}
-    const std::vector<JSDescription>&         GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
-    const uint256&                            GetScId()       const          {return scId;};
-    const uint32_t&                           GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
+    const uint256&                     GetJoinSplitPubKey() const override { static const uint256 nullKey; return nullKey;}
+    const std::vector<JSDescription>&  GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
+    const uint256&                     GetScId()       const          {return scId;};
+    const uint32_t&                    GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
+    CFieldElement                      GetDataHash() const;
     //END OF GETTERS
 
     bool IsBackwardTransfer(int pos) const override final;
@@ -151,9 +176,13 @@ public:
     //CHECK FUNCTIONS
     bool IsValidVersion   (CValidationState &state) const override;
     bool IsVersionStandard(int nHeight) const override;
+    bool CheckSerializedSize(CValidationState &state) const override;
     bool CheckAmounts     (CValidationState &state) const override;
+    bool CheckInputsOutputsNonEmpty(CValidationState &state) const override;
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
+    bool CheckInputsLimit() const override;
+
     //END OF CHECK FUNCTIONS
 
     void Relay() const override;
@@ -169,6 +198,8 @@ public:
             quality == QUALITY_NULL &&
             endEpochBlockHash.IsNull() &&
             scProof.IsNull() &&
+            vFieldElementCertificateField.empty() &&
+            vBitVectorCertificateField.empty() &&
             vin.empty() &&
             vout.empty() );
     }
@@ -181,13 +212,11 @@ public:
     CAmount GetValueOfBackwardTransfers() const;
     CAmount GetValueOfChange() const;
 
-    void AddToBlock(CBlock* pblock) const override; 
-    void AddToBlockTemplate(CBlockTemplate* pblocktemplate, CAmount fee, unsigned int /* not used sigops */) const override;
-
     bool ContextualCheck(CValidationState& state, int nHeight, int dosLevel) const override;
 
-    std::shared_ptr<BaseSignatureChecker> MakeSignatureChecker(
-        unsigned int nIn, const CChain* chain, bool cacheStore) const override;
+    bool VerifyScript(
+            const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
+            bool cacheStore, ScriptError* serror) const override;
 };
 
 /** A mutable version of CScCertificate. */
@@ -198,11 +227,16 @@ struct CMutableScCertificate : public CMutableTransactionBase
     int64_t quality;
     uint256 endEpochBlockHash;
     libzendoomc::ScProof scProof;
+    std::vector<FieldElementCertificateField> vFieldElementCertificateField;
+    std::vector<BitVectorCertificateField> vBitVectorCertificateField;
+
+    // memory only
     const int nFirstBwtPos;
 
     CMutableScCertificate();
     CMutableScCertificate(const CScCertificate& tx);
     CMutableScCertificate(const CMutableScCertificate& tx) = default;
+    operator CScCertificate() { return CScCertificate(*this); }
     CMutableScCertificate& operator=(const CMutableScCertificate& tx);
     ~CMutableScCertificate() = default;
 
@@ -216,6 +250,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(quality);
         READWRITE(endEpochBlockHash);
         READWRITE(scProof);
+        READWRITE(vFieldElementCertificateField);
+        READWRITE(vBitVectorCertificateField);
         READWRITE(vin);
 
         if (ser_action.ForRead())
@@ -249,7 +285,10 @@ struct CMutableScCertificate : public CMutableTransactionBase
 
     template <typename Stream>
     CMutableScCertificate(deserialize_type, Stream& s) :
-    scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), scProof() {
+        scId(), epochNumber(CScCertificate::EPOCH_NULL),
+        quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), scProof(),
+        vFieldElementCertificateField(), vBitVectorCertificateField()
+    {
         Unserialize(s);
     }
 
@@ -264,10 +303,47 @@ struct CMutableScCertificate : public CMutableTransactionBase
     void resizeBwt(unsigned int newSize)                  override final;
     bool addOut(const CTxOut& out)                        override final;
     bool addBwt(const CTxOut& out)                        override final;
-    bool add(const CTxScCreationOut& out)                 override final;
-    bool add(const CTxForwardTransferOut& out)            override final;
 
     std::string ToString() const;
+};
+
+struct CScCertificateStatusUpdateInfo
+{
+    uint256  scId;
+    uint256  certHash;
+    uint32_t certEpoch;
+    int64_t  certQuality;
+    enum  BwtState : uint8_t {
+        BWT_UNKNOW,
+        BWT_ON,
+        BWT_OFF
+    };
+    uint8_t bwtState;
+
+    CScCertificateStatusUpdateInfo(): scId(), certHash(), certEpoch(CScCertificate::EPOCH_NOT_INITIALIZED),
+                                      certQuality(CScCertificate::QUALITY_NOT_INITIALIZED), bwtState(BwtState::BWT_UNKNOW) {};
+    CScCertificateStatusUpdateInfo(const uint256& _scId, const uint256& _certHash, uint32_t _certEpoch, int64_t _certQuality, BwtState _bwtState):
+        scId(_scId), certHash(_certHash), certEpoch(_certEpoch), certQuality(_certQuality), bwtState(_bwtState) {};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        //Note: ScId is not serialized here, as it is used as key in wallet where this object is stored
+        READWRITE(this->certHash);
+        READWRITE(this->certEpoch);
+        READWRITE(this->certQuality);
+        READWRITE(this->bwtState);
+    };
+
+    std::string ToString() const
+    {
+        std::string str;
+        str += strprintf("CScCertificateStatusUpdateInfo(scId=%s, certHash=%s, certEpoch=%d, bwtState=%d)",
+                         this->scId.ToString(), this->certHash.ToString(), this->certEpoch, this->bwtState);
+        return str;
+    }
 };
 
 #endif // _CERTIFICATE_H

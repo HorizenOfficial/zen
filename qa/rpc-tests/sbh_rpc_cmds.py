@@ -20,7 +20,7 @@ EPOCH_LENGTH = 5
 CERT_FEE = Decimal('0.00015')
 
 def get_epoch_data( scid, node, epochLen):
-    sc_creating_height = node.getscinfo(scid)['created at block height']
+    sc_creating_height = node.getscinfo(scid)['items'][0]['created at block height']
     current_height = node.getblockcount()
     epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
     epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
@@ -74,32 +74,6 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         # self.sync_all()
         time.sleep(2)
         self.is_network_split = False
-
-    def dump_sc_info_record(self, info, i):
-        if DEBUG_MODE == 0:
-            return
-        print "  Node %d - scid: %s" % (i, info["scid"])
-        print "    balance: %f" % (info["balance"])
-        print "    created in block: %s (%d)" % (info["created in block"], info["created at block height"])
-        print "    created in tx:    %s" % info["creating tx hash"]
-        print "    immature amounts:  ", info["immature amounts"]
-        print
-
-    def dump_sc_info(self, scId=""):
-        if scId != "":
-            print "-------------------------------------------------------------------------------------"
-            for i in range(0, NUMB_OF_NODES):
-                try:
-                    self.dump_sc_info_record(self.nodes[i].getscinfo(scId), i)
-                except JSONRPCException, e:
-                    print "  Node %d: ### [no such scid: %s]" % (i, scId)
-        else:
-            print "-------------------------------------------------------------------------------------"
-            for i in range(0, NUMB_OF_NODES):
-                x = self.nodes[i].getscinfo()
-                for info in x:
-                    self.dump_sc_info_record(info, i)
-        print
 
     def run_test(self):
 
@@ -250,7 +224,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         ud1 = self.nodes[1].getunconfirmedtxdata(bwt_address, True)
         ud2 = self.nodes[1].getunconfirmedtxdata(bwt_address, False)
         assert_equal(ud1, ud2) 
-        assert_equal(ud1['bwtImmatureOutput'], bwt_amount1) 
+        assert_equal(ud1['bwtImmatureOutput'], Decimal("0.0")) # Certs in mempool have bwts voided
         assert_equal(ud1['unconfirmedInput'], Decimal("0.0")) 
         assert_equal(ud1['unconfirmedOutput'], Decimal("0.0")) 
         assert_equal(ud1['unconfirmedTxApperances'], 0) 
@@ -261,7 +235,10 @@ class sbh_rpc_cmds(BitcoinTestFramework):
 
         mark_logs("\nChecking Node1 unconfirmed data for addr {}".format(bwt_address), self.nodes, DEBUG_MODE)
         ud3 = self.nodes[1].getunconfirmedtxdata(bwt_address, True)
-        assert_equal(ud1, ud3) 
+        assert_equal(ud3['bwtImmatureOutput'], bwt_amount1) # Once confirmed, certs in mempool have bwts available
+        assert_equal(ud3['unconfirmedInput'], Decimal("0.0")) 
+        assert_equal(ud3['unconfirmedOutput'], Decimal("0.0")) 
+        assert_equal(ud3['unconfirmedTxApperances'], 0)
 
         mark_logs("\nNode0 generates 1 more block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
