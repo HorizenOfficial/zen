@@ -639,7 +639,8 @@ class sc_rawcert(BitcoinTestFramework):
         # generate a certificate with invalid FT fee
         errorString = ""
         ftScFee = Decimal("-1.0")
-        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn, "ftScFee": ftScFee}
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "endEpochCumScTxCommTreeRoot" : epoch_cum_tree_hash,
+                      "scProof": proof, "withdrawalEpochNumber": epn, "ftScFee": ftScFee}
 
         mark_logs("Node0 creating raw certificate with negative FT fee", self.nodes, DEBUG_MODE)
         try:
@@ -655,7 +656,8 @@ class sc_rawcert(BitcoinTestFramework):
         # generate a certificate with invalid MBTR fee
         errorString = ""
         mbtrScFee = Decimal("-1.0")
-        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn, "mbtrScFee": mbtrScFee}
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "endEpochCumScTxCommTreeRoot" : epoch_cum_tree_hash,
+                      "scProof": proof, "withdrawalEpochNumber": epn, "mbtrScFee": mbtrScFee}
 
         mark_logs("Node0 creating raw certificate with negative MBTR fee", self.nodes, DEBUG_MODE)
         try:
@@ -672,7 +674,8 @@ class sc_rawcert(BitcoinTestFramework):
         errorString = ""
         ftScFee = Decimal("10.0")
         mbtrScFee = Decimal("20.0")
-        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn, "ftScFee": ftScFee, "mbtrScFee": mbtrScFee}
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "endEpochCumScTxCommTreeRoot" : epoch_cum_tree_hash,
+                      "scProof": proof, "withdrawalEpochNumber": epn, "ftScFee": ftScFee, "mbtrScFee": mbtrScFee}
 
         mark_logs("Node0 creating raw certificate with valid FT and MBTR fees", self.nodes, DEBUG_MODE)
         try:

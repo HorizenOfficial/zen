@@ -5299,6 +5299,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     CMutableScCertificate cert;
     cert.nVersion = SC_CERT_VERSION;
 
+    //--------------------------------------------------------------------------
     // side chain id
     const string& scIdString = params[0].get_str();
     if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
@@ -5326,6 +5327,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert height"));
     }
 
+    //--------------------------------------------------------------------------
     int epochNumber = params[1].get_int(); 
     if (epochNumber < 0)
     {
@@ -5334,6 +5336,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
     cert.epochNumber = epochNumber;
 
+    //--------------------------------------------------------------------------
     int64_t quality = params[2].get_int64();
     if (quality < 0)
     {
@@ -5342,6 +5345,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     }
     cert.quality = quality;
 
+    //--------------------------------------------------------------------------
     // epoch block hash
     // TODO - endEpochBlockHash will disappear as soon as we will have a working interface for the proof verification
     const string& blockHashStr = params[3].get_str();
@@ -5411,6 +5415,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid cert scProof"));
     }
 
+    //--------------------------------------------------------------------------
     // can be empty
     const UniValue& outputs = params[6].get_array();
 
@@ -5457,11 +5462,12 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         nTotalOut += nAmount;
     }
 
+    //--------------------------------------------------------------------------
     CAmount ftScFee;
 
     try
     {
-        ftScFee = AmountFromValue(params[6]);
+        ftScFee = AmountFromValue(params[7]);
     } catch (const UniValue& error)
     {
         UniValue errMsg  = find_value(error, "message");
@@ -5473,11 +5479,12 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid parameter for FT sidechain fee, amount out of range");
     }
 
+    //--------------------------------------------------------------------------
     CAmount mbtrScFee;
     
     try
     {
-        mbtrScFee = AmountFromValue(params[7]);
+        mbtrScFee = AmountFromValue(params[8]);
     }
     catch (const UniValue& error)
     {
@@ -5490,12 +5497,13 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid parameter for MBTR sidechain fee, amount out of range");
     }
 
+    //--------------------------------------------------------------------------
     // fee, default to a small amount
     CAmount nCertFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
-    if (params.size() > 8)
+    if (params.size() > 9)
     {
         try {
-            nCertFee = AmountFromValue(params[8]);
+            nCertFee = AmountFromValue(params[9]);
         } catch (const UniValue& error) {
             UniValue errMsg  = find_value(error, "message");
             throw JSONRPCError(RPC_TYPE_ERROR, ("Invalid fee param:" + errMsg.getValStr() ));
@@ -5506,15 +5514,14 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         // any check for upper threshold is left to cert processing
     }
 
+    //--------------------------------------------------------------------------
     // get fe cfg from creation params if any
     const auto & vFieldElementCertificateFieldConfig = sidechain.fixedParams.vFieldElementCertificateFieldConfig;
-    const auto & vBitVectorCertificateFieldConfig = sidechain.fixedParams.vBitVectorCertificateFieldConfig;
-
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     UniValue feArray(UniValue::VARR);
-    if (params.size() > 9)
+    if (params.size() > 10)
     {
-        feArray = params[9].get_array();
+        feArray = params[10].get_array();
         int count = 0;
         for (const UniValue& o : feArray.getValues())
         {
@@ -5540,14 +5547,16 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
             "Invalid parameter, fe array has size %d, but the expected size is %d",
-            feArray.size(), vBitVectorCertificateFieldConfig.size()));
+            feArray.size(), vFieldElementCertificateFieldConfig.size()));
     }
 
+    //--------------------------------------------------------------------------
+    const auto & vBitVectorCertificateFieldConfig = sidechain.fixedParams.vBitVectorCertificateFieldConfig;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
     UniValue cmtArray(UniValue::VARR);
-    if (params.size() > 10)
+    if (params.size() > 11)
     {
-        cmtArray = params[10].get_array();
+        cmtArray = params[11].get_array();
         int count = 0;
         for (const UniValue& o : cmtArray.getValues())
         {

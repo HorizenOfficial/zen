@@ -468,7 +468,7 @@ class CswNullifierTest(BitcoinTestFramework):
         mbtrVk2 = mcTest.generate_params("mbtr2")
         cswVk2 = mcTest.generate_params("csw2")
 
-        ret = self.nodes[0].sc_create(sc_epoch_len, "dada", sc_cr_amount, vk2, "abcdef", constant, mbtrVk2, cswVk2)
+        ret = self.nodes[0].sc_create(sc_epoch_len, "dada", sc_cr_amount, vk2, "abcdef", constant, cswVk2)
         creating_tx = ret['txid']
         mark_logs("Node 0 created SC spending {} coins via tx1 {}.".format(sc_cr_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()

@@ -302,6 +302,14 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
             }
 
             mempool.check(pcoinsTip);
+
+            /**
+             * At this point no PARTIALLY_VALIDATED certs or transactions remaining.
+             */
+            for (auto obj : txBaseMsgQueue)
+            {
+                assert(obj.txBaseProcessingState != MempoolReturnValue::PARTIALLY_VALIDATED);
+            }
         } else
         {
             assert(false && "Unhandled MempoolReturnValue");

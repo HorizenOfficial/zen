@@ -1557,7 +1557,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             return MempoolReturnValue::INVALID;
         }
 
-        if (tx.GetVcswCcIn().empty() && tx.GetVBwtRequestOut().empty())
+        if (tx.GetVcswCcIn().empty())
         {
             //No sc proofs to be validated, job done. Store and exit
             StoreTxToMempool(tx, pool, view);
