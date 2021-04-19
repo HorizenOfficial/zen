@@ -18,6 +18,7 @@
 #include <boost/unordered_map.hpp>
 #include "zcash/IncrementalMerkleTree.hpp"
 #include <sc/sidechain.h>
+#include <consensus/validation.h>
 
 class CBlockUndo;
 class CTxInUndo;
@@ -672,7 +673,7 @@ public:
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
-    bool IsScTxApplicableToStateWithoutProof(const CTransaction& tx) const;
+    CValidationState::Code IsScTxApplicableToStateWithoutProof(const CTransaction& tx) const;
     bool CheckScTxTiming(const uint256& scId) const;
     bool CheckScFtFee(const CTxForwardTransferOut& ftOutput) const;
     bool CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const;
@@ -681,8 +682,12 @@ public:
     int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToStateWithoutProof(const CScCertificate& cert) const;
+    CValidationState::Code IsCertApplicableToStateWithoutProof(const CScCertificate& cert) const;
     bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
+
+    CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(
+        const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot) const;
+
     bool CheckCertTiming(const uint256& scId, int certEpoch) const;
     bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
     bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);

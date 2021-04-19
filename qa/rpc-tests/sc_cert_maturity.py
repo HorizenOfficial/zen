@@ -100,7 +100,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         self.nodes[0].generate(4)
         self.sync_all()
 
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         bal_without_bwt = self.nodes[1].getbalance() 
 
@@ -115,7 +115,8 @@ class sc_cert_maturity(BitcoinTestFramework):
                 "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [pkh_node1, pkh_node1], [bwt_amount1, bwt_amount2])
 
-            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
+                                                    proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
             self.sync_all()
         except JSONRPCException, e:
@@ -156,7 +157,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         self.sync_all()
 
         prev_epoch_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
 
@@ -170,7 +171,8 @@ class sc_cert_maturity(BitcoinTestFramework):
                 "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [pkh_node1], [bwt_amount3])
 
-            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
+                                                    proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
             self.sync_all()
         except JSONRPCException, e:
@@ -256,7 +258,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo("*")['items'][0]['state'], "ALIVE")
 
         prev_epoch_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         mark_logs("Node 0 sends an empty cert for scid {} just for keeping the sc alive".format(scid), self.nodes, DEBUG_MODE)
@@ -267,7 +269,8 @@ class sc_cert_maturity(BitcoinTestFramework):
                 "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [], [])
 
-            cert_3 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_3 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
+                                                    proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_3), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']

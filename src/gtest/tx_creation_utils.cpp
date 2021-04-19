@@ -111,7 +111,8 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
     return CTransaction(mtx);
 }
 
-CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
+CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(
+    const uint256& scId, const std::string& nullifierHex, CAmount amount, int32_t actCertDataIdx)
 {
     std::vector<unsigned char> tmp(nullifierHex.begin(), nullifierHex.end());
     tmp.resize(CFieldElement::ByteSize());
@@ -121,7 +122,7 @@ CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(const uint256&
     CScProof dummyScProof{ParseHex(SAMPLE_PROOF)};
     CScript dummyRedeemScript;
 
-    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript);
+    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript, actCertDataIdx);
 }
 
 CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawalInput& csw)
@@ -130,6 +131,11 @@ CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawal
     mtx.nVersion = SC_TX_VERSION;
     mtx.vcsw_ccin.resize(1);
     mtx.vcsw_ccin[0] = csw;
+
+    // idx points at an entry to this vector
+    assert(csw.actCertDataIdx >= 0);
+    mtx.vact_cert_data.resize(csw.actCertDataIdx);
+    mtx.vact_cert_data.push_back(CFieldElement{SAMPLE_FIELD});
 
     return CTransaction(mtx);
 }
@@ -195,6 +201,7 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
 }
 
 CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+                                                  const CFieldElement& endEpochCumScTxCommTreeRoot,
                                                   CAmount changeTotalAmount, unsigned int numChangeOut,
                                                   CAmount bwtTotalAmount, unsigned int numBwt,
                                                   CAmount ftScFee, CAmount mbtrScFee, const int quality)
@@ -204,6 +211,7 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     res.scId = scId;
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
+    res.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     res.quality = quality;
     res.forwardTransferScFee = ftScFee;
     res.mainchainBackwardTransferRequestScFee = mbtrScFee;
@@ -270,9 +278,17 @@ void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)
         pNewBlockIdx->nBits = 0x1e7fffff;
         pNewBlockIdx->nChainWork = height == 0 ? arith_uint256(0) : mapBlockIndex.at(prevBlockHash)->nChainWork + GetBlockProof(*(mapBlockIndex.at(prevBlockHash)));
         pNewBlockIdx->hashAnchor = dummyTree.root();
+        pNewBlockIdx->nVersion = ForkManager::getInstance().getNewBlockVersion(height);
 
         BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
         pNewBlockIdx->phashBlock = &(mi->first);
+
+        if (pNewBlockIdx->pprev && pNewBlockIdx->nVersion == BLOCK_VERSION_SC_SUPPORT )
+        {
+            // don't do a real cumulative poseidon hash if it is not necessary
+            pNewBlockIdx->scCumTreeHash = CFieldElement{SAMPLE_FIELD};
+        }
+
         chainActive.SetTip(mapBlockIndex.at(currBlockHash));
 
         prevBlockHash = currBlockHash;

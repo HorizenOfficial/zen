@@ -24,7 +24,7 @@ namespace Sidechain
 void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& parentObj)
 {
     UniValue vcsws(UniValue::VARR);
-    for (const CTxCeasedSidechainWithdrawalInput csw: tx.GetVcswCcIn())
+    for (const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
     {
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("value", ValueFromAmount(csw.nValue)));
@@ -41,12 +41,21 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
         rs.push_back(Pair("asm", csw.redeemScript.ToString()));
         rs.push_back(Pair("hex", HexStr(csw.redeemScript)));
         o.push_back(Pair("redeemScript", rs));
+        o.push_back(Pair("actCertDataIdx", (uint64_t)csw.actCertDataIdx));
 
         vcsws.push_back(o);
     }
 
+    UniValue vactCertData(UniValue::VARR);
+    for (const CFieldElement& acd: tx.GetVActCertData())
+    {
+        vactCertData.push_back(acd.GetHexRepr());
+    }
+
+    parentObj.push_back(Pair("vact_cert_data", vactCertData));
     parentObj.push_back(Pair("vcsw_ccin", vcsws));
 }
+
 // TODO: naming style is different. Use CamelCase
 void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
 {
@@ -230,6 +239,7 @@ bool AddScData(const UniValue& intArray, std::vector<T>& vCfg)
 bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &rawTx, std::string &error)
 {
     rawTx.nVersion = SC_TX_VERSION;
+    std::set<CFieldElement> sActCertData;
 
     for (size_t i = 0; i < csws.size(); i++)
     {
@@ -310,7 +320,40 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": invalid nullifier data";
             return false;
         }
+//---------------------------------------------------------------------------------------------
+        // parse active cert data (do not check it though)
+        const UniValue& valActCertData = find_value(o, "activeCertData");
+        if (valActCertData.isNull())
+        {
+            error = "Missing mandatory parameter \"activeCertData\" for the ceased sidechain withdrawal input";
+            return false;
+        }
 
+        std::string errStr;
+        std::vector<unsigned char> vActCertData;
+        if (!AddScData(valActCertData.get_str(), vActCertData, CFieldElement::ByteSize(), true, errStr))
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"activeCertData\": " + errStr;
+            return false;
+        }
+
+        CFieldElement actCertData {vActCertData};
+        if (!actCertData.IsValid())
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"activeCertData\": invalid field element";
+            return false;
+        }
+
+        if (!sActCertData.count(actCertData))
+        {
+            rawTx.add(actCertData);
+            LogPrint("sc", "%s():%d - added actCertData[%s]\n", __func__, __LINE__, actCertData.GetHexRepr());
+            sActCertData.insert(actCertData);
+        }
+        int idx = rawTx.GetIndexOfActCertData(actCertData);
+        assert(idx >= 0);
+
+//---------------------------------------------------------------------------------------------
         // parse snark proof
         const UniValue& proof_v = find_value(o, "scProof");
         if (proof_v.isNull())
@@ -334,7 +377,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 
-        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, nullifier, pubKeyHash, scProof, CScript());
+        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, nullifier, pubKeyHash, scProof, CScript(), idx);
         rawTx.vcsw_ccin.push_back(csw_input);
     }
 

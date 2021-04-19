@@ -105,6 +105,7 @@ testScripts=(
   'sc_cert_memcleanup_split.py'
   'sc_cert_ceasing_split.py'
   'sc_ft_and_mbtr_fees.py'
+  'sc_csw_actcertdata.py'
 );
 
 testScriptsExt=(

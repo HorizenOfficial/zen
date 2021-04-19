@@ -157,6 +157,7 @@ public:
     int GetCertSubmissionWindowLength() const;
     int GetCertMaturityHeight(int certEpoch) const;
     int GetScheduledCeasingHeight() const;
+    bool GetCeasedCumTreeHashes(CFieldElement& lastEpochEndBlockCum, CFieldElement& ceasedBlockCum) const;
 
     bool isCreationConfirmed() const {
         return this->creationBlockHeight != -1;

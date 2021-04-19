@@ -267,7 +267,7 @@ class sc_getscinfo(BitcoinTestFramework):
 
         item = self.nodes[0].getscinfo(scid_0)['items'][0]
         epoch_n = item['withdrawalEpochLength']
-        epoch_block_hash_1, epoch_number_1 = get_epoch_data(scid_0, self.nodes[0], epoch_n)
+        epoch_block_hash_1, epoch_number_1, epoch_cum_tree_hash_1 = get_epoch_data(scid_0, self.nodes[0], epoch_n)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number_1, epoch_block_hash_1), self.nodes, DEBUG_MODE)
 
         prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number_1) * epoch_n))
@@ -283,7 +283,8 @@ class sc_getscinfo(BitcoinTestFramework):
             quality, constant, [pkh_node1], [bwt_amount])
 
         try:
-            cert_1_epoch_0 = self.nodes[0].send_certificate(scid_0, epoch_number_1, quality, epoch_block_hash_1, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_1_epoch_0 = self.nodes[0].send_certificate(scid_0, epoch_number_1, quality, epoch_block_hash_1, epoch_cum_tree_hash_1,
+                                                            proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:

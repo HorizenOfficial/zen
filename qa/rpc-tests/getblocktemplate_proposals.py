@@ -177,10 +177,8 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         "sc1", 0, eph, pebh,
         0, constant, [pkh], [SC_CERT_AMOUNT])
 
-        ftScFee = 0
-        mbtrScFee = 0
         fee = 0.000023
-        cert = self.nodes[0].send_certificate(scid, 0, 0, block_list[-1], proof, amounts, ftScFee, mbtrScFee, fee)
+        cert = self.nodes[0].send_certificate(scid, 0, 0, block_list[-1], epoch_cum_tree_hash, proof, amounts, ftScFee, mbtrScFee, fee)
         self.sync_all()
         assert_true(cert in self.nodes[0].getrawmempool() ) 
 

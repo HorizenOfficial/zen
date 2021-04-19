@@ -139,7 +139,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         mark_logs("##### End epoch block = {}".format(self.nodes[0].getbestblockhash()), self.nodes, DEBUG_MODE)
 
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1...".format(bwt_amount_1), self.nodes, DEBUG_MODE)
@@ -152,7 +152,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
             "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [bwt_amount_1])
 
-        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
+                                              proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()
@@ -190,7 +191,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         self.refresh_sidechain(sc_info, scid)
 
         prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2...".format(bwt_amount_2), self.nodes, DEBUG_MODE)
@@ -203,7 +204,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
             "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node2], [bwt_amount_2])
 
-        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
+                                              proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()
