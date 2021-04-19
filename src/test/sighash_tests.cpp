@@ -266,6 +266,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
     int scs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
     int fts = isSidechain ? (insecure_rand() % 4) + 1 : 0;
     int mbtrs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
+    int mbtrDataLength = isSidechain ? (insecure_rand() % 4) + 1 : 0;
     for (int in = 0; in < ins; in++) {
         tx.vin.push_back(CTxIn());
         CTxIn &txin = tx.vin.back();
@@ -380,8 +381,12 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             mbtr_out.scFee = insecure_rand() % 100000000;
             mbtr_out.mcDestinationAddress = random_uint160();
             mbtr_out.scId = libzcash::random_uint256();
-            RandomScProof(mbtr_out.scProof);
-            RandomSidechainField(mbtr_out.scRequestData);
+
+            for (int i = 0; i < mbtrDataLength; i++)
+            {
+                mbtr_out.vScRequestData.push_back(CFieldElement());
+                RandomSidechainField(mbtr_out.vScRequestData.back());
+            }
         }
     }
 }

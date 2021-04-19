@@ -5403,7 +5403,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     {
         std::vector<unsigned char> scProofVec;
         if (!Sidechain::AddScData(inputString, scProofVec, CScProof::ByteSize(), true ,errorStr))
-            throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
+            throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + errorStr);
 
         cert.scProof.SetByteArray(scProofVec);
 

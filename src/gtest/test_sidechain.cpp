@@ -705,7 +705,7 @@ TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyAlive) 
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     //test
-    CValidationState::Code ret_code = = sidechainsView->IsScTxApplicableToStateWithoutProof(aTransaction);
+    CValidationState::Code ret_code = sidechainsView->IsScTxApplicableToStateWithoutProof(aTransaction);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
@@ -906,7 +906,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState)
     CValidationState::Code ret_code = sidechainsView->IsScTxApplicableToStateWithoutProof(CTransaction(mutTx));
 
     //checks
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(CTransaction(mutTx)) == CValidationState::Code::INVALID);
+    EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
 }
 
 TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainIsAccepted) {
@@ -917,7 +917,7 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainIsAccepted) {
     initialScState.fixedParams.withdrawalEpochLength = 14;
     initialScState.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     initialScState.balance = CAmount{1000};
-    initialScState.pastEpochTopQualityCertDataHash = CFieldElement{SAMPLE_FIELD};
+    initialScState.pastEpochTopQualityCertView.certDataHash = CFieldElement{SAMPLE_FIELD};
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
@@ -1877,7 +1877,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     CBlock dummyBlock;
     CScCertificate originalCert = txCreationUtils::createCertificate(
         uint256S("aaa"),
-        /*epochNum*/0, dummyBlock.GetHash(),
+        /*epochNum*/0, dummyBlock.GetHash(), CFieldElement{SAMPLE_FIELD},
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2,
         /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
@@ -2000,8 +2000,8 @@ TEST_F(SidechainsTestSuite, NewCertificateUpdatesFeesAndDataLength)
     // Create new certificate
     //CBlockUndo dummyBlockUndo;
     CScCertificate cert = txCreationUtils::createCertificate(scId, /*certEpoch*/0, dummyBlock.GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
-        /*ftScFee*/ftFee, /*mbtrScFee*/mbtrFee);
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2,
+        /*bwtAmount*/CAmount(2), /*numBwt*/2, /*ftScFee*/ftFee, /*mbtrScFee*/mbtrFee);
 
     // Update the sidechains view with the new certificate
     ASSERT_TRUE(sidechainsView->UpdateSidechain(cert, dummyBlockUndo));
@@ -2018,22 +2018,24 @@ TEST_F(SidechainsTestSuite, CertificatesWithValidFeesAreValid)
 {
     CValidationState txState;
     CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
-        /*ftScFee*/CAmount(0), /*mbtrScFee*/CAmount(0));
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2,
+        /*bwtAmount*/CAmount(2), /*numBwt*/2, /*ftScFee*/CAmount(0), /*mbtrScFee*/CAmount(0));
 
     EXPECT_TRUE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_TRUE(txState.IsValid());
 
     cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
-        /*ftScFee*/CAmount(MAX_MONEY / 2), /*mbtrScFee*/CAmount(MAX_MONEY / 2));
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2,
+        /*bwtAmount*/CAmount(2), /*numBwt*/2, /*ftScFee*/CAmount(MAX_MONEY / 2),
+        /*mbtrScFee*/CAmount(MAX_MONEY / 2));
 
     EXPECT_TRUE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_TRUE(txState.IsValid());
 
     cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
-        /*ftScFee*/CAmount(MAX_MONEY), /*mbtrScFee*/CAmount(MAX_MONEY));
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2,
+        /*bwtAmount*/CAmount(2), /*numBwt*/2, /*ftScFee*/CAmount(MAX_MONEY),
+        /*mbtrScFee*/CAmount(MAX_MONEY));
 
     EXPECT_TRUE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_TRUE(txState.IsValid());
@@ -2043,15 +2045,16 @@ TEST_F(SidechainsTestSuite, CertificatesWithOutOfRangeFeesAreNotValid)
 {
     CValidationState txState;
     CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
-        /*ftScFee*/CAmount(-1), /*mbtrScFee*/CAmount(-1));
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2,
+        /*bwtAmount*/CAmount(2), /*numBwt*/2, /*ftScFee*/CAmount(-1), /*mbtrScFee*/CAmount(-1));
 
     EXPECT_FALSE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_FALSE(txState.IsValid());
 
     cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
-        /*ftScFee*/CAmount(MAX_MONEY + 1), /*mbtrScFee*/CAmount(MAX_MONEY + 1));
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2,
+        /*bwtAmount*/CAmount(2), /*numBwt*/2, /*ftScFee*/CAmount(MAX_MONEY + 1),
+        /*mbtrScFee*/CAmount(MAX_MONEY + 1));
 
     EXPECT_FALSE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_FALSE(txState.IsValid());
@@ -2068,13 +2071,13 @@ TEST_F(SidechainsTestSuite, CheckFtFeeValidations)
     uint256 scId = createAndStoreSidechain(scFtFee);
 
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee - 1));
-    EXPECT_FALSE(sidechainsView->IsScTxApplicableToStateWithoutProof(aTransaction));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(aTransaction) == CValidationState::Code::INVALID);
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee));
-    EXPECT_FALSE(sidechainsView->IsScTxApplicableToStateWithoutProof(aTransaction));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(aTransaction) == CValidationState::Code::INVALID);
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee + 1));
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(aTransaction));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(aTransaction) == CValidationState::Code::OK);
 }
 
 TEST_F(SidechainsTestSuite, CheckMbtrFeeValidations)
@@ -2082,13 +2085,13 @@ TEST_F(SidechainsTestSuite, CheckMbtrFeeValidations)
     CAmount scMbtrFee(5);
     uint256 scId = createAndStoreSidechain(0, scMbtrFee, 1);
     CMutableTransaction mutTx = createMtbtrTx(scId, scMbtrFee - 1);
-    EXPECT_FALSE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx) == CValidationState::Code::INVALID);
 
     mutTx.vmbtr_out[0].scFee = scMbtrFee;
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx) == CValidationState::Code::OK);
 
     mutTx.vmbtr_out[0].scFee = scMbtrFee + 1;
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx) == CValidationState::Code::OK);
 }
 
 
@@ -2099,14 +2102,14 @@ TEST_F(SidechainsTestSuite, MbtrAllowed)
 {
     uint256 scId = createAndStoreSidechain(0, 0, 1);
     CMutableTransaction mutTx = createMtbtrTx(scId, 0);
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx) == CValidationState::Code::OK);
 }
 
 TEST_F(SidechainsTestSuite, MbtrNotAllowed)
 {
     uint256 scId = createAndStoreSidechain();
     CMutableTransaction mutTx = createMtbtrTx(scId, 0);
-    EXPECT_FALSE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx) == CValidationState::Code::INVALID);
 }
 
 //////////////////////////////////////////////////////////

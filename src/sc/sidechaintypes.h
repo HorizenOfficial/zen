@@ -32,7 +32,7 @@ public:
 
     virtual bool IsValid() const = 0;
     bool operator==(const CZendooCctpObject& rhs) const { return this->byteVector == rhs.byteVector; }
-    bool operator!=(const CZendooCctpObject& rhs) { return !(*this == rhs); }
+    bool operator!=(const CZendooCctpObject& rhs) const { return !(*this == rhs); }
 
     // SERIALIZATION SECTION
     ADD_SERIALIZE_METHODS

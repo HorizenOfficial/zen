@@ -1043,7 +1043,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
     // is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
     int nextBlockHeight = pcoinsTip->GetHeight() + 1;
 
-    if (!cert.CheckInputsLimit())
+    if (!cert.CheckInputsLimit(state))
     {
         LogPrintf("%s(): CheckInputsLimit failed", __func__);
         return MempoolReturnValue::INVALID;
@@ -1573,7 +1573,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         if (resCsw.count(hash) != 0 && !resCsw.at(hash))
         {
             state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
-                          __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
+                          __func__, __LINE__, hash.ToString()), CValidationState::Code::INVALID, "bad-sc-tx-proof");
             return MempoolReturnValue::INVALID;
         }
 
@@ -3026,7 +3026,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             assert(res.count(cert.GetHash())!= 0 && "cert not validated in batch processing");
             if (!res.at(cert.GetHash()))
                 return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
-                                 REJECT_INVALID, "bad-sc-cert-proof");
+                                 CValidationState::Code::INVALID, "bad-sc-cert-proof");
         }
         assert(res.size() == block.vcert.size());
     }

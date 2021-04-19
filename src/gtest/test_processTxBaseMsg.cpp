@@ -66,7 +66,7 @@ struct FakeMempoolProcessor
 
         if (invalidTxes.count(txBase.GetHash()))
         {
-            state.DoS(DosLevelIfInvalid, false, REJECT_INVALID);
+            state.DoS(DosLevelIfInvalid, false, CValidationState::Code::INVALID);
             return MempoolReturnValue::INVALID;
         }
 

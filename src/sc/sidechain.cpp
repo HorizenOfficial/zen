@@ -420,7 +420,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
         return state.DoS(100,
                 error("%s():%d - ERROR: Invalid cert[%s], forwardTransferScFee out of range\n",
                 __func__, __LINE__, certHash.ToString()),
-                REJECT_INVALID, "bad-cert-ft-fee-out-of-range");;
+                CValidationState::Code::INVALID, "bad-cert-ft-fee-out-of-range");;
     }
 
     if (!MoneyRange(cert.mainchainBackwardTransferRequestScFee))
@@ -428,7 +428,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
         return state.DoS(100,
                 error("%s():%d - ERROR: Invalid cert[%s], mainchainBackwardTransferRequestScFee out of range\n",
                 __func__, __LINE__, certHash.ToString()),
-                REJECT_INVALID, "bad-cert-mbtr-fee-out-of-range");;
+                CValidationState::Code::INVALID, "bad-cert-mbtr-fee-out-of-range");;
     }
 
     if(!cert.scProof.IsValid())

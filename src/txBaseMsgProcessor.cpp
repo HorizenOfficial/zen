@@ -171,8 +171,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                     hashToProcess.ToString(), sourceNodeId, dataState.GetRejectReason());
 
             MarkAsRejected(hashToProcess);
-            int nDoS = 0;
-            dataState.IsInvalid(nDoS); //retrieve nDoS
+            int nDoS = dataState.GetDoS();
             if (nDoS > 0)
             {
                 {
@@ -184,7 +183,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
 
             if (pSourceNode != nullptr)
             {
-                pSourceNode->PushMessage("reject", std::string("tx"), dataState.GetRejectCode(),
+                pSourceNode->PushMessage("reject", std::string("tx"), CValidationState::CodeToChar(dataState.GetRejectCode()),
                         dataState.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH),
                         hashToProcess);
 
@@ -196,7 +195,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                 if ((nDoS > 0) && (pSourceNode->IsWhiteListed()))
                 {
                     LogPrintf( "Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
-                            hashToProcess.ToString(), sourceNodeId, dataState.GetRejectReason(), dataState.GetRejectCode());
+                            hashToProcess.ToString(), sourceNodeId, dataState.GetRejectReason(), CValidationState::CodeToChar(dataState.GetRejectCode()));
                 }
             }
 
@@ -222,7 +221,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                 {
                     enqueuedItem.txBaseProcessingState = MempoolReturnValue::INVALID;
                     enqueuedItem.txBaseValidationState.Invalid(error("%s(): inputs already spent", __func__),
-                                         REJECT_DUPLICATE, "bad-txns-inputs-spent");
+                                         CValidationState::Code::DUPLICATE, "bad-txns-inputs-spent");
                     continue;
                 }
 
@@ -277,7 +276,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                 } else
                 {
                     processedCert.txBaseValidationState.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
-                                  __func__, __LINE__, certItem.first.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
+                                  __func__, __LINE__, certItem.first.ToString()), CValidationState::Code::INVALID, "bad-sc-tx-proof");
                     processedCert.txBaseProcessingState = MempoolReturnValue::INVALID;
                 }
             }
@@ -291,7 +290,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                 if(resCsw.count(scTxItem.first) && !resCsw.at(scTxItem.first))
                 {
                     processedScTx.txBaseValidationState.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
-                                  __func__, __LINE__, scTxItem.first.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
+                                  __func__, __LINE__, scTxItem.first.ToString()), CValidationState::Code::INVALID, "bad-sc-tx-proof");
                     processedScTx.txBaseProcessingState = MempoolReturnValue::INVALID;
                 } else
                 {
