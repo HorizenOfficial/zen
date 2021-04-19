@@ -12,8 +12,8 @@
 #include "miner.h"
 #include "net.h"
 #include "netbase.h"
-#include "rpcprotocol.h"
-#include "rpcserver.h"
+#include "rpc/protocol.h"
+#include "rpc/server.h"
 #include "script/interpreter.h"
 #include "sodium.h"
 #include "timedata.h"
@@ -24,6 +24,7 @@
 #include "walletdb.h"
 #include "zcash/IncrementalMerkleTree.hpp"
 
+#include <array>
 #include <chrono>
 #include <iostream>
 #include <string>
@@ -254,12 +255,6 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
     }
     LogPrint("zrpc", "%s: fee: %s\n", getId(), FormatMoney(minersFee));
 
-    // Grab the current consensus branch ID
-    {
-        LOCK(cs_main);
-        consensusBranchId_ = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
-    }
-
     /**
      * SCENARIO #1
      *
@@ -457,11 +452,11 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
                 info.notes.push_back(note);
                 info.zkeys.push_back(changeKey);
 
-                jsInputValue += plaintext.value;
+                jsInputValue += plaintext.value();
 
                 LogPrint("zrpcunsafe", "%s: spending change (amount=%s)\n",
                          getId(),
-                         FormatMoney(plaintext.value));
+                         FormatMoney(plaintext.value()));
 
             } catch (const std::exception& e) {
                 throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Error decrypting output note of previous JoinSplit: %s", e.what()));
@@ -744,18 +739,19 @@ UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(
              getId(),
              tx_.vjoinsplit.size(),
              FormatMoney(info.vpub_old), FormatMoney(info.vpub_new),
-             FormatMoney(info.vjsin[0].note.value), FormatMoney(info.vjsin[1].note.value),
+             FormatMoney(info.vjsin[0].note.value()), FormatMoney(info.vjsin[1].note.value()),
              FormatMoney(info.vjsout[0].value), FormatMoney(info.vjsout[1].value));
 
     // Generate the proof, this can take over a minute.
-    boost::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs{info.vjsin[0], info.vjsin[1]};
-    boost::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs{info.vjsout[0], info.vjsout[1]};
-    boost::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
-    boost::array<size_t, ZC_NUM_JS_OUTPUTS> outputMap;
+    std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs{info.vjsin[0], info.vjsin[1]};
+    std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs{info.vjsout[0], info.vjsout[1]};
+    std::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
+    std::array<size_t, ZC_NUM_JS_OUTPUTS> outputMap;
 
     uint256 esk; // payment disclosure - secret
 
     JSDescription jsdesc = JSDescription::Randomized(
+        mtx.nVersion == GROTH_TX_VERSION,
         *pzcashParams,
         joinSplitPubKey_,
         anchor,
@@ -779,7 +775,7 @@ UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(
     // Empty output script.
     CScript scriptCode;
     CTransaction signTx(mtx);
-    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL, 0, consensusBranchId_);
+    uint256 dataToBeSigned = SignatureHash(scriptCode, signTx, NOT_AN_INPUT, SIGHASH_ALL);
 
     // Add the signature
     if (!(crypto_sign_detached(&mtx.joinSplitSig[0], NULL,
@@ -862,9 +858,9 @@ UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(
     return obj;
 }
 
-boost::array<unsigned char, ZC_MEMO_SIZE> AsyncRPCOperation_mergetoaddress::get_memo_from_hex_string(std::string s)
+std::array<unsigned char, ZC_MEMO_SIZE> AsyncRPCOperation_mergetoaddress::get_memo_from_hex_string(std::string s)
 {
-    boost::array<unsigned char, ZC_MEMO_SIZE> memo = {{0x00}};
+    std::array<unsigned char, ZC_MEMO_SIZE> memo = {{0x00}};
 
     std::vector<unsigned char> rawMemo = ParseHex(s.c_str());
 

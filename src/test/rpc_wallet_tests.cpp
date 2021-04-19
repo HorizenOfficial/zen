@@ -23,6 +23,7 @@
 #include "rpc/protocol.h"
 #include "init.h"
 
+#include <array>
 #include <chrono>
 #include <thread>
 
@@ -1531,7 +1532,8 @@ BOOST_AUTO_TEST_CASE(rpc_z_mergetoaddress_parameters)
     // Mutable tx containing contextual information we need to build tx
     UniValue retValue = CallRPC("getblockcount");
     int nHeight = retValue.get_int();
-    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), nHeight + 1);
+    CMutableTransaction mtx;
+    mtx.nVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight + 1);
 
     // Test constructor of AsyncRPCOperation_mergetoaddress
     MergeToAddressRecipient testnetzaddr(
@@ -1586,7 +1588,8 @@ BOOST_AUTO_TEST_CASE(rpc_z_mergetoaddress_internals)
     // Mutable tx containing contextual information we need to build tx
     UniValue retValue = CallRPC("getblockcount");
     int nHeight = retValue.get_int();
-    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), nHeight + 1);
+    CMutableTransaction mtx;
+    mtx.nVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight + 1);
 
     // Test that option -mempooltxinputlimit is respected.
     mapArgs["-mempooltxinputlimit"] = "1";
@@ -1628,7 +1631,7 @@ BOOST_AUTO_TEST_CASE(rpc_z_mergetoaddress_internals)
         TEST_FRIEND_AsyncRPCOperation_mergetoaddress proxy(ptr);
 
         std::string memo = "DEADBEEF";
-        boost::array<unsigned char, ZC_MEMO_SIZE> array = proxy.get_memo_from_hex_string(memo);
+        std::array<unsigned char, ZC_MEMO_SIZE> array = proxy.get_memo_from_hex_string(memo);
         BOOST_CHECK_EQUAL(array[0], 0xDE);
         BOOST_CHECK_EQUAL(array[1], 0xAD);
         BOOST_CHECK_EQUAL(array[2], 0xBE);

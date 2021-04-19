@@ -5036,7 +5036,7 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
         return NullUniValue;
 
     const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
-    //LogPrintf("z_sendmany shieldedTxVersion: %d\n", shieldedTxVersion);
+    LogPrintf("z_sendmany shieldedTxVersion: %d\n", shieldedTxVersion);
 
     if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
@@ -5816,7 +5816,7 @@ UniValue z_shieldcoinbase(const UniValue& params, bool fHelp)
 #define MERGE_TO_ADDRESS_DEFAULT_TRANSPARENT_LIMIT 50
 #define MERGE_TO_ADDRESS_DEFAULT_SHIELDED_LIMIT 10
 
-#define JOINSPLIT_SIZE JSDescription().GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)
+#define JOINSPLIT_SIZE JSDescription::getNewInstance(GROTH_TX_VERSION).GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION, GROTH_TX_VERSION)
 
 UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
 {
@@ -5881,6 +5881,9 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     if (!fEnableMergeToAddress) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: z_mergetoaddress is disabled.");
     }
+
+    const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(chainActive.Height() + 1);
+    LogPrintf("z_mergetoaddress shieldedTxVersion (Forkmanager): %d\n", shieldedTxVersion);
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -6061,7 +6064,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
         // Find unspent notes and update estimated size
         for (CNotePlaintextEntry& entry : entries) {
             noteCounter++;
-            CAmount nValue = entry.plaintext.value;
+            CAmount nValue = entry.plaintext.value();
 
             if (!maxedOutNotesFlag) {
                 // If we haven't added any notes yet and the merge is to a
@@ -6121,12 +6124,10 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     contextInfo.pushKV("fee", ValueFromAmount(nFee));
 
     // Contextual transaction we will build on
-    CMutableTransaction contextualTx = CreateNewContextualCMutableTransaction(
-        Params().GetConsensus(),
-        chainActive.Height() + 1);
+    CMutableTransaction contextualTx;
     bool isShielded = numNotes > 0 || isToZaddr;
     if (contextualTx.nVersion == 1 && isShielded) {
-        contextualTx.nVersion = 2; // Tx format should support vjoinsplit
+        contextualTx.nVersion = shieldedTxVersion; // Tx format should support vjoinsplit
     }
 
     // Create operation and add to global queue
