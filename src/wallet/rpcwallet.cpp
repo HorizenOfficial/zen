@@ -4135,15 +4135,15 @@ UniValue z_listunspent(const UniValue& params, bool fHelp)
         pwalletMain->GetUnspentFilteredNotes(entries, zaddrs, nMinDepth, nMaxDepth, !fIncludeWatchonly);
         for (CUnspentNotePlaintextEntry & entry : entries) {
             UniValue obj(UniValue::VOBJ);
-            obj.push_back(Pair("txid",entry.jsop.hash.ToString()));
-            obj.push_back(Pair("jsindex", (int)entry.jsop.js ));
-            obj.push_back(Pair("jsoutindex", (int)entry.jsop.n));
-            obj.push_back(Pair("confirmations", entry.nHeight));
-            obj.push_back(Pair("spendable", pwalletMain->HaveSpendingKey(entry.address)));
-            obj.push_back(Pair("address", CZCPaymentAddress(entry.address).ToString()));
-            obj.push_back(Pair("amount", ValueFromAmount(CAmount(entry.plaintext.value))));
-            std::string data(entry.plaintext.memo.begin(), entry.plaintext.memo.end());
-            obj.push_back(Pair("memo", HexStr(data)));
+            obj.pushKV("txid",entry.jsop.hash.ToString());
+            obj.pushKV("jsindex", (int)entry.jsop.js );
+            obj.pushKV("jsoutindex", (int)entry.jsop.n);
+            obj.pushKV("confirmations", entry.nHeight);
+            obj.pushKV("spendable", pwalletMain->HaveSpendingKey(entry.address));
+            obj.pushKV("address", CZCPaymentAddress(entry.address).ToString());
+            obj.pushKV("amount", ValueFromAmount(CAmount(entry.plaintext.value())));
+            std::string data(entry.plaintext.memo().begin(), entry.plaintext.memo().end());
+            obj.pushKV("memo", HexStr(data));
             results.push_back(obj);
         }
     }
