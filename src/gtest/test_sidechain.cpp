@@ -1661,7 +1661,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     CMutableScCertificate mutCert = originalCert;
     mutCert.forwardTransferScFee = 1;
     newCert = mutCert;
-    EXPECT_NE(originalCert.GetDataHash(), newCert.GetDataHash());
+    EXPECT_FALSE(originalCert.GetDataHash() == newCert.GetDataHash());
 
     /**
      * Check that two certificates with same parameters but different
@@ -1670,7 +1670,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     mutCert = originalCert;
     mutCert.mainchainBackwardTransferRequestScFee = 1;
     newCert = mutCert;
-    EXPECT_NE(originalCert.GetDataHash(), newCert.GetDataHash());
+    EXPECT_FALSE(originalCert.GetDataHash() == newCert.GetDataHash());
 }
 
 
@@ -1833,13 +1833,13 @@ TEST_F(SidechainsTestSuite, CheckFtFeeValidations)
     uint256 scId = createAndStoreSidechain(scFtFee);
 
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee - 1));
-    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier));
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToStateWithoutProof(aTransaction));
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee));
-    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier));
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToStateWithoutProof(aTransaction));
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee + 1));
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(aTransaction, dummyScVerifier));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(aTransaction));
 }
 
 TEST_F(SidechainsTestSuite, CheckMbtrFeeValidations)
@@ -1847,13 +1847,13 @@ TEST_F(SidechainsTestSuite, CheckMbtrFeeValidations)
     CAmount scMbtrFee(5);
     uint256 scId = createAndStoreSidechain(0, scMbtrFee, 1);
     CMutableTransaction mutTx = createMtbtrTx(scId, scMbtrFee - 1);
-    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(mutTx, dummyScVerifier));
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx));
 
     mutTx.vmbtr_out[0].scFee = scMbtrFee;
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(mutTx, dummyScVerifier));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx));
 
     mutTx.vmbtr_out[0].scFee = scMbtrFee + 1;
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(mutTx, dummyScVerifier));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx));
 }
 
 
@@ -1864,14 +1864,14 @@ TEST_F(SidechainsTestSuite, MbtrAllowed)
 {
     uint256 scId = createAndStoreSidechain(0, 0, 1);
     CMutableTransaction mutTx = createMtbtrTx(scId, 0);
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(mutTx, dummyScVerifier));
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx));
 }
 
 TEST_F(SidechainsTestSuite, MbtrNotAllowed)
 {
     uint256 scId = createAndStoreSidechain();
     CMutableTransaction mutTx = createMtbtrTx(scId, 0);
-    EXPECT_FALSE(sidechainsView->IsScTxApplicableToState(mutTx, dummyScVerifier));
+    EXPECT_FALSE(sidechainsView->IsScTxApplicableToStateWithoutProof(mutTx));
 }
 
 //////////////////////////////////////////////////////////

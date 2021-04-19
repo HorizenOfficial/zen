@@ -208,6 +208,8 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     res.forwardTransferScFee = ftScFee;
     res.mainchainBackwardTransferRequestScFee = mbtrScFee;
 
+    res.scProof = CScProof{ParseHex(SAMPLE_PROOF)};
+
     res.vin.resize(1);
     res.vin[0].prevout.hash = uint256S("1");
     res.vin[0].prevout.n = 0;

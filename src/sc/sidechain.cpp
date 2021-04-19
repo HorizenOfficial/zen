@@ -239,7 +239,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-creation-invalid-constant");
         }
 
-        if (sc.wCeasedVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
+        if (sc.wCeasedVk.is_initialized() && !sc.wCeasedVk.get().IsValid())
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",

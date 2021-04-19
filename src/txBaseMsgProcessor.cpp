@@ -259,7 +259,6 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                         continue;
                     }
 
-                    scVerifier.LoadDataForMbtrVerification(supportView, tx);
                     scVerifier.LoadDataForCswVerification(supportView, tx);
                 }
                 hashToIdx[enqueuedItem.pTxBase->GetHash()] = idx;
@@ -283,33 +282,13 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                 }
             }
 
-            std::map</*scTxHash*/uint256, bool> resMbtr = scVerifier.batchVerifyMbtrs();
             std::map</*scTxHash*/uint256, bool> resCsw = scVerifier.batchVerifyCsws();
-            for(const auto& scTxItem: resMbtr)
-            {
-                TxBaseMsg_DataToProcess& processedScTx = txBaseMsgQueue.at(hashToIdx.at(scTxItem.first));
-
-                if((resMbtr.count(scTxItem.first) && !resMbtr.at(scTxItem.first)) &&
-                   (resCsw.count(scTxItem.first) && !resCsw.at(scTxItem.first)))
-                {
-                    processedScTx.txBaseValidationState.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
-                                  __func__, __LINE__, scTxItem.first.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
-                    processedScTx.txBaseProcessingState = MempoolReturnValue::INVALID;
-                } else
-                {
-                    const CTransaction& scTx = dynamic_cast<const CTransaction&>(*processedScTx.pTxBase);
-                    if(!mempool.existsTx(scTx.GetHash()))
-                        StoreTxToMempool(scTx, mempool, supportView);
-                    processedScTx.txBaseProcessingState = MempoolReturnValue::VALID;
-                }
-            }
 
             for(const auto& scTxItem: resCsw)
             {
                 TxBaseMsg_DataToProcess& processedScTx = txBaseMsgQueue.at(hashToIdx.at(scTxItem.first));
 
-                if((resMbtr.count(scTxItem.first) && !resMbtr.at(scTxItem.first)) &&
-                   (resCsw.count(scTxItem.first) && !resCsw.at(scTxItem.first)))
+                if(resCsw.count(scTxItem.first) && !resCsw.at(scTxItem.first))
                 {
                     processedScTx.txBaseValidationState.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
                                   __func__, __LINE__, scTxItem.first.ToString()), REJECT_INVALID, "bad-sc-tx-proof");

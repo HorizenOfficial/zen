@@ -1259,15 +1259,10 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
 void StoreTxToMempool(const CTransaction &tx, CTxMemPool &pool, const CCoinsViewCache &view)
 {
-    // Store transaction in memory
-    std::map<uint256, CFieldElement> scIdToCertDataHash;
-    for (const auto &btr : tx.GetVBwtRequestOut())
-        scIdToCertDataHash[btr.scId] = view.GetActiveCertDataHash(btr.scId);
-
     CAmount nTxFees = tx.GetFeeAmount(view.GetValueIn(tx));
     double dTxPriority = view.GetPriority(tx, chainActive.Height());
     CTxMemPoolEntry entry(tx, nTxFees, GetTime(), dTxPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
-    pool.addUnchecked(tx.GetHash(), entry, !IsInitialBlockDownload(), scIdToCertDataHash);
+    pool.addUnchecked(tx.GetHash(), entry, !IsInitialBlockDownload());
     return;
 }
 
@@ -1519,16 +1514,6 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             return MempoolReturnValue::PARTIALLY_VALIDATED;
 
         CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-
-        scVerifier.LoadDataForMbtrVerification(view, tx);
-        std::map<uint256, bool> resMbtr = scVerifier.batchVerifyMbtrs();
-        if (resMbtr.count(hash) != 0 && !resMbtr.at(hash))
-        {
-            state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
-                          __func__, __LINE__, hash.ToString()), REJECT_INVALID, "bad-sc-tx-proof");
-            return MempoolReturnValue::INVALID;
-        }
-
         scVerifier.LoadDataForCswVerification(view, tx);
         std::map<uint256, bool> resCsw = scVerifier.batchVerifyCsws();
         if (resCsw.count(hash) != 0 && !resCsw.at(hash))
@@ -2804,7 +2789,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
             if (fScRelatedChecks)
             {
-                scVerifier.LoadDataForMbtrVerification(view, tx);
                 scVerifier.LoadDataForCswVerification(view, tx);
             }
 
@@ -2871,16 +2855,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     if (fScRelatedChecks)
     {
-        std::map<uint256, bool> resMbtr = scVerifier.batchVerifyMbtrs();
-        for(const auto& mbtrItem: resMbtr)
-        {
-            if (!resMbtr.at(mbtrItem.first))
-            {
-                return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, mbtrItem.first.ToString()),
-                        REJECT_INVALID, "bad-sc-tx-proof");
-            }
-        }
-
         std::map<uint256, bool> resCsw = scVerifier.batchVerifyCsws();
         for(const auto& cswItem: resCsw)
         {

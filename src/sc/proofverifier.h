@@ -33,9 +33,6 @@ public:
     void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert);
     std::map</*certHash*/uint256,bool> batchVerifyCerts() const;
 
-    void LoadDataForMbtrVerification(const CCoinsViewCache& view, const CTransaction& scTx);
-    std::map</*scTxHash*/uint256,bool> batchVerifyMbtrs() const;
-
     void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx);
     std::map</*scTxHash*/uint256,bool> batchVerifyCsws() const;
 
