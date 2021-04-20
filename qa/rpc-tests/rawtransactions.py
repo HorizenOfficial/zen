@@ -81,7 +81,7 @@ class RawTransactionsTest(BitcoinTestFramework):
             errorString = e.error['message']
             print errorString
 
-        assert_equal("bad-tx-has-no-coins-for-vin" in errorString, True);
+        assert_equal("Missing inputs" in errorString, True);
 
         #########################
         # RAW TX MULTISIG TESTS #
