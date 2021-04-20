@@ -231,7 +231,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                     const CScCertificate& cert = dynamic_cast<const CScCertificate&>(*enqueuedItem.pTxBase);
 
                     // Mempool may have changed since partial validation has been made. Recheck for conflicts
-                    if (!mempool.checkIncomingCertConflicts(cert))
+                    if (!mempool.checkIncomingCertConflicts(cert) || !supportView.IsCertApplicableToStateWithoutProof(cert))
                     {
                         enqueuedItem.txBaseProcessingState = MempoolReturnValue::INVALID;
                         continue;
@@ -253,7 +253,7 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                     const CTransaction& tx = dynamic_cast<const CTransaction&>(*enqueuedItem.pTxBase);
 
                     // Mempool may have changed since partial validation has been made. Recheck for conflicts
-                    if (!mempool.checkIncomingTxConflicts(tx))
+                    if (!mempool.checkIncomingTxConflicts(tx) || !supportView.IsScTxApplicableToStateWithoutProof(tx))
                     {
                         enqueuedItem.txBaseProcessingState = MempoolReturnValue::INVALID;
                         continue;
@@ -324,6 +324,14 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
             }
 
             mempool.check(pcoinsTip);
+
+            /**
+             * At this point no PARTIALLY_VALIDATED certs or transactions remaining.
+             */
+            for (auto obj : txBaseMsgQueue)
+            {
+                assert(obj.txBaseProcessingState != MempoolReturnValue::PARTIALLY_VALIDATED);
+            }
         } else
         {
             assert(false && "Unhandled MempoolReturnValue");

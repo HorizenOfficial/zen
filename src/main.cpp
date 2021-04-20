@@ -4898,7 +4898,7 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
 
 void UnloadBlockIndex()
 {
-    TxBaseMsgProcessor::get().reset();
+    TxBaseMsgProcessor::get().reset(); // internally guarded by appropriate cs_s
 
     LOCK(cs_main);
     setBlockIndexCandidates.clear();
