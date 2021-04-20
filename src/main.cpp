@@ -1577,28 +1577,28 @@ bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const C
 /** Return transaction in tx, and if it was found inside a block, its hash is placed in hashBlock */
 bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock, bool fAllowSlow)
 {
-    CBlockIndex *pindexSlow = NULL;
-
     LOCK(cs_main);
 
     if (mempool.lookup(hash, txOut))
-    {
         return true;
-    }
 
-    if (fTxIndex) {
+    if (fTxIndex)
+    {
         CDiskTxPos postx;
-        if (pblocktree->ReadTxIndex(hash, postx)) {
+        if (pblocktree->ReadTxIndex(hash, postx))
+        {
             CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
             if (file.IsNull())
                 return error("%s: OpenBlockFile failed", __func__);
             CBlockHeader header;
-            try {
+            try
+            {
                 file >> header;
                 fseek(file.Get(), postx.nTxOffset, SEEK_CUR);
                 file >> txOut;
-            } catch (const std::exception& e) {
-                return error("%s: Deserialize or I/O error - %s", __func__, e.what());
+            } catch (const std::exception& e)
+            {
+                return error("%s: Attempt to deserialize tx from disk failed or I/O error - %s", __func__, e.what());
             }
             hashBlock = header.GetHash();
             if (txOut.GetHash() != hash)
@@ -1607,7 +1607,9 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
         }
     }
 
-    if (fAllowSlow) { // use coin database to locate block that contains transaction, and scan it
+    if (fAllowSlow) // use coin database to locate block that contains transaction, and scan it
+    {
+        CBlockIndex *pindexSlow = nullptr;
         int nHeight = -1;
         {
             CCoinsViewCache &view = *pcoinsTip;
@@ -1617,16 +1619,20 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
         }
         if (nHeight > 0)
             pindexSlow = chainActive[nHeight];
-    }
 
-    if (pindexSlow) {
-        CBlock block;
-        if (ReadBlockFromDisk(block, pindexSlow)) {
-            BOOST_FOREACH(const CTransaction &tx, block.vtx) {
-                if (tx.GetHash() == hash) {
-                    txOut = tx;
-                    hashBlock = pindexSlow->GetBlockHash();
-                    return true;
+        if (pindexSlow)
+        {
+            CBlock block;
+            if (ReadBlockFromDisk(block, pindexSlow))
+            {
+                for(const CTransaction &tx: block.vtx)
+                {
+                    if (tx.GetHash() == hash)
+                    {
+                        txOut = tx;
+                        hashBlock = pindexSlow->GetBlockHash();
+                        return true;
+                    }
                 }
             }
         }
@@ -1638,28 +1644,28 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
 /** Return certificate in certOut, and if it was found inside a block, its hash is placed in hashBlock */
 bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashBlock, bool fAllowSlow)
 {
-    CBlockIndex *pindexSlow = NULL;
-
     LOCK(cs_main);
 
     if (mempool.lookup(hash, certOut))
-    {
         return true;
-    }
 
-    if (fTxIndex) {
+    if (fTxIndex)
+    {
         CDiskTxPos postx;
-        if (pblocktree->ReadTxIndex(hash, postx)) {
+        if (pblocktree->ReadTxIndex(hash, postx))
+        {
             CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
             if (file.IsNull())
                 return error("%s: OpenBlockFile failed", __func__);
             CBlockHeader header;
-            try {
+            try
+            {
                 file >> header;
                 fseek(file.Get(), postx.nTxOffset, SEEK_CUR);
                 file >> certOut;
-            } catch (const std::exception& e) {
-                return error("%s: Deserialize or I/O error - %s", __func__, e.what());
+            } catch (const std::exception& e)
+            {
+                return error("%s: Attempt to deserialize cert from disk failed or I/O error - %s", __func__, e.what());
             }
             hashBlock = header.GetHash();
             if (certOut.GetHash() != hash)
@@ -1668,8 +1674,10 @@ bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashB
         }
     }
 
-    if (fAllowSlow) { // use coin database to locate block that contains cert, and scan it
+    if (fAllowSlow) // use coin database to locate block that contains cert, and scan it
+    {
         int nHeight = -1;
+        CBlockIndex *pindexSlow = nullptr;
         {
             CCoinsViewCache &view = *pcoinsTip;
             const CCoins* coins = view.AccessCoins(hash);
@@ -1678,16 +1686,20 @@ bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashB
         }
         if (nHeight > 0)
             pindexSlow = chainActive[nHeight];
-    }
 
-    if (pindexSlow) {
-        CBlock block;
-        if (ReadBlockFromDisk(block, pindexSlow)) {
-            BOOST_FOREACH(const CScCertificate &cert, block.vcert) {
-                if (cert.GetHash() == hash) {
-                    certOut = cert;
-                    hashBlock = pindexSlow->GetBlockHash();
-                    return true;
+        if (pindexSlow)
+        {
+            CBlock block;
+            if (ReadBlockFromDisk(block, pindexSlow))
+            {
+                for(const CScCertificate &cert: block.vcert)
+                {
+                    if (cert.GetHash() == hash)
+                    {
+                        certOut = cert;
+                        hashBlock = pindexSlow->GetBlockHash();
+                        return true;
+                    }
                 }
             }
         }
@@ -1695,105 +1707,25 @@ bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashB
 
     return false;
 }
-
 
 bool GetTxBaseObj(const uint256 &hash, std::unique_ptr<CTransactionBase>& pTxBase, uint256 &hashBlock, bool fAllowSlow)
 {
-    CBlockIndex *pindexSlow = NULL;
-
-    LOCK(cs_main);
-
-    if (mempool.existsTx(hash))
+    CTransaction txAttempt;
+    if (GetTransaction(hash, txAttempt, hashBlock, fAllowSlow))
     {
-        CTransaction tx;
-        if (mempool.lookup(hash, tx))
-        {
-            pTxBase.reset(new CTransaction(tx));
-            return true;
-        }
-        // This case should never happen.
-        return error("%s: txid mismatch", __func__);
+        pTxBase.reset(new CTransaction(txAttempt));
+        return true;
     }
-    else
-    if (mempool.existsCert(hash))
+
+    CScCertificate certAttempt;
+    if (GetCertificate(hash, certAttempt, hashBlock, fAllowSlow))
     {
-        CScCertificate cert;
-        if (mempool.lookup(hash, cert))
-        {
-            pTxBase.reset(new CScCertificate(cert));
-            return true;
-        }
-        // This case should never happen.
-        return error("%s: txid mismatch", __func__);
-    }
-
-    if (fTxIndex) {
-        CDiskTxPos postx;
-        if (pblocktree->ReadTxIndex(hash, postx)) {
-            CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
-            if (file.IsNull())
-                return error("%s: OpenBlockFile failed", __func__);
-            CBlockHeader header;
-            try {
-                file >> header;
-                fseek(file.Get(), postx.nTxOffset, SEEK_CUR);
-
-                int nType = file.GetType();
-                int nVersion = file.GetVersion();
-                int objVersion = 0;
-
-                ::Unserialize(file, objVersion, nType, nVersion);
-                ::makeSerializedTxObj(file, objVersion, pTxBase, nType, nVersion);
-
-            } catch (const std::exception& e) {
-                return error("%s: Deserialize or I/O error - %s", __func__, e.what());
-            }
-            hashBlock = header.GetHash();
-            if (pTxBase && pTxBase->GetHash() != hash)
-            {
-                return error("%s: txid mismatch", __func__);
-            }
-            return true;
-        }
-    }
-
-    if (fAllowSlow) { // use coin database to locate block that contains cert, and scan it
-        int nHeight = -1;
-        {
-            CCoinsViewCache &view = *pcoinsTip;
-            const CCoins* coins = view.AccessCoins(hash);
-            if (coins)
-                nHeight = coins->nHeight;
-        }
-        if (nHeight > 0)
-            pindexSlow = chainActive[nHeight];
-    }
-
-    if (pindexSlow) {
-        CBlock block;
-        if (ReadBlockFromDisk(block, pindexSlow)) {
-            BOOST_FOREACH(const CScCertificate &cert, block.vcert) {
-                if (cert.GetHash() == hash) {
-                    pTxBase.reset(new CScCertificate(cert));
-                    hashBlock = pindexSlow->GetBlockHash();
-                    return true;
-                }
-            }
-            BOOST_FOREACH(const CTransaction &tx, block.vtx) {
-                if (tx.GetHash() == hash) {
-                    pTxBase.reset(new CTransaction(tx));
-                    hashBlock = pindexSlow->GetBlockHash();
-                    return true;
-                }
-            }
-        }
+        pTxBase.reset(new CScCertificate(certAttempt));
+        return true;
     }
 
     return false;
 }
-
-
-
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -4276,8 +4208,8 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
 
     if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
     {
-    	CFieldElement fieldToValidate{block.hashScTxsCommitment};
-    	if (!fieldToValidate.IsValid())
+        CFieldElement fieldToValidate{block.hashScTxsCommitment};
+        if (!fieldToValidate.IsValid())
             return state.DoS(100, error("%s: incorrect hashScTxsCommitment", __func__),
                              REJECT_INVALID, "bad-hashScTxsCommitment");
     }

@@ -415,7 +415,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
     // allocated by the callee
     std::unique_ptr<CTransactionBase> pTxBase;
     
-    uint256 hashBlock;
+    uint256 hashBlock{};
     if (!GetTxBaseObj(hash, pTxBase, hashBlock, true) || !pTxBase)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
 
