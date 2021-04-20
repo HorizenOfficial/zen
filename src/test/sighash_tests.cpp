@@ -266,7 +266,10 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
     int scs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
     int fts = isSidechain ? (insecure_rand() % 4) + 1 : 0;
     int mbtrs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
-    int mbtrDataLength = isSidechain ? (insecure_rand() % 4) + 1 : 0;
+    int mbtrScRequestDataLength = isSidechain ? (insecure_rand() % 4) + 1 : 0;
+    int FieldElementCertificateFieldConfigLength = isSidechain ? (insecure_rand() % 4) + 1 : 0;
+    int BitVectorCertificateFieldConfigLength = isSidechain ? (insecure_rand() % 4) + 1 : 0;
+
     for (int in = 0; in < ins; in++) {
         tx.vin.push_back(CTxIn());
         CTxIn &txin = tx.vin.back();
@@ -333,10 +336,10 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
           tx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput());
           CTxCeasedSidechainWithdrawalInput &csw_in = tx.vcsw_ccin.back();
 
-          RandomPubKeyHash(csw_in.pubKeyHash);
           csw_in.nValue = insecure_rand() % 100000000;
           csw_in.scId = libzcash::random_uint256();
           RandomSidechainField(csw_in.nullifier);
+          RandomPubKeyHash(csw_in.pubKeyHash);
           RandomScProof(csw_in.scProof);
 
           if(emptyInputScript) {
@@ -344,7 +347,9 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
           } else {
               RandomScript(csw_in.redeemScript);
           }
+
           csw_in.actCertDataIdx = csw;
+
           CFieldElement actCertData;
           RandomSidechainField(actCertData);
           tx.vact_cert_data.push_back(actCertData);
@@ -363,7 +368,20 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             RandomScVk(sc_out.wCertVk);
             CScVKey wCeasedVk;
             RandomScVk(wCeasedVk);
-            sc_out.wCeasedVk = wCeasedVk;
+            sc_out.wCeasedVk = wCeasedVk; // boost optional
+            for (int i = 0; i < FieldElementCertificateFieldConfigLength; i++)
+            {
+                FieldElementCertificateFieldConfig cfg( (insecure_rand() % 4) + 1);
+                sc_out.vFieldElementCertificateFieldConfig.push_back(cfg);
+            }
+            for (int i = 0; i < BitVectorCertificateFieldConfigLength; i++)
+            {
+                BitVectorCertificateFieldConfig cfg( (insecure_rand() % 4) + 1, (insecure_rand() % 4) + 1);
+                sc_out.vBitVectorCertificateFieldConfig.push_back(cfg);
+            }
+            sc_out.forwardTransferScFee = insecure_rand() % 1000;
+            sc_out.mainchainBackwardTransferRequestScFee = insecure_rand() % 1000;
+            sc_out.mainchainBackwardTransferRequestDataLength = mbtrScRequestDataLength;
         }
 
         for (int ft = 0; ft < fts; ft++) {
@@ -378,40 +396,60 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             tx.vmbtr_out.push_back(CBwtRequestOut());
             CBwtRequestOut& mbtr_out = tx.vmbtr_out.back();
 
-            mbtr_out.scFee = insecure_rand() % 100000000;
-            mbtr_out.mcDestinationAddress = random_uint160();
             mbtr_out.scId = libzcash::random_uint256();
 
-            for (int i = 0; i < mbtrDataLength; i++)
+            for (int i = 0; i < mbtrScRequestDataLength; i++)
             {
                 mbtr_out.vScRequestData.push_back(CFieldElement());
                 RandomSidechainField(mbtr_out.vScRequestData.back());
             }
+
+            mbtr_out.mcDestinationAddress = random_uint160();
+            mbtr_out.scFee = insecure_rand() % 100000000;
         }
     }
 }
 
 void static RandomCertificate(CMutableScCertificate &cert, bool fSingle, bool emptyInputScript = false) {
-    static const unsigned char NUM_R = 4;
+    static const unsigned char NUM_RAND_UCHAR = 4;
+    static const int NUM_RAND_UINT = 400000;
     cert.nVersion = SC_CERT_VERSION;
     cert.vin.clear();
     cert.resizeOut(0);
+
     cert.scId = GetRandHash();
-    cert.quality = 3;
-    RandomScProof(cert.scProof);
-    cert.epochNumber = (insecure_rand() % NUM_R) + 1;
+    cert.epochNumber = (insecure_rand() % NUM_RAND_UCHAR) + 1;
+    cert.quality = (insecure_rand() % NUM_RAND_UINT) + 1;
     cert.endEpochBlockHash = GetRandHash();
     RandomSidechainField(cert.endEpochCumScTxCommTreeRoot);
+    RandomScProof(cert.scProof);
 
-    int ins = (insecure_rand() % NUM_R) + 1;
-    int outs = fSingle ? ins : (insecure_rand() % NUM_R) + 1;
-    int bwt_outs = (insecure_rand() % NUM_R) + 1;
+    int FieldElementCertificateFieldLength = (insecure_rand() % NUM_RAND_UCHAR) + 1;
+    for (int i = 0; i < FieldElementCertificateFieldLength; i++)
+    {
+        CFieldElement fe;
+        RandomSidechainField(fe);
+        cert.vFieldElementCertificateField.push_back(FieldElementCertificateField(fe.GetByteArray()));
+    }
+    int BitVectorCertificateFieldLength = (insecure_rand() % NUM_RAND_UCHAR) + 1;
+    for (int i = 0; i < BitVectorCertificateFieldLength; i++)
+    {
+        CFieldElement fe;
+        RandomSidechainField(fe);
+        cert.vBitVectorCertificateField.push_back(BitVectorCertificateField(fe.GetByteArray()));
+    }
+    cert.forwardTransferScFee = insecure_rand() % NUM_RAND_UINT + 1;
+    cert.mainchainBackwardTransferRequestScFee = insecure_rand() % NUM_RAND_UINT + 1;
+
+    int ins = (insecure_rand() % NUM_RAND_UCHAR) + 1;
+    int outs = fSingle ? ins : (insecure_rand() % NUM_RAND_UCHAR) + 1;
+    int bwt_outs = (insecure_rand() % NUM_RAND_UCHAR) + 1;
 
     for (int in = 0; in < ins; in++) {
         cert.vin.push_back(CTxIn());
         CTxIn &txin = cert.vin.back();
         txin.prevout.hash = GetRandHash();
-        txin.prevout.n = insecure_rand() % NUM_R;
+        txin.prevout.n = insecure_rand() % NUM_RAND_UCHAR;
         if(emptyInputScript) {
             txin.scriptSig = CScript();
         } else {
@@ -483,6 +521,7 @@ BOOST_AUTO_TEST_CASE(sighash_test)
 
 }
 
+#if 1
 BOOST_AUTO_TEST_CASE(sighash_cert_test)
 {
     seed_insecure_rand(false);
@@ -533,6 +572,7 @@ BOOST_AUTO_TEST_CASE(sighash_cert_test)
     #endif
 
 }
+#endif
 
 // Goal: check that SignatureHash generates correct hash by checking if serialization matches with the one implemented in CTransaction
 BOOST_AUTO_TEST_CASE(sighash_from_tx)
