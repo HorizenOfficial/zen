@@ -260,15 +260,17 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
 
     tx.nLockTime = (insecure_rand() % 2) ? insecure_rand() : 0;
     int ins = (insecure_rand() % 4) + 1;
-    int csws = isSidechain ? (insecure_rand() % 4) + 1 : 0;
+    int csws = isSidechain ? (insecure_rand() % 4) : 0;
     int outs = fSingle ? ins + csws : (insecure_rand() % 4) + 1;
+
+    // we can have also empty vectors here
     int joinsplits = (insecure_rand() % 4);
-    int scs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
-    int fts = isSidechain ? (insecure_rand() % 4) + 1 : 0;
-    int mbtrs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
-    int mbtrScRequestDataLength = isSidechain ? (insecure_rand() % 4) + 1 : 0;
-    int FieldElementCertificateFieldConfigLength = isSidechain ? (insecure_rand() % 4) + 1 : 0;
-    int BitVectorCertificateFieldConfigLength = isSidechain ? (insecure_rand() % 4) + 1 : 0;
+    int scs = isSidechain ? (insecure_rand() % 4) : 0;
+    int fts = isSidechain ? (insecure_rand() % 4) : 0;
+    int mbtrs = isSidechain ? (insecure_rand() % 4) : 0;
+    int mbtrScRequestDataLength = isSidechain ? (insecure_rand() % 4) : 0;
+    int FieldElementCertificateFieldConfigLength = isSidechain ? (insecure_rand() % 4): 0;
+    int BitVectorCertificateFieldConfigLength = isSidechain ? (insecure_rand() % 4): 0;
 
     for (int in = 0; in < ins; in++) {
         tx.vin.push_back(CTxIn());
@@ -424,14 +426,14 @@ void static RandomCertificate(CMutableScCertificate &cert, bool fSingle, bool em
     RandomSidechainField(cert.endEpochCumScTxCommTreeRoot);
     RandomScProof(cert.scProof);
 
-    int FieldElementCertificateFieldLength = (insecure_rand() % NUM_RAND_UCHAR) + 1;
+    int FieldElementCertificateFieldLength = (insecure_rand() % NUM_RAND_UCHAR);
     for (int i = 0; i < FieldElementCertificateFieldLength; i++)
     {
         CFieldElement fe;
         RandomSidechainField(fe);
         cert.vFieldElementCertificateField.push_back(FieldElementCertificateField(fe.GetByteArray()));
     }
-    int BitVectorCertificateFieldLength = (insecure_rand() % NUM_RAND_UCHAR) + 1;
+    int BitVectorCertificateFieldLength = (insecure_rand() % NUM_RAND_UCHAR);
     for (int i = 0; i < BitVectorCertificateFieldLength; i++)
     {
         CFieldElement fe;
@@ -442,8 +444,8 @@ void static RandomCertificate(CMutableScCertificate &cert, bool fSingle, bool em
     cert.mainchainBackwardTransferRequestScFee = insecure_rand() % NUM_RAND_UINT + 1;
 
     int ins = (insecure_rand() % NUM_RAND_UCHAR) + 1;
-    int outs = fSingle ? ins : (insecure_rand() % NUM_RAND_UCHAR) + 1;
-    int bwt_outs = (insecure_rand() % NUM_RAND_UCHAR) + 1;
+    int outs = fSingle ? ins : (insecure_rand() % NUM_RAND_UCHAR);
+    int bwt_outs = (insecure_rand() % NUM_RAND_UCHAR);
 
     for (int in = 0; in < ins; in++) {
         cert.vin.push_back(CTxIn());
