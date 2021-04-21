@@ -523,7 +523,6 @@ BOOST_AUTO_TEST_CASE(sighash_test)
 
 }
 
-#if 1
 BOOST_AUTO_TEST_CASE(sighash_cert_test)
 {
     seed_insecure_rand(false);
@@ -574,7 +573,6 @@ BOOST_AUTO_TEST_CASE(sighash_cert_test)
     #endif
 
 }
-#endif
 
 // Goal: check that SignatureHash generates correct hash by checking if serialization matches with the one implemented in CTransaction
 BOOST_AUTO_TEST_CASE(sighash_from_tx)
