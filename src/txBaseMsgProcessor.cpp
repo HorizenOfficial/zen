@@ -230,7 +230,8 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                     const CScCertificate& cert = dynamic_cast<const CScCertificate&>(*enqueuedItem.pTxBase);
 
                     // Mempool may have changed since partial validation has been made. Recheck for conflicts
-                    if (!mempool.checkIncomingCertConflicts(cert))
+                    if (!mempool.checkIncomingCertConflicts(cert) ||
+                            CValidationState::Code::OK != supportView.IsCertApplicableToStateWithoutProof(cert))
                     {
                         enqueuedItem.txBaseProcessingState = MempoolReturnValue::INVALID;
                         continue;
@@ -252,7 +253,8 @@ void TxBaseMsgProcessor::ProcessTxBaseMsg(const processMempoolTx& mempoolProcess
                     const CTransaction& tx = dynamic_cast<const CTransaction&>(*enqueuedItem.pTxBase);
 
                     // Mempool may have changed since partial validation has been made. Recheck for conflicts
-                    if (!mempool.checkIncomingTxConflicts(tx))
+                    if (!mempool.checkIncomingTxConflicts(tx) ||
+                            CValidationState::Code::OK != supportView.IsScTxApplicableToStateWithoutProof(tx))
                     {
                         enqueuedItem.txBaseProcessingState = MempoolReturnValue::INVALID;
                         continue;

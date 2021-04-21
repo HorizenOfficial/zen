@@ -473,15 +473,19 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     bool* pfClean = NULL, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
+enum class flagCheckPow        {ON, OFF};
+enum class flagCheckMerkleRoot {ON, OFF};
+enum class flagScRelatedChecks {ON, OFF};
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
     CCoinsViewCache& coins, const CChain& chain, bool fJustCheck, bool fScRelatedChecks,
     std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Context-independent validity checks */
-bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
+bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, flagCheckPow fCheckPOW = flagCheckPow::ON);
 bool CheckBlock(const CBlock& block, CValidationState& state,
                 libzcash::ProofVerifier& verifier,
-                bool fCheckPOW = true, bool fCheckMerkleRoot = true);
+                flagCheckPow fCheckPOW = flagCheckPow::ON,
+                flagCheckMerkleRoot fCheckMerkleRoot = flagCheckMerkleRoot::ON);
 
 /** Context-dependent validity checks */
 bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex *pindexPrev);
@@ -489,7 +493,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block, with cs_main held) */
 bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex *pindexPrev,
-    bool fCheckPOW, bool fCheckMerkleRoot, bool fScRelatedChecks);
+        flagCheckPow fCheckPOW, flagCheckMerkleRoot fCheckMerkleRoot, flagScRelatedChecks fScRelatedChecks);
 
 /**
  * Store block on disk.

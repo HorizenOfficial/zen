@@ -21,7 +21,7 @@ TEST(CheckBlock, VersionTooLow) {
     block.nVersion = 1;
 
     CValidationState state;
-    EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
+    EXPECT_FALSE(CheckBlock(block, state, verifier, flagCheckPow::OFF, flagCheckMerkleRoot::OFF));
     EXPECT_TRUE(state.GetDoS() == 100);
     EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
     EXPECT_TRUE(state.GetRejectReason() == std::string("version-invalid"));
@@ -54,7 +54,7 @@ TEST(CheckBlock, BlockRejectsBadVersion) {
 
     auto verifier = libzcash::ProofVerifier::Strict();
 
-    EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
+    EXPECT_FALSE(CheckBlock(block, state, verifier, flagCheckPow::OFF, flagCheckMerkleRoot::OFF));
     EXPECT_TRUE(state.GetDoS() == 100);
     EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
     EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-version-too-low"));
