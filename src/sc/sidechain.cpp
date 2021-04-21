@@ -22,7 +22,7 @@ static const boost::filesystem::path Sidechain::GetSidechainDataDir()
 bool Sidechain::InitSidechainsFolder()
 {
     // Note: sidechainsDataDir cannot be global since
-    // at start of the program network parameters are not initilized yet
+    // at start of the program network parameters are not initialized yet
 
     if (!boost::filesystem::exists(Sidechain::GetSidechainDataDir()))
     {
