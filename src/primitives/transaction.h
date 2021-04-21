@@ -10,7 +10,6 @@
 #include "random.h"
 #include "script/script.h"
 #include "serialize.h"
-#include <univalue.h>
 #include "streams.h"
 #include "uint256.h"
 #include "consensus/consensus.h"
@@ -29,6 +28,13 @@
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
 #include <script/script_error.h>
+
+class UniValue;
+class CBackwardTransferOut;
+class CValidationState;
+class CChain;
+class CMutableTransactionBase;
+struct CMutableTransaction;
 
 static const int32_t SC_CERT_VERSION = 0xFFFFFFFB; // -5
 static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
@@ -362,12 +368,15 @@ public:
     uint160 pubKeyHash;
     CScProof scProof;
     CScript redeemScript;
+    // index in the list of active cert data in tx obj
+    int32_t actCertDataIdx; 
 
-    CTxCeasedSidechainWithdrawalInput(): nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript() {}
+    CTxCeasedSidechainWithdrawalInput();
 
     explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
-                                               const CScProof& scProofIn, const CScript& redeemScriptIn);
+                                               const CScProof& scProofIn, const CScript& redeemScriptIn,
+                                               int32_t actCertDataIdxIn);
 
     ADD_SERIALIZE_METHODS
 
@@ -379,6 +388,7 @@ public:
         READWRITE(pubKeyHash);
         READWRITE(scProof);
         READWRITE(redeemScript);
+        READWRITE(VARINT(actCertDataIdx));
     }
 
     friend bool operator==(const CTxCeasedSidechainWithdrawalInput& a, const CTxCeasedSidechainWithdrawalInput& b)
@@ -388,7 +398,8 @@ public:
                 a.nullifier     == b.nullifier &&
                 a.pubKeyHash    == b.pubKeyHash &&
                 a.scProof       == b.scProof &&
-                a.redeemScript  == b.redeemScript);
+                a.redeemScript   == b.redeemScript &&
+                a.actCertDataIdx == b.actCertDataIdx);
     }
 
     friend bool operator!=(const CTxCeasedSidechainWithdrawalInput& a, const CTxCeasedSidechainWithdrawalInput& b)
@@ -400,8 +411,6 @@ public:
 
     CScript scriptPubKey() const;
 };
-
-class CBackwardTransferOut;
 
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
@@ -571,14 +580,20 @@ public:
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
     CScVKey wCertVk;
-    boost::optional<CScVKey> wMbtrVk;
     boost::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
+    CAmount forwardTransferScFee;
+    CAmount mainchainBackwardTransferRequestScFee;
+    int32_t mainchainBackwardTransferRequestDataLength;
 
-    CTxScCreationOut():withdrawalEpochLength(-1) { }
+    CTxScCreationOut(): withdrawalEpochLength(-1), forwardTransferScFee(-1),
+                        mainchainBackwardTransferRequestScFee(-1),
+                        mainchainBackwardTransferRequestDataLength(-1) { }
 
-    CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn, const Sidechain::ScCreationParameters& params);
+    CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn,
+                     const CAmount& ftScFee, const CAmount& mbtrScFee,
+                     const Sidechain::ScFixedParameters& params);
     CTxScCreationOut& operator=(const CTxScCreationOut &ccout);
 
     ADD_SERIALIZE_METHODS;
@@ -591,10 +606,12 @@ public:
         READWRITE(customData);
         READWRITE(constant);
         READWRITE(wCertVk);
-        READWRITE(wMbtrVk);
         READWRITE(wCeasedVk);
         READWRITE(vFieldElementCertificateFieldConfig);
         READWRITE(vBitVectorCertificateFieldConfig);
+        READWRITE(forwardTransferScFee);
+        READWRITE(mainchainBackwardTransferRequestScFee);
+        READWRITE(mainchainBackwardTransferRequestDataLength);
     }
 
     const uint256& GetScId() const override final { return generatedScId;}; 
@@ -610,10 +627,12 @@ public:
                  a.customData == b.customData &&
                  a.constant == b.constant &&
                  a.wCertVk == b.wCertVk &&
-                 a.wMbtrVk == b.wMbtrVk &&
                  a.wCeasedVk == b.wCeasedVk &&
                  a.vFieldElementCertificateFieldConfig == b.vFieldElementCertificateFieldConfig &&
-                 a.vBitVectorCertificateFieldConfig == b.vBitVectorCertificateFieldConfig;
+                 a.vBitVectorCertificateFieldConfig == b.vBitVectorCertificateFieldConfig &&
+                 a.forwardTransferScFee == b.forwardTransferScFee &&
+                 a.mainchainBackwardTransferRequestScFee == b.mainchainBackwardTransferRequestScFee &&
+                 a.mainchainBackwardTransferRequestDataLength == b.mainchainBackwardTransferRequestDataLength;
     }
 
     friend bool operator!=(const CTxScCreationOut& a, const CTxScCreationOut& b)
@@ -626,10 +645,9 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 {
   public:
     uint256 scId;
-    CFieldElement scRequestData;
+    std::vector<CFieldElement> vScRequestData;
     uint160 mcDestinationAddress;
     CAmount scFee;
-    CScProof scProof;
 
     CBwtRequestOut():scFee(0) {}
 
@@ -641,10 +659,9 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
         READWRITE(scId);
-        READWRITE(scRequestData);
+        READWRITE(vScRequestData);
         READWRITE(mcDestinationAddress);
         READWRITE(scFee);
-        READWRITE(scProof);
     }
 
     CAmount GetScValue() const override { return scFee; };
@@ -653,10 +670,10 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     friend bool operator==(const CBwtRequestOut& a, const CBwtRequestOut& b)
     {
         return ( a.scId                 == b.scId                 &&
-                 a.scRequestData        == b.scRequestData        &&
+                 a.vScRequestData       == b.vScRequestData       &&
                  a.mcDestinationAddress == b.mcDestinationAddress &&
-                 a.scFee                == b.scFee                &&
-                 a.scProof              == b.scProof );
+                 a.scFee                == b.scFee
+                );
     }
 
     friend bool operator!=(const CBwtRequestOut& a, const CBwtRequestOut& b)
@@ -668,11 +685,6 @@ class CBwtRequestOut : public CTxCrosschainOutBase
 
     std::string ToString() const override;
 };
-
-// forward declarations
-class CValidationState;
-class CChain;
-class CMutableTransactionBase;
 
 // abstract interface for CTransaction and CScCertificate
 class CTransactionBase
@@ -696,7 +708,6 @@ public:
     CTransactionBase& operator=(const CTransactionBase& tx);
 
     explicit CTransactionBase(const CMutableTransactionBase& mutTxBase);
-
     virtual ~CTransactionBase() = default;
 
     template <typename Stream>
@@ -740,7 +751,7 @@ public:
 
     bool CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const;
 
-    virtual bool CheckInputsLimit() const = 0;
+    virtual bool CheckInputsLimit(CValidationState &state) const = 0;
     //END OF CHECK FUNCTIONS
 
     // Return sum of txouts.
@@ -801,8 +812,6 @@ public:
     }
 };
 
-struct CMutableTransaction;
-
 /** The basic transaction that is broadcasted on the network and contained in
  * blocks.  A transaction can contain multiple inputs and outputs.
  */
@@ -833,6 +842,7 @@ private:
     const std::vector<CTxScCreationOut>                  vsc_ccout;
     const std::vector<CTxForwardTransferOut>             vft_ccout;
     const std::vector<CBwtRequestOut>                    vmbtr_out;
+    const std::vector<CFieldElement>                     vact_cert_data;
 public:
     const uint256 joinSplitPubKey;
     const joinsplit_sig_t joinSplitSig = {{0}};
@@ -872,6 +882,7 @@ public:
             READWRITE(*const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout));
             READWRITE(*const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout));
             READWRITE(*const_cast<std::vector<CBwtRequestOut>*>(&vmbtr_out));
+            READWRITE(*const_cast<std::vector<CFieldElement>*>(&vact_cert_data));
         }
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
@@ -928,6 +939,7 @@ public:
     const std::vector<CTxScCreationOut>&                    GetVscCcOut()   const { return vsc_ccout; }
     const std::vector<CTxForwardTransferOut>&               GetVftCcOut()   const { return vft_ccout; }
     const std::vector<CBwtRequestOut>&                      GetVBwtRequestOut() const { return vmbtr_out; }
+    const std::vector<CFieldElement>&                       GetVActCertData() const { return vact_cert_data; }
     const std::vector<JSDescription>&                       GetVjoinsplit() const override { return vjoinsplit; }
     const uint32_t&                                         GetLockTime()   const override { return nLockTime; }
     const uint256&                                          GetScIdFromScCcOut(int pos) const;
@@ -944,7 +956,7 @@ public:
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsDuplication(CValidationState &state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
-    bool CheckInputsLimit() const override;
+    bool CheckInputsLimit(CValidationState &state) const override;
     //END OF CHECK FUNCTIONS
 
     void Relay() const override;
@@ -989,6 +1001,9 @@ public:
     bool VerifyScript(
             const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
             bool cacheStore, ScriptError* serror) const override;
+
+    // return the index of the actCertData in vact_cert_data, or -1 if it is not there
+    int GetIndexOfActCertData(const CFieldElement& actCertData) const;
 };
 
 /** A mutable hierarchy version of CTransaction. */
@@ -1027,6 +1042,7 @@ struct CMutableTransaction : public CMutableTransactionBase
     std::vector<CTxScCreationOut>                  vsc_ccout;
     std::vector<CTxForwardTransferOut>             vft_ccout;
     std::vector<CBwtRequestOut>                    vmbtr_out;
+    std::vector<CFieldElement>                     vact_cert_data;
     uint32_t nLockTime;
     std::vector<JSDescription> vjoinsplit;
     uint256 joinSplitPubKey;
@@ -1050,6 +1066,7 @@ struct CMutableTransaction : public CMutableTransactionBase
             READWRITE(vsc_ccout);
             READWRITE(vft_ccout);
             READWRITE(vmbtr_out);
+            READWRITE(vact_cert_data);
         }
         READWRITE(nLockTime);
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
@@ -1087,6 +1104,10 @@ struct CMutableTransaction : public CMutableTransactionBase
     bool add(const CTxScCreationOut& out);
     bool add(const CTxForwardTransferOut& out);
     bool add(const CBwtRequestOut& out);
+    bool add(const CFieldElement& acd);
+
+    // return the index of the actCertData in vact_cert_data, or -1 if it is not there
+    int GetIndexOfActCertData(const CFieldElement& actCertData) const;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

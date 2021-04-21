@@ -1,14 +1,17 @@
 #ifndef _SC_PROOF_VERIFIER_H
 #define _SC_PROOF_VERIFIER_H
 
-#include <sc/sidechaintypes.h> //CHECK IF IT CAN BE REPLACED WITH FORWARD DECLARATION
+#include <map>
+
+#include <sc/sidechaintypes.h>
 #include <amount.h>
 #include <boost/variant.hpp>
+#include <primitives/transaction.h>
 
 class CSidechain;
 class CScCertificate;
-class CTxCeasedSidechainWithdrawalInput;
 class uint256;
+class CCoinsViewCache;
 
 /* Class for instantiating a verifier able to verify different kind of ScProof for different kind of ScProof(s) */
 class CScProofVerifier
@@ -27,28 +30,46 @@ public:
     CScProofVerifier(const CScProofVerifier&) = delete;
     CScProofVerifier& operator=(const CScProofVerifier&) = delete;
 
-    bool verifyCScCertificate(
-        const ScConstant& constant,
-        const CScVKey& wCertVk,
-        const uint256& prev_end_epoch_block_hash,
-        const CScCertificate& scCert
-    ) const;
+    void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert);
+    std::map</*certHash*/uint256,bool> batchVerifyCerts() const;
 
-    bool verifyCTxCeasedSidechainWithdrawalInput(
-        const CFieldElement& certDataHash,
-        const CScVKey& wCeasedVk,
-        const CTxCeasedSidechainWithdrawalInput& csw
-    ) const;
+    void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx);
+    std::map</*scTxHash*/uint256,bool> batchVerifyCsws() const;
 
-    bool verifyCBwtRequest(
-        const uint256& scId,
-        const CFieldElement& scRequestData,
-        const uint160& mcDestinationAddress,
-        CAmount scFees,
-        const CScProof& scProof,
-        const boost::optional<CScVKey>& wMbtrVk,
-        const CFieldElement& certDataHash
-    ) const;
+private:
+    struct mbtrVerifierInputsList
+    {
+        uint256 scId;
+        CFieldElement scRequestData;
+        uint160 mcDestinationAddress;
+        CAmount scFee;
+        CScProof scProof;
+        CScVKey mbtrVk;
+        CFieldElement certDataHash;
+    };
+    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, mbtrVerifierInputsList>> mbtrEnqueuedData;
+
+    struct cswVerifierInputsList
+    {
+        CTxCeasedSidechainWithdrawalInput cswOut;
+        CScVKey ceasedVk;
+        CFieldElement certDataHash;
+    };
+    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, cswVerifierInputsList>> cswEnqueuedData;
+
+    struct certVerifierInputsList
+    {
+        uint256 endEpochBlockHash;
+        uint256 prevEndEpochBlockHash;
+        std::vector<backward_transfer_t> bt_list;
+        int64_t quality;
+        ScConstant constant;
+        CFieldElement proofdata;
+        CScProof certProof;
+        CScVKey CertVk;
+    };
+    std::map</*certHash*/uint256, certVerifierInputsList> certEnqueuedData;
+
 };
 
 #endif // _SC_PROOF_VERIFIER_H

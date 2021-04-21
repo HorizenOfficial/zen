@@ -19,6 +19,7 @@
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "uint256.h"
+#include <txBaseMsgProcessor.h>
 
 #include <algorithm>
 #include <exception>
@@ -211,6 +212,11 @@ bool LoadBlockIndex();
 void UnloadBlockIndex();
 /** Process protocol messages received from a given node */
 bool ProcessMessages(CNode* pfrom);
+
+// Utilities refactored out of ProcessMessages
+bool AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+// End of Utilities
+
 /**
  * Send queued protocol messages to be sent to a give node.
  *
@@ -281,18 +287,17 @@ void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
 void PruneAndFlush();
 
-enum class LimitFreeFlag       { ON, OFF };
-enum class RejectAbsurdFeeFlag { ON, OFF };
-
 /** (try to) add transaction to memory pool **/
-bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
+MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs);
 
-bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
+void StoreTxToMempool(const CTransaction &tx, CTxMemPool &pool, const CCoinsViewCache &view);
+MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs);
 
-bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
+void StoreCertToMempool(const CScCertificate &cert, CTxMemPool &pool, const CCoinsViewCache &view);
+MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs);
 
 struct CNodeStateStats {
     int nMisbehavior;
@@ -468,15 +473,19 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     bool* pfClean = NULL, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
+enum class flagCheckPow        {ON, OFF};
+enum class flagCheckMerkleRoot {ON, OFF};
+enum class flagScRelatedChecks {ON, OFF};
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false, bool fCheckScTxesCommitment = true,
+    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck, bool fScRelatedChecks,
     std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Context-independent validity checks */
-bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
+bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, flagCheckPow fCheckPOW = flagCheckPow::ON);
 bool CheckBlock(const CBlock& block, CValidationState& state,
                 libzcash::ProofVerifier& verifier,
-                bool fCheckPOW = true, bool fCheckMerkleRoot = true);
+                flagCheckPow fCheckPOW = flagCheckPow::ON,
+                flagCheckMerkleRoot fCheckMerkleRoot = flagCheckMerkleRoot::ON);
 
 /** Context-dependent validity checks */
 bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex *pindexPrev);
@@ -484,7 +493,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block, with cs_main held) */
 bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex *pindexPrev,
-    bool fCheckPOW = true, bool fCheckMerkleRoot = true, bool fCheckScTxesCommitment = true);
+        flagCheckPow fCheckPOW, flagCheckMerkleRoot fCheckMerkleRoot, flagScRelatedChecks fScRelatedChecks);
 
 /**
  * Store block on disk.

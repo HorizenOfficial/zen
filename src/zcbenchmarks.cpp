@@ -432,7 +432,7 @@ double benchmark_connectblock_slow()
     CValidationState state;
     struct timeval tv_start;
     timer_start(tv_start);
-    assert(ConnectBlock(block, state, &index, view, chain, true));
+    assert(ConnectBlock(block, state, &index, view, chain, /*fJustCheck*/true, /*fScRelatedChecks*/true));
     auto duration = timer_stop(tv_start);
 
     // Undo alterations to global state

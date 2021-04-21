@@ -642,8 +642,9 @@ private:
                 std::set<std::string> setKeyArgs;
 
                 static const std::set<std::string> validKeyArgs = {
-                    "scid", "epochNumber", "quality", "fee", "endEpochBlockHash", "scProof",
-                    "backwardTransfers", "vFieldElementCertificateField", "vBitVectorCertificateField"
+                    "scid", "epochNumber", "quality", "fee", "endEpochBlockHash", "endEpochCumScTxCommTreeRoot",
+                    "scProof", "backwardTransfers", "vFieldElementCertificateField", "vBitVectorCertificateField",
+                    "forwardTransferScFee", "mainchainBackwardTransferScFee"
                 };
 
                 for (const std::string& s : reqPayload.getKeys()) {
@@ -692,6 +693,14 @@ private:
                 }    
                 cmdParams.push_back(endEpochBlockHashStr);
 
+                std::string endEpochCumScTxCommTreeRootStr = findFieldValue("endEpochCumScTxCommTreeRoot", reqPayload);
+                if (endEpochCumScTxCommTreeRootStr.empty()) {
+                    outMsg = "endEpochCumScTxCommTreeRoot empty";
+                    LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
+                    return MISSING_PARAMETER;
+                }    
+                cmdParams.push_back(endEpochCumScTxCommTreeRootStr);
+
                 std::string scProofStr = findFieldValue("scProof", reqPayload);
                 if (scProofStr.empty()) {
                     outMsg = "scProof empty";
@@ -720,6 +729,36 @@ private:
                 if (!feeVal.isNull()) {
                     try {
                         cmdParams.push_back(feeVal);
+                    } catch (const UniValue& e) {
+                        dumpUniValueError(e, outMsg);
+                        return INVALID_PARAMETER;
+                    } catch (...) {
+                        LogPrint("ws", "%s():%d - Generic exception\n", __func__, __LINE__);
+                        return INVALID_PARAMETER;
+                    }
+                }
+
+                const UniValue& ftScFeeVal = find_value(reqPayload, "forwardTransferScFee");
+
+                // can be null, it is optional. The default is set in the cmd
+                if (!ftScFeeVal.isNull()) {
+                    try {
+                        cmdParams.push_back(ftScFeeVal);
+                    } catch (const UniValue& e) {
+                        dumpUniValueError(e, outMsg);
+                        return INVALID_PARAMETER;
+                    } catch (...) {
+                        LogPrint("ws", "%s():%d - Generic exception\n", __func__, __LINE__);
+                        return INVALID_PARAMETER;
+                    }
+                }
+
+                const UniValue& mbtrScFeeVal = find_value(reqPayload, "mainchainBackwardTransferScFee");
+
+                // can be null, it is optional. The default is set in the cmd
+                if (!mbtrScFeeVal.isNull()) {
+                    try {
+                        cmdParams.push_back(mbtrScFeeVal);
                     } catch (const UniValue& e) {
                         dumpUniValueError(e, outMsg);
                         return INVALID_PARAMETER;

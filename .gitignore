@@ -121,3 +121,8 @@ libzcashconsensus.pc
 contrib/debian/files
 contrib/debian/substvars
 src/zendoo/mcTest
+
+# pyenv
+.python-version
+# custom folders
+./test/

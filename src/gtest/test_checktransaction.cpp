@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <gmock/gmock.h>
 #include <sodium.h>
 
 #include "main.h"
@@ -7,6 +6,8 @@
 #include "consensus/validation.h"
 #include <streams.h>
 #include <clientversion.h>
+
+#include <gtest/libzendoo_test_files.h>
 
 TEST(checktransaction_tests, check_vpub_not_both_nonzero) {
     CMutableTransaction tx;
@@ -27,27 +28,6 @@ TEST(checktransaction_tests, check_vpub_not_both_nonzero) {
         EXPECT_EQ(state.GetRejectReason(), "bad-txns-vpubs-both-nonzero");
     }
 }
-
-class MockCValidationState : public CValidationState {
-public:
-    MockCValidationState() = default;
-    virtual ~MockCValidationState() = default;
-
-    MOCK_METHOD5(DoS, bool(int level, bool ret,
-             unsigned char chRejectCodeIn, std::string strRejectReasonIn,
-             bool corruptionIn));
-    MOCK_METHOD3(Invalid, bool(bool ret,
-                 unsigned char _chRejectCode, std::string _strRejectReason));
-    MOCK_METHOD1(Error, bool(std::string strRejectReasonIn));
-    MOCK_CONST_METHOD0(IsValid, bool());
-    MOCK_CONST_METHOD0(IsInvalid, bool());
-    MOCK_CONST_METHOD0(IsError, bool());
-    MOCK_CONST_METHOD1(IsInvalid, bool(int &nDoSOut));
-    MOCK_CONST_METHOD0(CorruptionPossible, bool());
-    MOCK_CONST_METHOD0(GetRejectCode, unsigned char());
-    MOCK_CONST_METHOD0(GetRejectReason, std::string());
-};
-
 
 CMutableTransaction GetValidTransaction(int txVersion) {
     CMutableTransaction mtx;
@@ -135,6 +115,7 @@ CMutableScCertificate GetValidCertificate() {
     mcert.scId = GetRandHash();
     mcert.epochNumber = 3;
     mcert.endEpochBlockHash = GetRandHash();
+    mcert.endEpochCumScTxCommTreeRoot = CFieldElement{SAMPLE_FIELD};
 
     return mcert;
 }
@@ -148,14 +129,14 @@ TEST(checktransaction_tests, valid_transparent_transaction) {
     mtx.vjoinsplit.resize(0);
     mtx.nVersion = 1;
     CTransaction tx(mtx);
-    MockCValidationState state;
+    CValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
 }
 
 TEST(checktransaction_tests, valid_sprout_transaction) {
     CMutableTransaction mtx = GetValidTransaction();
     CTransaction tx(mtx);
-    MockCValidationState state;
+    CValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
 }
 
@@ -164,9 +145,13 @@ TEST(checktransaction_tests, BadVersionTooLow) {
     mtx.nVersion = 0;
 
     CTransaction tx(mtx);
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-version-too-low"));
+    EXPECT_FALSE(state.CorruptionPossible());
+
 }
 
 TEST(checktransaction_tests, bad_txns_vin_empty) {
@@ -175,9 +160,12 @@ TEST(checktransaction_tests, bad_txns_vin_empty) {
     mtx.vin.resize(0);
 
     CTransaction tx(mtx);
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(10, false, REJECT_INVALID, "bad-txns-vin-empty", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 10);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-vin-empty"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_vout_empty) {
@@ -187,9 +175,12 @@ TEST(checktransaction_tests, bad_txns_vout_empty) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(10, false, REJECT_INVALID, "bad-txns-vout-empty", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 10);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-vout-empty"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_oversize) {
@@ -217,9 +208,12 @@ TEST(checktransaction_tests, bad_txns_oversize) {
         CTransaction tx(mtx);
         ASSERT_EQ(::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION), 100202);
     
-        MockCValidationState state;
-        EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-oversize", false)).Times(1);
-        CheckTransactionWithoutProofVerification(tx, state);
+        CValidationState state;
+        EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+        EXPECT_TRUE(state.GetDoS() == 100);
+        EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+        EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-oversize"));
+        EXPECT_FALSE(state.CorruptionPossible());
     }
 }
 
@@ -229,9 +223,12 @@ TEST(checktransaction_tests, bad_txns_vout_negative) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vout-negative", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-vout-negative"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_vout_toolarge) {
@@ -240,9 +237,12 @@ TEST(checktransaction_tests, bad_txns_vout_toolarge) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vout-toolarge", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-vout-toolarge"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_outputs) {
@@ -252,9 +252,12 @@ TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_outputs) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-txouttotal-toolarge"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_joinsplit) {
@@ -264,9 +267,12 @@ TEST(checktransaction_tests, bad_txns_txouttotal_toolarge_joinsplit) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-txouttotal-toolarge"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_txintotal_toolarge_joinsplit) {
@@ -276,9 +282,12 @@ TEST(checktransaction_tests, bad_txns_txintotal_toolarge_joinsplit) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txintotal-toolarge", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-txintotal-toolarge"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_vpub_old_negative) {
@@ -287,9 +296,12 @@ TEST(checktransaction_tests, bad_txns_vpub_old_negative) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vpub_old-negative", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-vpub_old-negative"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_vpub_new_negative) {
@@ -298,9 +310,12 @@ TEST(checktransaction_tests, bad_txns_vpub_new_negative) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vpub_new-negative", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-vpub_new-negative"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_vpub_old_toolarge) {
@@ -309,9 +324,12 @@ TEST(checktransaction_tests, bad_txns_vpub_old_toolarge) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vpub_old-toolarge", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-vpub_old-toolarge"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_vpub_new_toolarge) {
@@ -320,9 +338,11 @@ TEST(checktransaction_tests, bad_txns_vpub_new_toolarge) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vpub_new-toolarge", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-vpub_new-toolarge"));
 }
 
 TEST(checktransaction_tests, bad_txns_vpubs_both_nonzero) {
@@ -332,9 +352,12 @@ TEST(checktransaction_tests, bad_txns_vpubs_both_nonzero) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-vpubs-both-nonzero", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-vpubs-both-nonzero"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_inputs_duplicate) {
@@ -344,9 +367,12 @@ TEST(checktransaction_tests, bad_txns_inputs_duplicate) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-inputs-duplicate", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-inputs-duplicate"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_joinsplits_nullifiers_duplicate_same_joinsplit) {
@@ -356,9 +382,12 @@ TEST(checktransaction_tests, bad_joinsplits_nullifiers_duplicate_same_joinsplit)
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-joinsplits-nullifiers-duplicate", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-joinsplits-nullifiers-duplicate"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_joinsplits_nullifiers_duplicate_different_joinsplit) {
@@ -368,9 +397,12 @@ TEST(checktransaction_tests, bad_joinsplits_nullifiers_duplicate_different_joins
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-joinsplits-nullifiers-duplicate", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-joinsplits-nullifiers-duplicate"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_cb_has_joinsplits) {
@@ -384,9 +416,12 @@ TEST(checktransaction_tests, bad_cb_has_joinsplits) {
     CTransaction tx(mtx);
     EXPECT_TRUE(tx.IsCoinBase());
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-cb-has-joinsplits", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-cb-has-joinsplits"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_cb_empty_scriptsig) {
@@ -400,9 +435,12 @@ TEST(checktransaction_tests, bad_cb_empty_scriptsig) {
     CTransaction tx(mtx);
     EXPECT_TRUE(tx.IsCoinBase());
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-cb-length", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-cb-length"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_prevout_null) {
@@ -412,9 +450,12 @@ TEST(checktransaction_tests, bad_txns_prevout_null) {
     CTransaction tx(mtx);
     EXPECT_FALSE(tx.IsCoinBase());
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(10, false, REJECT_INVALID, "bad-txns-prevout-null", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 10);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-prevout-null"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_invalid_joinsplit_signature) {
@@ -422,9 +463,12 @@ TEST(checktransaction_tests, bad_txns_invalid_joinsplit_signature) {
     mtx.joinSplitSig[0] += 1;
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-invalid-joinsplit-signature", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-invalid-joinsplit-signature"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, non_canonical_ed25519_signature) {
@@ -433,7 +477,7 @@ TEST(checktransaction_tests, non_canonical_ed25519_signature) {
     // Check that the signature is valid before we add L
     {
         CTransaction tx(mtx);
-        MockCValidationState state;
+        CValidationState state;
         EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
     }
 
@@ -453,9 +497,12 @@ TEST(checktransaction_tests, non_canonical_ed25519_signature) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-invalid-joinsplit-signature", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-invalid-joinsplit-signature"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 // Test that a Sprout tx with a negative version number is detected
@@ -467,31 +514,42 @@ TEST(checktransaction_tests, SproutTxVersionTooLow) {
     mtx.nVersion = -1;
 
     CTransaction tx(mtx);
-    MockCValidationState state;
+    CValidationState state;
 
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-version-too-low"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, TransparentTxVersionWithJoinsplit) {
     SelectParams(CBaseChainParams::REGTEST);
     CMutableTransaction mtx = GetValidTransaction(TRANSPARENT_TX_VERSION);
     CTransaction tx(mtx);
-    MockCValidationState state;
+    CValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
     EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-transparent-jsnotempty", false)).Times(1);
+
     EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-transparent-jsnotempty"));
 }
 
 TEST(checktransaction_tests, GrothTxVersion) {
     SelectParams(CBaseChainParams::REGTEST);
     CMutableTransaction mtx = GetValidTransaction(GROTH_TX_VERSION);
     CTransaction tx(mtx);
-    MockCValidationState state;
+    CValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-    EXPECT_CALL(state, DoS(0, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+
     EXPECT_FALSE(tx.ContextualCheck(state, 1, 100));
+    EXPECT_TRUE(state.GetDoS() == 0);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-tx-version-unexpected"));
+    EXPECT_FALSE(state.CorruptionPossible());
+
     EXPECT_TRUE(tx.ContextualCheck(state, 200, 100));
 }
 
@@ -499,11 +557,15 @@ TEST(checktransaction_tests, PhgrTxVersion) {
     SelectParams(CBaseChainParams::REGTEST);
     CMutableTransaction mtx = GetValidTransaction(PHGR_TX_VERSION);
     CTransaction tx(mtx);
-    MockCValidationState state;
+    CValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
     EXPECT_TRUE(tx.ContextualCheck(state, 1, 100));
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+
     EXPECT_FALSE(tx.ContextualCheck(state, 200, 100));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-tx-version-unexpected"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, ScTxVersion) {
@@ -512,11 +574,15 @@ TEST(checktransaction_tests, ScTxVersion) {
     mtx.vjoinsplit.clear();
 
     CTransaction tx(mtx);
-    MockCValidationState state;
+    CValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
     EXPECT_TRUE(tx.ContextualCheck(state, 220, 100));
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-tx-version-unexpected", false)).Times(1);
+
     EXPECT_FALSE(tx.ContextualCheck(state, 219, 100));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-tx-version-unexpected"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, ScTxVersionWithCrosschainDataOnly) {
@@ -526,7 +592,7 @@ TEST(checktransaction_tests, ScTxVersionWithCrosschainDataOnly) {
     mtx.resizeOut(0);
 
     CTransaction tx(mtx);
-    MockCValidationState state;
+    CValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
 }
 
@@ -536,9 +602,13 @@ TEST(checktransaction_tests, bad_txns_txcswin_toosmall) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txcswin-invalid", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-txcswin-invalid"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_txcswin_toolarge) {
@@ -547,9 +617,13 @@ TEST(checktransaction_tests, bad_txns_txcswin_toolarge) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txcswin-invalid", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-txcswin-invalid"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_txintotal_toolarge) {
@@ -561,9 +635,13 @@ TEST(checktransaction_tests, bad_txns_txintotal_toolarge) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-txintotal-toolarge", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-txintotal-toolarge"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 TEST(checktransaction_tests, bad_txns_csw_inputs_duplicate) {
@@ -575,9 +653,13 @@ TEST(checktransaction_tests, bad_txns_csw_inputs_duplicate) {
 
     CTransaction tx(mtx);
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-csw-inputs-duplicate", false)).Times(1);
-    CheckTransactionWithoutProofVerification(tx, state);
+    CValidationState state;
+
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-csw-inputs-duplicate"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 

@@ -1733,13 +1733,13 @@ void ThreadMessageHandler()
         }
 
         // Poll the connected nodes for messages
-        CNode* pnodeTrickle = NULL;
+        CNode* pnodeTrickle = nullptr;
         if (!vNodesCopy.empty())
             pnodeTrickle = vNodesCopy[GetRand(vNodesCopy.size())];
 
         bool fSleep = true;
 
-        BOOST_FOREACH(CNode* pnode, vNodesCopy)
+        for(CNode* pnode: vNodesCopy)
         {
             if (pnode->fDisconnect)
                 continue;
@@ -1891,7 +1891,7 @@ bool BindListenPort(const CService &addrBind, string& strError, bool fWhiteliste
     return true;
 }
 
-void static Discover(boost::thread_group& threadGroup)
+void static Discover()
 {
     if (!fDiscover)
         return;
@@ -1967,7 +1967,7 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (pnodeLocalHost == NULL)
         pnodeLocalHost = new CNode(INVALID_SOCKET, CAddress(CService("127.0.0.1", 0), nLocalServices));
 
-    Discover(threadGroup);
+    Discover();
 
 #ifdef USE_TLS
     
@@ -2068,20 +2068,6 @@ public:
 }
 instance_of_cnetcleanup;
 
-
-
-
-
-
-
-void Relay(const CTransaction& tx)
-{
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss.reserve(10000);
-    ss << tx;
-    Relay(tx, ss);
-}
-
 void Relay(const CTransactionBase& tx, const CDataStream& ss)
 {
     CInv inv(MSG_TX, tx.GetHash());
@@ -2111,14 +2097,6 @@ void Relay(const CTransactionBase& tx, const CDataStream& ss)
         } else
             pnode->PushInventory(inv);
     }
-}
-
-void Relay(const CScCertificate& cert)
-{
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss.reserve(10000);
-    ss << cert;
-    Relay(cert, ss);
 }
 
 void CNode::RecordBytesRecv(uint64_t bytes)
@@ -2398,6 +2376,12 @@ void CNode::AskFor(const CInv& inv)
     else
         mapAlreadyAskedFor.insert(std::make_pair(inv, nRequestTime));
     mapAskFor.insert(std::make_pair(nRequestTime, inv));
+}
+
+void CNode::StopAskingFor(const CInv& inv)
+{
+    setAskFor.erase(inv.hash);
+    return;
 }
 
 void CNode::BeginMessage(const char* pszCommand) EXCLUSIVE_LOCK_FUNCTION(cs_vSend)

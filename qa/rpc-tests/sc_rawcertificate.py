@@ -6,6 +6,7 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
+    get_epoch_data, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, p2p_port, mark_logs
 from test_framework.mc_test.mc_test import *
 import os
@@ -114,14 +115,18 @@ class sc_rawcert(BitcoinTestFramework):
         #retrieve previous_end_epoch_mc_b_hash
         current_height = self.nodes[3].getblockcount()
         pebh = self.nodes[3].getblockhash(current_height)
-        mark_logs("Node3 generating 5 block", self.nodes, DEBUG_MODE)
-        epn = 0
-        eph = self.nodes[3].generate(EPOCH_LENGTH)[-1]
+        mark_logs("Node3 generating {} blocks".format(EPOCH_LENGTH), self.nodes, DEBUG_MODE)
+        #epn = 0
+        #eph = self.nodes[3].generate(EPOCH_LENGTH)[-1]
+        self.nodes[3].generate(EPOCH_LENGTH)
         self.sync_all()
+
+        eph, epn, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         # save them for the last test
         epn_0 = epn
         eph_0 = eph
+        epoch_cum_tree_hash_0 = epoch_cum_tree_hash
 
         # -------------------------- end epoch
 
@@ -144,7 +149,14 @@ class sc_rawcert(BitcoinTestFramework):
         raw_outs    = { self.nodes[0].getnewaddress() : change }
 
         raw_bwt_outs = {pkh_node2: bt_amount}
-        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
+        raw_params = {
+            "scid": scid,
+            "quality": quality,
+            "endEpochBlockHash": eph,
+            "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
+            "scProof": proof,
+            "withdrawalEpochNumber": epn
+        }
         raw_cert = []
         cert = []
 
@@ -184,9 +196,11 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node0 generating 4 block, also reverting other nodes' chains", self.nodes, DEBUG_MODE)
         mined = self.nodes[0].generate(1)[0]
-        epn = 1
+        #epn = 1
         pebh = eph
-        eph = self.nodes[0].generate(3)[-1]
+        self.nodes[0].generate(3)
+        eph, epn, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        #eph = self.nodes[0].generate(3)[-1]
         self.sync_all()
 
         # -------------------------- end epoch
@@ -231,10 +245,17 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 1
         proof = mcTest.create_test_proof(
-        "sc1", epn, eph, pebh,
-        quality, constant, [], [])
+            "sc1", epn, eph, pebh,
+            quality, constant, [], [])
 
-        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
+        raw_params = {
+            "scid": scid,
+            "quality": quality,
+            "endEpochBlockHash": eph,
+            "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
+            "scProof": proof,
+            "withdrawalEpochNumber": epn
+        }
         raw_cert = []
         cert = []
 
@@ -306,8 +327,10 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node0 generating 4 block reaching next epoch", self.nodes, DEBUG_MODE)
         pebh = eph
-        eph = self.nodes[0].generate(4)[-1]
-        epn = 2
+        #eph = self.nodes[0].generate(4)[-1]
+        #epn = 2
+        self.nodes[0].generate(4)
+        eph, epn, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         self.sync_all()
 
         # -------------------------- end epoch
@@ -363,10 +386,17 @@ class sc_rawcert(BitcoinTestFramework):
             amounts.append(amount)
 
         proof = mcTest.create_test_proof(
-        "sc1", epn, eph, pebh,
-        quality, constant, pks, amounts)
+            "sc1", epn, eph, pebh,
+            quality, constant, pks, amounts)
 
-        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
+        raw_params = {
+            "scid": scid,
+            "quality": quality,
+            "endEpochBlockHash": eph,
+            "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
+            "scProof": proof,
+            "withdrawalEpochNumber": epn
+        }
 
         # generate a certificate with some backward transfer, several vin vout and a fee
         try:
@@ -395,8 +425,10 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node0 generating 5 block reaching next epoch", self.nodes, DEBUG_MODE)
         pebh = eph
-        eph = self.nodes[0].generate(5)[-1]
-        epn = 3
+        #eph = self.nodes[0].generate(5)[-1]
+        #epn = 3
+        self.nodes[0].generate(5)
+        eph, epn, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         self.sync_all()
         
         '''
@@ -416,13 +448,20 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 3
         proof = mcTest.create_test_proof(
-        "sc1", epn, eph, pebh,
-        quality, constant, [], [])
+            "sc1", epn, eph, pebh,
+            quality, constant, [], [])
 
         raw_inputs   = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         raw_outs     = { self.nodes[0].getnewaddress() : change }
         raw_bwt_outs = {}
-        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
+        raw_params = {
+            "scid": scid,
+            "quality": quality,
+            "endEpochBlockHash": eph,
+            "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
+            "scProof": proof,
+            "withdrawalEpochNumber": epn
+        }
         raw_cert     = []
         pk_arr       = []
 
@@ -494,7 +533,14 @@ class sc_rawcert(BitcoinTestFramework):
         raw_outs    = { self.nodes[0].getnewaddress() : change }
         raw_bwt_outs = {}
 
-        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph_0, "scProof": proof, "withdrawalEpochNumber": epn_0}
+        raw_params = {
+            "scid": scid,
+            "quality": quality,
+            "endEpochBlockHash": eph_0,
+            "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash_0,
+            "scProof": proof,
+            "withdrawalEpochNumber": epn_0
+        }
         try:
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
             signed_cert = self.nodes[0].signrawcertificate(raw_cert)
@@ -506,17 +552,26 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node0 generating 4 block reaching next epoch", self.nodes, DEBUG_MODE)
         pebh = eph
-        eph = self.nodes[0].generate(4)[-1]
-        epn = 4
+        #eph = self.nodes[0].generate(4)[-1]
+        #epn = 4
+        self.nodes[0].generate(4)
+        eph, epn, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         self.sync_all()
         
         # create wCert proof
         quality = 1
         proof = mcTest.create_test_proof(
-        "sc1", epn, eph, pebh,
-        quality, constant, [], [])
+            "sc1", epn, eph, pebh,
+            quality, constant, [], [])
 
-        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn}
+        raw_params = {
+            "scid": scid,
+            "quality": quality,
+            "endEpochBlockHash": eph,
+            "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
+            "scProof": proof,
+            "withdrawalEpochNumber": epn
+        }
         raw_cert = []
         cert = []
 
@@ -580,6 +635,59 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(conf, 1)
         assert_equal(certFee, Decimal("0.0"))
 
+
+        # generate a certificate with invalid FT fee
+        errorString = ""
+        ftScFee = Decimal("-1.0")
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "endEpochCumScTxCommTreeRoot" : epoch_cum_tree_hash,
+                      "scProof": proof, "withdrawalEpochNumber": epn, "ftScFee": ftScFee}
+
+        mark_logs("Node0 creating raw certificate with negative FT fee", self.nodes, DEBUG_MODE)
+        try:
+            raw_cert = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
+            assert_true(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+
+        assert_true("Amount out of range" in errorString)
+
+
+        # generate a certificate with invalid MBTR fee
+        errorString = ""
+        mbtrScFee = Decimal("-1.0")
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "endEpochCumScTxCommTreeRoot" : epoch_cum_tree_hash,
+                      "scProof": proof, "withdrawalEpochNumber": epn, "mbtrScFee": mbtrScFee}
+
+        mark_logs("Node0 creating raw certificate with negative MBTR fee", self.nodes, DEBUG_MODE)
+        try:
+            raw_cert = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
+            assert_true(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+
+        assert_true("Amount out of range" in errorString)
+
+
+        # generate a certificate with valid FT and MBTR fees
+        errorString = ""
+        ftScFee = Decimal("10.0")
+        mbtrScFee = Decimal("20.0")
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "endEpochCumScTxCommTreeRoot" : epoch_cum_tree_hash,
+                      "scProof": proof, "withdrawalEpochNumber": epn, "ftScFee": ftScFee, "mbtrScFee": mbtrScFee}
+
+        mark_logs("Node0 creating raw certificate with valid FT and MBTR fees", self.nodes, DEBUG_MODE)
+        try:
+            raw_cert = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
+            decoded_cert = self.nodes[0].decoderawcertificate(raw_cert)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+            assert_true(False)
+
+        assert_equal(decoded_cert['cert']['ftScFee'], ftScFee)
+        assert_equal(decoded_cert['cert']['mbtrScFee'], mbtrScFee)
 
 if __name__ == '__main__':
     sc_rawcert().main()

@@ -270,6 +270,19 @@ std::string VecToStr(const std::vector<T>& vIn)
     return s.substr(0, s.length()-1).c_str();
 }
 
+template <typename T>
+int FindIndexOf(const std::vector<T>& vIn, const T& entry)
+{
+    if (vIn.empty())
+        return -1;
+
+    auto vIt = std::find(vIn.begin(), vIn.end(), entry);
+    if (vIt == vIn.end())
+        return -1;
+
+    return (vIt - vIn.begin());
+}
+
 // Utilities useful for developing and debugging
 //--------------------------------------------------------------
 class CBlockIndex;

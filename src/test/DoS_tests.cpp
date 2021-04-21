@@ -24,14 +24,7 @@
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/foreach.hpp>
 #include <boost/test/unit_test.hpp>
-
-// Tests this internal-to-main.cpp method:
-extern bool AddOrphanTx(const CTransactionBase& tx, NodeId peer);
-extern void EraseOrphansFor(NodeId peer);
-extern unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans);
-
-extern std::map<uint256, COrphanTx> mapOrphanTransactions;
-extern std::map<uint256, std::set<uint256> > mapOrphanTransactionsByPrev;
+#include <txBaseMsgProcessor.h>
 
 CService ip(uint32_t i)
 {
@@ -104,15 +97,6 @@ BOOST_AUTO_TEST_CASE(DoS_bantime)
     SetMockTime(0);
 }
 
-const CTransactionBase* RandomOrphan()
-{
-    std::map<uint256, COrphanTx>::iterator it;
-    it = mapOrphanTransactions.lower_bound(GetRandHash());
-    if (it == mapOrphanTransactions.end())
-        it = mapOrphanTransactions.begin();
-    return (it->second.tx).get();
-}
-
 BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
 {
     CKey key;
@@ -121,7 +105,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
     keystore.AddKey(key);
 
     // 50 orphan transactions:
-    for (int i = 0; i < 50; i++)
+    for (NodeId nodeId = 0; nodeId < 50; nodeId++)
     {
         CMutableTransaction tx;
         tx.vin.resize(1);
@@ -132,13 +116,13 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         tx.getOut(0).nValue = 1*CENT;
         tx.getOut(0).scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
 
-        AddOrphanTx(tx, i);
+        TxBaseMsgProcessor::get().AddOrphanTx(tx, nodeId);
     }
 
     // ... and 50 that depend on other orphans:
-    for (int i = 0; i < 50; i++)
+    for (NodeId nodeId = 0; nodeId < 50; nodeId++)
     {
-        const CTransactionBase* txPrev = RandomOrphan();
+        const CTransactionBase* txPrev = TxBaseMsgProcessor::get().PickRandomOrphan();
 
         CMutableTransaction tx;
         tx.vin.resize(1);
@@ -157,14 +141,14 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
             SignSignature(keystore, *dynamic_cast<const CScCertificate*>(txPrev), tx, 0);
         }
 
-        AddOrphanTx(tx, i);
+        TxBaseMsgProcessor::get().AddOrphanTx(tx, nodeId);
     }
 
 
     // This really-big orphan should be ignored:
-    for (int i = 0; i < 10; i++)
+    for (NodeId nodeId = 0; nodeId < 10; nodeId++)
     {
-        const CTransactionBase* txPrev = RandomOrphan();
+        const CTransactionBase* txPrev = TxBaseMsgProcessor::get().PickRandomOrphan();
 
         CMutableTransaction tx;
         tx.resizeOut(1);
@@ -190,25 +174,24 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
         for (unsigned int j = 1; j < tx.vin.size(); j++)
             tx.vin[j].scriptSig = tx.vin[0].scriptSig;
 
-        BOOST_CHECK(!AddOrphanTx(tx, i));
+        BOOST_CHECK(!TxBaseMsgProcessor::get().AddOrphanTx(tx, nodeId));
     }
 
     // Test EraseOrphansFor:
-    for (NodeId i = 0; i < 3; i++)
+    for (NodeId nodeId = 0; nodeId < 3; nodeId++)
     {
-        size_t sizeBefore = mapOrphanTransactions.size();
-        EraseOrphansFor(i);
-        BOOST_CHECK(mapOrphanTransactions.size() < sizeBefore);
+        size_t sizeBefore = TxBaseMsgProcessor::get().countOrphans();
+        TxBaseMsgProcessor::get().EraseOrphansFor(nodeId);
+        BOOST_CHECK(TxBaseMsgProcessor::get().countOrphans() < sizeBefore);
     }
 
     // Test LimitOrphanTxSize() function:
-    LimitOrphanTxSize(40);
-    BOOST_CHECK(mapOrphanTransactions.size() <= 40);
-    LimitOrphanTxSize(10);
-    BOOST_CHECK(mapOrphanTransactions.size() <= 10);
-    LimitOrphanTxSize(0);
-    BOOST_CHECK(mapOrphanTransactions.empty());
-    BOOST_CHECK(mapOrphanTransactionsByPrev.empty());
+    TxBaseMsgProcessor::get().LimitOrphanTxSize(40);
+    BOOST_CHECK(TxBaseMsgProcessor::get().countOrphans() <= 40);
+    TxBaseMsgProcessor::get().LimitOrphanTxSize(10);
+    BOOST_CHECK(TxBaseMsgProcessor::get().countOrphans() <= 10);
+    TxBaseMsgProcessor::get().LimitOrphanTxSize(0);
+    BOOST_CHECK(TxBaseMsgProcessor::get().countOrphans() == 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

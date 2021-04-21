@@ -557,18 +557,20 @@ TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
 
 TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 {
+    //fPrintToConsole = true;
+    SidechainTxsCommitmentBuilder builder;
+
     //Add txes containing scCreation and fwd transfer + a certificate
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), /*height*/10);
 
     CMutableTransaction mutTx = scCreationTx;
-    auto ccout = CTxScCreationOut(CAmount(10), uint256S("aaa"), Sidechain::ScCreationParameters());
+
+    auto ccout = CTxScCreationOut(CAmount(10), uint256S("aaa"), CAmount(0), CAmount(0), Sidechain::ScFixedParameters())
     // set mandatory/legal params
     ccout.withdrawalEpochLength = 11;
     ccout.wCertVk = CScVKey(ParseHex(SAMPLE_VK));
-    ccout.wMbtrVk = CScVKey(ParseHex(SAMPLE_VK));
     ccout.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     mutTx.vsc_ccout.push_back(ccout);
-
     mutTx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("bbb"), CAmount(1985), uint256S("badcafe")));
     scCreationTx = mutTx;
 
@@ -576,8 +578,8 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(7));
 
     CScCertificate cert = txCreationUtils::createCertificate(scId,
-        /*epochNum*/12, /*endEpochBlockHash*/uint256S("abc"), /*changeTotalAmount*/0,
-        /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/1);
+        /*epochNum*/12, /*endEpochBlockHash*/uint256S("abc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/0,
+        /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/1, /*ftScFee*/0, /*mbtrScFee*/0);
 
     SidechainTxsCommitmentBuilder builder;
 
@@ -587,13 +589,13 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("2a6206233301a27ca24406edcfd759efc2cefb9ef2009efdb734918d3a43e8b5"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("bba95e2cd604ea34b69ff53960200cd33dd9c1d8e17e8b15038d1de58af01191"))
         <<scTxCommitmentHash.ToString();
 }
 
 TEST(SidechainsField, NakedZendooFeatures_EmptyTreeCommitmentCalculation)
 {
-    fPrintToConsole = true;
+    //fPrintToConsole = true;
     SidechainTxsCommitmentBuilder builder;
 
     const CFieldElement& emptyFe = CFieldElement{EMPTY_COMMITMENT_TREE_FIELD};

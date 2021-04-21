@@ -214,7 +214,8 @@ std::string CTxIn::ToString() const
 
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                                      const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
-                                                                     const CScProof& scProofIn, const CScript& redeemScriptIn)
+                                                                     const CScProof& scProofIn, const CScript& redeemScriptIn,
+                                                                     int32_t actCertDataIdxIn)
 {
     nValue = nValueIn;
     scId = scIdIn;
@@ -222,13 +223,20 @@ CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmou
     pubKeyHash = pubKeyHashIn;
     scProof = scProofIn;
     redeemScript = redeemScriptIn;
+    actCertDataIdx = actCertDataIdxIn;
 }
+
+CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput():
+    nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript(), actCertDataIdx(-1) {}
 
 std::string CTxCeasedSidechainWithdrawalInput::ToString() const
 {
-    return strprintf("CTxCeasedSidechainWithdrawalInput(nValue=%d.%08d, scId=%s, nullifier=%s, pubKeyHash=%s, scProof=%s, redeemScript=%s)",
+    return strprintf(
+        "CTxCeasedSidechainWithdrawalInput("
+        "nValue=%d.%08d, scId=%s,\nnullifier=%s,\npubKeyHash=%s,\nscProof=%s,\n"
+        "redeemScript=%s,\nactCertDataIdx=%d)\n",
                      nValue / COIN, nValue % COIN, scId.ToString(), nullifier.GetHexRepr().substr(0, 10),
-                     pubKeyHash.ToString(), scProof.GetHexRepr().substr(0, 10), HexStr(redeemScript).substr(0, 24));
+                     pubKeyHash.ToString(), scProof.GetHexRepr().substr(0, 10), HexStr(redeemScript).substr(0, 24), actCertDataIdx);
 }
 
 CScript CTxCeasedSidechainWithdrawalInput::scriptPubKey() const
@@ -294,12 +302,16 @@ bool CTxCrosschainOutBase::CheckAmountRange(CAmount& cumulatedAmount) const
 
 CTxScCreationOut::CTxScCreationOut(
     const CAmount& nValueIn, const uint256& addressIn,
-    const Sidechain::ScCreationParameters& paramsIn)
+    const CAmount& ftScFee, const CAmount& mbtrScFee,
+    const Sidechain::ScFixedParameters& paramsIn)
     :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
      withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant),
-     wCertVk(paramsIn.wCertVk), wMbtrVk(paramsIn.wMbtrVk), wCeasedVk(paramsIn.wCeasedVk),
+     wCertVk(paramsIn.wCertVk), wCeasedVk(paramsIn.wCeasedVk),
      vFieldElementCertificateFieldConfig(paramsIn.vFieldElementCertificateFieldConfig),
-     vBitVectorCertificateFieldConfig(paramsIn.vBitVectorCertificateFieldConfig) {}
+     vBitVectorCertificateFieldConfig(paramsIn.vBitVectorCertificateFieldConfig),
+     forwardTransferScFee(ftScFee),
+     mainchainBackwardTransferRequestScFee(mbtrScFee),
+     mainchainBackwardTransferRequestDataLength(paramsIn.mainchainBackwardTransferRequestDataLength) {}
 
 uint256 CTxScCreationOut::GetHash() const
 {
@@ -310,17 +322,19 @@ std::string CTxScCreationOut::ToString() const
 {
     return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, "
                                        "nValue=%d.%08d, address=%s, customData=[%s], "
-                                       "constant=[%s], wCertVk=[%s], wMbtrVk=[%s], "
-                                       "wCeasedVk=[%s], "
+                                       "constant=[%s], wCertVk=[%s], wCeasedVk=[%s], "
                                        "vFieldElementCertificateFieldConfig=[%s], "
-                                       "vBitVectorCertificateFieldConfig[%s]",
+                                       "vBitVectorCertificateFieldConfig[%s], "
+                                       "forwardTransferScFee=%d, "
+                                       "mainchainBackwardTransferRequestScFee=%d, "
+                                       "mainchainBackwardTransferRequestDataLength=%d",
         generatedScId.ToString(), withdrawalEpochLength, nValue / COIN,
         nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
         constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
-        wCertVk.GetHexRepr(), wMbtrVk ? wMbtrVk.get().GetHexRepr() : "",
-        wCeasedVk ? wCeasedVk.get().GetHexRepr() : "",
+        wCertVk.GetHexRepr(), wCeasedVk ? wCeasedVk.get().GetHexRepr() : "",
         VecToStr(vFieldElementCertificateFieldConfig),
-        VecToStr(vBitVectorCertificateFieldConfig) );
+        VecToStr(vBitVectorCertificateFieldConfig),
+        forwardTransferScFee, mainchainBackwardTransferRequestScFee, mainchainBackwardTransferRequestDataLength );
 }
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
@@ -351,33 +365,39 @@ CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     customData = ccout.customData;
     constant = ccout.constant;
     wCertVk = ccout.wCertVk;
-    wMbtrVk = ccout.wMbtrVk;
     wCeasedVk = ccout.wCeasedVk;
     vFieldElementCertificateFieldConfig = ccout.vFieldElementCertificateFieldConfig;
     vBitVectorCertificateFieldConfig = ccout.vBitVectorCertificateFieldConfig;
+    forwardTransferScFee = ccout.forwardTransferScFee;
+    mainchainBackwardTransferRequestScFee = ccout.mainchainBackwardTransferRequestScFee;
+    mainchainBackwardTransferRequestDataLength = ccout.mainchainBackwardTransferRequestDataLength;
+
     return *this;
 }
 
 CBwtRequestOut::CBwtRequestOut(
     const uint256& scIdIn, const uint160& pkhIn, const Sidechain::ScBwtRequestParameters& paramsIn):
-    scId(scIdIn), scRequestData(paramsIn.scRequestData), mcDestinationAddress(pkhIn),
-    scFee(paramsIn.scFee), scProof(paramsIn.scProof) {}
+    scId(scIdIn), vScRequestData(paramsIn.vScRequestData), mcDestinationAddress(pkhIn),
+    scFee(paramsIn.scFee) {}
 
 
 std::string CBwtRequestOut::ToString() const
 {
-    return strprintf("CBwtRequestOut(scId=%s, scRequestData=%s, pkh=%s, scFee=%d.%08d, scProof=%s",
-        scId.ToString(), scRequestData.GetHexRepr().substr(0, 30),
-        mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN,
-        scProof.GetHexRepr().substr(0, 30));
+    std::string requestDataStr;
+
+    for(auto fe : vScRequestData)
+        requestDataStr += strprintf("\n  [%s]\n", fe.GetHexRepr());
+
+    return strprintf("CBwtRequestOut(scId=%s, vScRequestData=%s, pkh=%s, scFee=%d.%08d",
+        scId.ToString(), requestDataStr,
+        mcDestinationAddress.ToString(), scFee/COIN, scFee%COIN);
 }
 
 CBwtRequestOut& CBwtRequestOut::operator=(const CBwtRequestOut &out) {
     scId                 = out.scId;
-    scRequestData        = out.scRequestData;
+    vScRequestData       = out.vScRequestData;
     mcDestinationAddress = out.mcDestinationAddress;
     scFee                = out.scFee;
-    scProof              = out.scProof;
     return *this;
 }
 
@@ -386,11 +406,12 @@ CMutableTransactionBase::CMutableTransactionBase():
     nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
 
 CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(),
-    vcsw_ccin(), vsc_ccout(), vft_ccout(), vmbtr_out(),
+    vcsw_ccin(), vsc_ccout(), vft_ccout(), vmbtr_out(), vact_cert_data(),
     nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() {}
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx): CMutableTransactionBase(),
-    vcsw_ccin(tx.GetVcswCcIn()), vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()), vmbtr_out(tx.GetVBwtRequestOut()),
+    vcsw_ccin(tx.GetVcswCcIn()), vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()),
+    vmbtr_out(tx.GetVBwtRequestOut()), vact_cert_data(tx.GetVActCertData()),
     nLockTime(tx.GetLockTime()), vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
@@ -412,6 +433,12 @@ bool CMutableTransaction::addBwt(const CTxOut& out)             { return false; 
 bool CMutableTransaction::add(const CTxScCreationOut& out)      { vsc_ccout.push_back(out); return true; }
 bool CMutableTransaction::add(const CTxForwardTransferOut& out) { vft_ccout.push_back(out); return true; }
 bool CMutableTransaction::add(const CBwtRequestOut& out)        { vmbtr_out.push_back(out); return true; }
+bool CMutableTransaction::add(const CFieldElement& acd)         { vact_cert_data.push_back(acd); return true; }
+
+int CMutableTransaction::GetIndexOfActCertData(const CFieldElement& actCertData) const
+{
+    return FindIndexOf(vact_cert_data, actCertData);
+}
 
 //--------------------------------------------------------------------------------------------------------
 CTransactionBase::CTransactionBase(int nVersionIn):
@@ -476,7 +503,7 @@ bool CTransaction::CheckSerializedSize(CValidationState &state) const
     if (size > MAX_TX_SIZE) {
         LogPrintf("CheckSerializedSize: Tx id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_TX_SIZE, ToString());
         return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
-                         REJECT_INVALID, "bad-txns-oversize");
+                         CValidationState::Code::INVALID, "bad-txns-oversize");
     }
 
     return true;
@@ -490,14 +517,14 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
     {
         if (txout.nValue < 0)
             return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
-                             REJECT_INVALID, "bad-txns-vout-negative");
+                             CValidationState::Code::INVALID, "bad-txns-vout-negative");
         if (txout.nValue > MAX_MONEY)
             return state.DoS(100, error("CheckAmounts(): txout.nValue too high"),
-                             REJECT_INVALID, "bad-txns-vout-toolarge");
+                             CValidationState::Code::INVALID, "bad-txns-vout-toolarge");
         nCumulatedValueOut += txout.nValue;
         if (!MoneyRange(nCumulatedValueOut))
             return state.DoS(100, error("CheckAmounts(): txout total out of range"),
-                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+                             CValidationState::Code::INVALID, "bad-txns-txouttotal-toolarge");
     }
 
     // Ensure that joinsplit values are well-formed
@@ -505,33 +532,33 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
     {
         if (joinsplit.vpub_old < 0) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_old negative"),
-                             REJECT_INVALID, "bad-txns-vpub_old-negative");
+                             CValidationState::Code::INVALID, "bad-txns-vpub_old-negative");
         }
 
         if (joinsplit.vpub_new < 0) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new negative"),
-                             REJECT_INVALID, "bad-txns-vpub_new-negative");
+                             CValidationState::Code::INVALID, "bad-txns-vpub_new-negative");
         }
 
         if (joinsplit.vpub_old > MAX_MONEY) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_old too high"),
-                             REJECT_INVALID, "bad-txns-vpub_old-toolarge");
+                             CValidationState::Code::INVALID, "bad-txns-vpub_old-toolarge");
         }
 
         if (joinsplit.vpub_new > MAX_MONEY) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new too high"),
-                             REJECT_INVALID, "bad-txns-vpub_new-toolarge");
+                             CValidationState::Code::INVALID, "bad-txns-vpub_new-toolarge");
         }
 
         if (joinsplit.vpub_new != 0 && joinsplit.vpub_old != 0) {
             return state.DoS(100, error("CheckAmounts(): joinsplit.vpub_new and joinsplit.vpub_old both nonzero"),
-                             REJECT_INVALID, "bad-txns-vpubs-both-nonzero");
+                             CValidationState::Code::INVALID, "bad-txns-vpubs-both-nonzero");
         }
 
         nCumulatedValueOut += joinsplit.vpub_old;
         if (!MoneyRange(nCumulatedValueOut)) {
             return state.DoS(100, error("CheckAmounts(): txout total out of range"),
-                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+                             CValidationState::Code::INVALID, "bad-txns-txouttotal-toolarge");
         }
     }
 
@@ -539,21 +566,21 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
     {
         if (!scOut.CheckAmountRange(nCumulatedValueOut))
             return state.DoS(100, error("%s(): ccout total out of range", __func__),
-                             REJECT_INVALID, "bad-txns-ccout-range");
+                             CValidationState::Code::INVALID, "bad-txns-ccout-range");
     }
 
     for(const CTxForwardTransferOut& fwdOut: vft_ccout)
     {
         if (!fwdOut.CheckAmountRange(nCumulatedValueOut))
             return state.DoS(100, error("%s(): ccout total out of range", __func__),
-                             REJECT_INVALID, "bad-txns-ccout-range");
+                             CValidationState::Code::INVALID, "bad-txns-ccout-range");
     }
 
     for(const CBwtRequestOut& mbwtr: vmbtr_out)
     {
         if (!mbwtr.CheckAmountRange(nCumulatedValueOut))
             return state.DoS(100, error("%s(): ccout total out of range", __func__),
-                             REJECT_INVALID, "bad-txns-ccout-range");
+                             CValidationState::Code::INVALID, "bad-txns-ccout-range");
     }
 
     // Ensure input values do not exceed MAX_MONEY
@@ -566,7 +593,7 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
 
         if (!MoneyRange(joinsplit.vpub_new) || !MoneyRange(nCumulatedValueIn)) {
             return state.DoS(100, error("CheckAmounts(): txin total out of range"),
-                             REJECT_INVALID, "bad-txns-txintotal-toolarge");
+                             CValidationState::Code::INVALID, "bad-txns-txintotal-toolarge");
         }
     }
 
@@ -576,11 +603,11 @@ bool CTransaction::CheckAmounts(CValidationState &state) const
 
         if (!MoneyRange(cswIn.nValue)) {
             return state.DoS(100, error("CheckAmounts(): txin total out of range"),
-                             REJECT_INVALID, "bad-txns-txcswin-invalid");
+                             CValidationState::Code::INVALID, "bad-txns-txcswin-invalid");
         }
         if (!MoneyRange(nCumulatedValueIn)) {
             return state.DoS(100, error("CheckAmounts(): txin total out of range"),
-                             REJECT_INVALID, "bad-txns-txintotal-toolarge");
+                             CValidationState::Code::INVALID, "bad-txns-txintotal-toolarge");
         }
     }
 
@@ -595,7 +622,7 @@ bool CTransactionBase::CheckInputsDuplication(CValidationState &state) const
     {
         if (vInOutPoints.count(txin.prevout))
             return state.DoS(100, error("CheckInputsDuplications(): duplicate inputs"),
-                             REJECT_INVALID, "bad-txns-inputs-duplicate");
+                             CValidationState::Code::INVALID, "bad-txns-inputs-duplicate");
         vInOutPoints.insert(txin.prevout);
     }
 
@@ -607,7 +634,7 @@ bool CTransactionBase::CheckInputsDuplication(CValidationState &state) const
         {
             if (vJoinSplitNullifiers.count(nf))
                 return state.DoS(100, error("CheckInputsDuplications(): duplicate nullifiers"),
-                             REJECT_INVALID, "bad-joinsplits-nullifiers-duplicate");
+                             CValidationState::Code::INVALID, "bad-joinsplits-nullifiers-duplicate");
 
             vJoinSplitNullifiers.insert(nf);
         }
@@ -629,7 +656,7 @@ bool CTransaction::CheckInputsDuplication(CValidationState &state) const
     {
         if(vNullifiers.count(cswIn.nullifier))
             return state.DoS(100, error("CheckInputsDuplications(): duplicate ceased sidechain withdrawal inputs"),
-                             REJECT_INVALID, "bad-txns-csw-inputs-duplicate");
+                             CValidationState::Code::INVALID, "bad-txns-csw-inputs-duplicate");
 
         vNullifiers.insert(cswIn.nullifier);
     }
@@ -644,37 +671,37 @@ bool CTransaction::CheckInputsInteraction(CValidationState &state) const
         // There should be no joinsplits in a coinbase transaction
         if (vjoinsplit.size() > 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase has joinsplits"),
-                             REJECT_INVALID, "bad-cb-has-joinsplits");
+                             CValidationState::Code::INVALID, "bad-cb-has-joinsplits");
 
         if (vin[0].scriptSig.size() < 2 || vin[0].scriptSig.size() > 100)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase script size"),
-                             REJECT_INVALID, "bad-cb-length");
+                             CValidationState::Code::INVALID, "bad-cb-length");
 
         if (vsc_ccout.size() != 0 || vft_ccout.size() != 0 || vmbtr_out.size() != 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase contains sidechains related outputs"),
-                                         REJECT_INVALID, "bad-cb-destination");
+                                         CValidationState::Code::INVALID, "bad-cb-destination");
         if (vcsw_ccin.size() != 0)
             return state.DoS(100, error("CheckInputsInteraction(): coinbase has CSW inputs"),
-                                         REJECT_INVALID, "bad-cb-has-cswinputs");
+                                         CValidationState::Code::INVALID, "bad-cb-has-cswinputs");
     }
     else
     {
         for(const CTxIn& txin: vin)
             if (txin.prevout.IsNull())
                 return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
-                                 REJECT_INVALID, "bad-txns-prevout-null");
+                                 CValidationState::Code::INVALID, "bad-txns-prevout-null");
     }
     return true;
 }
 
 CTransaction::CTransaction(int nVersionIn): CTransactionBase(nVersionIn),
     vjoinsplit(), nLockTime(0), vcsw_ccin(), vsc_ccout(), vft_ccout(), vmbtr_out(),
-    joinSplitPubKey(), joinSplitSig() {}
+    vact_cert_data(), joinSplitPubKey(), joinSplitSig() {}
 
 CTransaction::CTransaction(const CTransaction &tx) : CTransactionBase(tx),
     vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
     vcsw_ccin(tx.vcsw_ccin), vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
-    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig) {}
+    vact_cert_data(tx.vact_cert_data), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig) {}
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     CTransactionBase::operator=(tx);
@@ -684,6 +711,7 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout)      = tx.vsc_ccout;
     *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
     *const_cast<std::vector<CBwtRequestOut>*>(&vmbtr_out)        = tx.vmbtr_out;
+    *const_cast<std::vector<CFieldElement>*>(&vact_cert_data)    = tx.vact_cert_data;
     *const_cast<uint256*>(&joinSplitPubKey)                      = tx.joinSplitPubKey;
     *const_cast<joinsplit_sig_t*>(&joinSplitSig)                 = tx.joinSplitSig;
     return *this;
@@ -700,7 +728,7 @@ void CTransaction::UpdateHash() const
 CTransaction::CTransaction(const CMutableTransaction &tx): CTransactionBase(tx),
     vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
     vcsw_ccin(tx.vcsw_ccin), vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
-    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+    vact_cert_data(tx.vact_cert_data), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     UpdateHash();
 }
@@ -759,7 +787,7 @@ bool CTransaction::IsValidVersion(CValidationState &state) const
     if (nVersion < MIN_OLD_TX_VERSION && nVersion != GROTH_TX_VERSION && !IsScVersion() )
     {
         return state.DoS(100, error("BasicVersionCheck(): version too low"),
-                         REJECT_INVALID, "bad-txns-version-too-low");
+                         CValidationState::Code::INVALID, "bad-txns-version-too-low");
     }
 
     return true;
@@ -773,7 +801,7 @@ bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
     {
         LogPrint("sc", "%s():%d - Error: tx[%s]\n", __func__, __LINE__, GetHash().ToString() );
         return state.DoS(10, error("CheckNonEmpty(): vin empty"),
-                         REJECT_INVALID, "bad-txns-vin-empty");
+                         CValidationState::Code::INVALID, "bad-txns-vin-empty");
     }
 
     // Allow the case when crosschain outputs are not empty. In that case there might be no vout at all
@@ -781,7 +809,7 @@ bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
     if (GetVout().empty() && GetVjoinsplit().empty() && ccOutIsNull())
     {
         return state.DoS(10, error("CheckNonEmpty(): vout empty"),
-                         REJECT_INVALID, "bad-txns-vout-empty");
+                         CValidationState::Code::INVALID, "bad-txns-vout-empty");
     }
 
     return true;
@@ -790,7 +818,7 @@ bool CTransaction::CheckInputsOutputsNonEmpty(CValidationState &state) const
 bool CTransaction::CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const {
     if (!MoneyRange(totalVinAmount))
         return state.DoS(100, error("%s(): total input amount out of range", __func__),
-                         REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+                         CValidationState::Code::INVALID, "bad-txns-inputvalues-outofrange");
 
     if (!CheckAmounts(state))
         return false;
@@ -799,16 +827,16 @@ bool CTransaction::CheckFeeAmount(const CAmount& totalVinAmount, CValidationStat
         return state.DoS(100, error("%s(): %s value in (%s) < value out (%s)", __func__,
                                     GetHash().ToString(),
                                     FormatMoney(totalVinAmount), FormatMoney(GetValueOut()) ),
-                         REJECT_INVALID, "bad-txns-in-belowout");
+                         CValidationState::Code::INVALID, "bad-txns-in-belowout");
 
     CAmount nTxFee = totalVinAmount - GetValueOut();
     if (nTxFee < 0)
         return state.DoS(100, error("%s(): %s nTxFee < 0", __func__, GetHash().ToString()),
-                         REJECT_INVALID, "bad-txns-fee-negative");
+                         CValidationState::Code::INVALID, "bad-txns-fee-negative");
 
     if (!MoneyRange(nTxFee))
         return state.DoS(100, error("%s(): nTxFee out of range", __func__),
-                         REJECT_INVALID, "bad-txns-fee-outofrange");
+                         CValidationState::Code::INVALID, "bad-txns-fee-outofrange");
 
     return true;
 }
@@ -891,15 +919,15 @@ std::string CTransaction::ToString() const
     return str;
 }
 
-bool CTransaction::CheckInputsLimit() const {
+bool CTransaction::CheckInputsLimit(CValidationState& state) const {
     // Node operator can choose to reject tx by number of transparent inputs and csw inputs
     static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
     size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
     if (limit > 0) {
         size_t n = GetVin().size() + GetVcswCcIn().size();
         if (n > limit) {
-            LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n",
-                    GetHash().ToString(), n, limit );
+            return state.DoS(10, error("%s():%d - Dropping tx %s : too many transparent inputs %zu > limit %zu\n",
+                __func__, __LINE__, GetHash().ToString(), n, limit), CValidationState::Code::INVALID, "bad-tx-vin-input-limit");
             return false;
         }
     }
@@ -950,7 +978,7 @@ bool CTransactionBase::CheckBlockAtHeight(CValidationState& state, int nHeight, 
         {
             return state.DoS(dosLevel, error("%s: %s: %s is not activated at this block height %d. Transaction rejected. Tx id: %s",
                     __FILE__, __func__, ::GetTxnOutputType(whichType), nHeight, GetHash().ToString()),
-                REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
+                CValidationState::Code::CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed");
         }
     }
 
@@ -1027,7 +1055,7 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
             //enforce empty joinsplit for transparent txs and sidechain tx
             if(!GetVjoinsplit().empty()) {
                 return state.DoS(dosLevel, error("ContextualCheck(): transparent or sc tx but vjoinsplit not empty"),
-                                     REJECT_INVALID, "bad-txns-transparent-jsnotempty");
+                                     CValidationState::Code::INVALID, "bad-txns-transparent-jsnotempty");
             }
             return true;
         }
@@ -1039,7 +1067,7 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
                 __func__, __LINE__, nVersion, nHeight, (int)isGROTHActive, (int)areSidechainsSupported);
             return state.DoS(dosLevel,
                              error("ContextualCheck(): unexpected tx version"),
-                             REJECT_INVALID, "bad-tx-version-unexpected");
+                             CValidationState::Code::INVALID, "bad-tx-version-unexpected");
         }
         return true;
     }
@@ -1054,7 +1082,7 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
                 __func__, __LINE__, nVersion, nHeight, (int)isGROTHActive, shieldedTxVersion, (int)areSidechainsSupported);
             return state.DoS(0,
                              error("ContextualCheck(): unexpected tx version"),
-                             REJECT_INVALID, "bad-tx-version-unexpected");
+                             CValidationState::Code::INVALID, "bad-tx-version-unexpected");
         }
         return true;
     }
@@ -1100,12 +1128,23 @@ bool CTransaction::VerifyScript(
     return true;
 }
 
+int CTransaction::GetIndexOfActCertData(const CFieldElement& actCertData) const
+{
+    return FindIndexOf(vact_cert_data, actCertData);
+}
+
 std::string CTransaction::EncodeHex() const
 {
     return EncodeHexTx(*this);
 }
 
-void CTransaction::Relay() const { ::Relay(*this); }
+void CTransaction::Relay() const
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss.reserve(10000);
+    ss << *this;
+    ::Relay(*this, ss);
+}
 
 std::shared_ptr<const CTransactionBase>
 CTransaction::MakeShared() const {

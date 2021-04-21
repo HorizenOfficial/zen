@@ -8,6 +8,14 @@
 class CValidationState;
 class CTransaction;
 
+namespace Sidechain
+{
+    static const boost::filesystem::path GetSidechainDataDir();
+    bool InitSidechainsFolder();
+    void ClearSidechainsFolder();
+    void LoadCumulativeProofsParameters();
+};
+
 class CSidechainEvents {
 public:
     CSidechainEvents(): sidechainEventsVersion(0), ceasingScs(), maturingScs() {};
@@ -44,7 +52,7 @@ class CSidechain {
 public:
     CSidechain():
         sidechainVersion(0), creationBlockHeight(-1), creationTxHash(),
-        pastEpochTopQualityCertDataHash(), lastTopQualityCertDataHash(), lastTopQualityCertHash(),
+        pastEpochTopQualityCertView(), lastTopQualityCertView(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
         balance(0) {}
@@ -54,14 +62,14 @@ public:
         return (
              creationBlockHeight == -1                                        &&
              creationTxHash.IsNull()                                          &&
-             pastEpochTopQualityCertDataHash.IsNull()                         &&
-             lastTopQualityCertDataHash.IsNull()                              &&
+             pastEpochTopQualityCertView.IsNull()                                  &&
+             lastTopQualityCertView.IsNull()                                  &&
              lastTopQualityCertHash.IsNull()                                  &&
              lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL  &&
              lastTopQualityCertQuality == CScCertificate::QUALITY_NULL        &&
              lastTopQualityCertBwtAmount == 0                                 &&
              balance == 0                                                     &&
-             creationData.IsNull()                                            &&
+             fixedParams.IsNull()                                            &&
              mImmatureAmounts.empty());
     }
 
@@ -73,9 +81,9 @@ public:
     // hash of the tx who created it
     uint256 creationTxHash;
 
-    // Cert data hash section
-    CFieldElement pastEpochTopQualityCertDataHash;
-    CFieldElement lastTopQualityCertDataHash;
+    // Certificate view section
+    CScCertificateView pastEpochTopQualityCertView;
+    CScCertificateView lastTopQualityCertView;
 
     // Data for latest top quality cert confirmed in blockchain
     uint256 lastTopQualityCertHash;
@@ -87,7 +95,7 @@ public:
     CAmount balance;
 
     // creation data
-    Sidechain::ScCreationParameters creationData;
+    Sidechain::ScFixedParameters fixedParams;
 
     // immature amounts
     // key   = height at which amount will be considered as mature and will be part of the sc balance
@@ -113,31 +121,31 @@ public:
         READWRITE(sidechainVersion);
         READWRITE(VARINT(creationBlockHeight));
         READWRITE(creationTxHash);
-        READWRITE(pastEpochTopQualityCertDataHash);
-        READWRITE(lastTopQualityCertDataHash);
+        READWRITE(pastEpochTopQualityCertView);
+        READWRITE(lastTopQualityCertView);
         READWRITE(lastTopQualityCertHash);
         READWRITE(lastTopQualityCertReferencedEpoch);
         READWRITE(lastTopQualityCertQuality);
         READWRITE(lastTopQualityCertBwtAmount);
         READWRITE(balance);
-        READWRITE(creationData);
+        READWRITE(fixedParams);
         READWRITE(mImmatureAmounts);
     }
 
     inline bool operator==(const CSidechain& rhs) const
     {
-        return (this->sidechainVersion                   == rhs.sidechainVersion)                   &&
-               (this->creationBlockHeight                == rhs.creationBlockHeight)                &&
-               (this->creationTxHash                     == rhs.creationTxHash)                     &&
-               (this->pastEpochTopQualityCertDataHash    == rhs.pastEpochTopQualityCertDataHash)    &&
-               (this->lastTopQualityCertDataHash         == rhs.lastTopQualityCertDataHash)         &&
-               (this->lastTopQualityCertHash             == rhs.lastTopQualityCertHash)             &&
-               (this->lastTopQualityCertReferencedEpoch  == rhs.lastTopQualityCertReferencedEpoch)  &&
-               (this->lastTopQualityCertQuality          == rhs.lastTopQualityCertQuality)          &&
-               (this->lastTopQualityCertBwtAmount        == rhs.lastTopQualityCertBwtAmount)        &&
-               (this->balance                            == rhs.balance)                            &&
-               (this->creationData                       == rhs.creationData)                       &&
-               (this->mImmatureAmounts                   == rhs.mImmatureAmounts);
+        return (this->sidechainVersion                           == rhs.sidechainVersion)                           &&
+               (this->creationBlockHeight                        == rhs.creationBlockHeight)                        &&
+               (this->creationTxHash                             == rhs.creationTxHash)                             &&
+               (this->pastEpochTopQualityCertView                == rhs.pastEpochTopQualityCertView)                &&
+               (this->lastTopQualityCertView                     == rhs.lastTopQualityCertView)                     &&
+               (this->lastTopQualityCertHash                     == rhs.lastTopQualityCertHash)                     &&
+               (this->lastTopQualityCertReferencedEpoch          == rhs.lastTopQualityCertReferencedEpoch)          &&
+               (this->lastTopQualityCertQuality                  == rhs.lastTopQualityCertQuality)                  &&
+               (this->lastTopQualityCertBwtAmount                == rhs.lastTopQualityCertBwtAmount)                &&
+               (this->balance                                    == rhs.balance)                                    &&
+               (this->fixedParams                               == rhs.fixedParams)                               &&
+               (this->mImmatureAmounts                           == rhs.mImmatureAmounts);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
@@ -149,6 +157,7 @@ public:
     int GetCertSubmissionWindowLength() const;
     int GetCertMaturityHeight(int certEpoch) const;
     int GetScheduledCeasingHeight() const;
+    bool GetCeasedCumTreeHashes(CFieldElement& lastEpochEndBlockCum, CFieldElement& ceasedBlockCum) const;
 
     bool isCreationConfirmed() const {
         return this->creationBlockHeight != -1;
