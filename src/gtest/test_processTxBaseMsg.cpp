@@ -102,13 +102,13 @@ public:
     bool fWhitelisted;
     std::string commandInvoked;
 
-    void AddInventoryKnown(const CInv& inv)  {}; //dummyImpl
-    NodeId GetId() const  {return 1987;};
-    virtual bool IsWhiteListed() const  {return fWhitelisted; };
-    std::string GetCleanSubVer() const  { return std::string{}; };
-    void StopAskingFor(const CInv& inv) { return; }
+    void AddInventoryKnown(const CInv& inv) override final  {}; //dummyImpl
+    NodeId GetId() const override final {return 1987;};
+    virtual bool IsWhiteListed() const override final {return fWhitelisted; };
+    std::string GetCleanSubVer() const override final { return std::string{}; };
+    void StopAskingFor(const CInv& inv) override final { return; }
     void PushMessage(const char* pszCommand, const std::string& param1, unsigned char param2,
-                     const std::string& param3, const uint256& param4)
+                     const std::string& param3, const uint256& param4) override final
     {
         commandInvoked = std::string(pszCommand) + param1;
         return;

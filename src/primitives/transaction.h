@@ -10,7 +10,6 @@
 #include "random.h"
 #include "script/script.h"
 #include "serialize.h"
-#include <univalue.h>
 #include "streams.h"
 #include "uint256.h"
 #include "consensus/consensus.h"
@@ -29,6 +28,13 @@
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
 #include <script/script_error.h>
+
+class UniValue;
+class CBackwardTransferOut;
+class CValidationState;
+class CChain;
+class CMutableTransactionBase;
+struct CMutableTransaction;
 
 static const int32_t SC_CERT_VERSION = 0xFFFFFFFB; // -5
 static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
@@ -401,8 +407,6 @@ public:
     CScript scriptPubKey() const;
 };
 
-class CBackwardTransferOut;
-
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
  */
@@ -669,11 +673,6 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     std::string ToString() const override;
 };
 
-// forward declarations
-class CValidationState;
-class CChain;
-class CMutableTransactionBase;
-
 // abstract interface for CTransaction and CScCertificate
 class CTransactionBase
 {
@@ -799,8 +798,6 @@ public:
         return !IsCertificate(nVersion);
     }
 };
-
-struct CMutableTransaction;
 
 /** The basic transaction that is broadcasted on the network and contained in
  * blocks.  A transaction can contain multiple inputs and outputs.
