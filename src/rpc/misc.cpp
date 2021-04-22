@@ -119,6 +119,7 @@ public:
         obj.pushKV("isscript", false);
         if (pwalletMain && pwalletMain->GetPubKey(keyID, vchPubKey)) {
             obj.pushKV("pubkey", HexStr(vchPubKey));
+            obj.pushKV("pubkeyhash", keyID.ToString());
             obj.pushKV("iscompressed", vchPubKey.IsCompressed());
         }
         return obj;
