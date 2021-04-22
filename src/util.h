@@ -273,9 +273,7 @@ std::string VecToStr(const std::vector<T>& vIn)
 template <typename T>
 int FindIndexOf(const std::vector<T>& vIn, const T& entry)
 {
-    if (vIn.empty())
-        return -1;
-
+    // find() returns end() iterator for empty vecs
     auto vIt = std::find(vIn.begin(), vIn.end(), entry);
     if (vIt == vIn.end())
         return -1;

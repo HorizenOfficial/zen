@@ -432,6 +432,10 @@ bool CSidechain::GetCeasedCumTreeHashes(CFieldElement& lastEpochEndBlockCum, CFi
 
     lastEpochEndBlockCum = lastEpochEndBlockIndex->scCumTreeHash;
 
+    // this checks the extreme case where the block is the first one of the SC fork
+    if (BOOST_UNLIKELY(lastEpochEndBlockCum.IsNull()))
+        lastEpochEndBlockCum = CFieldElement::GetPhantomHash();
+
     // block where the sc has ceased. In case the sidechain were not ceased the block index would be null
     int nCeasedHeight = GetScheduledCeasingHeight();
     CBlockIndex* ceasedBlockIndex = chainActive[nCeasedHeight];

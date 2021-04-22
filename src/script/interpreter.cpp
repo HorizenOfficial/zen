@@ -1123,9 +1123,15 @@ public:
                 // * if Tx has Sc support version and nIn belongs to the CSW inputs - only the CSW input being signed is serialized
                 // * otherwise skip CSW inputs
                 // Otherwise - serialize all CSW inputs
+#if 0
                 unsigned int nCswInputs = fAnyoneCanPay ?
                             (nIn < txTo.GetVin().size() ? 0 : 1) :
                             txTo.GetVcswCcIn().size();
+#else
+            // TODO - check this: support for SIGHASH_ANYONECANPAY in csw has been removed because of
+            //        active cert data vector below
+            unsigned int nCswInputs = txTo.GetVcswCcIn().size();
+#endif
                 ::WriteCompactSize(s, nCswInputs);
                 for (unsigned int nCswInput = 0; nCswInput < nCswInputs; nCswInput++)
                     SerializeCswInput(s, nCswInput, txTo, nType, nVersion);
@@ -1148,8 +1154,8 @@ public:
                 for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
                     ::Serialize(s, txTo.GetVBwtRequestOut()[nCcOutput], nType, nVersion);
 
-                // serialize active cert data vector
-                unsigned int nData = fHashNone ? 0 : (txTo.GetVActCertData().size());
+                // serialize active cert data vector (no fHashNone handling)
+                unsigned int nData = txTo.GetVActCertData().size();
                 ::WriteCompactSize(s, nData);
                 for (unsigned int n = 0; n < nData; n++)
                     ::Serialize(s, txTo.GetVActCertData()[n], nType, nVersion);
