@@ -258,6 +258,22 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-fee-amount-outside-range");
         }
 
+        if (bt.vScRequestData.size() == 0)
+        {
+            return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], vScRequestData empty is not allowed\n",
+                        __func__, __LINE__, txHash.ToString()),
+                        REJECT_INVALID, "sidechain-sc-bwt-invalid-request-data");
+        }
+
+        if (bt.vScRequestData.size() > MAX_SC_MBTR_DATA_LEN)
+        {
+            return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], vScRequestData size out of range [%d, %d]\n",
+                        __func__, __LINE__, txHash.ToString(), 0, MAX_SC_MBTR_DATA_LEN),
+                        REJECT_INVALID, "sidechain-sc-bwt-invalid-request-data");
+        }
+
         for (const CFieldElement& fe : bt.vScRequestData)
         {
             if (!fe.IsValid())
