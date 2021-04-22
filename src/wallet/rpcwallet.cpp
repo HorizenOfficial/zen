@@ -1673,7 +1673,14 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
         
         if (setKeyOutputArray.count("vScRequestData"))
         {
-            for (auto fe : find_value(o, "vScRequestData").get_array().getValues())
+            std::vector<UniValue> reqDataValues = find_value(o, "vScRequestData").get_array().getValues();
+
+            if (reqDataValues.size() == 0)
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid bwt vScRequestData: cannot be empty"));
+            }
+
+            for (auto fe : reqDataValues)
             {
                 std::vector<unsigned char> vScRequestDataByteArray;
                 const string& vScRequestDataString = fe.get_str();
