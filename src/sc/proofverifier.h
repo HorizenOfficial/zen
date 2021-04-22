@@ -13,6 +13,9 @@ class CScCertificate;
 class uint256;
 class CCoinsViewCache;
 
+// as of now proofing system apis are mocked in the ginger lib version that mc crypto lib is built upon
+#define MC_CRYPTO_LIB_MOCKED 1
+
 /* Class for instantiating a verifier able to verify different kind of ScProof for different kind of ScProof(s) */
 class CScProofVerifier
 {

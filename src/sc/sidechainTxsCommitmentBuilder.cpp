@@ -56,12 +56,8 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
         
     BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
 
+    // TODO this will be removed from cctp lib in future
     BufferWithSize bws_mbtr_vk(nullptr, 0);
-    if(ccout.wMbtrVk.is_initialized())
-    {
-        bws_mbtr_vk.data = ccout.wMbtrVk->GetDataBuffer();
-        bws_mbtr_vk.len = ccout.wMbtrVk->GetDataSize();
-    }
         
     BufferWithSize bws_csw_vk(nullptr, 0);
     if(ccout.wCeasedVk.is_initialized())
@@ -112,7 +108,9 @@ bool SidechainTxsCommitmentBuilder::add_bwtr(const CBwtRequestOut& ccout, const 
     const uint160& bwtr_pk_hash = ccout.mcDestinationAddress;
     BufferWithSize bws_bwtr_pk_hash(bwtr_pk_hash.begin(), bwtr_pk_hash.size());
 
-    BufferWithSize bws_req_data(ccout.scRequestData.GetDataBuffer(), ccout.scRequestData.GetDataSize());
+    // TODO this will be changed on cctp lib in future, as of now it is a single field element so we choose to use the first,
+    // since this vector can not be empty
+    BufferWithSize bws_req_data(ccout.vScRequestData.at(0).GetDataBuffer(), ccout.vScRequestData.at(0).GetDataSize());
         
     return zendoo_commitment_tree_add_bwtr(const_cast<commitment_tree_t*>(_cmt),
          &bws_bwtr_scid,

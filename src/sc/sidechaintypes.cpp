@@ -1,6 +1,7 @@
 #include "sc/sidechaintypes.h"
 #include "util.h"
 #include <consensus/consensus.h>
+#include <sc/proofverifier.h> // for MC_CRYPTO_LIB_MOCKED 
 
 void CZendooCctpLibraryChecker::CheckTypeSizes()
 {
@@ -170,10 +171,14 @@ wrappedScProofPtr CScProof::GetProofPtr() const
 
 bool CScProof::IsValid() const
 {
+#ifdef MC_CRYPTO_LIB_MOCKED
+    return true;
+#else
     if (this->GetProofPtr() == nullptr)
         return false;
 
     return true;
+#endif
 }
 //////////////////////////////// End of CScProof ///////////////////////////////
 
@@ -200,10 +205,15 @@ wrappedScVkeyPtr CScVKey::GetVKeyPtr() const
 
 bool CScVKey::IsValid() const
 {
+#ifdef MC_CRYPTO_LIB_MOCKED
+    return true;
+#else
+
     if (this->GetVKeyPtr() == nullptr)
         return false;
 
     return true;
+#endif
 }
 
 //////////////////////////////// End of CScVKey ////////////////////////////////

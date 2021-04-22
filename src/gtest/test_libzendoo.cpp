@@ -15,6 +15,7 @@
 
 #include <streams.h>
 #include <clientversion.h>
+#include <sc/proofverifier.h> // for MC_CRYPTO_LIB_MOCKED 
 
 static CMutableTransaction CreateDefaultTx()
 {
@@ -27,7 +28,6 @@ static CMutableTransaction CreateDefaultTx()
     mtx.vsc_ccout[0].nValue = CAmount(12000);
     mtx.vsc_ccout[0].withdrawalEpochLength = 150;
     mtx.vsc_ccout[0].wCertVk = CScVKey(ParseHex(SAMPLE_VK));
-    mtx.vsc_ccout[0].wMbtrVk = CScVKey(ParseHex(SAMPLE_VK));
     mtx.vsc_ccout[0].wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     //---
     mtx.vft_ccout.resize(1);
@@ -36,13 +36,13 @@ static CMutableTransaction CreateDefaultTx()
     //---
     mtx.vmbtr_out.resize(1);
     mtx.vmbtr_out[0].scId = uint256S("abababcdcdcd"); // same as above
-    mtx.vmbtr_out[0].scRequestData = CFieldElement{SAMPLE_FIELD};
+    mtx.vmbtr_out[0].vScRequestData.push_back(CFieldElement{SAMPLE_FIELD});
     mtx.vmbtr_out[0].mcDestinationAddress = uint160S("fefefe");
     mtx.vmbtr_out[0].scFee = CAmount(1);
     //---
     mtx.vcsw_ccin.resize(1);
     mtx.vcsw_ccin[0] = txCreationUtils::CreateCSWInput(
-        /*scid*/uint256S("efefef"), /*nullifierhexstr*/"abab", /*amount*/ 777); 
+        /*scid*/uint256S("efefef"), /*nullifierhexstr*/"abab", /*amount*/ 777, /*actCertDataIdx*/ 0); 
 
     return mtx;
 }
@@ -485,10 +485,15 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
 // Execute the test from zen directory
 TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
 {
+#ifdef MC_CRYPTO_LIB_MOCKED
+    std::cout << "### THIS IS DEACTIVATED SINCE LIBZENDOO HAS MOCKED CALLS ###" << std::endl;
+    ASSERT_TRUE(false);
+#else
     //Deserialize zero knowledge proof
     auto proof_serialized = ParseHex(SAMPLE_PROOF_NO_BWT);
     ASSERT_EQ(proof_serialized.size(), zendoo_get_sc_proof_size_in_bytes());
     auto proof = zendoo_deserialize_sc_proof(proof_serialized.data());
+
     ASSERT_TRUE(proof != NULL);
 
     //Inputs
@@ -553,19 +558,19 @@ TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
     zendoo_sc_proof_free(proof);
     zendoo_sc_vk_free(vk);
     zendoo_field_free(constant);
+#endif
 }
 
 TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 {
     //fPrintToConsole = true;
-    SidechainTxsCommitmentBuilder builder;
 
     //Add txes containing scCreation and fwd transfer + a certificate
     CTransaction scCreationTx = txCreationUtils::createNewSidechainTxWith(CAmount(10), /*height*/10);
 
     CMutableTransaction mutTx = scCreationTx;
 
-    auto ccout = CTxScCreationOut(CAmount(10), uint256S("aaa"), CAmount(0), CAmount(0), Sidechain::ScFixedParameters())
+    auto ccout = CTxScCreationOut(CAmount(10), uint256S("aaa"), CAmount(0), CAmount(0), Sidechain::ScFixedParameters());
     // set mandatory/legal params
     ccout.withdrawalEpochLength = 11;
     ccout.wCertVk = CScVKey(ParseHex(SAMPLE_VK));
@@ -589,7 +594,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("bba95e2cd604ea34b69ff53960200cd33dd9c1d8e17e8b15038d1de58af01191"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("326d9fd3eb3208829253d9b50674a240adaeb02ed9627cda20f1e8ed79b792a9"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -1076,12 +1081,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
             
         BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
  
+        // TODO this will be removed in future
         BufferWithSize bws_mbtr_vk(nullptr, 0);
-        if(ccout.wMbtrVk.is_initialized())
-        {
-            bws_mbtr_vk.data = ccout.wMbtrVk->GetDataBuffer();
-            bws_mbtr_vk.len = ccout.wMbtrVk->GetDataSize();
-        }
             
         BufferWithSize bws_csw_vk(nullptr, 0);
         if(ccout.wCeasedVk.is_initialized())
@@ -1168,7 +1169,7 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
         const uint160& bwtr_pk_hash = ccout.mcDestinationAddress;
         BufferWithSize bws_bwtr_pk_hash(bwtr_pk_hash.begin(), bwtr_pk_hash.size());
 
-        BufferWithSize bws_req_data(ccout.scRequestData.GetDataBuffer(), ccout.scRequestData.GetDataSize());
+        BufferWithSize bws_req_data(ccout.vScRequestData.at(0).GetDataBuffer(), ccout.vScRequestData.at(0).GetDataSize());
             
         printf("Adding a bwtr to the commitment tree ...\n");
         bool ret = zendoo_commitment_tree_add_bwtr(ct,
@@ -1353,12 +1354,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Negative)
             
         BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
  
+        // TODO this will be removed in future
         BufferWithSize bws_mbtr_vk(nullptr, 0);
-        if(ccout.wMbtrVk.is_initialized())
-        {
-            bws_mbtr_vk.data = ccout.wMbtrVk->GetDataBuffer();
-            bws_mbtr_vk.len = ccout.wMbtrVk->GetDataSize();
-        }
             
         BufferWithSize bws_csw_vk(nullptr, 0);
         if(ccout.wCeasedVk.is_initialized())

@@ -2,8 +2,6 @@
 #include <coins.h>
 #include "primitives/certificate.h"
 
-#define MC_CRYPTO_LIB_MOCKED 1
-
 #include <zendoo/error.h>
 #include <main.h>
 
