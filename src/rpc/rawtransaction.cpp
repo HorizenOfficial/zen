@@ -1684,6 +1684,18 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
 
     bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
 
+#if 1 
+    // TODO check this as per implementation in interpreter.cpp
+    // prevent user from using SIGHASH_ANYONECANPAY and Ceased Sidechain Withdrawals Inputs
+    //
+    // If we didn't check it here the cmd would return with an error anyway because the check on VerifyScript()
+    // below for csws would fail. We choose to abort here the cmd.
+    if ((nHashType & SIGHASH_ANYONECANPAY) && !mergedTx.vcsw_ccin.empty() )
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "can not have SIGHASH_ANYONECANPAY and csw input");
+    }
+#endif
+
     // Script verification errors
     UniValue vErrors(UniValue::VARR);
 

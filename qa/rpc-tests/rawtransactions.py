@@ -44,13 +44,11 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
 
     def print_data(self,index):
-        print("////////////////////")
         walletinfo=self.nodes[index].getwalletinfo()
         print("Nodo: ",index, " Wallet-balance: ",walletinfo['balance'])
         print("Nodo: ",index, " Wallet-immature_balance: ",walletinfo['immature_balance'])
         print("Nodo: ",index, " z_total_balance: ",self.nodes[index].z_gettotalbalance())
 
-    print("////////////////////")
 
     def run_test(self):
 
@@ -491,7 +489,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_equal(decoded_tx['vcsw_ccin'][0]['scProof'], sc_csws[0]['scProof'])
 
 
-        # Try to create CSW with the nullifier which already exists in the mempool Tx
+        mark_logs("\nTry to create CSW with the nullifier which already exists in the mempool Tx", self.nodes, DEBUG_MODE)
         rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
         sigRawtx = self.nodes[0].signrawtransaction(rawtx)
 
@@ -499,13 +497,29 @@ class RawTransactionsTest(BitcoinTestFramework):
         try:
             self.nodes[0].sendrawtransaction(sigRawtx['hex'])
         except JSONRPCException, e:
+            errorString = e.error['message']
+            print errorString
+            error_occurred = True
+
+        assert_true(error_occurred)
+
+        mark_logs("\nTry to create CSW with a SIGHASH_ANYONECANPAY bit", self.nodes, DEBUG_MODE)
+        sc_csws[0]['nullifier'] = generate_random_field_element_hex()
+        rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
+
+        error_occurred = False
+        try:
+            sigRawtx = self.nodes[0].signrawtransaction(rawtx, None, None, "ALL|ANYONECANPAY")
+            self.nodes[0].sendrawtransaction(sigRawtx['hex'])
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print errorString
             error_occurred = True
 
         assert_true(error_occurred)
 
 
-        # Try to create CSW that spends more coins that available for the given SC balance
-        print("Check that Tx with CSW input amount greater then Sc mature balance is invalid.")
+        mark_logs("\nTry to create CSW that spends more coins that available for the given SC balance", self.nodes, DEBUG_MODE)
         sc_csws[0]['nullifier'] = generate_random_field_element_hex()
         sc_csws[0]['amount'] = self.nodes[0].getscinfo(scid)['items'][0]['balance'] + Decimal('0.00000001')
         sc_csw_tx_outs = {self.nodes[0].getnewaddress(): sc_csws[0]['amount'] - Decimal('0.00001000')}
@@ -517,14 +531,15 @@ class RawTransactionsTest(BitcoinTestFramework):
         try:
             self.nodes[0].sendrawtransaction(sigRawtx['hex'])
         except JSONRPCException, e:
+            errorString = e.error['message']
+            print errorString
             error_occurred = True
 
         assert_true(error_occurred, "CSW with more coins that available for the SC balance "
                                     "expected to be rejected by the mempool.")
 
 
-        # Try to create CSW that spends more coins that available for the given SC balance (considering mempool)
-        print("Check that Tx with CSW input amount greater then [Sc mature balance minus mempool Txs values] is invalid.")
+        mark_logs("\nTry to create CSW that spends more coins that available for the given SC balance (considering mempool)", self.nodes, DEBUG_MODE)
         sc_csws[0]['nullifier'] = generate_random_field_element_hex()
         # SC balance equal to sc_cr_amount + sc_csw_amount * 5
         # Mempool contains 3 Txs with `sc_csw_amount` coins each.
@@ -538,6 +553,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         try:
             self.nodes[0].sendrawtransaction(sigRawtx['hex'])
         except JSONRPCException, e:
+            errorString = e.error['message']
+            print errorString
             error_occurred = True
 
         assert_true(error_occurred, "CSW with more coins that available for the SC balance considering mempool "

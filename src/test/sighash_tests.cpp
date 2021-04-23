@@ -52,8 +52,7 @@ uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, un
         txTmp.vsc_ccout.resize(0);
         txTmp.vft_ccout.resize(0);
         txTmp.vmbtr_out.resize(0);
-        txTmp.vact_cert_data.resize(0);
-
+        
         // Let the others update at will
         for (unsigned int i = 0; i < txTmp.vin.size(); i++)
             if (i != nIn)
@@ -81,15 +80,8 @@ uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, un
     // Blank out other inputs completely, not recommended for open transactions
     if (nHashType & SIGHASH_ANYONECANPAY)
     {
-        if(nIn < txTmp.vin.size()) {
-            txTmp.vin[0] = txTmp.vin[nIn];
-            txTmp.vin.resize(1);
-            txTmp.vcsw_ccin.resize(0);
-        } else {
-            txTmp.vcsw_ccin[0] = txTmp.vcsw_ccin[nIn - txTmp.vin.size()];
-            txTmp.vcsw_ccin.resize(1);
-            txTmp.vin.resize(0);
-        }
+        txTmp.vin[0] = txTmp.vin[nIn];
+        txTmp.vin.resize(1);
     }
 
     // Blank out the joinsplit signature.
@@ -233,7 +225,7 @@ void static RandomData(std::vector<unsigned char> &data) {
     }
 }
 
-void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyInputScript = false) {
+void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyInputScript = false, bool fAnyoneCanPay = false) {
 
     bool isSidechain = (insecure_rand() % 2) == 0;
     if (isSidechain) {
@@ -259,7 +251,12 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
 
     tx.nLockTime = (insecure_rand() % 2) ? insecure_rand() : 0;
     int ins = (insecure_rand() % 4) + 1;
-    int csws = isSidechain ? (insecure_rand() % 4) + 1 : 0;
+
+    int csws = 0;
+    // fAnyoneCanPay can not be set if we have csws
+    if (isSidechain && !fAnyoneCanPay)
+            csws = (insecure_rand() % 4) + 1;
+
     int outs = fSingle ? ins + csws : (insecure_rand() % 4) + 1;
     int joinsplits = (insecure_rand() % 4);
     int scs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
@@ -446,7 +443,7 @@ BOOST_AUTO_TEST_CASE(sighash_test)
     for (int i=0; i<nRandomTests; i++) {
         int nHashType = insecure_rand();
         CMutableTransaction txTo;
-        RandomTransaction(txTo, (nHashType & 0x1f) == SIGHASH_SINGLE);
+        RandomTransaction(txTo, (nHashType & 0x1f) == SIGHASH_SINGLE, false, (nHashType & SIGHASH_ANYONECANPAY) );
         CScript scriptCode;
         RandomScript(scriptCode);
         int nIn = insecure_rand() % (txTo.vin.size() + txTo.vcsw_ccin.size());
@@ -469,6 +466,14 @@ BOOST_AUTO_TEST_CASE(sighash_test)
         }
         std::cout << "\n";
         #endif
+/* useful in case of troubleshooting/debugging
+        if (sh != sho)
+        {
+            // do it again
+            sho = SignatureHashOld(scriptCode, txTo, nIn, nHashType);
+            sh = SignatureHash(scriptCode, txTo, nIn, nHashType);
+        }
+*/
         BOOST_CHECK(sh == sho);
     }
     #if defined(PRINT_SIGHASH_JSON)

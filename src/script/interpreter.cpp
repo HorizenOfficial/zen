@@ -1066,9 +1066,14 @@ public:
     /** Serialize a CSW input of txTo */
     template<typename S>
     void SerializeCswInput(S &s, unsigned int nCswInput, const CTransaction& txTo, int nType, int nVersion) const {
+
+        // TODO - check this: support for SIGHASH_ANYONECANPAY in csw has been removed because of
+        //        active cert data vector below
+#if 0
         // In case of SIGHASH_ANYONECANPAY, only the CSW input being signed is serialized
         if (fAnyoneCanPay)
             nCswInput = nIn - txTo.GetVin().size();
+#endif
         // Serialize all CSW input fields before redeemScript
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nValue, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scId, nType, nVersion);
@@ -1100,6 +1105,7 @@ public:
             const CTransaction& txTo = dynamic_cast<const CTransaction&>(txBaseTo);
 
             // Serialize vin
+#if 0
             // In case of SIGHASH_ANYONECANPAY:
             // * if Tx has Sc support version and nIn belongs to the CSW inputs - skip inputs serialization
             // * otherwise only the input being signed is serialized
@@ -1107,6 +1113,9 @@ public:
             unsigned int nInputs = fAnyoneCanPay ?
                         (txTo.IsScVersion() && nIn >= txTo.GetVin().size() ? 0 : 1) :
                         txTo.GetVin().size();
+#else
+            unsigned int nInputs = fAnyoneCanPay ? 1 : txTo.GetVin().size();
+#endif
             ::WriteCompactSize(s, nInputs);
             for (unsigned int nInput = 0; nInput < nInputs; nInput++)
                 SerializeInput(s, nInput, nType, nVersion);
@@ -1247,6 +1256,15 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
             throw logic_error("no matching output for SIGHASH_SINGLE");
         }
     }
+
+#if 1
+    // Check for invalid use of SIGHASH_ANYONECANPAY
+    if ((nHashType & SIGHASH_ANYONECANPAY) && !txTo.GetVcswCcIn().empty() ) {
+        // TODO check this as per implementation in CTransactionSignatureSerializer
+        // prevent user from using SIGHASH_ANYONECANPAY and Ceased Sidechain Withdrawals Inputs
+        throw logic_error("can not have SIGHASH_ANYONECANPAY and csw input");
+    }
+#endif
 
     // Wrapper to serialize only the necessary parts of the transaction being signed
     CTransactionSignatureSerializer txTmp(txTo, scriptCode, nIn, nHashType);
