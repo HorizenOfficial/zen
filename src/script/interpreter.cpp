@@ -1105,7 +1105,7 @@ public:
             const CTransaction& txTo = dynamic_cast<const CTransaction&>(txBaseTo);
 
             // Serialize vin
-#if 0
+#if 1
             // In case of SIGHASH_ANYONECANPAY:
             // * if Tx has Sc support version and nIn belongs to the CSW inputs - skip inputs serialization
             // * otherwise only the input being signed is serialized
