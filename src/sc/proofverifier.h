@@ -36,6 +36,19 @@ public:
     void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx);
     std::map</*scTxHash*/uint256,bool> batchVerifyCsws() const;
 
+    // Returns false if proof verification has failed or deserialization of certificate's elements
+    // into libzendoomc's elements has failed.
+    bool verifyCScCertificate() const;
+
+    // Returns false if proof verification has failed or deserialization of CSW's elements
+    // into libzendoomc's elements has failed.
+    bool verifyCTxCeasedSidechainWithdrawalInput(
+        const CFieldElement& certDataHash,
+        const CScVKey& wCeasedVk,
+        const CTxCeasedSidechainWithdrawalInput& csw
+    ) const;
+
+
 private:
     struct mbtrVerifierInputsList
     {
@@ -57,8 +70,9 @@ private:
     };
     std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, cswVerifierInputsList>> cswEnqueuedData;
 
-    struct certVerifierInputsList
+    struct certVerifierInput
     {
+        uint256 certHash;
         uint256 endEpochBlockHash;
         uint256 prevEndEpochBlockHash;
         std::vector<backward_transfer_t> bt_list;
@@ -68,7 +82,8 @@ private:
         CScProof certProof;
         CScVKey CertVk;
     };
-    std::map</*certHash*/uint256, certVerifierInputsList> certEnqueuedData;
+
+    certVerifierInput certData;
 
 };
 

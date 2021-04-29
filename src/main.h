@@ -19,7 +19,6 @@
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "uint256.h"
-#include <txBaseMsgProcessor.h>
 
 #include <algorithm>
 #include <exception>
@@ -212,11 +211,6 @@ bool LoadBlockIndex();
 void UnloadBlockIndex();
 /** Process protocol messages received from a given node */
 bool ProcessMessages(CNode* pfrom);
-
-// Utilities refactored out of ProcessMessages
-bool AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
-// End of Utilities
-
 /**
  * Send queued protocol messages to be sent to a give node.
  *
@@ -287,17 +281,22 @@ void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
 void PruneAndFlush();
 
+// Accept Tx/Cert ToMempool parameters types and signature
+enum class LimitFreeFlag       { ON, OFF };
+enum class RejectAbsurdFeeFlag { ON, OFF };
+enum class MempoolReturnValue { NOT_PROCESSED_YET, INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
+
 /** (try to) add transaction to memory pool **/
 MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs);
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee);
 
 void StoreTxToMempool(const CTransaction &tx, CTxMemPool &pool, const CCoinsViewCache &view);
 MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs);
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee);
 
 void StoreCertToMempool(const CScCertificate &cert, CTxMemPool &pool, const CCoinsViewCache &view);
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs);
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee);
 
 struct CNodeStateStats {
     int nMisbehavior;

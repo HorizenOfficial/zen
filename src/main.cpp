@@ -91,6 +91,11 @@ CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 
 CTxMemPool mempool(::minRelayTxFee);
 
+map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(cs_main);;
+map<uint256, set<uint256> > mapOrphanTransactionsByPrev GUARDED_BY(cs_main);;
+
+void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
 static void CheckBlockIndex();
 
 /** Constant stuff for coinbase transactions we create: */
@@ -187,6 +192,28 @@ namespace {
      */
     map<uint256, NodeId> mapBlockSource;
 
+    /**
+     * Filter for transactions that were recently rejected by
+     * AcceptToMemoryPool. These are not rerequested until the chain tip
+     * changes, at which point the entire filter is reset. Protected by
+     * cs_main.
+     *
+     * Without this filter we'd be re-requesting txs from each of our peers,
+     * increasing bandwidth consumption considerably. For instance, with 100
+     * peers, half of which relay a tx we don't accept, that might be a 50x
+     * bandwidth increase. A flooding attacker attempting to roll-over the
+     * filter using minimum-sized, 60byte, transactions might manage to send
+     * 1000/sec if we have fast peers, so we pick 120,000 to give our peers a
+     * two minute window to send invs to us.
+     *
+     * Decreasing the false positive rate is fairly cheap, so we pick one in a
+     * million to make it highly unlikely for users to have issues with this
+     * filter.
+     *
+     * Memory used: 1.7MB
+     */
+    boost::scoped_ptr<CRollingBloomFilter> recentRejects;
+    uint256 hashRecentRejectsChainTip;
 
     /** Blocks that are in flight, and that are in the queue to be downloaded. Protected by cs_main. */
     struct QueuedBlock {
@@ -327,7 +354,7 @@ void FinalizeNode(NodeId nodeid) {
 
     BOOST_FOREACH(const QueuedBlock& entry, state->vBlocksInFlight)
         mapBlocksInFlight.erase(entry.hash);
-    TxBaseMsgProcessor::get().EraseOrphansFor(nodeid);
+    EraseOrphansFor(nodeid);
     nPreferredDownload -= state->fPreferredDownload;
 
     mapNodeState.erase(nodeid);
@@ -559,6 +586,92 @@ CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& loc
 
 CCoinsViewCache *pcoinsTip = NULL;
 CBlockTreeDB *pblocktree = NULL;
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// mapOrphanTransactions
+//
+
+bool AddOrphanTx(const CTransactionBase& txObj, NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    uint256 hash = txObj.GetHash();
+    if (mapOrphanTransactions.count(hash))
+        return false;
+
+    // Ignore big transactions, to avoid a
+    // send-big-orphans memory exhaustion attack. If a peer has a legitimate
+    // large transaction with a missing parent then we assume
+    // it will rebroadcast it later, after the parent transaction(s)
+    // have been mined or received.
+    // 10,000 orphans, each of which is at most 5,000 bytes big is
+    // at most 500 megabytes of orphans:
+    unsigned int sz = txObj.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    if (sz > 5000)
+    {
+        LogPrint("mempool", "ignoring large orphan tx (size: %u, hash: %s)\n", sz, hash.ToString());
+        return false;
+    }
+
+    mapOrphanTransactions[hash].tx = txObj.MakeShared();
+    mapOrphanTransactions[hash].fromPeer = peer;
+    BOOST_FOREACH(const CTxIn& txin, txObj.GetVin())
+        mapOrphanTransactionsByPrev[txin.prevout.hash].insert(hash);
+
+    LogPrint("mempool", "stored orphan tx %s (mapsz %u prevsz %u)\n", hash.ToString(),
+             mapOrphanTransactions.size(), mapOrphanTransactionsByPrev.size());
+    return true;
+}
+
+void static EraseOrphanTx(uint256 hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.find(hash);
+    if (it == mapOrphanTransactions.end())
+        return;
+    BOOST_FOREACH(const CTxIn& txin, it->second.tx->GetVin())
+    {
+        map<uint256, set<uint256> >::iterator itPrev = mapOrphanTransactionsByPrev.find(txin.prevout.hash);
+        if (itPrev == mapOrphanTransactionsByPrev.end())
+            continue;
+        itPrev->second.erase(hash);
+        if (itPrev->second.empty())
+            mapOrphanTransactionsByPrev.erase(itPrev);
+    }
+    mapOrphanTransactions.erase(it);
+}
+
+void EraseOrphansFor(NodeId peer)
+{
+    int nErased = 0;
+    map<uint256, COrphanTx>::iterator iter = mapOrphanTransactions.begin();
+    while (iter != mapOrphanTransactions.end())
+    {
+        map<uint256, COrphanTx>::iterator maybeErase = iter++; // increment to avoid iterator becoming invalid
+        if (maybeErase->second.fromPeer == peer)
+        {
+            EraseOrphanTx(maybeErase->second.tx->GetHash());
+            ++nErased;
+        }
+    }
+    if (nErased > 0) LogPrint("mempool", "Erased %d orphan tx from peer %d\n", nErased, peer);
+}
+
+
+unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    unsigned int nEvicted = 0;
+    while (mapOrphanTransactions.size() > nMaxOrphans)
+    {
+        // Evict a random orphan:
+        uint256 randomhash = GetRandHash();
+        map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.lower_bound(randomhash);
+        if (it == mapOrphanTransactions.end())
+            it = mapOrphanTransactions.begin();
+        EraseOrphanTx(it->first);
+        ++nEvicted;
+    }
+    return nEvicted;
+}
+
 
 bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHeight)
 {
@@ -1022,20 +1135,8 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
     return nMinFee;
 }
 
-void StoreCertToMempool(const CScCertificate &cert, CTxMemPool &pool, const CCoinsViewCache &view)
-{
-    std::pair<uint256, CAmount> conflictingCertData = pool.FindCertWithQuality(cert.GetScId(), cert.quality);
-    pool.RemoveCertAndSync(conflictingCertData.first);
-
-    CAmount nCertFees = cert.GetFeeAmount(view.GetValueIn(cert));
-    double dCertPriority = view.GetPriority(cert, chainActive.Height());
-    CCertificateMemPoolEntry entry(cert, nCertFees, GetTime(), dCertPriority, chainActive.Height());
-    pool.addUnchecked(cert.GetHash(), entry, !IsInitialBlockDownload());
-    return;
-}
-
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs)
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
 
@@ -1080,6 +1181,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
     // Check if cert is already in mempool or if there are conflicts with in-memory certs
     std::pair<uint256, CAmount> conflictingCertData = pool.FindCertWithQuality(cert.GetScId(), cert.quality);
+
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
@@ -1102,7 +1204,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                 return MempoolReturnValue::INVALID;
             }
 
-            CValidationState::Code ret_code = view.IsCertApplicableToStateWithoutProof(cert);
+            CValidationState::Code ret_code = view.IsCertApplicableToState(cert);
             if (ret_code != CValidationState::Code::OK)
             {
                 int nDoS = 100;
@@ -1112,6 +1214,16 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                 state.DoS(nDoS, error("%s():%d - certificate not applicable: ret_code[0x%x]",
                     __func__, __LINE__, CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-cert-not-applicable");
+                return MempoolReturnValue::INVALID;
+            }
+
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
+            ret_code = view.IsCertProofVerified(cert, scVerifier);
+            if (ret_code != CValidationState::Code::OK)
+            {
+                state.DoS(100, error("%s():%d - cert proof failed to verify: ret_code[0x%x]",
+                    __func__, __LINE__, CValidationState::CodeToChar(ret_code)),
+                    ret_code, "bad-sc-cert-proof");
                 return MempoolReturnValue::INVALID;
             }
             
@@ -1180,7 +1292,8 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         double dPriority = view.GetPriority(cert, chainActive.Height());
         LogPrint("mempool", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
 
-        unsigned int nSize = cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+        CCertificateMemPoolEntry entry(cert, nFees, GetTime(), dPriority, chainActive.Height());
+        unsigned int nSize = entry.GetCertificateSize();
 
         // Don't accept it if it can't get into a block
         CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
@@ -1263,38 +1376,24 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             return MempoolReturnValue::INVALID;
         }
 
-        if (validateScProofs == ValidateSidechainProof::OFF)
-            return MempoolReturnValue::PARTIALLY_VALIDATED;
-
-        CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-        scVerifier.LoadDataForCertVerification(view, cert);
-        std::map<uint256, bool> res = scVerifier.batchVerifyCerts();
-        assert(res.size() == 1);
-        assert(res.count(certHash));
-        if (!res.at(certHash))
+        if (!pool.RemoveCertAndSync(conflictingCertData.first))
         {
-            state.DoS(100, error("%s(): cert proof failed to verify", __func__),
-                        CValidationState::Code::INVALID, "bad-sc-cert-proof");
+            state.Invalid(
+                error("%s():%d - Dropping cert %s : depends on some conflicting quality certs\n",
+                    __func__, __LINE__, certHash.ToString()),
+                CValidationState::Code::INVALID, "bad-sc-cert-quality");
             return MempoolReturnValue::INVALID;
         }
 
-        StoreCertToMempool(cert, pool, view);
+        // Store transaction in memory
+        pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());
     }
 
     return MempoolReturnValue::VALID;;
 }
 
-void StoreTxToMempool(const CTransaction &tx, CTxMemPool &pool, const CCoinsViewCache &view)
-{
-    CAmount nTxFees = tx.GetFeeAmount(view.GetValueIn(tx));
-    double dTxPriority = view.GetPriority(tx, chainActive.Height());
-    CTxMemPoolEntry entry(tx, nTxFees, GetTime(), dTxPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
-    pool.addUnchecked(tx.GetHash(), entry, !IsInitialBlockDownload());
-    return;
-}
-
 MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, LimitFreeFlag fLimitFree,
-                        RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs)
+                        RejectAbsurdFeeFlag fRejectAbsurdFee)
 {
     AssertLockHeld(cs_main);
 
@@ -1411,7 +1510,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 return MempoolReturnValue::INVALID;
             }
 
-            CValidationState::Code ret_code = view.IsScTxApplicableToStateWithoutProof(tx);
+            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx);
             if (ret_code != CValidationState::Code::OK)
             {
                 int nDoS = 100;
@@ -1423,6 +1522,17 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                     error("%s():%d - ERROR: sc-related tx [%s] is not applicable: ret_code[0x%x]\n",
                         __func__, __LINE__, hash.ToString(), CValidationState::CodeToChar(ret_code)),
                     ret_code, "bad-sc-tx-not-applicable");
+                return MempoolReturnValue::INVALID;
+            }
+
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
+            ret_code = view.IsScTxCswProofVerified(tx, scVerifier);
+            if (ret_code != CValidationState::Code::OK)
+            {
+                state.DoS(100,
+                    error("%s():%d - ERROR: sc-related tx [%s] proof failed: ret_code[0x%x]",
+                        __func__, __LINE__, hash.ToString(), CValidationState::CodeToChar(ret_code)),
+                    ret_code, "bad-sc-tx-proof");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -1472,7 +1582,8 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         double dPriority = view.GetPriority(tx, chainActive.Height());
         LogPrint("mempool", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
 
-        unsigned int nSize = tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+        CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
+        unsigned int nSize = entry.GetTxSize();
 
         // Accept a tx if it contains joinsplits and has at least the default fee specified by z_sendmany.
         if (tx.GetVjoinsplit().size() > 0 && nFees >= ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE) {
@@ -1557,44 +1668,24 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             return MempoolReturnValue::INVALID;
         }
 
-        if (tx.GetVcswCcIn().empty())
-        {
-            //No sc proofs to be validated, job done. Store and exit
-            StoreTxToMempool(tx, pool, view);
-            return MempoolReturnValue::VALID;
-        }
-
-        if (validateScProofs == ValidateSidechainProof::OFF)
-            return MempoolReturnValue::PARTIALLY_VALIDATED;
-
-        CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-        scVerifier.LoadDataForCswVerification(view, tx);
-        std::map<uint256, bool> resCsw = scVerifier.batchVerifyCsws();
-        if (resCsw.count(hash) != 0 && !resCsw.at(hash))
-        {
-            state.Invalid(error("%s():%d - ERROR: sc-related tx [%s] proofs do not verify\n",
-                          __func__, __LINE__, hash.ToString()), CValidationState::Code::INVALID, "bad-sc-tx-proof");
-            return MempoolReturnValue::INVALID;
-        }
-
-        StoreTxToMempool(tx, pool, view);
+        pool.addUnchecked(hash, entry, !IsInitialBlockDownload());
     }
 
     return MempoolReturnValue::VALID;
 }
 
 MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, ValidateSidechainProof validateScProofs)
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
 {
     try
     {
         if (txBase.IsCertificate())
         {
-            return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree, fRejectAbsurdFee, validateScProofs);
+            return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree, fRejectAbsurdFee);
         }
         else
         {
-            return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree, fRejectAbsurdFee, validateScProofs);
+            return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree, fRejectAbsurdFee);
         }
     }
     catch (...)
@@ -2824,7 +2915,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }
 
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
-    CScProofVerifier scVerifier {fExpensiveChecks ? CScProofVerifier::Verification::Strict: CScProofVerifier::Verification::Loose};
+     
     for (unsigned int txIdx = 0; txIdx < block.vtx.size(); ++txIdx) // Processing transactions loop
     {
         const CTransaction &tx = block.vtx[txIdx];
@@ -2841,7 +2932,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("%s():%d: tx inputs missing/spent",__func__, __LINE__),
                                      CValidationState::Code::INVALID, "bad-txns-inputs-missingorspent");
 
-            CValidationState::Code ret_code = view.IsScTxApplicableToStateWithoutProof(tx);
+            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx);
             if (ret_code != CValidationState::Code::OK)
             {
                 return state.DoS(100,
@@ -2850,8 +2941,17 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     ret_code, "bad-sc-tx-not-applicable");
             }
 
-            if (fScRelatedChecks)
-                scVerifier.LoadDataForCswVerification(view, tx);
+            const auto scVerifierMode = fExpensiveChecks ?
+                CScProofVerifier::Verification::Strict : CScProofVerifier::Verification::Loose;
+            CScProofVerifier scVerifier{scVerifierMode};
+            ret_code = view.IsScTxCswProofVerified(tx, scVerifier);
+            if (ret_code != CValidationState::Code::OK)
+            {
+                return state.DoS(100,
+                    error("%s():%d - ERROR: sc-related tx [%s] proof failed: ret_code[0x%x]",
+                        __func__, __LINE__, tx.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),
+                    ret_code, "bad-sc-tx-proof");
+            }
 
             // are the JoinSplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
@@ -2912,18 +3012,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             scCommitmentBuilder.add(tx);
     }  //end of Processing transactions loop
 
-    if (fScRelatedChecks)
-    {
-        std::map<uint256, bool> resCsw = scVerifier.batchVerifyCsws();
-        for(const auto& cswItem: resCsw)
-        {
-            if (!resCsw.at(cswItem.first))
-            {
-                return state.DoS(100, error("%s():%d - ERROR: tx=%s\n", __func__, __LINE__, cswItem.first.ToString()),
-                        CValidationState::Code::INVALID, "bad-sc-tx-proof");
-            }
-        }
-    }
 
     std::map<uint256, uint256> highQualityCertData = HighQualityCertData(block, view);
     // key: current block top quality cert for given sc --> value: prev block superseeded cert hash (possibly null)
@@ -2956,7 +3044,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
-        CValidationState::Code ret_code = view.IsCertApplicableToStateWithoutProof(cert);
+        CValidationState::Code ret_code = view.IsCertApplicableToState(cert);
         if (ret_code != CValidationState::Code::OK)
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s], ret_code[0x%x]",
@@ -2964,8 +3052,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 ret_code, "bad-sc-cert-not-applicable");
         }
 
-        if (fScRelatedChecks)
-            scVerifier.LoadDataForCertVerification(view, cert);
+        const auto scVerifierMode = fExpensiveChecks ?
+            CScProofVerifier::Verification::Strict : CScProofVerifier::Verification::Loose;
+        CScProofVerifier scVerifier{scVerifierMode};
+        ret_code = view.IsCertProofVerified(cert, scVerifier);
+        if (ret_code != CValidationState::Code::OK)
+        {
+            return state.DoS(100, error("%s():%d: cert [%s] proof failed, ret_code[0x%x]",
+                __func__, __LINE__, cert.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),
+                ret_code, "bad-sc-cert-proof");
+        }
 
         blockundo.vtxundo.push_back(CTxUndo());
         bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
@@ -3019,19 +3115,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
-
-    if (fScRelatedChecks)
-    {
-        std::map<uint256, bool> res = scVerifier.batchVerifyCerts();
-        for(const auto& cert: block.vcert)
-        {
-            assert(res.count(cert.GetHash())!= 0 && "cert not validated in batch processing");
-            if (!res.at(cert.GetHash()))
-                return state.DoS(100, error("%s():%d: invalid sc certificate [%s]", cert.GetHash().ToString(),__func__, __LINE__),
-                                 CValidationState::Code::INVALID, "bad-sc-cert-proof");
-        }
-        assert(res.size() == block.vcert.size());
-    }
 
     if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pCertsStateInfo))
     {
@@ -3307,7 +3390,7 @@ bool static DisconnectTip(CValidationState &state) {
 
         if (tx.IsCoinBase() ||
             MempoolReturnValue::VALID != AcceptTxToMemoryPool(mempool, stateDummy, tx,
-                    LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON))
+                    LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF))
         {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
@@ -3322,7 +3405,7 @@ bool static DisconnectTip(CValidationState &state) {
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
         if (MempoolReturnValue::VALID != AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
-                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON))
+                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF))
         {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
@@ -4933,14 +5016,14 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
 
 void UnloadBlockIndex()
 {
-    TxBaseMsgProcessor::get().reset(); // internally guarded by appropriate cs_s
-
     LOCK(cs_main);
     setBlockIndexCandidates.clear();
     chainActive.SetTip(NULL);
     pindexBestInvalid = NULL;
     pindexBestHeader = NULL;
     mempool.clear();
+    mapOrphanTransactions.clear();
+    mapOrphanTransactionsByPrev.clear();
     nSyncStarted = 0;
     mapBlocksUnlinked.clear();
     vinfoBlockFile.clear();
@@ -4953,6 +5036,7 @@ void UnloadBlockIndex()
     setDirtyBlockIndex.clear();
     setDirtyFileInfo.clear();
     mapNodeState.clear();
+    recentRejects.reset(NULL);
 
     BOOST_FOREACH(BlockMap::value_type& entry, mapBlockIndex) {
         delete entry.second;
@@ -4971,8 +5055,11 @@ bool LoadBlockIndex()
 
 
 bool InitBlockIndex() {
-    LOCK(cs_main);
     const CChainParams& chainparams = Params();
+    LOCK(cs_main);
+
+    // Initialize global variables that cannot be constructed at startup.
+    recentRejects.reset(new CRollingBloomFilter(120000, 0.000001));
 
     // Check whether we're already initialized
     if (chainActive.Genesis() != NULL)
@@ -5375,18 +5462,27 @@ std::string GetWarnings(const std::string& strFor)
 //
 
 
-bool AlreadyHave(const CInv& inv)
+bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     switch (inv.type)
     {
     case MSG_TX:
         {
-            TxBaseMsgProcessor::get().RefreshRejected(chainActive.Tip()->GetBlockHash());
+            assert(recentRejects);
+            if (chainActive.Tip()->GetBlockHash() != hashRecentRejectsChainTip)
+            {
+                // If the chain tip has changed previously rejected transactions
+                // might be now valid, e.g. due to a nLockTime'd tx becoming valid,
+                // or a double-spend. Reset the rejects filter and give those
+                // txs a second chance.
+                hashRecentRejectsChainTip = chainActive.Tip()->GetBlockHash();
+                recentRejects->reset();
+            }
 
-            return pcoinsTip->HaveCoins(inv.hash) ||
+            return recentRejects->contains(inv.hash) ||
                    mempool.exists(inv.hash) ||
-                   TxBaseMsgProcessor::get().IsOrphan(inv.hash) ||
-                   TxBaseMsgProcessor::get().HasBeenRejected(inv.hash);
+                   mapOrphanTransactions.count(inv.hash) ||
+                   pcoinsTip->HaveCoins(inv.hash);
         }
         case MSG_BLOCK:
         {
@@ -5594,6 +5690,133 @@ void static ProcessGetData(CNode* pfrom)
         // risk analyze) the dependencies of transactions relevant to them, without
         // having to download the entire memory pool.
         pfrom->PushMessage("notfound", vNotFound);
+    }
+}
+
+void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
+{
+    CInv inv(MSG_TX, txBase.GetHash());
+    pfrom->AddInventoryKnown(inv);
+
+    LOCK(cs_main);
+
+    pfrom->setAskFor.erase(inv.hash);
+    mapAlreadyAskedFor.erase(inv);
+
+    MempoolReturnValue res = MempoolReturnValue::INVALID;
+    CValidationState state;
+    if (!AlreadyHave(inv))
+    {
+        res = AcceptTxBaseToMemoryPool(mempool, state, txBase, LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF);
+        if (res == MempoolReturnValue::VALID)
+        {
+            mempool.check(pcoinsTip);
+            txBase.Relay();
+            std::vector<uint256> vWorkQueue{inv.hash};
+            std::vector<uint256> vEraseQueue;
+ 
+            LogPrint("mempool", "%s(): peer=%d %s: accepted %s (poolsz %u)\n", __func__,
+                pfrom->id, pfrom->cleanSubVer,
+                txBase.GetHash().ToString(),
+                mempool.size());
+ 
+            // Recursively process any orphan transactions that depended on this one
+            set<NodeId> setMisbehaving;
+            for (unsigned int i = 0; i < vWorkQueue.size(); i++)
+            {
+                map<uint256, set<uint256> >::iterator itByPrev = mapOrphanTransactionsByPrev.find(vWorkQueue[i]);
+                if (itByPrev == mapOrphanTransactionsByPrev.end())
+                    continue;
+                for (const uint256& orphanHash: itByPrev->second)
+                {
+                    const CTransactionBase& orphanTx = *mapOrphanTransactions[orphanHash].tx;
+                    NodeId fromPeer = mapOrphanTransactions[orphanHash].fromPeer;
+                    bool fMissingInputs2 = false;
+                    // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
+                    // resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get
+                    // anyone relaying LegitTxX banned)
+                    CValidationState stateDummy;
+ 
+                    if (setMisbehaving.count(fromPeer))
+                        continue;
+ 
+                    MempoolReturnValue resOrphan = AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
+                                LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF);
+                    if (resOrphan == MempoolReturnValue::VALID)
+                    {
+                        LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
+                        orphanTx.Relay();
+                        vWorkQueue.push_back(orphanHash);
+                        vEraseQueue.push_back(orphanHash);
+                    }
+                    else if (resOrphan == MempoolReturnValue::INVALID)
+                    {
+                        if (stateDummy.IsInvalid() && stateDummy.GetDoS() > 0)
+                        {
+                            // Punish peer that gave us an invalid orphan tx
+                            Misbehaving(fromPeer, stateDummy.GetDoS());
+                            setMisbehaving.insert(fromPeer);
+                            LogPrint("mempool", "   invalid orphan tx %s\n", orphanHash.ToString());
+                        }
+                        // Has inputs but not accepted to mempool
+                        // Probably non-standard or insufficient fee/priority
+                        LogPrint("mempool", "   removed orphan tx %s\n", orphanHash.ToString());
+                        vEraseQueue.push_back(orphanHash);
+                        assert(recentRejects);
+                        recentRejects->insert(orphanHash);
+                    }
+                    mempool.check(pcoinsTip);
+                }
+            }
+ 
+                for(const uint256& hash: vEraseQueue)
+                EraseOrphanTx(hash);
+        }
+    }
+    // TODO: currently, prohibit joinsplits from entering mapOrphans
+    else if (res == MempoolReturnValue::MISSING_INPUT && txBase.GetVjoinsplit().size() == 0)
+    {
+        AddOrphanTx(txBase, pfrom->GetId());
+ 
+        // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
+        unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
+        unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
+        if (nEvicted > 0)
+            LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
+    } else {
+        assert(recentRejects);
+        recentRejects->insert(txBase.GetHash());
+ 
+        if (pfrom->fWhitelisted) {
+            // Always relay transactions received from whitelisted peers, even
+            // if they were already in the mempool or rejected from it due
+            // to policy, allowing the node to function as a gateway for
+            // nodes hidden behind it.
+            //
+            // Never relay transactions that we would assign a non-zero DoS
+            // score for, as we expect peers to do the same with us in that
+            // case.
+            if (!state.IsInvalid() || state.GetDoS() == 0)
+            {
+                LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->id);
+                txBase.Relay();
+            } else {
+                LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
+                    txBase.GetHash().ToString(), pfrom->id, state.GetRejectReason(), CValidationState::CodeToChar(state.GetRejectCode()));
+            }
+        }
+    }
+   
+    if (state.IsInvalid())
+    {
+        LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
+            pfrom->id, pfrom->cleanSubVer,
+            state.GetRejectReason());
+        std::string cmdString("tx");
+        pfrom->PushMessage("reject", cmdString, CValidationState::CodeToChar(state.GetRejectCode()),
+                           state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
+        if (state.GetDoS() > 0)
+            Misbehaving(pfrom->GetId(), state.GetDoS());
     }
 }
 
@@ -6182,7 +6405,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CTransaction tx(txVers);
             tx.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
-            TxBaseMsgProcessor::get().addTxBaseMsgToProcess(tx, pfrom);
+            ProcessTxBaseMsg(tx, pfrom);
         }
         else
         if (CTransactionBase::IsCertificate(txVers) )
@@ -6190,7 +6413,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CScCertificate cert(txVers);
             cert.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
-            TxBaseMsgProcessor::get().addTxBaseMsgToProcess(cert, pfrom);
+            ProcessTxBaseMsg(cert, pfrom);
         }
         else
         {
@@ -6936,7 +7159,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 }
             } else {
                 //If we're not going to ask, don't expect a response.
-                pto->StopAskingFor(inv);
+                pto->setAskFor.erase(inv.hash);
             }
             pto->mapAskFor.erase(pto->mapAskFor.begin());
         }
@@ -6963,6 +7186,10 @@ public:
         for (; it1 != mapBlockIndex.end(); it1++)
             delete (*it1).second;
         mapBlockIndex.clear();
+
+        // orphan transactions
+        mapOrphanTransactions.clear();
+        mapOrphanTransactionsByPrev.clear();
     }
 } instance_of_cmaincleanup;
 

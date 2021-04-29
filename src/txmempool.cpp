@@ -1597,12 +1597,12 @@ std::pair<uint256, CAmount> CTxMemPool::FindCertWithQuality(const uint256& scId,
     return res;
 }
 
-void CTxMemPool::RemoveCertAndSync(const uint256& certToRmHash)
+bool CTxMemPool::RemoveCertAndSync(const uint256& certToRmHash)
 {
     LOCK(cs);
 
     if(mapCertificate.count(certToRmHash) == 0)
-        return; //nothing to remove
+        return true; //nothing to remove
 
     CScCertificate certToRm = mapCertificate.at(certToRmHash).GetCertificate();
     std::list<CTransaction> conflictingTxs;
@@ -1619,5 +1619,5 @@ void CTxMemPool::RemoveCertAndSync(const uint256& certToRmHash)
         SyncWithWallets(c, nullptr);
     }
 
-    return;
+    return true;
 }

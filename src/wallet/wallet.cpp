@@ -2136,8 +2136,7 @@ void CWallet::ReacceptWalletTransactions()
     {
         CWalletTransactionBase& wtx = *(item.second);
         LOCK(mempool.cs);
-        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(),
-            LimitFreeFlag::OFF,  RejectAbsurdFeeFlag::ON, ValidateSidechainProof::ON);
+        AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtx.getTxBase(), LimitFreeFlag::OFF,  RejectAbsurdFeeFlag::ON);
     }
 }
 
@@ -3605,7 +3604,7 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
             // Broadcast
             CValidationState stateDummy;
             if (MempoolReturnValue::VALID != AcceptTxBaseToMemoryPool(mempool, stateDummy, *wtxNew.getTxBase(),
-                    LimitFreeFlag::OFF,  RejectAbsurdFeeFlag::ON, ValidateSidechainProof::ON))
+                    LimitFreeFlag::OFF,  RejectAbsurdFeeFlag::ON))
             {
                 // This must not fail. The transaction has already been signed and recorded.
                 LogPrintf("CommitTransaction(): Error: Transaction not valid\n");
