@@ -62,59 +62,12 @@ void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, 
 
 std::map<uint256,bool> CScProofVerifier::batchVerifyCerts() const
 {
-    std::map<uint256,bool> res;
-#if 0
-    if(verificationMode == Verification::Loose)
-    {
-        for(const auto& pair: certEnqueuedData)
-            res[pair.first] = true;
+    std::map<uint256, bool> res;
 
-        return res;
-    }
-
-    //currently call verifier for each single certificate
+    // currently call verifier for each single certificate
     for(const auto& pair: certEnqueuedData)
-    {
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"end epoch hash\": %s\n",
-                    __func__, __LINE__, pair.second.endEpochBlockHash.ToString());
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"prev end epoch hash\": %s\n",
-            __func__, __LINE__, pair.second.prevEndEpochBlockHash.ToString());
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"bt_list_len\": %d\n",
-            __func__, __LINE__, pair.second.bt_list.size());
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"quality\": %s\n",
-            __func__, __LINE__, pair.second.quality);
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"constant\": %s\n",
-            __func__, __LINE__, pair.second.constant.GetHexRepr());
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_proof\": %s\n",
-            __func__, __LINE__, pair.second.certProof.GetHexRepr());
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_vk\": %s\n",
-            __func__, __LINE__, pair.second.CertVk.GetHexRepr());
+        res[pair.first] = _verifyCertInternal(pair.second);
 
-        res[pair.first] = zendoo_verify_sc_proof(
-                pair.second.endEpochBlockHash.begin(), pair.second.prevEndEpochBlockHash.begin(),
-                pair.second.bt_list.data(), pair.second.bt_list.size(),
-                pair.second.quality,
-                pair.second.constant.GetFieldElement().get(),
-                pair.second.proofdata.GetFieldElement().get(),
-                pair.second.certProof.GetProofPtr().get(),
-                pair.second.CertVk.GetVKeyPtr().get());
-
-        if (!res.at(pair.first))
-        {
-            Error err = zendoo_get_last_error();
-            if (err.category == CRYPTO_ERROR)
-            {
-                std::string errorStr = strprintf( "%s: [%d - %s]\n",
-                    err.msg, err.category,
-                    zendoo_get_category_name(err.category));
-
-                LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify, with error [%s]\n",
-                    __func__, __LINE__, pair.first.ToString(), errorStr);
-                zendoo_clear_error();
-            }
-        }
-    }
-#endif
     return res;
 }
 
@@ -130,19 +83,19 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
         CSidechain sidechain;
         assert(view.GetSidechain(csw.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
 
-        cswVerifierInputsList& newItem = cswEnqueuedData[scTx.GetHash()][idx]; //create or retrieve new entry
-        newItem.certDataHash = view.GetActiveCertView(csw.scId).certDataHash;
+        cswData = cswEnqueuedData[scTx.GetHash()][idx]; //create or retrieve new entry
+        cswData.certDataHash = view.GetActiveCertView(csw.scId).certDataHash;
 //        //TODO: Unlock when we'll handle recovery of fwt of last epoch
 //        if (certDataHash.IsNull())
 //            return error("%s():%d - ERROR: Tx[%s] CSW input [%s] has missing active cert data hash for required scId[%s]\n",
 //                            __func__, __LINE__, tx.ToString(), csw.ToString(), csw.scId.ToString());
 
         if (sidechain.fixedParams.wCeasedVk.is_initialized())
-            newItem.ceasedVk = sidechain.fixedParams.wCeasedVk.get();
+            cswData.ceasedVk = sidechain.fixedParams.wCeasedVk.get();
         else
-            newItem.ceasedVk = CScVKey{};
+            cswData.ceasedVk = CScVKey{};
 
-        newItem.cswOut = csw;
+        cswData.cswOut = csw;
     }
 }
 #endif
@@ -162,32 +115,37 @@ std::map<uint256,bool> CScProofVerifier::batchVerifyCsws() const
 
 bool CScProofVerifier::verifyCScCertificate() const 
 {
+    return _verifyCertInternal(certData);
+}
+
+bool CScProofVerifier::_verifyCertInternal(const certVerifierInput& input) const 
+{
     if(verificationMode == Verification::Loose)
         return true;
 
     LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"end epoch hash\": %s\n",
-                __func__, __LINE__, certData.endEpochBlockHash.ToString());
+                __func__, __LINE__, input.endEpochBlockHash.ToString());
     LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"prev end epoch hash\": %s\n",
-        __func__, __LINE__, certData.prevEndEpochBlockHash.ToString());
+        __func__, __LINE__, input.prevEndEpochBlockHash.ToString());
     LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"bt_list_len\": %d\n",
-        __func__, __LINE__, certData.bt_list.size());
+        __func__, __LINE__, input.bt_list.size());
     LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"quality\": %s\n",
-        __func__, __LINE__, certData.quality);
+        __func__, __LINE__, input.quality);
     LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"constant\": %s\n",
-        __func__, __LINE__, certData.constant.GetHexRepr());
+        __func__, __LINE__, input.constant.GetHexRepr());
     LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_proof\": %s\n",
-        __func__, __LINE__, certData.certProof.GetHexRepr());
+        __func__, __LINE__, input.certProof.GetHexRepr());
     LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_vk\": %s\n",
-        __func__, __LINE__, certData.CertVk.GetHexRepr());
+        __func__, __LINE__, input.CertVk.GetHexRepr());
 
     bool res = zendoo_verify_sc_proof(
-            certData.endEpochBlockHash.begin(), certData.prevEndEpochBlockHash.begin(),
-            certData.bt_list.data(), certData.bt_list.size(),
-            certData.quality,
-            certData.constant.GetFieldElement().get(),
-            certData.proofdata.GetFieldElement().get(),
-            certData.certProof.GetProofPtr().get(),
-            certData.CertVk.GetVKeyPtr().get());
+            input.endEpochBlockHash.begin(), input.prevEndEpochBlockHash.begin(),
+            input.bt_list.data(), input.bt_list.size(),
+            input.quality,
+            input.constant.GetFieldElement().get(),
+            input.proofdata.GetFieldElement().get(),
+            input.certProof.GetProofPtr().get(),
+            input.CertVk.GetVKeyPtr().get());
 
     if (!res)
     {
@@ -199,7 +157,7 @@ bool CScProofVerifier::verifyCScCertificate() const
                 zendoo_get_category_name(err.category));
 
             LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify, with error [%s]\n",
-                __func__, __LINE__, certData.certHash.ToString(), errorStr);
+                __func__, __LINE__, input.certHash.ToString(), errorStr);
             zendoo_clear_error();
         }
     }
@@ -208,14 +166,9 @@ bool CScProofVerifier::verifyCScCertificate() const
 }
 
 bool CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput(
-    const CFieldElement& certDataHash,
-    const CScVKey& wCeasedVk,
-    const CTxCeasedSidechainWithdrawalInput& csw
 ) const
 {
-    if(verificationMode == Verification::Loose)
-        return true;
-    else // TODO: emit rust implementation.
-        return true;// CswProofVerification().verifyCsw(certDataHash, wCeasedVk, csw);
+    // TODO: call rust implementation.
+    return true;
 }
 
