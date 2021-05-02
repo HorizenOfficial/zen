@@ -38,6 +38,13 @@ rust_crates := \
   crate_zip32
 
 rust_crates_zendoo := \
+    crate_adler_zendoo \
+    crate_bit_vec_zendoo \
+    crate_bzip2_zendoo \
+    crate_bzip2_sys_zendoo \
+    crate_cc_zendoo \
+    crate_crc32fast_zendoo \
+    crate_flate2_zendoo \
 	crate_rand_zendoo \
 	crate_lazy_static_zendoo \
 	crate_libc_zendoo \
@@ -47,6 +54,7 @@ rust_crates_zendoo := \
 	crate_c2-chacha_zendoo \
 	crate_cfg-if_zendoo \
 	crate_cloudabi_zendoo \
+	crate_crossbeam-channel_zendoo \
 	crate_crossbeam-deque_zendoo \
 	crate_crossbeam-queue_zendoo \
 	crate_crossbeam-epoch_zendoo \
@@ -57,6 +65,7 @@ rust_crates_zendoo := \
 	crate_syn_zendoo \
 	crate_byteorder_zendoo \
 	crate_either_zendoo \
+    crate_miniz_oxide_zendoo \
 	crate_num_cpus_zendoo \
 	crate_ppv-lite86_zendoo \
 	crate_quote_zendoo \
@@ -66,15 +75,22 @@ rust_crates_zendoo := \
 	crate_rayon-core_zendoo \
 	crate_scopeguard_zendoo \
 	crate_smallvec_zendoo \
+	crate_pkg-config_zendoo \
 	crate_proc-macro2_zendoo \
 	crate_unicode-xid_zendoo \
 	crate_autocfg_zendoo \
 	crate_rand_hc_zendoo \
+	crate_semver_zendoo \
+	crate_semver-parser_zendoo \
+	crate_serde_zendoo \
+	crate_serde_derive_zendoo \
+	crate_unroll_zendoo \
 	crate_winapi_i686_pc_windows_gnu \
 	crate_winapi_x86_64_pc_windows_gnu \
 	crate_wasi \
 	crate_hermit-abi_zendoo \
 	crate_radix_trie_zendoo \
+	crate_rustc_version_zendoo \
 	crate_endian-type_zendoo \
 	crate_nibble_vec_zendoo
 	

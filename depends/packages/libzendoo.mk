@@ -3,8 +3,8 @@ $(package)_version=0.1.0
 $(package)_download_path=https://github.com/HorizenOfficial/zendoo-mc-cryptolib/archive/
 $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
-$(package)_sha256_hash=6d127527b7ab06934562661ea4bf9b00f4722791421483381a9617f4a4d5ffea
-$(package)_git_commit=3f020712f6efc09709f955adad4b47b42007eb39
+$(package)_sha256_hash=94d09f62f70c5ee73758c083c60f137a7ece3281637beb01e2fcc81726c65280
+$(package)_git_commit=7879bc78bbf378f3efe8e63ecc8ef2f40a3a1e96
 $(package)_dependencies=rust $(rust_crates_zendoo)
 $(package)_patches=cargo.config
 
@@ -25,7 +25,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_build_cmds
-  cargo build $($(package)_build_opts)
+  RUSTFLAGS="-C target-feature=+bmi2,+adx --emit=asm" cargo build $($(package)_build_opts)
 endef
 
 

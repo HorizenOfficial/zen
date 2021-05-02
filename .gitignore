@@ -121,3 +121,7 @@ libzcashconsensus.pc
 contrib/debian/files
 contrib/debian/substvars
 src/zendoo/mcTest
+
+# IDE files
+/.idea
+/*.iml

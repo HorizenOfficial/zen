@@ -1,9 +1,9 @@
-package=crate_getrandom_zendoo
-$(package)_crate_name=getrandom
-$(package)_version=0.1.16
+package=crate_flate2_zendoo
+$(package)_crate_name=flate2
+$(package)_version=1.0.20
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=8fc3cb4d91f53b50155bdcfd23f6a4c39ae1969c2ae85982b135750cccaf5fce
+$(package)_sha256_hash=cd3aec53de10fe96d7d8c565eb17f2c687bb5518a2ec453b5b1252964526abe0
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

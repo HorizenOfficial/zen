@@ -1,9 +1,9 @@
 package=crate_byteorder_zendoo
 $(package)_crate_name=byteorder
-$(package)_version=1.3.4
+$(package)_version=1.4.3
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de
+$(package)_sha256_hash=14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

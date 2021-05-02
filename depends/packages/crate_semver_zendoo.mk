@@ -1,9 +1,9 @@
-package=crate_getrandom_zendoo
-$(package)_crate_name=getrandom
-$(package)_version=0.1.16
+package=crate_semver_zendoo
+$(package)_crate_name=semver
+$(package)_version=0.9.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=8fc3cb4d91f53b50155bdcfd23f6a4c39ae1969c2ae85982b135750cccaf5fce
+$(package)_sha256_hash=1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds
