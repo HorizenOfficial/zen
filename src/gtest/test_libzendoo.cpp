@@ -74,46 +74,46 @@ TEST(ZendooLib, PoseidonHashTest)
     zendoo_field_free(actual_hash);
 }
 
-TEST(ZendooLib, PoseidonMerkleTreeTest)  {
-
-    //Generate random leaves
-    int leaves_len = 16;
-    const field_t* leaves[leaves_len];
-    for (int i = 0; i < leaves_len; i++){
-        leaves[i] = zendoo_get_random_field();
-    }
-
-    //Create Merkle Tree and get the root
-    auto tree = ginger_mt_new(leaves, leaves_len);
-    ASSERT_TRUE(tree != NULL);
-
-    auto root = ginger_mt_get_root(tree);
-
-    //Verify Merkle Path is ok for each leaf
-    for (int i = 0; i < leaves_len; i++) {
-
-        //Create Merkle Path for the i-th leaf
-        auto path = ginger_mt_get_merkle_path(leaves[i], i, tree);
-        ASSERT_TRUE(path != NULL);
-
-        //Verify Merkle Path for the i-th leaf
-        ASSERT_TRUE(ginger_mt_verify_merkle_path(leaves[i], root, path));
-
-        //Free Merkle Path
-        ginger_mt_path_free(path);
-    }
-
-    //Free the tree
-    ginger_mt_free(tree);
-
-    //Free the root
-    zendoo_field_free(root);
-
-    //Free all the leaves
-    for (int i = 0; i < leaves_len; i++){
-        zendoo_field_free((field_t*)leaves[i]);
-    }
-}
+//TEST(ZendooLib, PoseidonMerkleTreeTest)  {
+//
+//    //Generate random leaves
+//    int leaves_len = 16;
+//    const field_t* leaves[leaves_len];
+//    for (int i = 0; i < leaves_len; i++){
+//        leaves[i] = zendoo_get_random_field();
+//    }
+//
+//    //Create Merkle Tree and get the root
+//    auto tree = ginger_mt_new(leaves, leaves_len);
+//    ASSERT_TRUE(tree != NULL);
+//
+//    auto root = ginger_mt_get_root(tree);
+//
+//    //Verify Merkle Path is ok for each leaf
+//    for (int i = 0; i < leaves_len; i++) {
+//
+//        //Create Merkle Path for the i-th leaf
+//        auto path = ginger_mt_get_merkle_path(leaves[i], i, tree);
+//        ASSERT_TRUE(path != NULL);
+//
+//        //Verify Merkle Path for the i-th leaf
+//        ASSERT_TRUE(ginger_mt_verify_merkle_path(leaves[i], root, path));
+//
+//        //Free Merkle Path
+//        ginger_mt_path_free(path);
+//    }
+//
+//    //Free the tree
+//    ginger_mt_free(tree);
+//
+//    //Free the root
+//    zendoo_field_free(root);
+//
+//    //Free all the leaves
+//    for (int i = 0; i < leaves_len; i++){
+//        zendoo_field_free((field_t*)leaves[i]);
+//    }
+//}
 
 // Execute the test from zen directory
 TEST(ZendooLib, TestProof)
