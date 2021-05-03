@@ -408,6 +408,7 @@ struct CScCertificateView
  */
 struct CCertProofVerifierInput
 {
+    std::shared_ptr<CScCertificate> certificatePtr;
     uint256 certHash;
     uint256 endEpochBlockHash;
     uint256 prevEndEpochBlockHash;

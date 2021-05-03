@@ -9,6 +9,7 @@ void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, 
 #else
 void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert)
 {
+    certData.certificatePtr = std::make_shared<CScCertificate>(scCert);
     certData.certHash = scCert.GetHash();
 
     LogPrint("cert", "%s():%d - called: cert[%s], scId[%s]\n",
@@ -78,6 +79,8 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
 {
     for(size_t idx = 0; idx < scTx.GetVcswCcIn().size(); ++idx)
     {
+        cswData.transactionPtr = std::make_shared<CTransaction>(scTx);
+
         const CTxCeasedSidechainWithdrawalInput& csw = scTx.GetVcswCcIn().at(idx);
 
         CSidechain sidechain;
