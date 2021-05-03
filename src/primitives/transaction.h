@@ -1110,4 +1110,14 @@ struct CMutableTransaction : public CMutableTransactionBase
     int GetIndexOfActCertData(const CFieldElement& actCertData) const;
 };
 
+/**
+ * @brief A structure that includes all the arguments needed for verifying the proof of a CSW input.
+ */
+struct CCswProofVerifierInput
+{
+    CTxCeasedSidechainWithdrawalInput cswOut;
+    CScVKey ceasedVk;
+    CFieldElement certDataHash;
+};
+
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

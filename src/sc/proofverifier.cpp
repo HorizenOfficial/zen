@@ -118,7 +118,7 @@ bool CScProofVerifier::verifyCScCertificate() const
     return _verifyCertInternal(certData);
 }
 
-bool CScProofVerifier::_verifyCertInternal(const certVerifierInput& input) const 
+bool CScProofVerifier::_verifyCertInternal(const CCertProofVerifierInput& input) const 
 {
     if(verificationMode == Verification::Loose)
         return true;

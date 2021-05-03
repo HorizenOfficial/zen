@@ -403,4 +403,20 @@ struct CScCertificateView
     }
 };
 
+/**
+ * @brief A structure that includes all the arguments needed for verifying the proof of a certificate.
+ */
+struct CCertProofVerifierInput
+{
+    uint256 certHash;
+    uint256 endEpochBlockHash;
+    uint256 prevEndEpochBlockHash;
+    std::vector<backward_transfer_t> bt_list;
+    int64_t quality;
+    ScConstant constant;
+    CFieldElement proofdata;
+    CScProof certProof;
+    CScVKey CertVk;
+};
+
 #endif // _CERTIFICATE_H
