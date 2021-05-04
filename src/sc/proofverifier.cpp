@@ -10,6 +10,11 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
 #else
 void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert)
 {
+    if (verificationMode == Verification::Loose)
+    {
+        return;
+    }
+
     CCertProofVerifierInput certData;
 
     certData.certificatePtr = std::make_shared<CScCertificate>(scCert);
@@ -67,6 +72,11 @@ void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, 
 
 void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx)
 {
+    if (verificationMode == Verification::Loose)
+    {
+        return;
+    }
+
     std::map</*outputPos*/unsigned int, CCswProofVerifierInput> txMap;
 
     for(size_t idx = 0; idx < scTx.GetVcswCcIn().size(); ++idx)
