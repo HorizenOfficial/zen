@@ -1136,8 +1136,11 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
 }
 
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification)
 {
+    // Assert to be removed after the implementation of the async verifier.
+    assert(fProofVerification != MempoolProofVerificationFlag::ASYNC);
+
     AssertLockHeld(cs_main);
 
     //we retrieve the current height from the pcoinsTip and not from chainActive because on DisconnectTip the Accept*ToMemoryPool
@@ -1217,14 +1220,17 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                 return MempoolReturnValue::INVALID;
             }
 
-            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-            scVerifier.LoadDataForCertVerification(view, cert);
-
-            if (!scVerifier.BatchVerify())
+            if (fProofVerification == MempoolProofVerificationFlag::SYNC)
             {
-                state.DoS(100, error("%s():%d - cert proof failed to verify",
-                    __func__, __LINE__), ret_code, "bad-sc-cert-proof");
-                return MempoolReturnValue::INVALID;
+                CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
+                scVerifier.LoadDataForCertVerification(view, cert);
+
+                if (!scVerifier.BatchVerify())
+                {
+                    state.DoS(100, error("%s():%d - cert proof failed to verify",
+                        __func__, __LINE__), ret_code, "bad-sc-cert-proof");
+                    return MempoolReturnValue::INVALID;
+                }
             }
             
             // do all inputs exist?
@@ -1393,8 +1399,11 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 }
 
 MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, LimitFreeFlag fLimitFree,
-                        RejectAbsurdFeeFlag fRejectAbsurdFee)
+                        RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification)
 {
+    // Assert to be removed after the implementation of the async verifier.
+    assert(fProofVerification != MempoolProofVerificationFlag::ASYNC);
+
     AssertLockHeld(cs_main);
 
     //we retrieve the current height from the pcoinsTip and not from chainActive because on DisconnectTip the Accept*ToMemoryPool
@@ -1525,16 +1534,19 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 return MempoolReturnValue::INVALID;
             }
 
-            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-            scVerifier.LoadDataForCswVerification(view, tx);
-
-            if (!scVerifier.BatchVerify())
+            if (fProofVerification == MempoolProofVerificationFlag::SYNC)
             {
-                state.DoS(100,
-                    error("%s():%d - ERROR: sc-related tx [%s] proof failed",
-                        __func__, __LINE__, hash.ToString()),
-                    ret_code, "bad-sc-tx-proof");
-                return MempoolReturnValue::INVALID;
+                CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
+                scVerifier.LoadDataForCswVerification(view, tx);
+
+                if (!scVerifier.BatchVerify())
+                {
+                    state.DoS(100,
+                        error("%s():%d - ERROR: sc-related tx [%s] proof failed",
+                            __func__, __LINE__, hash.ToString()),
+                        ret_code, "bad-sc-tx-proof");
+                    return MempoolReturnValue::INVALID;
+                }
             }
 
             // are the joinsplit's requirements met?
@@ -1676,17 +1688,19 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
 }
 
 MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee)
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification)
 {
     try
     {
         if (txBase.IsCertificate())
         {
-            return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree, fRejectAbsurdFee);
+            return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree,
+                                                 fRejectAbsurdFee, fProofVerification);
         }
         else
         {
-            return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree, fRejectAbsurdFee);
+            return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree,
+                                        fRejectAbsurdFee, fProofVerification);
         }
     }
     catch (...)
@@ -3382,7 +3396,7 @@ bool static DisconnectTip(CValidationState &state) {
 
         if (tx.IsCoinBase() ||
             MempoolReturnValue::VALID != AcceptTxToMemoryPool(mempool, stateDummy, tx,
-                    LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF))
+                    LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::DISABLED))
         {
             LogPrint("sc", "%s():%d - removing tx [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, tx.GetHash().ToString(), tx.ToString());
@@ -3397,7 +3411,7 @@ bool static DisconnectTip(CValidationState &state) {
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
         if (MempoolReturnValue::VALID != AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
-                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF))
+                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::DISABLED))
         {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
@@ -5699,7 +5713,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     CValidationState state;
     if (!AlreadyHave(inv))
     {
-        res = AcceptTxBaseToMemoryPool(mempool, state, txBase, LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF);
+        res = AcceptTxBaseToMemoryPool(mempool, state, txBase, LimitFreeFlag::ON, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::SYNC);
         if (res == MempoolReturnValue::VALID)
         {
             mempool.check(pcoinsTip);
@@ -5733,7 +5747,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
                         continue;
  
                     MempoolReturnValue resOrphan = AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
-                                LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF);
+                                LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::SYNC);
                     if (resOrphan == MempoolReturnValue::VALID)
                     {
                         LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());

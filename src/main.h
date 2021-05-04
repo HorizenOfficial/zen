@@ -286,17 +286,28 @@ enum class LimitFreeFlag       { ON, OFF };
 enum class RejectAbsurdFeeFlag { ON, OFF };
 enum class MempoolReturnValue { NOT_PROCESSED_YET, INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
 
+/**
+ * @brief The enumeration of possible states of the sidechain proof verification
+ * inside the Accept(Tx/Cert)ToMempool().
+ */
+enum class MempoolProofVerificationFlag
+{
+    DISABLED,   /**< The proof verification is not required. */
+    SYNC,       /**< The proof verification is enabled and will be performed synchronously on the calling thread. */
+    ASYNC       /**< The proof verification is enabled and will pe performed asynchronously on a separate thread. */
+};
+
 /** (try to) add transaction to memory pool **/
 MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee);
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification);
 
 void StoreTxToMempool(const CTransaction &tx, CTxMemPool &pool, const CCoinsViewCache &view);
 MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee);
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification);
 
 void StoreCertToMempool(const CScCertificate &cert, CTxMemPool &pool, const CCoinsViewCache &view);
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee);
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification);
 
 struct CNodeStateStats {
     int nMisbehavior;
