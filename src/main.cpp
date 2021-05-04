@@ -2829,14 +2829,14 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    const CChain& chain, bool fJustCheck, bool fScRelatedChecks, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
+    const CChain& chain, flagBlockProcessingType processingType, flagScRelatedChecks fScRelatedChecks, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
 
     if(block.nVersion != BLOCK_VERSION_SC_SUPPORT)
     {
-        fScRelatedChecks = false;
+        fScRelatedChecks = flagScRelatedChecks::OFF;
     }
 
     bool fExpensiveChecks = true;
@@ -2853,8 +2853,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // Check it again to verify JoinSplit proofs, and in case a previous version let a bad block in
     if (!CheckBlock(block, state, fExpensiveChecks ? verifier : disabledVerifier,
-                    !fJustCheck? flagCheckPow::ON : flagCheckPow::OFF,
-                    !fJustCheck? flagCheckMerkleRoot::ON: flagCheckMerkleRoot::OFF))
+                    processingType == flagBlockProcessingType::COMPLETE ? flagCheckPow::ON : flagCheckPow::OFF,
+                    processingType == flagBlockProcessingType::COMPLETE ? flagCheckMerkleRoot::ON: flagCheckMerkleRoot::OFF))
         return false;
 
     // verify that the view's current state corresponds to the previous block
@@ -2864,7 +2864,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     // Special case for the genesis block, skipping connection of its transactions
     // (its coinbase is unspendable)
     if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
-        if (!fJustCheck) {
+        if (processingType == flagBlockProcessingType::COMPLETE)
+        {
             view.SetBestBlock(pindex->GetBlockHash());
             // Before the genesis block, there was an empty tree
             ZCIncrementalMerkleTree tree;
@@ -2915,7 +2916,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     // block position,
     auto old_tree_root = view.GetBestAnchor();
     // saving the top anchor in the block index as we go.
-    if (!fJustCheck) {
+    if (processingType == flagBlockProcessingType::COMPLETE)
+    {
         pindex->hashAnchor = old_tree_root;
     }
     ZCIncrementalMerkleTree tree;
@@ -3017,7 +3019,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 
-        if (fScRelatedChecks)
+        if (fScRelatedChecks == flagScRelatedChecks::ON)
             scCommitmentBuilder.add(tx);
     }  //end of Processing transactions loop
 
@@ -3108,7 +3110,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         vPos.push_back(std::make_pair(cert.GetHash(), pos));
         pos.nTxOffset += cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
 
-        if (fScRelatedChecks)
+        if (fScRelatedChecks == flagScRelatedChecks::ON)
         {
             scCommitmentBuilder.add(cert);
         }
@@ -3129,9 +3131,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }
 
     view.PushAnchor(tree);
-    if (!fJustCheck) {
+
+    if (processingType == flagBlockProcessingType::COMPLETE)
+    {
         pindex->hashAnchorEnd = tree.root();
     }
+
     blockundo.old_tree_root = old_tree_root;
 
     int64_t nTime1 = GetTimeMicros(); nTimeConnect += nTime1 - nTimeStart;
@@ -3147,7 +3152,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  __func__, __LINE__, block.vtx[0].GetValueOut(), blockReward),
                         CValidationState::Code::INVALID, "bad-cb-amount");
 
-    if (fScRelatedChecks)
+    if (fScRelatedChecks == flagScRelatedChecks::ON)
     {
         const uint256& scTxsCommittment = scCommitmentBuilder.getCommitment();
         if (block.hashScTxsCommitment != scTxsCommittment)
@@ -3168,7 +3173,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     int64_t nTime2 = GetTimeMicros(); nTimeVerify += nTime2 - nTimeStart;
     LogPrint("bench", "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs - 1, 0.001 * (nTime2 - nTimeStart), nInputs <= 1 ? 0 : 0.001 * (nTime2 - nTimeStart) / (nInputs-1), nTimeVerify * 0.000001);
 
-    if (fJustCheck)
+    if (processingType == flagBlockProcessingType::CHECK_ONLY)
         return true;
 
     LogPrint("sc", "%s():%d Writing CBlockUndo into DB:\n%s\n",
@@ -3488,9 +3493,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     std::vector<CScCertificateStatusUpdateInfo> certsStateInfo;
     {
         CCoinsViewCache view(pcoinsTip);
-        static const bool JUST_CHECK_FALSE = false;
-        static const bool SC_RELATED_CHECKS = true;
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, JUST_CHECK_FALSE, SC_RELATED_CHECKS, &certsStateInfo);
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, flagBlockProcessingType::COMPLETE, flagScRelatedChecks::ON, &certsStateInfo);
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -4605,8 +4608,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     if (!ContextualCheckBlock(block, state, pindexPrev))
         return false;
 
-    static const bool JUST_CHECK_TRUE = true;
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, JUST_CHECK_TRUE, fScRelatedChecks == flagScRelatedChecks::ON))
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, flagBlockProcessingType::CHECK_ONLY, fScRelatedChecks))
         return false;
     assert(state.IsValid());
 
@@ -5005,12 +5007,13 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             uiInterface.ShowProgress(_("Verifying blocks..."), std::max(1, std::min(99, 100 - (int)(((double)(chainActive.Height() - pindex->nHeight)) / (double)nCheckDepth * 50))));
             pindex = chainActive.Next(pindex);
             CBlock block;
+
             if (!ReadBlockFromDisk(block, pindex))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
+
             chainHistorical.SetHeight(pindex->nHeight - 1);
-            static const bool JUST_CHECK_FALSE = false;
-            static const bool SC_RELATED_CHECKS = true;
-            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, JUST_CHECK_FALSE, SC_RELATED_CHECKS))
+
+            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, flagBlockProcessingType::COMPLETE, flagScRelatedChecks::ON))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }

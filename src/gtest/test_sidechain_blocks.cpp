@@ -213,11 +213,9 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(certBlockIndex);
 
-    bool fJustCheck = true;
-    bool fScRelatedChecks = false;
-
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -289,11 +287,9 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(certBlockIndex);
 
-    bool fJustCheck = true;
-    bool fScRelatedChecks = false;
-
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -380,11 +376,9 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(certBlockIndex);
 
-    bool fJustCheck = true;
-    bool fScRelatedChecks = false;
-
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -473,11 +467,9 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(certBlockIndex);
 
-    bool fJustCheck = true;
-    bool fScRelatedChecks = false;
-
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -545,11 +537,9 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_I
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(blockIndex);
 
-    bool fJustCheck = true;
-    bool fScRelatedChecks = false;
-
     // test
-    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -605,11 +595,9 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_I
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(blockIndex);
 
-    bool fJustCheck = true;
-    bool fScRelatedChecks = false;
-
     // test
-    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain, fJustCheck, fScRelatedChecks, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF, &dummyCertStatusUpdateInfo);
 
     //checks
     EXPECT_FALSE(res);

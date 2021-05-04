@@ -483,12 +483,24 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     bool* pfClean = NULL, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
-enum class flagCheckPow        {ON, OFF};
-enum class flagCheckMerkleRoot {ON, OFF};
-enum class flagScRelatedChecks {ON, OFF};
+enum class flagCheckPow             { ON, OFF };
+enum class flagCheckMerkleRoot      { ON, OFF };
+enum class flagScRelatedChecks      { ON, OFF };
+
+/**
+ * @brief The enumeration of allowed types of block processing.
+ * It is used in the CheckBlock() function to choose between the full/normal processing
+ * or a dry-run intended to check only the validity (without applying any changes).
+ */
+enum class flagBlockProcessingType
+{
+    COMPLETE,       /**< Perform the normal/complete procedure applying changes. */
+    CHECK_ONLY      /**< Perofrm only the validity check and do not apply any changes. */
+};
+
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck, bool fScRelatedChecks,
-    std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
+    CCoinsViewCache& coins, const CChain& chain, flagBlockProcessingType processingType,
+    flagScRelatedChecks fScRelatedChecks, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Context-independent validity checks */
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, flagCheckPow fCheckPOW = flagCheckPow::ON);
