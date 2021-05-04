@@ -486,6 +486,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 enum class flagCheckPow             { ON, OFF };
 enum class flagCheckMerkleRoot      { ON, OFF };
 enum class flagScRelatedChecks      { ON, OFF };
+enum class flagScProofVerification  { ON, OFF };
 
 /**
  * @brief The enumeration of allowed types of block processing.
@@ -500,7 +501,8 @@ enum class flagBlockProcessingType
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
     CCoinsViewCache& coins, const CChain& chain, flagBlockProcessingType processingType,
-    flagScRelatedChecks fScRelatedChecks, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
+    flagScRelatedChecks fScRelatedChecks, flagScProofVerification fScProofVerification,
+    std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Context-independent validity checks */
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, flagCheckPow fCheckPOW = flagCheckPow::ON);

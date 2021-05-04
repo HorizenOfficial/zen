@@ -2829,7 +2829,8 @@ static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view,
-    const CChain& chain, flagBlockProcessingType processingType, flagScRelatedChecks fScRelatedChecks, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
+    const CChain& chain, flagBlockProcessingType processingType, flagScRelatedChecks fScRelatedChecks,
+    flagScProofVerification fScProofVerification, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
@@ -2962,7 +2963,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
 
             // Add the transaction proves (if any) to the sidechain proof verifier.
-            scVerifier.LoadDataForCswVerification(view, tx);
+            if (fScProofVerification == flagScProofVerification::ON)
+            {
+                scVerifier.LoadDataForCswVerification(view, tx);
+            }
 
             // are the JoinSplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
@@ -3063,7 +3067,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 ret_code, "bad-sc-cert-not-applicable");
         }
 
-        scVerifier.LoadDataForCertVerification(view, cert);
+        if (fScProofVerification == flagScProofVerification::ON)
+        {
+            scVerifier.LoadDataForCertVerification(view, cert);
+        }
 
         blockundo.vtxundo.push_back(CTxUndo());
         bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
@@ -3118,11 +3125,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
 
-    if (!scVerifier.BatchVerify())
+    if (fScProofVerification == flagScProofVerification::ON)
     {
-        return state.DoS(100, error("%s():%d - ERROR: sc-related batch proof verification failed", __func__, __LINE__),
-                         CValidationState::Code::INVALID_PROOF, "bad-sc-proof");
-    }
+        if (!scVerifier.BatchVerify())
+        {
+            return state.DoS(100, error("%s():%d - ERROR: sc-related batch proof verification failed", __func__, __LINE__),
+                            CValidationState::Code::INVALID_PROOF, "bad-sc-proof");
+        }
+    } 
 
     if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pCertsStateInfo))
     {
@@ -3493,7 +3503,8 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     std::vector<CScCertificateStatusUpdateInfo> certsStateInfo;
     {
         CCoinsViewCache view(pcoinsTip);
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, flagBlockProcessingType::COMPLETE, flagScRelatedChecks::ON, &certsStateInfo);
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainActive, flagBlockProcessingType::COMPLETE,
+                               flagScRelatedChecks::ON, flagScProofVerification::ON, &certsStateInfo);
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -4608,7 +4619,7 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     if (!ContextualCheckBlock(block, state, pindexPrev))
         return false;
 
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, flagBlockProcessingType::CHECK_ONLY, fScRelatedChecks))
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainActive, flagBlockProcessingType::CHECK_ONLY, fScRelatedChecks, flagScProofVerification::OFF))
         return false;
     assert(state.IsValid());
 
@@ -5013,7 +5024,8 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
 
             chainHistorical.SetHeight(pindex->nHeight - 1);
 
-            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, flagBlockProcessingType::COMPLETE, flagScRelatedChecks::ON))
+            if (!ConnectBlock(block, state, pindex, coins, chainHistorical, flagBlockProcessingType::COMPLETE,
+                              flagScRelatedChecks::ON, flagScProofVerification::ON))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }
