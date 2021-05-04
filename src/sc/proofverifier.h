@@ -32,19 +32,9 @@ public:
     CScProofVerifier& operator=(const CScProofVerifier&) = delete;
 
     void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert);
-    std::map</*certHash*/uint256,bool> batchVerifyCerts() const;
 
     void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx);
-    std::map</*scTxHash*/uint256,bool> batchVerifyCsws() const;
-
-    // these would become obsolete once batch verification will be implemented
-    //---
-    // Returns false if proof verification has failed or deserialization of certificate's elements
-    // into libzendoomc's elements has failed.
-    bool verifyCScCertificate() const;
-    // Returns false if proof verification has failed or deserialization of CSW's elements
-    // into libzendoomc's elements has failed.
-    bool verifyCTxCeasedSidechainWithdrawalInput() const; 
+    bool BatchVerify() const;
 
 private:
     
@@ -52,11 +42,10 @@ private:
     std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> cswEnqueuedData;
     std::map</*certHash*/uint256, CCertProofVerifierInput> certEnqueuedData;
 
-    bool _verifyCertInternal(const CCertProofVerifierInput& input) const; 
+    //bool _verifyCertInternal(const CCertProofVerifierInput& input) const;
+    bool _batchVerifyInternal(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>>& cswEnqueuedData,
+                                            const std::map</*certHash*/uint256, CCertProofVerifierInput>& certEnqueuedData) const;
 
-    // theses would become obsolete once batch verification will be implemented
-    CCertProofVerifierInput certData;
-    CCswProofVerifierInput  cswData;
 };
 
 #endif // _SC_PROOF_VERIFIER_H

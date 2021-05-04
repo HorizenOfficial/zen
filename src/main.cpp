@@ -1218,12 +1218,12 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             }
 
             CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-            ret_code = view.IsCertProofVerified(cert, scVerifier);
-            if (ret_code != CValidationState::Code::OK)
+            scVerifier.LoadDataForCertVerification(view, cert);
+
+            if (!scVerifier.BatchVerify())
             {
-                state.DoS(100, error("%s():%d - cert proof failed to verify: ret_code[0x%x]",
-                    __func__, __LINE__, CValidationState::CodeToChar(ret_code)),
-                    ret_code, "bad-sc-cert-proof");
+                state.DoS(100, error("%s():%d - cert proof failed to verify",
+                    __func__, __LINE__), ret_code, "bad-sc-cert-proof");
                 return MempoolReturnValue::INVALID;
             }
             
@@ -1526,12 +1526,13 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             }
 
             CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-            ret_code = view.IsScTxCswProofVerified(tx, scVerifier);
-            if (ret_code != CValidationState::Code::OK)
+            scVerifier.LoadDataForCswVerification(view, tx);
+
+            if (!scVerifier.BatchVerify())
             {
                 state.DoS(100,
-                    error("%s():%d - ERROR: sc-related tx [%s] proof failed: ret_code[0x%x]",
-                        __func__, __LINE__, hash.ToString(), CValidationState::CodeToChar(ret_code)),
+                    error("%s():%d - ERROR: sc-related tx [%s] proof failed",
+                        __func__, __LINE__, hash.ToString()),
                     ret_code, "bad-sc-tx-proof");
                 return MempoolReturnValue::INVALID;
             }
@@ -2914,6 +2915,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         assert(tree.root() == old_tree_root);
     }
 
+    const auto scVerifierMode = fExpensiveChecks ?
+                CScProofVerifier::Verification::Strict : CScProofVerifier::Verification::Loose;
+    CScProofVerifier scVerifier{scVerifierMode};
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
      
     for (unsigned int txIdx = 0; txIdx < block.vtx.size(); ++txIdx) // Processing transactions loop
@@ -2941,17 +2945,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     ret_code, "bad-sc-tx-not-applicable");
             }
 
-            const auto scVerifierMode = fExpensiveChecks ?
-                CScProofVerifier::Verification::Strict : CScProofVerifier::Verification::Loose;
-            CScProofVerifier scVerifier{scVerifierMode};
-            ret_code = view.IsScTxCswProofVerified(tx, scVerifier);
-            if (ret_code != CValidationState::Code::OK)
-            {
-                return state.DoS(100,
-                    error("%s():%d - ERROR: sc-related tx [%s] proof failed: ret_code[0x%x]",
-                        __func__, __LINE__, tx.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),
-                    ret_code, "bad-sc-tx-proof");
-            }
+            // Add the transaction proves (if any) to the sidechain proof verifier.
+            scVerifier.LoadDataForCswVerification(view, tx);
 
             // are the JoinSplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
@@ -3052,16 +3047,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 ret_code, "bad-sc-cert-not-applicable");
         }
 
-        const auto scVerifierMode = fExpensiveChecks ?
-            CScProofVerifier::Verification::Strict : CScProofVerifier::Verification::Loose;
-        CScProofVerifier scVerifier{scVerifierMode};
-        ret_code = view.IsCertProofVerified(cert, scVerifier);
-        if (ret_code != CValidationState::Code::OK)
-        {
-            return state.DoS(100, error("%s():%d: cert [%s] proof failed, ret_code[0x%x]",
-                __func__, __LINE__, cert.GetHash().ToString(), CValidationState::CodeToChar(ret_code)),
-                ret_code, "bad-sc-cert-proof");
-        }
+        scVerifier.LoadDataForCertVerification(view, cert);
 
         blockundo.vtxundo.push_back(CTxUndo());
         bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
@@ -3115,6 +3101,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
+
+    if (!scVerifier.BatchVerify())
+    {
+        return state.DoS(100, error("%s():%d - ERROR: sc-related batch proof verification failed", __func__, __LINE__),
+                         CValidationState::Code::INVALID_PROOF, "bad-sc-proof");
+    }
 
     if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pCertsStateInfo))
     {
