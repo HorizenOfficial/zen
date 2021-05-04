@@ -16,6 +16,8 @@
 #include <main.h>
 #include <consensus/validation.h>
 
+#include <sc/proofverifier.h>
+
 std::string CCoins::ToString() const
 {
     std::string ret;
@@ -1090,8 +1092,10 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
 #ifdef BITCOIN_TX
 int CCoinsViewCache::GetHeight() const {return -1;}
-CValidationState::Code CCoinsViewCache::IsCertApplicableToStateWithoutProof(const CScCertificate& cert) const {return CValidationState::Code::OK;}
-CValidationState::Code CCoinsViewCache::IsScTxApplicableToStateWithoutProof(const CTransaction& tx) const { return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const {return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, CScProofVerifier& scVerifier) const { return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx) const { return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsScTxCswProofVerified(const CTransaction& tx, CScProofVerifier& scVerifier) const { return CValidationState::Code::OK;}
 #else
 
 int CCoinsViewCache::GetHeight() const
@@ -1140,7 +1144,7 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certEpoch) const
     return true;
 }
 
-CValidationState::Code CCoinsViewCache::IsCertApplicableToStateWithoutProof(const CScCertificate& cert) const
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -1210,6 +1214,25 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToStateWithoutProof(cons
 
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
+
+    return  CValidationState::Code::OK;
+}
+
+CValidationState::Code CCoinsViewCache::IsCertProofVerified(
+    const CScCertificate& cert, CScProofVerifier& scVerifier) const
+{
+    if (scVerifier.verificationMode == CScProofVerifier::Verification::Loose)
+        return CValidationState::Code::OK;
+
+    // we choose to use two steps load/verify for moving in future the implementation towards the batch processing
+    scVerifier.LoadDataForCertVerification(*this, cert);
+
+    if (!scVerifier.verifyCScCertificate())
+    {
+        LogPrintf("%s():%d - ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
+            __func__, __LINE__, cert.GetHash().ToString(), cert.GetScId().ToString());
+        return CValidationState::Code::INVALID_PROOF;
+    }
 
     return  CValidationState::Code::OK;
 }
@@ -1305,7 +1328,7 @@ bool CCoinsViewCache::CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const
     return mbtrOutput.scFee >= certView.mainchainBackwardTransferRequestScFee;
 }
 
-CValidationState::Code CCoinsViewCache::IsScTxApplicableToStateWithoutProof(const CTransaction& tx) const
+CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx) const
 {
     if (tx.IsCoinBase())
     {
@@ -1484,6 +1507,43 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToStateWithoutProof(cons
 
     return CValidationState::Code::OK;
 }
+
+CValidationState::Code CCoinsViewCache::IsScTxCswProofVerified(const CTransaction& tx, CScProofVerifier& scVerifier) const
+{
+    for(const CTxCeasedSidechainWithdrawalInput& csw : tx.GetVcswCcIn())
+    {
+        CSidechain sidechain;
+        if (!GetSidechain(csw.scId, sidechain))
+        {
+            LogPrintf("%s():%d - ERROR: csw of tx[%s] refers to scId[%s] not yet created\n",
+                __func__, __LINE__, tx.GetHash().ToString(), csw.scId.ToString());
+            return CValidationState::Code::SCID_NOT_FOUND;
+        }
+
+        int32_t idx = csw.actCertDataIdx;
+        // index should have been already checked at this point, at() throws an exception
+        CFieldElement certDataHash = tx.GetVActCertData().at(idx);
+
+        CFieldElement lastEpochEndBlockCum, ceasedBlockCum;
+        if (!sidechain.GetCeasedCumTreeHashes(lastEpochEndBlockCum, ceasedBlockCum))
+        {
+            LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n could not retrieve cum tree hashes\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString());
+            return CValidationState::Code::SC_CUM_COMM_TREE;
+        }
+
+        // Verify CSW proof // TODO update this call as soon as the final signature is defined
+        scVerifier.LoadDataForCswVerification(*this, tx);
+        if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput())
+        {
+            LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n cannot be accepted: proof verification failed\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString());
+            return CValidationState::Code::INVALID_PROOF;
+        }
+    }
+    return CValidationState::Code::OK;
+}
+
 #endif
 
 bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo)

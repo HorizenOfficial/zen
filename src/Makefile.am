@@ -255,7 +255,6 @@ libbitcoin_server_a_SOURCES = \
   init.cpp \
   leveldbwrapper.cpp \
   main.cpp \
-  txBaseMsgProcessor.cpp \
   merkleblock.cpp \
   metrics.cpp \
   miner.cpp \

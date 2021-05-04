@@ -147,7 +147,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewSidechainIsAcceptedToMempool) {
     CTransaction scTx = GenerateScTx(CAmount(1));
     CValidationState txState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, txState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, txState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF);
     EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
 
@@ -156,7 +156,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSidechainAreNotAllowed
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF);
     EXPECT_TRUE(res == MempoolReturnValue::INVALID);
 }
 
@@ -166,13 +166,13 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnconfirmedSidechainsAreAllow
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF);
     EXPECT_TRUE(res == MempoolReturnValue::VALID);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
-    res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
+    res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF);
     EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
 
@@ -192,7 +192,7 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF);
     EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
 
@@ -201,7 +201,7 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToUnknownSidechainAreNotAllowed) {
     CTransaction btrTx = GenerateBtrTx(scId);
     CValidationState btrTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF);
     EXPECT_TRUE(res == MempoolReturnValue::INVALID);
 }
 
@@ -210,13 +210,13 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToUnconfirmedSidechainsAreAllowed) {
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF);
     ASSERT_TRUE(res == MempoolReturnValue::VALID);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CValidationState btrTxState;
-    res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
+    res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF);
     ASSERT_TRUE(res == MempoolReturnValue::VALID);
 }
 
@@ -236,7 +236,7 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
     CTransaction btrTx = GenerateBtrTx(scId);
     CValidationState btrTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF);
     EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
 
@@ -994,7 +994,7 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainWithoutVK) {
 
     CValidationState cswTxState;
 
-    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, cswTxState, cswTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON);
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, cswTxState, cswTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF);
     EXPECT_TRUE(res == MempoolReturnValue::INVALID);
 }
 
@@ -1509,15 +1509,15 @@ TEST_F(SidechainsInMempoolTestSuite, CheckFtFeeValidationOnMempool)
     CValidationState fwdTxState;
 
     // Check that a FT with the fee equal to the minimum specified in the sidechain is rejected
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON) == MempoolReturnValue::VALID);
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF) == MempoolReturnValue::VALID);
 
     // Check that a FT with the fee greater than the minimum specified in the sidechain is accepted
     fwdTx = GenerateFwdTransferTx(scId, ftScFee + 1);
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON) == MempoolReturnValue::VALID);
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF) == MempoolReturnValue::VALID);
 
     // Check that a FT with the fee less than the minimum specified in the sidechain is rejected
     fwdTx = GenerateFwdTransferTx(scId, ftScFee - 1);
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON) == MempoolReturnValue::VALID);
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF) == MempoolReturnValue::VALID);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, CheckMbtrFeeValidationOnMempool)
@@ -1529,15 +1529,15 @@ TEST_F(SidechainsInMempoolTestSuite, CheckMbtrFeeValidationOnMempool)
     CValidationState mbtrTxState;
 
     // Check that a MBTR with the fee equal to the minimum specified in the sidechain is accepted
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON) == MempoolReturnValue::VALID);
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF) == MempoolReturnValue::VALID);
 
     // Check that a MBTR with the fee greater than the minimum specified in the sidechain is accepted
     mbtrTx = GenerateBtrTx(scId, mbtrScFee + 1);
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON)  == MempoolReturnValue::VALID);
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF)  == MempoolReturnValue::VALID);
 
     // Check that a MBTR with the fee less than the minimum specified in the sidechain is rejected
     mbtrTx = GenerateBtrTx(scId, mbtrScFee - 1);
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON)  == MempoolReturnValue::VALID);
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF)  == MempoolReturnValue::VALID);
 }
 
 
@@ -1552,7 +1552,7 @@ TEST_F(SidechainsInMempoolTestSuite, MbtrDataLengthGreaterThanZeroEnablesMbtr)
     CMutableTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
     CValidationState mbtrTxState;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON)  == MempoolReturnValue::VALID);
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF)  == MempoolReturnValue::VALID);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, MbtrDataLengthZeroDisablesMbtr)
@@ -1563,7 +1563,7 @@ TEST_F(SidechainsInMempoolTestSuite, MbtrDataLengthZeroDisablesMbtr)
     CMutableTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
     CValidationState mbtrTxState;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON)  == MempoolReturnValue::VALID);
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF)  == MempoolReturnValue::VALID);
 }
 
 
@@ -1579,7 +1579,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
     CValidationState fwdTxState;
 
     // Check that a FT with an amount greater than the Forward Transfer sidechain fee is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON) == MempoolReturnValue::VALID);
+    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
     uint256 dummyBlockHash {};
@@ -1612,7 +1612,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempool)
     CValidationState fwdTxState;
 
     // Check that a FT with an amount greater than the Forward Transfer sidechain fee is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON) == MempoolReturnValue::VALID);
+    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
     uint256 dummyBlockHash {};
@@ -1645,7 +1645,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
     CValidationState mbtrTxState;
 
     // Check that a FT with the fee equal to the minimum specified in the sidechain is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON) == MempoolReturnValue::VALID);
+    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
     uint256 dummyBlockHash {};
@@ -1678,7 +1678,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempool)
     CValidationState mbtrTxState;
 
     // Check that a FT with the fee equal to the minimum specified in the sidechain is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, ValidateSidechainProof::ON) == MempoolReturnValue::VALID);
+    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
     uint256 dummyBlockHash {};

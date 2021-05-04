@@ -250,23 +250,11 @@ public:
 };
 
 
-class CNodeInterface //Interface useful for UTs
-{
-public:
-    CNodeInterface() = default;
-    virtual ~CNodeInterface() = default;
 
-    virtual void AddInventoryKnown(const CInv& inv) = 0;
-    virtual NodeId GetId() const = 0;
-    virtual bool IsWhiteListed() const = 0;
-    virtual std::string GetCleanSubVer() const = 0;
-    virtual void StopAskingFor(const CInv& inv) = 0;
-    virtual void PushMessage(const char* pszCommand, const std::string& param1, unsigned char param2,
-                             const std::string& param3, const uint256& param4) = 0;
-};
+
 
 /** Information about a peer */
-class CNode : public CNodeInterface
+class CNode
 {
 public:
     // OpenSSL
@@ -380,9 +368,9 @@ private:
 
 public:
 
-    NodeId GetId()               const override final { return id; }
-    bool IsWhiteListed()         const override final { return fWhitelisted; }
-    std::string GetCleanSubVer() const override final { return cleanSubVer; }
+    NodeId GetId() const {
+      return id;
+    }
 
     int GetRefCount()
     {
@@ -443,7 +431,7 @@ public:
     }
 
 
-    void AddInventoryKnown(const CInv& inv) override final
+    void AddInventoryKnown(const CInv& inv)
     {
         {
             LOCK(cs_inventory);
@@ -461,7 +449,6 @@ public:
     }
 
     void AskFor(const CInv& inv);
-    void StopAskingFor(const CInv& inv);
 
     // TODO: Document the postcondition of this function.  Is cs_vSend locked?
     void BeginMessage(const char* pszCommand) EXCLUSIVE_LOCK_FUNCTION(cs_vSend);
@@ -537,9 +524,8 @@ public:
         }
     }
 
-private:
     template<typename T1, typename T2, typename T3, typename T4>
-    void PushMsg_4ParamsImpl(const char* pszCommand, const T1& a1, const T2& a2, const T3& a3, const T4& a4)
+    void PushMessage(const char* pszCommand, const T1& a1, const T2& a2, const T3& a3, const T4& a4)
     {
         try
         {
@@ -553,22 +539,6 @@ private:
             throw;
         }
     }
-
-public:
-    template<typename T1, typename T2, typename T3, typename T4>
-    void PushMessage(const char* pszCommand, const T1& a1, const T2& a2, const T3& a3, const T4& a4)
-    {
-    	PushMsg_4ParamsImpl(pszCommand, a1, a2, a3, a4);
-    	return;
-    }
-
-    void PushMessage(const char* pszCommand, const std::string& param1, unsigned char param2,
-                             const std::string& param3, const uint256& param4) override final
-    {
-        PushMsg_4ParamsImpl(pszCommand, param1, param2, param3, param4);
-        return;
-    }
-
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
     void PushMessage(const char* pszCommand, const T1& a1, const T2& a2, const T3& a3, const T4& a4, const T5& a5)
@@ -688,6 +658,12 @@ public:
     static uint64_t GetTotalBytesSent();
 };
 
+
+
+class CTransaction;
+class CScCertificate;
+void Relay(const CTransaction& tx);
+void Relay(const CScCertificate& cert);
 void Relay(const CTransactionBase& tx, const CDataStream& ss);
 
 /** Access to the (IP) address database (peers.dat) */

@@ -2068,6 +2068,16 @@ public:
 }
 instance_of_cnetcleanup;
 
+#if 0
+void Relay(const CTransaction& tx)
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss.reserve(10000);
+    ss << tx;
+    Relay(tx, ss);
+}
+#endif
+
 void Relay(const CTransactionBase& tx, const CDataStream& ss)
 {
     CInv inv(MSG_TX, tx.GetHash());
@@ -2098,6 +2108,16 @@ void Relay(const CTransactionBase& tx, const CDataStream& ss)
             pnode->PushInventory(inv);
     }
 }
+
+#if 0
+void Relay(const CScCertificate& cert)
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss.reserve(10000);
+    ss << cert;
+    Relay(cert, ss);
+}
+#endif
 
 void CNode::RecordBytesRecv(uint64_t bytes)
 {
@@ -2376,12 +2396,6 @@ void CNode::AskFor(const CInv& inv)
     else
         mapAlreadyAskedFor.insert(std::make_pair(inv, nRequestTime));
     mapAskFor.insert(std::make_pair(nRequestTime, inv));
-}
-
-void CNode::StopAskingFor(const CInv& inv)
-{
-    setAskFor.erase(inv.hash);
-    return;
 }
 
 void CNode::BeginMessage(const char* pszCommand) EXCLUSIVE_LOCK_FUNCTION(cs_vSend)

@@ -23,6 +23,7 @@
 class CBlockUndo;
 class CTxInUndo;
 class CSidechainUndoData;
+class CScProofVerifier;
 
 static const int BWT_POS_UNSET = -1;
 
@@ -673,7 +674,8 @@ public:
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
-    CValidationState::Code IsScTxApplicableToStateWithoutProof(const CTransaction& tx) const;
+    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx) const;
+    CValidationState::Code IsScTxCswProofVerified(const CTransaction& tx, CScProofVerifier& scVerifier) const;
     bool CheckScTxTiming(const uint256& scId) const;
     bool CheckScFtFee(const CTxForwardTransferOut& ftOutput) const;
     bool CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const;
@@ -682,7 +684,8 @@ public:
     int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    CValidationState::Code IsCertApplicableToStateWithoutProof(const CScCertificate& cert) const;
+    CValidationState::Code IsCertApplicableToState(const CScCertificate& cert) const;
+    CValidationState::Code IsCertProofVerified(const CScCertificate& cert, CScProofVerifier& scVerifier) const;
     bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
 
     CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(
