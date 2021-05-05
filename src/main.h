@@ -281,6 +281,21 @@ void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
 void PruneAndFlush();
 
+/**
+ * @brief The enumeration of states of the sidechain batch proof verification.
+ * 
+ * It is useful to correctly handle the behavior of the ProcessTxBaseMsg() function,
+ * in particular it should request an asynchronous batch verification of the proof
+ * when called for the first time (with parameter NOT_VERIFIED_YET) and then should
+ * be called a second time by the batch proof verification thread with the parameter
+ * VERIFIED.
+ */
+enum class BatchVerificationStateFlag
+{
+    NOT_VERIFIED_YET,   /**< The sidechain proof verification has not been verified yet. */
+    VERIFIED            /**< The sidechain proof has already been verified. */
+};
+
 // Accept Tx/Cert ToMempool parameters types and signature
 enum class LimitFreeFlag       { ON, OFF };
 enum class RejectAbsurdFeeFlag { ON, OFF };

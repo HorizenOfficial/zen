@@ -5714,7 +5714,7 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
-void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
+void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, BatchVerificationStateFlag proofVerificationState)
 {
     CInv inv(MSG_TX, txBase.GetHash());
     pfrom->AddInventoryKnown(inv);
@@ -6426,7 +6426,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CTransaction tx(txVers);
             tx.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
-            ProcessTxBaseMsg(tx, pfrom);
+            ProcessTxBaseMsg(tx, pfrom, BatchVerificationStateFlag::NOT_VERIFIED_YET);
         }
         else
         if (CTransactionBase::IsCertificate(txVers) )
@@ -6434,7 +6434,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CScCertificate cert(txVers);
             cert.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
-            ProcessTxBaseMsg(cert, pfrom);
+            ProcessTxBaseMsg(cert, pfrom, BatchVerificationStateFlag::NOT_VERIFIED_YET);
         }
         else
         {
