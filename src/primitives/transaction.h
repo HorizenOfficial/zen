@@ -15,6 +15,7 @@
 #include "consensus/consensus.h"
 #include "util.h"
 #include <array>
+#include "net.h"
 
 #include <boost/variant.hpp>
 
@@ -1119,6 +1120,7 @@ struct CCswProofVerifierInput
     CTxCeasedSidechainWithdrawalInput cswOut;
     CScVKey ceasedVk;
     CFieldElement certDataHash;
+    CNode* node;    /**< The node that sent the transaction. It can be null. */
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

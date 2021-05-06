@@ -418,6 +418,7 @@ struct CCertProofVerifierInput
     CFieldElement proofdata;
     CScProof certProof;
     CScVKey CertVk;
+    CNode* node;    /**< The node that sent the transaction. It can be null. */
 };
 
 #endif // _CERTIFICATE_H

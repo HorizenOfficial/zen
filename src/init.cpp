@@ -68,6 +68,8 @@
 
 #include "zen/websocket_server.h"
 
+#include "sc/asyncproofverifier.h"
+
 using namespace std;
 
 extern void ThreadSendAlert();
@@ -1848,6 +1850,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // SENDALERT
     threadGroup.create_thread(boost::bind(ThreadSendAlert));
+
+    // Start the thread for async sidechain proof verification
+    threadGroup.create_thread(
+            boost::bind(
+                    &CScAsyncProofVerifier::RunPeriodicVerification,
+                    &CScAsyncProofVerifier::GetInstance()
+            )
+    );
 
     return !fRequestShutdown;
 }

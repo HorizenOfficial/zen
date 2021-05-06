@@ -5793,22 +5793,25 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, BatchVerific
                 for(const uint256& hash: vEraseQueue)
                 EraseOrphanTx(hash);
         }
+        // TODO: currently, prohibit joinsplits from entering mapOrphans
+        else if (res == MempoolReturnValue::MISSING_INPUT && txBase.GetVjoinsplit().size() == 0)
+        {
+            AddOrphanTx(txBase, pfrom->GetId());
+    
+            // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
+            unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
+            unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
+            if (nEvicted > 0)
+                LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
+        }
     }
-    // TODO: currently, prohibit joinsplits from entering mapOrphans
-    else if (res == MempoolReturnValue::MISSING_INPUT && txBase.GetVjoinsplit().size() == 0)
+    else
     {
-        AddOrphanTx(txBase, pfrom->GetId());
- 
-        // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
-        unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
-        unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
-        if (nEvicted > 0)
-            LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
-    } else {
         assert(recentRejects);
         recentRejects->insert(txBase.GetHash());
  
-        if (pfrom->fWhitelisted) {
+        if (pfrom->fWhitelisted)
+        {
             // Always relay transactions received from whitelisted peers, even
             // if they were already in the mempool or rejected from it due
             // to policy, allowing the node to function as a gateway for
@@ -5821,7 +5824,9 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, BatchVerific
             {
                 LogPrintf("Force relaying tx %s from whitelisted peer=%d\n", txBase.GetHash().ToString(), pfrom->id);
                 txBase.Relay();
-            } else {
+            }
+            else
+            {
                 LogPrintf("Not relaying invalid transaction %s from whitelisted peer=%d (%s (code %d))\n",
                     txBase.GetHash().ToString(), pfrom->id, state.GetRejectReason(), CValidationState::CodeToChar(state.GetRejectCode()));
             }
