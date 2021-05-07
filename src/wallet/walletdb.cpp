@@ -15,6 +15,7 @@
 #include "utiltime.h"
 #include "wallet/wallet.h"
 #include "zcash/Proof.hpp"
+#include <sc/sidechain.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/foreach.hpp>
@@ -55,7 +56,7 @@ bool CWalletDB::ErasePurpose(const string& strPurpose)
     return Erase(make_pair(string("purpose"), strPurpose));
 }
 
-bool CWalletDB::WriteWalletTxBase(uint256 hash, const CWalletTransactionBase& obj)
+bool CWalletDB::WriteWalletTxBase(const uint256& hash, const CWalletTransactionBase& obj)
 {
     LogPrint("cert", "%s():%d - called for %s[%s], writing to db\n", __func__, __LINE__,
             obj.getTxBase()->IsCertificate()?"cert":"tx", obj.getTxBase()->GetHash().ToString());
@@ -87,19 +88,31 @@ bool CWalletDB::WriteWalletTxBase(uint256 hash, const CWalletTransactionBase& ob
     return false;
 }
 
-bool CWalletDB::EraseWalletTxBase(uint256 hash)
+bool CWalletDB::EraseWalletTxBase(const uint256& hash)
 {
     nWalletDBUpdated++;
     LogPrint("cert", "%s():%d - called for obj[%s]\n", __func__, __LINE__, hash.ToString());
-#if 0
-    return Erase(std::make_pair(std::string("tx"), hash));
-#else
     // Erase returns: (ok || not_found)
     // in this way we can lump tx/cert together
-    return (
-        Erase(std::make_pair(std::string("tx"), hash)) &&
-        Erase(std::make_pair(std::string("cert"), hash)) );
-#endif
+    return (Erase(std::make_pair(std::string("tx"), hash)) &&
+            Erase(std::make_pair(std::string("cert"), hash)));
+}
+
+bool CWalletDB::ReadSidechain(const uint256& scId, CScCertificateStatusUpdateInfo& sidechain)
+{
+    bool res = Read(std::make_pair(std::string("sc"), scId), sidechain);
+    sidechain.scId = scId; //Note that scId is not currenrtly serialized in CScCertificateStatusUpdateInfo
+    return res;
+}
+
+bool CWalletDB::WriteSidechain(CScCertificateStatusUpdateInfo certStatusInfo)
+{
+    return Write(std::make_pair(std::string("sc"), certStatusInfo.scId), certStatusInfo);
+}
+
+bool CWalletDB::EraseSidechain(const uint256& scId)
+{
+    return Erase(std::make_pair(std::string("sc"), scId));
 }
 
 bool CWalletDB::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta)
@@ -858,14 +871,12 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
                     if (strType == "tx")
                         // Rescan if there is a bad transaction record:
                         SoftSetBoolArg("-rescan", true);
-#if 1
                     if (strType == "cert")
                     {
                         LogPrint("cert", "%s():%d - cert error: rescan set to true\n", __func__, __LINE__);
                         // Rescan if there is a bad transaction record:
                         SoftSetBoolArg("-rescan", true);
                     }
-#endif
                 }
             }
             if (!strErr.empty())
@@ -900,7 +911,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
     if ((wss.nKeys + wss.nCKeys) != wss.nKeyMeta)
         pwallet->nTimeFirstKey = 1; // 0 would be considered 'no value'
 
-    for(uint256 hash: wss.vWalletUpgrade)
+    for(const uint256& hash: wss.vWalletUpgrade)
         WriteWalletTxBase(hash, *(pwallet->getMapWallet().at(hash)));
 
 
@@ -923,11 +934,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
     return result;
 }
 
-#if 0
-DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, vector<uint256>& vTxHash, vector<CWalletTx>& vWtx)
-#else
 DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash, std::vector<std::shared_ptr<CWalletTransactionBase> >& vWtx)
-#endif
 {
     pwallet->vchDefaultKey = CPubKey();
     bool fNoncriticalErrors = false;
@@ -975,9 +982,6 @@ DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash
                 ssValue >> wtx;
 
                 vTxHash.push_back(hash);
-#if 0
-                vWtx.push_back(wtx);
-#else
                 vWtx.push_back(std::shared_ptr<CWalletTransactionBase>(new CWalletTx(wtx)));
                 LogPrint("cert", "%s():%d - adding tx[%s] to vec\n", __func__, __LINE__, hash.ToString());
             }
@@ -992,7 +996,6 @@ DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash
                 vTxHash.push_back(hash);
                 vWtx.push_back(std::shared_ptr<CWalletTransactionBase>(new CWalletCert(wcert)));
                 LogPrint("cert", "%s():%d - adding cert[%s] to vec\n", __func__, __LINE__, hash.ToString());
-#endif
             }
         }
         pcursor->close();
@@ -1010,11 +1013,7 @@ DBErrors CWalletDB::FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash
     return result;
 }
 
-#if 0
-DBErrors CWalletDB::ZapWalletTx(CWallet* pwallet, vector<CWalletTx>& vWtx)
-#else
 DBErrors CWalletDB::ZapWalletTx(CWallet* pwallet, std::vector<std::shared_ptr<CWalletTransactionBase> >& vWtx)
-#endif
 {
     // build list of wallet TXs
     vector<uint256> vTxHash;

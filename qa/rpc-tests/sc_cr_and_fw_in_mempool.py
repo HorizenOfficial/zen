@@ -45,7 +45,7 @@ class sc_cr_fw(BitcoinTestFramework):
 
     def run_test(self):
         '''
-        Test the situation when bot a fw transfer and a certificate for the same scid are in the mempool and a block is mined"
+        Test the situation when both a fw transfer and a certificate for the same scid are in the mempool and a block is mined"
         '''
 
         def get_epoch_data(node, sc_creating_height, epoch_length):
@@ -82,13 +82,11 @@ class sc_cr_fw(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
-        mark_logs("Node 0 created a sidechain via {}".format(creating_tx), self.nodes, DEBUG_MODE)
+        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        creating_tx = ret['txid']
+        scid = ret['scid']
         self.sync_all()
-
-        decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
-        mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
+        mark_logs("Node0 created SC scid={}, tx={}".format(scid, creating_tx), self.nodes, DEBUG_MODE)
 
         totScAmount += creation_amount
 
@@ -203,7 +201,7 @@ class sc_cr_fw(BitcoinTestFramework):
 
         mark_logs("Check that sc balance is as expected", self.nodes, DEBUG_MODE)
         pprint.pprint(self.nodes[1].getscinfo(scid))
-        assert_equal(totScAmount, self.nodes[1].getscinfo(scid)['balance'])
+        assert_equal(totScAmount, self.nodes[1].getscinfo(scid)['items'][0]['balance'])
         mark_logs("Check that both nodes share the same view of sc info", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[0].getscinfo(scid), self.nodes[1].getscinfo(scid))
 

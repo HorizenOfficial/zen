@@ -43,22 +43,21 @@ class sc_cert_invalidate(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    def disconnect_nodes(self, from_connection, node_num):
-        ip_port = "127.0.0.1:" + str(p2p_port(node_num))
-        from_connection.disconnectnode(ip_port)
-        # poll until version handshake complete to avoid race conditions
-        # with transaction relaying
-        while any(peer['version'] == 0 for peer in from_connection.getpeerinfo()):
-            time.sleep(0.1)
-
     def refresh_sidechain(self, sc_info, scid, nIdx = 0 ):
         mark_logs("Node{} generating 1 block".format(nIdx), self.nodes, DEBUG_MODE)
         self.nodes[nIdx].generate(1)
         self.sync_all()
-        sc_info.append(self.nodes[nIdx].getscinfo(scid))
+        sc_info.append(self.nodes[nIdx].getscinfo(scid)['items'][0])
         mark_logs("  ==> height {}".format(self.nodes[nIdx].getblockcount()), self.nodes, DEBUG_MODE)
 
     def run_test(self):
+
+        def removekey(d, key='unconf'):
+            r = dict(d)
+            for k in d:
+                if key in k:
+                    del r[k]
+            return r
 
         '''
         Node0 creates a SC and sends funds to it, and then sends a cert to it with a bwt to Node1
@@ -93,7 +92,6 @@ class sc_cert_invalidate(BitcoinTestFramework):
         self.nodes[0].generate(220)
         self.sync_all()
 
-        sc_info.append("No SC")
 
         mark_logs("Node0 creates the SC spending {} coins ...".format(creation_amount), self.nodes, DEBUG_MODE)
 
@@ -102,10 +100,13 @@ class sc_cert_invalidate(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        creating_tx = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        creating_tx = ret['txid']
+        scid = ret['scid']
+        sc_info.append(removekey(self.nodes[0].getscinfo(scid)['items'][0]))
 
         decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
+        assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("creating_tx = {}".format(creating_tx), self.nodes, DEBUG_MODE)
@@ -235,7 +236,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
                 break
 
             try:
-                assert_equal(self.nodes[0].getscinfo(scid), sc_info[-1])
+                ret = removekey(self.nodes[0].getscinfo(scid)['items'][0])
+                assert_equal(ret, sc_info[-1])
             except JSONRPCException, e:
                 errorString = e.error['message']
                 print errorString
@@ -295,7 +297,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid), self.nodes[2].getscinfo(scid))
 
         mark_logs("check that sc balance is the amount we had in mempool at the end of invalidation phase", self.nodes, DEBUG_MODE)
-        assert_equal(self.nodes[0].getscinfo(scid)['balance'], sc_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], sc_amount)
 
         print "Node0 balance before: ", old_bal
         print "Node0 balance now   : ", self.nodes[0].getbalance()

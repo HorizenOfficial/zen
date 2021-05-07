@@ -200,6 +200,7 @@ bool CBloomFilter::IsRelevantAndUpdate(const CTransactionBase& tx)
         }
     }
 
+    // TODO: In the future we may account CSW scripts as well
     return false;
 }
 

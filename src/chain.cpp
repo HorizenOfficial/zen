@@ -4,7 +4,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "chain.h"
-#include "tinyformat.h"
 
 #include <stdexcept>
 
@@ -13,17 +12,8 @@ using namespace std;
 /**
  * CChain implementation
  */
-void CChain::SetTip(CBlockIndex *pindex) {
-    if (pindex == NULL) {
-        vChain.clear();
-        return;
-    }
-    vChain.resize(pindex->nHeight + 1);
-    while (pindex && vChain[pindex->nHeight] != pindex) {
-        vChain[pindex->nHeight] = pindex;
-        pindex = pindex->pprev;
-    }
-}
+
+const CFieldElement CBlockIndex::defaultScCumTreeHash = CFieldElement::GetPhantomHash();
 
 CBlockLocator CChain::GetLocator(const CBlockIndex *pindex) const {
     int nStep = 1;

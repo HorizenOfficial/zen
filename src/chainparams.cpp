@@ -184,7 +184,7 @@ public:
         pchMessageStart[2] = 0xcd;
         pchMessageStart[3] = 0xe6;
         vAlertPubKey = ParseHex("048679fb891b15d0cada9692047fd0ae26ad8bfb83fabddbb50334ee5bc0683294deb410be20513c5af6e7b9cec717ade82b27080ee6ef9a245c36a795ab044bb3");
-        nDefaultPort = 19033;
+        nDefaultPort = 20033;
 //        nMinerThreads = 0;
         nPruneAfterHeight = 1000;
 
@@ -197,11 +197,9 @@ public:
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.horizen.global", "dnsseed.testnet.horizen.global")); // dns seeder
-        vSeeds.push_back(CDNSSeedData("dnsseed.testnet.zensystem.io", "dnsseed.testnet.zensystem.io")); // dns seeder
-        vSeeds.push_back(CDNSSeedData("testnet.horizen.global", "testnet.horizen.global")); // fixed seed
-        vSeeds.push_back(CDNSSeedData("tesntet.zensytem.io", "tesntet.zensystem.io")); // fixed seed
-        vSeeds.push_back(CDNSSeedData("node1.zenchain.info", "node1.zenchain.info")); // fixed seed
+
+        vSeeds.push_back(CDNSSeedData("sidechains-testnet.horizen.global", "dnsseed.sidechains-testnet.horizen.global")); //dns seeder
+        vSeeds.push_back(CDNSSeedData("horizen.global", "sidechains-testnet.horizen.global")); //fixed seeds, 4 nodes
 
         // guarantees the first 2 characters, when base58 encoded, are "zt"
         // guarantees the first 2 characters, when base58 encoded, are "tm"
@@ -245,11 +243,13 @@ public:
             (467550, uint256S("0x0007f73f339ea99e920e83da38d7537ce7d0028d48e709c88b1b89adf521b4f9"))
             (520000, uint256S("0x00052e65426a0ffbb90893208a6c89a82816abbed328fa2be5a647828609e61a"))
             (595000, uint256S("0x0000da85ddc79fdd297e996d6b6b887fc5b345619b7a6726c496941dcf830966"))
-            (643000, uint256S("0x0000cabf39e3ac435d54b95c32e6173d6bb1b060066ecb7453d2146a0dd40947")),
-            1589272118,     // * UNIX timestamp of last checkpoint block
-            1325872,        // * total number of transactions between genesis and last checkpoint
+            (643000, uint256S("0x0000cabf39e3ac435d54b95c32e6173d6bb1b060066ecb7453d2146a0dd40947"))
+            (655826, uint256S("0x00036f9e25a28763e6b5385988b2d36aec99a051854ab32bc0efff4ff65aa2f4")) // split from normal testnet
+            (657000, uint256S("0x013bbc2e60182c16479f082f9a0470183544fe11c572609c71a39e2588dd157d")), // sidechain testnet HF activation block
+            1592223871,     // * UNIX timestamp of last checkpoint block
+            1356092,        // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            1187            //   total number of tx / (checkpoint block height / (24 * 24))
+            1189            //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
 //  commented out - seems to make no sense but kept around for reference just in case

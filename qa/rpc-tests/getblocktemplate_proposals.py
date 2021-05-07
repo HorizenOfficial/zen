@@ -122,7 +122,7 @@ def assert_template(node, tmpl, txlist, certlist, expect, input_sc_commitment = 
 #        raw_input("Pres to continue 1...")
      rsp = node.getblocktemplate({'data':template_to_hex(tmpl, txlist, certlist, input_sc_commitment),'mode':'proposal'})
      if rsp != expect:
-         print "rsp: ", rsp
+         print "expect: ", expect, ", rsp: ", rsp
          raise AssertionError('unexpected: %s' % (rsp,))
 #    except JSONRPCException as e:
 #            print "exception: ", e.error['message']
@@ -154,11 +154,13 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        creating_tx = self.nodes[1].sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, vk, "bb" * 1024, constant)
+        ret = self.nodes[1].sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, vk, "bb" * 1024, constant)
+        creating_tx = ret['txid']
+        scid = ret['scid']
         self.sync_all()
 
         decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
-        scid = decoded_tx['vsc_ccout'][0]['scid']
+        assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         current_height = self.nodes[1].getblockcount()
@@ -300,11 +302,16 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         else:
             assert_true(len(certlist) != 0)
             # compute commitment for the only contribution of certificate (we have no sctx/btr)
+            '''
+            TODO - this test is commented out since in this branch the sc commitment tree is computed in a different way
+            in mainchain and it would trigger an error 
+            -----
             TxsHash = dblsha(SC_NULL_HASH + SC_NULL_HASH)
             WCertHash = dblsha(certlist[0])
             scid = certlist[0][4:4+32]
             SCHash = dblsha(TxsHash + WCertHash + scid)
             assert_template(node, tmpl, txlist, certlist, None, SCHash)
+            '''
 
         # Test 12: Orphan block
         orig_val = tmpl['previousblockhash']
@@ -316,14 +323,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             assert_true(len(certlist) != 0)
             # cert only specific tests
 
-            # Test 13: Bad scid in cert
-            # set scid to 0x21 (33)
-            orig_val = certlist[0][4]
-            certlist[0][4] = 33
-            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
-            certlist[0][4] = orig_val
-
-            # Test 14: Bad cert count
+            # Test 13: Bad cert count
             certlist.append(b'')
             try:
                 assert_template(node, tmpl, txlist, certlist, 'n/a')
@@ -331,7 +331,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
                 pass  # Expected
                 certlist.pop()
 
-            # Test 15: Truncated final cert
+            # Test 14: Truncated final cert
             lastbyte = certlist[-1].pop()
             try:
                 assert_template(node, tmpl, txlist, certlist, 'n/a')
@@ -339,13 +339,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
                 pass  # Expected
             certlist[-1].append(lastbyte)
 
-            # Test 16: change epoch number
-            orig_val = certlist[0][4 + 32]
-            certlist[0][4 + 32] = 33 
-            assert_template(node, tmpl, txlist, certlist, 'bad-sc-cert-not-applicable')
-            certlist[0][4 + 32] = orig_val 
-
-            # Test 17: wrong commitment
+            # Test 15: wrong commitment
             # compute commitment for the only contribution of certificate (no tx/btr)
             fake_commitment = dblsha(b'\w'*32)
             assert_template(node, tmpl, txlist, certlist, 'bad-sc-txs-committment', fake_commitment)

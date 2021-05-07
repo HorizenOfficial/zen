@@ -29,6 +29,7 @@ class CWalletTx;
 class CWalletTransactionBase;
 class uint160;
 class uint256;
+class CMinimalSidechain;
 
 /** Error statuses for the wallet database */
 enum DBErrors
@@ -88,8 +89,12 @@ public:
     bool WritePurpose(const std::string& strAddress, const std::string& purpose);
     bool ErasePurpose(const std::string& strAddress);
 
-    bool WriteWalletTxBase(uint256 hash, const CWalletTransactionBase& wtx);
-    bool EraseWalletTxBase(uint256 hash);
+    bool WriteWalletTxBase(const uint256& hash, const CWalletTransactionBase& wtx);
+    bool EraseWalletTxBase(const uint256& hash);
+
+    bool ReadSidechain(const uint256& scId, CScCertificateStatusUpdateInfo& sidechain);
+    bool WriteSidechain(CScCertificateStatusUpdateInfo certStatusInfo);
+    bool EraseSidechain(const uint256& scId);
 
     bool WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata &keyMeta);
     bool WriteCryptedKey(const CPubKey& vchPubKey, const std::vector<unsigned char>& vchCryptedSecret, const CKeyMetadata &keyMeta);
@@ -131,13 +136,9 @@ public:
 
     DBErrors ReorderTransactions(CWallet* pwallet);
     DBErrors LoadWallet(CWallet* pwallet);
-#if 0
-    DBErrors FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash, std::vector<CWalletTx>& vWtx);
-    DBErrors ZapWalletTx(CWallet* pwallet, std::vector<CWalletTx>& vWtx);
-#else
     DBErrors FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash, std::vector<std::shared_ptr<CWalletTransactionBase> >& vWtx);
     DBErrors ZapWalletTx(CWallet* pwallet, std::vector<std::shared_ptr<CWalletTransactionBase> >& vWtx);
-#endif
+
     static bool Recover(CDBEnv& dbenv, const std::string& filename, bool fOnlyKeys);
     static bool Recover(CDBEnv& dbenv, const std::string& filename);
 

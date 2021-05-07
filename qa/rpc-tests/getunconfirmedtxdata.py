@@ -179,8 +179,8 @@ class getunconfirmedtxdata(BitcoinTestFramework):
         val_1 = vout[1]['value']
 
         # verify that both addresses has expected unconfirmed data
-        unconf_data_0 = self.nodes[0].getunconfirmedtxdata(add_0, False)
-        unconf_data_1 = self.nodes[0].getunconfirmedtxdata(add_1, False)
+        unconf_data_0 = self.nodes[0].getunconfirmedtxdata(add_0, False, False)
+        unconf_data_1 = self.nodes[0].getunconfirmedtxdata(add_1, False, False)
         mark_logs("Node0 unconfirmed data for address {} : {}".format(add_0, unconf_data_0), self.nodes, DEBUG_MODE)
         mark_logs("Node0 unconfirmed data for address {} : {}".format(add_1, unconf_data_1), self.nodes, DEBUG_MODE)
 

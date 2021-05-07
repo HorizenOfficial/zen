@@ -1,9 +1,17 @@
+#include "tx_creation_utils.h"
+#include <gtest/libzendoo_test_files.h>
+#include <primitives/transaction.h>
+#include <primitives/certificate.h>
 #include <script/interpreter.h>
 #include <main.h>
 #include <pubkey.h>
+#include <miner.h>
+#include <undo.h>
 #include "tx_creation_utils.h"
+#include <pow.h>
+#include <coins.h>
 
-CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, const CAmount & fwdTxAmount, int epochLength)
+CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength)
 {
     CMutableTransaction mtx;
     mtx.nVersion = txVersion;
@@ -30,6 +38,9 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vsc_ccout.resize(1);
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
+    mtx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    mtx.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    mtx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
 
     return mtx;
 }
@@ -55,9 +66,24 @@ void txCreationUtils::signTx(CMutableTransaction& mtx)
     assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL, dataToBeSigned.begin(), 32, joinSplitPrivKey ) == 0);
 }
 
+void txCreationUtils::signTx(CMutableScCertificate& mcert)
+{
+    // Compute the correct hSig.
+    // TODO: #966.
+    static const uint256 one(uint256S("1"));
+    // Empty output script.
+    CScript scriptCode;
+    CScCertificate signedCert(mcert);
+    uint256 dataToBeSigned = SignatureHash(scriptCode, signedCert, NOT_AN_INPUT, SIGHASH_ALL);
+    if (dataToBeSigned == one) {
+        throw std::runtime_error("SignatureHash failed");
+    }
+    // Add the signature
+}
+
 CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, CAmount(0), epochLength);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, epochLength);
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vft_ccout.resize(0);
@@ -68,7 +94,7 @@ CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationT
 
 CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, CAmount(0), fwdTxAmount);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, fwdTxAmount);
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vsc_ccout.resize(0);
@@ -82,6 +108,37 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
     return CTransaction(mtx);
 }
 
+CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
+{
+    std::vector<unsigned char> tmp(nullifierHex.begin(), nullifierHex.end());
+    tmp.resize(CFieldElement::ByteSize());
+    CFieldElement nullifier{tmp};
+
+    uint160 dummyPubKeyHash {};
+    libzendoomc::ScProof dummyScProof;
+    CScript dummyRedeemScript;
+
+    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript);
+}
+
+CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawalInput& csw)
+{
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vcsw_ccin.resize(1);
+    mtx.vcsw_ccin[0] = csw;
+
+    return CTransaction(mtx);
+}
+
+CTransaction txCreationUtils::createCoinBase(const CAmount& amount)
+{
+    CMutableTransaction mutCoinBase;
+    mutCoinBase.vin.push_back(CTxIn(uint256(), -1));
+    mutCoinBase.addOut(CTxOut(amount,CScript()));
+    return CTransaction(mutCoinBase);
+}
+
 // Well-formatted transparent txs have no sc-related info.
 // ccisNull allow you to create a faulty transparent tx, for testing purposes.
 CTransaction txCreationUtils::createTransparentTx(bool ccIsNull)
@@ -91,6 +148,7 @@ CTransaction txCreationUtils::createTransparentTx(bool ccIsNull)
 
     if (ccIsNull)
     {
+        mtx.vcsw_ccin.resize(0);
         mtx.vsc_ccout.resize(0);
         mtx.vft_ccout.resize(0);
     }
@@ -106,6 +164,7 @@ CTransaction txCreationUtils::createSproutTx(bool ccIsNull)
     if (ccIsNull)
     {
         mtx = populateTx(PHGR_TX_VERSION);
+        mtx.vcsw_ccin.resize(0);
         mtx.vsc_ccout.resize(0);
         mtx.vft_ccout.resize(0);
     } else
@@ -117,69 +176,121 @@ CTransaction txCreationUtils::createSproutTx(bool ccIsNull)
     return CTransaction(mtx);
 }
 
-void txCreationUtils::extendTransaction(CTransaction & tx, const uint256 & scId, const CAmount & amount)
+void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount)
 {
     CMutableTransaction mtx = tx;
 
     mtx.nVersion = SC_TX_VERSION;
 
     CTxScCreationOut aSidechainCreationTx;
+    aSidechainCreationTx.nValue = scAmount;
+    aSidechainCreationTx.withdrawalEpochLength = 100;
     mtx.vsc_ccout.push_back(aSidechainCreationTx);
-
-    CTxForwardTransferOut aForwardTransferTx;
-    aForwardTransferTx.scId = scId;
-    aForwardTransferTx.nValue = amount;
-    mtx.vft_ccout.push_back(aForwardTransferTx);
 
     tx = mtx;
     return;
 }
 
-CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, unsigned int numChangeOut, CAmount bwTotaltAmount, unsigned int numBwt) {
+CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+                                                  CAmount changeTotalAmount, unsigned int numChangeOut,
+                                                  CAmount bwtTotalAmount, unsigned int numBwt, const int quality) {
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
     res.epochNumber = epochNum;
     res.endEpochBlockHash = endEpochBlockHash;
-    res.quality = 3; //setup to non zero value
+    res.quality = quality;
 
+    res.vin.resize(1);
+    res.vin[0].prevout.hash = uint256S("1");
+    res.vin[0].prevout.n = 0;
+    
     CScript dummyScriptPubKey =
             GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     for(unsigned int idx = 0; idx < numChangeOut; ++idx)
-        res.addOut(CTxOut(insecure_rand(),dummyScriptPubKey));
+        res.addOut(CTxOut(changeTotalAmount/numChangeOut,dummyScriptPubKey));
 
     for(unsigned int idx = 0; idx < numBwt; ++idx)
-        res.addBwt(CTxOut(bwTotaltAmount/numBwt, dummyScriptPubKey));
+        res.addBwt(CTxOut(bwtTotalAmount/numBwt, dummyScriptPubKey));
 
     return res;
 }
 
-void chainSettingUtils::GenerateChainActive(int targetHeight) {
-    chainActive.SetTip(nullptr);
-    mapBlockIndex.clear();
+uint256 txCreationUtils::CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight)
+{
+    CAmount dummyFeeAmount {0};
+    CScript dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
+            << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;
 
-    static std::vector<uint256> blockHashes;
-    blockHashes.clear();
-    blockHashes.resize(targetHeight+1);
-    std::vector<CBlockIndex> blocks(targetHeight+1);
+    CTransaction inputTx = createCoinbase(dummyCoinbaseScript, dummyFeeAmount, coinHeight);
+    CTxUndo dummyUndo;
+    UpdateCoins(inputTx, targetView, dummyUndo, coinHeight);
+    assert(targetView.HaveCoins(inputTx.GetHash()));
+    return inputTx.GetHash();
+}
+
+void txCreationUtils::storeSidechain(CSidechainsMap& mapToWriteInto, const uint256& scId, const CSidechain& sidechain)
+{
+    auto value = CSidechainsCacheEntry(sidechain,CSidechainsCacheEntry::Flags::DIRTY);
+    WriteMutableEntry(scId, value, mapToWriteInto);
+}
+
+void txCreationUtils::storeSidechainEvent(CSidechainEventsMap& mapToWriteInto, int eventHeight, const CSidechainEvents& scEvent)
+{
+    auto value = CSidechainEventsCacheEntry(scEvent,CSidechainsCacheEntry::Flags::DIRTY);
+    WriteMutableEntry(eventHeight, value, mapToWriteInto);
+}
+
+void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)
+{
+    if (chainActive.Height() > targetHeight)
+       return chainActive.SetTip(chainActive[targetHeight]); //TODO: delete content before setting tip
 
     ZCIncrementalMerkleTree dummyTree;
     dummyTree.append(GetRandHash());
 
-    for (unsigned int height=0; height<blocks.size(); ++height) {
-        blockHashes[height] = ArithToUint256(height);
+    uint256 prevBlockHash = chainActive.Height() <= 0 ? uint256(): *(chainActive.Tip()->phashBlock);
+    for (unsigned int height=std::max(chainActive.Height(),0); height<= targetHeight; ++height) {
+        uint256 currBlockHash = ArithToUint256(height);
+        CBlockIndex* pNewBlockIdx = new CBlockIndex();
+        assert(pNewBlockIdx != nullptr);
 
-        blocks[height].nHeight = height;
-        blocks[height].pprev = height == 0? nullptr : mapBlockIndex[blockHashes[height-1]];
-        blocks[height].phashBlock = &blockHashes[height];
-        blocks[height].nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
-        blocks[height].nBits = 0x1e7fffff;
-        blocks[height].nChainWork = height == 0 ? arith_uint256(0) : blocks[height - 1].nChainWork + GetBlockProof(blocks[height - 1]);
+        pNewBlockIdx->nHeight = height;
+        pNewBlockIdx->pprev = height == 0? nullptr : mapBlockIndex.at(prevBlockHash);
+        pNewBlockIdx->nTime = 1269211443 + height * Params().GetConsensus().nPowTargetSpacing;
+        pNewBlockIdx->nBits = 0x1e7fffff;
+        pNewBlockIdx->nChainWork = height == 0 ? arith_uint256(0) : mapBlockIndex.at(prevBlockHash)->nChainWork + GetBlockProof(*(mapBlockIndex.at(prevBlockHash)));
+        pNewBlockIdx->hashAnchor = dummyTree.root();
 
-        blocks[height].hashAnchor = dummyTree.root();
+        BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
+        pNewBlockIdx->phashBlock = &(mi->first);
+        chainActive.SetTip(mapBlockIndex.at(currBlockHash));
 
-        mapBlockIndex[blockHashes[height]] = new CBlockIndex(blocks[height]);
-        mapBlockIndex[blockHashes[height]]->phashBlock = &blockHashes[height];
-        chainActive.SetTip(mapBlockIndex[blockHashes[height]]);
+        prevBlockHash = currBlockHash;
     }
+    return;
+}
+
+void chainSettingUtils::ExtendChainActiveWithBlock(const CBlock& block)
+{
+    ZCIncrementalMerkleTree dummyTree;
+    dummyTree.append(GetRandHash());
+
+    uint256 prevBlockHash = chainActive.Height() <= 0 ? uint256(): *(chainActive.Tip()->phashBlock);
+
+    uint256 currBlockHash = block.GetHash();
+    CBlockIndex* pNewBlockIdx = new CBlockIndex();
+    assert(pNewBlockIdx != nullptr);
+
+    pNewBlockIdx->nHeight = chainActive.Height()+1;
+    pNewBlockIdx->pprev = (chainActive.Height()+1) == 0? nullptr : mapBlockIndex.at(prevBlockHash);
+    pNewBlockIdx->nTime = 1269211443 + chainActive.Height()+1 * Params().GetConsensus().nPowTargetSpacing;
+    pNewBlockIdx->nBits = 0x1e7fffff;
+    pNewBlockIdx->nChainWork = (chainActive.Height()+1) == 0 ? arith_uint256(0) : mapBlockIndex.at(prevBlockHash)->nChainWork + GetBlockProof(*(mapBlockIndex.at(prevBlockHash)));
+    pNewBlockIdx->hashAnchor = dummyTree.root();
+
+    BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
+    pNewBlockIdx->phashBlock = &(mi->first);
+    chainActive.SetTip(mapBlockIndex.at(currBlockHash));
+    return;
 }

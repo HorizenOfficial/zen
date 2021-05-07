@@ -37,7 +37,7 @@ void create_verify(int argc, char** argv)
     assert(IsHex(argv[arg]));
     auto prev_end_epoch_mc_b_hash = uint256S(argv[arg++]);
 
-    uint64_t quality = strtoull(argv[arg++], NULL, 0);
+    int64_t quality = strtoll(argv[arg++], NULL, 0);
     assert(quality >= 0);
 
     assert(IsHex(argv[arg]));
