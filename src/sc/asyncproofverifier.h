@@ -43,8 +43,8 @@ public:
     CScAsyncProofVerifier(const CScAsyncProofVerifier&) = delete;
     CScAsyncProofVerifier& operator=(const CScAsyncProofVerifier&) = delete;
 
-    void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert);
-    void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx);
+    void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom);
+    void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom);
     void RunPeriodicVerification();
 
 private:

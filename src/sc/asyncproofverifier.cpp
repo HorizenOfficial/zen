@@ -8,10 +8,10 @@
 #include "zendoo/error.h"
 
 #ifdef BITCOIN_TX
-void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert) {return;}
-void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx) {return;}
+void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom) {return;}
+void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom) {return;}
 #else
-void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert)
+void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom)
 {
     CCertProofVerifierInput certData;
 
@@ -62,6 +62,7 @@ void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& v
     certData.proofdata = CFieldElement{}; //Note: Currently proofdata is not present in WCert
     certData.certProof = scCert.scProof;
     certData.CertVk = sidechain.fixedParams.wCertVk;
+    certData.node = pfrom;
 
     {
         LOCK(cs_asyncQueue);
@@ -71,7 +72,7 @@ void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& v
     return;
 }
 
-void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx)
+void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom)
 {
     std::map</*outputPos*/unsigned int, CCswProofVerifierInput> txMap;
 
@@ -98,6 +99,7 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
             cswData.ceasedVk = CScVKey{};
 
         cswData.cswOut = csw;
+        cswData.node = pfrom;
 
         txMap.insert(std::make_pair(idx, cswData));
     }
@@ -166,8 +168,10 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
                 // Post processing of proves
                 for (AsyncProofVerifierOutput output : outputs)
                 {
-                    ProcessTxBaseMsg(*output.tx.get(), output.node,
-                                     output.proofVerified ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED);
+                    CValidationState dummyState;
+                    ProcessTxBaseAcceptToMemoryPool(*output.tx.get(), output.node,
+                                                    output.proofVerified ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
+                                                    dummyState);
                 }
             }
         }

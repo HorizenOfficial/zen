@@ -1137,7 +1137,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
 }
 
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification)
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom)
 {
     // Assert to be removed after the implementation of the async verifier.
     assert(fProofVerification != MempoolProofVerificationFlag::ASYNC);
@@ -1372,7 +1372,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
         if (fProofVerification == MempoolProofVerificationFlag::ASYNC)
         {
-            CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(view, cert);
+            CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(view, cert, pfrom);
             return MempoolReturnValue::PARTIALLY_VALIDATED;
         }
         else if (fProofVerification == MempoolProofVerificationFlag::SYNC)
@@ -1405,7 +1405,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 }
 
 MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, LimitFreeFlag fLimitFree,
-                        RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification)
+                        RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom)
 {
     // Assert to be removed after the implementation of the async verifier.
     assert(fProofVerification != MempoolProofVerificationFlag::ASYNC);
@@ -1677,7 +1677,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         {
             if (fProofVerification == MempoolProofVerificationFlag::ASYNC)
             {
-                CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(view, tx);
+                CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(view, tx, pfrom);
                 return MempoolReturnValue::PARTIALLY_VALIDATED;
             }
             else if (fProofVerification == MempoolProofVerificationFlag::SYNC)
@@ -1703,19 +1703,19 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
 }
 
 MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification)
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom)
 {
     try
     {
         if (txBase.IsCertificate())
         {
             return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree,
-                                                 fRejectAbsurdFee, fProofVerification);
+                                                 fRejectAbsurdFee, fProofVerification, pfrom);
         }
         else
         {
             return AcceptTxToMemoryPool(pool, state, dynamic_cast<const CTransaction&>(txBase), fLimitFree,
-                                        fRejectAbsurdFee, fProofVerification);
+                                        fRejectAbsurdFee, fProofVerification, pfrom);
         }
     }
     catch (...)
@@ -5729,7 +5729,99 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
-void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, BatchVerificationStateFlag proofVerificationState)
+void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfrom, BatchVerificationStateFlag proofVerificationState, CValidationState& state)
+{
+    CInv inv(MSG_TX, txBase.GetHash());
+    pfrom->AddInventoryKnown(inv);
+
+    LOCK(cs_main);
+
+    MempoolProofVerificationFlag verificationFlag = proofVerificationState == BatchVerificationStateFlag::NOT_VERIFIED_YET ?
+                                                    MempoolProofVerificationFlag::SYNC : MempoolProofVerificationFlag::DISABLED;
+
+    MempoolReturnValue res = AcceptTxBaseToMemoryPool(mempool, state, txBase,
+                                                      LimitFreeFlag::ON,
+                                                      RejectAbsurdFeeFlag::OFF,
+                                                      verificationFlag);
+
+    if (res == MempoolReturnValue::VALID)
+    {
+        mempool.check(pcoinsTip);
+        txBase.Relay();
+        std::vector<uint256> vWorkQueue{inv.hash};
+        std::vector<uint256> vEraseQueue;
+
+        LogPrint("mempool", "%s(): peer=%d %s: accepted %s (poolsz %u)\n", __func__,
+            pfrom->id, pfrom->cleanSubVer,
+            txBase.GetHash().ToString(),
+            mempool.size());
+
+        // Recursively process any orphan transactions that depended on this one
+        set<NodeId> setMisbehaving;
+        for (unsigned int i = 0; i < vWorkQueue.size(); i++)
+        {
+            map<uint256, set<uint256> >::iterator itByPrev = mapOrphanTransactionsByPrev.find(vWorkQueue[i]);
+            if (itByPrev == mapOrphanTransactionsByPrev.end())
+                continue;
+            for (const uint256& orphanHash: itByPrev->second)
+            {
+                const CTransactionBase& orphanTx = *mapOrphanTransactions[orphanHash].tx;
+                NodeId fromPeer = mapOrphanTransactions[orphanHash].fromPeer;
+                bool fMissingInputs2 = false;
+                // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
+                // resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get
+                // anyone relaying LegitTxX banned)
+                CValidationState stateDummy;
+
+                if (setMisbehaving.count(fromPeer))
+                    continue;
+
+                MempoolReturnValue resOrphan = AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
+                            LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::SYNC);
+                if (resOrphan == MempoolReturnValue::VALID)
+                {
+                    LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
+                    orphanTx.Relay();
+                    vWorkQueue.push_back(orphanHash);
+                    vEraseQueue.push_back(orphanHash);
+                }
+                else if (resOrphan == MempoolReturnValue::INVALID)
+                {
+                    if (stateDummy.IsInvalid() && stateDummy.GetDoS() > 0)
+                    {
+                        // Punish peer that gave us an invalid orphan tx
+                        Misbehaving(fromPeer, stateDummy.GetDoS());
+                        setMisbehaving.insert(fromPeer);
+                        LogPrint("mempool", "   invalid orphan tx %s\n", orphanHash.ToString());
+                    }
+                    // Has inputs but not accepted to mempool
+                    // Probably non-standard or insufficient fee/priority
+                    LogPrint("mempool", "   removed orphan tx %s\n", orphanHash.ToString());
+                    vEraseQueue.push_back(orphanHash);
+                    assert(recentRejects);
+                    recentRejects->insert(orphanHash);
+                }
+                mempool.check(pcoinsTip);
+            }
+        }
+
+            for(const uint256& hash: vEraseQueue)
+            EraseOrphanTx(hash);
+    }
+    // TODO: currently, prohibit joinsplits from entering mapOrphans
+    else if (res == MempoolReturnValue::MISSING_INPUT && txBase.GetVjoinsplit().size() == 0)
+    {
+        AddOrphanTx(txBase, pfrom->GetId());
+
+        // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
+        unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
+        unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
+        if (nEvicted > 0)
+            LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
+    }
+}
+
+void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
 {
     CInv inv(MSG_TX, txBase.GetHash());
     pfrom->AddInventoryKnown(inv);
@@ -5741,84 +5833,10 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, BatchVerific
 
     MempoolReturnValue res = MempoolReturnValue::INVALID;
     CValidationState state;
+
     if (!AlreadyHave(inv))
     {
-        res = AcceptTxBaseToMemoryPool(mempool, state, txBase, LimitFreeFlag::ON, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::SYNC);
-        if (res == MempoolReturnValue::VALID)
-        {
-            mempool.check(pcoinsTip);
-            txBase.Relay();
-            std::vector<uint256> vWorkQueue{inv.hash};
-            std::vector<uint256> vEraseQueue;
- 
-            LogPrint("mempool", "%s(): peer=%d %s: accepted %s (poolsz %u)\n", __func__,
-                pfrom->id, pfrom->cleanSubVer,
-                txBase.GetHash().ToString(),
-                mempool.size());
- 
-            // Recursively process any orphan transactions that depended on this one
-            set<NodeId> setMisbehaving;
-            for (unsigned int i = 0; i < vWorkQueue.size(); i++)
-            {
-                map<uint256, set<uint256> >::iterator itByPrev = mapOrphanTransactionsByPrev.find(vWorkQueue[i]);
-                if (itByPrev == mapOrphanTransactionsByPrev.end())
-                    continue;
-                for (const uint256& orphanHash: itByPrev->second)
-                {
-                    const CTransactionBase& orphanTx = *mapOrphanTransactions[orphanHash].tx;
-                    NodeId fromPeer = mapOrphanTransactions[orphanHash].fromPeer;
-                    bool fMissingInputs2 = false;
-                    // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
-                    // resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get
-                    // anyone relaying LegitTxX banned)
-                    CValidationState stateDummy;
- 
-                    if (setMisbehaving.count(fromPeer))
-                        continue;
- 
-                    MempoolReturnValue resOrphan = AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
-                                LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::SYNC);
-                    if (resOrphan == MempoolReturnValue::VALID)
-                    {
-                        LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
-                        orphanTx.Relay();
-                        vWorkQueue.push_back(orphanHash);
-                        vEraseQueue.push_back(orphanHash);
-                    }
-                    else if (resOrphan == MempoolReturnValue::INVALID)
-                    {
-                        if (stateDummy.IsInvalid() && stateDummy.GetDoS() > 0)
-                        {
-                            // Punish peer that gave us an invalid orphan tx
-                            Misbehaving(fromPeer, stateDummy.GetDoS());
-                            setMisbehaving.insert(fromPeer);
-                            LogPrint("mempool", "   invalid orphan tx %s\n", orphanHash.ToString());
-                        }
-                        // Has inputs but not accepted to mempool
-                        // Probably non-standard or insufficient fee/priority
-                        LogPrint("mempool", "   removed orphan tx %s\n", orphanHash.ToString());
-                        vEraseQueue.push_back(orphanHash);
-                        assert(recentRejects);
-                        recentRejects->insert(orphanHash);
-                    }
-                    mempool.check(pcoinsTip);
-                }
-            }
- 
-                for(const uint256& hash: vEraseQueue)
-                EraseOrphanTx(hash);
-        }
-        // TODO: currently, prohibit joinsplits from entering mapOrphans
-        else if (res == MempoolReturnValue::MISSING_INPUT && txBase.GetVjoinsplit().size() == 0)
-        {
-            AddOrphanTx(txBase, pfrom->GetId());
-    
-            // DoS prevention: do not allow mapOrphanTransactions to grow unbounded
-            unsigned int nMaxOrphanTx = (unsigned int)std::max((int64_t)0, GetArg("-maxorphantx", DEFAULT_MAX_ORPHAN_TRANSACTIONS));
-            unsigned int nEvicted = LimitOrphanTxSize(nMaxOrphanTx);
-            if (nEvicted > 0)
-                LogPrint("mempool", "mapOrphan overflow, removed %u tx\n", nEvicted);
-        }
+        ProcessTxBaseAcceptToMemoryPool(txBase, pfrom, BatchVerificationStateFlag::NOT_VERIFIED_YET, state);
     }
     else
     {
@@ -6446,7 +6464,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CTransaction tx(txVers);
             tx.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
-            ProcessTxBaseMsg(tx, pfrom, BatchVerificationStateFlag::NOT_VERIFIED_YET);
+            ProcessTxBaseMsg(tx, pfrom);
         }
         else
         if (CTransactionBase::IsCertificate(txVers) )
@@ -6454,7 +6472,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CScCertificate cert(txVers);
             cert.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
             LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
-            ProcessTxBaseMsg(cert, pfrom, BatchVerificationStateFlag::NOT_VERIFIED_YET);
+            ProcessTxBaseMsg(cert, pfrom);
         }
         else
         {

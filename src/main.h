@@ -226,8 +226,12 @@ enum class BatchVerificationStateFlag
     FAILED              /**< The sidechain proof has been rejected. */
 };
 
+/** Process a transaction or certificate that has to be added to memory pool */
+void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfrom,
+                                     BatchVerificationStateFlag proofVerificationState,
+                                     CValidationState& state);
 /** Process protocol message of type "tx" */
-void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom, BatchVerificationStateFlag proofVerificationState);
+void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom);
 /** Process protocol messages received from a given node */
 bool ProcessMessages(CNode* pfrom);
 /**
@@ -318,15 +322,15 @@ enum class MempoolProofVerificationFlag
 
 /** (try to) add transaction to memory pool **/
 MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification);
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
 void StoreTxToMempool(const CTransaction &tx, CTxMemPool &pool, const CCoinsViewCache &view);
 MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification);
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
 void StoreCertToMempool(const CScCertificate &cert, CTxMemPool &pool, const CCoinsViewCache &view);
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification);
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
 struct CNodeStateStats {
     int nMisbehavior;
