@@ -92,6 +92,7 @@ testScripts=(
   'sc_cert_maturity.py'
   'sbh_rpc_cmds.py'
   'sc_cert_ceasing.py'
+  'ws_messages.py'
   'sc_cert_getraw.py'
   'sc_getscinfo.py'
   'sc_quality_mempool.py'

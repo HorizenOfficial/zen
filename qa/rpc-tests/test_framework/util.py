@@ -28,6 +28,34 @@ def p2p_port(n):
     return 11000 + n + os.getpid()%999
 def rpc_port(n):
     return 12000 + n + os.getpid()%999
+def ws_port(n):
+    return 7474 + n + os.getpid()%999
+
+def get_ws_url(extra_args, i):
+    ws_url=None
+    wsport_arg=None
+
+    if '-websocket=1' in extra_args:
+        wsp = 0
+        for s in extra_args:
+            if '-wsport=' in s:
+                for d in s.split('='):
+                    if d.isdigit():
+                        wsp = int(d)
+                        break
+            # if more than one wsport option is set, the last wins
+            #if wsp != 0:
+            #    break
+        if wsp == 0:
+            # if ws port has not been set in args, we set it
+            wsp = ws_port(i)
+            wsport_arg = '-wsport=%d' % wsp
+
+        ws_url = "ws://localhost:%d" % wsp
+        print "######### WEBSOCKET URL: ", ws_url
+
+    return ws_url, wsport_arg
+
 
 def check_json_precision():
     """Make sure json library being used does not lose precision converting BTC values"""
@@ -216,6 +244,9 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
     if binary is None:
         binary = os.getenv("BITCOIND", "zend")
     args = [ binary, "-datadir="+datadir, "-keypool=1", "-discover=0", "-rest", "-rpcservertimeout=600" ]
+
+    ws_url, wsport_arg = get_ws_url(extra_args, i)
+    if wsport_arg is not None: args.extend([wsport_arg])
     if extra_args is not None: args.extend(extra_args)
     bitcoind_processes[i] = subprocess.Popen(args)
     devnull = open("/dev/null", "w+")
@@ -229,10 +260,11 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
     devnull.close()
     url = "http://rt:rt@%s:%d" % (rpchost or '127.0.0.1', rpc_port(i))
     if timewait is not None:
-        proxy = AuthServiceProxy(url, timeout=timewait)
+        proxy = AuthServiceProxy(url, ws_url=ws_url, timeout=timewait)
     else:
-        proxy = AuthServiceProxy(url)
+        proxy = AuthServiceProxy(url, ws_url=ws_url)
     proxy.url = url # store URL on proxy for info
+    proxy.ws_url = ws_url # store URL on proxy for info
     return proxy
 
 def start_nodes(num_nodes, dirname, extra_args=None, rpchost=None, binary=None):
