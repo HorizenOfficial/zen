@@ -61,6 +61,8 @@ public:
     const libzendoomc::ScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
+    const CAmount forwardTransferScFee;
+    const CAmount mainchainBackwardTransferRequestScFee;
 
     // memory only
     const int nFirstBwtPos;
@@ -110,6 +112,8 @@ public:
         READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
         READWRITE(*const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField));
         READWRITE(*const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField));
+        READWRITE(*const_cast<CAmount*>(&forwardTransferScFee));
+        READWRITE(*const_cast<CAmount*>(&mainchainBackwardTransferRequestScFee));
 
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
 
@@ -229,6 +233,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
     libzendoomc::ScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
+    CAmount forwardTransferScFee;
+    CAmount mainchainBackwardTransferRequestScFee;
 
     // memory only
     const int nFirstBwtPos;
@@ -252,6 +258,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(scProof);
         READWRITE(vFieldElementCertificateField);
         READWRITE(vBitVectorCertificateField);
+        READWRITE(forwardTransferScFee);
+        READWRITE(mainchainBackwardTransferRequestScFee);
         READWRITE(vin);
 
         if (ser_action.ForRead())
@@ -343,6 +351,54 @@ struct CScCertificateStatusUpdateInfo
         str += strprintf("CScCertificateStatusUpdateInfo(scId=%s, certHash=%s, certEpoch=%d, bwtState=%d)",
                          this->scId.ToString(), this->certHash.ToString(), this->certEpoch, this->bwtState);
         return str;
+    }
+};
+
+/**
+ * A structure containing a subset of the sidechain certificate data.
+ */
+struct CScCertificateView
+{
+    CFieldElement certDataHash;
+    CAmount forwardTransferScFee;
+    CAmount mainchainBackwardTransferRequestScFee;
+
+    CScCertificateView(): certDataHash(), forwardTransferScFee(CScCertificate::INT_NULL), mainchainBackwardTransferRequestScFee(CScCertificate::INT_NULL) {};
+    CScCertificateView(const uint256& certDataHash, CAmount ftFee, CAmount mbtrFee):
+        certDataHash(certDataHash), forwardTransferScFee(ftFee), mainchainBackwardTransferRequestScFee(mbtrFee) {};
+    CScCertificateView(const CScCertificate& certificate):
+        certDataHash(certificate.GetDataHash()), forwardTransferScFee(certificate.forwardTransferScFee),
+        mainchainBackwardTransferRequestScFee(certificate.mainchainBackwardTransferRequestScFee) {};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(certDataHash);
+        READWRITE(forwardTransferScFee);
+        READWRITE(mainchainBackwardTransferRequestScFee);
+    }
+
+    inline bool operator==(const CScCertificateView& rhs) const
+    {
+        return (this->certDataHash == rhs.certDataHash) &&
+               (this->forwardTransferScFee == rhs.forwardTransferScFee) &&
+               (this->mainchainBackwardTransferRequestScFee == rhs.mainchainBackwardTransferRequestScFee);
+    }
+    inline bool operator!=(const CScCertificateView& rhs) const { return !(*this == rhs); }
+
+    std::string ToString() const
+    {
+        return strprintf("{ certDataHash=%s, ftScFee=%d, mbtrScFee=%d }", certDataHash.GetHexRepr(), forwardTransferScFee, mainchainBackwardTransferRequestScFee);
+    }
+
+    bool IsNull() const
+    {
+        return (
+            certDataHash.IsNull() &&
+            forwardTransferScFee == CScCertificate::INT_NULL &&
+            mainchainBackwardTransferRequestScFee == CScCertificate::INT_NULL
+        );
     }
 };
 

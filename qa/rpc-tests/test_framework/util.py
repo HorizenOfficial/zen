@@ -559,7 +559,8 @@ def get_spendable(node, min_amount):
     return utx, change
 
 def advance_epoch(mcTest, node, sync_call,
-    scid, prev_epoch_hash, sc_tag, constant, epoch_length, cert_quality=1, cert_fee=Decimal("0.00001")):
+    scid, prev_epoch_hash, sc_tag, constant, epoch_length, cert_quality=1, cert_fee=Decimal("0.00001"),
+    ftScFee=Decimal("0"), mbtrScFee=Decimal("0")):
 
     node.generate(epoch_length)
     sync_call()
@@ -571,7 +572,7 @@ def advance_epoch(mcTest, node, sync_call,
         cert_quality, constant, [], [])
 
     try:
-        cert = node.send_certificate(scid, epoch_number, cert_quality, epoch_block_hash, proof, [], cert_fee)
+        cert = node.send_certificate(scid, epoch_number, cert_quality, epoch_block_hash, proof, [], ftScFee, mbtrScFee, cert_fee)
     except JSONRPCException, e:
         errorString = e.error['message']
         print "Send certificate failed with reason {}".format(errorString)

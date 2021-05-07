@@ -19,7 +19,7 @@ int CSidechain::EpochFor(int targetHeight) const
     if (!isCreationConfirmed()) //default value
         return CScCertificate::EPOCH_NULL;
 
-    return (targetHeight - creationBlockHeight) / creationData.withdrawalEpochLength;
+    return (targetHeight - creationBlockHeight) / fixedParams.withdrawalEpochLength;
 }
 
 int CSidechain::GetStartHeightForEpoch(int targetEpoch) const
@@ -27,7 +27,7 @@ int CSidechain::GetStartHeightForEpoch(int targetEpoch) const
     if (!isCreationConfirmed()) //default value
         return -1;
 
-    return creationBlockHeight + targetEpoch * creationData.withdrawalEpochLength;
+    return creationBlockHeight + targetEpoch * fixedParams.withdrawalEpochLength;
 }
 
 int CSidechain::GetEndHeightForEpoch(int targetEpoch) const
@@ -35,7 +35,7 @@ int CSidechain::GetEndHeightForEpoch(int targetEpoch) const
     if (!isCreationConfirmed()) //default value
         return -1;
 
-    return GetStartHeightForEpoch(targetEpoch) + creationData.withdrawalEpochLength - 1;
+    return GetStartHeightForEpoch(targetEpoch) + fixedParams.withdrawalEpochLength - 1;
 }
 
 int CSidechain::GetCertSubmissionWindowStart(int certEpoch) const
@@ -56,7 +56,7 @@ int CSidechain::GetCertSubmissionWindowEnd(int certEpoch) const
 
 int CSidechain::GetCertSubmissionWindowLength() const
 {
-    return std::max(2,creationData.withdrawalEpochLength/5);
+    return std::max(2,fixedParams.withdrawalEpochLength/5);
 }
 
 int CSidechain::GetCertMaturityHeight(int certEpoch) const
@@ -87,16 +87,16 @@ std::string CSidechain::ToString() const
 {
     std::string str;
     str = strprintf("\n CSidechain(version=%d\n creationBlockHeight=%d\n"
-                      " creationTxHash=%s\n pastEpochTopQualityCertDataHash=%s\n"
-                      " lastTopQualityCertDataHash=%s\n"
+                      " creationTxHash=%s\n pastEpochTopQualityCertView=%s\n"
+                      " lastTopQualityCertView=%s\n"
                       " lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
                       " lastTopQualityCertQuality=%d\n lastTopQualityCertBwtAmount=%s\n balance=%s\n"
-                      " creationData=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
+                      " fixedParams=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
         sidechainVersion
         , creationBlockHeight
         , creationTxHash.ToString()
-        , pastEpochTopQualityCertDataHash.GetHexRepr()
-        , lastTopQualityCertDataHash.GetHexRepr()
+        , pastEpochTopQualityCertView.ToString()
+        , lastTopQualityCertView.ToString()
         , lastTopQualityCertHash.ToString()
         , lastTopQualityCertReferencedEpoch
         , lastTopQualityCertQuality
@@ -203,20 +203,36 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-creation-invalid-constant");
         }
 
-        if (sc.wMbtrVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wMbtrVk.get()))
-        {
-            return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid wMbtrVk verification key\n",
-                    __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-creation-invalid-w-mbtr-vk");
-        }
-
         if (sc.wCeasedVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",
                     __func__, __LINE__, txHash.ToString()),
                     REJECT_INVALID, "sidechain-sc-creation-invalid-wceased-vk");
+        }
+
+        if (!MoneyRange(sc.forwardTransferScFee))
+        {
+            return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], forwardTransferScFee out of range [%d, %d]\n",
+                    __func__, __LINE__, txHash.ToString(), 0, MAX_MONEY),
+                    REJECT_INVALID, "bad-cert-ft-fee-out-of-range");
+        }
+
+        if (!MoneyRange(sc.mainchainBackwardTransferRequestScFee))
+        {
+            return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestScFee out of range [%d, %d]\n",
+                    __func__, __LINE__, txHash.ToString(), 0, MAX_MONEY),
+                    REJECT_INVALID, "bad-cert-mbtr-fee-out-of-range");
+        }
+
+        if (sc.mainchainBackwardTransferRequestDataLength < 0 || sc.mainchainBackwardTransferRequestDataLength > MAX_SC_MBTR_DATA_LEN)
+        {
+            return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength out of range [%d, %d]\n",
+                    __func__, __LINE__, txHash.ToString(), 0, MAX_SC_MBTR_DATA_LEN),
+                    REJECT_INVALID, "bad-cert-mbtr-data-length-out-of-range");
         }
     }
 
@@ -242,20 +258,31 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     REJECT_INVALID, "sidechain-sc-fee-amount-outside-range");
         }
 
-        if (!libzendoomc::IsValidScProof(bt.scProof))
+        if (bt.vScRequestData.size() == 0)
         {
             return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scProof\n",
-                    __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-proof");
+                        error("%s():%d - ERROR: Invalid tx[%s], vScRequestData empty is not allowed\n",
+                        __func__, __LINE__, txHash.ToString()),
+                        REJECT_INVALID, "sidechain-sc-bwt-invalid-request-data");
         }
 
-        if (!bt.scRequestData.IsValid())
+        if (bt.vScRequestData.size() > MAX_SC_MBTR_DATA_LEN)
         {
             return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid bwt scRequestData\n",
-                    __func__, __LINE__, txHash.ToString()),
-                    REJECT_INVALID, "sidechain-sc-bwt-invalid-sc-utxo-id");
+                        error("%s():%d - ERROR: Invalid tx[%s], vScRequestData size out of range [%d, %d]\n",
+                        __func__, __LINE__, txHash.ToString(), 0, MAX_SC_MBTR_DATA_LEN),
+                        REJECT_INVALID, "sidechain-sc-bwt-invalid-request-data");
+        }
+
+        for (const CFieldElement& fe : bt.vScRequestData)
+        {
+            if (!fe.IsValid())
+            {
+                return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], invalid bwt vScRequestData\n",
+                        __func__, __LINE__, txHash.ToString()),
+                        REJECT_INVALID, "sidechain-sc-bwt-invalid-request-data");
+            }
         }
     }
 
@@ -305,6 +332,22 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
                 REJECT_INVALID, "bad-cert-invalid-epoch-data");;
     }
 
+    if (!MoneyRange(cert.forwardTransferScFee))
+    {
+        return state.DoS(100,
+                error("%s():%d - ERROR: Invalid cert[%s], forwardTransferScFee out of range\n",
+                __func__, __LINE__, certHash.ToString()),
+                REJECT_INVALID, "bad-cert-ft-fee-out-of-range");;
+    }
+
+    if (!MoneyRange(cert.mainchainBackwardTransferRequestScFee))
+    {
+        return state.DoS(100,
+                error("%s():%d - ERROR: Invalid cert[%s], mainchainBackwardTransferRequestScFee out of range\n",
+                __func__, __LINE__, certHash.ToString()),
+                REJECT_INVALID, "bad-cert-mbtr-fee-out-of-range");;
+    }
+
     if(!libzendoomc::IsValidScProof(cert.scProof))
     {
         return state.DoS(100,
@@ -318,8 +361,8 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
 
 bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCertificate& cert)
 {
-    const std::vector<FieldElementCertificateFieldConfig>& vCfeCfg = sidechain.creationData.vFieldElementCertificateFieldConfig;
-    const std::vector<BitVectorCertificateFieldConfig>& vCmtCfg = sidechain.creationData.vBitVectorCertificateFieldConfig;
+    const std::vector<FieldElementCertificateFieldConfig>& vCfeCfg = sidechain.fixedParams.vFieldElementCertificateFieldConfig;
+    const std::vector<BitVectorCertificateFieldConfig>& vCmtCfg = sidechain.fixedParams.vBitVectorCertificateFieldConfig;
 
     const std::vector<FieldElementCertificateField>& vCfe = cert.vFieldElementCertificateField;
     const std::vector<BitVectorCertificateField>& vCmt = cert.vBitVectorCertificateField;

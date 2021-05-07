@@ -109,7 +109,6 @@ struct CSidechainMemPoolEntry
     std::set<uint256> fwdTxHashes; 
     std::map<int64_t, uint256> mBackwardCertificates; //quality -> certHash
     std::set<uint256> mcBtrsTxHashes;
-    CFieldElement mcBtrsCertDataHash;
     std::map<CFieldElement, uint256> cswNullifiers; // csw nullifier -> containing Tx hash
     CAmount cswTotalAmount;
 
@@ -121,7 +120,6 @@ struct CSidechainMemPoolEntry
                 fwdTxHashes.empty()           &&
                 mBackwardCertificates.empty() &&
                 mcBtrsTxHashes.empty()        &&
-                mcBtrsCertDataHash.IsNull()   &&
                 cswNullifiers.empty()         &&
                 cswTotalAmount == 0;
     }
@@ -193,8 +191,7 @@ public:
     std::pair<uint256, CAmount> FindCertWithQuality(const uint256& scId, int64_t certQuality);
     bool RemoveCertAndSync(const uint256& certToRmHash);
 
-    bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true,
-                      const std::map<uint256, CFieldElement>& scIdToCertDataHash = std::map<uint256, CFieldElement>{});
+    bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
 
     std::vector<uint256> mempoolDirectDependenciesFrom(const CTransactionBase& root) const;

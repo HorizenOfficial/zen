@@ -388,7 +388,7 @@ void CCoinsViewDB::Dump_info()  const
                 << "  creating block height: " << info.creationBlockHeight  << std::endl
                 << "  creating tx hash: " << info.creationTxHash.ToString() << std::endl
                 // creation parameters
-                << "  withdrawalEpochLength: " << info.creationData.withdrawalEpochLength << std::endl;
+                << "  withdrawalEpochLength: " << info.fixedParams.withdrawalEpochLength << std::endl;
         }
         else
         {

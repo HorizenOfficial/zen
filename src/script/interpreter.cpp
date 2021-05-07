@@ -1178,6 +1178,8 @@ public:
             ::Serialize(s, certTo.scProof, nType, nVersion);
             ::Serialize(s, certTo.vFieldElementCertificateField, nType, nVersion);
             ::Serialize(s, certTo.vBitVectorCertificateField, nType, nVersion);
+            ::Serialize(s, certTo.forwardTransferScFee, nType, nVersion);
+            ::Serialize(s, certTo.mainchainBackwardTransferRequestScFee, nType, nVersion);
 
             // Serialize vin
             unsigned int nInputs = fAnyoneCanPay ? 1 : certTo.GetVin().size();

@@ -587,5 +587,55 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(certFee, Decimal("0.0"))
 
 
+        # generate a certificate with invalid FT fee
+        errorString = ""
+        ftScFee = Decimal("-1.0")
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn, "ftScFee": ftScFee}
+
+        mark_logs("Node0 creating raw certificate with negative FT fee", self.nodes, DEBUG_MODE)
+        try:
+            raw_cert = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
+            assert_true(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+
+        assert_true("Amount out of range" in errorString)
+
+
+        # generate a certificate with invalid MBTR fee
+        errorString = ""
+        mbtrScFee = Decimal("-1.0")
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn, "mbtrScFee": mbtrScFee}
+
+        mark_logs("Node0 creating raw certificate with negative MBTR fee", self.nodes, DEBUG_MODE)
+        try:
+            raw_cert = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
+            assert_true(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+
+        assert_true("Amount out of range" in errorString)
+
+
+        # generate a certificate with valid FT and MBTR fees
+        errorString = ""
+        ftScFee = Decimal("10.0")
+        mbtrScFee = Decimal("20.0")
+        raw_params = {"scid": scid, "quality": quality, "endEpochBlockHash": eph, "scProof": proof, "withdrawalEpochNumber": epn, "ftScFee": ftScFee, "mbtrScFee": mbtrScFee}
+
+        mark_logs("Node0 creating raw certificate with valid FT and MBTR fees", self.nodes, DEBUG_MODE)
+        try:
+            raw_cert = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
+            decoded_cert = self.nodes[0].decoderawcertificate(raw_cert)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            print "\n======> ", errorString
+            assert_true(False)
+
+        assert_equal(decoded_cert['cert']['ftScFee'], ftScFee)
+        assert_equal(decoded_cert['cert']['mbtrScFee'], mbtrScFee)
+
 if __name__ == '__main__':
     sc_rawcert().main()

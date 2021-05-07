@@ -1069,7 +1069,7 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
     // there are no info about bwt requests in sc db, therefore we do not include them neither when they are in mempool
 }
 
-bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechain::State scState,
+bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechain::State scState, const CCoinsViewCache& scView, 
     UniValue& sc, bool bOnlyAlive, bool bVerbose)
 {
     if (bOnlyAlive && (scState != CSidechain::State::ALIVE))
@@ -1098,39 +1098,39 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         sc.push_back(Pair("last certificate hash", info.lastTopQualityCertHash.GetHex()));
         sc.push_back(Pair("last certificate quality", info.lastTopQualityCertQuality));
         sc.push_back(Pair("last certificate amount", ValueFromAmount(info.lastTopQualityCertBwtAmount)));
+
+        const CScCertificateView& certView = scView.GetActiveCertView(scId);
+        sc.push_back(Pair("active ftScFee", ValueFromAmount(certView.forwardTransferScFee)));
+        sc.push_back(Pair("active mbtrScFee", ValueFromAmount(certView.mainchainBackwardTransferRequestScFee)));
  
         // creation parameters
-        sc.push_back(Pair("withdrawalEpochLength", info.creationData.withdrawalEpochLength));
+        sc.push_back(Pair("mbtrRequestDataLength", info.fixedParams.mainchainBackwardTransferRequestDataLength));
+        sc.push_back(Pair("withdrawalEpochLength", info.fixedParams.withdrawalEpochLength));
  
         if (bVerbose)
         {
-            sc.push_back(Pair("wCertVk", HexStr(info.creationData.wCertVk)));
-            sc.push_back(Pair("customData", HexStr(info.creationData.customData)));
+            sc.push_back(Pair("wCertVk", HexStr(info.fixedParams.wCertVk)));
+            sc.push_back(Pair("customData", HexStr(info.fixedParams.customData)));
 
-            if (info.creationData.constant.is_initialized())
-                sc.push_back(Pair("constant", info.creationData.constant->GetHexRepr()));
+            if (info.fixedParams.constant.is_initialized())
+                sc.push_back(Pair("constant", info.fixedParams.constant->GetHexRepr()));
             else
                 sc.push_back(Pair("constant", std::string{"NOT INITIALIZED"}));
 
-            if (info.creationData.wMbtrVk.is_initialized())
-                sc.push_back(Pair("wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
-            else
-                sc.push_back(Pair("wMbtrVk", std::string{"NOT INITIALIZED"}));
-
-            if(info.creationData.wCeasedVk.is_initialized())
-                sc.push_back(Pair("wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
+            if(info.fixedParams.wCeasedVk.is_initialized())
+                sc.push_back(Pair("wCeasedVk", HexStr(info.fixedParams.wCeasedVk.get())));
             else
                 sc.push_back(Pair("wCeasedVk", std::string{"NOT INITIALIZED"}));
 
             UniValue arrFieldElementConfig(UniValue::VARR);
-            for(const auto& cfgEntry: info.creationData.vFieldElementCertificateFieldConfig)
+            for(const auto& cfgEntry: info.fixedParams.vFieldElementCertificateFieldConfig)
             {
                 arrFieldElementConfig.push_back(cfgEntry.getBitSize());
             }
             sc.push_back(Pair("vFieldElementCertificateFieldConfig", arrFieldElementConfig));
 
             UniValue arrBitVectorConfig(UniValue::VARR);
-            for(const auto& cfgEntry: info.creationData.vBitVectorCertificateFieldConfig)
+            for(const auto& cfgEntry: info.fixedParams.vBitVectorCertificateFieldConfig)
             {
                 UniValue singlePair(UniValue::VARR);
                 singlePair.push_back(cfgEntry.getBitVectorSizeBits());
@@ -1138,6 +1138,11 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 arrBitVectorConfig.push_back(singlePair);
             }
             sc.push_back(Pair("vBitVectorCertificateFieldConfig", arrBitVectorConfig));
+
+            sc.push_back(Pair("past ftScFee", ValueFromAmount(info.pastEpochTopQualityCertView.forwardTransferScFee)));
+            sc.push_back(Pair("past mbtrScFee", ValueFromAmount(info.pastEpochTopQualityCertView.mainchainBackwardTransferRequestScFee)));
+            sc.push_back(Pair("last ftScFee", ValueFromAmount(info.lastTopQualityCertView.forwardTransferScFee)));
+            sc.push_back(Pair("last mbtrScFee", ValueFromAmount(info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee)));
         }
  
         UniValue ia(UniValue::VARR);
@@ -1177,51 +1182,45 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 if (scId == scCreation.GetScId())
                 {
                     info.creationTxHash = scCreationHash;
-                    info.creationData.withdrawalEpochLength = scCreation.withdrawalEpochLength;
-                    info.creationData.customData = scCreation.customData;
-                    info.creationData.constant = scCreation.constant;
-                    info.creationData.wCertVk = scCreation.wCertVk;
-                    info.creationData.wMbtrVk = scCreation.wMbtrVk;
-                    info.creationData.wCeasedVk = scCreation.wCeasedVk;
-                    info.creationData.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
-                    info.creationData.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;
+                    info.fixedParams.withdrawalEpochLength = scCreation.withdrawalEpochLength;
+                    info.fixedParams.customData = scCreation.customData;
+                    info.fixedParams.constant = scCreation.constant;
+                    info.fixedParams.wCertVk = scCreation.wCertVk;
+                    info.fixedParams.wCeasedVk = scCreation.wCeasedVk;
+                    info.fixedParams.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
+                    info.fixedParams.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;
                     break;
                 }
             }
 
             sc.push_back(Pair("state", CSidechain::stateToString(CSidechain::State::UNCONFIRMED)));
             sc.push_back(Pair("unconf creating tx hash", info.creationTxHash.GetHex()));
-            sc.push_back(Pair("unconf withdrawalEpochLength", info.creationData.withdrawalEpochLength));
+            sc.push_back(Pair("unconf withdrawalEpochLength", info.fixedParams.withdrawalEpochLength));
 
             if (bVerbose)
             {
-                sc.push_back(Pair("unconf wCertVk", HexStr(info.creationData.wCertVk)));
-                sc.push_back(Pair("unconf customData", HexStr(info.creationData.customData)));
+                sc.push_back(Pair("unconf wCertVk", HexStr(info.fixedParams.wCertVk)));
+                sc.push_back(Pair("unconf customData", HexStr(info.fixedParams.customData)));
 
-                if(info.creationData.constant.is_initialized())
-                    sc.push_back(Pair("unconf constant", info.creationData.constant->GetHexRepr()));
+                if(info.fixedParams.constant.is_initialized())
+                    sc.push_back(Pair("unconf constant", info.fixedParams.constant->GetHexRepr()));
                 else
                     sc.push_back(Pair("unconf constant", std::string{"NOT INITIALIZED"}));
 
-                if(info.creationData.wMbtrVk.is_initialized())
-                    sc.push_back(Pair("unconf wMbtrVk", HexStr(info.creationData.wMbtrVk.get())));
-                else
-                    sc.push_back(Pair("unconf wMbtrVk", std::string{"NOT INITIALIZED"}));
-
-                if(info.creationData.wCeasedVk.is_initialized())
-                    sc.push_back(Pair("unconf wCeasedVk", HexStr(info.creationData.wCeasedVk.get())));
+                if(info.fixedParams.wCeasedVk.is_initialized())
+                    sc.push_back(Pair("unconf wCeasedVk", HexStr(info.fixedParams.wCeasedVk.get())));
                 else
                     sc.push_back(Pair("unconf wCeasedVk", std::string{"NOT INITIALIZED"}));
 
                 UniValue arrFieldElementConfig(UniValue::VARR);
-                for(const auto& cfgEntry: info.creationData.vFieldElementCertificateFieldConfig)
+                for(const auto& cfgEntry: info.fixedParams.vFieldElementCertificateFieldConfig)
                 {
                     arrFieldElementConfig.push_back(cfgEntry.getBitSize());
                 }
                 sc.push_back(Pair("unconf vFieldElementCertificateFieldConfig", arrFieldElementConfig));
 
                 UniValue arrBitVectorConfig(UniValue::VARR);
-                for(const auto& cfgEntry: info.creationData.vBitVectorCertificateFieldConfig)
+                for(const auto& cfgEntry: info.fixedParams.vBitVectorCertificateFieldConfig)
                 {
                     UniValue singlePair(UniValue::VARR);
                     singlePair.push_back(cfgEntry.getBitVectorSizeBits());
@@ -1252,7 +1251,7 @@ bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool
     }
     CSidechain::State scState = scView.GetSidechainState(scId);
 
-    return FillScRecordFromInfo(scId, sidechain, scState, scRecord, bOnlyAlive, bVerbose);
+    return FillScRecordFromInfo(scId, sidechain, scState, scView, scRecord, bOnlyAlive, bVerbose);
 }
 
 int FillScList(UniValue& scItems, bool bOnlyAlive, bool bVerbose, int from=0, int to=-1)
@@ -1330,7 +1329,7 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
     }
 
-    CFieldElement certDataHash = scView.GetActiveCertDataHash(scid);
+    CFieldElement certDataHash = scView.GetActiveCertView(scid).certDataHash;
     if (certDataHash.IsNull() )
     {
         LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());
@@ -1369,14 +1368,22 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"created at block height\": xxxxx,   (numeric) height of the above block\n"
             "     \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
             "     \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
+            "     \"last certificate quality\":xxxxx,   (numeric) the quality of the last certificate that has been received\n"
+            "     \"last certificate amount\": xxxxx,   (numeric) the amount of the last certificate that has been received\n"
+            "     \"active ftScFee\":          xxxxx,   (numeric) The currently active fee required to create a Forward Transfer to sidechain\n"
+            "     \"active mbtrScFee\":        xxxxx,   (numeric) The currently active fee required to create a Mainchain Backward Transfer Request to sidechain\n"
+            "     \"mbtrRequestDataLength\":   xxxxx,   (numeric) The size of the MBTR request data length\n"
             "     \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
             "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
             "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
             "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
-            "     \"wMbtrVk\":                 xxxxx,   (string)  The verification key needed to verify a Mainchain backward transfer request, optionally set at sc creation\n"
-            "     \"wCeasedVk\":               xxxxx,   (string, optional)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
+            "     \"wCeasedVk\":               xxxxx,   (string)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
             "     \"vFieldElementCertificateFieldConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
             "     \"vBitVectorCertificateFieldConfig\"    xxxxx,   (string) A string representation of an array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom vBitVectorCertificateField with the corresponding sizes\n"
+            "     \"past ftScFee\":            xxxxx,   (numeric) The (past epoch) fee required to create a Forward Transfer to sidechain\n"
+            "     \"past mbtrScFee\":          xxxxx,   (numeric) The (past epoch) fee required to create a Mainchain Backward Transfer Request to sidechain\n"
+            "     \"last ftScFee\":            xxxxx,   (numeric) The (last epoch) fee required to create a Forward Transfer to sidechain\n"
+            "     \"last mbtrScFee\":          xxxxx,   (numeric) The (last epoch) fee required to create a Mainchain Backward Transfer Request to sidechain\n"
             "     \"immature amounts\": [\n"
             "       {\n"
             "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
