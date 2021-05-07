@@ -39,9 +39,10 @@
 #include "zen/forkmanager.h"
 #include "zen/delay.h"
 
+#include "sc/asyncproofverifier.h"
+#include "sc/proofverifier.h"
 #include "sc/sidechain.h"
-#include <sc/sidechainTxsCommitmentBuilder.h>
-#include <sc/proofverifier.h>
+#include "sc/sidechainTxsCommitmentBuilder.h"
 
 #include "script/sigcache.h"
 #include "script/standard.h"
@@ -1219,19 +1220,6 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
                     ret_code, "bad-sc-cert-not-applicable");
                 return MempoolReturnValue::INVALID;
             }
-
-            if (fProofVerification == MempoolProofVerificationFlag::SYNC)
-            {
-                CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-                scVerifier.LoadDataForCertVerification(view, cert);
-
-                if (!scVerifier.BatchVerify())
-                {
-                    state.DoS(100, error("%s():%d - cert proof failed to verify",
-                        __func__, __LINE__), ret_code, "bad-sc-cert-proof");
-                    return MempoolReturnValue::INVALID;
-                }
-            }
             
             // do all inputs exist?
             // Note that this does not check for the presence of actual outputs (see the next check for that),
@@ -1382,6 +1370,24 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             return MempoolReturnValue::INVALID;
         }
 
+        if (fProofVerification == MempoolProofVerificationFlag::ASYNC)
+        {
+            CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(view, cert);
+            return MempoolReturnValue::PARTIALLY_VALIDATED;
+        }
+        else if (fProofVerification == MempoolProofVerificationFlag::SYNC)
+        {
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
+            scVerifier.LoadDataForCertVerification(view, cert);
+
+            if (!scVerifier.BatchVerify())
+            {
+                state.DoS(100, error("%s():%d - cert proof failed to verify",
+                    __func__, __LINE__),  CValidationState::Code::INVALID_PROOF, "bad-sc-cert-proof");
+                return MempoolReturnValue::INVALID;
+            }
+        }
+
         if (!pool.RemoveCertAndSync(conflictingCertData.first))
         {
             state.Invalid(
@@ -1395,7 +1401,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         pool.addUnchecked(certHash, entry, !IsInitialBlockDownload());
     }
 
-    return MempoolReturnValue::VALID;;
+    return MempoolReturnValue::VALID;
 }
 
 MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, LimitFreeFlag fLimitFree,
@@ -1534,21 +1540,6 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 return MempoolReturnValue::INVALID;
             }
 
-            if (fProofVerification == MempoolProofVerificationFlag::SYNC)
-            {
-                CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
-                scVerifier.LoadDataForCswVerification(view, tx);
-
-                if (!scVerifier.BatchVerify())
-                {
-                    state.DoS(100,
-                        error("%s():%d - ERROR: sc-related tx [%s] proof failed",
-                            __func__, __LINE__, hash.ToString()),
-                        ret_code, "bad-sc-tx-proof");
-                    return MempoolReturnValue::INVALID;
-                }
-            }
-
             // are the joinsplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
             {
@@ -1679,6 +1670,30 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         {
             error("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", __func__,  hash.ToString());
             return MempoolReturnValue::INVALID;
+        }
+
+        // Run the proof verification only if there is at least one CSW input.
+        if (tx.GetVcswCcIn().size() > 0)
+        {
+            if (fProofVerification == MempoolProofVerificationFlag::ASYNC)
+            {
+                CScAsyncProofVerifier::GetInstance().LoadDataForCswVerification(view, tx);
+                return MempoolReturnValue::PARTIALLY_VALIDATED;
+            }
+            else if (fProofVerification == MempoolProofVerificationFlag::SYNC)
+            {
+                CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
+                scVerifier.LoadDataForCswVerification(view, tx);
+
+                if (!scVerifier.BatchVerify())
+                {
+                    state.DoS(100,
+                        error("%s():%d - ERROR: sc-related tx [%s] proof failed",
+                            __func__, __LINE__, hash.ToString()),
+                            CValidationState::Code::INVALID_PROOF, "bad-sc-tx-proof");
+                    return MempoolReturnValue::INVALID;
+                }
+            }
         }
 
         pool.addUnchecked(hash, entry, !IsInitialBlockDownload());
