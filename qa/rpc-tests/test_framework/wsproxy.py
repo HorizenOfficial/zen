@@ -30,8 +30,9 @@ REQ_GET_SINGLE_BLOCK = 0
 REQ_GET_MULTIPLE_BLOCK_HASHES = 1
 REQ_GET_NEW_BLOCK_HASHES = 2
 REQ_SEND_CERTIFICATE = 3
+REQ_GET_BLOCK_HEADERS = 4
 REQ_UNDEFINED = 0xff
-    
+
 MSG_EVENT = 0
 MSG_REQUEST = 1
 MSG_RESPONSE = 2
@@ -46,7 +47,7 @@ def fill_ws_send_certificate_input(args):
     msg = {}
     msg['msgType']     = MSG_REQUEST
     msg['requestId']   = "req_" + str(time.time())
-    msg['requestType'] = REQ_SEND_CERTIFICATE 
+    msg['requestType'] = REQ_SEND_CERTIFICATE
 
     msg['requestPayload'] = {}
     msg['requestPayload']['scid']              = args[0] # scid
@@ -59,7 +60,7 @@ def fill_ws_send_certificate_input(args):
     # optional
     if len(args) > 6:
         msg['requestPayload']['fee']           = args[6] # fee
- 
+
     return json.dumps(msg, default=EncodeDecimal)
 
 def fill_ws_send_certificate_output(jrsp):
@@ -74,7 +75,7 @@ def fill_ws_get_single_block_input(args):
     msg = {}
     msg['msgType']     = MSG_REQUEST
     msg['requestId']   = "req_" + str(time.time())
-    msg['requestType'] = REQ_GET_SINGLE_BLOCK 
+    msg['requestType'] = REQ_GET_SINGLE_BLOCK
 
     msg['requestPayload'] = {}
     if isinstance(args[0], int):
@@ -87,6 +88,44 @@ def fill_ws_get_single_block_input(args):
 def fill_ws_get_single_block_output(jrsp):
     print "Json Received '%s'" % jrsp
     return jrsp['responsePayload']['height'], jrsp['responsePayload']['hash'], jrsp['responsePayload']['block']
+
+#----------------------------------------------------------------
+def fill_ws_get_new_block_hashes_input(args):
+    if len(args) == 0:
+        raise JSONWSException("{}(): wrong number of args {}".format(__func(), len(args)))
+
+    msg = {}
+    msg['msgType']     = MSG_REQUEST
+    msg['requestId']   = "req_" + str(time.time())
+    msg['requestType'] = REQ_GET_NEW_BLOCK_HASHES
+
+    msg['requestPayload'] = {}
+    msg['requestPayload']['locatorHashes'] = args[0]
+    msg['requestPayload']['limit'] = args[1]
+    return json.dumps(msg, default=EncodeDecimal)
+
+def fill_ws_get_new_block_hashes_output(jrsp):
+    print "Json Received '%s'" % jrsp
+    return jrsp['responsePayload']['height'], jrsp['responsePayload']['hashes']
+
+#----------------------------------------------------------------
+def fill_ws_get_block_headers_input(args):
+    if len(args) == 0:
+        raise JSONWSException("{}(): wrong number of args {}".format(__func(), len(args)))
+
+    msg = {}
+    msg['msgType']     = MSG_REQUEST
+    msg['requestId']   = "req_" + str(time.time())
+    msg['requestType'] = REQ_GET_BLOCK_HEADERS
+
+    msg['requestPayload'] = {}
+    # TODO height or hash depending on arg value
+    msg['requestPayload']['hashes'] = args[0]
+    return json.dumps(msg, default=EncodeDecimal)
+
+def fill_ws_get_block_headers_output(jrsp):
+    print "Json Received '%s'" % jrsp
+    return jrsp['responsePayload']['headers']
 
 #----------------------------------------------------------------
 def fill_ws_get_multiple_block_hashes_input(args):
@@ -112,29 +151,7 @@ def fill_ws_get_multiple_block_hashes_output(jrsp):
     print "Json Received '%s'" % jrsp
     return jrsp['responsePayload']['height'], jrsp['responsePayload']['hashes']
 
-#----------------------------------------------------------------
-def fill_ws_get_new_block_hashes_input(args):
-    if len(args) == 0:
-        raise JSONWSException("{}(): wrong number of args {}".format(__func(), len(args)))
-
-    msg = {}
-    msg['msgType']     = MSG_REQUEST
-    msg['requestId']   = "req_" + str(time.time())
-    msg['requestType'] = REQ_GET_NEW_BLOCK_HASHES
-
-    msg['requestPayload'] = {}
-    msg['requestPayload']['locatorHashes'] = args[0]
-    msg['requestPayload']['limit'] = args[1]
-    return json.dumps(msg, default=EncodeDecimal)
-
-def fill_ws_get_new_block_hashes_output(jrsp):
-    print "Json Received '%s'" % jrsp
-    return jrsp['responsePayload']['height'], jrsp['responsePayload']['hashes']
-
-#----------------------------------------------------------------
-
-
-# for negative tests 
+# for negative tests
 #----------------------------------------------------------------
 def fill_ws_test_input(args):
     if len(args) == 0:
@@ -142,11 +159,11 @@ def fill_ws_test_input(args):
     msg = {}
     msg['msgType']     = 100
     msg['requestId']   = "req_" + str(time.time())
-    msg['requestType'] = REQ_GET_SINGLE_BLOCK 
+    msg['requestType'] = REQ_GET_SINGLE_BLOCK
 
     msg['requestPayload'] = {}
     # TODO height or hash depending on arg value
-    msg['requestPayload']['height'] = args[0] 
+    msg['requestPayload']['height'] = args[0]
     '''
     msg = "qqq"
     '''
@@ -156,19 +173,17 @@ def fill_ws_test_output(jrsp):
     print "Json Received '%s'" % jrsp
     return jrsp['responsePayload']['height'], jrsp['responsePayload']['hash'], jrsp['responsePayload']['block']
 
-
-#----------------------------------------------------------------
 def fill_ws_cmd_input(method, args):
     if method == "ws_send_certificate": return fill_ws_send_certificate_input(args)
     if method == "ws_get_single_block": return fill_ws_get_single_block_input(args)
     if method == "ws_get_multiple_block_hashes": return fill_ws_get_multiple_block_hashes_input(args)
     if method == "ws_get_new_block_hashes": return fill_ws_get_new_block_hashes_input(args)
+    if method == "ws_get_block_headers": return fill_ws_get_block_headers_input(args)
 
     if method == "ws_test": return fill_ws_test_input(args)
     # add specific method calls here
 
     raise JSONWSException("Websocket method \"{}\" not supported".format(method))
-
 
 def fill_ws_cmd_output(method, jrsp):
 
@@ -176,13 +191,12 @@ def fill_ws_cmd_output(method, jrsp):
     if method == "ws_get_single_block": return fill_ws_get_single_block_output(jrsp)
     if method == "ws_get_multiple_block_hashes": return fill_ws_get_multiple_block_hashes_output(jrsp)
     if method == "ws_get_new_block_hashes": return fill_ws_get_new_block_hashes_output(jrsp)
+    if method == "ws_get_block_headers": return fill_ws_get_block_headers_output(jrsp)
 
     if method == "ws_test": return fill_ws_test_output(jrsp)
     # add specific method calls here
 
-
     raise JSONWSException("Websocket method \"{}\" not supported".format(method))
-
 
 class WsServiceProxy(object):
     __id_count = 0
@@ -199,7 +213,7 @@ class WsServiceProxy(object):
         print "Sent! Receiving..."
         resp =  ws.recv()
         print "Received '%s'" % resp
- 
+
         jrsp = json.loads(resp)
         log.debug("-%s-> %s %s (ws response got)"%(WsServiceProxy.__id_count, method,
                                  json.dumps(jrsp, default=EncodeDecimal)))
@@ -207,7 +221,7 @@ class WsServiceProxy(object):
         self._trap_ws_errors(method, jrsp)
 
         return fill_ws_cmd_output(method, jrsp)
- 
+
     def get_wsurl(self):
         return self.__ws_url
 
@@ -242,7 +256,7 @@ class WsServiceProxy(object):
             ws.close()
             print "hhhhhhhhhhhhhhhhhhh ", str(e)
             raise JSONWSException("Exception got invoking WS req [{}] at [{}]".format(method, self.__ws_url))
-        
+
         ws.close()
         return resp
 
@@ -251,8 +265,8 @@ class WsServiceProxy(object):
         if (jrsp['msgType'] is None):
             log.debug("-%s-> %s %s)"%(WsServiceProxy.__id_count, method, json.dumps(jrsp, default=EncodeDecimal)))
             raise JSONWSException("Ill formed response got from [{}]: {}".format(self.__ws_url, jrsp))
-    
-    
+
+
         if ((jrsp['msgType'] is not None) and (jrsp['msgType'] == MSG_ERROR)):
             try:
                 if jrsp['requestId'] is not None:
@@ -263,6 +277,6 @@ class WsServiceProxy(object):
             except:
                 log.debug("-%s-> %s %s)"%(WsServiceProxy.__id_count, method, json.dumps(jrsp, default=EncodeDecimal)))
                 raise JSONWSException("Ill formed response got from [{}]: {}".format(self.__ws_url, jrsp))
-    
+
             raise JSONWSException("{}".format(message))
 

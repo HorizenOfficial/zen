@@ -156,7 +156,10 @@ class sc_rawcert(BitcoinTestFramework):
             print "\n======> ", errorString
             assert_true(False)
 
-        mark_logs("Node0 sending raw certificate for epoch {} beyond sg, expecting failure...".format(epn), self.nodes, DEBUG_MODE)
+        decoded_cert_pre = self.nodes[0].decoderawtransaction(raw_cert)
+        decoded_cert_pre_list = sorted(decoded_cert_pre.items())
+
+        mark_logs("Node0 sending raw certificate for epoch {}, expecting failure...".format(epn), self.nodes, DEBUG_MODE)
         # we expect it to fail because beyond the safeguard
         try:
             cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
@@ -208,7 +211,7 @@ class sc_rawcert(BitcoinTestFramework):
         sc_funds_post = self.nodes[3].getscinfo(scid)['items'][0]['balance']
         assert_equal(sc_funds_post, sc_funds_pre - bt_amount)
 
-        decoded_cert_post = self.nodes[2].getrawcertificate(cert, 1)
+        decoded_cert_post = self.nodes[2].getrawtransaction(cert, 1)
         assert_equal(decoded_cert_post['certid'], cert)
         assert_equal(decoded_cert_post['hex'], signed_cert['hex'])
         assert_equal(decoded_cert_post['blockhash'], mined)
@@ -253,7 +256,7 @@ class sc_rawcert(BitcoinTestFramework):
             print "\n======> ", errorString
             assert_true(False)
 
-        decoded_cert_pre = self.nodes[0].decoderawcertificate(signed_cert['hex'])
+        decoded_cert_pre = self.nodes[0].decoderawtransaction(signed_cert['hex'])
         decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
         mark_logs("Node3 sending raw certificate with no backward transfer for epoch {}".format(epn), self.nodes, DEBUG_MODE)
@@ -271,7 +274,7 @@ class sc_rawcert(BitcoinTestFramework):
         self.sync_all()
 
         # we enabled -txindex in zend therefore also node 2 can see it
-        decoded_cert_post = self.nodes[2].getrawcertificate(cert, 1)
+        decoded_cert_post = self.nodes[2].getrawtransaction(cert, 1)
 
         mark_logs("check that cert contents are as expected", self.nodes, DEBUG_MODE)
         # vout contains just the change 
@@ -381,7 +384,7 @@ class sc_rawcert(BitcoinTestFramework):
             assert_true(False)
 
         self.sync_all()
-        decoded_cert_post = self.nodes[0].getrawcertificate(cert, 1)
+        decoded_cert_post = self.nodes[0].getrawtransaction(cert, 1)
 
         mark_logs("check that cert contents are as expected", self.nodes, DEBUG_MODE)
         assert_equal(decoded_cert_post['certid'], cert)
@@ -532,6 +535,9 @@ class sc_rawcert(BitcoinTestFramework):
             errorString = e.error['message']
             print "\n======> ", errorString
             assert_true(False)
+
+        decoded_cert_pre = self.nodes[0].decoderawtransaction(signed_cert['hex'])
+        decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
         mark_logs("Node3 sending raw certificate with no vin for epoch {}, expecting failure...".format(epn), self.nodes, DEBUG_MODE)
         try:

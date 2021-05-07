@@ -93,6 +93,7 @@ testScripts=(
   'sbh_rpc_cmds.py'
   'sc_cert_ceasing.py'
   'ws_messages.py'
+  'sc_cert_getraw.py'
   'sc_getscinfo.py'
   'sc_quality_mempool.py'
   'sc_quality_blockchain.py'

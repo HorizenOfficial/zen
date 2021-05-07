@@ -69,6 +69,27 @@ string EncodeHexCert(const CScCertificate& cert)
     return HexStr(ssCert.begin(), ssCert.end());
 }
 
+string EncodeHex(const std::unique_ptr<CTransactionBase>& pTxBase)
+{
+    if (!pTxBase) {
+        throw std::invalid_argument(strprintf("%s():%d - null ptr", __func__, __LINE__));
+    }
+
+    CDataStream ssData(SER_NETWORK, PROTOCOL_VERSION);
+    try {
+        if (pTxBase->IsCertificate()) {
+            CScCertificate cert(dynamic_cast<const CScCertificate&>(*pTxBase));
+            ssData << cert;
+        } else {
+            CTransaction tx(dynamic_cast<const CTransaction&>(*pTxBase));
+            ssData << tx;
+        }
+    } catch (std::bad_cast& e) {
+        throw std::invalid_argument(strprintf("%s():%d - invalid txBase obj", __func__, __LINE__));
+    }
+    return HexStr(ssData.begin(), ssData.end());
+}
+    
 void ScriptPubKeyToUniv(const CScript& scriptPubKey,
                         UniValue& out, bool fIncludeHex)
 {

@@ -528,7 +528,7 @@ class sc_cert_base(BitcoinTestFramework):
             assert(False)
 
         try:
-            ret = self.nodes[0].getrawcertificate(cert_epoch_1, 1)
+            ret = self.nodes[0].getrawtransaction(cert_epoch_1, 1)
             assert_equal(ret['cert']['scid'], scid)
         except JSONRPCException, e:
             errorString = e.error['message']

@@ -26,8 +26,8 @@ EPOCH_LENGTH = 5
 CERT_FEE = Decimal('0.00015')
 BLOCK_HASH_LIMIT = 100
 
-def get_epoch_data( scid, node, epochLen):
-    sc_creating_height = node.getscinfo(scid)['created at block height']
+def get_epoch_data(scid, node, epochLen):
+    sc_creating_height = node.getscinfo(scid)['items'][0]['created at block height']
     current_height = node.getblockcount()
     epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
     epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
@@ -37,7 +37,7 @@ def get_epoch_data( scid, node, epochLen):
 
 def ws_client(node, arg):
     wsurl = node.get_wsurl()
-    
+
     if wsurl == None:
         print "###################### no ws conn: exiting"
         return
@@ -322,8 +322,48 @@ class ws_messages(BitcoinTestFramework):
         except JSONWSException as e:
             print "Exception:", e.error
 
-        t.do_run = False
+        mark_logs("Test for retrieving 1 header", self.nodes, DEBUG_MODE)
+        start_height = self.nodes[0].getblockcount()
+        self.nodes[0].generate(1)
+        height = self.nodes[0].getblockcount()
+        exp_headers = [self.nodes[0].getblock(str(start_height), False)[0:354]]
+        hashes = [self.nodes[0].getblockhash(n) for n in range(start_height, height)]
+        headers_ = self.nodes[0].ws_get_block_headers(hashes)
+        assert_equal(exp_headers, headers_)
 
+        mark_logs("Test for retrieving 10 headers", self.nodes, DEBUG_MODE)
+        start_height = self.nodes[0].getblockcount()
+        self.nodes[0].generate(10)
+        height = self.nodes[0].getblockcount()
+        hashes = [self.nodes[0].getblockhash(n) for n in range(start_height, height)]
+        exp_headers = [self.nodes[0].getblock(str(n), False)[0:354] for n in range(start_height, height)]
+        headers_ = self.nodes[0].ws_get_block_headers(hashes)
+        assert_equal(exp_headers, headers_)
+
+        mark_logs("Test for retrieving 50 headers", self.nodes, DEBUG_MODE)
+        start_height = self.nodes[0].getblockcount()
+        self.nodes[0].generate(50)
+        height = self.nodes[0].getblockcount()
+        hashes = [self.nodes[0].getblockhash(n) for n in range(start_height, height)]
+        exp_headers = [self.nodes[0].getblock(str(n), False)[0:354] for n in range(start_height, height)]
+        self.nodes[0].ws_get_block_headers(hashes)
+        headers_ = self.nodes[0].ws_get_block_headers(hashes)
+        assert_equal(exp_headers, headers_)
+
+
+        mark_logs("Test for retrieving 51 headers(Should end up with exception: Invalid parameter)", self.nodes, DEBUG_MODE)
+        start_height = self.nodes[0].getblockcount()
+        self.nodes[0].generate(51)
+        height = self.nodes[0].getblockcount()
+        hashes = [self.nodes[0].getblockhash(n) for n in range(start_height, height)]
+        try:
+            mark_logs("Try to request block headers over the limit", self.nodes, DEBUG_MODE)
+            self.nodes[0].ws_get_block_headers(hashes)
+            raise RuntimeError("Get block headers. Rquest over the limit(50 headers) passed.")
+        except JSONWSException as e:
+            print "Exception:", e.error
+
+        t.do_run = False
 
 
 if __name__ == '__main__':

@@ -412,19 +412,33 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         fVerbose = (params[1].get_int() != 0);
 
-    CTransaction tx;
-    uint256 hashBlock;
-    if (!GetTransaction(hash, tx, hashBlock, true))
+    // allocated by the callee
+    std::unique_ptr<CTransactionBase> pTxBase;
+    
+    uint256 hashBlock{};
+    if (!GetTxBaseObj(hash, pTxBase, hashBlock, true) || !pTxBase)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
 
-    string strHex = EncodeHexTx(tx);
+    std::string strHex = EncodeHex(pTxBase);
 
-    if (!fVerbose)
+    if (!fVerbose) {
         return strHex;
+    }
 
     UniValue result(UniValue::VOBJ);
+    try {
+        if (pTxBase->IsCertificate()) {
+            CScCertificate cert(dynamic_cast<const CScCertificate&>(*pTxBase));
+            CertToJSON(cert, hashBlock, result);
+        } else {
+            CTransaction tx(dynamic_cast<const CTransaction&>(*pTxBase));
+            TxToJSON(tx, hashBlock, result);
+        }
+    } catch (std::exception& e) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, std::string("internal error: ") + std::string(e.what() ));
+    }
+    
     result.push_back(Pair("hex", strHex));
-    TxToJSON(tx, hashBlock, result);
     return result;
 }
 
@@ -965,13 +979,24 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR));
 
-    CTransaction tx;
+    // allocated by the callee
+    std::unique_ptr<CTransactionBase> pTxBase;
 
-    if (!DecodeHexTx(tx, params[0].get_str()))
+    if (!DecodeHex(pTxBase, params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
 
     UniValue result(UniValue::VOBJ);
-    TxToJSON(tx, uint256(), result);
+    try {
+        if (pTxBase->IsCertificate()) {
+            CScCertificate cert(dynamic_cast<const CScCertificate&>(*pTxBase));
+            CertToJSON(cert, uint256(), result);
+        } else {
+            CTransaction tx(dynamic_cast<const CTransaction&>(*pTxBase));
+            TxToJSON(tx, uint256(), result);
+        }
+    } catch (std::exception& e) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, std::string("internal error: ") + std::string(e.what() ));
+    }
 
     return result;
 }

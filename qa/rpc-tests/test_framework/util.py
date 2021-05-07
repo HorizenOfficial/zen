@@ -35,7 +35,7 @@ def get_ws_url(extra_args, i):
     ws_url=None
     wsport_arg=None
 
-    if '-websocket=1' in extra_args: 
+    if extra_args is not None and '-websocket=1' in extra_args:
         wsp = 0
         for s in extra_args:
             if '-wsport=' in s:
@@ -46,8 +46,8 @@ def get_ws_url(extra_args, i):
             # if more than one wsport option is set, the last wins
             #if wsp != 0:
             #    break
-        if wsp == 0:         
-            # if ws port has not been set in args, we set it 
+        if wsp == 0:
+            # if ws port has not been set in args, we set it
             wsp = ws_port(i)
             wsport_arg = '-wsport=%d' % wsp
 
