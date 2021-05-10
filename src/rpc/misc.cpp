@@ -155,7 +155,7 @@ UniValue validateaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "validateaddress \"zenaddress\"\n"
-            "\nVerify an ZEN address is valid.\n"
+            "\nReturn information about the given ZEN address.\n"
 
             "\nArguments:\n"
             "1. \"zenaddress\"                   (string, required) the ZEN address to validate\n"
@@ -222,7 +222,7 @@ UniValue z_validateaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "z_validateaddress \"zaddr\"\n"
-            "\nVerify an zaddress is valid.\n"
+            "\nReturn information about the given zaddress.\n"
 
             "\nArguments:\n"
             "1. \"zaddr\"                       (string, required) the zaddress to validate\n"
@@ -454,7 +454,7 @@ UniValue setmocktime(const UniValue& params, bool fHelp)
             
             "\nArguments:\n"
             "1. timestamp  (numeric, required) Unix seconds-since-epoch timestamp\n"
-            "               pass 0 to go back to using the system tim."
+            "               pass 0 to go back to using the system time."
             
             "\nResult:\n"
             "Nothing\n"

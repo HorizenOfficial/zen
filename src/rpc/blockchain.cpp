@@ -306,7 +306,7 @@ UniValue getbestblockhash(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getbestblockhash\n"
-            "\nReturns the hash of the best (most recent) block in the longest block chain.\n"
+            "\nReturns the hash of the best (most recent) block in the active block chain.\n"
             
             "\nResult\n"
             "\"hex\"    (string) the block hash hex encoded\n"
@@ -665,7 +665,7 @@ UniValue getblock(const UniValue& params, bool fHelp)
             
             "\nResult (for verbosity = 2):\n"
             "{\n"
-            "  ...,                                 same output as verbosity = 2\n"
+            "  ...,                                 same output as verbosity = 1\n"
             "  \"tx\" : [                           (array of Objects) the transactions in the format of the getrawtransaction RPC\n"
             "         ,...\n"
             "  ],\n"
@@ -1336,13 +1336,13 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "getblockfinalityindex \"hash\"\n"
-            "\nReturns the minimum number of consecutive blocks a miner should mine from now in order to revert the block of given hash\n"
+            "\nReturns the minimum number of consecutive blocks a miner would have to mine from now in order to revert the block of given hash\n"
 
             "\nArguments:\n"
-            "1. hash   (string, required)  the block hash"
+            "1. hash   (string, required)  the block hash\n"
 
-            "\"Result:\n"
-            "n         (numeric) number of consecutive blocks a miner should mine from now in order to revert the block of given hash\n"
+            "\nResult:\n"
+            "n         (numeric) number of consecutive blocks a miner would have to mine from now in order to revert the block of given hash\n"
             
             "\nExamples:\n"
             + HelpExampleCli("getblockfinalityindex", "\"hash\"")
@@ -1419,8 +1419,8 @@ UniValue getglobaltips(const UniValue& params, bool fHelp)
             "[\"hash\" (string, block hash) ]\n"
             
             "\nExamples:\n"
-            + HelpExampleCli("getglobaltips", "\"hash\"")
-            + HelpExampleRpc("getglobaltips", "\"hash\"")
+            + HelpExampleCli("getglobaltips", "")
+            + HelpExampleRpc("getglobaltips", "")
         );
     }
     LOCK(cs_main);
