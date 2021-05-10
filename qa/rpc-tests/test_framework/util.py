@@ -35,7 +35,7 @@ def get_ws_url(extra_args, i):
     ws_url=None
     wsport_arg=None
 
-    if '-websocket=1' in extra_args:
+    if extra_args is not None and '-websocket=1' in extra_args:
         wsp = 0
         for s in extra_args:
             if '-wsport=' in s:
