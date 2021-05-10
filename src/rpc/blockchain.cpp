@@ -195,7 +195,7 @@ UniValue getbestblockhash(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getbestblockhash\n"
-            "\nReturns the hash of the best (most recent) block in the longest block chain.\n"
+            "\nReturns the hash of the best (most recent) block in the active block chain.\n"
             
             "\nResult\n"
             "\"hex\"    (string) the block hash hex encoded\n"
