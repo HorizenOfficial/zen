@@ -88,7 +88,7 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
             "getpeerinfo\n"
             "\nReturns data about each connected network node as a json array of objects.\n"
             
-            "\nbResult:\n"
+            "\nResult:\n"
             "[\n"
             "  {\n"
             "    \"id\": n,                              (numeric) peer index\n"
@@ -96,7 +96,7 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
             "    \"addrlocal\": \"ip:port\",             (string) local address\n"
             "    \"services\":\"xxxxxxxxxxxxxxxx\",      (string) the services offered\n"
             "    \"tls_established\": true|false,        (boolean) status of TLS connection\n"
-            "    \"tls_verified\": true|false,           (boolean) status of peer certificate. Will be true if a peer certificate can be verified with some trusted root certs \n"
+            "    \"tls_verified\": true|false,           (boolean) status of peer certificate. True if the chain of trust of a peer certificate can be verified using the OS certificate store\n"
             "    \"lastsend\": ttt,                      (numeric) the time in seconds since epoch (Jan 1 1970 GMT) of the last send\n"
             "    \"lastrecv\": ttt,                      (numeric) the time in seconds since epoch (Jan 1 1970 GMT) of the last receive\n"
             "    \"bytessent\": n,                       (numeric) the total bytes sent\n"
@@ -247,8 +247,8 @@ UniValue disconnectnode(const UniValue& params, bool fHelp)
             "Nothing\n"
             
             "\nExamples:\n"
-            + HelpExampleCli("disconnectnode", "\"192.168.0.6:8233\"")
-            + HelpExampleRpc("disconnectnode", "\"192.168.0.6:8233\"")
+            + HelpExampleCli("disconnectnode", "\"192.168.0.6:9033\"")
+            + HelpExampleRpc("disconnectnode", "\"192.168.0.6:9033\"")
         );
 
     CNode* pNode = FindNode(params[0].get_str());
@@ -442,7 +442,7 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
             "  \"timeoffset\": 0,                             (numeric) the time offset (deprecated; always 0)\n"
             "  \"connections\": xxxxx,                        (numeric) the total number of open connections for the node\n"
             "  \"tls_cert_verified\": true|flase,             (boolean) true if the certificate of the current node is verified\n"
-            "  \"networks\": [                                (array) an array of objects describing IPV4, IPV6 and Onion network interface states\n"
+            "  \"networks\": [                                (array) an array of objects describing IPV4, IPV6 and Onion network status\n"
             "  {\n"
             "    \"name\": \"xxx\",                           (string) network (ipv4, ipv6 or onion)\n"
             "    \"limited\": true|false,                     (boolean) is the network limited using -onlynet?\n"
@@ -508,11 +508,11 @@ UniValue setban(const UniValue& params, bool fHelp)
         (strCommand != "add" && strCommand != "remove"))
         throw runtime_error(
             "setban \"ip(/netmask)\" \"add|remove\" (bantime) (absolute)\n"
-            "\nAttempts add or remove a IP/Subnet from the banned list.\n"
+            "\nAttempts to add or remove an IP/Subnet from the banned list.\n"
             
             "\nArguments:\n"
-            "1. \"ip(/netmask)\" (string, required) the IP/Subnet (see getpeerinfo for nodes ip) with a optional netmask (default is /32 = single ip)\n"
-            "2. \"command\"      (string, required) 'add' to add a IP/Subnet to the list, 'remove' to remove a IP/Subnet from the list\n"
+            "1. \"ip(/netmask)\" (string, required) the IP/Subnet (see getpeerinfo for nodes ip) with an optional netmask (default is /32 = single ip)\n"
+            "2. \"command\"      (string, required) 'add' to add an IP/Subnet to the list, 'remove' to remove an IP/Subnet from the list\n"
             "3. \"bantime\"      (numeric, optional) time in seconds how long (or until when if [absolute] is set) the ip is banned (0 or empty means using the default time of 24h which can also be overwritten by the -bantime startup argument)\n"
             "4. \"absolute\"     (boolean, optional) if set, the bantime must be a absolute timestamp in seconds since epoch (Jan 1 1970 GMT)\n"
             

@@ -283,8 +283,8 @@ UniValue setaccount(const UniValue& params, bool fHelp)
             "Nothing\n"
             
             "\nExamples:\n"
-            + HelpExampleCli("setaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\" \"tabby\"")
-            + HelpExampleRpc("setaccount", "\"t14oHp2v54vfmdgQ3v3SNuQga8JKHTNi2a1\", \"tabby\"")
+            + HelpExampleCli("setaccount", "\"horizenaddress\" \"tabby\"")
+            + HelpExampleRpc("setaccount", "\"horizenaddress\", \"tabby\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
