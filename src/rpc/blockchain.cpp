@@ -458,7 +458,7 @@ UniValue getblock(const UniValue& params, bool fHelp)
             
             "\nResult (for verbosity = 2):\n"
             "{\n"
-            "  ...,                                 same output as verbosity = 2\n"
+            "  ...,                                 same output as verbosity = 1\n"
             "  \"tx\" : [                           (array of Objects) the transactions in the format of the getrawtransaction RPC\n"
             "         ,...\n"
             "  ],\n"
