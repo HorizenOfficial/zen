@@ -508,11 +508,11 @@ UniValue setban(const UniValue& params, bool fHelp)
         (strCommand != "add" && strCommand != "remove"))
         throw runtime_error(
             "setban \"ip(/netmask)\" \"add|remove\" (bantime) (absolute)\n"
-            "\nAttempts add or remove a IP/Subnet from the banned list.\n"
+            "\nAttempts to add or remove an IP/Subnet from the banned list.\n"
             
             "\nArguments:\n"
-            "1. \"ip(/netmask)\" (string, required) the IP/Subnet (see getpeerinfo for nodes ip) with a optional netmask (default is /32 = single ip)\n"
-            "2. \"command\"      (string, required) 'add' to add a IP/Subnet to the list, 'remove' to remove a IP/Subnet from the list\n"
+            "1. \"ip(/netmask)\" (string, required) the IP/Subnet (see getpeerinfo for nodes ip) with an optional netmask (default is /32 = single ip)\n"
+            "2. \"command\"      (string, required) 'add' to add an IP/Subnet to the list, 'remove' to remove an IP/Subnet from the list\n"
             "3. \"bantime\"      (numeric, optional) time in seconds how long (or until when if [absolute] is set) the ip is banned (0 or empty means using the default time of 24h which can also be overwritten by the -bantime startup argument)\n"
             "4. \"absolute\"     (boolean, optional) if set, the bantime must be a absolute timestamp in seconds since epoch (Jan 1 1970 GMT)\n"
             
