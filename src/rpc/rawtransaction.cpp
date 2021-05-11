@@ -506,7 +506,7 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "  \"vin\": [                                         (array of json objects)\n"
             "     {\n"
             "       \"txid\": \"id\",                             (string) the transaction id\n"
-            "       \"vout\": n,                                  (numeric) the output number\n"
+            "       \"vout\": n,                                  (numeric) the output index\n"
             "       \"scriptSig\": {                              (json object) the script\n"
             "         \"asm\": \"asm\",                           (string) the asm\n"
             "         \"hex\": \"hex\"                            (string) the hex\n"
