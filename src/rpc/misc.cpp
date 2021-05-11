@@ -221,7 +221,7 @@ UniValue z_validateaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "z_validateaddress \"zaddr\"\n"
-            "\nVerify an zaddress is valid.\n"
+            "\nReturn information about the given zaddress.\n"
 
             "\nArguments:\n"
             "1. \"zaddr\"                       (string, required) the zaddress to validate\n"
