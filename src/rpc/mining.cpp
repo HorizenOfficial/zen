@@ -896,8 +896,8 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
             "{\n"
             "  \"miner\": xxxx,           (numeric) the mining reward amount in " + CURRENCY_UNIT + "\n"
             "  \"community\": xxxx,       (numeric) the community fund amount in " + CURRENCY_UNIT + "\n"
-            "  \"securenodes\": xxxx,     (numeric) the securenodes fund amount in " + CURRENCY_UNIT + " (only if securenode HF fund is available)\n"
-            "  \"supernodes\": xxxx       (numeric) the supernodes fund amount in " + CURRENCY_UNIT + " (only if supernode HF fund is available)\n"
+            "  \"securenodes\": xxxx,     (numeric) the securenodes fund amount in " + CURRENCY_UNIT + "\n"
+            "  \"supernodes\": xxxx       (numeric) the supernodes fund amount in " + CURRENCY_UNIT + "\n"
             "}\n"
             
             "\nExamples:\n"
