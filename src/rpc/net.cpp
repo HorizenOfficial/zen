@@ -247,8 +247,8 @@ UniValue disconnectnode(const UniValue& params, bool fHelp)
             "Nothing\n"
             
             "\nExamples:\n"
-            + HelpExampleCli("disconnectnode", "\"192.168.0.6:8233\"")
-            + HelpExampleRpc("disconnectnode", "\"192.168.0.6:8233\"")
+            + HelpExampleCli("disconnectnode", "\"192.168.0.6:9033\"")
+            + HelpExampleRpc("disconnectnode", "\"192.168.0.6:9033\"")
         );
 
     CNode* pNode = FindNode(params[0].get_str());
