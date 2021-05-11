@@ -154,7 +154,7 @@ UniValue validateaddress(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "validateaddress \"zenaddress\"\n"
-            "\nVerify an ZEN address is valid.\n"
+            "\nReturn information about the given ZEN address.\n"
 
             "\nArguments:\n"
             "1. \"zenaddress\"                   (string, required) the ZEN address to validate\n"
