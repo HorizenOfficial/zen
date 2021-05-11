@@ -652,7 +652,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
 
             "\nArguments:\n"
             "1. \"hexstring\"                      (string, required) the transaction hex string\n"
-            "2. \"prevtxs\"                        (string, optional) an json array of previous dependent transaction outputs\n"
+            "2. \"prevtxs\"                        (string, optional) a json array of previous dependent transaction outputs\n"
             "     [                                (json array of json objects, or 'null' if none provided)\n"
             "       {\n"
             "         \"txid\": \"id\",            (string, required) the transaction id\n"
