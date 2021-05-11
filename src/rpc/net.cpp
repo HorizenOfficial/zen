@@ -96,7 +96,7 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
             "    \"addrlocal\": \"ip:port\",             (string) local address\n"
             "    \"services\":\"xxxxxxxxxxxxxxxx\",      (string) the services offered\n"
             "    \"tls_established\": true|false,        (boolean) status of TLS connection\n"
-            "    \"tls_verified\": true|false,           (boolean) status of peer certificate. Will be true if a peer certificate can be verified with some trusted root certs \n"
+            "    \"tls_verified\": true|false,           (boolean) status of peer certificate. True if the chain of trust of a peer certificate can be verified using the OS certificate store\n"
             "    \"lastsend\": ttt,                      (numeric) the time in seconds since epoch (Jan 1 1970 GMT) of the last send\n"
             "    \"lastrecv\": ttt,                      (numeric) the time in seconds since epoch (Jan 1 1970 GMT) of the last receive\n"
             "    \"bytessent\": n,                       (numeric) the total bytes sent\n"
