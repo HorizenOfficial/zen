@@ -453,7 +453,7 @@ UniValue setmocktime(const UniValue& params, bool fHelp)
             
             "\nArguments:\n"
             "1. timestamp  (numeric, required) Unix seconds-since-epoch timestamp\n"
-            "               pass 0 to go back to using the system tim."
+            "               pass 0 to go back to using the system time."
             
             "\nResult:\n"
             "Nothing\n"
