@@ -221,7 +221,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "     }\n"
             "     ,...\n"
             "  ],\n"
-            "  \"vjoinsplit\" : [                 (array of json objects, only for version >= 2)\n"
+            "  \"vjoinsplit\" : [                 (array of json objects, only for version 2 or -3)\n"
             "     {\n"
             "       \"vpub_old\": x.xxx,          (numeric) public input value in " + CURRENCY_UNIT + "\n"
             "       \"vpub_new\": x.xxx,          (numeric) public output value in " + CURRENCY_UNIT + "\n"
