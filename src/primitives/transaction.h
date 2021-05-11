@@ -759,7 +759,7 @@ public:
 
     bool CheckBlockAtHeight(CValidationState& state, int nHeight, int dosLevel) const;
 
-    virtual bool CheckInputsLimit(CValidationState &state) const = 0;
+    virtual bool CheckInputsLimit() const = 0;
     //END OF CHECK FUNCTIONS
 
     // Return sum of txouts.
@@ -966,7 +966,7 @@ public:
     bool CheckFeeAmount(const CAmount& totalVinAmount, CValidationState& state) const override;
     bool CheckInputsDuplication(CValidationState &state) const override;
     bool CheckInputsInteraction(CValidationState &state) const override;
-    bool CheckInputsLimit(CValidationState &state) const override;
+    bool CheckInputsLimit() const override;
     //END OF CHECK FUNCTIONS
 
     void Relay() const override;

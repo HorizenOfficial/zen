@@ -224,15 +224,16 @@ std::string CScCertificate::ToString() const
     return str;
 }
 
-bool CScCertificate::CheckInputsLimit(CValidationState &state) const {
+bool CScCertificate::CheckInputsLimit() const {
     // Node operator can choose to reject tx by number of transparent inputs
     static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
     size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
     if (limit > 0) {
         size_t n = GetVin().size();
         if (n > limit) {
-            return state.DoS(10, error("%s(): Dropping cert %s : too many inputs %zu > limit %zu\n",
-                __func__, GetHash().ToString(), n, limit), CValidationState::Code::INVALID, "bad-cert-vin-input-limit");
+            LogPrint("mempool", "%s():%d - Dropping cert %s : too many transparent inputs %zu > limit %zu\n",
+                __func__, __LINE__, GetHash().ToString(), n, limit);
+            return false;
         }
     }
     return true;
