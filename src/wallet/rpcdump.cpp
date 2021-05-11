@@ -792,7 +792,7 @@ UniValue z_exportkey(const UniValue& params, bool fHelp)
             
             "\nExamples:\n"
             + HelpExampleCli("z_exportkey", "\"myaddress\"")
-            + HelpExampleCli("z_importkey", "\"zaddr\"")
+            + HelpExampleCli("z_importkey", "\"zkey\"")
             + HelpExampleRpc("z_exportkey", "\"zaddr\"")
         );
 
