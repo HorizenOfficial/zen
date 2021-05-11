@@ -1212,8 +1212,8 @@ UniValue getglobaltips(const UniValue& params, bool fHelp)
             "[\"hash\" (string, block hash) ]\n"
             
             "\nExamples:\n"
-            + HelpExampleCli("getglobaltips", "\"hash\"")
-            + HelpExampleRpc("getglobaltips", "\"hash\"")
+            + HelpExampleCli("getglobaltips", "")
+            + HelpExampleRpc("getglobaltips", "")
         );
     }
     LOCK(cs_main);
