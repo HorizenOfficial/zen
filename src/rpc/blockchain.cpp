@@ -1129,13 +1129,13 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "getblockfinalityindex \"hash\"\n"
-            "\nReturns the minimum number of consecutive blocks a miner should mine from now in order to revert the block of given hash\n"
+            "\nReturns the minimum number of consecutive blocks a miner would have to mine from now in order to revert the block of given hash\n"
 
             "\nArguments:\n"
             "1. hash   (string, required)  the block hash"
 
             "\"Result:\n"
-            "n         (numeric) number of consecutive blocks a miner should mine from now in order to revert the block of given hash\n"
+            "n         (numeric) number of consecutive blocks a miner would have to mine from now in order to revert the block of given hash\n"
             
             "\nExamples:\n"
             + HelpExampleCli("getblockfinalityindex", "\"hash\"")
