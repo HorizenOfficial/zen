@@ -442,7 +442,7 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
             "  \"timeoffset\": 0,                             (numeric) the time offset (deprecated; always 0)\n"
             "  \"connections\": xxxxx,                        (numeric) the total number of open connections for the node\n"
             "  \"tls_cert_verified\": true|flase,             (boolean) true if the certificate of the current node is verified\n"
-            "  \"networks\": [                                (array) an array of objects describing IPV4, IPV6 and Onion network interface states\n"
+            "  \"networks\": [                                (array) an array of objects describing IPV4, IPV6 and Onion network status\n"
             "  {\n"
             "    \"name\": \"xxx\",                           (string) network (ipv4, ipv6 or onion)\n"
             "    \"limited\": true|false,                     (boolean) is the network limited using -onlynet?\n"
