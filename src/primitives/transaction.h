@@ -361,16 +361,17 @@ public:
     CFieldElement nullifier;
     uint160 pubKeyHash;
     libzendoomc::ScProof scProof;
+    CFieldElement actCertData; 
+    CFieldElement ceasingCumScTxCommTree; 
     CScript redeemScript;
-    // index in the list of active cert data in tx obj
-    int32_t actCertDataIdx; 
 
     CTxCeasedSidechainWithdrawalInput();
 
     explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
-                                               const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn,
-                                               int32_t actCertDataIdxIn);
+                                               const libzendoomc::ScProof& scProofIn, const CFieldElement& actCertDataIn,
+                                               const CFieldElement& ceasingCumScTxCommTreeIn, const CScript& redeemScriptIn
+                                               );
 
     ADD_SERIALIZE_METHODS
 
@@ -381,19 +382,21 @@ public:
         READWRITE(nullifier);
         READWRITE(pubKeyHash);
         READWRITE(scProof);
+        READWRITE(actCertData);
+        READWRITE(ceasingCumScTxCommTree);
         READWRITE(redeemScript);
-        READWRITE(VARINT(actCertDataIdx));
     }
 
     friend bool operator==(const CTxCeasedSidechainWithdrawalInput& a, const CTxCeasedSidechainWithdrawalInput& b)
     {
-        return (a.nValue        == b.nValue &&
-                a.scId          == b.scId &&
-                a.nullifier     == b.nullifier &&
-                a.pubKeyHash    == b.pubKeyHash &&
-                a.scProof       == b.scProof &&
-                a.redeemScript   == b.redeemScript &&
-                a.actCertDataIdx == b.actCertDataIdx);
+        return (a.nValue                 == b.nValue &&
+                a.scId                   == b.scId &&
+                a.nullifier              == b.nullifier &&
+                a.pubKeyHash             == b.pubKeyHash &&
+                a.scProof                == b.scProof &&
+                a.actCertData            == b.actCertData &&
+                a.ceasingCumScTxCommTree == b.ceasingCumScTxCommTree &&
+                a.redeemScript           == b.redeemScript);
     }
 
     friend bool operator!=(const CTxCeasedSidechainWithdrawalInput& a, const CTxCeasedSidechainWithdrawalInput& b)
@@ -852,7 +855,6 @@ private:
     const std::vector<CTxScCreationOut>                  vsc_ccout;
     const std::vector<CTxForwardTransferOut>             vft_ccout;
     const std::vector<CBwtRequestOut>                    vmbtr_out;
-    const std::vector<CFieldElement>                     vact_cert_data;
 public:
     const uint256 joinSplitPubKey;
     const joinsplit_sig_t joinSplitSig = {{0}};
@@ -892,7 +894,6 @@ public:
             READWRITE(*const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout));
             READWRITE(*const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout));
             READWRITE(*const_cast<std::vector<CBwtRequestOut>*>(&vmbtr_out));
-            READWRITE(*const_cast<std::vector<CFieldElement>*>(&vact_cert_data));
         }
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
@@ -949,7 +950,6 @@ public:
     const std::vector<CTxScCreationOut>&                    GetVscCcOut()   const { return vsc_ccout; }
     const std::vector<CTxForwardTransferOut>&               GetVftCcOut()   const { return vft_ccout; }
     const std::vector<CBwtRequestOut>&                      GetVBwtRequestOut() const { return vmbtr_out; }
-    const std::vector<CFieldElement>&                       GetVActCertData() const { return vact_cert_data; }
     const std::vector<JSDescription>&                       GetVjoinsplit() const override { return vjoinsplit; }
     const uint32_t&                                         GetLockTime()   const override { return nLockTime; }
     const uint256&                                          GetScIdFromScCcOut(int pos) const;
@@ -1011,9 +1011,6 @@ public:
     bool VerifyScript(
             const CScript& scriptPubKey, unsigned int flags, unsigned int nIn, const CChain* chain,
             bool cacheStore, ScriptError* serror) const override;
-
-    // return the index of the actCertData in vact_cert_data, or -1 if it is not there
-    int GetIndexOfActCertData(const CFieldElement& actCertData) const;
 };
 
 /** A mutable hierarchy version of CTransaction. */
@@ -1052,7 +1049,6 @@ struct CMutableTransaction : public CMutableTransactionBase
     std::vector<CTxScCreationOut>                  vsc_ccout;
     std::vector<CTxForwardTransferOut>             vft_ccout;
     std::vector<CBwtRequestOut>                    vmbtr_out;
-    std::vector<CFieldElement>                     vact_cert_data;
     uint32_t nLockTime;
     std::vector<JSDescription> vjoinsplit;
     uint256 joinSplitPubKey;
@@ -1076,7 +1072,6 @@ struct CMutableTransaction : public CMutableTransactionBase
             READWRITE(vsc_ccout);
             READWRITE(vft_ccout);
             READWRITE(vmbtr_out);
-            READWRITE(vact_cert_data);
         }
         READWRITE(nLockTime);
         if (nVersion >= PHGR_TX_VERSION || nVersion == GROTH_TX_VERSION) {
@@ -1115,9 +1110,6 @@ struct CMutableTransaction : public CMutableTransactionBase
     bool add(const CTxForwardTransferOut& out);
     bool add(const CBwtRequestOut& out);
     bool add(const CFieldElement& acd);
-
-    // return the index of the actCertData in vact_cert_data, or -1 if it is not there
-    int GetIndexOfActCertData(const CFieldElement& actCertData) const;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

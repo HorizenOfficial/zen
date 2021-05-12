@@ -214,29 +214,32 @@ std::string CTxIn::ToString() const
 
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(
     const CAmount& nValueIn, const uint256& scIdIn, const CFieldElement& nullifierIn,
-    const uint160& pubKeyHashIn, const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn,
-    int32_t actCertDataIdxIn)
+    const uint160& pubKeyHashIn, const libzendoomc::ScProof& scProofIn,
+    const CFieldElement& actCertDataIn, const CFieldElement& ceasingCumScTxCommTreeIn,
+    const CScript& redeemScriptIn)
 {
     nValue = nValueIn;
     scId = scIdIn;
     nullifier = nullifierIn;
     pubKeyHash = pubKeyHashIn;
     scProof = scProofIn;
+    actCertData = actCertDataIn;
+    ceasingCumScTxCommTree = ceasingCumScTxCommTreeIn;
     redeemScript = redeemScriptIn;
-    actCertDataIdx = actCertDataIdxIn;
 }
 
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput():
-    nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript(), actCertDataIdx(-1) {}
+    nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), actCertData(), ceasingCumScTxCommTree(), redeemScript() {}
 
 std::string CTxCeasedSidechainWithdrawalInput::ToString() const
 {
     return strprintf(
         "CTxCeasedSidechainWithdrawalInput("
         "nValue=%d.%08d, scId=%s,\nnullifier=%s,\npubKeyHash=%s,\nscProof=%s,\n"
-        "redeemScript=%s,\nactCertDataIdx=%d)\n",
+        "redeemScript=%s,\nactCertData=%s, \nceasingCumScTxCommTree=%s)\n",
                      nValue / COIN, nValue % COIN, scId.ToString(), nullifier.GetHexRepr().substr(0, 10),
-        pubKeyHash.ToString(), HexStr(scProof).substr(0, 10), HexStr(redeemScript).substr(0, 24), actCertDataIdx);
+        pubKeyHash.ToString(), HexStr(scProof).substr(0, 10), actCertData.GetHexRepr().substr(0, 10),
+        ceasingCumScTxCommTree.GetHexRepr().substr(0, 10), HexStr(redeemScript).substr(0, 24));
 }
 
 CScript CTxCeasedSidechainWithdrawalInput::scriptPubKey() const
@@ -385,12 +388,11 @@ CMutableTransactionBase::CMutableTransactionBase():
     nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
 
 CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(),
-    vcsw_ccin(), vsc_ccout(), vft_ccout(), vmbtr_out(), vact_cert_data(),
+    vcsw_ccin(), vsc_ccout(), vft_ccout(), vmbtr_out(), 
     nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() {}
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx): CMutableTransactionBase(),
-    vcsw_ccin(tx.GetVcswCcIn()), vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()),
-    vmbtr_out(tx.GetVBwtRequestOut()), vact_cert_data(tx.GetVActCertData()),
+    vcsw_ccin(tx.GetVcswCcIn()), vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()), vmbtr_out(tx.GetVBwtRequestOut()), 
     nLockTime(tx.GetLockTime()), vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
@@ -412,12 +414,6 @@ bool CMutableTransaction::addBwt(const CTxOut& out)             { return false; 
 bool CMutableTransaction::add(const CTxScCreationOut& out)      { vsc_ccout.push_back(out); return true; }
 bool CMutableTransaction::add(const CTxForwardTransferOut& out) { vft_ccout.push_back(out); return true; }
 bool CMutableTransaction::add(const CBwtRequestOut& out)        { vmbtr_out.push_back(out); return true; }
-bool CMutableTransaction::add(const CFieldElement& acd)         { vact_cert_data.push_back(acd); return true; }
-
-int CMutableTransaction::GetIndexOfActCertData(const CFieldElement& actCertData) const
-{
-    return FindIndexOf(vact_cert_data, actCertData);
-}
 
 //--------------------------------------------------------------------------------------------------------
 CTransactionBase::CTransactionBase(int nVersionIn):
@@ -675,12 +671,12 @@ bool CTransaction::CheckInputsInteraction(CValidationState &state) const
 
 CTransaction::CTransaction(int nVersionIn): CTransactionBase(nVersionIn),
     vjoinsplit(), nLockTime(0), vcsw_ccin(), vsc_ccout(), vft_ccout(), vmbtr_out(),
-    vact_cert_data(), joinSplitPubKey(), joinSplitSig() {}
+    joinSplitPubKey(), joinSplitSig() {}
 
 CTransaction::CTransaction(const CTransaction &tx) : CTransactionBase(tx),
     vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
     vcsw_ccin(tx.vcsw_ccin), vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
-    vact_cert_data(tx.vact_cert_data), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig) {}
+    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig) {}
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     CTransactionBase::operator=(tx);
@@ -690,7 +686,6 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout)      = tx.vsc_ccout;
     *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
     *const_cast<std::vector<CBwtRequestOut>*>(&vmbtr_out)        = tx.vmbtr_out;
-    *const_cast<std::vector<CFieldElement>*>(&vact_cert_data)    = tx.vact_cert_data;
     *const_cast<uint256*>(&joinSplitPubKey)                      = tx.joinSplitPubKey;
     *const_cast<joinsplit_sig_t*>(&joinSplitSig)                 = tx.joinSplitSig;
     return *this;
@@ -707,7 +702,7 @@ void CTransaction::UpdateHash() const
 CTransaction::CTransaction(const CMutableTransaction &tx): CTransactionBase(tx),
     vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
     vcsw_ccin(tx.vcsw_ccin), vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
-    vact_cert_data(tx.vact_cert_data), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     UpdateHash();
 }
@@ -1105,11 +1100,6 @@ bool CTransaction::VerifyScript(
     }
 
     return true;
-}
-
-int CTransaction::GetIndexOfActCertData(const CFieldElement& actCertData) const
-{
-    return FindIndexOf(vact_cert_data, actCertData);
 }
 
 std::string CTransaction::EncodeHex() const

@@ -277,7 +277,8 @@ TEST_F(SidechainsTestSuite, ValidCSWTx) {
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertDataIdx = 0;
+    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -294,7 +295,8 @@ TEST_F(SidechainsTestSuite, InvalidNullifier) {
     csw.nValue = 100;
     csw.nullifier = CFieldElement{};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertDataIdx = 0;
+    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -313,7 +315,8 @@ TEST_F(SidechainsTestSuite, CSWTxNegativeAmount) {
     csw.nValue = -1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertDataIdx = 0;
+    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -332,7 +335,8 @@ TEST_F(SidechainsTestSuite, CSWTxHugeAmount) {
     csw.nValue = MAX_MONEY + 1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertDataIdx = 0;
+    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -351,7 +355,48 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidNullifier) {
     csw.nValue = 100;
     csw.nullifier = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertDataIdx = 0;
+    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
+    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
+    CValidationState txState;
+
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
+        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
+}
+
+TEST_F(SidechainsTestSuite, CSWTxInvalidActCertData) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = 100;
+    csw.nullifier = CFieldElement{SAMPLE_FIELD};
+    csw.scProof = libzendoomc::ScProof();
+    csw.actCertData = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
+    csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
+    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
+    CValidationState txState;
+
+    // test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
+        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
+}
+
+TEST_F(SidechainsTestSuite, CSWTxInvalidCeasingCumScTxCommTree) {
+    CTxCeasedSidechainWithdrawalInput csw;
+
+    csw.nValue = 100;
+    csw.nullifier = CFieldElement{SAMPLE_FIELD};
+    csw.scProof = libzendoomc::ScProof();
+    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.ceasingCumScTxCommTree = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -370,7 +415,8 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidProof) {
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof({std::vector<unsigned char>(size_t(SC_PROOF_SIZE), 'a')});
-    csw.actCertDataIdx = 0;
+    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
 
@@ -381,178 +427,6 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidProof) {
     EXPECT_FALSE(txState.IsValid());
     EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
         <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
-}
-
-TEST_F(SidechainsTestSuite, CSWTxInvalidActCertDataVector_NegativeIndex) {
-    CTxCeasedSidechainWithdrawalInput csw;
-
-    csw.nValue = 100;
-    csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
-    csw.actCertDataIdx = -3;
-
-    CMutableTransaction mtx;
-    mtx.nVersion = SC_TX_VERSION;
-    mtx.vcsw_ccin.resize(1);
-    mtx.vcsw_ccin[0] = csw;
-
-    mtx.vact_cert_data.resize(0);
-    mtx.vact_cert_data.push_back(CFieldElement{});
-
-    CValidationState state;
-    // test
-    bool res = Sidechain::checkTxSemanticValidity(mtx, state);
-
-    EXPECT_FALSE(res);
-    EXPECT_FALSE(state.IsValid());
-    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID)
-        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(state.GetRejectCode());
-    EXPECT_EQ(state.GetRejectReason(), "sidechain-cswinput-invalid-act-cert-data-idx");
-}
-
-TEST_F(SidechainsTestSuite, CSWTxInvalidActCertDataVector_BadData) {
-    CTxCeasedSidechainWithdrawalInput csw;
-
-    csw.nValue = 100;
-    csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
-    csw.actCertDataIdx = 0;
-
-    CMutableTransaction mtx;
-    mtx.nVersion = SC_TX_VERSION;
-    mtx.vcsw_ccin.resize(1);
-    mtx.vcsw_ccin[0] = csw;
-
-    // idx points at entry 0 to this vector
-    mtx.vact_cert_data.resize(0);
-    mtx.vact_cert_data.push_back(CFieldElement{});
-
-    CValidationState state;
-    // test
-    bool res = Sidechain::checkTxSemanticValidity(mtx, state);
-
-    EXPECT_FALSE(res);
-    EXPECT_FALSE(state.IsValid());
-    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID)
-        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(state.GetRejectCode());
-    EXPECT_EQ(state.GetRejectReason(), "sidechain-cswinput-invalid-act-cert-data");
-}
-
-TEST_F(SidechainsTestSuite, CSWTxInvalidActCertDataVector_Empty) {
-    CTxCeasedSidechainWithdrawalInput csw;
-
-    csw.nValue = 100;
-    csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
-    csw.actCertDataIdx = 0;
-
-    CMutableTransaction mtx;
-    mtx.nVersion = SC_TX_VERSION;
-    mtx.vcsw_ccin.resize(1);
-    mtx.vcsw_ccin[0] = csw;
-
-    // idx points at an entry to this vector
-    mtx.vact_cert_data.resize(0);
-
-    CValidationState state;
-    // test
-    bool res = Sidechain::checkTxSemanticValidity(mtx, state);
-
-    EXPECT_FALSE(res);
-    EXPECT_FALSE(state.IsValid());
-    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID)
-        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(state.GetRejectCode());
-    EXPECT_EQ(state.GetRejectReason(), "sidechain-cswinput-empty-act-cert-data-vec");
-}
-
-TEST_F(SidechainsTestSuite, CSWTxInvalidActCertDataVector_TooBig) {
-    CTxCeasedSidechainWithdrawalInput csw;
-
-    csw.nValue = 100;
-    csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
-    csw.actCertDataIdx = 0;
-
-    CMutableTransaction mtx;
-    mtx.nVersion = SC_TX_VERSION;
-    mtx.vcsw_ccin.resize(1);
-    mtx.vcsw_ccin[0] = csw;
-
-    // idx points at an entry to this vector
-    mtx.vact_cert_data.resize(2, CFieldElement{SAMPLE_FIELD});
-
-    CValidationState state;
-    // test
-    bool res = Sidechain::checkTxSemanticValidity(mtx, state);
-
-    EXPECT_FALSE(res);
-    EXPECT_FALSE(state.IsValid());
-    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID)
-        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(state.GetRejectCode());
-    EXPECT_EQ(state.GetRejectReason(), "sidechain-cswinput-too-big-act-cert-data-vec");
-}
-
-TEST_F(SidechainsTestSuite, CSWTxInvalidActCertDataVector_NotReferencedEntry) {
-
-    CMutableTransaction mtx;
-    mtx.nVersion = SC_TX_VERSION;
-    mtx.vcsw_ccin.resize(0);
-
-    static const int NUM_CSWS = 10;
-    for (int i = 0; i < NUM_CSWS; i++)
-    {
-        CTxCeasedSidechainWithdrawalInput csw;
-        csw.nValue = 100+i;
-        csw.nullifier = CFieldElement{SAMPLE_FIELD};
-        csw.scProof = libzendoomc::ScProof();
-        csw.actCertDataIdx = i%2;
-        mtx.vcsw_ccin.push_back(csw);
-    }
-
-
-    // all ids above point just at entries 0,1 in this vector
-    mtx.vact_cert_data.resize(NUM_CSWS, CFieldElement{SAMPLE_FIELD});
-
-    CValidationState state;
-    // test
-    bool res = Sidechain::checkTxSemanticValidity(mtx, state);
-
-    EXPECT_FALSE(res);
-    EXPECT_FALSE(state.IsValid());
-    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID)
-        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(state.GetRejectCode());
-    EXPECT_EQ(state.GetRejectReason(), "sidechain-cswinput-invalid-act-cert-data-vec");
-}
-
-TEST_F(SidechainsTestSuite, CSWTxInvalidActCertDataVector_BadIndex) {
-
-    CMutableTransaction mtx;
-    mtx.nVersion = SC_TX_VERSION;
-    mtx.vcsw_ccin.resize(0);
-
-    static const int NUM_CSWS = 10;
-    for (int i = 0; i < NUM_CSWS; i++)
-    {
-        CTxCeasedSidechainWithdrawalInput csw;
-        csw.nValue = 100+i;
-        csw.nullifier = CFieldElement{SAMPLE_FIELD};
-        csw.scProof = libzendoomc::ScProof();
-        csw.actCertDataIdx = i+1;
-        mtx.vcsw_ccin.push_back(csw);
-    }
-
-    // the last id above points out of the vector bound
-    mtx.vact_cert_data.resize(NUM_CSWS, CFieldElement{SAMPLE_FIELD});
-
-    CValidationState state;
-    // test
-    bool res = Sidechain::checkTxSemanticValidity(mtx, state);
-
-    EXPECT_FALSE(res);
-    EXPECT_FALSE(state.IsValid());
-    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID)
-        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(state.GetRejectCode());
-    EXPECT_EQ(state.GetRejectReason(), "sidechain-cswinput-invalid-act-cert-data-idx");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -953,13 +827,18 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainIsAccepted) {
     initialScState.creationData.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     initialScState.balance = CAmount{1000};
     initialScState.pastEpochTopQualityCertDataHash = CFieldElement{SAMPLE_FIELD};
+
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
 
     CAmount cswTxCoins = initialScState.balance/2;
-    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins, 0);
+
+    std::string actCertDataHex         = CFieldElement{SAMPLE_FIELD}.GetHexRepr();
+    std::string ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD}.GetHexRepr();
+
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", actCertDataHex, ceasingCumScTxCommTree, cswTxCoins);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
     EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx) == CValidationState::Code::OK);
@@ -984,7 +863,7 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainWithWrongActiveCertDataIsRefuse
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
 
     CAmount cswTxCoins = initialScState.balance/2;
-    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins, 0);
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
     EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx) == CValidationState::Code::ACTIVE_CERT_DATA_HASH);
@@ -1004,7 +883,7 @@ TEST_F(SidechainsTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
 
     CAmount cswTxCoins = initialScState.balance*2;
-    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins, 0);
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
     EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx) == CValidationState::Code::INSUFFICIENT_SCID_FUNDS);
@@ -1023,11 +902,9 @@ TEST_F(SidechainsTestSuite, ValidCeasedCumTreeHashesForCeasedSidechain) {
     storeSidechainWithCurrentHeight(scId, sc, heightWhereCeased);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::CEASED);
 
-    CFieldElement scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight;
-    EXPECT_FALSE(scCumTreeHash_lastEpochEndHeight.IsValid());
+    CFieldElement scCumTreeHash_ceasedHeight;
     EXPECT_FALSE(scCumTreeHash_ceasedHeight.IsValid());
-    EXPECT_TRUE(sc.GetCeasedCumTreeHashes(scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight));
-    EXPECT_TRUE(scCumTreeHash_lastEpochEndHeight.IsValid());
+    EXPECT_TRUE(sc.GetCeasingCumTreeHash(scCumTreeHash_ceasedHeight));
     EXPECT_TRUE(scCumTreeHash_ceasedHeight.IsValid());
 }
 
@@ -1044,8 +921,8 @@ TEST_F(SidechainsTestSuite, InvalidCeasedCumTreeHashesForUnceasedSidechain) {
     storeSidechainWithCurrentHeight(scId, sc, heightWhereCeased-1);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
-    CFieldElement scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight;
-    EXPECT_FALSE(sc.GetCeasedCumTreeHashes(scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight));
+    CFieldElement scCumTreeHash_ceasedHeight;
+    EXPECT_FALSE(sc.GetCeasingCumTreeHash(scCumTreeHash_ceasedHeight));
 }
 
 TEST_F(SidechainsTestSuite, InvalidCeasedCumTreeHashesForJustStartedSidechain) {
@@ -1060,8 +937,8 @@ TEST_F(SidechainsTestSuite, InvalidCeasedCumTreeHashesForJustStartedSidechain) {
     storeSidechainWithCurrentHeight(scId, sc, sc.creationBlockHeight+1);
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
-    CFieldElement scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight;
-    EXPECT_FALSE(sc.GetCeasedCumTreeHashes(scCumTreeHash_lastEpochEndHeight, scCumTreeHash_ceasedHeight));
+    CFieldElement scCumTreeHash_ceasedHeight;
+    EXPECT_FALSE(sc.GetCeasingCumTreeHash(scCumTreeHash_ceasedHeight));
 }
 
 TEST_F(SidechainsTestSuite, CSWsToUnknownSidechainIsRefused) {
@@ -1069,7 +946,7 @@ TEST_F(SidechainsTestSuite, CSWsToUnknownSidechainIsRefused) {
     ASSERT_FALSE(sidechainsView->HaveSidechain(unknownScId));
 
     CAmount cswTxCoins = 10;
-    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(unknownScId, "aabb", cswTxCoins, 0);
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(unknownScId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
     EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx) == CValidationState::Code::SCID_NOT_FOUND);
@@ -1089,7 +966,7 @@ TEST_F(SidechainsTestSuite, CSWsToActiveSidechainIsRefused) {
     ASSERT_TRUE(sidechainsView->GetSidechainState(scId) == CSidechain::State::ALIVE);
 
     CAmount cswTxCoins = 10;
-    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", cswTxCoins, 0);
+    CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
     EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx) == CValidationState::Code::INVALID);

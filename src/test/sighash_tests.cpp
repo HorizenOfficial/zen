@@ -247,7 +247,6 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
     tx.vsc_ccout.clear();
     tx.vft_ccout.clear();
     tx.vmbtr_out.clear();
-    tx.vact_cert_data.clear();
 
     tx.nLockTime = (insecure_rand() % 2) ? insecure_rand() : 0;
     int ins = (insecure_rand() % 4) + 1;
@@ -333,16 +332,14 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
           csw_in.scId = libzcash::random_uint256();
           RandomSidechainField(csw_in.nullifier);
           RandomScProof(csw_in.scProof);
+          RandomSidechainField(csw_in.actCertData);
+          RandomSidechainField(csw_in.ceasingCumScTxCommTree);
 
           if(emptyInputScript) {
               csw_in.redeemScript = CScript();
           } else {
               RandomScript(csw_in.redeemScript);
           }
-          csw_in.actCertDataIdx = csw;
-          CFieldElement actCertData;
-          RandomSidechainField(actCertData);
-          tx.vact_cert_data.push_back(actCertData);
         }
 
         for (int sc = 0; sc < scs; sc++) {

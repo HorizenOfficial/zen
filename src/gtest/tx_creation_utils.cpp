@@ -109,17 +109,26 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
 }
 
 CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(
-    const uint256& scId, const std::string& nullifierHex, CAmount amount, int32_t actCertDataIdx)
+    const uint256& scId, const std::string& nullifierHex, const std::string& actCertDataHex,
+    const std::string& ceasingCumScTxCommTreeHex, CAmount amount)
 {
-    std::vector<unsigned char> tmp(nullifierHex.begin(), nullifierHex.end());
-    tmp.resize(CFieldElement::ByteSize());
-    CFieldElement nullifier{tmp};
+    std::vector<unsigned char> tmp1 = ParseHex(nullifierHex);
+    tmp1.resize(CFieldElement::ByteSize());
+    CFieldElement nullifier{tmp1};
+
+    std::vector<unsigned char> tmp2 = ParseHex(actCertDataHex);
+    tmp2.resize(CFieldElement::ByteSize());
+    CFieldElement actCertData{tmp2};
+
+    std::vector<unsigned char> tmp3 = ParseHex(ceasingCumScTxCommTreeHex);
+    tmp3.resize(CFieldElement::ByteSize());
+    CFieldElement ceasingCumScTxCommTree{tmp3};
 
     uint160 dummyPubKeyHash {};
     libzendoomc::ScProof dummyScProof;
     CScript dummyRedeemScript;
 
-    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript, actCertDataIdx);
+    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, actCertData, ceasingCumScTxCommTree, dummyRedeemScript);
 }
 
 CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawalInput& csw)
@@ -128,11 +137,6 @@ CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawal
     mtx.nVersion = SC_TX_VERSION;
     mtx.vcsw_ccin.resize(1);
     mtx.vcsw_ccin[0] = csw;
-
-    // idx points at an entry to this vector
-    assert(csw.actCertDataIdx >= 0);
-    mtx.vact_cert_data.resize(csw.actCertDataIdx);
-    mtx.vact_cert_data.push_back(CFieldElement{SAMPLE_FIELD});
 
     return CTransaction(mtx);
 }

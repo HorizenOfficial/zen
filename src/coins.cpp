@@ -1430,15 +1430,19 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
                 __func__, __LINE__, tx.ToString(), csw.ToString());
             return CValidationState::Code::INVALID;
         }
-        
-        int32_t idx = csw.actCertDataIdx;
-        // index should have been already checked at this point, at() throws an exception
-        CFieldElement certDataHash = tx.GetVActCertData().at(idx);
-        if (GetActiveCertDataHash(csw.scId) != certDataHash)
+
+        if (GetActiveCertDataHash(csw.scId) != csw.actCertData)
         {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n active cert data hash does not match\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString());
             return CValidationState::Code::ACTIVE_CERT_DATA_HASH;
+        }
+
+        if (GetCeasingCumTreeHash(csw.scId) != csw.ceasingCumScTxCommTree)
+        {
+            LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n ceased cum Tree hash does not match\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString());
+            return CValidationState::Code::SC_CUM_COMM_TREE;
         }
     }
 
@@ -1457,17 +1461,11 @@ CValidationState::Code CCoinsViewCache::IsScTxCswProofVerified(const CTransactio
             return CValidationState::Code::SCID_NOT_FOUND;
         }
 
-        int32_t idx = csw.actCertDataIdx;
-        // index should have been already checked at this point, at() throws an exception
-        CFieldElement certDataHash = tx.GetVActCertData().at(idx);
+        // TODO to be used in the new version of the verification
+        CFieldElement certDataHash   = csw.actCertData;
+        CFieldElement ceasedBlockCum = csw.ceasingCumScTxCommTree;
 
-        CFieldElement lastEpochEndBlockCum, ceasedBlockCum;
-        if (!sidechain.GetCeasedCumTreeHashes(lastEpochEndBlockCum, ceasedBlockCum))
-        {
-            LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n could not retrieve cum tree hashes\n",
-                __func__, __LINE__, tx.ToString(), csw.ToString());
-            return CValidationState::Code::SC_CUM_COMM_TREE;
-        }
+        // TODO note that actCertData can be null: in this case a Phantom hash shall be passed to the verifier
 
         // Verify CSW proof // TODO update this call as soon as the final signature is defined
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.creationData.wCeasedVk.get(), csw))
@@ -1960,6 +1958,20 @@ CFieldElement CCoinsViewCache::GetActiveCertDataHash(const uint256& scId) const
         return pSidechain->pastEpochTopQualityCertDataHash;
     else
         assert(false);
+}
+
+CFieldElement CCoinsViewCache::GetCeasingCumTreeHash(const uint256& scId) const
+{
+    const CSidechain* const pSidechain = this->AccessSidechain(scId);
+
+    if (pSidechain == nullptr)
+        return CFieldElement{};
+
+    CFieldElement ceasedBlockCum;
+    if (!pSidechain->GetCeasingCumTreeHash(ceasedBlockCum))
+        return CFieldElement{};
+
+    return ceasedBlockCum;
 }
 
 bool CCoinsViewCache::Flush() {

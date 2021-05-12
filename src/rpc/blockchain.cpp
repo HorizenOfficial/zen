@@ -1343,6 +1343,25 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
     ret.push_back(Pair("certDataHash", certDataHash.GetHexRepr()));
 }
 
+void FillCeasingCumScTxCommTree(const uint256& scid, UniValue& ret)
+{
+    CCoinsViewCache scView(pcoinsTip);
+
+    if (!scView.HaveSidechain(scid))
+    {
+        LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scid.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
+    }
+
+    CFieldElement fe = scView.GetCeasingCumTreeHash(scid);
+    if (fe.IsNull() )
+    {
+        LogPrint("sc", "%s():%d - scid[%s] ceasing cum sc commitment tree not in db\n", __func__, __LINE__, scid.ToString());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing ceasing cum sc commitment tree not for required scid"));
+    }
+    ret.push_back(Pair("ceasingCumScTxCommTree", fe.GetHexRepr()));
+}
+
 UniValue getscinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() == 0 || params.size() > 5)
@@ -1495,6 +1514,39 @@ UniValue getactivecertdatahash(const UniValue& params, bool fHelp)
     scId.SetHex(scIdString);
 
     FillCertDataHash(scId, ret);
+ 
+    return ret;
+}
+
+UniValue getceasingcumsccommtreehash(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getceasingcumsccommtreehash (\"scid\")\n"
+            "\nArgument:\n"
+            "   \"scid\"   (string, mandatory)  Retrive information about specified scid\n"
+            "\nReturns the Cumulative SC Committment tree hash of the ceasing block for the given scid.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"ceasingCumScTxCommTree\":  xxxxx,   (string)  A hex string representation of the field element containing Cumulative SC Committment tree hash of the ceasing block for the given scid.\n"
+            "}\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("getceasingcumsccommtreehash", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+        );
+
+    string scIdString = params[0].get_str();
+    {
+        if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+    }
+
+    UniValue ret(UniValue::VOBJ);
+ 
+    uint256 scId;
+    scId.SetHex(scIdString);
+
+    FillCeasingCumScTxCommTree(scId, ret);
  
     return ret;
 }
