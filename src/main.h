@@ -307,7 +307,7 @@ void PruneAndFlush();
 // Accept Tx/Cert ToMempool parameters types and signature
 enum class LimitFreeFlag       { ON, OFF };
 enum class RejectAbsurdFeeFlag { ON, OFF };
-enum class MempoolReturnValue { NOT_PROCESSED_YET, INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
+enum class MempoolReturnValue { INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
 
 /**
  * @brief The enumeration of possible states of the sidechain proof verification
@@ -324,11 +324,9 @@ enum class MempoolProofVerificationFlag
 MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
     LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
-void StoreTxToMempool(const CTransaction &tx, CTxMemPool &pool, const CCoinsViewCache &view);
 MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
     LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
-void StoreCertToMempool(const CScCertificate &cert, CTxMemPool &pool, const CCoinsViewCache &view);
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
     LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
