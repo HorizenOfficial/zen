@@ -1139,9 +1139,6 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
     LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom)
 {
-    // Assert to be removed after the implementation of the async verifier.
-    assert(fProofVerification != MempoolProofVerificationFlag::ASYNC);
-
     AssertLockHeld(cs_main);
 
     //we retrieve the current height from the pcoinsTip and not from chainActive because on DisconnectTip the Accept*ToMemoryPool
@@ -1407,9 +1404,6 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, LimitFreeFlag fLimitFree,
                         RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom)
 {
-    // Assert to be removed after the implementation of the async verifier.
-    assert(fProofVerification != MempoolProofVerificationFlag::ASYNC);
-
     AssertLockHeld(cs_main);
 
     //we retrieve the current height from the pcoinsTip and not from chainActive because on DisconnectTip the Accept*ToMemoryPool
@@ -5731,24 +5725,22 @@ void static ProcessGetData(CNode* pfrom)
 
 void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfrom, BatchVerificationStateFlag proofVerificationState, CValidationState& state)
 {
-    CInv inv(MSG_TX, txBase.GetHash());
-    pfrom->AddInventoryKnown(inv);
-
     LOCK(cs_main);
 
     MempoolProofVerificationFlag verificationFlag = proofVerificationState == BatchVerificationStateFlag::NOT_VERIFIED_YET ?
-                                                    MempoolProofVerificationFlag::SYNC : MempoolProofVerificationFlag::DISABLED;
+                                                    MempoolProofVerificationFlag::ASYNC : MempoolProofVerificationFlag::DISABLED;
 
     MempoolReturnValue res = AcceptTxBaseToMemoryPool(mempool, state, txBase,
                                                       LimitFreeFlag::ON,
                                                       RejectAbsurdFeeFlag::OFF,
-                                                      verificationFlag);
+                                                      verificationFlag,
+                                                      pfrom);
 
     if (res == MempoolReturnValue::VALID)
     {
         mempool.check(pcoinsTip);
         txBase.Relay();
-        std::vector<uint256> vWorkQueue{inv.hash};
+        std::vector<uint256> vWorkQueue{txBase.GetHash()};
         std::vector<uint256> vEraseQueue;
 
         LogPrint("mempool", "%s(): peer=%d %s: accepted %s (poolsz %u)\n", __func__,
@@ -5777,7 +5769,7 @@ void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfro
                     continue;
 
                 MempoolReturnValue resOrphan = AcceptTxBaseToMemoryPool(mempool, stateDummy, orphanTx,
-                            LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::SYNC);
+                            LimitFreeFlag::ON,RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::ASYNC, pfrom);
                 if (resOrphan == MempoolReturnValue::VALID)
                 {
                     LogPrint("mempool", "   accepted orphan tx %s\n", orphanHash.ToString());
@@ -5800,6 +5792,10 @@ void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfro
                     vEraseQueue.push_back(orphanHash);
                     assert(recentRejects);
                     recentRejects->insert(orphanHash);
+                }
+                else if (resOrphan == MempoolReturnValue::PARTIALLY_VALIDATED)
+                {
+                    vEraseQueue.push_back(orphanHash);
                 }
                 mempool.check(pcoinsTip);
             }

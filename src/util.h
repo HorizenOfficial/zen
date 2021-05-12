@@ -301,21 +301,4 @@ std::string dbg_blk_global_tips();
 int getTrailingZeroBitsInByte(unsigned char inputByte);
 int getBytesFromBits(int nbits, int& reminder);
 
-/**
- * @brief Moves all the elements of a map into another map.
- * At the end of the process the first map is empty and the
- * second one contains all the elements that were previously
- * stored in the firt one.
- * 
- * @tparam T_KEY The type of the map key.
- * @tparam T_VALUE The type of the map value.
- * @param from The origin map which the elements are moved from.
- * @param to The destination map which the elements are move to.
- */
-template <typename T_KEY, typename T_VALUE>
-void moveMap(std::map<T_KEY, T_VALUE>& from, std::map<T_KEY, T_VALUE>& to)
-{
-    to = std::move(from);
-}
-
 #endif // BITCOIN_UTIL_H

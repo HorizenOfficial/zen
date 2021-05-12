@@ -82,7 +82,6 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
     for(size_t idx = 0; idx < scTx.GetVcswCcIn().size(); ++idx)
     {
         CCswProofVerifierInput cswData;
-        cswData.transactionPtr = std::make_shared<CTransaction>(scTx);
 
         const CTxCeasedSidechainWithdrawalInput& csw = scTx.GetVcswCcIn().at(idx);
 
@@ -90,6 +89,8 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
         assert(view.GetSidechain(csw.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
 
         cswData = cswEnqueuedData[scTx.GetHash()][idx]; //create or retrieve new entry
+
+        cswData.transactionPtr = std::make_shared<CTransaction>(scTx);
         cswData.certDataHash = view.GetActiveCertView(csw.scId).certDataHash;
 //        //TODO: Unlock when we'll handle recovery of fwt of last epoch
 //        if (certDataHash.IsNull())
@@ -101,7 +102,7 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
         else
             cswData.ceasedVk = CScVKey{};
 
-        cswData.cswOut = csw;
+        cswData.cswInput = csw;
 
         txMap.insert(std::make_pair(idx, cswData));
     }

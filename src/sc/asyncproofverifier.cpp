@@ -1,6 +1,7 @@
 #include "asyncproofverifier.h"
 
 #include "coins.h"
+#include "init.h"
 #include "main.h"
 #include "util.h"
 #include "primitives/certificate.h"
@@ -18,7 +19,7 @@ void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& v
     certData.certificatePtr = std::make_shared<CScCertificate>(scCert);
     certData.certHash = scCert.GetHash();
 
-    LogPrint("cert", "%s():%d - called: cert[%s], scId[%s]\n",
+    LogPrint("cert", "%s():%d - Loading certificate [%s] data for sidechain [%s]\n",
         __func__, __LINE__, certData.certHash.ToString(), scCert.GetScId().ToString());
 
     CSidechain sidechain;
@@ -74,12 +75,14 @@ void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& v
 
 void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom)
 {
+    LogPrint("cert", "%s():%d - Loading CSW of tx [%s] \n",
+        __func__, __LINE__, scTx.GetHash().ToString());
+
     std::map</*outputPos*/unsigned int, CCswProofVerifierInput> txMap;
 
     for(size_t idx = 0; idx < scTx.GetVcswCcIn().size(); ++idx)
     {
         CCswProofVerifierInput cswData;
-        cswData.transactionPtr = std::make_shared<CTransaction>(scTx);
 
         const CTxCeasedSidechainWithdrawalInput& csw = scTx.GetVcswCcIn().at(idx);
 
@@ -87,6 +90,8 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
         assert(view.GetSidechain(csw.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
 
         cswData = cswEnqueuedData[scTx.GetHash()][idx]; //create or retrieve new entry
+
+        cswData.transactionPtr = std::make_shared<CTransaction>(scTx);
         cswData.certDataHash = view.GetActiveCertView(csw.scId).certDataHash;
 //        //TODO: Unlock when we'll handle recovery of fwt of last epoch
 //        if (certDataHash.IsNull())
@@ -98,7 +103,7 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
         else
             cswData.ceasedVk = CScVKey{};
 
-        cswData.cswOut = csw;
+        cswData.cswInput = csw;
         cswData.node = pfrom;
 
         txMap.insert(std::make_pair(idx, cswData));
@@ -107,7 +112,7 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
     if (!txMap.empty())
     {
         LOCK(cs_asyncQueue);
-        cswEnqueuedData.insert(std::make_pair(scTx.GetHash(), txMap));
+        cswEnqueuedData[scTx.GetHash()] = txMap;
     }
 }
 #endif
@@ -120,7 +125,7 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
      */
     uint32_t queueAge = 0;
 
-    while (true)
+    while (!ShutdownRequested())
     {
         size_t currentQueueSize = certEnqueuedData.size() + cswEnqueuedData.size();
 
@@ -146,9 +151,12 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
                     size_t cswQueueSize = cswEnqueuedData.size();
                     size_t certQueueSize = certEnqueuedData.size();
 
+                    LogPrint("cert", "%s():%d - Async verification triggered, %d certificates and %d CSW inputs to verify \n",
+                             __func__, __LINE__, certQueueSize, cswQueueSize);
+
                     // Move the queued proves into local maps, so that we can release the lock
-                    moveMap(cswEnqueuedData, tempCswData);
-                    moveMap(certEnqueuedData, tempCertData);
+                    tempCswData = std::move(cswEnqueuedData);
+                    tempCertData = std::move(certEnqueuedData);
 
                     assert(cswEnqueuedData.size() == 0);
                     assert(certEnqueuedData.size() == 0);
@@ -161,6 +169,9 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
 
                 if (!batchResult.first)
                 {
+                    LogPrint("cert", "%s():%d - Batch verification failed, proceeding one by one... \n",
+                             __func__, __LINE__);
+
                     // If the batch verification fails, check the proves one by one
                     outputs = NormalVerify(tempCswData, tempCertData);
                 }
@@ -168,6 +179,9 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
                 // Post processing of proves
                 for (AsyncProofVerifierOutput output : outputs)
                 {
+                    LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%d] \n",
+                             __func__, __LINE__, output.tx->GetHash().ToString(), output.node->GetId(), output.proofVerified);
+
                     CValidationState dummyState;
                     ProcessTxBaseAcceptToMemoryPool(*output.tx.get(), output.node,
                                                     output.proofVerified ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
