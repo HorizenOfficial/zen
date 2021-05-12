@@ -1142,6 +1142,12 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         return CValidationState::Code::SCID_NOT_FOUND;
     }
 
+    if (!CheckCertTiming(cert.GetScId(), cert.epochNumber))
+    {
+        LogPrintf("%s():%d - ERROR: cert %s timing is not valid\n", __func__, __LINE__, certHash.ToString());
+        return CValidationState::Code::INVALID;
+    }
+
     if (!Sidechain::checkCertCustomFields(sidechain, cert) )
     {
         LogPrintf("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
@@ -1165,12 +1171,6 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         LogPrintf("%s():%d - ERROR: cert[%s], scId[%s], faild checking sc cum commitment tree hash\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
         return ret;
-    }
-
-    if (!CheckCertTiming(cert.GetScId(), cert.epochNumber))
-    {
-        LogPrintf("%s():%d - ERROR: cert %s timing is not valid\n", __func__, __LINE__, certHash.ToString());
-        return CValidationState::Code::INVALID;
     }
 
     if (!CheckQuality(cert))
@@ -1264,8 +1264,6 @@ CValidationState::Code CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
 
     if (pblockindex->scCumTreeHash != endEpochCumScTxCommTreeRoot)
     {
-        // TODO if !ret, then we could search into mGlobalForkTips backwards if at this height we have the matching block
-        // in a fork: that would be the only 'honest' reason for a node to submit this certificate     
         LogPrintf("%s():%d - ERROR: cert cumulative commitment tree root does not match the value found at block hight[%d]\n",
             __func__, __LINE__, endEpochHeight);
         return CValidationState::Code::SC_CUM_COMM_TREE;
