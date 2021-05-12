@@ -315,11 +315,7 @@ int getBytesFromBits(int nbits, int& reminder);
 template <typename T_KEY, typename T_VALUE>
 void moveMap(std::map<T_KEY, T_VALUE>& from, std::map<T_KEY, T_VALUE>& to)
 {
-    for (auto pair : from)
-    {
-        to[pair.first] = std::move(from.at(pair.first));
-        from.erase(pair.first);
-    }
+    to = std::move(from);
 }
 
 #endif // BITCOIN_UTIL_H
