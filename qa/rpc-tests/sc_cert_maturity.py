@@ -19,6 +19,8 @@ from collections import namedtuple
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
 EPOCH_LENGTH = 5
+FT_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal('0.00015')
 
 
@@ -113,8 +115,8 @@ class sc_cert_maturity(BitcoinTestFramework):
                 "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [pkh_node1, pkh_node1], [bwt_amount1, bwt_amount2])
 
-            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, 
-                epoch_cum_tree_hash, proof, amounts, CERT_FEE)
+            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
             self.sync_all()
         except JSONRPCException, e:
@@ -126,7 +128,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         bwtMaturityHeight = (sc_creating_height-1) + 2*EPOCH_LENGTH + 2
 
         # get the taddr of Node1 where the bwt is send to
-        bwt_address = self.nodes[0].getrawcertificate(cert_1, 1)['vout'][1]['scriptPubKey']['addresses'][0]
+        bwt_address = self.nodes[0].getrawtransaction(cert_1, 1)['vout'][1]['scriptPubKey']['addresses'][0]
 
         mark_logs("Check cert is in mempool", self.nodes, DEBUG_MODE)
         assert_equal(True, cert_1 in self.nodes[1].getrawmempool())
@@ -170,7 +172,7 @@ class sc_cert_maturity(BitcoinTestFramework):
                 quality, constant, [pkh_node1], [bwt_amount3])
 
             cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
-                epoch_cum_tree_hash,  proof, amounts, CERT_FEE)
+                epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
             self.sync_all()
         except JSONRPCException, e:
@@ -182,7 +184,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         assert_equal(True, cert_2 in self.nodes[1].getrawmempool())
         
         # get the taddr of Node1 where the bwt is send to
-        bwt_address_new = self.nodes[0].getrawcertificate(cert_2, 1)['vout'][1]['scriptPubKey']['addresses'][0]
+        bwt_address_new = self.nodes[0].getrawtransaction(cert_2, 1)['vout'][1]['scriptPubKey']['addresses'][0]
         assert_equal(bwt_address, bwt_address_new)
 
         mark_logs("Check the output of the listtxesbyaddress cmd is as expected",
@@ -268,7 +270,7 @@ class sc_cert_maturity(BitcoinTestFramework):
                 quality, constant, [], [])
 
             cert_3 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
-                epoch_cum_tree_hash,  proof, [], CERT_FEE)
+                epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_3), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']

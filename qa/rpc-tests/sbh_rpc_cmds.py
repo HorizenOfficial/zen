@@ -17,6 +17,8 @@ import time
 NUMB_OF_NODES = 3
 DEBUG_MODE = 1
 EPOCH_LENGTH = 5
+FT_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal('0.00015')
 
 class sbh_rpc_cmds(BitcoinTestFramework):
@@ -204,7 +206,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
 
             #----------------------------------------------------------------------------------------------
             cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
-                epoch_cum_tree_hash, proof, amounts, CERT_FEE)
+                epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("\n===> Node 0 sent a cert for scid {} with bwd transfer of {} coins to Node1 pkh (addr {})".format(scid, bwt_amount1, bwt_address), self.nodes, DEBUG_MODE)
             #mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
             self.sync_all()

@@ -11,7 +11,8 @@
 #include <pow.h>
 #include <coins.h>
 
-CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength)
+CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength,
+                                                const CAmount& ftScFee, const CAmount& mbtrScFee, int mbtrDataLength)
 {
     CMutableTransaction mtx;
     mtx.nVersion = txVersion;
@@ -39,8 +40,10 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
     mtx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    mtx.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
     mtx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    mtx.vsc_ccout[0].forwardTransferScFee = ftScFee;
+    mtx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = mbtrScFee;
+    mtx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = mbtrDataLength;
 
     return mtx;
 }
@@ -202,8 +205,9 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
 }
 
 CScCertificate txCreationUtils::createCertificate(
-    const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash, const CFieldElement& endEpochCumScTxCommTreeRoot,
-    CAmount changeTotalAmount, unsigned int numChangeOut, CAmount bwtTotalAmount, unsigned int numBwt, const int quality)
+    const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+    const CFieldElement& endEpochCumScTxCommTreeRoot, CAmount changeTotalAmount, unsigned int numChangeOut,
+    CAmount bwtTotalAmount, unsigned int numBwt, CAmount ftScFee, CAmount mbtrScFee, const int quality)
 {
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
@@ -212,6 +216,8 @@ CScCertificate txCreationUtils::createCertificate(
     res.endEpochBlockHash = endEpochBlockHash;
     res.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     res.quality = quality;
+    res.forwardTransferScFee = ftScFee;
+    res.mainchainBackwardTransferRequestScFee = mbtrScFee;
 
     res.vin.resize(1);
     res.vin[0].prevout.hash = uint256S("1");

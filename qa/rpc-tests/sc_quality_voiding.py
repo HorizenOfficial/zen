@@ -16,6 +16,8 @@ from decimal import Decimal
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
 EPOCH_LENGTH = 20
+FT_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal('0.00015')
 
 class quality_voiding(BitcoinTestFramework):
@@ -149,7 +151,7 @@ class quality_voiding(BitcoinTestFramework):
             quality, constant, [pkh_node1], [bwt_amount])
         try:
             cert_1_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
-                epoch_cum_tree_hash, proof, amount_cert_1, CERT_FEE)
+                epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate of quality {} is {}".format(quality, cert_1_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -175,7 +177,7 @@ class quality_voiding(BitcoinTestFramework):
             quality, constant, [pkh_node1], [bwt_amount_2])
         try:
             cert_2_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash,
-                epoch_cum_tree_hash, proof, amount_cert_2, CERT_FEE)
+                epoch_cum_tree_hash, proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert_equal(True, cert_1_epoch_0 in self.nodes[0].getrawmempool())
             assert(len(cert_2_epoch_0) > 0)
             mark_logs("Certificate of quality {} is {}".format(quality, cert_2_epoch_0), self.nodes, DEBUG_MODE)
@@ -219,7 +221,7 @@ class quality_voiding(BitcoinTestFramework):
             quality, constant, [pkh_node1], [bwt_amount_3])
         try:
             cert_3_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash,
-                epoch_cum_tree_hash, proof, amount_cert_3, CERT_FEE)
+                epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert (len(cert_3_epoch_0) > 0)
             mark_logs("Certificate of quality {} is {}".format(quality, cert_3_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:

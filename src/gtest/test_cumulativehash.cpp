@@ -22,7 +22,7 @@ TEST_F(SidechainsTxCumulativeHashTestSuite, CBlockIndexSerialization)
 
     EXPECT_TRUE(originalpindex.scCumTreeHash == diskpindex.scCumTreeHash)
     <<originalpindex.scCumTreeHash.GetHexRepr()<<"\n"
-	<<diskpindex.scCumTreeHash.GetHexRepr();
+    <<diskpindex.scCumTreeHash.GetHexRepr();
 }
 
 TEST_F(SidechainsTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
@@ -43,7 +43,7 @@ TEST_F(SidechainsTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
     prevPindex->scCumTreeHash = prevCumulativeHash;
     EXPECT_TRUE(prevCumulativeHash.GetLegacyHashTO_BE_REMOVED() == prevPindex->hashScTxsCommitment)
     <<prevCumulativeHash.GetLegacyHashTO_BE_REMOVED().ToString()<<"\n"
-	<<prevPindex->hashScTxsCommitment.ToString();
+    <<prevPindex->hashScTxsCommitment.ToString();
 
     // Current block
     std::vector<unsigned char> currentHashByteArray(32,'b');
@@ -58,14 +58,14 @@ TEST_F(SidechainsTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
     CBlockIndex* pindex = AddToBlockIndex(block);
     EXPECT_TRUE(currentHash.GetLegacyHashTO_BE_REMOVED() == pindex->hashScTxsCommitment)
     <<currentHash.GetLegacyHashTO_BE_REMOVED().ToString()<<"\n"
-	<<pindex->hashScTxsCommitment.ToString();
+    <<pindex->hashScTxsCommitment.ToString();
 
     EXPECT_TRUE(pindex->pprev == prevPindex);
 
     CFieldElement expectedHash = CFieldElement::ComputeHash(prevCumulativeHash, currentHash);
     EXPECT_TRUE(expectedHash.GetLegacyHashTO_BE_REMOVED() == pindex->scCumTreeHash.GetLegacyHashTO_BE_REMOVED())
     <<expectedHash.GetLegacyHashTO_BE_REMOVED().ToString()<<"\n"
-	<<pindex->scCumTreeHash.GetLegacyHashTO_BE_REMOVED().ToString();
+    <<pindex->scCumTreeHash.GetLegacyHashTO_BE_REMOVED().ToString();
 
     UnloadBlockIndex();
 }

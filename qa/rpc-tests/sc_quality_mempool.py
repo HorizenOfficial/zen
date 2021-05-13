@@ -16,6 +16,8 @@ from decimal import Decimal
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 20
+FT_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal('0.00015')
 HIGH_CERT_FEE = Decimal('0.00020')
 LOW_CERT_FEE = Decimal('0.00005')
@@ -175,7 +177,7 @@ class quality_mempool(BitcoinTestFramework):
             quality, constant_1, [pkh_node1], [bwt_amount])
         try:
             cert_1_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
-                epoch_cum_tree_hash_1, proof, amount_cert, CERT_FEE)
+                epoch_cum_tree_hash_1, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -261,7 +263,7 @@ class quality_mempool(BitcoinTestFramework):
             quality, constant_1, [pkh_node2], [bwt_amount])
         try:
             cert_3_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
-                epoch_cum_tree_hash_1, cert3_proof, amount_cert_3, LOW_CERT_FEE)
+                epoch_cum_tree_hash_1, cert3_proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, LOW_CERT_FEE)
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -280,7 +282,7 @@ class quality_mempool(BitcoinTestFramework):
             quality, constant_1, [pkh_node2], [bwt_amount])
         try:
             cert_3_epoch_0 = self.nodes[1].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
-                epoch_cum_tree_hash_1, cert3_proof, amount_cert_3, CERT_FEE)
+                epoch_cum_tree_hash_1, cert3_proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -339,7 +341,7 @@ class quality_mempool(BitcoinTestFramework):
             quality, constant_1, [pkh_node3], [bwt_amount])
         try:
             cert_3_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
-                epoch_cum_tree_hash_1, normal_quality_proof, amount_cert_3, HIGH_CERT_FEE)
+                epoch_cum_tree_hash_1, normal_quality_proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, HIGH_CERT_FEE)
             mark_logs("Certificate is {}".format(cert_3_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -361,7 +363,7 @@ class quality_mempool(BitcoinTestFramework):
             quality + 20, constant_1, [pkh_node4], [bwt_amount])
         try:
             cert_4_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality + 20, epoch_block_hash_1,
-                epoch_cum_tree_hash_1, high_quality_proof, amount_cert_4, CERT_FEE)
+                epoch_cum_tree_hash_1, high_quality_proof, amount_cert_4, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             sync_mempools(self.nodes[1:3])
             assert(len(cert_4_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_4_epoch_0), self.nodes, DEBUG_MODE)
@@ -404,7 +406,7 @@ class quality_mempool(BitcoinTestFramework):
             quality, constant_1, [pkh_node1], [bwt_amount])
         try:
             cert_1_sc1 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
-                epoch_cum_tree_hash_1, proof, amount_cert_1, CERT_FEE)
+                epoch_cum_tree_hash_1, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_sc1) > 0)
             mark_logs("Certificate is {}".format(cert_1_sc1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -422,7 +424,7 @@ class quality_mempool(BitcoinTestFramework):
             quality, constant_2, [pkh_node2], [bwt_amount])
         try:
             cert_2_sc2 = self.nodes[2].send_certificate(scid_2, epoch_number_2, quality, epoch_block_hash_2,
-                epoch_cum_tree_hash_2, proof, amount_cert_2, CERT_FEE)
+                epoch_cum_tree_hash_2, proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_2_sc2) > 0)
             mark_logs("Certificate is {}".format(cert_2_sc2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -444,7 +446,7 @@ class quality_mempool(BitcoinTestFramework):
             quality, constant_2, [pkh_node1], [bwt_amount])
         try:
             cert_3_sc2 = self.nodes[1].send_certificate(scid_2, epoch_number_2, quality, epoch_block_hash_2,
-                epoch_cum_tree_hash_2, proof, amount_cert_3, CERT_FEE)
+                epoch_cum_tree_hash_2, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_3_sc2) > 0)
             mark_logs("Certificate is {}".format(cert_3_sc2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -481,7 +483,7 @@ class quality_mempool(BitcoinTestFramework):
             quality, constant_1, [pkh_node1], [bwt_amount])
         try:
             cert_5_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
-                epoch_cum_tree_hash_1, quality_proof, amount_cert_1, CERT_FEE)
+                epoch_cum_tree_hash_1, quality_proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_5_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_5_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -544,7 +546,7 @@ class quality_mempool(BitcoinTestFramework):
             quality, constant_1, [pkh_node2], [bwt_amount])
         try:
             cert_7_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
-                epoch_cum_tree_hash_1, quality_proof, amount_cert_2, HIGH_CERT_FEE)
+                epoch_cum_tree_hash_1, quality_proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, HIGH_CERT_FEE)
             assert(len(cert_7_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_7_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:

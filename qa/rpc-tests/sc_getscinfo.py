@@ -260,6 +260,8 @@ class sc_getscinfo(BitcoinTestFramework):
         assert_equal(null_result['totalItems'], 0)
         assert_equal(len(null_result['items']), int(0))
 
+        FT_SC_FEE = Decimal('0')
+        MBTR_SC_FEE = Decimal('0')
         CERT_FEE = Decimal('0.00015')
         bwt_amount = Decimal("0.20")
 
@@ -282,7 +284,7 @@ class sc_getscinfo(BitcoinTestFramework):
 
         try:
             cert_1_epoch_0 = self.nodes[0].send_certificate(scid_0, epoch_number_1, quality, epoch_block_hash_1,
-                epoch_cum_tree_hash_1, proof, amount_cert, CERT_FEE)
+                epoch_cum_tree_hash_1, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:

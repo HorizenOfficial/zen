@@ -65,6 +65,10 @@ class sc_bwt_request(BitcoinTestFramework):
         creation_amount1 = Decimal("1.0")
         creation_amount2 = Decimal("2.0")
 
+        ftScFee = 0
+        mbtrScFee = 0
+        mbtrDataLength = 1
+
         bwt_amount = Decimal("0.5")
 
         blocks = [self.nodes[0].getblockhash(0)]
@@ -80,15 +84,12 @@ class sc_bwt_request(BitcoinTestFramework):
         #generate wCertVk and constant
         mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
         vk1  = mcTest.generate_params("sc1")
-        mbtrVk1 = mcTest.generate_params("sc1_mbtrVk")
         c1 = generate_random_field_element_hex()
 
         vk2 = mcTest.generate_params("sc2")
-        mbtrVk2 = mcTest.generate_params("sc2_mbtrVk")
         c2 = generate_random_field_element_hex()
 
         vk3 = mcTest.generate_params("sc3")
-        mbtrVk3 = mcTest.generate_params("sc3_mbtrVk")
         c3 = generate_random_field_element_hex()
 
         bal_before_sc_creation = self.nodes[1].getbalance("", 0)
@@ -102,7 +103,7 @@ class sc_bwt_request(BitcoinTestFramework):
             "fee":fee_cr1,
             "wCertVk":vk1,
             "constant":c1,
-            "wMbtrVk": mbtrVk1,
+            "mainchainBackwardTransferRequestDataLength":1
         }
 
         print "Node0 Chain h = ", self.nodes[0].getblockcount()
@@ -114,9 +115,6 @@ class sc_bwt_request(BitcoinTestFramework):
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False);
 
-        # Check that wMbtrVk is duly serialized
-        assert_equal(self.nodes[1].getscinfo(ret['scid'])['items'][0]['unconf wMbtrVk'], mbtrVk1)
-
         n1_net_bal = bal_before_sc_creation - creation_amount1 - fee_cr1
 
         cr_tx1 = ret['txid']
@@ -126,27 +124,22 @@ class sc_bwt_request(BitcoinTestFramework):
 
         prev_epoch_block_hash = blocks[-1]
 
-        fe1 = generate_random_field_element_hex()
-        fe2 = generate_random_field_element_hex()
-        fe3 = generate_random_field_element_hex()
-        fe4 = generate_random_field_element_hex()
+        fe1 = [generate_random_field_element_hex()]
+        fe2 = [generate_random_field_element_hex()]
+        fe3 = [generate_random_field_element_hex()]
+        fe4 = [generate_random_field_element_hex()]
 
         pkh1 = self.nodes[0].getnewaddress("", True)
         pkh2 = self.nodes[0].getnewaddress("", True)
         pkh3 = self.nodes[0].getnewaddress("", True)
         pkh4 = self.nodes[0].getnewaddress("", True)
 
-        p1 = mcTest.create_test_proof("sc1", 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
-        p2 = mcTest.create_test_proof("sc2", 0, blocks[-2], blocks[-1], 1, fe2, [pkh2], []) 
-        p3 = mcTest.create_test_proof("sc2", 1, blocks[-2], blocks[-1], 3, fe3, [pkh3], []) 
-        p4 = mcTest.create_test_proof("sc2", 1, blocks[-2], blocks[-1], 2, fe2, [pkh4], []) 
-
 
         #--- negative tests for bwt transfer request ----------------------------------------
         mark_logs("...performing some negative test...", self.nodes, DEBUG_MODE)
 
         # 1.  wrong scid
-        outputs = [{'scRequestData':fe1, 'scFee':SC_FEE, 'scid':"abcd", 'scProof':p1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':"abcd", 'pubkeyhash':pkh1 }]
         try:
             self.nodes[1].request_transfer_from_sidechain(outputs, {});
             assert_true(False)
@@ -154,7 +147,7 @@ class sc_bwt_request(BitcoinTestFramework):
             mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
 
         # 2.  wrong pkh
-        outputs = [{'scRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'scProof':p1, 'pubkeyhash':scid1 }]
+        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':scid1 }]
         try:
             self.nodes[1].request_transfer_from_sidechain(outputs, {});
             assert_true(False)
@@ -162,7 +155,7 @@ class sc_bwt_request(BitcoinTestFramework):
             mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
 
         # 3.  negative scfee
-        outputs = [{'scRequestData':fe1, 'scFee':Decimal("-0.2"), 'scid':scid1, 'scProof':p1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData':fe1, 'scFee':Decimal("-0.2"), 'scid':scid1, 'pubkeyhash':pkh1 }]
         try:
             self.nodes[1].request_transfer_from_sidechain(outputs, {});
             assert_true(False)
@@ -170,7 +163,7 @@ class sc_bwt_request(BitcoinTestFramework):
             mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
 
         # 4. not including one of the mandatory param
-        outputs = [{'scFee':SC_FEE, 'scid':scid1, 'scProof':p1, 'pubkeyhash':pkh1 }]
+        outputs = [{'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 }]
         try:
             self.nodes[1].request_transfer_from_sidechain(outputs, {});
             assert_true(False)
@@ -178,7 +171,7 @@ class sc_bwt_request(BitcoinTestFramework):
             mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
 
         # 5.  wrong field element
-        outputs = [{'scRequestData':"abcd", 'scFee':SC_FEE, 'scid':scid1, 'scProof':p1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData':"abcd", 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 }]
         try:
             self.nodes[1].request_transfer_from_sidechain(outputs, {});
             assert_true(False)
@@ -193,7 +186,7 @@ class sc_bwt_request(BitcoinTestFramework):
         totScFee = Decimal("0.0")
 
         TX_FEE = Decimal("0.000123")
-        outputs = [{'scRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'scProof':p1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 }]
         cmdParms = { "minconf":0, "fee":TX_FEE}
 
         try:
@@ -214,8 +207,7 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_equal(len(decoded_tx['vmbtr_out']), 1)
         assert_equal(decoded_tx['vmbtr_out'][0]['mcDestinationAddress']['pubkeyhash'], pkh1)
         assert_equal(decoded_tx['vmbtr_out'][0]['scFee'], SC_FEE)
-        assert_equal(decoded_tx['vmbtr_out'][0]['scProof'], p1)
-        assert_equal(decoded_tx['vmbtr_out'][0]['scRequestData'], fe1)
+        assert_equal(decoded_tx['vmbtr_out'][0]['vScRequestData'], fe1)
         assert_equal(decoded_tx['vmbtr_out'][0]['scid'], scid1)
 
         mark_logs("Node1 creates a tx with the same single bwt request for sc", self.nodes, DEBUG_MODE)
@@ -235,7 +227,7 @@ class sc_bwt_request(BitcoinTestFramework):
      
         mark_logs("Node0 creates a tx with a single bwt request for sc with mc_fee=0 and sc_fee=0", self.nodes, DEBUG_MODE)
 
-        outputs = [{'scRequestData':fe1, 'scFee':Decimal("0.0"), 'scid':scid1, 'scProof' :p1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData':fe1, 'scFee':Decimal("0.0"), 'scid':scid1, 'pubkeyhash':pkh1 }]
         cmdParms = {"fee":0.0}
         try:
             bwt3 = self.nodes[0].request_transfer_from_sidechain(outputs, cmdParms);
@@ -257,11 +249,11 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_equal(in_amount, out_amount)
 
         mark_logs("Node0 creates a tx with many bwt request for sc, one of them is repeated", self.nodes, DEBUG_MODE)
-        fer = generate_random_field_element_hex()
+        fer = [generate_random_field_element_hex()]
         outputs = [
-            {'scRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'scProof':p1, 'pubkeyhash':pkh1 },
-            {'scRequestData':fer, 'scFee':SC_FEE, 'scid':scid1, 'scProof':p1, 'pubkeyhash':pkh1 },
-            {'scRequestData':fer, 'scFee':SC_FEE, 'scid':scid1, 'scProof':p1, 'pubkeyhash':pkh1 }
+            {'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 },
+            {'vScRequestData':fer, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 },
+            {'vScRequestData':fer, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 }
         ]
         cmdParms = {"minconf":0, "fee":TX_FEE}
         try:
@@ -314,7 +306,7 @@ class sc_bwt_request(BitcoinTestFramework):
         #  create one more sc
         prev_epoch_hash_2 = self.nodes[0].getbestblockhash()
         epoch_len_2 = 10
-        ret = self.nodes[0].sc_create(epoch_len_2, "dada", creation_amount2, vk2, "", c2, mbtrVk2);
+        ret = self.nodes[0].sc_create(epoch_len_2, "dada", creation_amount2, vk2, "", c2, "", [], [], ftScFee, mbtrScFee, mbtrDataLength)
         scid2  = ret['scid']
         cr_tx2 = ret['txid']
         mark_logs("Node0 created the SC2 spending {} coins via tx {}.".format(creation_amount1, cr_tx2), self.nodes, DEBUG_MODE)
@@ -322,7 +314,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         # create a bwt request with the raw cmd version
         mark_logs("Node0 creates a tx with a bwt request using raw version of cmd", self.nodes, DEBUG_MODE)
-        sc_bwt2_1 = [{'scRequestData':fe2, 'scFee':SC_FEE, 'scid':scid2, 'scProof':p2, 'pubkeyhash':pkh2, "wMbtrVk": mbtrVk3 }]
+        sc_bwt2_1 = [{'vScRequestData':fe2, 'scFee':SC_FEE, 'scid':scid2, 'pubkeyhash':pkh2}]
         try:
             raw_tx = self.nodes[0].createrawtransaction([], {}, [], [], [], sc_bwt2_1)
             funded_tx = self.nodes[0].fundrawtransaction(raw_tx)
@@ -340,8 +332,7 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_equal(len(decoded_tx['vmbtr_out']), 1)
         assert_equal(decoded_tx['vmbtr_out'][0]['mcDestinationAddress']['pubkeyhash'], pkh2)
         assert_equal(decoded_tx['vmbtr_out'][0]['scFee'], SC_FEE)
-        assert_equal(decoded_tx['vmbtr_out'][0]['scProof'], p2)
-        assert_equal(decoded_tx['vmbtr_out'][0]['scRequestData'], fe2)
+        assert_equal(decoded_tx['vmbtr_out'][0]['vScRequestData'], fe2)
         assert_equal(decoded_tx['vmbtr_out'][0]['scid'], scid2)
 
         # create a bwt request with the raw cmd version with some mixed output and cc output
@@ -350,9 +341,9 @@ class sc_bwt_request(BitcoinTestFramework):
         sc_cr = [ {"epoch_length":10, "amount":1.0, "address":"effe", "wCertVk":vk3, "constant":c3} ]
         sc_ft = [ {"address":"abc", "amount":1.0, "scid":scid2}, {"address":"cde", "amount":2.0, "scid":scid2} ]
         sc_bwt3 = [
-            {'scRequestData':fe2, 'scFee':Decimal("0.13"), 'scid':scid1, 'scProof':p2, 'pubkeyhash':pkh2 },
-            {'scRequestData':fe3, 'scFee':Decimal("0.23"), 'scid':scid2, 'scProof':p3, 'pubkeyhash':pkh3 },
-            {'scRequestData':fe4, 'scFee':Decimal("0.12"), 'scid':scid2, 'scProof':p4, 'pubkeyhash':pkh4 }
+            {'vScRequestData':fe2, 'scFee':Decimal("0.13"), 'scid':scid1, 'pubkeyhash':pkh2 },
+            {'vScRequestData':fe3, 'scFee':Decimal("0.23"), 'scid':scid2, 'pubkeyhash':pkh3 },
+            {'vScRequestData':fe4, 'scFee':Decimal("0.12"), 'scid':scid2, 'pubkeyhash':pkh4 }
         ]
         try:
             raw_tx = self.nodes[0].createrawtransaction([], outputs, [], sc_cr, sc_ft, sc_bwt3)
@@ -372,9 +363,9 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_equal(len(decoded_tx['vsc_ccout']), 1)
         assert_equal(len(decoded_tx['vft_ccout']), 2)
         assert_equal(len(decoded_tx['vmbtr_out']), 3)
-        assert_equal(decoded_tx['vmbtr_out'][0]['scRequestData'], fe2)
-        assert_equal(decoded_tx['vmbtr_out'][1]['scRequestData'], fe3)
-        assert_equal(decoded_tx['vmbtr_out'][2]['scRequestData'], fe4)
+        assert_equal(decoded_tx['vmbtr_out'][0]['vScRequestData'], fe2)
+        assert_equal(decoded_tx['vmbtr_out'][1]['vScRequestData'], fe3)
+        assert_equal(decoded_tx['vmbtr_out'][2]['vScRequestData'], fe4)
 
         # verify all bwts are in mempool
         assert_true(bwt3 in self.nodes[0].getrawmempool())
@@ -410,7 +401,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         print "Node0 Chain h = ", self.nodes[0].getblockcount()
 
-        # the zero fee mbtr tx has not yet been removed from empool since we reached epoch safe guard but
+        # the zero fee mbtr tx has not yet been removed from mempool since we reached epoch safe guard but
         # we are still in the epoch 0
         mark_logs("Check btr is still in mempool", self.nodes, DEBUG_MODE)
         assert_true(bwt3 in self.nodes[0].getrawmempool())
@@ -429,7 +420,7 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Node1 sends a cert withdrawing the contribution of the creation amount to the sc balance", self.nodes, DEBUG_MODE)
         try:
             cert_epoch_0 = self.nodes[1].send_certificate(scid1, epoch_number, 0, epoch_block_hash,
-                epoch_cum_tree_hash, proof, amounts, CERT_FEE)
+                epoch_cum_tree_hash, proof, amounts, ftScFee, mbtrScFee, CERT_FEE)
             mark_logs("Node 1 sent a cert with bwd transfer of {} coins to Node1 pkh via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException, e:
@@ -444,9 +435,12 @@ class sc_bwt_request(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print "Node0 Chain h = ", self.nodes[0].getblockcount()
-        mark_logs("Check btr {} is removed from mempool".format(bwt3), self.nodes, DEBUG_MODE)
-        assert_false(bwt3 in self.nodes[0].getrawmempool())
+        #
+        # Check removed because MBTR does not depend on cert data hash anymore
+        #
+        # print "Node0 Chain h = ", self.nodes[0].getblockcount()
+        # mark_logs("Check btr {} is removed from mempool".format(bwt3), self.nodes, DEBUG_MODE)
+        # assert_false(bwt3 in self.nodes[0].getrawmempool())
 
         mark_logs("Checking SC1 balance is nothing but sc fees of the various mbtr", self.nodes, DEBUG_MODE)
         sc_post_bwd = self.nodes[0].getscinfo(scid1, False, False)['items'][0]
@@ -459,7 +453,7 @@ class sc_bwt_request(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(ceasing_h - current_h - 1))
         self.sync_all()
 
-        outputs = [{'scRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'scProof' :p1, 'pubkeyhash':pkh3 }]
+        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh3 }]
         cmdParms = { "minconf":0, "fee":0.0}
         mark_logs("Node0 creates a tx with a bwt request for a sc with null balance", self.nodes, DEBUG_MODE)
         try:
@@ -496,7 +490,7 @@ class sc_bwt_request(BitcoinTestFramework):
         # the scFee contribution of the removed tx has been restored to the Node balance
         n1_net_bal = n1_net_bal + SC_FEE 
 
-        outputs = [{'scRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'scProof' :p1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 }]
         cmdParms = {'minconf':0, 'fee':TX_FEE}
         mark_logs("Node1 creates a tx with a bwt request for a ceased sc (should fail)", self.nodes, DEBUG_MODE)
         try:
@@ -548,7 +542,7 @@ class sc_bwt_request(BitcoinTestFramework):
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:
             cert_bad = self.nodes[0].send_certificate(scid2, epoch_number, quality, epoch_block_hash,
-            epoch_cum_tree_hash, proof, amount_cert, 0.01)
+                epoch_cum_tree_hash, proof, amount_cert, ftScFee, mbtrScFee, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "Send certificate failed with reason {}".format(errorString)
@@ -563,30 +557,36 @@ class sc_bwt_request(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
+        #
+        # Check removed because MBTR does not depend on cert data hash anymore
+        #
         # 3) add a mbwt. We use another node for avoiding dependancies between each other's txes and cert
-        mark_logs("Node1 creates a tx with a bwt request", self.nodes, DEBUG_MODE)
-        outputs = [{'scRequestData':fe1, 'scFee':Decimal("0.001"), 'scid':scid2, 'scProof' :p1, 'pubkeyhash':pkh1 }]
-        cmdParms = { "minconf":0, "fee":0.0}
-        try:
-            tx_bwt = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true(False)
-        self.sync_all()
+        # mark_logs("Node1 creates a tx with a bwt request", self.nodes, DEBUG_MODE)
+        # outputs = [{'vScRequestData':fe1, 'scFee':Decimal("0.001"), 'scid':scid2, 'pubkeyhash':pkh1 }]
+        # cmdParms = { "minconf":0, "fee":0.0}
+        # try:
+        #     tx_bwt = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
+        # except JSONRPCException, e:
+        #     errorString = e.error['message']
+        #     mark_logs(errorString,self.nodes,DEBUG_MODE)
+        #     assert_true(False)
+        # self.sync_all()
 
-        mark_logs("Check bwd tx {} is in mempool".format(tx_bwt), self.nodes, DEBUG_MODE)
-        assert_true(tx_bwt in self.nodes[0].getrawmempool()) 
+        # mark_logs("Check bwd tx {} is in mempool".format(tx_bwt), self.nodes, DEBUG_MODE)
+        # assert_true(tx_bwt in self.nodes[0].getrawmempool()) 
 
         # 4) invalidate
         mark_logs("Node1 invalidates one block", self.nodes, DEBUG_MODE)
         self.nodes[1].invalidateblock(self.nodes[1].getbestblockhash())
 
+        #
+        # Check removed because MBTR does not depend on cert data hash anymore
+        #
         # check mbtr is not in the mempool because it refers to an invalid cert data hash
-        mark_logs("Check bwd tx {} is not in mempool anymore".format(tx_bwt), self.nodes, DEBUG_MODE)
-        if tx_bwt in self.nodes[1].getrawmempool():
-            print "FIX FIX FIX!!! bwt is still in mempool" 
-            any_error = True
+        # mark_logs("Check bwd tx {} is not in mempool anymore".format(tx_bwt), self.nodes, DEBUG_MODE)
+        # if tx_bwt in self.nodes[1].getrawmempool():
+        #     print "FIX FIX FIX!!! bwt is still in mempool" 
+        #     any_error = True
 
         mark_logs("Node1 invalidates till to the previous epoch", self.nodes, DEBUG_MODE)
         self.nodes[1].invalidateblock(epoch_block_hash)

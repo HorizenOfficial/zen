@@ -169,17 +169,4 @@ namespace libzendoomc
         else // TODO: emit rust implementation.
             return true;// CswProofVerification().verifyCsw(certDataHash, wCeasedVk, csw);
     }
-
-    bool CScProofVerifier::verifyCBwtRequest(
-        const uint256& scId,
-        const CFieldElement& scRequestData,
-        const uint160& mcDestinationAddress,
-        CAmount scFees,
-        const libzendoomc::ScProof& scProof,
-        const boost::optional<libzendoomc::ScVk>& wMbtrVk,
-        const CFieldElement& certDataHash
-    ) const
-    {
-        return true; //Currently mocked
-    }
 }

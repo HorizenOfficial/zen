@@ -538,7 +538,6 @@ class CswNullifierTest(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
 
-
         # check we have all cert data hash for both sc ids
         mark_logs("Check we have an active cert data hashe for sidechain 1", self.nodes, DEBUG_MODE)
         try:

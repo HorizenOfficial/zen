@@ -160,7 +160,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
-    initialScState.creationData.withdrawalEpochLength = 20;
+    initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -195,6 +195,8 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     singleCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     singleCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     singleCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+    singleCert.forwardTransferScFee = 0;
+    singleCert.mainchainBackwardTransferRequestScFee = 0;
 
     CBlock certBlock;
     fillBlockHeader(certBlock, uint256S("aaa"));
@@ -234,7 +236,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
-    initialScState.creationData.withdrawalEpochLength = 20;
+    initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -269,6 +271,8 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     singleCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     singleCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     singleCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+    singleCert.forwardTransferScFee = 0;
+    singleCert.mainchainBackwardTransferRequestScFee = 0;
 
     CBlock certBlock;
     fillBlockHeader(certBlock, uint256S("aaa"));
@@ -308,7 +312,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
-    initialScState.creationData.withdrawalEpochLength = 20;
+    initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -344,6 +348,8 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     lowQualityCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     lowQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     lowQualityCert.addBwt(CTxOut(CAmount(40), dummyScriptPubKey));
+    lowQualityCert.forwardTransferScFee = 0;
+    lowQualityCert.mainchainBackwardTransferRequestScFee = 0;
 
     CMutableScCertificate highQualityCert;
     highQualityCert.vin.push_back(CTxIn(inputHighQCertHash, 0, CScript(), 0));
@@ -355,6 +361,8 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     highQualityCert.endEpochBlockHash = lowQualityCert.endEpochBlockHash;
     highQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     highQualityCert.addBwt(CTxOut(CAmount(50), dummyScriptPubKey));
+    highQualityCert.forwardTransferScFee = 0;
+    highQualityCert.mainchainBackwardTransferRequestScFee = 0;
 
     CBlock certBlock;
     fillBlockHeader(certBlock, uint256S("aaa"));
@@ -397,7 +405,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
-    initialScState.creationData.withdrawalEpochLength = 20;
+    initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -433,6 +441,8 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     lowQualityCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     lowQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     lowQualityCert.addBwt(CTxOut(CAmount(40), dummyScriptPubKey));
+    lowQualityCert.forwardTransferScFee = 0;
+    lowQualityCert.mainchainBackwardTransferRequestScFee = 0;
 
     CMutableScCertificate highQualityCert;
     highQualityCert.vin.push_back(CTxIn(inputHighQCertHash, 0, CScript(), 0));
@@ -444,6 +454,8 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     highQualityCert.endEpochBlockHash = lowQualityCert.endEpochBlockHash;
     highQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     highQualityCert.addBwt(CTxOut(CAmount(50), dummyScriptPubKey));
+    highQualityCert.forwardTransferScFee = 0;
+    highQualityCert.mainchainBackwardTransferRequestScFee = 0;
 
     CBlock certBlock;
     fillBlockHeader(certBlock, uint256S("aaa"));
@@ -506,15 +518,16 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_I
     scCreation.vsc_ccout.resize(1);
     scCreation.vsc_ccout[0].nValue = CAmount(1);
     scCreation.vsc_ccout[0].withdrawalEpochLength = 15;
-    scCreation.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    scCreation.vsc_ccout[0].forwardTransferScFee = CAmount(0);
+    scCreation.vsc_ccout[0].mainchainBackwardTransferRequestScFee = CAmount(0);
+    scCreation.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1; // The size of mcBwtReq.vScRequestData
 
     CMutableTransaction mbtrTx;
     mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = CTransaction(scCreation).GetScIdFromScCcOut(0);
     mcBwtReq.scFee = CAmount(0);
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
-    mcBwtReq.scRequestData = CFieldElement{SAMPLE_FIELD};
+    mcBwtReq.vScRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
     mbtrTx.nVersion = SC_TX_VERSION;
     mbtrTx.vmbtr_out.push_back(mcBwtReq);
 
@@ -894,9 +907,7 @@ TEST_F(SidechainsBlockFormationTestSuite, Unconfirmed_Mbtr_scCreation_DulyOrdere
     mbtrTx.nVersion = SC_TX_VERSION;
     mbtrTx.vmbtr_out.push_back(mcBwtReq);
     CTxMemPoolEntry mbtr_entry(mbtrTx, /*fee*/CAmount(1000),   /*time*/ 1000, /*priority*/1000.0, /*height*/dummyHeight);
-    std::map<uint256, CFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = CFieldElement{};
-    ASSERT_TRUE(mempool.addUnchecked(mbtrTx.GetHash(), mbtr_entry, /*fCurrentEstimate*/true, dummyCertDataHashInfo));
+    ASSERT_TRUE(mempool.addUnchecked(mbtrTx.GetHash(), mbtr_entry, /*fCurrentEstimate*/true));
 
     //test
     int64_t dummyLockTimeCutoff{0};
