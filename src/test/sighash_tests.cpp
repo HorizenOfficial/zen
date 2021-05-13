@@ -80,8 +80,15 @@ uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, un
     // Blank out other inputs completely, not recommended for open transactions
     if (nHashType & SIGHASH_ANYONECANPAY)
     {
-        txTmp.vin[0] = txTmp.vin[nIn];
-        txTmp.vin.resize(1);
+        if(nIn < txTmp.vin.size()) {
+            txTmp.vin[0] = txTmp.vin[nIn];
+            txTmp.vin.resize(1);
+            txTmp.vcsw_ccin.resize(0);
+        } else {
+            txTmp.vcsw_ccin[0] = txTmp.vcsw_ccin[nIn - txTmp.vin.size()];
+            txTmp.vcsw_ccin.resize(1);
+            txTmp.vin.resize(0);
+        }
     }
 
     // Blank out the joinsplit signature.
@@ -225,7 +232,7 @@ void static RandomData(std::vector<unsigned char> &data) {
     }
 }
 
-void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyInputScript = false, bool fAnyoneCanPay = false) {
+void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyInputScript = false) {
 
     bool isSidechain = (insecure_rand() % 2) == 0;
     if (isSidechain) {
@@ -250,12 +257,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
 
     tx.nLockTime = (insecure_rand() % 2) ? insecure_rand() : 0;
     int ins = (insecure_rand() % 4) + 1;
-
-    int csws = 0;
-    // fAnyoneCanPay can not be set if we have csws
-    if (isSidechain && !fAnyoneCanPay)
-            csws = (insecure_rand() % 4) + 1;
-
+    int csws = isSidechain ? (insecure_rand() % 4) + 1 : 0;
     int outs = fSingle ? ins + csws : (insecure_rand() % 4) + 1;
     int joinsplits = (insecure_rand() % 4);
     int scs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
@@ -390,8 +392,12 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             mbtr_out.scFee = insecure_rand() % 100000000;
             mbtr_out.mcDestinationAddress = random_uint160();
             mbtr_out.scId = libzcash::random_uint256();
-            for (auto fe: mbtr_out.vScRequestData) 
+            for (int r = 0; r < mbtrScRequestDataLength; r++)
+            {
+                CFieldElement fe;
                 RandomSidechainField(fe);
+                mbtr_out.vScRequestData.push_back(fe); 
+            }
         }
     }
 }
@@ -476,7 +482,7 @@ BOOST_AUTO_TEST_CASE(sighash_test)
     for (int i=0; i<nRandomTests; i++) {
         int nHashType = insecure_rand();
         CMutableTransaction txTo;
-        RandomTransaction(txTo, (nHashType & 0x1f) == SIGHASH_SINGLE, false, (nHashType & SIGHASH_ANYONECANPAY) );
+        RandomTransaction(txTo, (nHashType & 0x1f) == SIGHASH_SINGLE);
         CScript scriptCode;
         RandomScript(scriptCode);
         int nIn = insecure_rand() % (txTo.vin.size() + txTo.vcsw_ccin.size());

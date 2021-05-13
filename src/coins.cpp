@@ -1091,9 +1091,9 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
 #ifdef BITCOIN_TX
 int CCoinsViewCache::GetHeight() const {return -1;}
-CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const {return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode) const {return CValidationState::Code::OK;}
 CValidationState::Code CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const { return CValidationState::Code::OK;}
-CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx) const { return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode) const { return CValidationState::Code::OK;}
 CValidationState::Code CCoinsViewCache::IsScTxCswProofVerified(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const { return CValidationState::Code::OK;}
 #else
 
@@ -1143,7 +1143,7 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certEpoch) const
     return true;
 }
 
-CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -1168,6 +1168,8 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
     {
         LogPrintf("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+        if (banSenderNode)
+            *banSenderNode = true;
         return CValidationState::Code::INVALID;
     }
 
@@ -1351,7 +1353,7 @@ bool CCoinsViewCache::CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const
     return mbtrOutput.scFee >= certView.mainchainBackwardTransferRequestScFee;
 }
 
-CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx) const
+CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode) const
 {
     if (tx.IsCoinBase())
     {
@@ -1444,6 +1446,8 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
             LogPrintf("%s():%d - ERROR: Invalid tx[%s] : MBTR request data size [%d] must be equal to the size specified "
                          "during sidechain creation [%d] for scId[%s]",
                     __func__, __LINE__, txHash.ToString(), mbtr.vScRequestData.size(), sidechain.fixedParams.mainchainBackwardTransferRequestDataLength, scId.ToString());
+            if (banSenderNode)
+                *banSenderNode = true;
             return CValidationState::Code::INVALID;
         }
 
@@ -1453,6 +1457,8 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
         if (sidechain.fixedParams.mainchainBackwardTransferRequestDataLength == 0)
         {
             LogPrintf("%s():%d - ERROR: mbtr is not allowed for scId[%s]\n",  __func__, __LINE__, scId.ToString());
+            if (banSenderNode)
+                *banSenderNode = true;
             return CValidationState::Code::INVALID;
         }
 
@@ -1497,6 +1503,8 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
         {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n refers to SC without CSW support\n",
                 __func__, __LINE__, tx.GetHash().ToString(), csw.ToString());
+            if (banSenderNode)
+                *banSenderNode = true;
             return CValidationState::Code::INVALID;
         }
 
@@ -1518,7 +1526,8 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
         }
 
         CScCertificateView certView = this->GetActiveCertView(csw.scId);
-        // note: it's also fine to have actCertDataHash == CFieldElement()
+        // note: it's also fine to have an empty actCertDataHash fe obj 
+        // in this case both certView.certDataHash, csw.actCertDataHash have to be == CFieldElement() to be valid
         if (certView.certDataHash != csw.actCertDataHash)
         {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n active cert data hash does not match\n",

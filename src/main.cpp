@@ -1185,12 +1185,14 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                 return false;
             }
 
-            CValidationState::Code ret_code = view.IsCertApplicableToState(cert);
+            bool banSenderNode = false;
+            int nDoS = 0;
+
+            CValidationState::Code ret_code = view.IsCertApplicableToState(cert, &banSenderNode);
             if (ret_code != CValidationState::Code::OK)
             {
-                int nDoS = 100;
-                if (ret_code == CValidationState::Code::SC_CUM_COMM_TREE)
-                    nDoS = 0;
+                if (banSenderNode)
+                    nDoS = 100;
 
                 return state.DoS(nDoS, error("%s():%d - certificate not applicable: ret_code[0x%x]",
                     __func__, __LINE__, CValidationState::CodeToChar(ret_code)),
@@ -1445,13 +1447,14 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                                      CValidationState::Code::DUPLICATE, "bad-txns-inputs-spent");
             }
 
-            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx);
+            bool banSenderNode = false;
+            int nDoS = 0;
+
+            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx, &banSenderNode);
             if (ret_code != CValidationState::Code::OK)
             {
-                int nDoS = 100;
-                // ban node unless the error is about active cert data hash matching
-                if (ret_code == CValidationState::Code::ACTIVE_CERT_DATA_HASH)
-                    nDoS = 0;
+                if (banSenderNode)
+                    nDoS = 100;
 
                 return state.DoS(nDoS,
                     error("%s():%d - ERROR: sc-related tx [%s] is not applicable: ret_code[0x%x]\n",
