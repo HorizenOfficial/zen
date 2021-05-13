@@ -7,24 +7,6 @@
 #include <consensus/validation.h>
 #include <gtest/libzendoo_test_files.h>
 
-class CNakedCCoinsViewCache : public CCoinsViewCache
-{
-public:
-    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
-    {
-        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
-        this->hashAnchor = dummyAnchor;
-
-        CAnchorsCacheEntry dummyAnchorsEntry;
-        dummyAnchorsEntry.entered = true;
-        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
-        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
-
-    };
-    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
-    CSidechainEventsMap& getScEventsMap() {return this->cacheSidechainEvents; };
-};
-
 class SidechainsEventsTestSuite: public ::testing::Test
 {
 public:
@@ -38,7 +20,7 @@ public:
         SelectParams(CBaseChainParams::REGTEST);
 
         dummyBackingView = new CCoinsView();
-        view = new CNakedCCoinsViewCache(dummyBackingView);
+        view = new txCreationUtils::CNakedCCoinsViewCache(dummyBackingView);
     };
 
     void TearDown() override {
@@ -51,7 +33,7 @@ public:
 
 protected:
     CCoinsView            *dummyBackingView;
-    CNakedCCoinsViewCache *view;
+    txCreationUtils::CNakedCCoinsViewCache *view;
 
     CBlock dummyBlock;
     CBlockUndo dummyUndo;
@@ -59,7 +41,7 @@ protected:
     int dummyHeight;
     std::vector<CScCertificateStatusUpdateInfo> dummyInfo;
 
-    void storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
+    void storeSidechainWithCurrentHeight(txCreationUtils::CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
 };
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -1858,7 +1840,10 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsDoNotMatureUponRevertSidechainEvents
     EXPECT_TRUE(sidechain.mImmatureAmounts.at(fwdMaturityHeight) == fwdTx.GetVftCcOut()[0].nValue + fwdTx.GetVftCcOut()[1].nValue);
 }
 
-void SidechainsEventsTestSuite::storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight)
+void SidechainsEventsTestSuite::storeSidechainWithCurrentHeight(txCreationUtils::CNakedCCoinsViewCache& view,
+                                                                const uint256& scId,
+                                                                const CSidechain& sidechain,
+                                                                int chainActiveHeight)
 {
     chainSettingUtils::ExtendChainActiveToHeight(chainActiveHeight);
     view.SetBestBlock(chainActive.Tip()->GetBlockHash());

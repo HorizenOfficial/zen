@@ -12,24 +12,6 @@
 #include <miner.h>
 #include <gtest/libzendoo_test_files.h>
 
-class CNakedCCoinsViewCache : public CCoinsViewCache
-{
-public:
-    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
-    {
-        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
-        this->hashAnchor = dummyAnchor;
-
-        CAnchorsCacheEntry dummyAnchorsEntry;
-        dummyAnchorsEntry.entered = true;
-        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
-        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
-
-    };
-    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
-    CSidechainEventsMap& getScEventsMap() {return this->cacheSidechainEvents; };
-};
-
 class CInMemorySidechainDb final: public CCoinsView {
 public:
     CInMemorySidechainDb()  = default;
@@ -103,7 +85,7 @@ public:
         mGlobalForkTips.clear();
 
         fakeChainStateDb   = new CInMemorySidechainDb();
-        sidechainsView     = new CNakedCCoinsViewCache(fakeChainStateDb);
+        sidechainsView     = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
 
         dummyHash = dummyBlock.GetHash();
         dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
@@ -124,7 +106,7 @@ public:
 
 protected:
     CInMemorySidechainDb  *fakeChainStateDb;
-    CNakedCCoinsViewCache *sidechainsView;
+    txCreationUtils::CNakedCCoinsViewCache *sidechainsView;
 
     //helpers
     CBlock                                    dummyBlock;
