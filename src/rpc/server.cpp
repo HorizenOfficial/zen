@@ -258,14 +258,15 @@ static const CRPCCommand vRPCCommands[] =
 { //  category              name                      actor (function)         okSafeMode
   //  --------------------- ------------------------  -----------------------  ----------
     /* Overall control/query calls */
-    { "control",            "getinfo",                &getinfo,                true  }, /* uses wallet if enabled */
-    { "control",            "help",                   &help,                   true  },
-    { "control",            "stop",                   &stop,                   true  },
-    { "control",            "dbg_log",                &dbg_log,                true  },
-    { "control",            "dbg_do",                 &dbg_do,                 true  },
-    { "control",            "getscinfo",              &getscinfo,              true  },
-    { "control",            "getactivecertdatahash",  &getactivecertdatahash,  true  },
-    { "control",            "getscgenesisinfo",       &getscgenesisinfo,       true  },
+    { "control",            "getinfo",                     &getinfo,                     true  }, /* uses wallet if enabled */
+    { "control",            "help",                        &help,                        true  },
+    { "control",            "stop",                        &stop,                        true  },
+    { "control",            "dbg_log",                     &dbg_log,                     true  },
+    { "control",            "dbg_do",                      &dbg_do,                      true  },
+    { "control",            "getscinfo",                   &getscinfo,                   true  },
+    { "control",            "getactivecertdatahash",       &getactivecertdatahash,       true  },
+    { "control",            "getceasingcumsccommtreehash", &getceasingcumsccommtreehash, true  },
+    { "control",            "getscgenesisinfo",            &getscgenesisinfo,            true  },
 
     /* P2P networking */
     { "network",            "getnetworkinfo",         &getnetworkinfo,         true  },

@@ -347,7 +347,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
         }
 
         std::vector<unsigned char> vCeasingCumScTxCommTree;
-        if (!AddScData(valActCertData.get_str(), vCeasingCumScTxCommTree, CFieldElement::ByteSize(), true, errStr))
+        if (!AddScData(valCumTree.get_str(), vCeasingCumScTxCommTree, CFieldElement::ByteSize(), true, errStr))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"ceasingCumScTxCommTree\": " + errStr;
             return false;

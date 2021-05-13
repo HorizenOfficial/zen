@@ -241,7 +241,7 @@ class quality_mempool(BitcoinTestFramework):
             quality - 10, constant_1, [pkh_node2], [bwt_amount])
         try:
             cert_2_epoch_0 = self.nodes[1].send_certificate(scid_1, epoch_number_1, quality - 10, epoch_block_hash_1,
-                epoch_cum_tree_hash_1, low_quality_proof, amount_cert_2, CERT_FEE)
+                epoch_cum_tree_hash_1, low_quality_proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_2_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_2_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:

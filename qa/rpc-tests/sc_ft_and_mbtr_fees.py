@@ -332,7 +332,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         self.is_network_split = True
 
         quality = 1
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[1], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[1], EPOCH_LENGTH)
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         cert_amount = Decimal("10.0")
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": cert_amount}]
@@ -345,7 +345,8 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [cert_amount])
-        cert_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, newFtFee, newMbtrFee)
+        cert_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+            epoch_cum_tree_hash, proof, amount_cert_1, newFtFee, newMbtrFee)
         
         mark_logs("Certificate sent to mempool, node 1 generates " + str(EPOCH_LENGTH / 2) + " blocks", self.nodes, DEBUG_MODE)
         self.nodes[1].generate(EPOCH_LENGTH / 2)

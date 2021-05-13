@@ -5274,25 +5274,25 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "send_certificate scid epochNumber quality endEpochBlockHash endEpochCumScTxCommTreeRoot scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
             "\nArguments:\n"
-            "1. \"scid\"                        (string, required) The uint256 side chain ID\n"
-            "2. epochNumber                     (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
-            "3. quality                         (numeric, required) The quality of this withdrawal certificate. \n"
-            "4. \"endEpochBlockHash\"           (string, required) The block hash determining the end of the referenced epoch\n"
-            "5. \"endEpochCumScTxCommTreeRoot\"    (string, required) The hex string representation of the field element corresponding to the root of the cumulative scTxCommitment tree stored at the block marking the end of the referenced epoch\n"
-            "5. \"scProof\"                     (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
-            "6. transfers:                      (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
-            "    [{\n"                     
-            "      \"pubkeyhash\":\"pkh\"       (string, required) The public key hash of the receiver\n"
-            "      \"amount\":amount            (numeric, required) The numeric amount in ZEN\n"
-            "    }, ... ]\n"
-            "7. forwardTransferScFee           (numeric, optional) The amount of fee due to sidechain actors when creating a FT\n"
-            "8. mainchainBackwardTransferScFee (numeric, optional) The amount of fee due to sidechain actors when creating a MBTR\n"
-            "9. fee                             (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
-            "10. vFieldElementCertificateField   (array, optional) An array of byte strings...TODO add description\n"
+            " 1. \"scid\"                        (string, required) The uint256 side chain ID\n"
+            " 2. epochNumber                     (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
+            " 3. quality                         (numeric, required) The quality of this withdrawal certificate. \n"
+            " 4. \"endEpochBlockHash\"           (string, required) The block hash determining the end of the referenced epoch\n"
+            " 5. \"endEpochCumScTxCommTreeRoot\"    (string, required) The hex string representation of the field element corresponding to the root of the cumulative scTxCommitment tree stored at the block marking the end of the referenced epoch\n"
+            " 6. \"scProof\"                     (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + " bytes\n"
+            " 7. transfers:                      (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
+            "     [{\n"                     
+            "       \"pubkeyhash\":\"pkh\"       (string, required) The public key hash of the receiver\n"
+            "       \"amount\":amount            (numeric, required) The numeric amount in ZEN\n"
+            "     }, ... ]\n"
+            " 8. forwardTransferScFee           (numeric, optional) The amount of fee due to sidechain actors when creating a FT\n"
+            " 9. mainchainBackwardTransferScFee (numeric, optional) The amount of fee due to sidechain actors when creating a MBTR\n"
+            "10. fee                             (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
+            "11. vFieldElementCertificateField   (array, optional) An array of byte strings...TODO add description\n"
             "    [\n"                     
             "      \"fieldElement\"             (string, required) The HEX string representing a generic field element\n"
             "    , ... ]\n"
-            "11. vBitVectorCertificateField      (array, optional) An array of byte strings...TODO add description\n"
+            "12. vBitVectorCertificateField      (array, optional) An array of byte strings...TODO add description\n"
             "    [\n"                     
             "      \"fieldElement\"             (string, required) The HEX string representing a generic field element\n"
             "    , ... ]\n"
@@ -5471,7 +5471,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     try
     {
-        ftScFee = AmountFromValue(params[6]);
+        ftScFee = AmountFromValue(params[7]);
     } catch (const UniValue& error)
     {
         UniValue errMsg  = find_value(error, "message");
@@ -5487,7 +5487,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     
     try
     {
-        mbtrScFee = AmountFromValue(params[7]);
+        mbtrScFee = AmountFromValue(params[8]);
     }
     catch (const UniValue& error)
     {
@@ -5502,10 +5502,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     // fee, default to a small amount
     CAmount nCertFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
-    if (params.size() > 8)
+    if (params.size() > 9)
     {
         try {
-            nCertFee = AmountFromValue(params[8]);
+            nCertFee = AmountFromValue(params[9]);
         } catch (const UniValue& error) {
             UniValue errMsg  = find_value(error, "message");
             throw JSONRPCError(RPC_TYPE_ERROR, ("Invalid fee param:" + errMsg.getValStr() ));
@@ -5522,9 +5522,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     UniValue feArray(UniValue::VARR);
-    if (params.size() > 9)
+    if (params.size() > 10)
     {
-        feArray = params[9].get_array();
+        feArray = params[10].get_array();
         int count = 0;
         for (const UniValue& o : feArray.getValues())
         {
@@ -5555,9 +5555,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
     UniValue cmtArray(UniValue::VARR);
-    if (params.size() > 10)
+    if (params.size() > 11)
     {
-        cmtArray = params[10].get_array();
+        cmtArray = params[11].get_array();
         int count = 0;
         for (const UniValue& o : cmtArray.getValues())
         {
