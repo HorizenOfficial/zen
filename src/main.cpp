@@ -5725,6 +5725,13 @@ void static ProcessGetData(CNode* pfrom)
 
 void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfrom, BatchVerificationStateFlag proofVerificationState, CValidationState& state)
 {
+    if (proofVerificationState == BatchVerificationStateFlag::FAILED)
+    {
+        state.DoS(100, error("%s():%d - cert proof failed to verify", __func__, __LINE__),
+                  CValidationState::Code::INVALID_PROOF, "bad-sc-cert-proof");
+        return;
+    }
+
     LOCK(cs_main);
 
     MempoolProofVerificationFlag verificationFlag = proofVerificationState == BatchVerificationStateFlag::NOT_VERIFIED_YET ?
