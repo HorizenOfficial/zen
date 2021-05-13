@@ -361,7 +361,7 @@ public:
     CFieldElement nullifier;
     uint160 pubKeyHash;
     libzendoomc::ScProof scProof;
-    CFieldElement actCertData; 
+    CFieldElement actCertDataHash; 
     CFieldElement ceasingCumScTxCommTree; 
     CScript redeemScript;
 
@@ -369,7 +369,7 @@ public:
 
     explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
-                                               const libzendoomc::ScProof& scProofIn, const CFieldElement& actCertDataIn,
+                                               const libzendoomc::ScProof& scProofIn, const CFieldElement& actCertDataHashIn,
                                                const CFieldElement& ceasingCumScTxCommTreeIn, const CScript& redeemScriptIn
                                                );
 
@@ -382,7 +382,7 @@ public:
         READWRITE(nullifier);
         READWRITE(pubKeyHash);
         READWRITE(scProof);
-        READWRITE(actCertData);
+        READWRITE(actCertDataHash); // it is valid having actCertDataHash FE backed by an empty vector
         READWRITE(ceasingCumScTxCommTree);
         READWRITE(redeemScript);
     }
@@ -394,7 +394,7 @@ public:
                 a.nullifier              == b.nullifier &&
                 a.pubKeyHash             == b.pubKeyHash &&
                 a.scProof                == b.scProof &&
-                a.actCertData            == b.actCertData &&
+                a.actCertDataHash            == b.actCertDataHash &&
                 a.ceasingCumScTxCommTree == b.ceasingCumScTxCommTree &&
                 a.redeemScript           == b.redeemScript);
     }

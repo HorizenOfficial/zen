@@ -1830,7 +1830,7 @@ CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput
 
     std::vector<unsigned char> tmp2 = ParseHex(actCertDataHex);
     tmp2.resize(CFieldElement::ByteSize());
-    CFieldElement actCertData{tmp2};
+    CFieldElement actCertDataHash{tmp2};
 
     std::vector<unsigned char> tmp3 = ParseHex(ceasingCumScTxCommTreeHex);
     tmp3.resize(CFieldElement::ByteSize());
@@ -1843,7 +1843,7 @@ CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput
     CScript dummyRedeemScript;
 
     return CTxCeasedSidechainWithdrawalInput(
-        amount, scId, nullifier, dummyPubKeyHash, dummyScProof, actCertData, ceasingCumScTxCommTree, dummyRedeemScript);
+        amount, scId, nullifier, dummyPubKeyHash, dummyScProof, actCertDataHash, ceasingCumScTxCommTree, dummyRedeemScript);
 }
 
 CTransaction SidechainsInMempoolTestSuite::GenerateCSWTx(const std::vector<CTxCeasedSidechainWithdrawalInput>& csws)

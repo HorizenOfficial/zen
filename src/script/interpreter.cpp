@@ -1074,7 +1074,7 @@ public:
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nullifier, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].pubKeyHash, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scProof, nType, nVersion);
-        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].actCertData, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].actCertDataHash, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].ceasingCumScTxCommTree, nType, nVersion);
 
         // Serialize the script

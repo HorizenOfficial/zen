@@ -254,21 +254,9 @@ class CswActCertDataTest(BitcoinTestFramework):
         # vin  - size(1): utxo for paying the fee
         # vout - size(2): recipient of the funds (the same recipient for all the 4 csws) + sender change
         # vcsw_ccin - size(4): CSW funds
-        # vact_cert_data - size(2): one for each sc
         assert_equal(1, len(decoded_tx['vin']))
         assert_equal(2, len(decoded_tx['vout']))
         assert_equal(4, len(decoded_tx['vcsw_ccin']))
-        assert_equal(2, len(decoded_tx['vact_cert_data']))
-
-        # all csw input for SC1 point to the first act cert data
-        for i in range(0, 3):
-            assert_equal(decoded_tx['vcsw_ccin'][i]['actCertDataIdx'], 0)
-
-        # csw input for SC2 points to the second act cert data
-        assert_equal(decoded_tx['vcsw_ccin'][3]['actCertDataIdx'], 1)
-
-        assert_equal(decoded_tx['vact_cert_data'][0], str(actCertData1))
-        assert_equal(decoded_tx['vact_cert_data'][1], str(actCertData2))
 
         mark_logs("Check tx is in mempool...", self.nodes, DEBUG_MODE)
         assert_true(finalRawtx in self.nodes[2].getrawmempool())

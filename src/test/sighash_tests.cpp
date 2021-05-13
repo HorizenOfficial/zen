@@ -336,7 +336,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
           csw_in.scId = libzcash::random_uint256();
           RandomSidechainField(csw_in.nullifier);
           RandomScProof(csw_in.scProof);
-          RandomSidechainField(csw_in.actCertData);
+          RandomSidechainField(csw_in.actCertDataHash);
           RandomSidechainField(csw_in.ceasingCumScTxCommTree);
 
           if(emptyInputScript) {

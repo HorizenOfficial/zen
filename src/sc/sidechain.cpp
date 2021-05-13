@@ -306,12 +306,12 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
         }
 
         // this can be null in case a ceased sc does not have any valid cert
-        if(!csw.actCertData.IsValid() && !csw.actCertData.IsNull())
+        if(!csw.actCertDataHash.IsValid() && !csw.actCertDataHash.IsNull())
         {
             return state.DoS(100,
-                error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW actCertData\n",
+                error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW actCertDataHash\n",
                     __func__, __LINE__, txHash.ToString()),
-                CValidationState::Code::INVALID, "sidechain-cswinput-invalid-actCertData");
+                CValidationState::Code::INVALID, "sidechain-cswinput-invalid-actCertDataHash");
         }
         
         if(!csw.ceasingCumScTxCommTree.IsValid())

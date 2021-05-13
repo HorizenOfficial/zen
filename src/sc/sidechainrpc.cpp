@@ -41,7 +41,7 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
         rs.push_back(Pair("asm", csw.redeemScript.ToString()));
         rs.push_back(Pair("hex", HexStr(csw.redeemScript)));
         o.push_back(Pair("redeemScript", rs));
-        o.push_back(Pair("actCertData", csw.actCertData.GetHexRepr()));
+        o.push_back(Pair("actCertDataHash", csw.actCertDataHash.GetHexRepr()));
         o.push_back(Pair("ceasingCumScTxCommTree", csw.ceasingCumScTxCommTree.GetHexRepr()));
 
         vcsws.push_back(o);
@@ -330,8 +330,8 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 
-        CFieldElement actCertData {vActCertData};
-        if (!actCertData.IsValid() && !actCertData.IsNull())
+        CFieldElement actCertDataHash {vActCertData};
+        if (!actCertDataHash.IsValid() && !actCertDataHash.IsNull())
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"activeCertData\": invalid field element";
             return false;
@@ -385,7 +385,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 
-        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, nullifier, pubKeyHash, scProof, actCertData, ceasingCumScTxCommTree, CScript());
+        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, nullifier, pubKeyHash, scProof, actCertDataHash, ceasingCumScTxCommTree, CScript());
         rawTx.vcsw_ccin.push_back(csw_input);
     }
 

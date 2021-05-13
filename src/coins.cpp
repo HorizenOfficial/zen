@@ -1518,7 +1518,8 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
         }
 
         CScCertificateView certView = this->GetActiveCertView(csw.scId);
-        if (certView.certDataHash != csw.actCertData)
+        // note: it's also fine to have actCertDataHash == CFieldElement()
+        if (certView.certDataHash != csw.actCertDataHash)
         {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n active cert data hash does not match\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString());
@@ -1549,10 +1550,10 @@ CValidationState::Code CCoinsViewCache::IsScTxCswProofVerified(const CTransactio
         }
 
         // TODO to be used in the new version of the verification
-        CFieldElement certDataHash   = csw.actCertData;
+        CFieldElement certDataHash   = csw.actCertDataHash;
         CFieldElement ceasedBlockCum = csw.ceasingCumScTxCommTree;
 
-        // TODO note that actCertData can be null: in this case a Phantom hash shall be passed to the verifier
+        // TODO note that actCertDataHash can be null: in this case a Phantom hash shall be passed to the verifier
 
         // Verify CSW proof // TODO update this call as soon as the final signature is defined
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.fixedParams.wCeasedVk.get(), csw))

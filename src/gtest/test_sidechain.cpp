@@ -321,7 +321,7 @@ TEST_F(SidechainsTestSuite, ValidCSWTx) {
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -339,7 +339,7 @@ TEST_F(SidechainsTestSuite, InvalidNullifier) {
     csw.nValue = 100;
     csw.nullifier = CFieldElement{};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -359,7 +359,7 @@ TEST_F(SidechainsTestSuite, CSWTxNegativeAmount) {
     csw.nValue = -1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -379,7 +379,7 @@ TEST_F(SidechainsTestSuite, CSWTxHugeAmount) {
     csw.nValue = MAX_MONEY + 1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -399,7 +399,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidNullifier) {
     csw.nValue = 100;
     csw.nullifier = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -419,7 +419,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidActCertData) {
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertData = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
+    csw.actCertDataHash = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -439,7 +439,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidCeasingCumScTxCommTree) {
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof();
-    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;
@@ -459,7 +459,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidProof) {
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
     csw.scProof = libzendoomc::ScProof({std::vector<unsigned char>(size_t(SC_PROOF_SIZE), 'a')});
-    csw.actCertData = CFieldElement{SAMPLE_FIELD};
+    csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
     CValidationState txState;

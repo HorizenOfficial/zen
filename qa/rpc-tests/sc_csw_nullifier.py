@@ -201,9 +201,6 @@ class CswNullifierTest(BitcoinTestFramework):
         assert_equal(2, len(decoded_tx['vout']))
         assert_equal(1, len(decoded_tx['vcsw_ccin']))
         csw_in = decoded_tx['vcsw_ccin'][0]
-        pprint.pprint(csw_in)
-        pprint.pprint(decoded_tx['vact_cert_data'])
-        assert_equal(decoded_tx['vact_cert_data'][int(csw_in['actCertDataIdx'])], str(actCertData))
 
         mark_logs("Check csw is in mempool...", self.nodes, DEBUG_MODE)
         assert_true(finalRawtx in self.nodes[2].getrawmempool())
@@ -468,10 +465,9 @@ class CswNullifierTest(BitcoinTestFramework):
         
         prev_epoch_hash = self.nodes[0].getbestblockhash()
         vk2 = mcTest.generate_params("sc2")
-        mbtrVk2 = mcTest.generate_params("mbtr2")
         cswVk2 = mcTest.generate_params("csw2")
 
-        ret = self.nodes[0].sc_create(sc_epoch_len, "dada", sc_cr_amount, vk2, "abcdef", constant, mbtrVk2, cswVk2)
+        ret = self.nodes[0].sc_create(sc_epoch_len, "dada", sc_cr_amount, vk2, "abcdef", constant, cswVk2)
         creating_tx = ret['txid']
         mark_logs("Node 0 created SC spending {} coins via tx1 {}.".format(sc_cr_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()

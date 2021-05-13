@@ -215,7 +215,7 @@ std::string CTxIn::ToString() const
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(
     const CAmount& nValueIn, const uint256& scIdIn, const CFieldElement& nullifierIn,
     const uint160& pubKeyHashIn, const libzendoomc::ScProof& scProofIn,
-    const CFieldElement& actCertDataIn, const CFieldElement& ceasingCumScTxCommTreeIn,
+    const CFieldElement& actCertDataHashIn, const CFieldElement& ceasingCumScTxCommTreeIn,
     const CScript& redeemScriptIn)
 {
     nValue = nValueIn;
@@ -223,22 +223,22 @@ CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(
     nullifier = nullifierIn;
     pubKeyHash = pubKeyHashIn;
     scProof = scProofIn;
-    actCertData = actCertDataIn;
+    actCertDataHash = actCertDataHashIn;
     ceasingCumScTxCommTree = ceasingCumScTxCommTreeIn;
     redeemScript = redeemScriptIn;
 }
 
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput():
-    nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), actCertData(), ceasingCumScTxCommTree(), redeemScript() {}
+    nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), actCertDataHash(), ceasingCumScTxCommTree(), redeemScript() {}
 
 std::string CTxCeasedSidechainWithdrawalInput::ToString() const
 {
     return strprintf(
         "CTxCeasedSidechainWithdrawalInput("
         "nValue=%d.%08d, scId=%s,\nnullifier=%s,\npubKeyHash=%s,\nscProof=%s,\n"
-        "actCertData=%s, \nceasingCumScTxCommTree=%s, redeemScript=%s)\n",
+        "actCertDataHash=%s, \nceasingCumScTxCommTree=%s, redeemScript=%s)\n",
                      nValue / COIN, nValue % COIN, scId.ToString(), nullifier.GetHexRepr().substr(0, 10),
-        pubKeyHash.ToString(), HexStr(scProof).substr(0, 10), actCertData.GetHexRepr().substr(0, 10),
+        pubKeyHash.ToString(), HexStr(scProof).substr(0, 10), actCertDataHash.GetHexRepr().substr(0, 10),
         ceasingCumScTxCommTree.GetHexRepr().substr(0, 10), HexStr(redeemScript).substr(0, 24));
 }
 

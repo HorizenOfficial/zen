@@ -121,7 +121,7 @@ CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(
 
     std::vector<unsigned char> tmp2 = ParseHex(actCertDataHex);
     tmp2.resize(CFieldElement::ByteSize());
-    CFieldElement actCertData{tmp2};
+    CFieldElement actCertDataHash{tmp2};
 
     std::vector<unsigned char> tmp3 = ParseHex(ceasingCumScTxCommTreeHex);
     tmp3.resize(CFieldElement::ByteSize());
@@ -131,7 +131,7 @@ CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(
     libzendoomc::ScProof dummyScProof;
     CScript dummyRedeemScript;
 
-    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, actCertData, ceasingCumScTxCommTree, dummyRedeemScript);
+    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, actCertDataHash, ceasingCumScTxCommTree, dummyRedeemScript);
 }
 
 CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawalInput& csw)
