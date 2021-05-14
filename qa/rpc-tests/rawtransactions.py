@@ -506,22 +506,6 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         assert_true(error_occurred)
 
-        mark_logs("\nTry to create CSW with a SIGHASH_ANYONECANPAY bit", self.nodes, DEBUG_MODE)
-        sc_csws[0]['nullifier'] = generate_random_field_element_hex()
-        rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
-
-        error_occurred = False
-        try:
-            sigRawtx = self.nodes[0].signrawtransaction(rawtx, None, None, "ALL|ANYONECANPAY")
-            self.nodes[0].sendrawtransaction(sigRawtx['hex'])
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            print errorString
-            error_occurred = True
-
-        assert_true(error_occurred)
-
-
         mark_logs("\nTry to create CSW that spends more coins that available for the given SC balance", self.nodes, DEBUG_MODE)
         sc_csws[0]['nullifier'] = generate_random_field_element_hex()
         sc_csws[0]['amount'] = self.nodes[0].getscinfo(scid)['items'][0]['balance'] + Decimal('0.00000001')
