@@ -88,7 +88,7 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
             "getpeerinfo\n"
             "\nReturns data about each connected network node as a json array of objects.\n"
             
-            "\nbResult:\n"
+            "\nResult:\n"
             "[\n"
             "  {\n"
             "    \"id\": n,                              (numeric) peer index\n"
