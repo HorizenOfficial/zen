@@ -39,8 +39,8 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vsc_ccout.resize(1);
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
-    mtx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    mtx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    mtx.vsc_ccout[0].wCertVk   = CScVKey(ParseHex(SAMPLE_VK));
+    mtx.vsc_ccout[0].wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     mtx.vsc_ccout[0].forwardTransferScFee = ftScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = mbtrScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = mbtrDataLength;
@@ -128,7 +128,7 @@ CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(
     CFieldElement ceasingCumScTxCommTree{tmp3};
 
     uint160 dummyPubKeyHash {};
-    libzendoomc::ScProof dummyScProof;
+    CScProof dummyScProof{ParseHex(SAMPLE_PROOF)};
     CScript dummyRedeemScript;
 
     return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, actCertDataHash, ceasingCumScTxCommTree, dummyRedeemScript);
@@ -218,6 +218,8 @@ CScCertificate txCreationUtils::createCertificate(
     res.quality = quality;
     res.forwardTransferScFee = ftScFee;
     res.mainchainBackwardTransferRequestScFee = mbtrScFee;
+
+    res.scProof = CScProof{ParseHex(SAMPLE_PROOF)};
 
     res.vin.resize(1);
     res.vin[0].prevout.hash = uint256S("1");

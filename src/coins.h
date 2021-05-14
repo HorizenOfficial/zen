@@ -18,12 +18,12 @@
 #include <boost/unordered_map.hpp>
 #include "zcash/IncrementalMerkleTree.hpp"
 #include <sc/sidechain.h>
-#include <sc/proofverifier.h>
 #include <consensus/validation.h>
 
 class CBlockUndo;
 class CTxInUndo;
 class CSidechainUndoData;
+class CScProofVerifier;
 
 static const int BWT_POS_UNSET = -1;
 
@@ -675,7 +675,7 @@ public:
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
     CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode = nullptr) const;
-    CValidationState::Code IsScTxCswProofVerified(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const;
+    CValidationState::Code IsScTxCswProofVerified(const CTransaction& tx, CScProofVerifier& scVerifier) const;
     bool CheckScTxTiming(const uint256& scId) const;
     bool CheckScFtFee(const CTxForwardTransferOut& ftOutput) const;
     bool CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const;
@@ -685,7 +685,7 @@ public:
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
     CValidationState::Code IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode = nullptr) const;
-    CValidationState::Code IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const;
+    CValidationState::Code IsCertProofVerified(const CScCertificate& cert, CScProofVerifier& scVerifier) const;
     bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
 
     CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(

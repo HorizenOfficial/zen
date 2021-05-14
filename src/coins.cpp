@@ -17,6 +17,8 @@
 #include <main.h>
 #include <consensus/validation.h>
 
+#include <sc/proofverifier.h>
+
 std::string CCoins::ToString() const
 {
     std::string ret;
@@ -1092,9 +1094,9 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 #ifdef BITCOIN_TX
 int CCoinsViewCache::GetHeight() const {return -1;}
 CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode) const {return CValidationState::Code::OK;}
-CValidationState::Code CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const { return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsCertProofVerified(const CScCertificate& cert, CScProofVerifier& scVerifier) const { return CValidationState::Code::OK;}
 CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode) const { return CValidationState::Code::OK;}
-CValidationState::Code CCoinsViewCache::IsScTxCswProofVerified(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const { return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsScTxCswProofVerified(const CTransaction& tx, CScProofVerifier& scVerifier) const { return CValidationState::Code::OK;}
 #else
 
 int CCoinsViewCache::GetHeight() const
@@ -1220,8 +1222,9 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
 }
 
 CValidationState::Code CCoinsViewCache::IsCertProofVerified(
-    const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const
+    const CScCertificate& cert, CScProofVerifier& scVerifier) const
 {
+#if 0
     const uint256& certHash = cert.GetHash();
 
     LogPrint("cert", "%s():%d - called: cert[%s], scId[%s]\n",
@@ -1261,6 +1264,21 @@ CValidationState::Code CCoinsViewCache::IsCertProofVerified(
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
         return CValidationState::Code::INVALID_PROOF;
     }
+#else
+    if (scVerifier.verificationMode == CScProofVerifier::Verification::Loose)
+        return CValidationState::Code::OK;
+
+    // we choose to use two steps load/verify for moving in future the implementation towards the batch processing
+    scVerifier.LoadDataForCertVerification(*this, cert);
+
+    if (!scVerifier.verifyCScCertificate())
+    {
+        LogPrintf("%s():%d - ERROR: certificate[%s] cannot be accepted for sidechain [%s]: proof verification failed\n",
+            __func__, __LINE__, cert.GetHash().ToString(), cert.GetScId().ToString());
+        return CValidationState::Code::INVALID_PROOF;
+    }
+
+#endif
 
     return CValidationState::Code::OK;
 }
@@ -1546,7 +1564,7 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
     return CValidationState::Code::OK;
 }
 
-CValidationState::Code CCoinsViewCache::IsScTxCswProofVerified(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const
+CValidationState::Code CCoinsViewCache::IsScTxCswProofVerified(const CTransaction& tx, CScProofVerifier& scVerifier) const
 {
     for(const CTxCeasedSidechainWithdrawalInput& csw : tx.GetVcswCcIn())
     {
@@ -1565,7 +1583,12 @@ CValidationState::Code CCoinsViewCache::IsScTxCswProofVerified(const CTransactio
         // TODO note that actCertDataHash can be null: in this case a Phantom hash shall be passed to the verifier
 
         // Verify CSW proof // TODO update this call as soon as the final signature is defined
+#if 0
         if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput(certDataHash, sidechain.fixedParams.wCeasedVk.get(), csw))
+#else
+        scVerifier.LoadDataForCswVerification(*this, tx);
+        if (!scVerifier.verifyCTxCeasedSidechainWithdrawalInput())
+#endif
         {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n cannot be accepted: proof verification failed\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString());

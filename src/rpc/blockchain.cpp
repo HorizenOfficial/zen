@@ -1113,7 +1113,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
  
         if (bVerbose)
         {
-            sc.push_back(Pair("wCertVk", HexStr(info.fixedParams.wCertVk)));
+            sc.push_back(Pair("certProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCertVk.getProvingSystemType())));
+            sc.push_back(Pair("wCertVk", info.fixedParams.wCertVk.GetHexRepr()));
             sc.push_back(Pair("customData", HexStr(info.fixedParams.customData)));
 
             if (info.fixedParams.constant.is_initialized())
@@ -1122,7 +1123,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("constant", std::string{"NOT INITIALIZED"}));
 
             if(info.fixedParams.wCeasedVk.is_initialized())
-                sc.push_back(Pair("wCeasedVk", HexStr(info.fixedParams.wCeasedVk.get())));
+            {
+                sc.push_back(Pair("cswProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType())));
+                sc.push_back(Pair("wCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr()));
+            }
             else
                 sc.push_back(Pair("wCeasedVk", std::string{"NOT INITIALIZED"}));
 
@@ -1203,7 +1207,8 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
 
             if (bVerbose)
             {
-                sc.push_back(Pair("unconf wCertVk", HexStr(info.fixedParams.wCertVk)));
+                sc.push_back(Pair("unconf certProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCertVk.getProvingSystemType())));
+                sc.push_back(Pair("unconf wCertVk", info.fixedParams.wCertVk.GetHexRepr()));
                 sc.push_back(Pair("unconf customData", HexStr(info.fixedParams.customData)));
 
                 if(info.fixedParams.constant.is_initialized())
@@ -1212,7 +1217,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     sc.push_back(Pair("unconf constant", std::string{"NOT INITIALIZED"}));
 
                 if(info.fixedParams.wCeasedVk.is_initialized())
-                    sc.push_back(Pair("unconf wCeasedVk", HexStr(info.fixedParams.wCeasedVk.get())));
+                {
+                    sc.push_back(Pair("unconf cswProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType())));
+                    sc.push_back(Pair("unconf wCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr()));
+                }
                 else
                     sc.push_back(Pair("unconf wCeasedVk", std::string{"NOT INITIALIZED"}));
 
@@ -1397,9 +1405,11 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"active mbtrScFee\":        xxxxx,   (numeric) The currently active fee required to create a Mainchain Backward Transfer Request to sidechain\n"
             "     \"mbtrRequestDataLength\":   xxxxx,   (numeric) The size of the MBTR request data length\n"
             "     \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
+            "     \"certProvingSystem\"        xxxxx,   (numeric) The type of proving system used for certificate verification\n"
             "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
             "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
             "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
+            "     \"cswProvingSystem\"         xxxxx,   (numeric) The type of proving system used for CSW verification\n"
             "     \"wCeasedVk\":               xxxxx,   (string)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
             "     \"vFieldElementCertificateFieldConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
             "     \"vBitVectorCertificateFieldConfig\"    xxxxx,   (string) A string representation of an array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom vBitVectorCertificateField with the corresponding sizes\n"
@@ -1699,7 +1709,7 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
 
     std::string nullifierError;
     std::vector<unsigned char> nullifierVec;
-    if (!AddScData(inputString, nullifierVec, CFieldElement::ByteSize(), true, nullifierError))
+    if (!AddScData(inputString, nullifierVec, CFieldElement::ByteSize(), CheckSizeMode::STRICT, nullifierError))
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": " + nullifierError;
         throw JSONRPCError(RPC_TYPE_ERROR, error);

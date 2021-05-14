@@ -28,7 +28,13 @@
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
 #include <script/script_error.h>
-#include <sc/proofverifier.h>
+
+class UniValue;
+class CBackwardTransferOut;
+class CValidationState;
+class CChain;
+class CMutableTransactionBase;
+struct CMutableTransaction;
 
 static const int32_t SC_CERT_VERSION = 0xFFFFFFFB; // -5
 static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
@@ -360,7 +366,7 @@ public:
     uint256 scId;
     CFieldElement nullifier;
     uint160 pubKeyHash;
-    libzendoomc::ScProof scProof;
+    CScProof scProof;
     CFieldElement actCertDataHash; 
     CFieldElement ceasingCumScTxCommTree; 
     CScript redeemScript;
@@ -369,7 +375,7 @@ public:
 
     explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
-                                               const libzendoomc::ScProof& scProofIn, const CFieldElement& actCertDataHashIn,
+                                               const CScProof& scProofIn, const CFieldElement& actCertDataHashIn,
                                                const CFieldElement& ceasingCumScTxCommTreeIn, const CScript& redeemScriptIn
                                                );
 
@@ -408,8 +414,6 @@ public:
 
     CScript scriptPubKey() const;
 };
-
-class CBackwardTransferOut;
 
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
@@ -565,9 +569,6 @@ public:
     }
 };
 
-class FieldElementCertificateFieldConfig;
-class BitVectorCertificateFieldConfig;
-
 class CTxScCreationOut : public CTxCrosschainOut
 {
 friend class CTransaction;
@@ -581,17 +582,18 @@ public:
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
-    libzendoomc::ScVk wCertVk;
-    boost::optional<libzendoomc::ScVk> wCeasedVk;
+    CScVKey wCertVk;
+    boost::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
     CAmount forwardTransferScFee;
     CAmount mainchainBackwardTransferRequestScFee;
-    int32_t mainchainBackwardTransferRequestDataLength;
+    uint8_t mainchainBackwardTransferRequestDataLength;
 
-    CTxScCreationOut(): withdrawalEpochLength(-1), forwardTransferScFee(-1),
+    CTxScCreationOut(): withdrawalEpochLength(-1),
+                        forwardTransferScFee(-1),
                         mainchainBackwardTransferRequestScFee(-1),
-                        mainchainBackwardTransferRequestDataLength(-1) { }
+                        mainchainBackwardTransferRequestDataLength(0) { }
 
     CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn,
                      const CAmount& ftScFee, const CAmount& mbtrScFee,
@@ -688,22 +690,6 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     std::string ToString() const override;
 };
 
-// forward declarations
-class CValidationState;
-class CTxMemPool;
-class CCoinsViewCache;
-class CChain;
-class CBlock;
-class CBlockTemplate;
-class CScriptCheck;
-class CBlockUndo;
-class CTxUndo;
-class UniValue;
-
-namespace Sidechain { class ScCoinsViewCache; }
-
-class CMutableTransactionBase;
-
 // abstract interface for CTransaction and CScCertificate
 class CTransactionBase
 {
@@ -726,7 +712,6 @@ public:
     CTransactionBase& operator=(const CTransactionBase& tx);
 
     explicit CTransactionBase(const CMutableTransactionBase& mutTxBase);
-
     virtual ~CTransactionBase() = default;
 
     template <typename Stream>
@@ -830,8 +815,6 @@ public:
         return !IsCertificate(nVersion);
     }
 };
-
-struct CMutableTransaction;
 
 /** The basic transaction that is broadcasted on the network and contained in
  * blocks.  A transaction can contain multiple inputs and outputs.

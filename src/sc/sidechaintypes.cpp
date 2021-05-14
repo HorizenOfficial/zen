@@ -2,62 +2,15 @@
 #include "util.h"
 #include <consensus/consensus.h>
 
-///////////////////////////////// Field types //////////////////////////////////
-#ifdef BITCOIN_TX
-    CFieldElement::CFieldElement() {};
-    void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn) {};
-    void CFieldElement::SetNull() {};
-    bool CFieldElement::IsNull() const {return false;};
-    wrappedFieldPtr CFieldElement::GetFieldElement() const {return nullptr;};
-    bool CFieldElement::IsValid() const {return false;};
-    std::string CFieldElement::GetHexRepr() const {return std::string{};};
-    CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs) { return CFieldElement{}; }
-    const std::vector<unsigned char>&  CFieldElement::GetByteArray() const { static std::vector<unsigned char> dummy{}; return dummy;}
-#else
-CFieldElement::CFieldElement(): byteVector() { SetNull(); }
-
-CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) : byteVector()
-{
-    this->SetByteArray(byteArrayIn);
-}
-
-void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
-{
-    assert(byteArrayIn.size() == CFieldElement::ByteSize());
-    this->byteVector = byteArrayIn;
-}
-
-CFieldElement::CFieldElement(const uint256& value)
-{
-    this->byteVector.resize(CFieldElement::ByteSize(),0x0);
-    std::copy(value.begin(), value.end(), this->byteVector.begin());
-}
-
-void CFieldElement::SetNull()
-{
-    byteVector.resize(0);
-}
-
-bool CFieldElement::IsNull() const { return byteVector.empty();}
-
-const std::vector<unsigned char>&  CFieldElement::GetByteArray() const
+const std::vector<unsigned char>&  CZendooCctpObject::GetByteArray() const
 {
     return byteVector;
 }
 
-wrappedFieldPtr CFieldElement::GetFieldElement() const
-{
-    wrappedFieldPtr res = {zendoo_deserialize_field(&this->byteVector[0]), theFieldPtrDeleter};
-    return res;
-}
+void CZendooCctpObject::SetNull() { byteVector.resize(0); }
+bool CZendooCctpObject::IsNull() const { return byteVector.empty();}
 
-uint256 CFieldElement::GetLegacyHashTO_BE_REMOVED() const
-{
-    std::vector<unsigned char> tmp(this->byteVector.begin(), this->byteVector.begin()+32);
-    return uint256(tmp);
-}
-
-std::string CFieldElement::GetHexRepr() const
+std::string CZendooCctpObject::GetHexRepr() const
 {
     std::string res; //ADAPTED FROM UTILSTRENCONDING.CPP HEXSTR
     static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
@@ -72,59 +25,83 @@ std::string CFieldElement::GetHexRepr() const
     return res;
 }
 
+///////////////////////////////// Field types //////////////////////////////////
+#ifdef BITCOIN_TX
+CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) {};
+void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn) {};
+CFieldElement::CFieldElement(const uint256& value) {};
+CFieldElement::CFieldElement(const wrappedFieldPtr& wrappedField) {};
+wrappedFieldPtr CFieldElement::GetFieldElement() const {return nullptr;};
+bool CFieldElement::IsValid() const {return false;};
+CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs) { return CFieldElement{}; }
+#else
+CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn): CZendooCctpObject(byteArrayIn)
+{
+    assert(byteArrayIn.size() == this->ByteSize());
+}
+void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
+{
+    assert(byteArrayIn.size() == this->ByteSize());
+    this->byteVector = byteArrayIn;
+}
+
+CFieldElement::CFieldElement(const uint256& value)
+{
+    this->byteVector.resize(CFieldElement::ByteSize(),0x0);
+    std::copy(value.begin(), value.end(), this->byteVector.begin());
+}
+
+CFieldElement::CFieldElement(const wrappedFieldPtr& wrappedField)
+{
+    this->byteVector.resize(CFieldElement::ByteSize(),0x0);
+    zendoo_serialize_field(wrappedField.get(), &byteVector[0]);
+}
+
+wrappedFieldPtr CFieldElement::GetFieldElement() const
+{
+    if (byteVector.empty())
+    {
+        LogPrint("sc", "%s():%d - empty byteVector\n", __func__, __LINE__);
+        return wrappedFieldPtr{nullptr};
+    }
+
+    if (byteVector.size() != ByteSize())
+    {
+        LogPrint("sc", "%s():%d - wrong fe size: byteVector[%d] != %d\n",
+            __func__, __LINE__, byteVector.size(), ByteSize());
+        return wrappedFieldPtr{nullptr};
+    }
+
+    wrappedFieldPtr res = {zendoo_deserialize_field(&this->byteVector[0]), theFieldPtrDeleter};
+    return res;
+}
+
+uint256 CFieldElement::GetLegacyHashTO_BE_REMOVED() const
+{
+    std::vector<unsigned char> tmp(this->byteVector.begin(), this->byteVector.begin()+32);
+    return uint256(tmp);
+}
+
 bool CFieldElement::IsValid() const
 {
-    if(this->IsNull()) {
+    if(this->GetFieldElement() == nullptr)
         return false;
-    }
 
-    // THERE SHOULD BE A RUST METHOD RETURNING BOOL RATHER THAN FIELD PTR
-    // (this has been taken care of in a different dev branch)
-    field_t * pField = zendoo_deserialize_field(&this->byteVector[0]);
-    if (pField == nullptr)
-    {
-        LogPrintf("%s():%d - failed to deserialize: Err=%s\n", __func__, __LINE__,
-            libzendoomc::ToString(zendoo_get_last_error()));
-        return false;
-    }
-
-    zendoo_field_free(pField);
     return true;
 }
 
 CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs)
 {
-    if(lhs.IsNull() || rhs.IsNull()) {
+    if(!lhs.IsValid() || !rhs.IsValid())
         throw std::runtime_error("Could not compute poseidon hash on null field elements");
-    }
-    auto digest = ZendooPoseidonHash();
 
-    field_t* lhsFe = zendoo_deserialize_field(&(*lhs.byteVector.begin()));
-    if (lhsFe == nullptr) {
-        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
-        zendoo_clear_error();
-        throw std::runtime_error("Could not compute poseidon hash");
-    }
-    digest.update(lhsFe);
+    ZendooPoseidonHash digest{};
 
-    field_t* rhsFe = zendoo_deserialize_field(&(*rhs.byteVector.begin()));
-    if (rhsFe == nullptr) {
-        LogPrintf("%s():%d - failed to deserialize: %s \n", __func__, __LINE__, libzendoomc::ToString(zendoo_get_last_error()));
-        zendoo_clear_error();
-        zendoo_field_free(lhsFe);
-        throw std::runtime_error("Could not compute poseidon hash");
-    }
-    digest.update(rhsFe);
+    digest.update(lhs.GetFieldElement().get());
+    digest.update(rhs.GetFieldElement().get());
 
-    field_t* outFe = digest.finalize();
-    CFieldElement res;
-    res.byteVector.resize(CFieldElement::ByteSize());
-    zendoo_serialize_field(outFe, &*(res.byteVector.begin()));
-
-    zendoo_field_free(lhsFe);
-    zendoo_field_free(rhsFe);
-    zendoo_field_free(outFe);
-    return res;
+    wrappedFieldPtr res = {digest.finalize(), theFieldPtrDeleter};
+    return CFieldElement(res);
 }
 
 const CFieldElement& CFieldElement::GetPhantomHash()
@@ -136,53 +113,102 @@ const CFieldElement& CFieldElement::GetPhantomHash()
     return ret;
 }
 #endif
-////////////////////////////// End of Field types //////////////////////////////
+///////////////////////////// End of CFieldElement /////////////////////////////
 
-/////////////////////// libzendoomc namespace definitions //////////////////////
-namespace libzendoomc
+/////////////////////////////////// CScProof ///////////////////////////////////
+CScProof::CScProof(const std::vector<unsigned char>& byteArrayIn): CZendooCctpObject(byteArrayIn)
 {
-
-    bool IsValidScProof(const ScProof& scProof)
-    {
-        auto scProofDeserialized = zendoo_deserialize_sc_proof(scProof.begin());
-        if (scProofDeserialized == nullptr)
-            return false;
-        zendoo_sc_proof_free(scProofDeserialized);
-        return true;
-    }
-
-    bool IsValidScVk(const ScVk& scVk)
-    {
-        auto scVkDeserialized = zendoo_deserialize_sc_vk(scVk.begin());
-        if (scVkDeserialized == nullptr)
-            return false;
-        zendoo_sc_vk_free(scVkDeserialized);
-        return true;
-    }
-
-    std::string ToString(Error err){
-        return strprintf(
-            "%s: [%d - %s]\n",
-            err.msg,
-            err.category,
-            zendoo_get_category_name(err.category));
-    }
+    assert(byteArrayIn.size() <= this->MaxByteSize());
 }
-/////////////////// end of libzendoomc namespace definitions ///////////////////
+
+void CScProof::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
+{
+    assert(byteArrayIn.size() <= this->MaxByteSize());
+    this->byteVector = byteArrayIn;
+}
+
+wrappedScProofPtr CScProof::GetProofPtr() const
+{
+    if (this->byteVector.empty())
+        return wrappedScProofPtr{nullptr};
+
+    wrappedScProofPtr res = {zendoo_deserialize_sc_proof(&this->byteVector[0]), theProofPtrDeleter};
+    return res;
+}
+
+bool CScProof::IsValid() const
+{
+    if (this->GetProofPtr() == nullptr)
+        return false;
+
+    return true;
+}
+
+Sidechain::ProvingSystemType CScProof::getProvingSystemType() const
+{
+    // TODO add a CCTP call for getting Proving System Type from serialized key object
+    // return zendoo_get_proving_system_type_proof(&this->byteVector[0]);
+    return Sidechain::ProvingSystemType::Darlin;
+}
+
+//////////////////////////////// End of CScProof ///////////////////////////////
+
+//////////////////////////////////// CScVKey ///////////////////////////////////
+CScVKey::CScVKey(const std::vector<unsigned char>& byteArrayIn)
+    :CZendooCctpObject(byteArrayIn)
+{
+    assert(byteArrayIn.size() <= this->MaxByteSize());
+}
+
+CScVKey::CScVKey(): CZendooCctpObject()
+{
+}
+
+void CScVKey::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
+{
+    assert(byteArrayIn.size() <= this->MaxByteSize());
+    this->byteVector = byteArrayIn;
+}
+
+wrappedScVkeyPtr CScVKey::GetVKeyPtr() const
+{
+    if (this->byteVector.empty())
+        return wrappedScVkeyPtr{nullptr};
+
+    wrappedScVkeyPtr res = {zendoo_deserialize_sc_vk(&this->byteVector[0]), theVkPtrDeleter};
+    return res;
+}
+
+bool CScVKey::IsValid() const
+{
+    if (this->GetVKeyPtr() == nullptr)
+        return false;
+
+    return true;
+}
+
+Sidechain::ProvingSystemType CScVKey::getProvingSystemType() const
+{
+    // TODO add a CCTP call for getting Proving System Type from serialized key object
+    // return zendoo_get_proving_system_type_vk(&this->byteVector[0]);
+    return Sidechain::ProvingSystemType::Darlin;
+}
+
+//////////////////////////////// End of CScVKey ////////////////////////////////
 
 ////////////////////////////// Custom Config types //////////////////////////////
 bool FieldElementCertificateFieldConfig::IsValid() const
 {
-    if(nBits > 0 && nBits <= SC_FIELD_SIZE*8)
+    if(nBits > 0 && nBits <= CFieldElement::ByteSize()*8)
         return true;
     else
         return false;
 }
 
-FieldElementCertificateFieldConfig::FieldElementCertificateFieldConfig(int32_t nBitsIn):
+FieldElementCertificateFieldConfig::FieldElementCertificateFieldConfig(uint8_t nBitsIn):
     CustomCertificateFieldConfig(), nBits(nBitsIn) {}
 
-int32_t FieldElementCertificateFieldConfig::getBitSize() const
+uint8_t FieldElementCertificateFieldConfig::getBitSize() const
 {
     return nBits;
 }
@@ -388,3 +414,58 @@ const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorC
 }
 
 ////////////////////////// End of Custom Field types ///////////////////////////
+std::string Sidechain::ProvingSystemTypeHelp()
+{
+    std::string helpString;
+
+    helpString += strprintf("%s, ", PROVING_SYS_TYPE_COBOUNDARY_MARLIN);
+    helpString += strprintf("%s",   PROVING_SYS_TYPE_DARLIN);
+
+    return helpString;
+}
+
+bool Sidechain::IsValidProvingSystemType(uint8_t val)
+{
+    return IsValidProvingSystemType(static_cast<ProvingSystemType>(val));
+}
+
+bool Sidechain::IsValidProvingSystemType(Sidechain::ProvingSystemType val)
+{
+    switch (val)
+    {
+        case ProvingSystemType::CoboundaryMarlin:
+        case ProvingSystemType::Darlin:
+            return true;
+        default:
+            return false;
+    }
+}
+
+std::string Sidechain::ProvingSystemTypeToString(Sidechain::ProvingSystemType val)
+{
+    switch (val)
+    {
+        case ProvingSystemType::CoboundaryMarlin:
+            return PROVING_SYS_TYPE_COBOUNDARY_MARLIN;
+        case ProvingSystemType::Darlin:
+            return PROVING_SYS_TYPE_DARLIN;
+        default:
+            return PROVING_SYS_TYPE_UNDEFINED;
+    }
+}
+
+Sidechain::ProvingSystemType Sidechain::StringToProvingSystemType(const std::string& str)
+{
+    if (str == PROVING_SYS_TYPE_COBOUNDARY_MARLIN)
+        return ProvingSystemType::CoboundaryMarlin;
+    if (str == PROVING_SYS_TYPE_DARLIN)
+        return ProvingSystemType::Darlin;
+    return ProvingSystemType::Undefined;
+}
+
+bool Sidechain::IsUndefinedProvingSystemType(const std::string& str)
+{
+    // empty string or explicit undefined tag mean null semantic, others must be legal types 
+    return (str.empty() || str == PROVING_SYS_TYPE_UNDEFINED);
+}
+

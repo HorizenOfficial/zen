@@ -206,7 +206,7 @@ class sc_cert_base(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
-        assert_equal("scProof: Invalid length" in errorString, True)
+        assert_equal("invalid cert scProof" in errorString, True)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
         
@@ -222,7 +222,7 @@ class sc_cert_base(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
-        assert_equal("scProof: Invalid length" in errorString, True)
+        assert_equal("invalid cert scProof" in errorString, True)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
 

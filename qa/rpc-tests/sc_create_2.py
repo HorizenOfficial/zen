@@ -230,7 +230,7 @@ class SCCreateTest(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("bytes" in errorString)
+            assert_true("Invalid wCertVk" in errorString)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a wCertVk too long
@@ -243,7 +243,7 @@ class SCCreateTest(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("bytes" in errorString)
+            assert_true("Invalid wCertVk" in errorString)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with an invalid wCertVk

@@ -10,15 +10,60 @@
 #include <boost/variant.hpp>
 
 #include <zendoo/zendoo_mc.h>
-#include <zendoo/error.h>
 
 #include "uint256.h"
 #include "hash.h"
 #include "script/script.h"
 #include "amount.h"
 #include "serialize.h"
-///////////////////////////////// Field types //////////////////////////////////
+#include "tinyformat.h"
 
+namespace Sidechain
+{
+    /**
+     * The enumeration of available proving systems
+     */
+    enum class ProvingSystemType : uint8_t
+    {
+        Undefined,
+        CoboundaryMarlin,
+        Darlin
+    };
+
+    static const int MAX_SC_CUSTOM_DATA_LEN     = 1024;     /**< Maximum data length for custom data (optional attribute for sidechain creation) in bytes. */
+    static const int MAX_SC_MBTR_DATA_LEN       = 16;       /**< Maximum number of field elements contained in a mainchain backward transfer request (optional attribute for sidechain creation). */
+    
+    static_assert(MAX_SC_MBTR_DATA_LEN < UINT8_MAX, "MAX_SC_MBTR_DATA_LEN must be lower than max uint8_t size!");
+    
+    static const int SC_FE_SIZE_IN_BYTES        = 96; // TODO it will be 32  
+    static const int MAX_SC_PROOF_SIZE_IN_BYTES = 1024*10;  
+    static const int MAX_SC_VK_SIZE_IN_BYTES    = 1024*10;
+}
+
+class CZendooCctpObject
+{
+public:
+    CZendooCctpObject() = default;
+    virtual ~CZendooCctpObject() = default;
+
+    CZendooCctpObject(const std::vector<unsigned char>& byteArrayIn): byteVector(byteArrayIn) {}
+    virtual void SetByteArray(const std::vector<unsigned char>& byteArrayIn) = 0; //Does custom-size check
+    const std::vector<unsigned char>& GetByteArray() const;
+
+    void SetNull();
+    bool IsNull() const;
+
+    virtual bool IsValid() const = 0;
+
+    std::string GetHexRepr() const;
+
+protected:
+    bool isBaseEqual(const CZendooCctpObject& rhs) const { return this->byteVector == rhs.byteVector; }
+
+    std::vector<unsigned char> byteVector;
+};
+
+///////////////////////////////// CFieldElement ////////////////////////////////
 struct CFieldPtrDeleter
 { // deleter
     CFieldPtrDeleter() = default;
@@ -29,96 +74,133 @@ struct CFieldPtrDeleter
 };
 typedef std::shared_ptr<field_t> wrappedFieldPtr;
 
-class CFieldElement
+class CFieldElement : public CZendooCctpObject
 {
 public:
-    CFieldElement();
+    CFieldElement() = default;
     ~CFieldElement() = default;
-
     explicit CFieldElement(const std::vector<unsigned char>& byteArrayIn);
-    explicit CFieldElement(const uint256& value);
-    void SetByteArray(const std::vector<unsigned char>& byteArrayIn);
+    void SetByteArray(const std::vector<unsigned char>& byteArrayIn) override final;
 
-    CFieldElement(const CFieldElement& rhs) = default;
-    CFieldElement& operator=(const CFieldElement& rhs) = default;
+    explicit CFieldElement(const uint256& value); //Currently for backward compability with pre-sidechain fork blockHeader. To re-evaluate its necessity
+    explicit CFieldElement(const wrappedFieldPtr& wrappedField);
 
-    void SetNull();
-    bool IsNull() const;
-
-    static constexpr unsigned int ByteSize() { return SC_FIELD_SIZE; }
-    static constexpr unsigned int BitSize() { return ByteSize()*8; }
-    const std::vector<unsigned char>&  GetByteArray() const;
+    static constexpr unsigned int ByteSize() { return Sidechain::SC_FE_SIZE_IN_BYTES; }
+    static constexpr unsigned int BitSize()  { return ByteSize()*8; }
     uint256 GetLegacyHashTO_BE_REMOVED() const;
 
     wrappedFieldPtr GetFieldElement() const;
+    bool IsValid() const override final;
+    bool operator<(const CFieldElement& rhs)  const { return this->byteVector < rhs.byteVector; } // FOR STD::MAP ONLY
 
-    bool IsValid() const;
-    // equality is not tested on deserializedField attribute since it is a ptr to memory specific per instance
-    friend inline bool operator==(const CFieldElement& lhs, const CFieldElement& rhs) { return lhs.byteVector == rhs.byteVector; }
-    friend inline bool operator!=(const CFieldElement& lhs, const CFieldElement& rhs) { return !(lhs == rhs); }
-    friend inline bool operator<(const CFieldElement& lhs, const CFieldElement& rhs)  { return lhs.byteVector < rhs.byteVector; } // FOR STD::MAP ONLY
+    bool operator==(const CFieldElement& rhs) const { return isBaseEqual(rhs); }
+    bool operator!=(const CFieldElement& rhs) const { return !(*this == rhs); }
 
-    // SERIALIZATION SECTION
-    size_t GetSerializeSize(int nType, int nVersion) const //ADAPTED FROM SERIALIZED.H
-    {
-        return 1 + CFieldElement::ByteSize(); //byte for size + byteArray content (each element a single byte)
-    };
-
-    template<typename Stream>
-    void Serialize(Stream& os, int nType, int nVersion) const //ADAPTED FROM SERIALIZE.H
-    {
-        char tmp = static_cast<char>(byteVector.size());
-           os.write(&tmp, 1);
-        if (!byteVector.empty())
-            os.write((char*)&byteVector[0], byteVector.size());
-    }
-
-    template<typename Stream> //ADAPTED FROM SERIALIZED.H
-    void Unserialize(Stream& is, int nType, int nVersion) //ADAPTED FROM SERIALIZE.H
-    {
-        byteVector.clear();
-
-        char tmp {0};
-        is.read(&tmp, 1);
-        unsigned int nSize = static_cast<unsigned int>(tmp);
-        if (nSize != 0 && nSize != CFieldElement::ByteSize())
-            throw std::ios_base::failure("non-canonical CSidechainField size");
-
-        if (nSize != 0)
-        {
-            byteVector.resize(nSize);
-            is.read((char*)&byteVector[0], nSize);
-        }
-    }
-
-    std::string GetHexRepr() const;
     static CFieldElement ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs);
     static const CFieldElement& GetPhantomHash();
 
+    // SERIALIZATION SECTION
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(byteVector);
+    }
+
 private:
-    std::vector<unsigned char> byteVector;
     static CFieldPtrDeleter theFieldPtrDeleter;
 };
 
 typedef CFieldElement ScConstant;
-////////////////////////////// End of Field types //////////////////////////////
+///////////////////////////// End of CFieldElement /////////////////////////////
 
-/////////////////////// libzendoomc namespace definitions //////////////////////
-namespace libzendoomc {
-    typedef base_blob<SC_PROOF_SIZE * 8> ScProof;
+/////////////////////////////////// CScProof ///////////////////////////////////
+struct CProofPtrDeleter
+{ // deleter
+    CProofPtrDeleter() = default;
+    void operator()(sc_proof_t* p) const {
+        zendoo_sc_proof_free(p);
+        p = nullptr;
+    };
+};
+typedef std::shared_ptr<sc_proof_t> wrappedScProofPtr;
 
-    /* Check if scProof is a valid zendoo-mc-cryptolib's sc_proof */
-    bool IsValidScProof(const ScProof& scProof);
+class CScProof : public CZendooCctpObject
+{
+public:
+    CScProof() = default;
+    ~CScProof() = default;
 
-    typedef base_blob<SC_VK_SIZE * 8> ScVk;
+    /**< The type of proving system.*/
+    Sidechain::ProvingSystemType getProvingSystemType() const;
 
-    /* Check if scVk is a valid zendoo-mc-cryptolib's sc_vk */
-    bool IsValidScVk(const ScVk& scVk);
+    explicit CScProof(const std::vector<unsigned char>& byteArrayIn);
+    void SetByteArray(const std::vector<unsigned char>& byteArrayIn) override final;
 
-    /* Convert to std::string a zendoo-mc-cryptolib Error. Useful for logging */
-    std::string ToString(Error err);
-}
-/////////////////// end of libzendoomc namespace definitions ///////////////////
+    static constexpr unsigned int MaxByteSize() { return Sidechain::MAX_SC_PROOF_SIZE_IN_BYTES; }
+
+    wrappedScProofPtr GetProofPtr() const;
+    bool IsValid() const override final;
+
+    bool operator==(const CScProof& rhs) const { return isBaseEqual(rhs); }
+    bool operator!=(const CScProof& rhs) const { return !(*this == rhs); }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(byteVector);
+    }
+
+private:
+    static CProofPtrDeleter theProofPtrDeleter;
+};
+//////////////////////////////// End of CScProof ///////////////////////////////
+
+//////////////////////////////////// CScVKey ///////////////////////////////////
+struct CVKeyPtrDeleter
+{ // deleter
+    CVKeyPtrDeleter() = default;
+    void operator()(sc_vk_t* p) const {
+        zendoo_sc_vk_free(p);
+        p = nullptr;
+    };
+};
+typedef std::shared_ptr<sc_vk_t> wrappedScVkeyPtr;
+
+class CScVKey : public CZendooCctpObject
+{
+public:
+    CScVKey();
+    ~CScVKey() = default;
+
+    /**< The type of proving system used for verifying proof.*/
+    Sidechain::ProvingSystemType getProvingSystemType() const;
+
+    CScVKey(const std::vector<unsigned char>& byteArrayIn);
+    void SetByteArray(const std::vector<unsigned char>& byteArrayIn) override final;
+
+    static constexpr unsigned int MaxByteSize() { return Sidechain::MAX_SC_VK_SIZE_IN_BYTES; }
+
+    wrappedScVkeyPtr GetVKeyPtr() const;
+    bool IsValid() const override final;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(byteVector);
+    }
+
+    bool operator==(const CScVKey& rhs) const { return isBaseEqual(rhs) && getProvingSystemType() == rhs.getProvingSystemType(); }
+    bool operator!=(const CScVKey& rhs) const { return !(*this == rhs); }
+
+private:
+    static CVKeyPtrDeleter theVkPtrDeleter;
+};
+//////////////////////////////// End of CScVKey ////////////////////////////////
 
 ////////////////////////////// Custom Config types //////////////////////////////
 class CustomCertificateFieldConfig
@@ -132,10 +214,10 @@ public:
 class FieldElementCertificateFieldConfig : public CustomCertificateFieldConfig
 {
 private:
-    int32_t nBits;
+    uint8_t nBits;
 
 public:
-    FieldElementCertificateFieldConfig(int32_t nBitsIn);
+    FieldElementCertificateFieldConfig(uint8_t nBitsIn);
     FieldElementCertificateFieldConfig(const FieldElementCertificateFieldConfig& rhs) = default;
     ~FieldElementCertificateFieldConfig() = default;
 
@@ -150,7 +232,7 @@ public:
         READWRITE(nBits);
     }
 
-    int32_t getBitSize() const;
+    uint8_t getBitSize() const;
 
     bool operator==(const FieldElementCertificateFieldConfig& rhs) const {
         return (this->nBits == rhs.nBits);
@@ -295,29 +377,42 @@ typedef struct sPowRelatedData_tag
     }
 } ScPowRelatedData;
 
+static const std::string PROVING_SYS_TYPE_COBOUNDARY_MARLIN = "CoboundaryMarlin";
+static const std::string PROVING_SYS_TYPE_DARLIN            = "Darlin";
+static const std::string PROVING_SYS_TYPE_UNDEFINED         = "Undefined";
+
+std::string ProvingSystemTypeHelp();
+bool IsValidProvingSystemType(uint8_t val);
+bool IsValidProvingSystemType(ProvingSystemType val);
+std::string ProvingSystemTypeToString(ProvingSystemType val);
+ProvingSystemType StringToProvingSystemType(const std::string& str);
+bool IsUndefinedProvingSystemType(const std::string& str);
+
 struct ScFixedParameters
 {
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
-    libzendoomc::ScVk wCertVk;
-    boost::optional<libzendoomc::ScVk> wCeasedVk;
+    CScVKey wCertVk;
+    boost::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
-    int32_t mainchainBackwardTransferRequestDataLength;  /**< The mandatory size of the field element included in MBTR transaction outputs (0 to disable the MBTR). */
+    uint8_t mainchainBackwardTransferRequestDataLength;             /**< The mandatory size of the field element included in MBTR transaction outputs (0 to disable the MBTR). */
+
 
     bool IsNull() const
     {
         return (
-            withdrawalEpochLength == -1                     &&
-            customData.empty()                              &&
-            constant == boost::none                         &&
-            wCertVk.IsNull()                                &&
-            wCeasedVk == boost::none                        &&
-            vFieldElementCertificateFieldConfig.empty()     &&
-            vBitVectorCertificateFieldConfig.empty()        &&
-            mainchainBackwardTransferRequestDataLength == -1);
+            withdrawalEpochLength == -1                               &&
+            customData.empty()                                        &&
+            constant == boost::none                                   &&
+            wCertVk.IsNull()                                          &&
+            wCeasedVk == boost::none                                  &&
+            vFieldElementCertificateFieldConfig.empty()               &&
+            vBitVectorCertificateFieldConfig.empty()                  &&
+            mainchainBackwardTransferRequestDataLength == 0 
+            );
     }
 
     ADD_SERIALIZE_METHODS;
@@ -333,31 +428,31 @@ struct ScFixedParameters
         READWRITE(mainchainBackwardTransferRequestDataLength);
     }
     
-    ScFixedParameters(): withdrawalEpochLength(-1),
-                         mainchainBackwardTransferRequestDataLength(-1) {}
+    ScFixedParameters(): withdrawalEpochLength(-1), mainchainBackwardTransferRequestDataLength(0)
+    {}
 
     inline bool operator==(const ScFixedParameters& rhs) const
     {
-        return (withdrawalEpochLength == rhs.withdrawalEpochLength) &&
-               (customData == rhs.customData) &&
-               (constant == rhs.constant) &&
-               (wCertVk == rhs.wCertVk)  &&
-               (wCeasedVk == rhs.wCeasedVk) &&
-               (vFieldElementCertificateFieldConfig == rhs.vFieldElementCertificateFieldConfig) &&
-               (vBitVectorCertificateFieldConfig == rhs.vBitVectorCertificateFieldConfig) &&
+        return (withdrawalEpochLength == rhs.withdrawalEpochLength)                                             &&
+               (customData == rhs.customData)                                                                   &&
+               (constant == rhs.constant)                                                                       &&
+               (wCertVk == rhs.wCertVk)                                                                         &&
+               (wCeasedVk == rhs.wCeasedVk)                                                                     &&
+               (vFieldElementCertificateFieldConfig == rhs.vFieldElementCertificateFieldConfig)                 &&
+               (vBitVectorCertificateFieldConfig == rhs.vBitVectorCertificateFieldConfig)                       &&
                (mainchainBackwardTransferRequestDataLength == rhs.mainchainBackwardTransferRequestDataLength);
     }
     inline bool operator!=(const ScFixedParameters& rhs) const { return !(*this == rhs); }
     inline ScFixedParameters& operator=(const ScFixedParameters& cp)
     {
-        withdrawalEpochLength         = cp.withdrawalEpochLength;
-        customData                    = cp.customData;
-        constant                      = cp.constant;
-        wCertVk                       = cp.wCertVk;
-        wCeasedVk                     = cp.wCeasedVk;
-        vFieldElementCertificateFieldConfig = cp.vFieldElementCertificateFieldConfig;
-        vBitVectorCertificateFieldConfig   = cp.vBitVectorCertificateFieldConfig;
-        mainchainBackwardTransferRequestDataLength = cp.mainchainBackwardTransferRequestDataLength;
+        withdrawalEpochLength                       = cp.withdrawalEpochLength;
+        customData                                  = cp.customData;
+        constant                                    = cp.constant;
+        wCertVk                                     = cp.wCertVk;
+        wCeasedVk                                   = cp.wCeasedVk;
+        vFieldElementCertificateFieldConfig         = cp.vFieldElementCertificateFieldConfig;
+        vBitVectorCertificateFieldConfig            = cp.vBitVectorCertificateFieldConfig;
+        mainchainBackwardTransferRequestDataLength  = cp.mainchainBackwardTransferRequestDataLength;
         return *this;
     }
 };
@@ -429,9 +524,6 @@ struct CRecipientBwtRequest
     CRecipientBwtRequest(): bwtRequestData() {}
     CAmount GetScValue() const { return bwtRequestData.scFee; }
 };
-
-static const int MAX_SC_CUSTOM_DATA_LEN = 1024;     /**< Maximum data length for custom data (optional attribute for sidechain creation) in bytes. */
-static const int MAX_SC_MBTR_DATA_LEN = 16;         /**< Maximum number of field elements contained in a mainchain backward transfer request (optional attribute for sidechain creation). */
 
 }; // end of namespace
 

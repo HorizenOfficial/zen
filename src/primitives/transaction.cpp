@@ -214,7 +214,7 @@ std::string CTxIn::ToString() const
 
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(
     const CAmount& nValueIn, const uint256& scIdIn, const CFieldElement& nullifierIn,
-    const uint160& pubKeyHashIn, const libzendoomc::ScProof& scProofIn,
+    const uint160& pubKeyHashIn, const CScProof& scProofIn,
     const CFieldElement& actCertDataHashIn, const CFieldElement& ceasingCumScTxCommTreeIn,
     const CScript& redeemScriptIn)
 {
@@ -238,7 +238,7 @@ std::string CTxCeasedSidechainWithdrawalInput::ToString() const
         "nValue=%d.%08d, scId=%s,\nnullifier=%s,\npubKeyHash=%s,\nscProof=%s,\n"
         "actCertDataHash=%s, \nceasingCumScTxCommTree=%s, redeemScript=%s)\n",
                      nValue / COIN, nValue % COIN, scId.ToString(), nullifier.GetHexRepr().substr(0, 10),
-        pubKeyHash.ToString(), HexStr(scProof).substr(0, 10), actCertDataHash.GetHexRepr().substr(0, 10),
+        pubKeyHash.ToString(), scProof.GetHexRepr().substr(0, 10), actCertDataHash.GetHexRepr().substr(0, 10),
         ceasingCumScTxCommTree.GetHexRepr().substr(0, 10), HexStr(redeemScript).substr(0, 24));
 }
 
@@ -330,11 +330,11 @@ std::string CTxScCreationOut::ToString() const
                                        "vBitVectorCertificateFieldConfig[%s], "
                                        "forwardTransferScFee=%d, "
                                        "mainchainBackwardTransferRequestScFee=%d, "
-                                       "mainchainBackwardTransferRequestDataLength=%d",
+                                       "mainchainBackwardTransferRequestDataLength=%u",
         generatedScId.ToString(), withdrawalEpochLength, nValue / COIN,
         nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
         constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
-        HexStr(wCertVk), wCeasedVk ? HexStr(wCeasedVk.get()) : "",
+        wCertVk.GetHexRepr(), wCeasedVk ? wCeasedVk.get().GetHexRepr() : "",
         VecToStr(vFieldElementCertificateFieldConfig),
         VecToStr(vBitVectorCertificateFieldConfig),
         forwardTransferScFee, mainchainBackwardTransferRequestScFee, mainchainBackwardTransferRequestDataLength );
@@ -1119,7 +1119,13 @@ std::string CTransaction::EncodeHex() const
     return EncodeHexTx(*this);
 }
 
-void CTransaction::Relay() const { ::Relay(*this); }
+void CTransaction::Relay() const
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss.reserve(10000);
+    ss << *this;
+    ::Relay(*this, ss);
+}
 
 std::shared_ptr<const CTransactionBase>
 CTransaction::MakeShared() const {
