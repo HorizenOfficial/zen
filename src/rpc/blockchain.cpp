@@ -1132,9 +1132,9 @@ UniValue getblockfinalityindex(const UniValue& params, bool fHelp)
             "\nReturns the minimum number of consecutive blocks a miner would have to mine from now in order to revert the block of given hash\n"
 
             "\nArguments:\n"
-            "1. hash   (string, required)  the block hash"
+            "1. hash   (string, required)  the block hash\n"
 
-            "\"Result:\n"
+            "\nResult:\n"
             "n         (numeric) number of consecutive blocks a miner would have to mine from now in order to revert the block of given hash\n"
             
             "\nExamples:\n"
