@@ -24,7 +24,9 @@ void signTx(CMutableScCertificate& mcert);
 
 CTransaction createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength = 15);
 CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
-CTxCeasedSidechainWithdrawalInput CreateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount);
+CTxCeasedSidechainWithdrawalInput CreateCSWInput(
+    const uint256& scId, const std::string& nullifierHex, const std::string& actCertDataHex,
+    const std::string& ceasingCumScTxCommTreeHex, CAmount amount);
 CTransaction createCSWTxWith(const CTxCeasedSidechainWithdrawalInput& csw);
 
 CTransaction createCoinBase(const CAmount& amount);
@@ -34,9 +36,8 @@ CTransaction createSproutTx(bool ccIsNull = true); //ccIsNull = false allows gen
 void addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount);
 
 CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
-                                 CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,
-                                 CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/,
-                                 CAmount ftScFee/* = 0*/, CAmount mbtrScFee/* = 0*/, const int quality = 3);
+                                 const CFieldElement& endEpochCumScTxCommTreeRoot, CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,
+                                 CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/, CAmount ftScFee/* = 0*/, CAmount mbtrScFee/* = 0*/, const int quality = 3);
 
 uint256 CreateSpendableCoinAtHeight(CCoinsViewCache& targetView, unsigned int coinHeight);
 

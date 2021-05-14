@@ -79,9 +79,14 @@ bool CFieldElement::IsValid() const
     }
 
     // THERE SHOULD BE A RUST METHOD RETURNING BOOL RATHER THAN FIELD PTR
+    // (this has been taken care of in a different dev branch)
     field_t * pField = zendoo_deserialize_field(&this->byteVector[0]);
     if (pField == nullptr)
+    {
+        LogPrintf("%s():%d - failed to deserialize: Err=%s\n", __func__, __LINE__,
+            libzendoomc::ToString(zendoo_get_last_error()));
         return false;
+    }
 
     zendoo_field_free(pField);
     return true;

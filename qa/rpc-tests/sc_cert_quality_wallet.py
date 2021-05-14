@@ -99,7 +99,7 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
         mark_logs("Epoch 0", self.nodes, DEBUG_MODE)
         #------------------------------------------------
 
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
         prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number) * EPOCH_LENGTH))
 
@@ -112,7 +112,8 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
 
         mark_logs("Node 1 sends cert of quality {} with bwt of {} coins for Node2 pubkeyhash".format(quality, amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_0_1 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_epoch_0_1 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             node1_bal = node1_bal - CERT_FEE
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -146,7 +147,8 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
 
         mark_logs("Node 0 sends cert of quality {} with bwt of {} coins for Node2 pubkeyhash".format(quality, amount_cert_2[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_0_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_epoch_0_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
@@ -171,7 +173,7 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
         #------------------------------------------------
         mark_logs("Epoch 1", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number) * EPOCH_LENGTH))
 
         #------------------------------------------------
@@ -183,7 +185,8 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
         amount_cert_3 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount_3}]
         mark_logs("Node 1 sends cert of quality {} with bwt of {} coins for Node2 pubkeyhash".format(quality, amount_cert_3[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_1_3 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_epoch_1_3 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             node1_bal = node1_bal - CERT_FEE
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -201,7 +204,8 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
         amount_cert_3 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount_3/10}]
         mark_logs("Node 1 sends cert of quality {} with bwt of {} coins for Node2 pubkeyhash".format(quality, amount_cert_3[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_1_3 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, 3*CERT_FEE)
+            cert_epoch_1_3 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, 3*CERT_FEE)
             node1_bal = node1_bal - 3*CERT_FEE
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -219,7 +223,8 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
         amount_cert_4 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount_4}]
         mark_logs("Node 0 sends cert of quality {} with bwt of {} coins for Node2 pubkeyhash".format(quality_h, amount_cert_4[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_1_4 = self.nodes[0].send_certificate(scid, epoch_number, quality_h, epoch_block_hash, proof, amount_cert_4, FT_SC_FEE, MBTR_SC_FEE, 2*CERT_FEE)
+            cert_epoch_1_4 = self.nodes[0].send_certificate(scid, epoch_number, quality_h, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amount_cert_4, FT_SC_FEE, MBTR_SC_FEE, 2*CERT_FEE)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
@@ -236,7 +241,8 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
         amount_cert_3 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount_3/10}]
         mark_logs("Node 1 sends cert of quality {} with bwt of {} coins for Node2 pubkeyhash".format(quality, amount_cert_3[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_1_3 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, 2*CERT_FEE)
+            cert_epoch_1_3 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, 2*CERT_FEE)
             node1_bal = node1_bal - 2*CERT_FEE
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -262,7 +268,7 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
         #------------------------------------------------
         mark_logs("Epoch 2", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number) * EPOCH_LENGTH))
    
         #------------------------------------------------
@@ -274,7 +280,8 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
         amount_cert_5 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount_5}]
         mark_logs("Node 1 sends cert of quality {} with bwt of {} coins for Node2 pubkeyhash".format(quality, amount_cert_5[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_2_5 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_5, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_epoch_2_5 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amount_cert_5, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             node1_bal = node1_bal - CERT_FEE
         except JSONRPCException, e:
             errorString = e.error['message']

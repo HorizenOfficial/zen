@@ -31,14 +31,14 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
 
 CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
     scId(), epochNumber(EPOCH_NOT_INITIALIZED), quality(QUALITY_NULL),
-    endEpochBlockHash(), scProof(), vFieldElementCertificateField(),
+    endEpochBlockHash(), endEpochCumScTxCommTreeRoot(), scProof(), vFieldElementCertificateField(),
     vBitVectorCertificateField(), nFirstBwtPos(0),
     forwardTransferScFee(INT_NULL), mainchainBackwardTransferRequestScFee(INT_NULL) {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
-    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof),
-    vFieldElementCertificateField(cert.vFieldElementCertificateField),
+    endEpochBlockHash(cert.endEpochBlockHash), endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
+    scProof(cert.scProof), vFieldElementCertificateField(cert.vFieldElementCertificateField),
     vBitVectorCertificateField(cert.vBitVectorCertificateField),
     nFirstBwtPos(cert.nFirstBwtPos), forwardTransferScFee(cert.forwardTransferScFee),
     mainchainBackwardTransferRequestScFee(cert.mainchainBackwardTransferRequestScFee) {}
@@ -50,6 +50,7 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<int64_t*>(&quality) = cert.quality;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
+    *const_cast<CFieldElement*>(&endEpochCumScTxCommTreeRoot) = cert.endEpochCumScTxCommTreeRoot;
     *const_cast<libzendoomc::ScProof*>(&scProof) = cert.scProof;
     *const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField) = cert.vFieldElementCertificateField;
     *const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField) = cert.vBitVectorCertificateField;
@@ -61,8 +62,8 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
-    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof),
-    vFieldElementCertificateField(cert.vFieldElementCertificateField),
+    endEpochBlockHash(cert.endEpochBlockHash), endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
+    scProof(cert.scProof), vFieldElementCertificateField(cert.vFieldElementCertificateField),
     vBitVectorCertificateField(cert.vBitVectorCertificateField),
     nFirstBwtPos(cert.nFirstBwtPos), forwardTransferScFee(cert.forwardTransferScFee),
     mainchainBackwardTransferRequestScFee(cert.mainchainBackwardTransferRequestScFee)
@@ -87,7 +88,7 @@ bool CScCertificate::IsValidVersion(CValidationState &state) const
     {
         LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate bad version %d\n",
             __func__, __LINE__, GetHash().ToString(), nVersion );
-        return state.DoS(100, error("cert version"), REJECT_INVALID, "bad-cert-version");
+        return state.DoS(100, error("cert version"), CValidationState::Code::INVALID, "bad-cert-version");
     }
 
     return true;
@@ -105,7 +106,7 @@ bool CScCertificate::CheckInputsOutputsNonEmpty(CValidationState &state) const
     {
         LogPrint("sc", "%s():%d - Error: cert[%s]\n", __func__, __LINE__, GetHash().ToString() );
         return state.DoS(10, error("%s(): vin empty", __func__),
-                         REJECT_INVALID, "bad-cert-vin-empty");
+                         CValidationState::Code::INVALID, "bad-cert-vin-empty");
     }
 
     return true;
@@ -118,7 +119,7 @@ bool CScCertificate::CheckSerializedSize(CValidationState &state) const
     if (size > MAX_CERT_SIZE) {
         LogPrintf("CheckSerializedSize: Cert id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_CERT_SIZE, ToString());
         return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
-                         REJECT_INVALID, "bad-txns-oversize");
+                         CValidationState::Code::INVALID, "bad-txns-oversize");
     }
 
     return true;
@@ -133,18 +134,18 @@ bool CScCertificate::CheckAmounts(CValidationState &state) const
         const CTxOut & txout = vout[pos];
         if (txout.nValue < 0)
             return state.DoS(100, error("CheckAmounts(): txout.nValue negative"),
-                             REJECT_INVALID, "bad-txns-vout-negative");
+                             CValidationState::Code::INVALID, "bad-txns-vout-negative");
         if (txout.nValue > MAX_MONEY)
             return state.DoS(100, error("CheckAmounts(): txout.nValue too high"),
-                             REJECT_INVALID, "bad-txns-vout-toolarge");
+                             CValidationState::Code::INVALID, "bad-txns-vout-toolarge");
 
         if (pos >= nFirstBwtPos && txout.nValue == 0)
             return state.DoS(100, error("CheckAmounts(): backward transfer has zero amount"),
-                             REJECT_INVALID, "bad-txns-bwd-vout-zero");
+                             CValidationState::Code::INVALID, "bad-txns-bwd-vout-zero");
         nCumulatedValueOut += txout.nValue;
         if (!MoneyRange(nCumulatedValueOut))
             return state.DoS(100, error("CheckAmounts(): txout total out of range"),
-                             REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+                             CValidationState::Code::INVALID, "bad-txns-txouttotal-toolarge");
     }
 
     if (!MoneyRange(GetValueOfBackwardTransfers()))
@@ -152,7 +153,7 @@ bool CScCertificate::CheckAmounts(CValidationState &state) const
         LogPrint("sc", "%s():%d - Invalid cert[%s] : certificate amount is outside range\n",
             __func__, __LINE__, GetHash().ToString() );
         return state.DoS(100, error("%s: certificate amount is outside range",
-            __func__), REJECT_INVALID, "bwd-transfer-amount-outside-range");
+            __func__), CValidationState::Code::INVALID, "bwd-transfer-amount-outside-range");
     }
 
     return true;
@@ -162,7 +163,7 @@ bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationSt
 {
     if (!MoneyRange(totalVinAmount))
         return state.DoS(100, error("CheckFeeAmount(): total input amount out of range"),
-                         REJECT_INVALID, "bad-cert-inputvalues-outofrange");
+                         CValidationState::Code::INVALID, "bad-cert-inputvalues-outofrange");
 
     // check all of the outputs because change is computed subtracting bwd transfers from them
     if (!CheckAmounts(state))
@@ -172,16 +173,16 @@ bool CScCertificate::CheckFeeAmount(const CAmount& totalVinAmount, CValidationSt
         return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
                                     GetHash().ToString(),
                                     FormatMoney(totalVinAmount), FormatMoney(GetValueOfChange()) ),
-                         REJECT_INVALID, "bad-cert-in-belowout");
+                         CValidationState::Code::INVALID, "bad-cert-in-belowout");
 
     CAmount nCertFee = totalVinAmount - GetValueOfChange();
     if (nCertFee < 0)
         return state.DoS(100, error("CheckFeeAmount(): %s nCertFee < 0", GetHash().ToString()),
-                         REJECT_INVALID, "bad-cert-fee-negative");
+                         CValidationState::Code::INVALID, "bad-cert-fee-negative");
 
     if (!MoneyRange(nCertFee))
         return state.DoS(100, error("CheckFeeAmount(): nCertFee out of range"),
-                         REJECT_INVALID, "bad-cert-fee-outofrange");
+                         CValidationState::Code::INVALID, "bad-cert-fee-outofrange");
 
     return true;
 }
@@ -191,7 +192,7 @@ bool CScCertificate::CheckInputsInteraction(CValidationState &state) const
     for(const CTxIn& txin: vin)
         if (txin.prevout.IsNull())
             return state.DoS(10, error("CheckInputsInteraction(): prevout is null"),
-                             REJECT_INVALID, "bad-txns-prevout-null");
+                             CValidationState::Code::INVALID, "bad-txns-prevout-null");
 
     return true;
 }
@@ -238,8 +239,8 @@ bool CScCertificate::CheckInputsLimit() const {
     if (limit > 0) {
         size_t n = GetVin().size();
         if (n > limit) {
-            LogPrint("mempool", "Dropping txid %s : too many inputs %zu > limit %zu\n",
-                    GetHash().ToString(), n, limit );
+            LogPrint("mempool", "%s():%d - Dropping cert %s : too many transparent inputs %zu > limit %zu\n",
+                __func__, __LINE__, GetHash().ToString(), n, limit);
             return false;
         }
     }
@@ -271,7 +272,7 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
     bool areScSupported = zen::ForkManager::getInstance().areSidechainsSupported(nHeight);
 
     if (!areScSupported)
-         return state.DoS(dosLevel, error("Sidechain are not supported"), REJECT_INVALID, "bad-cert-version");
+         return state.DoS(dosLevel, error("Sidechain are not supported"), CValidationState::Code::INVALID, "bad-cert-version");
 
     if (!CheckBlockAtHeight(state, nHeight, dosLevel))
         return false;
@@ -335,14 +336,14 @@ CAmount CScCertificate::GetValueOfChange() const
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate(): CMutableTransactionBase(),
     scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
-    endEpochBlockHash(), scProof(), vFieldElementCertificateField(),
+    endEpochBlockHash(), endEpochCumScTxCommTreeRoot(), scProof(), vFieldElementCertificateField(),
     vBitVectorCertificateField(), nFirstBwtPos(0),
     forwardTransferScFee(CScCertificate::INT_NULL), mainchainBackwardTransferRequestScFee(CScCertificate::INT_NULL) {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutableTransactionBase(),
     scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 
-    endEpochBlockHash(cert.endEpochBlockHash), scProof(cert.scProof), 
-    vFieldElementCertificateField(cert.vFieldElementCertificateField),
+    endEpochBlockHash(cert.endEpochBlockHash), endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
+    scProof(cert.scProof), vFieldElementCertificateField(cert.vFieldElementCertificateField),
     vBitVectorCertificateField(cert.vBitVectorCertificateField), nFirstBwtPos(cert.nFirstBwtPos),
     forwardTransferScFee(cert.forwardTransferScFee), mainchainBackwardTransferRequestScFee(cert.mainchainBackwardTransferRequestScFee)
 {
@@ -353,20 +354,20 @@ CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutab
 
 CMutableScCertificate& CMutableScCertificate::operator=(const CMutableScCertificate& rhs)
 {
-    nVersion                            = rhs.nVersion;
-    vin                                 = rhs.vin;
-    vout                                = rhs.vout;
-    scId                                = rhs.scId;
-    epochNumber                         = rhs.epochNumber;
-    quality                             = rhs.quality;
-    endEpochBlockHash                   = rhs.endEpochBlockHash;
-    scProof                             = rhs.scProof;
-    vFieldElementCertificateField       = rhs.vFieldElementCertificateField;
-    vBitVectorCertificateField          = rhs.vBitVectorCertificateField;
+    nVersion                              = rhs.nVersion;
+    vin                                   = rhs.vin;
+    vout                                  = rhs.vout;
+    scId                                  = rhs.scId;
+    epochNumber                           = rhs.epochNumber;
+    quality                               = rhs.quality;
+    endEpochBlockHash                     = rhs.endEpochBlockHash;
+    endEpochCumScTxCommTreeRoot           = rhs.endEpochCumScTxCommTreeRoot;
+    scProof                               = rhs.scProof;
+    vFieldElementCertificateField         = rhs.vFieldElementCertificateField;
+    vBitVectorCertificateField            = rhs.vBitVectorCertificateField;
+    *const_cast<int*>(&nFirstBwtPos)      = rhs.nFirstBwtPos;
     forwardTransferScFee                  = rhs.forwardTransferScFee;
     mainchainBackwardTransferRequestScFee = rhs.mainchainBackwardTransferRequestScFee;
-    *const_cast<int*>(&nFirstBwtPos)    = rhs.nFirstBwtPos;
-
     return *this;
 }
 

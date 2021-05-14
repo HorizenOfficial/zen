@@ -5,7 +5,7 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_true, assert_false, assert_equal, mark_logs
+from test_framework.util import assert_true, assert_false, assert_equal, mark_logs, get_epoch_data
 from test_framework.mininode import COIN, hash256, ser_string
 from test_framework.mc_test.mc_test import *
 
@@ -168,19 +168,20 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         block_list = self.nodes[0].generate(SC_EPOCH_LENGTH) 
         self.sync_all()
 
+        eph, epn, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], SC_EPOCH_LENGTH)
+
         pkh = self.nodes[0].getnewaddress("", True)
         amounts = [{"pubkeyhash": pkh, "amount": SC_CERT_AMOUNT}]
 
         #create wCert proof
         eph = block_list[-1]
         proof = mcTest.create_test_proof(
-        "sc1", 0, eph, pebh,
-        0, constant, [pkh], [SC_CERT_AMOUNT])
+            "sc1", 0, eph, pebh, 0, constant, [pkh], [SC_CERT_AMOUNT])
 
         ftScFee = 0
         mbtrScFee = 0
         fee = 0.000023
-        cert = self.nodes[0].send_certificate(scid, 0, 0, block_list[-1], proof, amounts, ftScFee, mbtrScFee, fee)
+        cert = self.nodes[0].send_certificate(scid, 0, 0, block_list[-1], epoch_cum_tree_hash, proof, amounts, ftScFee, mbtrScFee, fee)
         self.sync_all()
         assert_true(cert in self.nodes[0].getrawmempool() ) 
 

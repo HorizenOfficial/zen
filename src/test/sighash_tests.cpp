@@ -49,9 +49,10 @@ uint256 static SignatureHashOld(CScript scriptCode, const CTransaction& txTo, un
     {
         // Wildcard payee
         txTmp.resizeOut(0);
-        txTmp.vft_ccout.resize(0);
         txTmp.vsc_ccout.resize(0);
-
+        txTmp.vft_ccout.resize(0);
+        txTmp.vmbtr_out.resize(0);
+        
         // Let the others update at will
         for (unsigned int i = 0; i < txTmp.vin.size(); i++)
             if (i != nIn)
@@ -160,6 +161,12 @@ uint256 static SignatureHashCert(CScript scriptCode, const CScCertificate& certT
     return ss.GetHash();
 }
 
+static uint160 random_uint160()
+{
+    uint160 ret;
+    randombytes_buf(ret.begin(), 20);
+    return ret;
+}
 
 void static RandomScript(CScript &script) {
     static const opcodetype oplist[] = {OP_FALSE, OP_1, OP_2, OP_3, OP_CHECKSIG, OP_IF, OP_VERIF, OP_RETURN};
@@ -246,6 +253,8 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
     tx.vcsw_ccin.clear();
     tx.vsc_ccout.clear();
     tx.vft_ccout.clear();
+    tx.vmbtr_out.clear();
+
     tx.nLockTime = (insecure_rand() % 2) ? insecure_rand() : 0;
     int ins = (insecure_rand() % 4) + 1;
     int csws = isSidechain ? (insecure_rand() % 4) + 1 : 0;
@@ -253,7 +262,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
     int joinsplits = (insecure_rand() % 4);
     int scs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
     int fts = isSidechain ? (insecure_rand() % 4) + 1 : 0;
-
+    int mbtrs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
     int mbtrScRequestDataLength = isSidechain ? (insecure_rand() % 4) : 0;
     int FieldElementCertificateFieldConfigLength = isSidechain ? (insecure_rand() % 4): 0;
     int BitVectorCertificateFieldConfigLength = isSidechain ? (insecure_rand() % 4): 0;
@@ -329,6 +338,8 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
           csw_in.scId = libzcash::random_uint256();
           RandomSidechainField(csw_in.nullifier);
           RandomScProof(csw_in.scProof);
+          RandomSidechainField(csw_in.actCertDataHash);
+          RandomSidechainField(csw_in.ceasingCumScTxCommTree);
 
           if(emptyInputScript) {
               csw_in.redeemScript = CScript();
@@ -374,6 +385,20 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             ft_out.address = libzcash::random_uint256();
             ft_out.scId = libzcash::random_uint256();
         }
+        for (int mbtr = 0; mbtr < mbtrs; mbtr++) {
+            tx.vmbtr_out.push_back(CBwtRequestOut());
+            CBwtRequestOut& mbtr_out = tx.vmbtr_out.back();
+
+            mbtr_out.scFee = insecure_rand() % 100000000;
+            mbtr_out.mcDestinationAddress = random_uint160();
+            mbtr_out.scId = libzcash::random_uint256();
+            for (int r = 0; r < mbtrScRequestDataLength; r++)
+            {
+                CFieldElement fe;
+                RandomSidechainField(fe);
+                mbtr_out.vScRequestData.push_back(fe); 
+            }
+        }
     }
 }
 
@@ -385,9 +410,11 @@ void static RandomCertificate(CMutableScCertificate &cert, bool fSingle, bool em
     cert.resizeOut(0);
 
     cert.scId = GetRandHash();
+    RandomScProof(cert.scProof);
     cert.epochNumber = (insecure_rand() % NUM_RAND_UCHAR) + 1;
     cert.quality = (insecure_rand() % NUM_RAND_UINT) + 1;
     cert.endEpochBlockHash = GetRandHash();
+    RandomSidechainField(cert.endEpochCumScTxCommTreeRoot);
 
     int FieldElementCertificateFieldLength = (insecure_rand() % NUM_RAND_UCHAR);
     for (int i = 0; i < FieldElementCertificateFieldLength; i++)
@@ -478,6 +505,14 @@ BOOST_AUTO_TEST_CASE(sighash_test)
         }
         std::cout << "\n";
         #endif
+/* useful in case of troubleshooting/debugging
+        if (sh != sho)
+        {
+            // do it again
+            sho = SignatureHashOld(scriptCode, txTo, nIn, nHashType);
+            sh = SignatureHash(scriptCode, txTo, nIn, nHashType);
+        }
+*/
         BOOST_CHECK(sh == sho);
     }
     #if defined(PRINT_SIGHASH_JSON)

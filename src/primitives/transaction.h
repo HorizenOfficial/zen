@@ -361,13 +361,17 @@ public:
     CFieldElement nullifier;
     uint160 pubKeyHash;
     libzendoomc::ScProof scProof;
+    CFieldElement actCertDataHash; 
+    CFieldElement ceasingCumScTxCommTree; 
     CScript redeemScript;
 
-    CTxCeasedSidechainWithdrawalInput(): nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript() {}
+    CTxCeasedSidechainWithdrawalInput();
 
     explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
-                                               const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn);
+                                               const libzendoomc::ScProof& scProofIn, const CFieldElement& actCertDataHashIn,
+                                               const CFieldElement& ceasingCumScTxCommTreeIn, const CScript& redeemScriptIn
+                                               );
 
     ADD_SERIALIZE_METHODS
 
@@ -378,17 +382,21 @@ public:
         READWRITE(nullifier);
         READWRITE(pubKeyHash);
         READWRITE(scProof);
+        READWRITE(actCertDataHash); // it is valid having actCertDataHash FE backed by an empty vector
+        READWRITE(ceasingCumScTxCommTree);
         READWRITE(redeemScript);
     }
 
     friend bool operator==(const CTxCeasedSidechainWithdrawalInput& a, const CTxCeasedSidechainWithdrawalInput& b)
     {
-        return (a.nValue        == b.nValue &&
-                a.scId          == b.scId &&
-                a.nullifier     == b.nullifier &&
-                a.pubKeyHash    == b.pubKeyHash &&
-                a.scProof       == b.scProof &&
-                a.redeemScript  == b.redeemScript);
+        return (a.nValue                 == b.nValue &&
+                a.scId                   == b.scId &&
+                a.nullifier              == b.nullifier &&
+                a.pubKeyHash             == b.pubKeyHash &&
+                a.scProof                == b.scProof &&
+                a.actCertDataHash            == b.actCertDataHash &&
+                a.ceasingCumScTxCommTree == b.ceasingCumScTxCommTree &&
+                a.redeemScript           == b.redeemScript);
     }
 
     friend bool operator!=(const CTxCeasedSidechainWithdrawalInput& a, const CTxCeasedSidechainWithdrawalInput& b)
@@ -1109,6 +1117,7 @@ struct CMutableTransaction : public CMutableTransactionBase
     bool add(const CTxScCreationOut& out);
     bool add(const CTxForwardTransferOut& out);
     bool add(const CBwtRequestOut& out);
+    bool add(const CFieldElement& acd);
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

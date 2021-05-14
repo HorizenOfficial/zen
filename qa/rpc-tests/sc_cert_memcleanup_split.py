@@ -179,7 +179,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         assert_true(tx_bwt in self.nodes[0].getrawmempool()) 
 
         mark_logs("\nNTW part 1) Node2 sends a certificate", self.nodes, DEBUG_MODE)
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[2], sc_epoch_len)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], sc_epoch_len)
 
         bt_amount = Decimal("5.0")
         pkh_node1 = self.nodes[1].getnewaddress("", True)
@@ -191,7 +191,8 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:
-            cert_bad = self.nodes[2].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert, 0, 0, 0.01)
+            cert_bad = self.nodes[2].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amount_cert, 0, 0, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "Send certificate failed with reason {}".format(errorString)
@@ -205,7 +206,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         # Network part 2
         #------------------
         mark_logs("\nNTW part 2) Node3 sends a certificate", self.nodes, DEBUG_MODE)
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[3], sc_epoch_len)
+        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[3], sc_epoch_len)
 
         bt_amount_2 = Decimal("10.0")
         pkh_node1 = self.nodes[1].getnewaddress("", True)
@@ -217,7 +218,8 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount_2}]
         try:
-            cert = self.nodes[3].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert, 0, 0, 0.01)
+            cert = self.nodes[3].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amount_cert, 0, 0, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "Send certificate failed with reason {}".format(errorString)

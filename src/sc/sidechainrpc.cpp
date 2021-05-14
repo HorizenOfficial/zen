@@ -24,7 +24,7 @@ namespace Sidechain
 void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& parentObj)
 {
     UniValue vcsws(UniValue::VARR);
-    for (const CTxCeasedSidechainWithdrawalInput csw: tx.GetVcswCcIn())
+    for (const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
     {
         UniValue o(UniValue::VOBJ);
         o.push_back(Pair("value", ValueFromAmount(csw.nValue)));
@@ -41,12 +41,15 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
         rs.push_back(Pair("asm", csw.redeemScript.ToString()));
         rs.push_back(Pair("hex", HexStr(csw.redeemScript)));
         o.push_back(Pair("redeemScript", rs));
+        o.push_back(Pair("actCertDataHash", csw.actCertDataHash.GetHexRepr()));
+        o.push_back(Pair("ceasingCumScTxCommTree", csw.ceasingCumScTxCommTree.GetHexRepr()));
 
         vcsws.push_back(o);
     }
 
     parentObj.push_back(Pair("vcsw_ccin", vcsws));
 }
+
 // TODO: naming style is different. Use CamelCase
 void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
 {
@@ -310,7 +313,55 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": invalid nullifier data";
             return false;
         }
+//---------------------------------------------------------------------------------------------
+        // parse active cert data (do not check it though)
+        const UniValue& valActCertData = find_value(o, "activeCertData");
+        if (valActCertData.isNull())
+        {
+            error = "Missing mandatory parameter \"activeCertData\" for the ceased sidechain withdrawal input";
+            return false;
+        }
 
+        std::string errStr;
+        std::vector<unsigned char> vActCertData;
+        if (!AddScData(valActCertData.get_str(), vActCertData, CFieldElement::ByteSize(), true, errStr))
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"activeCertData\": " + errStr;
+            return false;
+        }
+
+        CFieldElement actCertDataHash {vActCertData};
+        if (!actCertDataHash.IsValid() && !actCertDataHash.IsNull())
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"activeCertData\": invalid field element";
+            return false;
+        }
+
+//---------------------------------------------------------------------------------------------
+        // parse ceasingCumScTxCommTree (do not check it though)
+        const UniValue& valCumTree = find_value(o, "ceasingCumScTxCommTree");
+        if (valCumTree.isNull())
+        {
+            error = "Missing mandatory parameter \"ceasingCumScTxCommTree\" for the ceased sidechain withdrawal input";
+            return false;
+        }
+
+        std::vector<unsigned char> vCeasingCumScTxCommTree;
+        if (!AddScData(valCumTree.get_str(), vCeasingCumScTxCommTree, CFieldElement::ByteSize(), true, errStr))
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"ceasingCumScTxCommTree\": " + errStr;
+            return false;
+        }
+
+        CFieldElement ceasingCumScTxCommTree {vCeasingCumScTxCommTree};
+        if (!ceasingCumScTxCommTree.IsValid())
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"ceasingCumScTxCommTree\": invalid field element";
+            return false;
+        }
+
+
+//---------------------------------------------------------------------------------------------
         // parse snark proof
         const UniValue& proof_v = find_value(o, "scProof");
         if (proof_v.isNull())
@@ -334,7 +385,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 
-        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, nullifier, pubKeyHash, scProof, CScript());
+        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, nullifier, pubKeyHash, scProof, actCertDataHash, ceasingCumScTxCommTree, CScript());
         rawTx.vcsw_ccin.push_back(csw_input);
     }
 

@@ -58,6 +58,7 @@ public:
     const int32_t epochNumber;
     const int64_t quality;
     const uint256 endEpochBlockHash;
+    const CFieldElement endEpochCumScTxCommTreeRoot;
     const libzendoomc::ScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
@@ -109,6 +110,7 @@ public:
         READWRITE(*const_cast<int32_t*>(&epochNumber));
         READWRITE(*const_cast<int64_t*>(&quality));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
+        READWRITE(*const_cast<CFieldElement*>(&endEpochCumScTxCommTreeRoot));
         READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
         READWRITE(*const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField));
         READWRITE(*const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField));
@@ -201,6 +203,7 @@ public:
             epochNumber == EPOCH_NULL &&
             quality == QUALITY_NULL &&
             endEpochBlockHash.IsNull() &&
+            endEpochCumScTxCommTreeRoot.IsNull() &&
             scProof.IsNull() &&
             vFieldElementCertificateField.empty() &&
             vBitVectorCertificateField.empty() &&
@@ -230,6 +233,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     int32_t epochNumber;
     int64_t quality;
     uint256 endEpochBlockHash;
+    CFieldElement endEpochCumScTxCommTreeRoot;
     libzendoomc::ScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
@@ -255,6 +259,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(epochNumber);
         READWRITE(quality);
         READWRITE(endEpochBlockHash);
+        READWRITE(endEpochCumScTxCommTreeRoot);
         READWRITE(scProof);
         READWRITE(vFieldElementCertificateField);
         READWRITE(vBitVectorCertificateField);
@@ -294,7 +299,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     template <typename Stream>
     CMutableScCertificate(deserialize_type, Stream& s) :
         scId(), epochNumber(CScCertificate::EPOCH_NULL),
-        quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), scProof(),
+        quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), endEpochCumScTxCommTreeRoot(), scProof(),
         vFieldElementCertificateField(), vBitVectorCertificateField()
     {
         Unserialize(s);
