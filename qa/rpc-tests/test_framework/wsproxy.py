@@ -31,6 +31,7 @@ REQ_GET_MULTIPLE_BLOCK_HASHES = 1
 REQ_GET_NEW_BLOCK_HASHES = 2
 REQ_SEND_CERTIFICATE = 3
 REQ_GET_BLOCK_HEADERS = 4
+REQ_GET_TOP_QUALITY_CERTIFICATES = 5
 REQ_UNDEFINED = 0xff
 
 MSG_EVENT = 0
@@ -41,7 +42,7 @@ MSG_UNDEFINED = 0xff
 
 #----------------------------------------------------------------
 def fill_ws_send_certificate_input(args):
-    if len(args) <6:
+    if len(args) < 8:
         raise JSONWSException("{}(): wrong number of args {}".format(__func(), len(args)))
 
     msg = {}
@@ -50,16 +51,27 @@ def fill_ws_send_certificate_input(args):
     msg['requestType'] = REQ_SEND_CERTIFICATE
 
     msg['requestPayload'] = {}
-    msg['requestPayload']['scid']              = args[0] # scid
-    msg['requestPayload']['epochNumber']       = args[1] # epoch_number
-    msg['requestPayload']['quality']           = args[2] # quality
-    msg['requestPayload']['endEpochBlockHash'] = args[3] # epoch_block_hash
-    msg['requestPayload']['scProof']           = args[4] # proof
-    msg['requestPayload']['backwardTransfers'] = args[5] # bwt
+    msg['requestPayload']['scid']                                = args[0] # scid
+    msg['requestPayload']['epochNumber']                         = args[1] # epoch_number
+    msg['requestPayload']['quality']                             = args[2] # quality
+    msg['requestPayload']['endEpochBlockHash']                   = args[3] # epoch_block_hash
+    msg['requestPayload']['scProof']                             = args[4] # proof
+    msg['requestPayload']['backwardTransfers']                   = args[5] # bwt
+    msg['requestPayload']['forwardTransferScFee']                = args[6] # forward transfer fee
+    msg['requestPayload']['mainchainBackwardTransferScFee']      = args[7] # backward transfer fee
 
     # optional
-    if len(args) > 6:
-        msg['requestPayload']['fee']           = args[6] # fee
+    if len(args) > 8:
+        msg['requestPayload']['fee']                            = args[8]  # fee
+
+    if len(args) > 9:
+        msg['requestPayload']['vFieldElementCertificateField']  = args[9] #
+
+    if len(args) > 10:
+        msg['requestPayload']['vBitVectorCertificateField']     = args[10] # BitVector
+
+    if len(args) > 11:
+        raise JSONWSException("{}(): too many arguments {}".format(__func(), len(args)))
 
     return json.dumps(msg, default=EncodeDecimal)
 
@@ -151,6 +163,25 @@ def fill_ws_get_multiple_block_hashes_output(jrsp):
     print "Json Received '%s'" % jrsp
     return jrsp['responsePayload']['height'], jrsp['responsePayload']['hashes']
 
+
+#----------------------------------------------------------------
+def fill_ws_get_top_quality_certificates_input(args):
+    if len(args) != 1:
+        raise JSONWSException("{}(): wrong number of args {}".format(__func(), len(args)))
+
+    msg = {}
+    msg['msgType']     = MSG_REQUEST
+    msg['requestId']   = "req_" + str(time.time())
+    msg['requestType'] = REQ_GET_TOP_QUALITY_CERTIFICATES
+
+    msg['requestPayload'] = {}
+    msg['requestPayload']['scid'] = args[0]
+    return json.dumps(msg, default=EncodeDecimal)
+
+def fill_ws_get_top_quality_certificates_output(jrsp):
+    print "Json Received '%s'" % jrsp
+    return jrsp['responsePayload']['mempool_top_quality_cert'], jrsp['responsePayload']['chain_top_quality_cert']
+
 # for negative tests
 #----------------------------------------------------------------
 def fill_ws_test_input(args):
@@ -179,6 +210,7 @@ def fill_ws_cmd_input(method, args):
     if method == "ws_get_multiple_block_hashes": return fill_ws_get_multiple_block_hashes_input(args)
     if method == "ws_get_new_block_hashes": return fill_ws_get_new_block_hashes_input(args)
     if method == "ws_get_block_headers": return fill_ws_get_block_headers_input(args)
+    if method == "ws_get_top_quality_certificates": return fill_ws_get_top_quality_certificates_input(args)
 
     if method == "ws_test": return fill_ws_test_input(args)
     # add specific method calls here
@@ -192,6 +224,7 @@ def fill_ws_cmd_output(method, jrsp):
     if method == "ws_get_multiple_block_hashes": return fill_ws_get_multiple_block_hashes_output(jrsp)
     if method == "ws_get_new_block_hashes": return fill_ws_get_new_block_hashes_output(jrsp)
     if method == "ws_get_block_headers": return fill_ws_get_block_headers_output(jrsp)
+    if method == "ws_get_top_quality_certificates": return fill_ws_get_top_quality_certificates_output(jrsp)
 
     if method == "ws_test": return fill_ws_test_output(jrsp)
     # add specific method calls here

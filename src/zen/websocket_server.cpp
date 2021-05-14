@@ -101,6 +101,7 @@ public:
         GET_NEW_BLOCK_HASHES = 2,
         SEND_CERTIFICATE = 3,
         GET_MULTIPLE_BLOCK_HEADERS = 4,
+        GET_TOP_QUALITY_CERTIFICATES = 5,
         REQ_UNDEFINED = 0xff
     };
     
@@ -220,6 +221,24 @@ private:
         UniValue rspPayload(UniValue::VOBJ);
         
         rspPayload.push_back(Pair("headers", headers));
+
+        UniValue* rv = wse->getPayload();
+        if (!clientRequestId.empty())
+            rv->push_back(Pair("requestId", clientRequestId));
+        rv->push_back(Pair("responsePayload", rspPayload));
+        wsq.push(wse);
+    }
+    
+    void sendTopQualityCertificates(const UniValue& mempoolCert, const UniValue& chainCert,
+                                    WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+    {
+        // Send a message to the client:  type = eventType
+        WsEvent* wse = new WsEvent(msgType);
+        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
+        UniValue rspPayload(UniValue::VOBJ);
+        
+        rspPayload.push_back(Pair("mempool_top_quality_cert", mempoolCert));
+        rspPayload.push_back(Pair("chain_top_quality_cert", chainCert));
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
@@ -484,6 +503,66 @@ private:
         }
 
         sendBlockHeaders(headers, WsEvent::MSG_RESPONSE, clientRequestId);
+
+        return OK;
+    }
+
+    int sendTopQualityCertificatesFromScid(const std::string& scIdString, const std::string& clientRequestId)
+    {
+        uint256 scId;
+        scId.SetHex(scIdString);
+        
+        CCoinsViewCache &view = *pcoinsTip;
+        
+        UniValue mempoolTopQualityCert(UniValue::VOBJ);
+        UniValue chainTopQualityCert(UniValue::VOBJ);
+
+        {
+            LOCK(cs_main);
+            if (!view.HaveSidechain(scId)) {
+                LogPrint("ws", "%s():%d - sidechain id not found[%s]\n", __func__, __LINE__, scIdString);
+                return INVALID_PARAMETER;
+            }
+        
+            if (mempool.hasSidechainCertificate(scId))
+            {
+                const uint256& topQualCertHash = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
+                const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
+                CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+                ssBlock << topQualCert;
+                std::string certHex = HexStr(ssBlock.begin(), ssBlock.end());
+     
+                mempoolTopQualityCert.push_back(Pair("quality", topQualCert.quality));
+                mempoolTopQualityCert.push_back(Pair("certHash", topQualCertHash.GetHex()));
+                mempoolTopQualityCert.push_back(Pair("rawCertificateHex", certHex));
+                mempoolTopQualityCert.push_back(Pair("fee", topQualCert.mainchainBackwardTransferRequestScFee));
+            }
+            
+            CSidechain sidechainInfo;
+
+            if (view.GetSidechain(scId, sidechainInfo)) {
+                const uint256& topQualCertHash = sidechainInfo.lastTopQualityCertHash;
+                const int topQualityCertQuality = sidechainInfo.lastTopQualityCertQuality;
+                CScCertificate topQualCert;
+                uint256 blockHash;
+                CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+                ssBlock << topQualCert;
+                std::string certHex = HexStr(ssBlock.begin(), ssBlock.end());
+                
+                if (!topQualCertHash.IsNull()) {
+                    if (GetCertificate(topQualCertHash, topQualCert, blockHash, false)) {
+                        chainTopQualityCert.push_back(Pair("quality", topQualityCertQuality));
+                        chainTopQualityCert.push_back(Pair("certHash", topQualCertHash.GetHex()));
+                        chainTopQualityCert.push_back(Pair("rawCertificateHex", topQualCert.ToString()));
+                    } else {
+                        LogPrint("ws", "%s():%d - unable to retrieve last top quality certificate[%s]\n", __func__, __LINE__, topQualCertHash.GetHex());
+                        return INVALID_PARAMETER;
+                    }
+                }
+            }
+        }
+
+        sendTopQualityCertificates(mempoolTopQualityCert, chainTopQualityCert, WsEvent::MSG_RESPONSE, clientRequestId);
 
         return OK;
     }
@@ -787,21 +866,6 @@ private:
                 }
                 cmdParams.push_back(bwtArray);
 
-                const UniValue& feeVal = find_value(reqPayload, "fee");
-
-                // can be null, it is optional. The default is set in the cmd
-                if (!feeVal.isNull()) {
-                    try {
-                        cmdParams.push_back(feeVal);
-                    } catch (const UniValue& e) {
-                        dumpUniValueError(e, outMsg);
-                        return INVALID_PARAMETER;
-                    } catch (...) {
-                        LogPrint("ws", "%s():%d - Generic exception\n", __func__, __LINE__);
-                        return INVALID_PARAMETER;
-                    }
-                }
-
                 const UniValue& ftScFeeVal = find_value(reqPayload, "forwardTransferScFee");
 
                 // can be null, it is optional. The default is set in the cmd
@@ -823,6 +887,21 @@ private:
                 if (!mbtrScFeeVal.isNull()) {
                     try {
                         cmdParams.push_back(mbtrScFeeVal);
+                    } catch (const UniValue& e) {
+                        dumpUniValueError(e, outMsg);
+                        return INVALID_PARAMETER;
+                    } catch (...) {
+                        LogPrint("ws", "%s():%d - Generic exception\n", __func__, __LINE__);
+                        return INVALID_PARAMETER;
+                    }
+                }
+                
+                const UniValue& feeVal = find_value(reqPayload, "fee");
+
+                // can be null, it is optional. The default is set in the cmd
+                if (!feeVal.isNull()) {
+                    try {
+                        cmdParams.push_back(feeVal);
                     } catch (const UniValue& e) {
                         dumpUniValueError(e, outMsg);
                         return INVALID_PARAMETER;
@@ -874,6 +953,30 @@ private:
                 }
 
                 return sendHeadersFromHashes(hashArray, clientRequestId);
+            }
+            
+            if (requestType == std::to_string(WsEvent::GET_TOP_QUALITY_CERTIFICATES))
+            {
+                reqType = WsEvent::GET_TOP_QUALITY_CERTIFICATES;
+                if (clientRequestId.empty()) {
+                    LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_REQID;
+                }
+                const UniValue& reqPayload = find_value(request, "requestPayload");
+                if (reqPayload.isNull())
+                {
+                    LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
+                    return INVALID_JSON_FORMAT;
+                }
+
+                std::string scId = findFieldValue("scid", reqPayload);
+                if (scId.empty())
+                {
+                    LogPrint("ws", "%s():%d - scid empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_PARAMETER;
+                }
+
+                return sendTopQualityCertificatesFromScid(scId, clientRequestId);
             }
 
             // if we are here that means it is no valid request type, and reqType is an enum defaulting to 255

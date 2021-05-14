@@ -5268,7 +5268,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() < 6  )
+    if (fHelp || params.size() < 8  )
         throw runtime_error(
             "send_certificate scid epochNumber quality endEpochBlockHash scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
@@ -5283,8 +5283,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "      \"pubkeyhash\":\"pkh\"       (string, required) The public key hash of the receiver\n"
             "      \"amount\":amount            (numeric, required) The numeric amount in ZEN\n"
             "    }, ... ]\n"
-            "7. forwardTransferScFee           (numeric, optional) The amount of fee due to sidechain actors when creating a FT\n"
-            "8. mainchainBackwardTransferScFee (numeric, optional) The amount of fee due to sidechain actors when creating a MBTR\n"
+            "7. forwardTransferScFee           (numeric, required) The amount of fee due to sidechain actors when creating a FT\n"
+            "8. mainchainBackwardTransferScFee (numeric, required) The amount of fee due to sidechain actors when creating a MBTR\n"
             "9. fee                             (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
             "10. vFieldElementCertificateField   (array, optional) An array of byte strings...TODO add description\n"
             "    [\n"                     
@@ -5437,7 +5437,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     {
         UniValue errMsg  = find_value(error, "message");
         throw JSONRPCError(RPC_TYPE_ERROR, ("Invalid FT sidechain fee param:" + errMsg.getValStr() ));
-    } 
+    }
+
 
     if (!MoneyRange(ftScFee))
     {
