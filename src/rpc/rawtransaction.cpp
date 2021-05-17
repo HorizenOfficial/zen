@@ -1266,8 +1266,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
-    // just check against a maximum size TODO for the time being set to 32 K
-    static const size_t MAX_CMT_SIZE_BYTES = 1024*32;
+    static const size_t MAX_CMT_SIZE_BYTES = BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES;
     if (setKeyArgs.count("vBitVectorCertificateField"))
     {
         UniValue feArray = find_value(cert_params, "vBitVectorCertificateField").get_array();
