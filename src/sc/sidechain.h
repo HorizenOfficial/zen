@@ -2,12 +2,19 @@
 #define _SIDECHAIN_CORE_H
 
 #include "amount.h"
-#include "hash.h"
 #include "sc/sidechaintypes.h"
 #include <primitives/certificate.h>
 
 class CValidationState;
 class CTransaction;
+
+namespace Sidechain
+{
+    static const boost::filesystem::path GetSidechainDataDir();
+    bool InitSidechainsFolder();
+    void ClearSidechainsFolder();
+    void LoadCumulativeProofsParameters();
+};
 
 class CSidechainEvents {
 public:

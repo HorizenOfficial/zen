@@ -693,8 +693,9 @@ TEST_F(SidechainsCertInWalletTestSuite, GetCredit_FullCertificate_Voided)
     CAmount changeAmount = 20;
     CAmount bwtAmount = 12;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
-            /*ftScFee*/0, /*mbtrScFee*/0);
+            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD},
+            /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount,
+            /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
     //Add block information

@@ -760,7 +760,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0]);
 
         CValidationState state;
-        if (!TestBlockValidity(state, *pblock, pindexPrev, false, false, false))
+        if (!TestBlockValidity(state, *pblock, pindexPrev, flagCheckPow::OFF, flagCheckMerkleRoot::OFF, flagScRelatedChecks::OFF))
             throw std::runtime_error("CreateNewBlock(): TestBlockValidity failed");
     }
 

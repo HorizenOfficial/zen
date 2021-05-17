@@ -1,5 +1,4 @@
 #include "sc/sidechain.h"
-#include "sc/proofverifier.h"
 #include "primitives/transaction.h"
 #include "utilmoneystr.h"
 #include "txmempool.h"
@@ -14,7 +13,6 @@
 #include "leveldbwrapper.h"
 #include <boost/filesystem.hpp>
 
-#if 0
 static const boost::filesystem::path Sidechain::GetSidechainDataDir()
 {
     static const boost::filesystem::path sidechainsDataDir = GetDataDir() / "sidechains";
@@ -51,7 +49,6 @@ void Sidechain::LoadCumulativeProofsParameters()
     //Todo: call rust circuitry, passing the files hosting keys
     return;
 }
-#endif
 
 int CSidechain::EpochFor(int targetHeight) const
 {

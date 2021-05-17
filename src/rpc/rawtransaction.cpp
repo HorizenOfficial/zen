@@ -1868,25 +1868,28 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     const CCoins* existingCoins = view.AccessCoins(hashTx);
     bool fHaveMempool = mempool.exists(hashTx);
     bool fHaveChain = existingCoins && existingCoins->nHeight < 1000000000;
-    if (!fHaveMempool && !fHaveChain) {
+    if (!fHaveMempool && !fHaveChain)
+    {
         // push to local node and sync with wallets
         CValidationState state;
-        bool fMissingInputs;
-        if (!AcceptTxToMemoryPool(mempool, state, tx, LimitFreeFlag::OFF, &fMissingInputs, fRejectAbsurdFee)) {
-            if (state.IsInvalid()) {
-                throw JSONRPCError(RPC_TRANSACTION_REJECTED, strprintf("%i: %s", CValidationState::CodeToChar(state.GetRejectCode()), state.GetRejectReason()));
-            } else {
-                if (fMissingInputs) {
-                    throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
-                }
-                throw JSONRPCError(RPC_TRANSACTION_ERROR, state.GetRejectReason());
-            }
-        }
-    } else if (fHaveChain) {
-        throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "transaction already in block chain");
-    }
-    tx.Relay();
+        MempoolReturnValue res = AcceptTxToMemoryPool(mempool, state, tx, LimitFreeFlag::OFF, fRejectAbsurdFee,
+                                                      MempoolProofVerificationFlag::SYNC);
 
+        if (res == MempoolReturnValue::MISSING_INPUT)
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
+
+        if (res == MempoolReturnValue::INVALID)
+        {
+            if (state.IsInvalid())
+                throw JSONRPCError(RPC_TRANSACTION_REJECTED,
+                        strprintf("%i: %s", CValidationState::CodeToChar(state.GetRejectCode()), state.GetRejectReason()));
+
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, state.GetRejectReason());
+        }
+    } else if (fHaveChain)
+        throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "transaction already in block chain");
+
+    tx.Relay();
     return hashTx.GetHex();
 }
 
@@ -1934,33 +1937,23 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
     {
         // push to local node and sync with wallets
         CValidationState state;
-        bool fMissingInputs;
-        if (!AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, &fMissingInputs,
-                fRejectAbsurdFee))
+        MempoolReturnValue res = AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee,
+                                                               MempoolProofVerificationFlag::SYNC);
+
+        if (res == MempoolReturnValue::MISSING_INPUT)
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
+
+        if (res == MempoolReturnValue::INVALID)
         {
-            LogPrintf("%s():%d - cert[%s] not accepted in mempool\n", __func__, __LINE__, hashCertificate.ToString());
             if (state.IsInvalid())
-            {
-                throw JSONRPCError(RPC_TRANSACTION_REJECTED, strprintf("%i: %s", CValidationState::CodeToChar(state.GetRejectCode()), state.GetRejectReason()));
-            }
-            else
-            {
-                if (fMissingInputs)
-                {
-                    throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
-                }
-                throw JSONRPCError(RPC_TRANSACTION_ERROR, "certificate not accepted to mempool");
-            }
+                throw JSONRPCError(RPC_TRANSACTION_REJECTED,
+                        strprintf("%i: %s", CValidationState::CodeToChar(state.GetRejectCode()), state.GetRejectReason()));
+
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, "certificate not accepted to mempool");
         }
     }
     else if (fHaveChain)
-    {
         throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "certificate already in block chain");
-    }
-    else
-    {
-        LogPrint("cert", "%s():%d - cert[%s] is already in mempool, just realying it\n", __func__, __LINE__, hashCertificate.ToString());
-    }
 
     LogPrint("cert", "%s():%d - relaying certificate [%s]\n", __func__, __LINE__, hashCertificate.ToString());
     cert.Relay();

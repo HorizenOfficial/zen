@@ -169,7 +169,25 @@ TEST(SidechainsField, CopyAndAssignement)
     }
 }
 
-TEST(SidechainsField, PoseidonHashTest)
+TEST(SidechainsField, ComputeHash_EmptyField)
+{
+    std::vector<unsigned char> lhs {
+        138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
+        95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
+        144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
+        88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 0, 0
+    };
+    CFieldElement lhsField{lhs};
+    ASSERT_TRUE(lhsField.IsValid());
+
+    CFieldElement rhsField{};
+    ASSERT_FALSE(rhsField.IsValid());
+
+    //test
+    EXPECT_THROW(CFieldElement::ComputeHash(lhsField, rhsField), std::runtime_error);
+}
+
+TEST(SidechainsField, ComputeHash_ValidField)
 {
     std::vector<unsigned char> lhs {
         138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,

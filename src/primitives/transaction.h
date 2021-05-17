@@ -15,6 +15,7 @@
 #include "consensus/consensus.h"
 #include "util.h"
 #include <array>
+#include "net.h"
 
 #include <boost/variant.hpp>
 
@@ -1101,6 +1102,18 @@ struct CMutableTransaction : public CMutableTransactionBase
     bool add(const CTxForwardTransferOut& out);
     bool add(const CBwtRequestOut& out);
     bool add(const CFieldElement& acd);
+};
+
+/**
+ * @brief A structure that includes all the arguments needed for verifying the proof of a CSW input.
+ */
+struct CCswProofVerifierInput
+{
+    std::shared_ptr<CTransaction> transactionPtr;
+    CTxCeasedSidechainWithdrawalInput cswInput;
+    CScVKey ceasedVk;
+    CFieldElement certDataHash;
+    CNode* node;    /**< The node that sent the transaction. */
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

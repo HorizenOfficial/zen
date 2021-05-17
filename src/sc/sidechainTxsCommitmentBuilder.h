@@ -1,6 +1,5 @@
 #ifndef SIDECHAIN_TX_COMMITMENT_BUILDER
 #define SIDECHAIN_TX_COMMITMENT_BUILDER
-
 #include <map>
 #include <vector>
 #include <set>

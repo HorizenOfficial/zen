@@ -374,6 +374,7 @@ CMutableScCertificate& CMutableScCertificate::operator=(const CMutableScCertific
     *const_cast<int*>(&nFirstBwtPos)      = rhs.nFirstBwtPos;
     forwardTransferScFee                  = rhs.forwardTransferScFee;
     mainchainBackwardTransferRequestScFee = rhs.mainchainBackwardTransferRequestScFee;
+
     return *this;
 }
 

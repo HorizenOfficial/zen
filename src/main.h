@@ -14,7 +14,6 @@
 #include "chain.h"
 #include "chainparams.h"
 #include "net.h"
-#include "sc/proofverifier.h"
 #include "script/script.h"
 #include "sync.h"
 #include "tinyformat.h"
@@ -210,6 +209,29 @@ bool InitBlockIndex();
 bool LoadBlockIndex();
 /** Unload database information */
 void UnloadBlockIndex();
+
+/**
+ * @brief The enumeration of states of the sidechain batch proof verification.
+ * 
+ * It is useful to correctly handle the behavior of the ProcessTxBaseMsg() function,
+ * in particular it should request an asynchronous batch verification of the proof
+ * when called for the first time (with parameter NOT_VERIFIED_YET) and then should
+ * be called a second time by the batch proof verification thread with the parameter
+ * VERIFIED.
+ */
+enum class BatchVerificationStateFlag
+{
+    NOT_VERIFIED_YET,   /**< The sidechain proof verification has not been verified yet. */
+    VERIFIED,           /**< The sidechain proof has been correctly verified. */
+    FAILED              /**< The sidechain proof has been rejected. */
+};
+
+/** Process a transaction or certificate that has to be added to memory pool */
+void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfrom,
+                                     BatchVerificationStateFlag proofVerificationState,
+                                     CValidationState& state);
+/** Process protocol message of type "tx" */
+void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom);
 /** Process protocol messages received from a given node */
 bool ProcessMessages(CNode* pfrom);
 /**
@@ -285,18 +307,31 @@ void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
 void PruneAndFlush();
 
+// Accept Tx/Cert ToMempool parameters types and signature
 enum class LimitFreeFlag       { ON, OFF };
 enum class RejectAbsurdFeeFlag { ON, OFF };
+enum class MempoolReturnValue { INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
+
+/**
+ * @brief The enumeration of possible states of the sidechain proof verification
+ * inside the Accept(Tx/Cert)ToMempool().
+ */
+enum class MempoolProofVerificationFlag
+{
+    DISABLED,   /**< The proof verification is not required. */
+    SYNC,       /**< The proof verification is enabled and will be performed synchronously on the calling thread. */
+    ASYNC       /**< The proof verification is enabled and will pe performed asynchronously on a separate thread. */
+};
 
 /** (try to) add transaction to memory pool **/
-bool AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
+MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
-bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
+MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
-bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, bool* pfMissingInputs, RejectAbsurdFeeFlag fRejectAbsurdFee);
+MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
 struct CNodeStateStats {
     int nMisbehavior;
@@ -472,15 +507,33 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     bool* pfClean = NULL, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
+enum class flagCheckPow             { ON, OFF };
+enum class flagCheckMerkleRoot      { ON, OFF };
+enum class flagScRelatedChecks      { ON, OFF };
+enum class flagScProofVerification  { ON, OFF };
+
+/**
+ * @brief The enumeration of allowed types of block processing.
+ * It is used in the CheckBlock() function to choose between the full/normal processing
+ * or a dry-run intended to check only the validity (without applying any changes).
+ */
+enum class flagBlockProcessingType
+{
+    COMPLETE,       /**< Perform the normal/complete procedure applying changes. */
+    CHECK_ONLY      /**< Perofrm only the validity check and do not apply any changes. */
+};
+
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-    CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false, bool fCheckScTxesCommitment = true,
+    CCoinsViewCache& coins, const CChain& chain, flagBlockProcessingType processingType,
+    flagScRelatedChecks fScRelatedChecks, flagScProofVerification fScProofVerification,
     std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Context-independent validity checks */
-bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
+bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, flagCheckPow fCheckPOW = flagCheckPow::ON);
 bool CheckBlock(const CBlock& block, CValidationState& state,
                 libzcash::ProofVerifier& verifier,
-                bool fCheckPOW = true, bool fCheckMerkleRoot = true);
+                flagCheckPow fCheckPOW = flagCheckPow::ON,
+                flagCheckMerkleRoot fCheckMerkleRoot = flagCheckMerkleRoot::ON);
 
 /** Context-dependent validity checks */
 bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex *pindexPrev);
@@ -488,7 +541,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block, with cs_main held) */
 bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex *pindexPrev,
-    bool fCheckPOW = true, bool fCheckMerkleRoot = true, bool fCheckScTxesCommitment = true);
+        flagCheckPow fCheckPOW, flagCheckMerkleRoot fCheckMerkleRoot, flagScRelatedChecks fScRelatedChecks);
 
 /**
  * Store block on disk.

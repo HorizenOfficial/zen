@@ -433,7 +433,6 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidActCertData) {
         <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////// checkCcOutputAmounts /////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -489,7 +488,7 @@ TEST(SidechainsAmounts, ScFeesLargerThanInputAreRejected)
     EXPECT_FALSE(CTransaction(mutTx).CheckFeeAmount(totalVinAmount, dummyState));
 }
 ///////////////////////////////////////////////////////////////////////////////
-/////////////////////////// IsScTxApplicableToState ///////////////////////////
+///////////////////// IsScTxApplicableToState/ ////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 TEST_F(SidechainsTestSuite, ScCreationIsApplicableToStateIfScDoesntNotExistYet) {
@@ -723,7 +722,6 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnknownSidechainIsNotApplicableToState
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
     ret_code = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx));
-
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
 }
@@ -1847,7 +1845,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     CMutableScCertificate mutCert = originalCert;
     mutCert.forwardTransferScFee = 1;
     newCert = mutCert;
-    EXPECT_NE(originalCert.GetDataHash(), newCert.GetDataHash());
+    EXPECT_FALSE(originalCert.GetDataHash() == newCert.GetDataHash());
 
     /**
      * Check that two certificates with same parameters but different
@@ -1856,7 +1854,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     mutCert = originalCert;
     mutCert.mainchainBackwardTransferRequestScFee = 1;
     newCert = mutCert;
-    EXPECT_NE(originalCert.GetDataHash(), newCert.GetDataHash());
+    EXPECT_FALSE(originalCert.GetDataHash() == newCert.GetDataHash());
 }
 
 

@@ -225,7 +225,6 @@ void static RandomScVk(CScVKey &vk) {
     vk.SetByteArray(vec);
 }
 
-
 void static RandomData(std::vector<unsigned char> &data) {
     data.clear();
     for (unsigned int i = 0; i < 100; i++)
@@ -259,12 +258,14 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
 
     tx.nLockTime = (insecure_rand() % 2) ? insecure_rand() : 0;
     int ins = (insecure_rand() % 4) + 1;
-    int csws = isSidechain ? (insecure_rand() % 4) + 1 : 0;
+    int csws = isSidechain ? (insecure_rand() % 4) : 0;
     int outs = fSingle ? ins + csws : (insecure_rand() % 4) + 1;
+
+    // we can have also empty vectors here
     int joinsplits = (insecure_rand() % 4);
-    int scs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
-    int fts = isSidechain ? (insecure_rand() % 4) + 1 : 0;
-    int mbtrs = isSidechain ? (insecure_rand() % 4) + 1 : 0;
+    int scs = isSidechain ? (insecure_rand() % 4) : 0;
+    int fts = isSidechain ? (insecure_rand() % 4) : 0;
+    int mbtrs = isSidechain ? (insecure_rand() % 4) : 0;
     int mbtrScRequestDataLength = isSidechain ? (insecure_rand() % 4) : 0;
     int FieldElementCertificateFieldConfigLength = isSidechain ? (insecure_rand() % 4): 0;
     int BitVectorCertificateFieldConfigLength = isSidechain ? (insecure_rand() % 4): 0;
@@ -335,10 +336,10 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
           tx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput());
           CTxCeasedSidechainWithdrawalInput &csw_in = tx.vcsw_ccin.back();
 
-          RandomPubKeyHash(csw_in.pubKeyHash);
           csw_in.nValue = insecure_rand() % 100000000;
           csw_in.scId = libzcash::random_uint256();
           RandomSidechainField(csw_in.nullifier);
+          RandomPubKeyHash(csw_in.pubKeyHash);
           RandomScProof(csw_in.scProof);
           RandomSidechainField(csw_in.actCertDataHash);
           RandomSidechainField(csw_in.ceasingCumScTxCommTree);
