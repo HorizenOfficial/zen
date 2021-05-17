@@ -231,7 +231,7 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     x.push_back(Pair("quality", cert.quality));
     x.push_back(Pair("endEpochBlockHash", cert.endEpochBlockHash.GetHex()));
     x.push_back(Pair("endEpochCumScTxCommTreeRoot", cert.endEpochCumScTxCommTreeRoot.GetHexRepr()));
-    x.push_back(Pair("scProof", HexStr(cert.scProof)));
+    x.push_back(Pair("scProof", cert.scProof.GetHexRepr()));
 
     UniValue vCfe(UniValue::VARR);
     for (const auto& entry : cert.vFieldElementCertificateField) {
@@ -698,7 +698,9 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         throw runtime_error(
             "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} (\n"
             "    [{\"amount\": value, \"senderAddress\":\"address\", ...}, ...] (\n"
-            "    [{\"epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":[hexstr1, hextstr2, ...], \"constant\":hexstr},...]\n"
+            "    [{\"epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr,\n"
+            "      \"wCeasedVk\":hexstr, \"vFieldElementCertificateFieldConfig\":[i1,...], \"vBitVectorCertificateFieldConfig\":[[n1, m1],...],\n"
+            "      \"forwardTransferScFee\":fee, \"mainchainBackwardTransferScFee\":fee, \"mainchainBackwardTransferRequestDataLength\":len},...]\n"
             "    ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id},...]\n"
             "    ( [{\"scid\":\"scid\", \"vScRequestData\":\"vScRequestData\", \"pubkeyhash\":\"pubkeyhash\", \"scFee\":\"scFee\", \"scProof\":\"scProof\"},...]\n"
             ") ) )\n"
@@ -738,17 +740,17 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "4. \"sc creations\"        (string, optional but required if 5 is also given) A json array of json objects\n"
             "     [\n"
             "       {\n"
-            "         \"epoch_length\":n (numeric, required) length of the withdrawal epochs\n"
-            "         \"address\":\"address\",  (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "         \"epoch_length\":n          (numeric, required) length of the withdrawal epochs\n"
+            "         \"address\":\"address\",    (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "         \"amount\":amount           (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
             "         \"wCertVk\":hexstr          (string, required) It is an arbitrary byte string of even length expressed in\n"
-            "                                       hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "                                       hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", CScVKey::MaxByteSize()) + " bytes max\n"
             "         \"customData\":hexstr       (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                       hexadecimal format. A max limit of " + strprintf("%d", Sidechain::MAX_SC_CUSTOM_DATA_LEN) + " bytes will be checked\n"
             "         \"constant\":hexstr         (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             "         \"wCeasedVk\":hexstr        (string, optional) It is an arbitrary byte string of even length expressed in\n"
-            "                                       hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", SC_VK_SIZE) + " bytes\n"
+            "                                       hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", CScVKey::MaxByteSize()) + " bytes max\n"
             "         \"vFieldElementCertificateFieldConfig\" (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many FieldElementCertificateField with the corresponding size.\n"
             "         \"vBitVectorCertificateFieldConfig\"    (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many BitVectorCertificateField with the corresponding sizes\n"
             "         \"forwardTransferScFee\" (numeric, optional, default=0) The amount of fee in " + CURRENCY_UNIT + " due to sidechain actors when creating a FT\n"
@@ -934,18 +936,20 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "  ],\n"
             "  \"vsc_ccout\" : [           (array of json objects) Sidechain creation crosschain outputs\n"
             "     {\n"
-            "       \"scid\" : \"hex\",                 (string) The sidechain id\n"
-            "       \"n\" : n,                          (numeric) crosschain output index\n"
-            "       \"withdrawal epoch length\" : n,    (numeric) Sidechain withdrawal epoch length\n"
-            "       \"value\" : x.xxx,                  (numeric) The value in " + CURRENCY_UNIT + "\n"
-            "       \"address\" : \"hex\",              (string) The sidechain receiver address\n"
-            "       \"wCertVk\" : \"hex\",              (string) The sidechain certificate snark proof verification key\n"
-            "       \"customData\" : \"hex\",           (string) The sidechain declaration custom data\n"
-            "       \"constant\" : \"hex\",             (string) The sidechain certificate snark proof constant data\n"
-            "       \"wCeasedVk\" : \"hex\"             (string, optional) The ceased sidechain withdrawal input snark proof verification key\n"
-            "       \"ftScFee\" :                       (numeric) The fee in " + CURRENCY_UNIT + " required to create a Forward Transfer to sidechain\n"
-            "       \"mbtrScFee\"                       (numeric) The fee in " + CURRENCY_UNIT + " required to create a Mainchain Backward Transfer Request to sidechain\n"
-            "       \"mbtrRequestDataLength\"           (numeric) The size of the MBTR request data length\n"
+            "       \"scid\" : \"hex\",                        (string) The sidechain id\n"
+            "       \"n\" : n,                                 (numeric) crosschain output index\n"
+            "       \"withdrawal epoch length\" : n,           (numeric) Sidechain withdrawal epoch length\n"
+            "       \"value\" : x.xxx,                         (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"address\" : \"hex\",                     (string) The sidechain receiver address\n"
+            "       \"certProvingSystem\" : \"provingSystem\"  (string) The type of proving system to be used for certificate verification, allowed values:\n" + Sidechain::ProvingSystemTypeHelp() + "\n"
+            "       \"wCertVk\" : \"hex\",                     (string) The sidechain certificate snark proof verification key\n"
+            "       \"customData\" : \"hex\",                  (string) The sidechain declaration custom data\n"
+            "       \"constant\" : \"hex\",                    (string) The sidechain certificate snark proof constant data\n"
+            "       \"cswProvingSystem\" : \"provingSystem\"   (string) The type of proving system to be used for CSW verification, allowed values:\n" + Sidechain::ProvingSystemTypeHelp() + "\n"
+            "       \"wCeasedVk\" : \"hex\"                    (string) The ceased sidechain withdrawal input snark proof verification key\n"
+            "       \"ftScFee\" :                              (numeric) The fee in " + CURRENCY_UNIT + " required to create a Forward Transfer to sidechain\n"
+            "       \"mbtrScFee\"                              (numeric) The fee in " + CURRENCY_UNIT + " required to create a Mainchain Backward Transfer Request to sidechain\n"
+            "       \"mbtrRequestDataLength\"                  (numeric) The size of the MBTR request data length\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
@@ -1052,7 +1056,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "      \"quality\":n                     (numeric, required) A positive number specifying the quality of this withdrawal certificate. \n"
             "      \"endEpochBlockHash\":\"blockHash\" (string, required) The block hash determining the end of the referenced epoch\n"
             "      \"endEpochCumScTxCommTreeRoot\":\"ecum\" (string, required) The hex string representation of the field element corresponding to the root of the cumulative scTxCommitment tree stored at the block marking the end of the referenced epoch\n"
-            "      \"scProof\":\"scProof\"             (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", SC_PROOF_SIZE) + "bytes \n"
+            "      \"scProof\":\"scProof\"             (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", CScProof::MaxByteSize()) + "bytes max\n"
             "      \"vFieldElementCertificateField\":\"field els\"     (array, optional) An array of HEX string... TODO add description\n"
             "      \"vBitVectorCertificateField\":\"cmp mkl trees\"  (array, optional) An array of HEX string... TODO add description\n"
             "      \"ftScFee\"                         (numeric, optional) The Forward Transfer sidechain fee\n"
@@ -1186,9 +1190,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         string inputString = find_value(cert_params, "endEpochCumScTxCommTreeRoot").get_str();
         std::vector<unsigned char> aByteArray {};
         std::string errorStr;
-        // check only size upper limit
-        static const bool ENFORCE_STRICT_SIZE = false;
-        if (!Sidechain::AddScData(inputString, aByteArray, CFieldElement::ByteSize(), ENFORCE_STRICT_SIZE, errorStr))
+        if (!Sidechain::AddScData(inputString, aByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::STRICT , errorStr))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("end cum commitment tree root: ") + errorStr);
         }
@@ -1204,14 +1206,12 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         string inputString = find_value(cert_params, "scProof").get_str();
         std::string error;
         std::vector<unsigned char> scProofVec;
-        if (!Sidechain::AddScData(inputString, scProofVec, SC_PROOF_SIZE, true, error))
+        if (!Sidechain::AddScData(inputString, scProofVec, CScProof::MaxByteSize(), Sidechain::CheckSizeMode::UPPER_LIMIT, error))
             throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
 
-        libzendoomc::ScProof scProof(scProofVec);
-        if (!libzendoomc::IsValidScProof(scProof))
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid cert \"scProof\"");
-        
-        rawCert.scProof = scProof;
+        rawCert.scProof = CScProof{scProofVec};
+        if (!rawCert.scProof.IsValid())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "invalid cert \"scProof\"");
     }
     else
     {
@@ -1244,7 +1244,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 
     // ---------------------------------------------------------
     // just check against a maximum size 
-    static const size_t MAX_FE_SIZE_BYTES  = SC_FIELD_SIZE;
+    static const size_t MAX_FE_SIZE_BYTES  = CFieldElement::ByteSize();
     if (setKeyArgs.count("vFieldElementCertificateField"))
     {
         UniValue feArray = find_value(cert_params, "vFieldElementCertificateField").get_array();
@@ -1266,8 +1266,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
-    // just check against a maximum size TODO for the time being set to 32 K
-    static const size_t MAX_CMT_SIZE_BYTES = 1024*32;
+    static const size_t MAX_CMT_SIZE_BYTES = BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES;
     if (setKeyArgs.count("vBitVectorCertificateField"))
     {
         UniValue feArray = find_value(cert_params, "vBitVectorCertificateField").get_array();
@@ -1280,7 +1279,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 
             std::string error;
             std::vector<unsigned char> cmt;
-            if (!Sidechain::AddScData(o.get_str(), cmt, MAX_CMT_SIZE_BYTES, false, error))
+            if (!Sidechain::AddScData(o.get_str(), cmt, MAX_CMT_SIZE_BYTES, Sidechain::CheckSizeMode::UPPER_LIMIT, error))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("vBitVectorCertificateField[" + std::to_string(count) + "]") + error);
 
             rawCert.vBitVectorCertificateField.push_back(cmt);

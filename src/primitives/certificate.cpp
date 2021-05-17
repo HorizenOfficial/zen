@@ -51,7 +51,7 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
     *const_cast<int64_t*>(&quality) = cert.quality;
     *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<CFieldElement*>(&endEpochCumScTxCommTreeRoot) = cert.endEpochCumScTxCommTreeRoot;
-    *const_cast<libzendoomc::ScProof*>(&scProof) = cert.scProof;
+    *const_cast<CScProof*>(&scProof) = cert.scProof;
     *const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField) = cert.vFieldElementCertificateField;
     *const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField) = cert.vBitVectorCertificateField;
     *const_cast<int*>(&nFirstBwtPos) = cert.nFirstBwtPos;
@@ -300,7 +300,13 @@ bool CScCertificate::VerifyScript(
     return true;
 }
 
-void CScCertificate::Relay() const { ::Relay(*this); }
+void CScCertificate::Relay() const
+{
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss.reserve(10000);
+    ss << *this;
+    ::Relay(*this, ss);
+}
 
 std::shared_ptr<const CTransactionBase>
 CScCertificate::MakeShared() const {

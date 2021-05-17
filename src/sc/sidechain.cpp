@@ -12,7 +12,46 @@
 #include <undo.h>
 #include <main.h>
 #include "leveldbwrapper.h"
+#include <boost/filesystem.hpp>
 
+#if 0
+static const boost::filesystem::path Sidechain::GetSidechainDataDir()
+{
+    static const boost::filesystem::path sidechainsDataDir = GetDataDir() / "sidechains";
+    return sidechainsDataDir;
+}
+
+bool Sidechain::InitSidechainsFolder()
+{
+    // Note: sidechainsDataDir cannot be global since
+    // at start of the program network parameters are not initialized yet
+
+    if (!boost::filesystem::exists(Sidechain::GetSidechainDataDir()))
+    {
+        boost::filesystem::create_directories(Sidechain::GetSidechainDataDir());
+        //Todo: validate (possible here) availability (rw) of files with precalculated keys or create them
+    }
+    return true;
+}
+
+void Sidechain::ClearSidechainsFolder()
+{
+    LogPrintf("Removing sidechains files [CURRENTLY ALL] for -reindex. Subfolders untouched.\n");
+
+    for (boost::filesystem::directory_iterator it(Sidechain::GetSidechainDataDir());
+         it != boost::filesystem::directory_iterator(); it++)
+    {
+        if (is_regular_file(*it))
+            remove(it->path());
+    }
+}
+
+void Sidechain::LoadCumulativeProofsParameters()
+{
+    //Todo: call rust circuitry, passing the files hosting keys
+    return;
+}
+#endif
 
 int CSidechain::EpochFor(int targetHeight) const
 {
@@ -188,12 +227,20 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                         __func__, __LINE__, txHash.ToString()), CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-custom-config");
         }
 
-        if (!libzendoomc::IsValidScVk(sc.wCertVk))
+        if (!sc.wCertVk.IsValid())
         {
             return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid wCert verification key\n",
                     __func__, __LINE__, txHash.ToString()),
                     CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcert-vk");
+        }
+
+        if (!Sidechain::IsValidProvingSystemType(sc.wCertVk.getProvingSystemType()))
+        {
+            return state.DoS(100,
+                error("%s():%d - ERROR: Invalid tx[%s], invalid cert proving system\n",
+                __func__, __LINE__, txHash.ToString()),
+                CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcert-provingsystype");
         }
 
         if(sc.constant.is_initialized() && !sc.constant->IsValid())
@@ -204,12 +251,22 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-constant");
         }
 
-        if (sc.wCeasedVk.is_initialized() && !libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
+        if (sc.wCeasedVk.is_initialized() )
         {
-            return state.DoS(100,
+            if (!sc.wCeasedVk.get().IsValid())
+            {
+                return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",
                     __func__, __LINE__, txHash.ToString()),
-                    CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wceased-vk");
+                    CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-vk");
+            }
+            if (!Sidechain::IsValidProvingSystemType(sc.wCeasedVk.get().getProvingSystemType()))
+            {
+                return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], invalid csw proving system\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-provingsystype");
+            }
         }
 
         if (!MoneyRange(sc.forwardTransferScFee))
@@ -321,8 +378,8 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     __func__, __LINE__, txHash.ToString()),
                 CValidationState::Code::INVALID, "sidechain-cswinput-invalid-ceasingCumScTxCommTree");
         }
-        
-        if(!libzendoomc::IsValidScProof(csw.scProof))
+
+        if(!csw.scProof.IsValid())
         {
             return state.DoS(100,
                 error("%s():%d - ERROR: Invalid tx[%s] : invalid CSW proof\n",
@@ -378,7 +435,7 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
                 CValidationState::Code::INVALID, "bad-cert-mbtr-fee-out-of-range");;
     }
 
-    if(!libzendoomc::IsValidScProof(cert.scProof))
+    if(!cert.scProof.IsValid())
     {
         return state.DoS(100,
                 error("%s():%d - ERROR: Invalid cert[%s], invalid scProof\n",

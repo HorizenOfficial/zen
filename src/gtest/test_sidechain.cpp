@@ -320,7 +320,7 @@ TEST_F(SidechainsTestSuite, ValidCSWTx) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -338,7 +338,7 @@ TEST_F(SidechainsTestSuite, InvalidNullifier) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -358,7 +358,7 @@ TEST_F(SidechainsTestSuite, CSWTxNegativeAmount) {
 
     csw.nValue = -1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -378,7 +378,7 @@ TEST_F(SidechainsTestSuite, CSWTxHugeAmount) {
 
     csw.nValue = MAX_MONEY + 1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -398,7 +398,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidNullifier) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -418,7 +418,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidActCertData) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
+    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
     csw.actCertDataHash = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -433,45 +433,6 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidActCertData) {
         <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
 }
 
-TEST_F(SidechainsTestSuite, CSWTxInvalidCeasingCumScTxCommTree) {
-    CTxCeasedSidechainWithdrawalInput csw;
-
-    csw.nValue = 100;
-    csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof();
-    csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
-    csw.ceasingCumScTxCommTree = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
-    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
-    CValidationState txState;
-
-    // test
-    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
-
-    EXPECT_FALSE(res);
-    EXPECT_FALSE(txState.IsValid());
-    EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
-        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
-}
-
-TEST_F(SidechainsTestSuite, CSWTxInvalidProof) {
-    CTxCeasedSidechainWithdrawalInput csw;
-
-    csw.nValue = 100;
-    csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = libzendoomc::ScProof({std::vector<unsigned char>(size_t(SC_PROOF_SIZE), 'a')});
-    csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
-    csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
-    CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
-    CValidationState txState;
-
-    // test
-    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
-
-    EXPECT_FALSE(res);
-    EXPECT_FALSE(txState.IsValid());
-    EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
-        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 //////////////////////////// checkCcOutputAmounts /////////////////////////////
@@ -861,10 +822,9 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainIsAccepted) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
-    initialScState.fixedParams.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     initialScState.balance = CAmount{1000};
     initialScState.pastEpochTopQualityCertView.certDataHash = CFieldElement{SAMPLE_FIELD};
-
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
@@ -887,7 +847,7 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainWithWrongActiveCertDataIsRefuse
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
-    initialScState.fixedParams.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     initialScState.balance = CAmount{1000};
 
     std::vector<unsigned char> badVec(size_t(CFieldElement::ByteSize()-2), 0xaa);
@@ -912,7 +872,7 @@ TEST_F(SidechainsTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
-    initialScState.fixedParams.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     initialScState.balance = CAmount{1000};
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
@@ -932,7 +892,7 @@ TEST_F(SidechainsTestSuite, ValidCeasedCumTreeHashesForCeasedSidechain) {
     uint256 scId = uint256S("aaaa");
     sc.creationBlockHeight = 1492;
     sc.fixedParams.withdrawalEpochLength = 14;
-    sc.fixedParams.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    sc.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     sc.balance = CAmount{1000};
     int heightWhereCeased = sc.GetScheduledCeasingHeight();
 
@@ -951,7 +911,7 @@ TEST_F(SidechainsTestSuite, InvalidCeasedCumTreeHashesForUnceasedSidechain) {
     uint256 scId = uint256S("aaaa");
     sc.creationBlockHeight = 1492;
     sc.fixedParams.withdrawalEpochLength = 14;
-    sc.fixedParams.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    sc.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     sc.balance = CAmount{1000};
     int heightWhereCeased = sc.GetScheduledCeasingHeight();
 
@@ -968,7 +928,7 @@ TEST_F(SidechainsTestSuite, InvalidCeasedCumTreeHashesForJustStartedSidechain) {
     uint256 scId = uint256S("aaaa");
     sc.creationBlockHeight = 1492;
     sc.fixedParams.withdrawalEpochLength = 14;
-    sc.fixedParams.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    sc.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     sc.balance = CAmount{1000};
 
     storeSidechainWithCurrentHeight(scId, sc, sc.creationBlockHeight+1);
@@ -995,7 +955,7 @@ TEST_F(SidechainsTestSuite, CSWsToActiveSidechainIsRefused) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
-    initialScState.fixedParams.wCeasedVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    initialScState.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
     initialScState.balance = CAmount{1000};
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
 
@@ -1909,7 +1869,7 @@ TEST_F(SidechainsTestSuite, CTxScCreationOutHashComputation)
 
     EXPECT_EQ(originalOut.forwardTransferScFee, -1);
     EXPECT_EQ(originalOut.mainchainBackwardTransferRequestScFee, -1);
-    EXPECT_EQ(originalOut.mainchainBackwardTransferRequestDataLength, -1);
+    EXPECT_EQ(originalOut.mainchainBackwardTransferRequestDataLength, 0);
 
     CTxScCreationOut newOut = CTxScCreationOut(originalOut);
     EXPECT_EQ(originalOut.GetHash(), newOut.GetHash());

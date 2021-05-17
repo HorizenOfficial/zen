@@ -205,22 +205,24 @@ void static RandomSidechainField(CFieldElement &fe) {
     fe.SetByteArray(vec);
 }
 
-void static RandomScProof(libzendoomc::ScProof &proof) {
-    std::string str;
-    for (unsigned int i = 0; i < sizeof(libzendoomc::ScProof); i++)
+void static RandomScProof(CScProof &proof) {
+    std::vector<unsigned char> vec;
+    for (unsigned int i = 0; i < sizeof(CScProof); i++)
     {
-        str.push_back((unsigned char)(insecure_rand() % 0xff));
+         vec.push_back((unsigned char)(insecure_rand() % 0xff));
     }
-    proof.SetHex(str);
+    vec.resize(insecure_rand()%CScProof::MaxByteSize()+1);
+    proof.SetByteArray(vec);
 }
 
-void static RandomScVk(libzendoomc::ScVk &vk) {
-    std::string str;
-    for (unsigned int i = 0; i < sizeof(libzendoomc::ScVk); i++)
+void static RandomScVk(CScVKey &vk) {
+    std::vector<unsigned char> vec;
+    for (unsigned int i = 0; i < sizeof(CScVKey); i++)
     {
-        str.push_back((unsigned char)(insecure_rand() % 0xff));
+         vec.push_back((unsigned char)(insecure_rand() % 0xff));
     }
-    vk.SetHex(str);
+    vec.resize(insecure_rand()%CScVKey::MaxByteSize()+1);
+    vk.SetByteArray(vec);
 }
 
 
@@ -359,7 +361,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             sc_out.constant = CFieldElement{};
             RandomSidechainField(sc_out.constant.get());
             RandomScVk(sc_out.wCertVk);
-            libzendoomc::ScVk wCeasedVk;
+            CScVKey wCeasedVk;
             RandomScVk(wCeasedVk);
             sc_out.wCeasedVk = wCeasedVk; // boost optional
             for (int i = 0; i < FieldElementCertificateFieldConfigLength; i++)

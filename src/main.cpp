@@ -1199,7 +1199,7 @@ bool AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, co
                     ret_code, "bad-sc-cert-not-applicable");
             }
 
-            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
             ret_code = view.IsCertProofVerified(cert, scVerifier);
             if (ret_code != CValidationState::Code::OK)
             {
@@ -1462,7 +1462,7 @@ bool AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTran
                     ret_code, "bad-sc-tx-not-applicable");
             }
 
-            auto scVerifier = libzendoomc::CScProofVerifier::Strict();
+            CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
             ret_code = view.IsScTxCswProofVerified(tx, scVerifier);
             if (ret_code != CValidationState::Code::OK)
             {
@@ -2885,7 +2885,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     ret_code, "bad-sc-tx-not-applicable");
             }
 
-            auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+            const auto scVerifierMode = fExpensiveChecks ?
+                CScProofVerifier::Verification::Strict : CScProofVerifier::Verification::Loose;
+            CScProofVerifier scVerifier{scVerifierMode};
             ret_code = view.IsScTxCswProofVerified(tx, scVerifier);
             if (ret_code != CValidationState::Code::OK)
             {
@@ -2996,7 +2998,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 ret_code, "bad-sc-cert-not-applicable");
         }
 
-        auto scVerifier = fExpensiveChecks ? libzendoomc::CScProofVerifier::Strict() : libzendoomc::CScProofVerifier::Disabled();
+        const auto scVerifierMode = fExpensiveChecks ?
+            CScProofVerifier::Verification::Strict : CScProofVerifier::Verification::Loose;
+        CScProofVerifier scVerifier{scVerifierMode};
         ret_code = view.IsCertProofVerified(cert, scVerifier);
         if (ret_code != CValidationState::Code::OK)
         {

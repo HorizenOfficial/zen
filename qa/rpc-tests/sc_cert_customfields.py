@@ -121,7 +121,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true("invalid-custom-config" in errorString)
+            assert_true("Invalid parameter, expected positive integer in the range [1,..,255]" in errorString)
 
         #-------------------------------------------------------
         fee = 0.000025

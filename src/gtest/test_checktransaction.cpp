@@ -49,9 +49,11 @@ CMutableTransaction GetValidTransaction(int txVersion) {
         csw_ccin.scId = GetRandHash();
         std::vector<unsigned char> nullifierStr(CFieldElement::ByteSize(), 0x0);
         GetRandBytes((unsigned char*)&nullifierStr[0], CFieldElement::ByteSize()-2);
-        csw_ccin.nullifier = CFieldElement{nullifierStr};
+        csw_ccin.nullifier.SetByteArray(nullifierStr);
         GetRandBytes((unsigned char*)&csw_ccin.pubKeyHash, csw_ccin.pubKeyHash.size());
-        GetRandBytes((unsigned char*)&csw_ccin.scProof, csw_ccin.scProof.size());
+        std::vector<unsigned char> proofStr(CScProof::MaxByteSize(), 0x0);
+        GetRandBytes((unsigned char*)&proofStr[0], CScProof::MaxByteSize());
+        csw_ccin.scProof.SetByteArray(proofStr);
         csw_ccin.redeemScript = CScript();
         mtx.vcsw_ccin.push_back(csw_ccin);
 
@@ -965,17 +967,12 @@ TEST(SidechainsCertificateManipulation, ResizingCertificateChangeOutputs) {
 
 TEST(SidechainsCertificateCustomFields, FieldElementCertificateFieldConfig_Validation)
 {
-    FieldElementCertificateFieldConfig negativeFieldConfig{-1};
-    EXPECT_FALSE(negativeFieldConfig.IsValid());
-
     FieldElementCertificateFieldConfig zeroFieldConfig{0};
     EXPECT_FALSE(zeroFieldConfig.IsValid());
 
     FieldElementCertificateFieldConfig positiveFieldConfig{10};
     EXPECT_TRUE(positiveFieldConfig.IsValid());
-
-    FieldElementCertificateFieldConfig tooBigFieldConfig(CFieldElement::BitSize()+1);
-    EXPECT_FALSE(tooBigFieldConfig.IsValid());
+    // FieldElementCertificateFieldConfig::nBits is an uint8_t, testing larger values or negative ones is not possible 
 }
 
 TEST(SidechainsCertificateCustomFields, BitVectorCertificateFieldConfig_Validation)

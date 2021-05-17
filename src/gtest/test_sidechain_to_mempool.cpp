@@ -775,7 +775,6 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected)
     ASSERT_TRUE(cswTx.GetHash() != duplicatedCswTx.GetHash());
 
     CValidationState dummyState;
-    libzendoomc::CScProofVerifier verifier = libzendoomc::CScProofVerifier::Disabled();
     EXPECT_FALSE(mempool.checkIncomingTxConflicts(duplicatedCswTx));
 }
 
@@ -926,7 +925,7 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCswRemovalFromMempool) {
     //load csw tx to mempool
     CAmount dummyAmount(1);
     uint160 dummyPubKeyHash;
-    libzendoomc::ScProof dummyScProof;
+    CScProof dummyScProof;
     CFieldElement dummyActCertData;
     CFieldElement dummyCeasingCumTree;
     CScript dummyRedeemScript;
@@ -1010,7 +1009,7 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
     //load csw tx to mempool
     CAmount dummyAmount(1);
     uint160 dummyPubKeyHash;
-    libzendoomc::ScProof dummyScProof;
+    CScProof dummyScProof;
     CFieldElement dummyActCertData;
     CFieldElement dummyCeasingCumTree;
     CScript dummyRedeemScript;
@@ -1765,8 +1764,8 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creation
     scTx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = CAmount(1); // Dummy amount
     scTx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1;
 
-    scTx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk();
+    scTx.vsc_ccout[0].wCertVk = CScVKey(ParseHex(SAMPLE_VK));
+    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 
@@ -1837,7 +1836,7 @@ CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput
     CFieldElement ceasingCumScTxCommTree{tmp3};
 
     uint160 dummyPubKeyHash = coinsKey.GetPubKey().GetID();
-    libzendoomc::ScProof dummyScProof;
+    CScProof dummyScProof;
     CFieldElement dummyActCertData;
     CFieldElement dummyCeasingCumTree;
     CScript dummyRedeemScript;
@@ -1889,7 +1888,7 @@ CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(
     res.endEpochBlockHash = endEpochBlockHash;
     res.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     res.quality = quality;
-    res.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    res.scProof = CScProof{ParseHex(SAMPLE_PROOF)};
     res.forwardTransferScFee = ftScFee;
     res.mainchainBackwardTransferRequestScFee = mbtrScFee;
 

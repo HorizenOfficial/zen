@@ -48,7 +48,8 @@ TEST(SidechainsField, Serialization)
 
     tooShortStream << tooShortByteArray;
     CFieldElement tooShortRetrievedField;
-    EXPECT_THROW(tooShortStream >> tooShortRetrievedField,std::ios_base::failure);
+    tooShortStream >> tooShortRetrievedField;
+    EXPECT_FALSE(tooShortRetrievedField.IsValid());
 
     ////////////////////
     std::vector<unsigned char> tooBigByteArray(CFieldElement::ByteSize()*2,0x0);
@@ -57,7 +58,8 @@ TEST(SidechainsField, Serialization)
 
     tooBigStream << tooBigByteArray;
     CFieldElement tooBigRetrievedField;
-    EXPECT_THROW(tooBigStream >> tooBigRetrievedField,std::ios_base::failure);
+    tooBigStream >> tooBigRetrievedField;
+    EXPECT_FALSE(tooBigRetrievedField.IsValid());
 
     ////////////////////
     std::vector<unsigned char> nonZeroTerminatedByteArray(CFieldElement::ByteSize(),0xff);
@@ -204,8 +206,7 @@ TEST(SidechainsField, PoseidonHashTest)
 TEST(SidechainsField, NakedZendooFeatures_FieldTest)
 {
     //Size is the expected one
-    int field_len = zendoo_get_field_size_in_bytes();
-    ASSERT_EQ(field_len, CFieldElement::ByteSize());
+    ASSERT_EQ(zendoo_get_field_size_in_bytes(), CFieldElement::ByteSize());
 
     auto field = zendoo_get_random_field();
 
@@ -224,21 +225,21 @@ TEST(SidechainsField, NakedZendooFeatures_FieldTest)
 
 TEST(SidechainsField, NakedZendooFeatures_PoseidonHashTest)
 {
-    unsigned char lhs[SC_FIELD_SIZE] = {
+    unsigned char lhs[CFieldElement::ByteSize()] = {
         138, 206, 199, 243, 195, 254, 25, 94, 236, 155, 232, 182, 89, 123, 162, 207, 102, 52, 178, 128, 55, 248, 234,
         95, 33, 196, 170, 12, 118, 16, 124, 96, 47, 203, 160, 167, 144, 153, 161, 86, 213, 126, 95, 76, 27, 98, 34, 111,
         144, 36, 205, 124, 200, 168, 29, 196, 67, 210, 100, 154, 38, 79, 178, 191, 246, 115, 84, 232, 87, 12, 34, 72,
         88, 23, 236, 142, 237, 45, 11, 148, 91, 112, 156, 47, 68, 229, 216, 56, 238, 98, 41, 243, 225, 192, 0, 0
     };
 
-    unsigned char rhs[SC_FIELD_SIZE] = {
+    unsigned char rhs[CFieldElement::ByteSize()] = {
         199, 130, 235, 52, 44, 219, 5, 195, 71, 154, 54, 121, 3, 11, 111, 160, 86, 212, 189, 66, 235, 236, 240, 242,
         126, 248, 116, 0, 48, 95, 133, 85, 73, 150, 110, 169, 16, 88, 136, 34, 106, 7, 38, 176, 46, 89, 163, 49, 162,
         222, 182, 42, 200, 240, 149, 226, 173, 203, 148, 194, 207, 59, 44, 185, 67, 134, 107, 221, 188, 208, 122, 212,
         200, 42, 227, 3, 23, 59, 31, 37, 91, 64, 69, 196, 74, 195, 24, 5, 165, 25, 101, 215, 45, 92, 1, 0
     };
 
-    unsigned char hash[SC_FIELD_SIZE] = {
+    unsigned char hash[CFieldElement::ByteSize()] = {
         53, 2, 235, 12, 255, 18, 125, 167, 223, 32, 245, 103, 38, 74, 43, 73, 254, 189, 174, 137, 20, 90, 195, 107, 202,
         24, 151, 136, 85, 23, 9, 93, 207, 33, 229, 200, 178, 225, 221, 127, 18, 250, 108, 56, 86, 94, 171, 1, 76, 21,
         237, 254, 26, 235, 196, 14, 18, 129, 101, 158, 136, 103, 147, 147, 239, 140, 163, 94, 245, 147, 110, 28, 93,
@@ -283,23 +284,25 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
     size_t height = 5;
 
     // Deserialize root
-    unsigned char expected_root_bytes[SC_FIELD_SIZE] = {
+    std::vector<unsigned char> expected_root_bytes {
         192, 138, 102, 85, 151, 8, 139, 184, 209, 249, 171, 182, 227, 80, 52, 215, 32, 37, 145, 166,
         74, 136, 40, 200, 213, 72, 124, 101, 91, 235, 114, 0, 147, 61, 180, 29, 183, 111, 247, 2,
         169, 12, 179, 173, 87, 88, 187, 229, 26, 139, 80, 228, 125, 246, 145, 141, 43, 19, 148, 94,
         190, 140, 20, 123, 208, 132, 48, 243, 14, 2, 48, 106, 100, 13, 41, 254, 129, 225, 168, 23,
         72, 215, 207, 255, 98, 156, 102, 215, 201, 158, 10, 123, 107, 238, 0, 0
     };
-    auto expected_root = zendoo_deserialize_field(expected_root_bytes);
-    ASSERT_TRUE(expected_root != NULL);
+    ASSERT_TRUE(expected_root_bytes.size() == CFieldElement::ByteSize());
+    CFieldElement expected_root{expected_root_bytes};
+    ASSERT_TRUE(expected_root.IsValid());
 
     //Generate leaves
 
     //enum removes variable length buffer [-Wstack-protector] warning that simple const int would give
     enum { leaves_len = 32 };
-    const field_t* leaves[leaves_len];
-    for (int i = 0; i < leaves_len; i++){
-        leaves[i] = zendoo_get_field_from_long(i);
+    CFieldElement leaves[leaves_len];
+    for (int i = 0; i < leaves_len; i++)
+    {
+        leaves[i] = CFieldElement{wrappedFieldPtr{zendoo_get_field_from_long(i), CFieldPtrDeleter{}}};
     }
 
     // Initialize tree
@@ -307,38 +310,28 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
 
     // Add leaves to tree
     for (int i = 0; i < leaves_len; i++){
-        tree.append(leaves[i]);
+        tree.append(leaves[i].GetFieldElement().get());
     }
 
     // Finalize tree
     tree.finalize_in_place();
 
     // Compute root and assert equality with expected one
-    auto root = tree.root();
-    ASSERT_TRUE(zendoo_field_assert_eq(root, expected_root))
-    <<"Expected roots to be equal";
+    CFieldElement root = CFieldElement{wrappedFieldPtr{tree.root(), CFieldPtrDeleter{}}};
+    EXPECT_TRUE(root == expected_root);
 
     // It is the same by calling finalize()
     auto tree_copy = tree.finalize();
-    auto root_copy = tree_copy.root();
-    ASSERT_TRUE(zendoo_field_assert_eq(root_copy, expected_root))
-    <<"Expected roots to be equal";
+    CFieldElement root_copy = CFieldElement{wrappedFieldPtr{tree_copy.root(), CFieldPtrDeleter{}}};
+    ASSERT_TRUE(root_copy == expected_root);
 
     // Test Merkle Paths
     for (int i = 0; i < leaves_len; i++) {
         auto path = tree.get_merkle_path(i);
-        ASSERT_TRUE(zendoo_verify_ginger_merkle_path(path, height, (field_t*)leaves[i], root))
+        ASSERT_TRUE(zendoo_verify_ginger_merkle_path(path, height, leaves[i].GetFieldElement().get(), root.GetFieldElement().get()))
         <<"Merkle Path must be verified";
         zendoo_free_ginger_merkle_path(path);
     }
-
-    // Free memory
-    zendoo_field_free(expected_root);
-    for (int i = 0; i < leaves_len; i++){
-        zendoo_field_free((field_t*)leaves[i]);
-    }
-    zendoo_field_free(root);
-    zendoo_field_free(root_copy);
 }
 
 // SILENCED SINCE BROKEN. TODO: Come up with correct byte arrays
@@ -515,7 +508,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("f002a61b1390345ba758bd8783c1c0dc722ec491a7718fb395f4f202ea5d3da9"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("c49338d0b465ef05135b2918488c6ac6559bb18fce67c851b8b523f882284c16"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -527,6 +520,6 @@ TEST(SidechainsField, NakedZendooFeatures_EmptyTreeCommitmentCalculation)
     //Nothing to add
 
     uint256 scTxCommitmentHash = builder.getCommitment();
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("3a464e1e43410c7add1dd81c3f10486f41eb473bb43e8d64feca3c7f0c8028d3"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("0000000000000000000000000000000000000000000000000000000000000000"))
         <<scTxCommitmentHash.ToString();
 }

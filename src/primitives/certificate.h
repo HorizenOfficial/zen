@@ -2,8 +2,7 @@
 #define _CERTIFICATE_H
 
 #include "transaction.h"
-#include "sc/proofverifier.h"
-#include "policy/fees.h"
+#include "sc/sidechaintypes.h"
 
 struct CMutableScCertificate;
 
@@ -33,9 +32,6 @@ public:
     bool IsNull() const { return (nValue == -1);  }
 };
 
-class FieldElementCertificateField;
-class BitVectorCertificateField;
-
 class CScCertificate : public CTransactionBase
 {
     /** Memory only. */
@@ -59,7 +55,7 @@ public:
     const int64_t quality;
     const uint256 endEpochBlockHash;
     const CFieldElement endEpochCumScTxCommTreeRoot;
-    const libzendoomc::ScProof scProof;
+    const CScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
     const CAmount forwardTransferScFee;
@@ -111,7 +107,7 @@ public:
         READWRITE(*const_cast<int64_t*>(&quality));
         READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
         READWRITE(*const_cast<CFieldElement*>(&endEpochCumScTxCommTreeRoot));
-        READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
+        READWRITE(*const_cast<CScProof*>(&scProof));
         READWRITE(*const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField));
         READWRITE(*const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField));
         READWRITE(*const_cast<CAmount*>(&forwardTransferScFee));
@@ -234,7 +230,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     int64_t quality;
     uint256 endEpochBlockHash;
     CFieldElement endEpochCumScTxCommTreeRoot;
-    libzendoomc::ScProof scProof;
+    CScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
     CAmount forwardTransferScFee;
