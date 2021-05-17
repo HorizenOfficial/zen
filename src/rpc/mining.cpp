@@ -923,3 +923,59 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 
     return result;
 }
+
+UniValue getSidechainMerkleRoots(const UniValue& params, bool fHelp) {
+    if (fHelp || params.size() > 2)
+        throw runtime_error(
+                "getSidechainMerkleRoots transactions certificates\n"
+                "\nReturns Merkleroot and ScTxsCommitment.\n"
+                "\nArguments:\n"
+                "1. transactions         (array) Array of raw transactions (HEX format).\n"
+                "2. certificates         (array) Array of raw certificates (HEX format).\n"
+                "\nResult:\n"
+                "{\n"
+                "  \"merkleTree\" : \"xxx\"           (string) Merkleroot calculated on transactions and certificates.\n"
+                "  \"scTxsCommitment\" : \"xxxx\"      (string) scTxsCommitment calculated on certificates.\n"
+                "}\n"
+                "\nExamples:\n"
+                + HelpExampleCli("getSidechainMerkleRoots", "'[\"0100000001000000...\", ...]', '[\"0100000001000000...\", ...]'")
+                + HelpExampleRpc("getSidechainMerkleRoots", "'[\"0100000001000000...\", ...]', '[\"0100000001000000...\", ...]'")
+        );
+    LOCK(cs_main);
+
+    UniValue txsStr =  params[0].get_array();
+    std::vector<CTransaction> txs;
+
+    for (const UniValue & tx : txsStr.getValues()) {
+    	CTransaction transaction;
+        if (!DecodeHexTx(transaction, tx.get_str()))
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+        txs.push_back(transaction);
+    }
+
+    UniValue certsStr =  params[1].get_array();
+    std::vector<CScCertificate> certs;
+
+    for (const UniValue & cert : certsStr.getValues()) {
+    	CScCertificate certificate;
+        if (!DecodeHexCert(certificate, cert.get_str()))
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Certificate decode failed");
+        certs.push_back(certificate);
+    }
+
+    // Create new block
+    std::unique_ptr<CBlockTemplate> pblocktemplate(new CBlockTemplate());
+    CBlock *pblock = &pblocktemplate->block; // pointer for convenience
+
+    pblock->vtx = txs;
+    pblock->vcert = certs;
+
+    uint256 merkleTree = pblock->BuildMerkleTree();
+    uint256 scTxsCommitment = pblock->BuildScTxsCommitment();
+
+    UniValue result(UniValue::VOBJ);
+    result.push_back(Pair("merkleTree", merkleTree.ToString()));
+    result.push_back(Pair("scTxsCommitment", scTxsCommitment.ToString()));
+
+    return result;
+}

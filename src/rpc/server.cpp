@@ -311,6 +311,8 @@ static const CRPCCommand vRPCCommands[] =
     { "mining",             "prioritisetransaction",  &prioritisetransaction,  true  },
     { "mining",             "submitblock",            &submitblock,            true  },
     { "mining",             "getblocksubsidy",        &getblocksubsidy,        true  },
+    { "mining",             "getSidechainMerkleRoots",&getSidechainMerkleRoots,true  },
+
 
 #ifdef ENABLE_MINING
     /* Coin generation */
