@@ -1,9 +1,9 @@
-package=crate_serde_derive_zendoo
-$(package)_crate_name=serde_derive
-$(package)_version=1.0.125
+package=crate_crypto_mac_zendoo
+$(package)_crate_name=crypto-mac
+$(package)_version=0.7.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=b093b7a2bb58203b5da3056c05b4ec1fed827dcfdb37347a8841695263b3d06d
+$(package)_sha256_hash=4434400df11d95d556bac068ddfedd482915eb18fe8bea89bc80b6e4b1c179e5
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

@@ -1,9 +1,9 @@
-package=crate_unicode-xid_zendoo
-$(package)_crate_name=unicode-xid
-$(package)_version=0.2.1
+package=crate_byte_tools_zendoo
+$(package)_crate_name=byte-tools
+$(package)_version=0.3.1
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564
+$(package)_sha256_hash=e3b5ca7a04898ad4bcd41c90c5285445ff5b791899bb1b0abdd2a2aa791211d7
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

@@ -1,6 +1,6 @@
 package=rust
 $(package)_version=nightly
-$(package)_download_path=https://static.rust-lang.org/dist/2020-04-22
+$(package)_download_path=https://static.rust-lang.org/dist/2021-04-25
 $(package)_file_name_linux=rust-$($(package)_version)-x86_64-unknown-linux-gnu.tar.gz
 $(package)_sha256_hash_linux=791cadeb5e5a6b70cd61305f2f9a6ce92b33cca73e432a9ecc73d4d05f83aacf
 $(package)_file_name_darwin=rust-$($(package)_version)-x86_64-apple-darwin.tar.gz

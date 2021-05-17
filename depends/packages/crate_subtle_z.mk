@@ -1,9 +1,9 @@
-package=crate_syn_zendoo
-$(package)_crate_name=syn
-$(package)_version=1.0.71
+package=crate_subtle_zendoo
+$(package)_crate_name=subtle
+$(package)_version=1.0.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=ad184cc9470f9117b2ac6817bfe297307418819ba40552f9b3846f05c33d5373
+$(package)_sha256_hash=2d67a5a62ba6e01cb2192ff309324cb4875d0c451d55fe2319433abe7a05a8ee
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

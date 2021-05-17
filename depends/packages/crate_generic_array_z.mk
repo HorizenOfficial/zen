@@ -1,9 +1,9 @@
-package=crate_crossbeam-epoch_zendoo
-$(package)_crate_name=crossbeam-epoch
-$(package)_version=0.9.3
+package=crate_generic_array_zendoo
+$(package)_crate_name=generic-array
+$(package)_version=0.12.4
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=2584f639eb95fea8c798496315b297cf81b9b58b6d30ab066a75455333cf4b12
+$(package)_sha256_hash=ffdf9f34f1447443d37393cc6c2b8313aebddcd96906caf34e54c68d8e57d7bd
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

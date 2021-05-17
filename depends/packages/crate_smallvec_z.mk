@@ -1,9 +1,9 @@
-package=crate_crossbeam-utils_zendoo
-$(package)_crate_name=crossbeam-utils
-$(package)_version=0.8.3
+package=crate_smallvec_zendoo
+$(package)_crate_name=smallvec
+$(package)_version=0.6.14
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=e7e9d99fa91428effe99c5c6d4634cdeba32b8cf784fc428a2a687f61a952c49
+$(package)_sha256_hash=b97fcaeba89edba30f044a10c6a3cc39df9c3f17d7cd829dd1446cab35f890e0
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds
