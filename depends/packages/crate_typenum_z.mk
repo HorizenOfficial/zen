@@ -1,9 +1,9 @@
 package=crate_typenum_z
 $(package)_crate_name=typenum
-$(package)_version=1.10.0
+$(package)_version=1.13.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=612d636f949607bdf9b123b4a6f6d966dedf3ff669f7f045890d3a4a73948169
+$(package)_sha256_hash=879f6906492a7cd215bfa4cf595b600146ccfac0c79bcbd1f3000162af5e8b06
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

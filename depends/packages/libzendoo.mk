@@ -5,7 +5,7 @@ $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
 $(package)_sha256_hash=461272610c4a5c4b166f00337b34529ffde4d9b3b2a84562714a1f1fbb113f09
 $(package)_git_commit=05ace5a3342612aff27a09f9b668d73b2884d0a7
-$(package)_dependencies=rust $(rust_crates_zendoo)
+$(package)_dependencies=rust $(rust_crates_z)
 $(package)_patches=cargo.config
 
 ifeq ($(host_os),mingw32)
@@ -35,5 +35,4 @@ define $(package)_stage_cmds
   mkdir $($(package)_staging_dir)$(host_prefix)/include/zendoo/ && \
   cp $($(package)_library_file) $($(package)_staging_dir)$(host_prefix)/lib/ && \
   cp include/zendoo_mc.h $($(package)_staging_dir)$(host_prefix)/include/zendoo && \
-  cp include/error.h $($(package)_staging_dir)$(host_prefix)/include/zendoo
 endef
