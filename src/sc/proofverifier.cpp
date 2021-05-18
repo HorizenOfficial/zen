@@ -2,7 +2,6 @@
 #include <coins.h>
 #include "primitives/certificate.h"
 
-#include <zendoo/error.h>
 #include <main.h>
 
 #ifdef BITCOIN_TX

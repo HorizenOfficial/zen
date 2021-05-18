@@ -6,7 +6,6 @@
 #include "util.h"
 #include "primitives/certificate.h"
 #include "sc/proofverifier.h"
-#include "zendoo/error.h"
 
 #ifdef BITCOIN_TX
 void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom) {return;}
