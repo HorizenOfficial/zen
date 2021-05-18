@@ -1,4 +1,4 @@
-package=crate_bit_vec_zendoo
+package=crate_bit_vec_z
 $(package)_crate_name=bit-vec
 $(package)_version=0.6.3
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

@@ -4,7 +4,6 @@
 
 #include "asyncrpcoperation_sendmany.h"
 #include "asyncrpcqueue.h"
-#include "amount.h"
 #include "core_io.h"
 #include "init.h"
 #include "main.h"
@@ -14,7 +13,6 @@
 #include "timedata.h"
 #include "util.h"
 #include "utilmoneystr.h"
-#include "wallet.h"
 #include "walletdb.h"
 #include "script/interpreter.h"
 #include "utiltime.h"
@@ -51,7 +49,7 @@ int find_output(UniValue obj, int n) {
 }
 
 AsyncRPCOperation_sendmany::AsyncRPCOperation_sendmany(
-		CMutableTransaction contextualTx,
+        CMutableTransaction contextualTx,
         std::string fromAddress,
         std::vector<SendManyRecipient> tOutputs,
         std::vector<SendManyRecipient> zOutputs,
@@ -977,7 +975,7 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
     uint256 esk; // payment disclosure - secret
 
     JSDescription jsdesc = JSDescription::Randomized(
-			mtx.nVersion == GROTH_TX_VERSION,
+            mtx.nVersion == GROTH_TX_VERSION,
             *pzcashParams,
             joinSplitPubKey_,
             anchor,

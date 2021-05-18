@@ -1,4 +1,4 @@
-package=crate_byteorder_zendoo
+package=crate_byteorder_z
 $(package)_crate_name=byteorder
 $(package)_version=1.4.3
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

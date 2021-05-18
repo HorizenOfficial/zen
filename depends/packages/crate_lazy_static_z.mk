@@ -1,4 +1,4 @@
-package=crate_lazy_static_zendoo
+package=crate_lazy_static_z
 $(package)_crate_name=lazy_static
 $(package)_version=1.4.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

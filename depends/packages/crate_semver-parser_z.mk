@@ -1,4 +1,4 @@
-package=crate_semver-parser_zendoo
+package=crate_semver-parser_z
 $(package)_crate_name=semver-parser
 $(package)_version=0.7.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

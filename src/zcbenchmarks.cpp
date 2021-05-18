@@ -116,7 +116,7 @@ double benchmark_create_joinsplit()
     struct timeval tv_start;
     timer_start(tv_start);
     JSDescription jsdesc(true,
-						 *pzcashParams,
+                         *pzcashParams,
                          pubKeyHash,
                          anchor,
                          {JSInput(), JSInput()},
@@ -389,7 +389,8 @@ public:
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapSidechainEvents) override
+                    CSidechainEventsMap& mapSidechainEvents,
+                    CCswNullifiersMap& cswNullifiers) override
     {
         return false;
     }
@@ -431,7 +432,8 @@ double benchmark_connectblock_slow()
     CValidationState state;
     struct timeval tv_start;
     timer_start(tv_start);
-    assert(ConnectBlock(block, state, &index, view, chain, true));
+    assert(ConnectBlock(block, state, &index, view, chain, flagBlockProcessingType::CHECK_ONLY,
+                        flagScRelatedChecks::ON, flagScProofVerification::ON));
     auto duration = timer_stop(tv_start);
 
     // Undo alterations to global state

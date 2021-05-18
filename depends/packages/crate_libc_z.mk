@@ -1,4 +1,4 @@
-package=crate_libc_zendoo
+package=crate_libc_z
 $(package)_crate_name=libc
 $(package)_version=0.2.70
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

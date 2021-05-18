@@ -1,4 +1,4 @@
-package=crate_hermit-abi_zendoo
+package=crate_hermit-abi_z
 $(package)_crate_name=hermit-abi
 $(package)_version=0.1.18
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

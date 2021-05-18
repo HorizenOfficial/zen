@@ -35,25 +35,29 @@ protected:
 public:
     CCoinsViewDB(size_t nCacheSize, bool fMemory = false, bool fWipe = false);
 
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override;
-    bool GetNullifier(const uint256 &nf)                               const override;
-    bool GetCoins(const uint256 &txid, CCoins &coins)                  const override;
-    bool HaveCoins(const uint256 &txid)                                const override;
-    bool GetSidechain(const uint256& scId, CSidechain& info)           const override;
-    bool HaveSidechain(const uint256& scId)                            const override;
-    bool HaveSidechainEvents(int height)                               const override;
-    bool GetSidechainEvents(int height, CSidechainEvents& ceasingScs)  const override;
-    void GetScIds(std::set<uint256>& scIdsList)                        const override;
-    uint256 GetBestBlock()                                             const override;
-    uint256 GetBestAnchor()                                            const override;
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree)   const override;
+    bool GetNullifier(const uint256 &nf)                                 const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)                    const override;
+    bool HaveCoins(const uint256 &txid)                                  const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)             const override;
+    bool HaveSidechain(const uint256& scId)                              const override;
+    bool HaveSidechainEvents(int height)                                 const override;
+    bool GetSidechainEvents(int height, CSidechainEvents& ceasingScs)    const override;
+    void GetScIds(std::set<uint256>& scIdsList)                          const override;
+    uint256 GetBestBlock()                                               const override;
+    uint256 GetBestAnchor()                                              const override;
+    bool HaveCswNullifier(const uint256& scId,
+                          const CFieldElement& nullifier)  const override;
+
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
                     CNullifiersMap &mapNullifiers,
                     CSidechainsMap& mapSidechains,
-                    CSidechainEventsMap& mapSidechainEvents)                 override;
-    bool GetStats(CCoinsStats &stats)                                  const override;
+                    CSidechainEventsMap& mapSidechainEvents,
+                    CCswNullifiersMap& cswNullifies)                           override;
+    bool GetStats(CCoinsStats &stats)                                    const override;
     void Dump_info() const;
 };
 

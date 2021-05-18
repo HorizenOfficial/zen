@@ -1,4 +1,4 @@
-package=crate_memoffset_zendoo
+package=crate_memoffset_z
 $(package)_crate_name=memoffset
 $(package)_version=0.6.3
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

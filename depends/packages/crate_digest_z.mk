@@ -1,4 +1,4 @@
-package=crate_digest_zendoo
+package=crate_digest_z
 $(package)_crate_name=digest
 $(package)_version=0.8.1
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

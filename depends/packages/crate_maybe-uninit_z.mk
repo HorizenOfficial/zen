@@ -1,4 +1,4 @@
-package=crate_maybe-uninit_zendoo
+package=crate_maybe-uninit_z
 $(package)_crate_name=maybe-uninit
 $(package)_version=2.0.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

@@ -1,4 +1,4 @@
-package=crate_semver_zendoo
+package=crate_semver_z
 $(package)_crate_name=semver
 $(package)_version=0.9.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

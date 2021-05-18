@@ -9,8 +9,7 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 #include "crypto/common.h"
-#include <boost/foreach.hpp>
-
+#include <sc/sidechainTxsCommitmentBuilder.h>
 // uncomment for debugging mkl root hash calculations
 //#define DEBUG_MKLTREE_HASH 1
 
@@ -99,12 +98,6 @@ uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxS
         *fMutated = mutated;
     }
     return (vMerkleTreeIn.empty() ? uint256() : vMerkleTreeIn.back());
-}
-
-uint256 SidechainTxsCommitmentBuilder::getMerkleRootHash(const std::vector<uint256>& vInput) 
-{
-    std::vector<uint256> vTempMerkleTree = vInput;
-    return CBlock::BuildMerkleTree(vTempMerkleTree, vInput.size());
 }
 
 uint256 CBlock::BuildScTxsCommitment()
@@ -206,96 +199,3 @@ void CBlock::GetTxAndCertsVector(std::vector<const CTransactionBase*>& vBase) co
         vBase.push_back(&(vcert[i]));
     }
 }
-
-const std::string SidechainTxsCommitmentBuilder::MAGIC_SC_STRING = "Horizen ScTxsCommitment null hash string";
-
-const uint256& SidechainTxsCommitmentBuilder::getCrossChainNullHash()
-{
-    static bool generated = false;
-    static uint256 theHash;
-
-    if (!generated)
-    {
-        CHashWriter ss(SER_GETHASH, 0);
-        ss << MAGIC_SC_STRING;
-        theHash = ss.GetHash();
-        LogPrintf("%s():%d - Generated sc null hash [%s]\n", __func__, __LINE__, theHash.ToString());
-        generated = true;
-    }
-    return theHash;
-}
-
-void SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
-{
-    if (!tx.IsScVersion())
-        return;
-
-    unsigned int nIdx = 0;
-    LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
-    tx.fillCrosschainOutput(tx.GetVscCcOut(), nIdx, mScMerkleTreeLeavesFt, sScIds);
-
-    LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
-    tx.fillCrosschainOutput(tx.GetVftCcOut(), nIdx, mScMerkleTreeLeavesFt, sScIds);
-
-    LogPrint("sc", "%s():%d - nIdx[%d]\n", __func__, __LINE__, nIdx);
-}
-
-void SidechainTxsCommitmentBuilder::add(const CScCertificate& cert)
-{
-    sScIds.insert(cert.GetScId());
-    mScCerts[cert.GetScId()] = cert.GetHash();
-}
-
-uint256 SidechainTxsCommitmentBuilder::getCommitment()
-{
-    std::vector<uint256> vSortedScLeaves;
-
-    // set of scid is ordered
-    for (const auto& scid : sScIds)
-    {
-        uint256 ftHash(getCrossChainNullHash());
-        uint256 btrHash(getCrossChainNullHash());
-        uint256 wCertHash(getCrossChainNullHash());
-
-        auto itFt = mScMerkleTreeLeavesFt.find(scid);
-        if (itFt != mScMerkleTreeLeavesFt.end() )
-        {
-            ftHash = getMerkleRootHash(itFt->second);
-        }
-
-        auto itBtr = mScMerkleTreeLeavesBtr.find(scid);
-        if (itBtr != mScMerkleTreeLeavesBtr.end() )
-        {
-            btrHash = getMerkleRootHash(itBtr->second);
-        }
-
-        auto itCert = mScCerts.find(scid);
-        if (itCert != mScCerts.end() )
-        {
-            wCertHash = itCert->second;
-        }
-
-        const uint256& txsHash = Hash(
-            BEGIN(ftHash),    END(ftHash),
-            BEGIN(btrHash),   END(btrHash) );
-
-        const uint256& scHash = Hash(
-            BEGIN(txsHash),   END(txsHash),
-            BEGIN(wCertHash), END(wCertHash),
-            BEGIN(scid),      END(scid) );
-
-#ifdef DEBUG_SC_COMMITMENT_HASH
-        std::cout << " -------------------------------------------" << std::endl;
-        std::cout << "  FtHash:  " << ftHash.ToString() << std::endl;
-        std::cout << "  BtrHash: " << btrHash.ToString() << std::endl;
-        std::cout << "  => TxsHash:   " << txsHash.ToString() << std::endl;
-        std::cout << "     WCertHash: " << wCertHash.ToString() << std::endl;
-        std::cout << "     scid:      " << scid.ToString() << std::endl;
-        std::cout << "     => ScsHash:  " << scHash.ToString() << std::endl;
-#endif
-        vSortedScLeaves.push_back(scHash);
-    }
-
-    return getMerkleRootHash(vSortedScLeaves);
-}
-

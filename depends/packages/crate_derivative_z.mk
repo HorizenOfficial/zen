@@ -1,4 +1,4 @@
-package=crate_derivative_zendoo
+package=crate_derivative_z
 $(package)_crate_name=derivative
 $(package)_version=2.2.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

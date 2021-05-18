@@ -1,4 +1,4 @@
-package=crate_cfg-if_zendoo
+package=crate_cfg_if_z
 $(package)_crate_name=cfg-if
 $(package)_version=1.0.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

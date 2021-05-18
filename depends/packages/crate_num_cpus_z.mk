@@ -1,4 +1,4 @@
-package=crate_num_cpus_zendoo
+package=crate_num_cpus_z
 $(package)_crate_name=num_cpus
 $(package)_version=1.13.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

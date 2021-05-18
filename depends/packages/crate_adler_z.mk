@@ -1,4 +1,4 @@
-package=crate_adler_zendoo
+package=crate_adler_z
 $(package)_crate_name=adler
 $(package)_version=1.0.2
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

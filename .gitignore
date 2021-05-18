@@ -125,3 +125,7 @@ src/zendoo/mcTest
 # IDE files
 /.idea
 /*.iml
+# pyenv
+.python-version
+# custom folders
+./test/

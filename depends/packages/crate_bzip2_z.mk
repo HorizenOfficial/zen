@@ -1,4 +1,4 @@
-package=crate_bzip2_zendoo
+package=crate_bzip2_z
 $(package)_crate_name=bzip2
 $(package)_version=0.4.2
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

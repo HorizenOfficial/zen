@@ -1,4 +1,4 @@
-package=crate_syn_zendoo
+package=crate_syn_z
 $(package)_crate_name=syn
 $(package)_version=1.0.72
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

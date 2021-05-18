@@ -1,4 +1,4 @@
-package=crate_generic_array_zendoo
+package=crate_generic_array_z
 $(package)_crate_name=generic-array
 $(package)_version=0.12.4
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

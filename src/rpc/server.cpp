@@ -258,13 +258,15 @@ static const CRPCCommand vRPCCommands[] =
 { //  category              name                      actor (function)         okSafeMode
   //  --------------------- ------------------------  -----------------------  ----------
     /* Overall control/query calls */
-    { "control",            "getinfo",                &getinfo,                true  }, /* uses wallet if enabled */
-    { "control",            "help",                   &help,                   true  },
-    { "control",            "stop",                   &stop,                   true  },
-    { "control",            "dbg_log",                &dbg_log,                true  },
-    { "control",            "dbg_do",                 &dbg_do,                 true  },
-    { "control",            "getscinfo",              &getscinfo,              true  },
-    { "control",            "getscgenesisinfo",       &getscgenesisinfo,       true  },
+    { "control",            "getinfo",                     &getinfo,                     true  }, /* uses wallet if enabled */
+    { "control",            "help",                        &help,                        true  },
+    { "control",            "stop",                        &stop,                        true  },
+    { "control",            "dbg_log",                     &dbg_log,                     true  },
+    { "control",            "dbg_do",                      &dbg_do,                      true  },
+    { "control",            "getscinfo",                   &getscinfo,                   true  },
+    { "control",            "getactivecertdatahash",       &getactivecertdatahash,       true  },
+    { "control",            "getceasingcumsccommtreehash", &getceasingcumsccommtreehash, true  },
+    { "control",            "getscgenesisinfo",            &getscgenesisinfo,            true  },
 
     /* P2P networking */
     { "network",            "getnetworkinfo",         &getnetworkinfo,         true  },
@@ -297,6 +299,7 @@ static const CRPCCommand vRPCCommands[] =
     { "blockchain",         "verifytxoutproof",       &verifytxoutproof,       true  },
     { "blockchain",         "gettxoutsetinfo",        &gettxoutsetinfo,        true  },
     { "blockchain",         "verifychain",            &verifychain,            true  },
+    { "blockchain",         "checkcswnullifier",      &checkcswnullifier,      true  },
 
     /* Mining */
     { "mining",             "getblocktemplate",       &getblocktemplate,       true  },
@@ -418,6 +421,7 @@ static const CRPCCommand vRPCCommands[] =
     // useful for sbh wallet
     { "wallet",             "create_sidechain",       &create_sidechain,       false },
     { "wallet",             "send_to_sidechain",      &send_to_sidechain,      false },
+    { "wallet",             "request_transfer_from_sidechain",&request_transfer_from_sidechain,false },
 
     // TODO: rearrange into another category 
     { "disclosure",         "z_getpaymentdisclosure", &z_getpaymentdisclosure, true  }, 

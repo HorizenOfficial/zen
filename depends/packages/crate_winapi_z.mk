@@ -1,4 +1,4 @@
-package=crate_winapi_zendoo
+package=crate_winapi_z
 $(package)_crate_name=winapi
 $(package)_version=0.3.6
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

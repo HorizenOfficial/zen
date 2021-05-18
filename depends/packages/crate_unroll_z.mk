@@ -1,4 +1,4 @@
-package=crate_unroll_zendoo
+package=crate_unroll_z
 $(package)_crate_name=unroll
 $(package)_version=0.1.5
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

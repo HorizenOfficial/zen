@@ -1,4 +1,4 @@
-package=crate_sha1_zendoo
+package=crate_sha1_z
 $(package)_crate_name=sha1
 $(package)_version=0.6.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

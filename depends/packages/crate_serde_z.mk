@@ -1,4 +1,4 @@
-package=crate_serde_zendoo
+package=crate_serde_z
 $(package)_crate_name=serde
 $(package)_version=1.0.126
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

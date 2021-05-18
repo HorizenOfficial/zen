@@ -1,4 +1,4 @@
-package=crate_rustc_version_zendoo
+package=crate_rustc_version_z
 $(package)_crate_name=rustc_version
 $(package)_version=0.2.3
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

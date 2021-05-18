@@ -1,4 +1,4 @@
-package=crate_miniz_oxide_zendoo
+package=crate_miniz_oxide_z
 $(package)_crate_name=miniz_oxide
 $(package)_version=0.4.4
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

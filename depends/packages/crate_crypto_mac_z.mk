@@ -1,4 +1,4 @@
-package=crate_crypto_mac_zendoo
+package=crate_crypto_mac_z
 $(package)_crate_name=crypto-mac
 $(package)_version=0.7.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

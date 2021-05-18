@@ -1,4 +1,4 @@
-package=crate_hex_zendoo
+package=crate_hex_z
 $(package)_crate_name=hex
 $(package)_version=0.4.3
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

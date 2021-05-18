@@ -1,4 +1,4 @@
-package=crate_c2-chacha_zendoo
+package=crate_c2-chacha_z
 $(package)_crate_name=c2-chacha
 $(package)_version=0.2.2
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

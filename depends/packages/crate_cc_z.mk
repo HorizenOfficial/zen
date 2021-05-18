@@ -1,4 +1,4 @@
-package=crate_cc_zendoo
+package=crate_cc_z
 $(package)_crate_name=cc
 $(package)_version=1.0.67
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

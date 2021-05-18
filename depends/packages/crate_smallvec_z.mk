@@ -1,4 +1,4 @@
-package=crate_smallvec_zendoo
+package=crate_smallvec_z
 $(package)_crate_name=smallvec
 $(package)_version=0.6.14
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

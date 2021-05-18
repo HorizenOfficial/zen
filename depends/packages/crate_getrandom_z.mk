@@ -1,4 +1,4 @@
-package=crate_getrandom_zendoo
+package=crate_getrandom_z
 $(package)_crate_name=getrandom
 $(package)_version=0.1.16
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

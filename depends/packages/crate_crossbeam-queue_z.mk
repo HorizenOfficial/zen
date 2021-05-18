@@ -1,4 +1,4 @@
-package=crate_crossbeam-queue_zendoo
+package=crate_crossbeam-queue_z
 $(package)_crate_name=crossbeam-queue
 $(package)_version=0.2.1
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

@@ -1,4 +1,4 @@
-package=crate_proc-macro2_zendoo
+package=crate_proc-macro2_z
 $(package)_crate_name=proc-macro2
 $(package)_version=1.0.26
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

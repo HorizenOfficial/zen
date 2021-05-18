@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     CBitcoinAddress setaccountDemoAddress = CBitcoinAddress(CTxDestination(setaccountDemoPubkey.GetID()));
 
     /*********************************
-     * 			setaccount
+     *             setaccount
      *********************************/
     BOOST_CHECK_NO_THROW(CallRPC("setaccount " + setaccountDemoAddress.ToString() + " \"\""));
     /* Accounts are disabled */
@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK_THROW(CallRPC("getbalance " + demoAddress.ToString()), runtime_error);
 
     /*********************************
-     * 			listunspent
+     *             listunspent
      *********************************/
     BOOST_CHECK_NO_THROW(CallRPC("listunspent"));
     BOOST_CHECK_THROW(CallRPC("listunspent string"), runtime_error);
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK(r.get_array().empty());
 
     /*********************************
-     * 		listreceivedbyaddress
+     *         listreceivedbyaddress
      *********************************/
     BOOST_CHECK_NO_THROW(CallRPC("listreceivedbyaddress"));
     BOOST_CHECK_NO_THROW(CallRPC("listreceivedbyaddress 0"));
@@ -155,7 +155,7 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK_THROW(CallRPC("listreceivedbyaddress 0 true extra"), runtime_error);
 
     /*********************************
-     * 		listreceivedbyaccount
+     *         listreceivedbyaccount
      *********************************/
     BOOST_CHECK_NO_THROW(CallRPC("listreceivedbyaccount"));
     BOOST_CHECK_NO_THROW(CallRPC("listreceivedbyaccount 0"));
@@ -194,12 +194,12 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK_NO_THROW(CallRPC("listaddressgroupings"));
 
     /*********************************
-     * 		getrawchangeaddress
+     *         getrawchangeaddress
      *********************************/
     BOOST_CHECK_NO_THROW(CallRPC("getrawchangeaddress"));
 
     /*********************************
-     * 		getnewaddress
+     *         getnewaddress
      *********************************/
     BOOST_CHECK_NO_THROW(CallRPC("getnewaddress"));
     BOOST_CHECK_NO_THROW(CallRPC("getnewaddress \"\""));
@@ -207,7 +207,7 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK_THROW(CallRPC("getnewaddress getnewaddress_demoaccount"), runtime_error);
 
     /*********************************
-     * 		getaccountaddress
+     *         getaccountaddress
      *********************************/
     BOOST_CHECK_NO_THROW(CallRPC("getaccountaddress \"\""));
     /* Accounts are deprecated */
@@ -216,13 +216,13 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK(CBitcoinAddress(retValue.get_str()).Get() == demoAddress.Get());
 
     /*********************************
-     * 			getaccount
+     *             getaccount
      *********************************/
     BOOST_CHECK_THROW(CallRPC("getaccount"), runtime_error);
     BOOST_CHECK_NO_THROW(CallRPC("getaccount " + demoAddress.ToString()));
 
     /*********************************
-     * 	signmessage + verifymessage
+     *     signmessage + verifymessage
      *********************************/
     BOOST_CHECK_NO_THROW(retValue = CallRPC("signmessage " + demoAddress.ToString() + " mymessage"));
     BOOST_CHECK_THROW(CallRPC("signmessage"), runtime_error);
@@ -242,7 +242,7 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK(CallRPC("verifymessage " + demoAddress.ToString() + " " + retValue.get_str() + " mymessage").get_bool() == true);
 
     /*********************************
-     * 		getaddressesbyaccount
+     *         getaddressesbyaccount
      *********************************/
     BOOST_CHECK_THROW(CallRPC("getaddressesbyaccount"), runtime_error);
     BOOST_CHECK_NO_THROW(retValue = CallRPC("getaddressesbyaccount " + strAccount));
@@ -267,7 +267,7 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     BOOST_CHECK(!notFound);
 
     /*********************************
-     * 	     fundrawtransaction
+     *          fundrawtransaction
      *********************************/
     BOOST_CHECK_THROW(CallRPC("fundrawtransaction 28z"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("fundrawtransaction 01000000000180969800000000001976a91450ce0a4b0ee0ddeb633da85199728b940ac3fe9488ac00000000"), runtime_error);
@@ -1122,14 +1122,14 @@ BOOST_AUTO_TEST_CASE(rpc_z_sendmany_internals)
         CTransaction tx = proxy.getTx();
         BOOST_CHECK(tx.GetVout().size() == 0);
 
-        CAmount amount = 123.456;
+        CAmount amount = 123.456 * COIN; //CAmount is measured in zatoshi
         proxy.add_taddr_change_output_to_tx(amount);
         tx = proxy.getTx();
         BOOST_CHECK(tx.GetVout().size() == 1);
         CTxOut out = tx.GetVout()[0];
         BOOST_CHECK_EQUAL(out.nValue, amount);
 
-        amount = 1.111;
+        amount = 1.111 * COIN; //CAmount is measured in zatoshi
         proxy.add_taddr_change_output_to_tx(amount);
         tx = proxy.getTx();
         BOOST_CHECK(tx.GetVout().size() == 2);

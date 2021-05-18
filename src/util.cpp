@@ -491,7 +491,6 @@ boost::filesystem::path GetDefaultDataDir()
 static boost::filesystem::path pathCached;
 static boost::filesystem::path pathCachedNetSpecific;
 static boost::filesystem::path zc_paramsPathCached;
-static boost::filesystem::path sc_paramsPathCached;
 static CCriticalSection csPathCached;
 
 static boost::filesystem::path ZC_GetBaseParamsDir()
@@ -589,23 +588,6 @@ const boost::filesystem::path &GetDataDir(bool fNetSpecific)
         path /= BaseParams().DataDir();
 
     fs::create_directories(path);
-
-    return path;
-}
-
-const boost::filesystem::path &SC_GetParamsDir() {
-    namespace fs = boost::filesystem;
-
-    LOCK(csPathCached); // Reuse the same lock as upstream.
-
-    fs::path &path = sc_paramsPathCached;
-
-    // This can be called during exceptions by LogPrintf(), so we cache the
-    // value so we don't have to do memory allocations after that.
-    if (!path.empty())
-        return path;
-
-    path = GetDataDir() / "sc_params";
 
     return path;
 }
@@ -952,3 +934,34 @@ int GetNumCores()
     return boost::thread::physical_concurrency();
 }
 
+int getTrailingZeroBitsInByte(unsigned char inputByte)
+{
+    // output: c will count inputByte's trailing zero bits,
+    // so if inputByte is 1101000 (base 2), then c will be 3
+    int c = CHAR_BIT;
+
+    if (inputByte)
+    {
+        inputByte = (inputByte ^ (inputByte - 1)) >> 1;  // Set inputByte's trailing 0s to 1s and zero rest
+        for (c = 0; inputByte; c++)
+        {
+            inputByte >>= 1;
+        }
+    }
+    return c;
+}
+
+int getBytesFromBits(int nbits, int& reminder)
+{
+    reminder = 0;
+    if (nbits < 0)
+        return 0;
+
+    const auto ret = std::div(nbits, CHAR_BIT);
+    int bytes = ret.quot;
+    reminder  = ret.rem;
+    if (reminder)
+        bytes++;
+
+    return bytes;
+}

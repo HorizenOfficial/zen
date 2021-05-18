@@ -1,4 +1,4 @@
-package=crate_radix_trie_zendoo
+package=crate_radix_trie_z
 $(package)_crate_name=radix_trie
 $(package)_version=0.1.6
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

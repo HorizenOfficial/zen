@@ -1,4 +1,4 @@
-package=crate_endian-type_zendoo
+package=crate_endian-type_z
 $(package)_crate_name=endian-type
 $(package)_version=0.1.2
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

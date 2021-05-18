@@ -1,4 +1,4 @@
-package=crate_nibble_vec_zendoo
+package=crate_nibble_vec_z
 $(package)_crate_name=nibble_vec
 $(package)_version=0.0.4
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

@@ -1,4 +1,4 @@
-package=crate_crossbeam-channel_zendoo
+package=crate_crossbeam-channel_z
 $(package)_crate_name=crossbeam-channel
 $(package)_version=0.5.1
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

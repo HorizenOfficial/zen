@@ -1,4 +1,4 @@
-package=crate_opaque_debug_zendoo
+package=crate_opaque_debug_z
 $(package)_crate_name=opaque-debug
 $(package)_version=0.2.3
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

@@ -1,4 +1,4 @@
-package=crate_blake2_zendoo
+package=crate_blake2_z
 $(package)_crate_name=blake2
 $(package)_version=0.8.1
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

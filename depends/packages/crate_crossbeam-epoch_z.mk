@@ -1,4 +1,4 @@
-package=crate_crossbeam-epoch_zendoo
+package=crate_crossbeam-epoch_z
 $(package)_crate_name=crossbeam-epoch
 $(package)_version=0.9.4
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

@@ -1,4 +1,4 @@
-package=crate_crc32fast_zendoo
+package=crate_crc32fast_z
 $(package)_crate_name=crc32fast
 $(package)_version=1.2.1
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

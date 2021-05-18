@@ -1,4 +1,4 @@
-package=crate_rayon_zendoo
+package=crate_rayon_z
 $(package)_crate_name=rayon
 $(package)_version=1.5.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

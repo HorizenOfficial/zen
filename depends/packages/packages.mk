@@ -56,7 +56,7 @@ rust_crates_z := \
 	crate_getrandom_z \
 	crate_maybe-uninit_z \
 	crate_c2-chacha_z \
-	crate_cfg-if_z \
+	crate_cfg_if_z \
 	crate_cloudabi_z \
 	crate_crossbeam-channel_z \
 	crate_crossbeam-deque_z \
@@ -105,7 +105,7 @@ rust_crates_z := \
 	
 #rust_packages := rust $(rust_crates) 
 rust_packages := rust $(rust_crates) librustzcash
-rust_packages_z := rust $(rust_crates_z) libzendoo
+rust_packages_zendoo := rust $(rust_crates_z) libzendoo
 proton_packages := proton
 zcash_packages := libgmp libsodium
 packages := boost openssl libevent zeromq $(zcash_packages) googletest

@@ -1,4 +1,4 @@
-package=crate_crossbeam-utils_zendoo
+package=crate_crossbeam-utils_z
 $(package)_crate_name=crossbeam-utils
 $(package)_version=0.8.4
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

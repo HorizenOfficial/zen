@@ -155,4 +155,22 @@ inline uint256 uint256S(const std::string& str)
     return rv;
 }
 
+/* uint160 from const char *.  */
+inline uint160 uint160S(const char *str)
+{
+    uint160 rv;
+    rv.SetHex(str);
+    return rv;
+}
+
+/* uint256 from std::string.  */
+inline uint160 uint160S(const std::string& str)
+{
+    uint160 rv;
+    rv.SetHex(str);
+    return rv;
+}
+
+uint64_t CalculateHash(const uint32_t* const  src, size_t length, const uint32_t* const salt);
+
 #endif // BITCOIN_UINT256_H

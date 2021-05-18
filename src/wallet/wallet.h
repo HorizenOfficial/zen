@@ -70,6 +70,7 @@ class CReserveKey;
 class CScript;
 class CTxMemPool;
 class CWalletTx;
+class CBwtRequestOut;
 
 /** (client) version numbers for particular wallet features */
 enum WalletFeature
@@ -344,13 +345,12 @@ public:
 
 protected:
     const CWallet* pwallet;
-    const CTransactionBase* pTxBase;
 public:
-    explicit CWalletTransactionBase(const CWallet* pwalletIn, const CTransactionBase* pWrappedTxBase): pwallet(pwalletIn), pTxBase(pWrappedTxBase) { Reset(pwalletIn); }
+    explicit CWalletTransactionBase(const CWallet* pwalletIn): pwallet(pwalletIn) { Reset(pwalletIn); }
     CWalletTransactionBase& operator=(const CWalletTransactionBase& o) = default;
     CWalletTransactionBase(const CWalletTransactionBase&) = default;
     virtual ~CWalletTransactionBase() = default;
-    const CTransactionBase* const getTxBase() const {return pTxBase;}
+    virtual const CTransactionBase* const getTxBase() const = 0;
 
     mapValue_t mapValue;
     std::vector<std::pair<std::string, std::string> > vOrderForm; // ???
@@ -361,19 +361,19 @@ public:
     std::string strFromAccount;
     int64_t nOrderPos; //! position in ordered transaction list
     int bwtMaturityDepth;
-    bool areBwtCeased;
+    bool bwtAreStripped;
 
     // useful in gtest
     friend bool operator==(const CWalletTransactionBase& a, const CWalletTransactionBase& b) {
-        if (a.pTxBase->IsCertificate() && !b.pTxBase->IsCertificate())
+        if (a.getTxBase()->IsCertificate() && !b.getTxBase()->IsCertificate())
             return false;
-        if (!a.pTxBase->IsCertificate() && b.pTxBase->IsCertificate())
+        if (!a.getTxBase()->IsCertificate() && b.getTxBase()->IsCertificate())
             return false;
 
-        if (a.pTxBase->IsCertificate())
-            return (*dynamic_cast<const CScCertificate*>(a.pTxBase) == *dynamic_cast<const CScCertificate*>(b.pTxBase));
+        if (a.getTxBase()->IsCertificate())
+            return (*dynamic_cast<const CScCertificate*>(a.getTxBase()) == *dynamic_cast<const CScCertificate*>(b.getTxBase()));
         else
-            return (*dynamic_cast<const CTransaction*>(a.pTxBase) == *dynamic_cast<const CTransaction*>(b.pTxBase));
+            return (*dynamic_cast<const CTransaction*>(a.getTxBase()) == *dynamic_cast<const CTransaction*>(b.getTxBase()));
     }
 
     void BindWallet(CWallet *pwalletIn)
@@ -447,6 +447,7 @@ private:
 public:
     const CTransaction& getWrappedTx() const { return wrappedTx; }
     void ResetWrappedTx(const CTransaction& newTx) { *const_cast<CTransaction*>(&wrappedTx) = newTx; }
+    const CTransactionBase* const getTxBase() const override {return &wrappedTx;};
 
 protected:
     int GetIndexInBlock(const CBlock& block) override final;
@@ -527,6 +528,8 @@ public:
             listScSent.push_back(output);
         }
     }
+    void fillScFees(const std::vector<CBwtRequestOut>& vOuts, std::list<CScOutputEntry>& listScSent) const;
+
     std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const override;
 };
 
@@ -536,6 +539,7 @@ private:
     const CScCertificate wrappedCertificate;
 public:
     const CScCertificate& getWrappedCert() { return wrappedCertificate; }
+    const CTransactionBase* const getTxBase() const override {return &wrappedCertificate;};
 
 protected:
     int GetIndexInBlock(const CBlock& block) override final;
@@ -574,7 +578,7 @@ public:
         READWRITE(vMerkleBranch);
         READWRITE(nIndex);
         READWRITE(bwtMaturityDepth);
-        READWRITE(areBwtCeased);
+        READWRITE(bwtAreStripped);
         std::vector<CScCertificate> vUnused; //! Used to be vtxPrev
         READWRITE(vUnused);
         READWRITE(mapValue);
@@ -957,6 +961,7 @@ public:
 
 private:
     std::map<uint256, std::shared_ptr<CWalletTransactionBase> > mapWallet;
+    std::map<uint256, CScCertificateStatusUpdateInfo> mapSidechains;
 public:
     const std::map<uint256, std::shared_ptr<CWalletTransactionBase> > & getMapWallet() const  {return mapWallet;}
     //No need for mapWallet setter, meaning that mapWallet is only read outside CWallet class
@@ -1000,7 +1005,7 @@ public:
      */
     CPubKey GenerateNewKey();
     //! Adds a key to the store, and saves it to disk.
-    bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey);
+    bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey) override;
     //! Adds a key to the store, without saving it to disk (used by LoadWallet)
     bool LoadKey(const CKey& key, const CPubKey &pubkey) { return CCryptoKeyStore::AddKeyPubKey(key, pubkey); }
     //! Load metadata (used by LoadWallet)
@@ -1009,10 +1014,10 @@ public:
     bool LoadMinVersion(int nVersion) { AssertLockHeld(cs_wallet); nWalletVersion = nVersion; nWalletMaxVersion = std::max(nWalletMaxVersion, nVersion); return true; }
 
     //! Adds an encrypted key to the store, and saves it to disk.
-    bool AddCryptedKey(const CPubKey &vchPubKey, const std::vector<unsigned char> &vchCryptedSecret);
+    bool AddCryptedKey(const CPubKey &vchPubKey, const std::vector<unsigned char> &vchCryptedSecret) override;
     //! Adds an encrypted key to the store, without saving it to disk (used by LoadWallet)
     bool LoadCryptedKey(const CPubKey &vchPubKey, const std::vector<unsigned char> &vchCryptedSecret);
-    bool AddCScript(const CScript& redeemScript);
+    bool AddCScript(const CScript& redeemScript) override;
     bool LoadCScript(const CScript& redeemScript);
 
     //! Adds a destination data tuple to the store, and saves it to disk
@@ -1025,8 +1030,8 @@ public:
     bool GetDestData(const CTxDestination &dest, const std::string &key, std::string *value) const;
 
     //! Adds a watch-only address to the store, and saves it to disk.
-    bool AddWatchOnly(const CScript &dest);
-    bool RemoveWatchOnly(const CScript &dest);
+    bool AddWatchOnly(const CScript &dest) override;
+    bool RemoveWatchOnly(const CScript &dest) override;
     //! Adds a watch-only address to the store, without saving it to disk (used by LoadWallet)
     bool LoadWatchOnly(const CScript &dest);
 
@@ -1050,11 +1055,11 @@ public:
     //! Adds an encrypted spending key to the store, without saving it to disk (used by LoadWallet)
     bool LoadCryptedZKey(const libzcash::PaymentAddress &addr, const libzcash::ReceivingKey &rk, const std::vector<unsigned char> &vchCryptedSecret);
     //! Adds an encrypted spending key to the store, and saves it to disk (virtual method, declared in crypter.h)
-    bool AddCryptedSpendingKey(const libzcash::PaymentAddress &address, const libzcash::ReceivingKey &rk, const std::vector<unsigned char> &vchCryptedSecret);
+    bool AddCryptedSpendingKey(const libzcash::PaymentAddress &address, const libzcash::ReceivingKey &rk, const std::vector<unsigned char> &vchCryptedSecret) override;
 
     //! Adds a viewing key to the store, and saves it to disk.
-    bool AddViewingKey(const libzcash::ViewingKey &vk);
-    bool RemoveViewingKey(const libzcash::ViewingKey &vk);
+    bool AddViewingKey(const libzcash::ViewingKey &vk) override;
+    bool RemoveViewingKey(const libzcash::ViewingKey &vk) override;
     //! Adds a viewing key to the store, without saving it to disk (used by LoadWallet)
     bool LoadViewingKey(const libzcash::ViewingKey &dest);
 
@@ -1072,7 +1077,8 @@ public:
     bool AddToWallet(const CWalletTransactionBase& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb);
     void SyncTransaction(const CTransaction& tx, const CBlock* pblock) override;
     void SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityDepth = -1) override;
-    void SyncVoidedCert(const uint256& certHash, bool bwtAreStripped) override;
+    void SyncCertStatusInfo(const CScCertificateStatusUpdateInfo& certStatusInfo) override;
+    bool ReadSidechain(const uint256& scId, CScCertificateStatusUpdateInfo& sidechain);
     bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, int bwtMaturityDepth, bool fUpdate);
     void EraseFromWallet(const uint256 &hash) override;
     void WitnessNoteCommitment(
@@ -1100,17 +1106,15 @@ public:
     CAmount GetImmatureWatchOnlyBalance() const;
     bool FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosRet, std::string& strFailReason);
     bool CreateTransaction(
-        const std::vector<CRecipient>& vecSend, const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
+        const std::vector<CRecipient>& vecSend,
+        const std::vector<Sidechain::CRecipientScCreation>& vecScSend,
+        const std::vector<Sidechain::CRecipientForwardTransfer>& vecFtSend,
+        const std::vector<Sidechain::CRecipientBwtRequest>& vecBwtRequest,
         CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
-        std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true);
+        std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true, CAmount cswInTotAmount = 0);
 
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 
-    bool CreateCertificate(
-        const uint256& scId,
-        const std::vector< Sidechain::CcRecipientVariant >& vecCcSend,
-        CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
-        std::string& strFailReason, bool sign = true);
     bool AddAccountingEntry(const CAccountingEntry&, CWalletDB & pwalletdb);
 
     static CFeeRate minTxFee;
@@ -1150,6 +1154,7 @@ public:
     bool IsChange(const CTxOut& txout) const;
     CAmount GetChange(const CTxOut& txout) const;
     bool IsMine(const CTransactionBase& tx) const;
+    bool BwtIsMine(const CScCertificate& cert) const;
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransactionBase& tx) const;
     CAmount GetDebit (const CTransactionBase& txBase, const isminefilter& filter) const;
@@ -1256,7 +1261,7 @@ public:
         pwallet = pwalletIn;
     }
 
-    ~CReserveKey()
+    virtual ~CReserveKey()
     {
         ReturnKey();
     }

@@ -68,6 +68,8 @@
 
 #include "zen/websocket_server.h"
 
+#include "sc/asyncproofverifier.h"
+
 using namespace std;
 
 extern void ThreadSendAlert();
@@ -788,7 +790,7 @@ static void ZC_LoadParams()
     LogPrintf("Loaded Sapling parameters in %fs seconds.\n", elapsed);
 }
 
-bool AppInitServers(boost::thread_group& threadGroup)
+bool AppInitServers()
 {
     RPCServer::OnStopped(&OnRPCStopped);
     RPCServer::OnPreCommand(&OnRPCPreCommand);
@@ -1143,11 +1145,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (!InitSanityCheck())
         return InitError(_("Initialization sanity check failed. Zen is shutting down."));
 
-    std::string strDataDir = GetDataDir().string();
 #ifdef ENABLE_WALLET
     // Wallet file must be a plain filename without a directory
     if (strWalletFile != boost::filesystem::basename(strWalletFile) + boost::filesystem::extension(strWalletFile))
-        return InitError(strprintf(_("Wallet %s resides outside data directory %s"), strWalletFile, strDataDir));
+        return InitError(strprintf(_("Wallet %s resides outside data directory %s"), strWalletFile, GetDataDir().string()));
 #endif
     // Make sure only a single Bitcoin process is using the data directory.
     boost::filesystem::path pathLockFile = GetDataDir() / ".lock";
@@ -1157,11 +1158,15 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     try {
         static boost::interprocess::file_lock lock(pathLockFile.string().c_str());
         if (!lock.try_lock())
-            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zen is probably already running."), strDataDir));
+            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zen is probably already running."), GetDataDir().string()));
 
     } catch(const boost::interprocess::interprocess_exception& e) {
-        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zen is probably already running.") + " %s.", strDataDir, e.what()));
+        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zen is probably already running.") + " %s.", GetDataDir().string(), e.what()));
     }
+
+    // Initialize sidechains folder, hosting keys for sidechains validations
+    if(!Sidechain::InitSidechainsFolder())
+        return InitError(strprintf(_("Cannot create or access sidechains folder.")));
 
 #ifndef WIN32
     CreatePidFile(GetPidFile(), getpid());
@@ -1183,7 +1188,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (!fLogTimestamps)
         LogPrintf("Startup time: %s\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()));
     LogPrintf("Default data directory %s\n", GetDefaultDataDir().string());
-    LogPrintf("Using data directory %s\n", strDataDir);
+    LogPrintf("Using data directory %s\n", GetDataDir().string());
     // This print might not be correct, since at this point the options in the the zen.conf have already been read, and if a custom datadir has
     // ben specified, the config file would be erroneously printed to be there
     //    LogPrintf("Using config file %s\n", GetConfigFile().string());
@@ -1227,6 +1232,11 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Initialize Zcash circuit parameters
     ZC_LoadParams();
 
+    // check type sizes in crypto lib are as expected and assert() in case of failure
+    CZendooCctpLibraryChecker::CheckTypeSizes();
+
+    Sidechain::LoadCumulativeProofsParameters();
+
     /* Start the RPC server already.  It will be started in "warmup" mode
      * and not really process calls already (but it will signify connections
      * that the server is there and will be ready later).  Warmup mode will
@@ -1235,7 +1245,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (fServer)
     {
         uiInterface.InitMessage.connect(SetRPCWarmupStatus);
-        if (!AppInitServers(threadGroup))
+        if (!AppInitServers())
             return InitError(_("Unable to start HTTP server. See debug log for details."));
     }
 
@@ -1475,11 +1485,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
                 pcoinsTip = new CCoinsViewCache(pcoinscatcher);
 
-                if (fReindex) {
+                if (fReindex)
+                {
                     pblocktree->WriteReindexing(true);
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (fPruneMode)
                         CleanupBlockRevFiles();
+
+                    Sidechain::ClearSidechainsFolder();
                 }
 
                 if (!LoadBlockIndex()) {
@@ -1840,6 +1853,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // SENDALERT
     threadGroup.create_thread(boost::bind(ThreadSendAlert));
+
+    // Start the thread for async sidechain proof verification
+    threadGroup.create_thread(
+            boost::bind(
+                    &CScAsyncProofVerifier::RunPeriodicVerification,
+                    &CScAsyncProofVerifier::GetInstance()
+            )
+    );
 
     return !fRequestShutdown;
 }

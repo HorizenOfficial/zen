@@ -1,4 +1,4 @@
-package=crate_rand_hc_zendoo
+package=crate_rand_hc_z
 $(package)_crate_name=rand_hc
 $(package)_version=0.2.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

@@ -1,4 +1,4 @@
-package=crate_crossbeam-deque_zendoo
+package=crate_crossbeam-deque_z
 $(package)_crate_name=crossbeam-deque
 $(package)_version=0.8.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

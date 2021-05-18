@@ -1,4 +1,4 @@
-package=crate_either_zendoo
+package=crate_either_z
 $(package)_crate_name=either
 $(package)_version=1.6.1
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

@@ -1,4 +1,4 @@
-package=crate_byte_tools_zendoo
+package=crate_byte_tools_z
 $(package)_crate_name=byte-tools
 $(package)_version=0.3.1
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)

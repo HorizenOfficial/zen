@@ -7,9 +7,6 @@
 #include <algorithm>
 #include <random>
 
-
-extern CBlockIndex* AddToBlockIndex(const CBlockHeader& block);
-
 //#define TEST_ALT_DEBUG
 
 #if !defined(TEST_ALT_DEBUG)
@@ -313,15 +310,15 @@ TEST(relayforks_test, checkisonmain) {
 
 #if !defined(TEST_ALT_DEBUG)
 
-static const int MAIN_CHAIN_TEST_LEN = 500000;
+static const int MAIN_CHAIN_TEST_LEN = 5000;
 static const int FORK1_TEST_POS = 3;
-static const int FORK2_TEST_POS = 200000;
-static const int FORK3_TEST_POS = 400000;
-static const int FORK4_TEST_POS = 498000;
+static const int FORK2_TEST_POS = 2000;
+static const int FORK3_TEST_POS = 4000;
+static const int FORK4_TEST_POS = 4980;
 
-//    [0]- .. -[4]- .. -[200001]- .. -[400001]- .. -[498001]- .. -[500000]         (Main)
-//               \          \            \              \                             #
-//               [5]       [200002]     [400002]      [498002]          
+//    [0]- .. -[4]- .. -[2001]- .. -[4001]- .. -[4981]- .. -[5000]         (Main)
+//               \          \          \            \                           #
+//               [5]       [2002]     [4002]      [4982]          
 
 #else
 
