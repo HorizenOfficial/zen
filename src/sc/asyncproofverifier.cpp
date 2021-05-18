@@ -182,6 +182,19 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
                     LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%d] \n",
                              __func__, __LINE__, output.tx->GetHash().ToString(), output.node->GetId(), output.proofVerified);
 
+                    // CODE USED FOR UNIT TEST ONLY [Start]
+                    if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest"))
+                    {
+                        UpdateStatistics(output); // Update the statistics
+
+                        // Check if the AcceptToMemoryPool has to be skipped.
+                        if (skipAcceptToMemoryPool)
+                        {
+                            continue;
+                        }
+                    }
+                    // CODE USED FOR UNIT TEST ONLY [End]
+
                     CValidationState dummyState;
                     ProcessTxBaseAcceptToMemoryPool(*output.tx.get(), output.node,
                                                     output.proofVerified ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
@@ -308,7 +321,40 @@ bool CScAsyncProofVerifier::NormalVerifyCsw(uint256 txHash, std::map</*outputPos
     return true;
 }
 
-std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::_batchVerifyInternal(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>>& cswInputs,
+/**
+ * @brief Update the statistics of the proof verifier.
+ * It must be used in regression test mode only.
+ * @param output The result of the proof verification that has been performed.
+ */
+void CScAsyncProofVerifier::UpdateStatistics(const AsyncProofVerifierOutput& output)
+{
+    assert(Params().NetworkIDString() == "regtest");
+
+    if (output.tx->IsCertificate())
+    {
+        if (output.proofVerified)
+        {
+            stats.okCertCounter++;
+        }
+        else
+        {
+            stats.failedCertCounter++;
+        }
+    }
+    else
+    {
+        if (output.proofVerified)
+        {
+            stats.okCswCounter++;
+        }
+        else
+        {
+            stats.failedCswCounter++;
+        }
+    }
+}
+
+std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::_batchVerifyInternal(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>>& cswTxInputs,
                                                                                                    const std::map</*certHash*/uint256, CCertProofVerifierInput>& certInputs) const 
 {
     bool allProvesVerified = true;
@@ -333,42 +379,57 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::_b
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_vk\": %s\n",
             __func__, __LINE__, input.CertVk.GetHexRepr());
 
-        bool res = zendoo_verify_sc_proof(
-                input.endEpochBlockHash.begin(), input.prevEndEpochBlockHash.begin(),
-                input.bt_list.data(), input.bt_list.size(),
-                input.quality,
-                input.constant.GetFieldElement().get(),
-                input.proofdata.GetFieldElement().get(),
-                input.certProof.GetProofPtr().get(),
-                input.CertVk.GetVKeyPtr().get());
+        // bool res = zendoo_verify_sc_proof(
+        //         input.endEpochBlockHash.begin(), input.prevEndEpochBlockHash.begin(),
+        //         input.bt_list.data(), input.bt_list.size(),
+        //         input.quality,
+        //         input.constant.GetFieldElement().get(),
+        //         input.proofdata.GetFieldElement().get(),
+        //         input.certProof.GetProofPtr().get(),
+        //         input.CertVk.GetVKeyPtr().get());
 
-        if (!res)
-        {
-            allProvesVerified = false;
-            Error err = zendoo_get_last_error();
+        // Since the proof verification system has not been completely integrated yet, let's mock the implementation.
 
-            if (err.category == CRYPTO_ERROR)
-            {
-                std::string errorStr = strprintf( "%s: [%d - %s]\n",
-                    err.msg, err.category,
-                    zendoo_get_category_name(err.category));
+        bool res = !input.certProof.IsNull();
 
-                LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify, with error [%s]\n",
-                    __func__, __LINE__, input.certHash.ToString(), errorStr);
-                zendoo_clear_error();
-            }
-        }
+        // if (!res)
+        // {
+        //     allProvesVerified = false;
+        //     Error err = zendoo_get_last_error();
+
+        //     if (err.category == CRYPTO_ERROR)
+        //     {
+        //         std::string errorStr = strprintf( "%s: [%d - %s]\n",
+        //             err.msg, err.category,
+        //             zendoo_get_category_name(err.category));
+
+        //         LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify, with error [%s]\n",
+        //             __func__, __LINE__, input.certHash.ToString(), errorStr);
+        //         zendoo_clear_error();
+        //     }
+        // }
 
         outputs.push_back(AsyncProofVerifierOutput{ .tx = input.certificatePtr,
                                                     .node = input.node,
                                                     .proofVerified = res });
     }
 
-    for (const auto& cswInput : cswInputs)
+    for (const auto& cswTxInput : cswTxInputs)
     {
-        outputs.push_back(AsyncProofVerifierOutput{ .tx = cswInput.second.begin()->second.transactionPtr,
-                                                    .node = cswInput.second.begin()->second.node,
-                                                    .proofVerified = true });
+        bool proofVerified = true;
+
+        for (const auto& cswInput : cswTxInput.second)
+        {
+            if (cswInput.second.cswInput.scProof.IsNull())
+            {
+                proofVerified = false;
+                break;
+            }
+        }
+
+        outputs.push_back(AsyncProofVerifierOutput{ .tx = cswTxInput.second.begin()->second.transactionPtr,
+                                                    .node = cswTxInput.second.begin()->second.node,
+                                                    .proofVerified = proofVerified });
     }
 
     return std::pair<bool, std::vector<AsyncProofVerifierOutput>> { allProvesVerified, outputs };
