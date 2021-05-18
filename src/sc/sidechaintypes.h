@@ -35,10 +35,18 @@ namespace Sidechain
     
     static_assert(MAX_SC_MBTR_DATA_LEN < UINT8_MAX, "MAX_SC_MBTR_DATA_LEN must be lower than max uint8_t size!");
     
-    static const int SC_FE_SIZE_IN_BYTES        = 96; // TODO it will be 32  
+    static const int SC_FE_SIZE_IN_BYTES        = 32;
     static const int MAX_SC_PROOF_SIZE_IN_BYTES = 1024*10;  
     static const int MAX_SC_VK_SIZE_IN_BYTES    = 1024*10;
 }
+
+class CZendooCctpLibraryChecker
+{
+    public:
+    // assert the size of exported types are as expected by comparing static const declarations in header
+    // file and lib rust getters values
+    static void CheckTypeSizes();
+};
 
 class CZendooCctpObject
 {
@@ -49,6 +57,8 @@ public:
     CZendooCctpObject(const std::vector<unsigned char>& byteArrayIn): byteVector(byteArrayIn) {}
     virtual void SetByteArray(const std::vector<unsigned char>& byteArrayIn) = 0; //Does custom-size check
     const std::vector<unsigned char>& GetByteArray() const;
+    const unsigned char* const GetDataBuffer() const;
+    int GetDataSize() const;
 
     void SetNull();
     bool IsNull() const;
@@ -261,7 +271,7 @@ public:
     //for serialization only, which requires the default ctor. No checkValid call here
     BitVectorCertificateFieldConfig(): CustomCertificateFieldConfig(), bitVectorSizeBits(-1), maxCompressedSizeBytes(-1) {}
 
-    static const int32_t MAX_BIT_VECTOR_SIZE_BITS = 1000760;
+    static const int32_t MAX_BIT_VECTOR_SIZE_BITS = 1024*1024;
     static const int32_t MAX_COMPRESSED_SIZE_BYTES = MAX_BIT_VECTOR_SIZE_BITS / 8;
 
     bool IsValid() const override final;

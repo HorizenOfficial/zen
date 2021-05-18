@@ -431,6 +431,9 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidActCertData) {
     EXPECT_FALSE(txState.IsValid());
     EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
         <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
+
+    // TODO remove as soon as libzendoo funcs are not mocked anymore
+    std::cout << "### THIS IS EXPECTED SINCE LIBZENDOO HAS MOCKED CALLS ###" << std::endl;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

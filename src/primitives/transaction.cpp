@@ -342,6 +342,7 @@ std::string CTxScCreationOut::ToString() const
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
 {
+#if 0
     const uint256& scid = Hash(
             BEGIN(txHash),    END(txHash),
             BEGIN(pos),       END(pos) );
@@ -349,7 +350,26 @@ void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) con
     LogPrint("sc", "%s():%d - updating scid=%s - tx[%s], pos[%u]\n",
         __func__, __LINE__, scid.ToString(), txHash.ToString(), pos);
 
+    // TODO temporary until we can use a PoseidonHash instead of a SHA one
+    //----
+    // clear last two bits for rendering it a valid tweedle field element
+    unsigned char* ptr = const_cast<unsigned char*>(scid.begin());
+    assert(SC_FIELD_SIZE <= scid.size());
+    ptr[SC_FIELD_SIZE-1] &= 0x3f;
+
+    LogPrint("sc", "%s():%d - trimmed scid=%s\n", __func__, __LINE__, scid.ToString());
+#else
+
+    CctpErrorCode code;
+    const BufferWithSize bws_tx_hash(txHash.begin(), txHash.size());
+    field_t* scid_fe = zendoo_compute_sc_id(&bws_tx_hash, pos, &code); 
+#endif
+
+    const std::vector<unsigned char> tmp((uint8_t*)scid_fe, (uint8_t*)scid_fe + Sidechain::SC_FE_SIZE_IN_BYTES);
+    uint256 scid(tmp);
     *const_cast<uint256*>(&generatedScId) = scid;
+    //*const_cast<uint256*>(&generatedScId) = *reinterpret_cast<uint256*>(scid);
+    // TODO just for comipling, fix it
 }
 
 CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {

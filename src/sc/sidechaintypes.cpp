@@ -1,10 +1,54 @@
 #include "sc/sidechaintypes.h"
 #include "util.h"
 #include <consensus/consensus.h>
+#include <sc/proofverifier.h> // for MC_CRYPTO_LIB_MOCKED 
+
+void CZendooCctpLibraryChecker::CheckTypeSizes()
+{
+    if (Sidechain::SC_FE_SIZE_IN_BYTES != zendoo_get_field_size_in_bytes())
+    {
+        LogPrintf("%s():%d - ERROR: unexpected CCTP field element size: %d (rust lib returns %d)\n", 
+            __func__, __LINE__, Sidechain::SC_FE_SIZE_IN_BYTES, zendoo_get_field_size_in_bytes());
+        assert(!"ERROR: field element size mismatch between rust CCTP lib and c header!");
+    }
+#if 0
+    if (SC_VK_SIZE != zendoo_get_sc_vk_size_in_bytes())
+    {
+        LogPrintf("%s():%d - ERROR: unexpected CCTP vk size: %d (rust lib returns %d)\n", 
+            __func__, __LINE__, SC_VK_SIZE, zendoo_get_sc_vk_size_in_bytes());
+        assert(!"ERROR: vk size mismatch between rust CCTP lib and c header!");
+    }
+    if (SC_PROOF_SIZE != zendoo_get_sc_proof_size_in_bytes())
+    {
+        LogPrintf("%s():%d - ERROR: unexpected CCTP proof size: %d (rust lib returns %d)\n", 
+            __func__, __LINE__, SC_PROOF_SIZE, zendoo_get_sc_proof_size_in_bytes());
+        assert(!"ERROR: proof size mismatch between rust CCTP lib and c header!");
+    }
+#endif
+    if (Sidechain::MAX_SC_CUSTOM_DATA_LEN != zendoo_get_sc_custom_data_size_in_bytes())
+    {
+        LogPrintf("%s():%d - ERROR: unexpected CCTP custom data size: %d (rust lib returns %d)\n", 
+            __func__, __LINE__, Sidechain::MAX_SC_CUSTOM_DATA_LEN, zendoo_get_sc_custom_data_size_in_bytes());
+        assert(!"ERROR: custom data size mismatch between rust CCTP lib and c header!");
+    }
+}
 
 const std::vector<unsigned char>&  CZendooCctpObject::GetByteArray() const
 {
     return byteVector;
+}
+
+const unsigned char* const CZendooCctpObject::GetDataBuffer() const
+{
+    if (GetByteArray().empty())
+        return nullptr;
+
+    return &GetByteArray()[0];
+}
+
+int CZendooCctpObject::GetDataSize() const
+{
+    return GetByteArray().size();
 }
 
 void CZendooCctpObject::SetNull() { byteVector.resize(0); }
@@ -54,7 +98,10 @@ CFieldElement::CFieldElement(const uint256& value)
 CFieldElement::CFieldElement(const wrappedFieldPtr& wrappedField)
 {
     this->byteVector.resize(CFieldElement::ByteSize(),0x0);
-    zendoo_serialize_field(wrappedField.get(), &byteVector[0]);
+    CctpErrorCode code;
+    if (wrappedField.get() != 0)
+        zendoo_serialize_field(wrappedField.get(), &byteVector[0], &code);
+    // TODO check code
 }
 
 wrappedFieldPtr CFieldElement::GetFieldElement() const
@@ -72,7 +119,9 @@ wrappedFieldPtr CFieldElement::GetFieldElement() const
         return wrappedFieldPtr{nullptr};
     }
 
-    wrappedFieldPtr res = {zendoo_deserialize_field(&this->byteVector[0]), theFieldPtrDeleter};
+    CctpErrorCode code;
+    wrappedFieldPtr res = {zendoo_deserialize_field(&this->byteVector[0], &code), theFieldPtrDeleter};
+    // TODO check code
     return res;
 }
 
@@ -95,12 +144,17 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
     if(!lhs.IsValid() || !rhs.IsValid())
         throw std::runtime_error("Could not compute poseidon hash on null field elements");
 
-    ZendooPoseidonHash digest{};
+    CctpErrorCode code;
+    ZendooPoseidonHashConstantLength digest{2, &code};
+    // TODO check code
 
-    digest.update(lhs.GetFieldElement().get());
-    digest.update(rhs.GetFieldElement().get());
+    digest.update(lhs.GetFieldElement().get(), &code);
+    // TODO check code
+    digest.update(rhs.GetFieldElement().get(), &code);
+    // TODO check code
 
-    wrappedFieldPtr res = {digest.finalize(), theFieldPtrDeleter};
+    wrappedFieldPtr res = {digest.finalize(&code), theFieldPtrDeleter};
+    // TODO check code
     return CFieldElement(res);
 }
 
@@ -109,7 +163,7 @@ const CFieldElement& CFieldElement::GetPhantomHash()
     // TODO call an utility method to retrieve from zendoo_mc_cryptolib a constant phantom hash
     // field element and use it everywhere it is needed a constant value whose preimage has to
     // be unknown
-    static CFieldElement ret{std::vector<unsigned char>(CFieldElement::ByteSize(),0x00)};
+    static CFieldElement ret{std::vector<unsigned char>(CFieldElement::ByteSize(), 0x00)};
     return ret;
 }
 #endif
@@ -132,16 +186,23 @@ wrappedScProofPtr CScProof::GetProofPtr() const
     if (this->byteVector.empty())
         return wrappedScProofPtr{nullptr};
 
-    wrappedScProofPtr res = {zendoo_deserialize_sc_proof(&this->byteVector[0]), theProofPtrDeleter};
+    CctpErrorCode code;
+    BufferWithSize result;
+    wrappedScProofPtr res = {zendoo_deserialize_sc_proof(&result, true, &code), theProofPtrDeleter};
+    // TODO check code and get byte vec from result
     return res;
 }
 
 bool CScProof::IsValid() const
 {
+#ifdef MC_CRYPTO_LIB_MOCKED
+    return true;
+#else
     if (this->GetProofPtr() == nullptr)
         return false;
 
     return true;
+#endif
 }
 
 Sidechain::ProvingSystemType CScProof::getProvingSystemType() const
@@ -175,16 +236,24 @@ wrappedScVkeyPtr CScVKey::GetVKeyPtr() const
     if (this->byteVector.empty())
         return wrappedScVkeyPtr{nullptr};
 
-    wrappedScVkeyPtr res = {zendoo_deserialize_sc_vk(&this->byteVector[0]), theVkPtrDeleter};
+    CctpErrorCode code;
+    BufferWithSize result;
+    wrappedScVkeyPtr res = {zendoo_deserialize_sc_vk(&result, true, &code), theVkPtrDeleter};
+    // TODO check code and get byte vec from result
     return res;
 }
 
 bool CScVKey::IsValid() const
 {
+#ifdef MC_CRYPTO_LIB_MOCKED
+    return true;
+#else
+
     if (this->GetVKeyPtr() == nullptr)
         return false;
 
     return true;
+#endif
 }
 
 Sidechain::ProvingSystemType CScVKey::getProvingSystemType() const
@@ -230,10 +299,10 @@ bool BitVectorCertificateFieldConfig::IsValid() const
     return true;
 }
 
-BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVectorSizeBits, int32_t maxCompressedSizeBytes):
+BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVectorSizeBitsIn, int32_t maxCompressedSizeBytesIn):
     CustomCertificateFieldConfig(),
-    bitVectorSizeBits(bitVectorSizeBits),
-    maxCompressedSizeBytes(maxCompressedSizeBytes) {
+    bitVectorSizeBits(bitVectorSizeBitsIn),
+    maxCompressedSizeBytes(maxCompressedSizeBytesIn) {
     BOOST_STATIC_ASSERT(MAX_COMPRESSED_SIZE_BYTES <= MAX_CERT_SIZE); // sanity
 }
 
@@ -368,47 +437,33 @@ const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorC
     }
 
     state = VALIDATION_STATE::INVALID;
-    this->fieldElement = CFieldElement{};
     this->pReferenceCfg = new BitVectorCertificateFieldConfig(cfg);
 
     if(vRawData.size() > cfg.getMaxCompressedSizeBytes()) {
         // this is invalid and fieldElement is Null 
+        this->fieldElement = CFieldElement{};
         return fieldElement;
     }
 
-    /*
-     *  TODO this is a dummy implementation, useful just for running preliminary tests
-     *  In the final version using rust lib the steps to cover would be:
-     *
-     *   1. Reconstruct MerkleTree from the compressed raw data of vRawField
-     *   2. Check for the MerkleTree validity
-     *   3. Calculate and store the root hash.
-     */
+    // Reconstruct MerkleTree from the compressed raw data of vRawField
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+    BufferWithSize compressedData(&vRawData[0], vRawData.size());
 
+    int rem = 0;
+    int nBitVectorSizeBytes = getBytesFromBits(cfg.getBitVectorSizeBits(), rem);
 
-
-    /*
-
-    TODO
-
-    try {
-            fieldElement = RustImpl::getBitVectorMerkleRoot(vRawData, cfg.getBitVectorSizeBits());
-            state = VALIDATION_STATE::VALID;
-            return true;
-    } catch(...) {
-    }
-    */
-    // set a default impl for having a valid field returned here
-    std::vector<unsigned char> extendedRawData = vRawData;
-    // this is in order to have a valid field element with the final bytes set to 0
-    extendedRawData.resize(CFieldElement::ByteSize() - 2, 0x0);
-    extendedRawData.resize(CFieldElement::ByteSize(), 0x0);
-
-    fieldElement.SetByteArray(extendedRawData);
-    if (fieldElement.IsValid())
+    // the second parameter is the expected size of the uncompressed data. If this size is not matched the function returns
+    // an error and a null filed element ptr
+    field_t* fe = zendoo_merkle_root_from_compressed_bytes(&compressedData, nBitVectorSizeBytes, &ret_code);
+    if (fe == nullptr)
     {
-        state = VALIDATION_STATE::VALID;
-    } 
+        LogPrint("sc", "%s():%d - ERROR(%d): could not get merkle root field el from compr bit vector of size %d, exp uncompr size %d\n",
+            __func__, __LINE__, (int)ret_code, vRawData.size(), nBitVectorSizeBytes);
+        this->fieldElement = CFieldElement{};
+        return fieldElement;
+    }
+    this->fieldElement = CFieldElement{wrappedFieldPtr{fe, CFieldPtrDeleter{}}};
+    state = VALIDATION_STATE::VALID;
 
     return fieldElement;
 }

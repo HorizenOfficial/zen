@@ -315,6 +315,9 @@ CScCertificate::MakeShared() const {
 
 CFieldElement CScCertificate::GetDataHash() const
 {
+    // in the final implementation this must not create an obj but should return a reference to a mem-only
+    // data member, similarly to what GetHash() is doing. This is for performances but expecially for avoiding 
+    // having temporary objs and playing with their internal data buffers. 
     std::vector<unsigned char> tmp(this->GetHash().begin(), this->GetHash().end());
     tmp.resize(CFieldElement::ByteSize(), 0x0);
     return CFieldElement{tmp};

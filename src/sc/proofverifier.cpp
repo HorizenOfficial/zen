@@ -1,6 +1,7 @@
 #include "sc/proofverifier.h"
 #include <coins.h>
 #include "primitives/certificate.h"
+
 #include <zendoo/error.h>
 #include <main.h>
 
@@ -137,9 +138,14 @@ bool CScProofVerifier::BatchVerify() const
 bool CScProofVerifier::_batchVerifyInternal(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>>& cswEnqueuedData,
                                             const std::map</*certHash*/uint256, CCertProofVerifierInput>& certEnqueuedData) const 
 {
+
+    ZendooBatchProofVerifier batchVerifier;
+    uint32_t idx = 0;
+
     for (const auto& certData : certEnqueuedData)
     {
         const CCertProofVerifierInput& input = certData.second;
+#if 0
 
         LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"end epoch hash\": %s\n",
                 __func__, __LINE__, input.endEpochBlockHash.ToString());
@@ -182,6 +188,25 @@ bool CScProofVerifier::_batchVerifyInternal(const std::map</*scTxHash*/uint256, 
 
             return false;
         }
+#endif
+        CctpErrorCode code;
+        bool ret = batchVerifier.add_certificate_proof(
+            idx,
+            input.constant.GetFieldElement().get(),
+            33, // TODO get proper epoch number
+            input.quality,
+            input.bt_list.data(),
+            input.bt_list.size(),
+            nullptr, // TODO  set proper custom_fields
+            0, // TODO  set proper custom_fields size
+            nullptr, // TODO set end_cum_comm_tree_root
+            0,  // TODO set btr_fee
+            0,  // TODO set ft_min_amount,
+            input.certProof.GetProofPtr().get(),
+            input.CertVk.GetVKeyPtr().get(),
+            &code
+        );
+        idx++;
     }
 
     return true;
