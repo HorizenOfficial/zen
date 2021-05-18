@@ -410,12 +410,14 @@ struct CCertProofVerifierInput
 {
     std::shared_ptr<CScCertificate> certificatePtr;
     uint256 certHash;
-    uint256 endEpochBlockHash;
-    uint256 prevEndEpochBlockHash;
+    CFieldElement constant;
+    uint32_t epochNumber;
+    uint64_t quality;
     std::vector<backward_transfer_t> bt_list;
-    int64_t quality;
-    ScConstant constant;
-    CFieldElement proofdata;
+    std::vector<CFieldElement> vCustomFields;
+    CFieldElement endEpochCumScTxCommTreeRoot;
+    uint64_t mainchainBackwardTransferRequestScFee;
+    uint64_t forwardTransferScFee;
     CScProof certProof;
     CScVKey CertVk;
     CNode* node;    /**< The node that sent the transaction. It can be null. */

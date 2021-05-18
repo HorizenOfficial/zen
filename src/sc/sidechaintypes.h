@@ -26,8 +26,8 @@ namespace Sidechain
     enum class ProvingSystemType : uint8_t
     {
         Undefined,
-        CoboundaryMarlin,
-        Darlin
+        Darlin,
+        CoboundaryMarlin
     };
 
     static const int MAX_SC_CUSTOM_DATA_LEN     = 1024;     /**< Maximum data length for custom data (optional attribute for sidechain creation) in bytes. */
@@ -315,6 +315,7 @@ protected:
     const std::vector<unsigned char> vRawData;
     enum class VALIDATION_STATE {NOT_INITIALIZED, INVALID, VALID};
     mutable VALIDATION_STATE state;
+    mutable CFieldElement fieldElement; // memory only, lazy-initialized
 
 public:
     CustomCertificateField(): state(VALIDATION_STATE::NOT_INITIALIZED) {};
@@ -329,7 +330,6 @@ class FieldElementCertificateField : public CustomCertificateField<FieldElementC
 {
 private:
     mutable FieldElementCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
-    mutable CFieldElement fieldElement; // memory only, lazy-initialized
 public:
     FieldElementCertificateField(): pReferenceCfg{nullptr} {};
     FieldElementCertificateField(const std::vector<unsigned char>& rawBytes);
@@ -351,7 +351,6 @@ class BitVectorCertificateField : public CustomCertificateField<BitVectorCertifi
 {
 private:
     mutable BitVectorCertificateFieldConfig* pReferenceCfg; //mutable needed since IsValid is const
-    mutable CFieldElement fieldElement; // memory only, lazy-initialized
 public:
     BitVectorCertificateField(): pReferenceCfg{nullptr} {};
     BitVectorCertificateField(const std::vector<unsigned char>& rawBytes);

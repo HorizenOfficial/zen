@@ -43,7 +43,9 @@ void create_verify(int argc, char** argv)
     assert(IsHex(argv[arg]));
     auto constant = ParseHex(argv[arg++]);
     assert(constant.size() == 96);
-    field_t* constant_f = zendoo_deserialize_field(constant.data());
+    CctpErrorCode code;
+    field_t* constant_f = zendoo_deserialize_field(constant.data(), &code);
+    assert(code != CctpErrorCode::OK);
     assert(constant_f != NULL);
 
     // Create bt_list

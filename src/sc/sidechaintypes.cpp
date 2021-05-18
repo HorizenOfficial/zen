@@ -98,10 +98,12 @@ CFieldElement::CFieldElement(const uint256& value)
 CFieldElement::CFieldElement(const wrappedFieldPtr& wrappedField)
 {
     this->byteVector.resize(CFieldElement::ByteSize(),0x0);
-    CctpErrorCode code;
     if (wrappedField.get() != 0)
+    {
+        CctpErrorCode code;
         zendoo_serialize_field(wrappedField.get(), &byteVector[0], &code);
-    // TODO check code
+        assert(code == CctpErrorCode::OK);
+    }
 }
 
 wrappedFieldPtr CFieldElement::GetFieldElement() const
@@ -121,7 +123,12 @@ wrappedFieldPtr CFieldElement::GetFieldElement() const
 
     CctpErrorCode code;
     wrappedFieldPtr res = {zendoo_deserialize_field(&this->byteVector[0], &code), theFieldPtrDeleter};
-    // TODO check code
+    if (code != CctpErrorCode::OK)
+    {
+        LogPrintf("%s():%d - could not deserialize: error code[0x%x]\n", __func__, __LINE__, code);
+        return wrappedFieldPtr{nullptr};
+    }
+
     return res;
 }
 
@@ -146,15 +153,33 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
 
     CctpErrorCode code;
     ZendooPoseidonHashConstantLength digest{2, &code};
-    // TODO check code
+    if (code != CctpErrorCode::OK)
+    {
+        LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
+        throw std::runtime_error("Could not compute poseidon hash on null field elements");
+    }
 
     digest.update(lhs.GetFieldElement().get(), &code);
-    // TODO check code
+    if (code != CctpErrorCode::OK)
+    {
+        LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
+        throw std::runtime_error("Could not compute poseidon hash on null field elements");
+    }
+
     digest.update(rhs.GetFieldElement().get(), &code);
-    // TODO check code
+    if (code != CctpErrorCode::OK)
+    {
+        LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
+        throw std::runtime_error("Could not compute poseidon hash on null field elements");
+    }
 
     wrappedFieldPtr res = {digest.finalize(&code), theFieldPtrDeleter};
-    // TODO check code
+    if (code != CctpErrorCode::OK)
+    {
+        LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
+        throw std::runtime_error("Could not compute poseidon hash on null field elements");
+    }
+
     return CFieldElement(res);
 }
 
@@ -187,9 +212,13 @@ wrappedScProofPtr CScProof::GetProofPtr() const
         return wrappedScProofPtr{nullptr};
 
     CctpErrorCode code;
-    BufferWithSize result;
+    BufferWithSize result{(unsigned char*)&byteVector[0], byteVector.size()}; 
     wrappedScProofPtr res = {zendoo_deserialize_sc_proof(&result, true, &code), theProofPtrDeleter};
-    // TODO check code and get byte vec from result
+    if (code != CctpErrorCode::OK)
+    {
+        LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
+        return wrappedScProofPtr{nullptr};
+    }
     return res;
 }
 
@@ -207,9 +236,14 @@ bool CScProof::IsValid() const
 
 Sidechain::ProvingSystemType CScProof::getProvingSystemType() const
 {
-    // TODO add a CCTP call for getting Proving System Type from serialized key object
-    // return zendoo_get_proving_system_type_proof(&this->byteVector[0]);
-    return Sidechain::ProvingSystemType::Darlin;
+    CctpErrorCode code;
+    ProvingSystem psType = zendoo_get_sc_proof_proving_system_type(GetProofPtr().get(), &code);
+    if (code != CctpErrorCode::OK)
+    {
+        LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
+        return Sidechain::ProvingSystemType::Undefined;
+    }
+    return static_cast<Sidechain::ProvingSystemType>(psType);
 }
 
 //////////////////////////////// End of CScProof ///////////////////////////////
@@ -237,9 +271,13 @@ wrappedScVkeyPtr CScVKey::GetVKeyPtr() const
         return wrappedScVkeyPtr{nullptr};
 
     CctpErrorCode code;
-    BufferWithSize result;
+    BufferWithSize result{(unsigned char*)&byteVector[0], byteVector.size()}; 
     wrappedScVkeyPtr res = {zendoo_deserialize_sc_vk(&result, true, &code), theVkPtrDeleter};
-    // TODO check code and get byte vec from result
+    if (code != CctpErrorCode::OK)
+    {
+        LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
+        return wrappedScVkeyPtr{nullptr};
+    }
     return res;
 }
 
@@ -258,9 +296,14 @@ bool CScVKey::IsValid() const
 
 Sidechain::ProvingSystemType CScVKey::getProvingSystemType() const
 {
-    // TODO add a CCTP call for getting Proving System Type from serialized key object
-    // return zendoo_get_proving_system_type_vk(&this->byteVector[0]);
-    return Sidechain::ProvingSystemType::Darlin;
+    CctpErrorCode code;
+    ProvingSystem psType = zendoo_get_sc_vk_proving_system_type(GetVKeyPtr().get(), &code);
+    if (code != CctpErrorCode::OK)
+    {
+        LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
+        return Sidechain::ProvingSystemType::Undefined;
+    }
+    return static_cast<Sidechain::ProvingSystemType>(psType);
 }
 
 //////////////////////////////// End of CScVKey ////////////////////////////////

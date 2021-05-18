@@ -1110,9 +1110,13 @@ struct CMutableTransaction : public CMutableTransactionBase
 struct CCswProofVerifierInput
 {
     std::shared_ptr<CTransaction> transactionPtr;
-    CTxCeasedSidechainWithdrawalInput cswInput;
-    CScVKey ceasedVk;
+    CAmount nValue;
+    uint256 scId;
+    uint160 pubKeyHash;
     CFieldElement certDataHash;
+    CFieldElement endEpochCumScTxCommTreeRoot;
+    CScProof certProof;
+    CScVKey ceasedVk;
     CNode* node;    /**< The node that sent the transaction. */
 };
 
