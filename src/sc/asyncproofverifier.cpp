@@ -24,6 +24,7 @@ void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& v
     CSidechain sidechain;
     assert(view.GetSidechain(scCert.GetScId(), sidechain) && "Unknown sidechain at cert proof verification stage");
 
+#if 0
     // Retrieve current and previous end epoch block info for certificate proof verification
     int curr_end_epoch_block_height = sidechain.GetEndHeightForEpoch(scCert.epochNumber);
     int prev_end_epoch_block_height = curr_end_epoch_block_height - sidechain.fixedParams.withdrawalEpochLength;
@@ -68,6 +69,7 @@ void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& v
         LOCK(cs_asyncQueue);
         certEnqueuedData.insert(std::make_pair(scCert.GetHash(), certData));
     }
+#endif
 
     return;
 }
@@ -102,7 +104,7 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
         else
             cswData.ceasedVk = CScVKey{};
 
-        cswData.cswInput = csw;
+        //cswData.cswInput = csw;
         cswData.node = pfrom;
 
         txMap.insert(std::make_pair(idx, cswData));

@@ -368,8 +368,8 @@ void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) con
     const std::vector<unsigned char> tmp((uint8_t*)scid_fe, (uint8_t*)scid_fe + Sidechain::SC_FE_SIZE_IN_BYTES);
     uint256 scid(tmp);
     *const_cast<uint256*>(&generatedScId) = scid;
-    //*const_cast<uint256*>(&generatedScId) = *reinterpret_cast<uint256*>(scid);
-    // TODO just for comipling, fix it
+
+    zendoo_field_free(scid_fe);
 }
 
 CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {

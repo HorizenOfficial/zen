@@ -34,11 +34,25 @@ SidechainTxsCommitmentBuilder::~SidechainTxsCommitmentBuilder()
 
 bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code)
 {
-    const uint256& scId = ccout.GetScId();
-//    BufferWithSize bws_scid(scId.begin(), scId.size());
+    field_t* scid_fe = (field_t*)ccout.GetScId().begin();
 
     const uint256& pub_key = ccout.address;
     BufferWithSize bws_pk(pub_key.begin(), pub_key.size());
+
+    BufferWithSize bws_fe_cfg(
+        (const unsigned char*)&ccout.vFieldElementCertificateFieldConfig[0],
+        (size_t)ccout.vFieldElementCertificateFieldConfig.size()
+    );
+
+    int bvcfg_size = ccout.vBitVectorCertificateFieldConfig.size(); 
+    std::unique_ptr<BitVectorElementsConfig[]> bvcfg(new BitVectorElementsConfig[bvcfg_size]);
+    int i = 0;
+    for (auto entry: ccout.vBitVectorCertificateFieldConfig)
+    {
+        bvcfg[i].bit_vector_size_bits     = entry.getBitVectorSizeBits(); 
+        bvcfg[i].max_compressed_byte_size = entry.getMaxCompressedSizeBytes(); 
+        i++;
+    }
 
     BufferWithSize bws_custom_data(nullptr, 0);
     if (!ccout.customData.empty())
@@ -47,11 +61,10 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
         bws_custom_data.len = ccout.customData.size();
     }
 
-    BufferWithSize bws_constant(nullptr, 0);
+    field_t* constant_fe = nullptr;
     if(ccout.constant.is_initialized())
     {
-        bws_constant.data = ccout.constant->GetDataBuffer();
-        bws_constant.len = ccout.constant->GetDataSize();
+        constant_fe = ccout.constant->GetFieldElement().get();
     }
         
     BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
@@ -63,43 +76,21 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
         bws_csw_vk.len = ccout.wCeasedVk->GetDataSize();
     }
 
-#if 0
     return zendoo_commitment_tree_add_scc(const_cast<commitment_tree_t*>(_cmt),
-         &bws_scid,
-         ccout.nValue,
-         &bws_pk,
-         ccout.withdrawalEpochLength,
-         &bws_custom_data,
-         &bws_constant,
-         &bws_cert_vk,
-         &bws_mbtr_vk,
-         &bws_csw_vk,
-         &bws_tx_hash,
-         out_idx,
-         &ret_code
-    );
-#endif
-    BufferWithSize bws_dummy(nullptr, 0);
-
-    BitVectorElementsConfig bvcfg_dummy;
-    bvcfg_dummy.bit_vector_size_bits = 0;
-    bvcfg_dummy.max_compressed_byte_size = 0;
-    
-    return zendoo_commitment_tree_add_scc(const_cast<commitment_tree_t*>(_cmt),
-         nullptr, // TODO sc_id
+         scid_fe, 
          ccout.nValue,
          &bws_pk,
          &bws_tx_hash,
          out_idx,
          ccout.withdrawalEpochLength,
-         0, // TODO mc_btr_request_data_length,
-         &bws_dummy, // TODO custom_field_elements_config
-         &bvcfg_dummy, // TODO custom_bv_elements_config
-         0, // TODO custom_bv_elements_config_len,
-         0, // TODO btr_fee,
-         0, // TODO ft_min_amount,,
+         ccout.mainchainBackwardTransferRequestDataLength,
+         &bws_fe_cfg,
+         bvcfg.get(),
+         bvcfg_size,
+         ccout.mainchainBackwardTransferRequestScFee, 
+         ccout.forwardTransferScFee, 
          &bws_custom_data,
-         nullptr, // TODO const field_t* constant
+         constant_fe, 
          &bws_cert_vk,
          &bws_csw_vk,
          &ret_code
@@ -108,61 +99,42 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
 
 bool SidechainTxsCommitmentBuilder::add_fwt(const CTxForwardTransferOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code)
 {
-    const uint256& fwtScId = ccout.GetScId();
-    BufferWithSize bws_fwt_scid((unsigned char*)fwtScId.begin(), fwtScId.size());
+    field_t* scid_fe = (field_t*)ccout.GetScId().begin();
 
     const uint256& fwt_pub_key = ccout.address;
     BufferWithSize bws_fwt_pk((unsigned char*)fwt_pub_key.begin(), fwt_pub_key.size());
 
-#if 0
     return zendoo_commitment_tree_add_fwt(const_cast<commitment_tree_t*>(_cmt),
-         &bws_fwt_scid,
+         scid_fe,
          ccout.nValue,
          &bws_fwt_pk,
          &bws_tx_hash,
          out_idx,
          &ret_code
     );
-#endif
-    return zendoo_commitment_tree_add_fwt(const_cast<commitment_tree_t*>(_cmt),
-         nullptr, // TODO sc_id
-         ccout.nValue,
-         &bws_fwt_pk,
-         &bws_tx_hash,
-         out_idx,
-         &ret_code
-    );
-
 }
 
 bool SidechainTxsCommitmentBuilder::add_bwtr(const CBwtRequestOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code)
 {
-    const uint256& bwtrScId = ccout.GetScId();
-    BufferWithSize bws_bwtr_scid(bwtrScId.begin(), bwtrScId.size());
+    field_t* scid_fe = (field_t*)ccout.GetScId().begin();
+
+    int sc_req_data_len = ccout.vScRequestData.size(); 
+    std::unique_ptr<const field_t*[]> sc_req_data(new const field_t*[sc_req_data_len]);
+    int i = 0;
+    for (auto entry: ccout.vScRequestData)
+    {
+        sc_req_data[i] = entry.GetFieldElement().get();
+        i++;
+    }
 
     const uint160& bwtr_pk_hash = ccout.mcDestinationAddress;
     BufferWithSize bws_bwtr_pk_hash(bwtr_pk_hash.begin(), bwtr_pk_hash.size());
 
-    // TODO this will be changed on cctp lib in future, as of now it is a single field element so we choose to use the first,
-    // since this vector can not be empty
-    BufferWithSize bws_req_data(ccout.vScRequestData.at(0).GetDataBuffer(), ccout.vScRequestData.at(0).GetDataSize());
-        
-#if 0
     return zendoo_commitment_tree_add_bwtr(const_cast<commitment_tree_t*>(_cmt),
-         &bws_bwtr_scid,
+         scid_fe,
          ccout.scFee,
-         &bws_req_data,
-         &bws_bwtr_pk_hash,
-         &bws_tx_hash,
-         out_idx,
-         &ret_code
-    );
-#endif
-    return zendoo_commitment_tree_add_bwtr(const_cast<commitment_tree_t*>(_cmt),
-         nullptr, // TODO sc_id
-         ccout.scFee,
-         nullptr, // TODO const field_t** sc_req_data
-         0, // TODO sc_req_data_len,
+         sc_req_data.get(),
+         sc_req_data_len,
          &bws_bwtr_pk_hash,
          &bws_tx_hash,
          out_idx,
@@ -172,32 +144,15 @@ bool SidechainTxsCommitmentBuilder::add_bwtr(const CBwtRequestOut& ccout, const 
 
 bool SidechainTxsCommitmentBuilder::add_csw(const CTxCeasedSidechainWithdrawalInput& ccin, CctpErrorCode& ret_code)
 {
-    const uint256& cswScId = ccin.scId;
-    BufferWithSize bws_csw_scid(cswScId.begin(), cswScId.size());
+    field_t* scid_fe = (field_t*)ccin.scId.begin();
 
     const uint160& csw_pk_hash = ccin.pubKeyHash;
     BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
 
-    BufferWithSize bws_nullifier(ccin.nullifier.GetDataBuffer(), ccin.nullifier.GetDataSize());
-        
-    // TODO - they are not optional; for the time being set to a non empty field element
-    const CFieldElement& dumFe = CFieldElement{SAMPLE_FIELD}; // libzendoo_test_files.h 
-    BufferWithSize bws_active_cert_data_hash( dumFe.GetDataBuffer(), dumFe.GetDataSize());
-
-#if 0
     return zendoo_commitment_tree_add_csw(const_cast<commitment_tree_t*>(_cmt),
-         &bws_csw_scid,
+         scid_fe,
          ccin.nValue,
-         &bws_nullifier,
-         &bws_csw_pk_hash,
-         &bws_active_cert_data_hash,
-         &ret_code
-    );
-#endif
-    return zendoo_commitment_tree_add_csw(const_cast<commitment_tree_t*>(_cmt),
-         nullptr, // TODO sc_id
-         ccin.nValue,
-         nullptr, // TODO nullifier,
+         ccin.nullifier.GetFieldElement().get(),
          &bws_csw_pk_hash,
          &ret_code
     );
@@ -205,11 +160,7 @@ bool SidechainTxsCommitmentBuilder::add_csw(const CTxCeasedSidechainWithdrawalIn
 
 bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, CctpErrorCode& ret_code)
 {
-    const uint256& certScId = cert.GetScId();
-    BufferWithSize bws_cert_scid(certScId.begin(), certScId.size());
-
-    const CFieldElement& cdh = cert.GetDataHash(); 
-    const BufferWithSize bws_cert_data_hash(cdh.GetDataBuffer(), cdh.GetDataSize());
+    field_t* scid_fe = (field_t*)cert.GetScId().begin();
 
     const backward_transfer_t* bt_list =  nullptr;
     std::vector<backward_transfer_t> vbt_list;
@@ -228,34 +179,27 @@ bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, CctpErr
 
     size_t bt_list_len = vbt_list.size();
 
-    // TODO - they are not optional; for the time being set to a non empty field element
-    const CFieldElement& dumFe = CFieldElement{SAMPLE_FIELD}; // libzendoo_test_files.h 
-    const BufferWithSize bws_custom_fields_merkle_root( dumFe.GetDataBuffer(), dumFe.GetDataSize());
-    const BufferWithSize bws_end_cum_comm_tree_root( dumFe.GetDataBuffer(), dumFe.GetDataSize());
-#if 0            
+    int custom_fields_len = cert.vFieldElementCertificateField.size(); 
+    std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
+    int i = 0;
+    for (auto entry: cert.vFieldElementCertificateField)
+    {
+        CFieldElement fe{entry.getVRawData()};
+        custom_fields[i] = fe.GetFieldElement().get();
+        i++;
+    }
+
     return zendoo_commitment_tree_add_cert(const_cast<commitment_tree_t*>(_cmt),
-         &bws_cert_scid,
-         cert.epochNumber,
-         cert.quality,
-         &bws_cert_data_hash,
-         bt_list,
-         bt_list_len,
-         &bws_custom_fields_merkle_root,
-         &bws_end_cum_comm_tree_root,
-         &ret_code
-    );
-#endif
-    return zendoo_commitment_tree_add_cert(const_cast<commitment_tree_t*>(_cmt),
-         nullptr, // TODO sc_id
+         scid_fe,
          cert.epochNumber,
          cert.quality,
          bt_list,
          bt_list_len,
-         nullptr, // TODO custom_fields,
-         0, // TODO custom_fields_len,
-         nullptr, // TODO end_cum_comm_tree_root,
-         0, // TODO btr_fee,
-         0, // TODO ft_min_amount,,
+         custom_fields.get(),
+         custom_fields_len,
+         cert.endEpochCumScTxCommTreeRoot.GetFieldElement().get(),
+         cert.forwardTransferScFee,
+         cert.mainchainBackwardTransferRequestScFee,
          &ret_code
     );
 }
@@ -348,7 +292,7 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
     assert(_cmt != nullptr);
     CctpErrorCode code;
     field_t* fe = zendoo_commitment_tree_get_commitment(const_cast<commitment_tree_t*>(_cmt), &code);
-    // TODO check err code
+    assert(code == CctpErrorCode::OK);
     assert(fe != nullptr);
 
     wrappedFieldPtr res = {fe, CFieldPtrDeleter{}};
