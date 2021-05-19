@@ -12,7 +12,6 @@
  *           "constant" "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n"
  */
 
-
 void create_verify(int argc, char** argv)
 {
     int arg = 2;
