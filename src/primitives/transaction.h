@@ -1114,8 +1114,8 @@ struct CCswProofVerifierInput
     uint256 scId;
     uint160 pubKeyHash;
     CFieldElement certDataHash;
-    CFieldElement endEpochCumScTxCommTreeRoot;
-    CScProof certProof;
+    CFieldElement ceasingCumScTxCommTree;
+    CScProof cswProof;
     CScVKey ceasedVk;
     CNode* node;    /**< The node that sent the transaction. */
 };

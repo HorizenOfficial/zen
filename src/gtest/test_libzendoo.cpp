@@ -510,8 +510,8 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
 // Execute the test from zen directory
 TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
 {
-#ifdef MC_CRYPTO_LIB_MOCKED
-    std::cout << "### THIS IS DEACTIVATED SINCE LIBZENDOO HAS MOCKED CALLS ###" << std::endl;
+#if 1
+    std::cout << "### THIS IS DEACTIVATED --- FIX IT ###" << std::endl;
     ASSERT_TRUE(false);
 #else
     //Deserialize zero knowledge proof
@@ -554,7 +554,7 @@ TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
     ASSERT_TRUE(vk != NULL);
 
     //Verify zkproof
-    ASSERT_TRUE(zendoo_verify_sc_proof(
+    ASSERT_TRUE(zendoo_verify_certificate_proof(
             end_epoch_mc_b_hash,
             prev_end_epoch_mc_b_hash,
             bt_list.data(),
@@ -567,7 +567,7 @@ TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
         ));
 
     //Negative test: change quality (for instance) and ASSERT_TRUE proof failure
-    ASSERT_FALSE(zendoo_verify_sc_proof(
+    ASSERT_FALSE(zendoo_verify_certificate_proof(
             end_epoch_mc_b_hash,
             prev_end_epoch_mc_b_hash,
             bt_list.data(),

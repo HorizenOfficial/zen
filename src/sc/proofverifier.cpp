@@ -80,22 +80,28 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
     {
         CCswProofVerifierInput cswData;
 
+        cswData = cswEnqueuedData[scTx.GetHash()][idx]; //create or retrieve new entry
+
         const CTxCeasedSidechainWithdrawalInput& csw = scTx.GetVcswCcIn().at(idx);
+
+        cswData.nValue = csw.nValue;
+        cswData.scId = csw.scId;
+        cswData.pubKeyHash = csw.pubKeyHash;
+
+        cswData.certDataHash = csw.actCertDataHash;
+        cswData.ceasingCumScTxCommTree = csw.ceasingCumScTxCommTree;
+
+        cswData.cswProof = csw.scProof;
 
         CSidechain sidechain;
         assert(view.GetSidechain(csw.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
-
-        cswData = cswEnqueuedData[scTx.GetHash()][idx]; //create or retrieve new entry
-
-        cswData.transactionPtr = std::make_shared<CTransaction>(scTx);
-        cswData.certDataHash = view.GetActiveCertView(csw.scId).certDataHash;
 
         if (sidechain.fixedParams.wCeasedVk.is_initialized())
             cswData.ceasedVk = sidechain.fixedParams.wCeasedVk.get();
         else
             cswData.ceasedVk = CScVKey{};
 
-        //cswData.cswInput = csw;
+        cswData.transactionPtr = std::make_shared<CTransaction>(scTx);
 
         txMap.insert(std::make_pair(idx, cswData));
     }
@@ -114,73 +120,46 @@ bool CScProofVerifier::BatchVerify() const
         return true;
     }
 
-    for (const auto& verifierInput : cswEnqueuedData)
-    {
-        // TODO: load all CSW proves to RUST verifier.
-    }
-
-    for (const auto& verifierInput : certEnqueuedData)
-    {
-        // TODO: load all certificate proves to RUST verifier.
-    }
-
-    return _batchVerifyInternal(cswEnqueuedData, certEnqueuedData);
-}
-
-bool CScProofVerifier::_batchVerifyInternal(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>>& cswEnqueuedData,
-                                            const std::map</*certHash*/uint256, CCertProofVerifierInput>& certEnqueuedData) const 
-{
-
+    CctpErrorCode code;
     ZendooBatchProofVerifier batchVerifier;
     uint32_t idx = 0;
 
-    for (const auto& certData : certEnqueuedData)
+    for (const auto& entry : cswEnqueuedData)
     {
-        const CCertProofVerifierInput& input = certData.second;
-#if 0
-
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"end epoch hash\": %s\n",
-                __func__, __LINE__, input.endEpochBlockHash.ToString());
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"prev end epoch hash\": %s\n",
-            __func__, __LINE__, input.prevEndEpochBlockHash.ToString());
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"bt_list_len\": %d\n",
-            __func__, __LINE__, input.bt_list.size());
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"quality\": %s\n",
-            __func__, __LINE__, input.quality);
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"constant\": %s\n",
-            __func__, __LINE__, input.constant.GetHexRepr());
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_proof\": %s\n",
-            __func__, __LINE__, input.certProof.GetHexRepr());
-        LogPrint("zendoo_mc_cryptolib", "%s():%d - verified proof \"sc_vk\": %s\n",
-            __func__, __LINE__, input.CertVk.GetHexRepr());
-
-        bool res = zendoo_verify_sc_proof(
-                input.endEpochBlockHash.begin(), input.prevEndEpochBlockHash.begin(),
-                input.bt_list.data(), input.bt_list.size(),
-                input.quality,
-                input.constant.GetFieldElement().get(),
-                input.proofdata.GetFieldElement().get(),
-                input.certProof.GetProofPtr().get(),
-                input.CertVk.GetVKeyPtr().get());
-
-        if (!res)
+        for (const auto& entry2 : entry.second)
         {
-            Error err = zendoo_get_last_error();
+            const CCswProofVerifierInput& input = entry2.second;
+ 
+            field_t* scid_fe = (field_t*)input.scId.begin();
+ 
+            const uint160& csw_pk_hash = input.pubKeyHash;
+            BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
+ 
+            bool ret = batchVerifier.add_csw_proof(
+                idx,
+                input.nValue,
+                scid_fe, 
+                &bws_csw_pk_hash,
+                input.certDataHash.GetFieldElement().get(),
+                input.ceasingCumScTxCommTree.GetFieldElement().get(),
+                input.cswProof.GetProofPtr().get(),
+                input.ceasedVk.GetVKeyPtr().get(),
+                &code
+            );
+            idx++;
 
-            if (err.category == CRYPTO_ERROR)
+            if (!ret || code != CctpErrorCode::OK)
             {
-                std::string errorStr = strprintf( "%s: [%d - %s]\n",
-                    err.msg, err.category,
-                    zendoo_get_category_name(err.category));
-
-                LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify, with error [%s]\n",
-                    __func__, __LINE__, input.certHash.ToString(), errorStr);
-                zendoo_clear_error();
+                LogPrintf("ERROR: %s():%d - tx [%s] has csw proof which does not verify: ret[%d], code [0x%x]\n",
+                    __func__, __LINE__, input.transactionPtr->GetHash().ToString(), (int)ret, code);
             }
-
-            return false;
         }
-#endif
+    }
+
+    for (const auto& entry : certEnqueuedData)
+    {
+        const CCertProofVerifierInput& input = entry.second;
+
         int custom_fields_len = input.vCustomFields.size(); 
         std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
         int i = 0;
@@ -190,7 +169,6 @@ bool CScProofVerifier::_batchVerifyInternal(const std::map</*scTxHash*/uint256, 
             i++;
         }
 
-        CctpErrorCode code;
         bool ret = batchVerifier.add_certificate_proof(
             idx,
             input.constant.GetFieldElement().get(),
@@ -208,16 +186,13 @@ bool CScProofVerifier::_batchVerifyInternal(const std::map</*scTxHash*/uint256, 
             &code
         );
         idx++;
+
+        if (!ret || code != CctpErrorCode::OK)
+        {
+            LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify: ret[%d], code [0x%x]\n",
+                __func__, __LINE__, input.certHash.ToString(), (int)ret, code);
+        }
     }
 
-    return true;
+    return true; 
 }
-
-#if 0
-bool CScProofVerifier::verifyCTxCeasedSidechainWithdrawalInput() const
-{
-    // TODO: call rust implementation.
-    return true;
-}
-#endif
-
