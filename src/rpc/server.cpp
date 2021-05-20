@@ -266,6 +266,7 @@ static const CRPCCommand vRPCCommands[] =
     { "control",            "getscinfo",              &getscinfo,              true  },
     { "control",            "getactivecertdatahash",  &getactivecertdatahash,  true  },
     { "control",            "getscgenesisinfo",       &getscgenesisinfo,       true  },
+    { "control",            "getproofverifierstats",  &getproofverifierstats,  true  },
 
     /* P2P networking */
     { "network",            "getnetworkinfo",         &getnetworkinfo,         true  },
