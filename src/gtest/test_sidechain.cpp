@@ -320,7 +320,7 @@ TEST_F(SidechainsTestSuite, ValidCSWTx) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
+    csw.scProof = CScProof{SAMPLE_CSW_DARLIN_PROOF};
     csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -338,7 +338,7 @@ TEST_F(SidechainsTestSuite, InvalidNullifier) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{};
-    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
+    csw.scProof = CScProof{SAMPLE_CSW_DARLIN_PROOF};
     csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -358,7 +358,7 @@ TEST_F(SidechainsTestSuite, CSWTxNegativeAmount) {
 
     csw.nValue = -1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
+    csw.scProof = CScProof{SAMPLE_CSW_DARLIN_PROOF};
     csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -378,7 +378,7 @@ TEST_F(SidechainsTestSuite, CSWTxHugeAmount) {
 
     csw.nValue = MAX_MONEY + 1;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
+    csw.scProof = CScProof{SAMPLE_CSW_DARLIN_PROOF};
     csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -398,7 +398,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidNullifier) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
-    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
+    csw.scProof = CScProof{SAMPLE_CSW_DARLIN_PROOF};
     csw.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -418,7 +418,7 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidActCertData) {
 
     csw.nValue = 100;
     csw.nullifier = CFieldElement{SAMPLE_FIELD};
-    csw.scProof = CScProof{ParseHex(SAMPLE_PROOF_NO_BWT)};
+    csw.scProof = CScProof{SAMPLE_CSW_DARLIN_PROOF};
     csw.actCertDataHash = CFieldElement{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     csw.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     CTransaction aTransaction = txCreationUtils::createCSWTxWith(csw);
@@ -823,7 +823,7 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainIsAccepted) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
-    initialScState.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    initialScState.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
     initialScState.balance = CAmount{1000};
     initialScState.pastEpochTopQualityCertView.certDataHash = CFieldElement{SAMPLE_FIELD};
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
@@ -848,7 +848,7 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainWithWrongActiveCertDataIsRefuse
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
-    initialScState.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    initialScState.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
     initialScState.balance = CAmount{1000};
 
     std::vector<unsigned char> badVec(size_t(CFieldElement::ByteSize()-2), 0xaa);
@@ -873,7 +873,7 @@ TEST_F(SidechainsTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
-    initialScState.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    initialScState.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
     initialScState.balance = CAmount{1000};
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
@@ -893,7 +893,7 @@ TEST_F(SidechainsTestSuite, ValidCeasedCumTreeHashesForCeasedSidechain) {
     uint256 scId = uint256S("aaaa");
     sc.creationBlockHeight = 1492;
     sc.fixedParams.withdrawalEpochLength = 14;
-    sc.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    sc.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
     sc.balance = CAmount{1000};
     int heightWhereCeased = sc.GetScheduledCeasingHeight();
 
@@ -912,7 +912,7 @@ TEST_F(SidechainsTestSuite, InvalidCeasedCumTreeHashesForUnceasedSidechain) {
     uint256 scId = uint256S("aaaa");
     sc.creationBlockHeight = 1492;
     sc.fixedParams.withdrawalEpochLength = 14;
-    sc.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    sc.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
     sc.balance = CAmount{1000};
     int heightWhereCeased = sc.GetScheduledCeasingHeight();
 
@@ -929,7 +929,7 @@ TEST_F(SidechainsTestSuite, InvalidCeasedCumTreeHashesForJustStartedSidechain) {
     uint256 scId = uint256S("aaaa");
     sc.creationBlockHeight = 1492;
     sc.fixedParams.withdrawalEpochLength = 14;
-    sc.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    sc.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
     sc.balance = CAmount{1000};
 
     storeSidechainWithCurrentHeight(scId, sc, sc.creationBlockHeight+1);
@@ -956,7 +956,7 @@ TEST_F(SidechainsTestSuite, CSWsToActiveSidechainIsRefused) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
-    initialScState.fixedParams.wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    initialScState.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
     initialScState.balance = CAmount{1000};
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
 

@@ -1788,8 +1788,8 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creation
     scTx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = CAmount(1); // Dummy amount
     scTx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1;
 
-    scTx.vsc_ccout[0].wCertVk = CScVKey(ParseHex(SAMPLE_VK));
-    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    scTx.vsc_ccout[0].wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 
@@ -1912,7 +1912,7 @@ CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(
     res.endEpochBlockHash = endEpochBlockHash;
     res.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     res.quality = quality;
-    res.scProof = CScProof{ParseHex(SAMPLE_PROOF)};
+    res.scProof = CScProof{SAMPLE_CERT_DARLIN_PROOF};
     res.forwardTransferScFee = ftScFee;
     res.mainchainBackwardTransferRequestScFee = mbtrScFee;
 

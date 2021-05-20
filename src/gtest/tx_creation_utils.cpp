@@ -39,8 +39,10 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vsc_ccout.resize(1);
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
-    mtx.vsc_ccout[0].wCertVk   = CScVKey(ParseHex(SAMPLE_VK));
-    mtx.vsc_ccout[0].wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    mtx.vsc_ccout[0].wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    mtx.vsc_ccout[0].wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    mtx.vsc_ccout[0].vFieldElementCertificateFieldConfig.push_back(22);
+    mtx.vsc_ccout[0].customData.push_back(0x33);
     mtx.vsc_ccout[0].forwardTransferScFee = ftScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = mbtrScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = mbtrDataLength;
@@ -128,7 +130,7 @@ CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(
     CFieldElement ceasingCumScTxCommTree{tmp3};
 
     uint160 dummyPubKeyHash {};
-    CScProof dummyScProof{ParseHex(SAMPLE_PROOF)};
+    CScProof dummyScProof{SAMPLE_CERT_DARLIN_PROOF};
     CScript dummyRedeemScript;
 
     return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, actCertDataHash, ceasingCumScTxCommTree, dummyRedeemScript);
@@ -219,7 +221,7 @@ CScCertificate txCreationUtils::createCertificate(
     res.forwardTransferScFee = ftScFee;
     res.mainchainBackwardTransferRequestScFee = mbtrScFee;
 
-    res.scProof = CScProof{ParseHex(SAMPLE_PROOF)};
+    res.scProof = CScProof{SAMPLE_CERT_DARLIN_PROOF};
 
     res.vin.resize(1);
     res.vin[0].prevout.hash = uint256S("1");
