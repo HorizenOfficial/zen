@@ -292,6 +292,17 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
                                                     .proofVerified = ret });
     }
 
+    int64_t failingProof = -1;
+    ZendooBatchProofVerifierResult verRes = batchVerifier.batch_verify_all(&code);
+    if (!verRes.result)
+    {
+        allProvesVerified = false;
+        failingProof = verRes.failing_proof;
+ 
+        LogPrintf("ERROR: %s():%d - verify all failed: proofId[%lld], code [0x%x]\n",
+            __func__, __LINE__, failingProof, code);
+    }
+
     return std::pair<bool, std::vector<AsyncProofVerifierOutput>> { allProvesVerified, outputs };
 }
 
