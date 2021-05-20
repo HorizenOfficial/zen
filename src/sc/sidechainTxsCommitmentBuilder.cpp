@@ -39,11 +39,15 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
     const uint256& pub_key = ccout.address;
     BufferWithSize bws_pk(pub_key.begin(), pub_key.size());
 
-    BufferWithSize bws_fe_cfg(
-        (const unsigned char*)&ccout.vFieldElementCertificateFieldConfig[0],
-        (size_t)ccout.vFieldElementCertificateFieldConfig.size()
-    );
-
+    std::unique_ptr<BufferWithSize[]> bws_fe_cfg(nullptr);
+    if (!ccout.vFieldElementCertificateFieldConfig.empty())
+    {
+        bws_fe_cfg.reset(new BufferWithSize(
+            (const unsigned char*)&ccout.vFieldElementCertificateFieldConfig[0],
+            (size_t)ccout.vFieldElementCertificateFieldConfig.size()
+        ));
+    }
+ 
     int bvcfg_size = ccout.vBitVectorCertificateFieldConfig.size(); 
     std::unique_ptr<BitVectorElementsConfig[]> bvcfg(new BitVectorElementsConfig[bvcfg_size]);
     int i = 0;
@@ -54,11 +58,13 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
         i++;
     }
 
-    BufferWithSize bws_custom_data(nullptr, 0);
+    std::unique_ptr<BufferWithSize[]> bws_custom_data(nullptr);
     if (!ccout.customData.empty())
     {
-        bws_custom_data.data = (unsigned char*)(&ccout.customData[0]);
-        bws_custom_data.len = ccout.customData.size();
+        bws_custom_data.reset(new BufferWithSize(
+            (unsigned char*)(&ccout.customData[0]),
+            ccout.customData.size()
+        ));
     }
 
     field_t* constant_fe = nullptr;
@@ -84,12 +90,12 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
          out_idx,
          ccout.withdrawalEpochLength,
          ccout.mainchainBackwardTransferRequestDataLength,
-         &bws_fe_cfg,
+         bws_fe_cfg.get(),
          bvcfg.get(),
          bvcfg_size,
          ccout.mainchainBackwardTransferRequestScFee, 
          ccout.forwardTransferScFee, 
-         &bws_custom_data,
+         bws_custom_data.get(),
          constant_fe, 
          &bws_cert_vk,
          &bws_csw_vk,

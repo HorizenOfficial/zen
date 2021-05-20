@@ -29,9 +29,6 @@ static CMutableTransaction CreateDefaultTx()
     mtx.vsc_ccout[0].withdrawalEpochLength = 150;
     mtx.vsc_ccout[0].wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
     mtx.vsc_ccout[0].wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
-    // TODO as of now these are not mandatory but are required by mc crypto lib: test the case of missing values
-    mtx.vsc_ccout[0].vFieldElementCertificateFieldConfig.push_back(22);
-    mtx.vsc_ccout[0].customData.push_back(0x33);
     //---
     mtx.vft_ccout.resize(1);
     mtx.vft_ccout[0].scId = uint256S("abababcdcdcd");
@@ -610,7 +607,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("0ee75779df9e7fab7a6c2f7472acfd24d4ae6b9dc1f077d02ac4ad974cdf0194"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("34ea708998e1493bee5554219e4568af517530f70b0c602ca115aa8c6d440fbb"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -795,7 +792,7 @@ TEST(CctpLibrary, BitVectorMerkleTree)
 {
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
-// cctp does an assert (false) if  the size of buffer is too short
+// cctp does an assert(false) if  the size of buffer is too short
 //    unsigned char buffer[5] = {0xad, 0xde, 0xef, 0xbe, 0x00};
     unsigned char buffer[65] = {
         0xad, 0xde, 0xef, 0xbe, 0x00, 0xaa, 0xdd, 0xff,
