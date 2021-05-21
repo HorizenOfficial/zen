@@ -120,6 +120,11 @@ bool CScProofVerifier::BatchVerify() const
         return true;
     }
 
+    if (cswEnqueuedData.size() + certEnqueuedData.size() == 0)
+    {
+        return true;
+    }
+
     CctpErrorCode code;
     ZendooBatchProofVerifier batchVerifier;
     uint32_t idx = 0;
