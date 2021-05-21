@@ -92,6 +92,8 @@ testScripts=(
   'sc_cert_maturity.py'
   'sbh_rpc_cmds.py'
   'sc_cert_ceasing.py'
+  'ws_messages.py'
+  'sc_cert_getraw.py'
   'sc_getscinfo.py'
   'sc_quality_mempool.py'
   'sc_quality_blockchain.py'
@@ -104,8 +106,8 @@ testScripts=(
   'sc_csw_nullifier.py'
   'sc_cert_memcleanup_split.py'
   'sc_cert_ceasing_split.py'
-  'sc_ft_and_mbtr_fees.py'
   'sc_csw_actcertdata.py'
+  'sc_ft_and_mbtr_fees.py'
 );
 
 testScriptsExt=(

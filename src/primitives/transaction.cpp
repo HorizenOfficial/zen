@@ -212,31 +212,34 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
-                                                                     const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
-                                                                     const CScProof& scProofIn, const CScript& redeemScriptIn,
-                                                                     int32_t actCertDataIdxIn)
+CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput(
+    const CAmount& nValueIn, const uint256& scIdIn, const CFieldElement& nullifierIn,
+    const uint160& pubKeyHashIn, const CScProof& scProofIn,
+    const CFieldElement& actCertDataHashIn, const CFieldElement& ceasingCumScTxCommTreeIn,
+    const CScript& redeemScriptIn)
 {
     nValue = nValueIn;
     scId = scIdIn;
     nullifier = nullifierIn;
     pubKeyHash = pubKeyHashIn;
     scProof = scProofIn;
+    actCertDataHash = actCertDataHashIn;
+    ceasingCumScTxCommTree = ceasingCumScTxCommTreeIn;
     redeemScript = redeemScriptIn;
-    actCertDataIdx = actCertDataIdxIn;
 }
 
 CTxCeasedSidechainWithdrawalInput::CTxCeasedSidechainWithdrawalInput():
-    nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript(), actCertDataIdx(-1) {}
+    nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), actCertDataHash(), ceasingCumScTxCommTree(), redeemScript() {}
 
 std::string CTxCeasedSidechainWithdrawalInput::ToString() const
 {
     return strprintf(
         "CTxCeasedSidechainWithdrawalInput("
         "nValue=%d.%08d, scId=%s,\nnullifier=%s,\npubKeyHash=%s,\nscProof=%s,\n"
-        "redeemScript=%s,\nactCertDataIdx=%d)\n",
+        "actCertDataHash=%s, \nceasingCumScTxCommTree=%s, redeemScript=%s)\n",
                      nValue / COIN, nValue % COIN, scId.ToString(), nullifier.GetHexRepr().substr(0, 10),
-                     pubKeyHash.ToString(), scProof.GetHexRepr().substr(0, 10), HexStr(redeemScript).substr(0, 24), actCertDataIdx);
+        pubKeyHash.ToString(), scProof.GetHexRepr().substr(0, 10), actCertDataHash.GetHexRepr().substr(0, 10),
+        ceasingCumScTxCommTree.GetHexRepr().substr(0, 10), HexStr(redeemScript).substr(0, 24));
 }
 
 CScript CTxCeasedSidechainWithdrawalInput::scriptPubKey() const
@@ -327,7 +330,7 @@ std::string CTxScCreationOut::ToString() const
                                        "vBitVectorCertificateFieldConfig[%s], "
                                        "forwardTransferScFee=%d, "
                                        "mainchainBackwardTransferRequestScFee=%d, "
-                                       "mainchainBackwardTransferRequestDataLength=%d",
+                                       "mainchainBackwardTransferRequestDataLength=%u",
         generatedScId.ToString(), withdrawalEpochLength, nValue / COIN,
         nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
         constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
@@ -339,6 +342,7 @@ std::string CTxScCreationOut::ToString() const
 
 void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) const
 {
+#if 0
     const uint256& scid = Hash(
             BEGIN(txHash),    END(txHash),
             BEGIN(pos),       END(pos) );
@@ -346,7 +350,26 @@ void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) con
     LogPrint("sc", "%s():%d - updating scid=%s - tx[%s], pos[%u]\n",
         __func__, __LINE__, scid.ToString(), txHash.ToString(), pos);
 
+    // TODO temporary until we can use a PoseidonHash instead of a SHA one
+    //----
+    // clear last two bits for rendering it a valid tweedle field element
+    unsigned char* ptr = const_cast<unsigned char*>(scid.begin());
+    assert(SC_FIELD_SIZE <= scid.size());
+    ptr[SC_FIELD_SIZE-1] &= 0x3f;
+
+    LogPrint("sc", "%s():%d - trimmed scid=%s\n", __func__, __LINE__, scid.ToString());
+#else
+
+    CctpErrorCode code;
+    const BufferWithSize bws_tx_hash(txHash.begin(), txHash.size());
+    field_t* scid_fe = zendoo_compute_sc_id(&bws_tx_hash, pos, &code); 
+#endif
+
+    const std::vector<unsigned char> tmp((uint8_t*)scid_fe, (uint8_t*)scid_fe + Sidechain::SC_FE_SIZE_IN_BYTES);
+    uint256 scid(tmp);
     *const_cast<uint256*>(&generatedScId) = scid;
+
+    zendoo_field_free(scid_fe);
 }
 
 CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
@@ -397,12 +420,11 @@ CMutableTransactionBase::CMutableTransactionBase():
     nVersion(TRANSPARENT_TX_VERSION), vin(), vout() {}
 
 CMutableTransaction::CMutableTransaction() : CMutableTransactionBase(),
-    vcsw_ccin(), vsc_ccout(), vft_ccout(), vmbtr_out(), vact_cert_data(),
+    vcsw_ccin(), vsc_ccout(), vft_ccout(), vmbtr_out(), 
     nLockTime(0), vjoinsplit(), joinSplitPubKey(), joinSplitSig() {}
 
 CMutableTransaction::CMutableTransaction(const CTransaction& tx): CMutableTransactionBase(),
-    vcsw_ccin(tx.GetVcswCcIn()), vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()),
-    vmbtr_out(tx.GetVBwtRequestOut()), vact_cert_data(tx.GetVActCertData()),
+    vcsw_ccin(tx.GetVcswCcIn()), vsc_ccout(tx.GetVscCcOut()), vft_ccout(tx.GetVftCcOut()), vmbtr_out(tx.GetVBwtRequestOut()), 
     nLockTime(tx.GetLockTime()), vjoinsplit(tx.GetVjoinsplit()), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     nVersion = tx.nVersion;
@@ -424,12 +446,6 @@ bool CMutableTransaction::addBwt(const CTxOut& out)             { return false; 
 bool CMutableTransaction::add(const CTxScCreationOut& out)      { vsc_ccout.push_back(out); return true; }
 bool CMutableTransaction::add(const CTxForwardTransferOut& out) { vft_ccout.push_back(out); return true; }
 bool CMutableTransaction::add(const CBwtRequestOut& out)        { vmbtr_out.push_back(out); return true; }
-bool CMutableTransaction::add(const CFieldElement& acd)         { vact_cert_data.push_back(acd); return true; }
-
-int CMutableTransaction::GetIndexOfActCertData(const CFieldElement& actCertData) const
-{
-    return FindIndexOf(vact_cert_data, actCertData);
-}
 
 //--------------------------------------------------------------------------------------------------------
 CTransactionBase::CTransactionBase(int nVersionIn):
@@ -687,12 +703,12 @@ bool CTransaction::CheckInputsInteraction(CValidationState &state) const
 
 CTransaction::CTransaction(int nVersionIn): CTransactionBase(nVersionIn),
     vjoinsplit(), nLockTime(0), vcsw_ccin(), vsc_ccout(), vft_ccout(), vmbtr_out(),
-    vact_cert_data(), joinSplitPubKey(), joinSplitSig() {}
+    joinSplitPubKey(), joinSplitSig() {}
 
 CTransaction::CTransaction(const CTransaction &tx) : CTransactionBase(tx),
     vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
     vcsw_ccin(tx.vcsw_ccin), vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
-    vact_cert_data(tx.vact_cert_data), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig) {}
+    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig) {}
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     CTransactionBase::operator=(tx);
@@ -702,7 +718,6 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<std::vector<CTxScCreationOut>*>(&vsc_ccout)      = tx.vsc_ccout;
     *const_cast<std::vector<CTxForwardTransferOut>*>(&vft_ccout) = tx.vft_ccout;
     *const_cast<std::vector<CBwtRequestOut>*>(&vmbtr_out)        = tx.vmbtr_out;
-    *const_cast<std::vector<CFieldElement>*>(&vact_cert_data)    = tx.vact_cert_data;
     *const_cast<uint256*>(&joinSplitPubKey)                      = tx.joinSplitPubKey;
     *const_cast<joinsplit_sig_t*>(&joinSplitSig)                 = tx.joinSplitSig;
     return *this;
@@ -719,7 +734,7 @@ void CTransaction::UpdateHash() const
 CTransaction::CTransaction(const CMutableTransaction &tx): CTransactionBase(tx),
     vjoinsplit(tx.vjoinsplit), nLockTime(tx.nLockTime),
     vcsw_ccin(tx.vcsw_ccin), vsc_ccout(tx.vsc_ccout), vft_ccout(tx.vft_ccout), vmbtr_out(tx.vmbtr_out),
-    vact_cert_data(tx.vact_cert_data), joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
+    joinSplitPubKey(tx.joinSplitPubKey), joinSplitSig(tx.joinSplitSig)
 {
     UpdateHash();
 }
@@ -910,15 +925,15 @@ std::string CTransaction::ToString() const
     return str;
 }
 
-bool CTransaction::CheckInputsLimit(CValidationState& state) const {
+bool CTransaction::CheckInputsLimit() const {
     // Node operator can choose to reject tx by number of transparent inputs and csw inputs
     static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
     size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
     if (limit > 0) {
         size_t n = GetVin().size() + GetVcswCcIn().size();
         if (n > limit) {
-            return state.DoS(10, error("%s():%d - Dropping tx %s : too many transparent inputs %zu > limit %zu\n",
-                __func__, __LINE__, GetHash().ToString(), n, limit), CValidationState::Code::INVALID, "bad-tx-vin-input-limit");
+            LogPrint("mempool", "%s():%d - Dropping tx %s : too many transparent inputs %zu > limit %zu\n",
+                __func__, __LINE__, GetHash().ToString(), n, limit);
             return false;
         }
     }
@@ -1117,11 +1132,6 @@ bool CTransaction::VerifyScript(
     }
 
     return true;
-}
-
-int CTransaction::GetIndexOfActCertData(const CFieldElement& actCertData) const
-{
-    return FindIndexOf(vact_cert_data, actCertData);
 }
 
 std::string CTransaction::EncodeHex() const

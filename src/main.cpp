@@ -39,6 +39,7 @@
 #include "zen/forkmanager.h"
 #include "zen/delay.h"
 
+#include "core_io.h"
 #include "sc/asyncproofverifier.h"
 #include "sc/proofverifier.h"
 #include "sc/sidechain.h"
@@ -1145,7 +1146,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
     // is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
     int nextBlockHeight = pcoinsTip->GetHeight() + 1;
 
-    if (!cert.CheckInputsLimit(state))
+    if (!cert.CheckInputsLimit())
     {
         LogPrintf("%s(): CheckInputsLimit failed", __func__);
         return MempoolReturnValue::INVALID;
@@ -1175,8 +1176,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
     if (!pool.checkIncomingCertConflicts(cert))
     {
-        state.DoS(0, error("%s(): certificate has conflicts in mempool", __func__),
-                            CValidationState::Code::HAS_CONFLICTS, "bad-sc-cert-has-conflicts");
+        LogPrintf("%s(): certificate has conflicts in mempool", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1184,10 +1184,9 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
     std::pair<uint256, CAmount> conflictingCertData = pool.FindCertWithQuality(cert.GetScId(), cert.quality);
 
     {
+        uint256 certHash = cert.GetHash();
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
-        uint256 certHash = cert.GetHash();
-
 
         CAmount nFees = 0;
         {
@@ -1198,19 +1197,19 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             // do we already have it?
             if (view.HaveCoins(certHash))
             {
-                state.Invalid(
-                    error("%s():%d Dropping cert %s : view already has coins\n",
-                        __func__, __LINE__, certHash.ToString()),
-                    CValidationState::Code::HAS_CONFLICTS, "bad-sc-cert-has-conflicts");
+                LogPrint("mempool", "%s():%d Dropping cert %s : view already has coins\n",
+                    __func__, __LINE__, certHash.ToString());
                 return MempoolReturnValue::INVALID;
             }
 
-            CValidationState::Code ret_code = view.IsCertApplicableToState(cert);
+            bool banSenderNode = false;
+            int nDoS = 0;
+
+            CValidationState::Code ret_code = view.IsCertApplicableToState(cert, &banSenderNode);
             if (ret_code != CValidationState::Code::OK)
             {
-                int nDoS = 100;
-                if (ret_code == CValidationState::Code::SC_CUM_COMM_TREE)
-                    nDoS = 0;
+                if (banSenderNode)
+                    nDoS = 100;
 
                 state.DoS(nDoS, error("%s():%d - certificate not applicable: ret_code[0x%x]",
                     __func__, __LINE__, CValidationState::CodeToChar(ret_code)),
@@ -1225,10 +1224,8 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             {
                 if (!view.HaveCoins(txin.prevout.hash))
                 {
-                    state.Invalid(
-                        error("%s(): Dropping cert %s : no coins for vin (tx=%s)\n",
-                            __func__, certHash.ToString(), txin.prevout.hash.ToString()),
-                        CValidationState::Code::NO_COINS_FOR_INPUT, "bad-sc-cert-has-no-coins-for-vin");
+                    LogPrint("mempool", "%s(): Dropping cert %s : no coins for vin (tx=%s)\n",
+                        __func__, certHash.ToString(), txin.prevout.hash.ToString());
                     return MempoolReturnValue::MISSING_INPUT;
                 }
             }
@@ -1261,10 +1258,8 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
         // Check for non-standard pay-to-script-hash in inputs
         if (getRequireStandard() && !AreInputsStandard(cert, view)) {
-            state.Invalid(
-                error("%s():%d - Dropping cert %s : nonstandard transaction input\n",
-                    __func__, __LINE__, certHash.ToString()),
-                CValidationState::Code::NONSTANDARD, "bad-sc-cert-non-standard");
+            LogPrintf("%s():%d - Dropping cert %s : nonstandard transaction input\n",
+                    __func__, __LINE__, certHash.ToString());
             return MempoolReturnValue::INVALID;
         }
 
@@ -1336,10 +1331,8 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
         if (fRejectAbsurdFee == RejectAbsurdFeeFlag::ON && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
         {
-            state.Invalid(
-                error("%s():%d - absurdly high fees cert[%s], %d > %d\n",
-                    __func__, __LINE__, certHash.ToString(), nFees, ::minRelayTxFee.GetFee(nSize) * 10000),
-                CValidationState::Code::ABSURDLY_HIGH_FEE, "bad-sc-cert-absurd-fee");
+            LogPrintf("%s():%d - absurdly high fees cert[%s], %d > %d\n",
+                    __func__, __LINE__, certHash.ToString(), nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
             return MempoolReturnValue::INVALID;
         }
 
@@ -1410,7 +1403,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
     // is called after having reverted the txs from the pcoinsTip view but before having updated the chainActive
     int nextBlockHeight = pcoinsTip->GetHeight() + 1;
 
-    if (!tx.CheckInputsLimit(state))
+    if (!tx.CheckInputsLimit())
     {
         LogPrintf("%s(): CheckInputsLimit failed", __func__);
         return MempoolReturnValue::INVALID;
@@ -1468,9 +1461,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
 
     if (!pool.checkIncomingTxConflicts(tx))
     {
-        state.Invalid(
-            error("%s():%d: tx[%s] has conflicts in mempool", __func__, __LINE__, tx.GetHash().ToString()),
-            CValidationState::Code::HAS_CONFLICTS, "bad-tx-has-conflicts");
+        LogPrintf("%s():%d: tx[%s] has conflicts in mempool", __func__, __LINE__, tx.GetHash().ToString());
         return MempoolReturnValue::INVALID;
     }
 
@@ -1488,10 +1479,8 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             // do we already have it?
             if (view.HaveCoins(hash))
             {
-                state.Invalid(
-                    error("%s():%d Dropping tx %s : view already has coins\n",
-                        __func__, __LINE__, tx.GetHash().ToString()),
-                    CValidationState::Code::HAS_CONFLICTS, "bad-tx-has-conflicts");
+                LogPrint("mempool", "%s():%d Dropping tx %s : view already has coins\n",
+                    __func__, __LINE__, tx.GetHash().ToString());
                 return MempoolReturnValue::INVALID;
             }
 
@@ -1502,10 +1491,8 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             {
                 if (!view.HaveCoins(txin.prevout.hash))
                 {
-                    state.Invalid(
-                        error("%s(): Dropping tx %s : no coins for vin (tx=%s)\n",
-                            __func__, tx.GetHash().ToString(), txin.prevout.hash.ToString()),
-                        CValidationState::Code::NO_COINS_FOR_INPUT, "bad-tx-has-no-coins-for-vin");
+                    LogPrint("mempool", "%s():%d - Dropping tx %s : no coins for vin (tx=%s)\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), txin.prevout.hash.ToString());
                     return MempoolReturnValue::MISSING_INPUT;
                 }
             }
@@ -1519,13 +1506,14 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 return MempoolReturnValue::INVALID;
             }
 
-            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx);
+            bool banSenderNode = false;
+            int nDoS = 0;
+
+            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx, &banSenderNode);
             if (ret_code != CValidationState::Code::OK)
             {
-                int nDoS = 100;
-                // ban node unless the error is about active cert data hash matching
-                if (ret_code == CValidationState::Code::ACTIVE_CERT_DATA_HASH)
-                    nDoS = 0;
+                if (banSenderNode)
+                    nDoS = 100;
 
                 state.DoS(nDoS,
                     error("%s():%d - ERROR: sc-related tx [%s] is not applicable: ret_code[0x%x]\n",
@@ -1554,10 +1542,8 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         // Check for non-standard pay-to-script-hash in inputs
         if (getRequireStandard() && !AreInputsStandard(tx, view))
         {
-            state.Invalid(
-                error("%s():%d - Dropping tx %s : nonstandard transaction input\n",
-                    __func__, __LINE__, tx.GetHash().ToString()),
-                CValidationState::Code::NONSTANDARD, "bad-tx-non-standard");
+            LogPrintf("%s():%d - Dropping tx %s : nonstandard transaction input\n",
+                    __func__, __LINE__, tx.GetHash().ToString());
             return MempoolReturnValue::INVALID;
         }
 
@@ -1637,9 +1623,8 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
 
         if (fRejectAbsurdFee == RejectAbsurdFeeFlag::ON && nFees > ::minRelayTxFee.GetFee(nSize) * 10000)
         {
-            state.Invalid(error("%s():%d - absurdly high fees tx[%s], %d > %d\n",
-                                __func__, __LINE__, hash.ToString(), nFees, ::minRelayTxFee.GetFee(nSize) * 10000),
-                          CValidationState::Code::ABSURDLY_HIGH_FEE, "bad-tx-absurd-fee");
+            LogPrintf("%s():%d - absurdly high fees tx[%s], %d > %d\n",
+                    __func__, __LINE__, hash.ToString(), nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
             return MempoolReturnValue::INVALID;
         }
 
@@ -1723,28 +1708,28 @@ MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &
 /** Return transaction in tx, and if it was found inside a block, its hash is placed in hashBlock */
 bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock, bool fAllowSlow)
 {
-    CBlockIndex *pindexSlow = NULL;
-
     LOCK(cs_main);
 
     if (mempool.lookup(hash, txOut))
-    {
         return true;
-    }
 
-    if (fTxIndex) {
+    if (fTxIndex)
+    {
         CDiskTxPos postx;
-        if (pblocktree->ReadTxIndex(hash, postx)) {
+        if (pblocktree->ReadTxIndex(hash, postx))
+        {
             CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
             if (file.IsNull())
                 return error("%s: OpenBlockFile failed", __func__);
             CBlockHeader header;
-            try {
+            try
+            {
                 file >> header;
                 fseek(file.Get(), postx.nTxOffset, SEEK_CUR);
                 file >> txOut;
-            } catch (const std::exception& e) {
-                return error("%s: Deserialize or I/O error - %s", __func__, e.what());
+            } catch (const std::exception& e)
+            {
+                return error("%s: Attempt to deserialize tx from disk failed or I/O error - %s", __func__, e.what());
             }
             hashBlock = header.GetHash();
             if (txOut.GetHash() != hash)
@@ -1753,7 +1738,9 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
         }
     }
 
-    if (fAllowSlow) { // use coin database to locate block that contains transaction, and scan it
+    if (fAllowSlow) // use coin database to locate block that contains transaction, and scan it
+    {
+        CBlockIndex *pindexSlow = nullptr;
         int nHeight = -1;
         {
             CCoinsViewCache &view = *pcoinsTip;
@@ -1763,16 +1750,20 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
         }
         if (nHeight > 0)
             pindexSlow = chainActive[nHeight];
-    }
 
-    if (pindexSlow) {
-        CBlock block;
-        if (ReadBlockFromDisk(block, pindexSlow)) {
-            BOOST_FOREACH(const CTransaction &tx, block.vtx) {
-                if (tx.GetHash() == hash) {
-                    txOut = tx;
-                    hashBlock = pindexSlow->GetBlockHash();
-                    return true;
+        if (pindexSlow)
+        {
+            CBlock block;
+            if (ReadBlockFromDisk(block, pindexSlow))
+            {
+                for(const CTransaction &tx: block.vtx)
+                {
+                    if (tx.GetHash() == hash)
+                    {
+                        txOut = tx;
+                        hashBlock = pindexSlow->GetBlockHash();
+                        return true;
+                    }
                 }
             }
         }
@@ -1784,28 +1775,28 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
 /** Return certificate in certOut, and if it was found inside a block, its hash is placed in hashBlock */
 bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashBlock, bool fAllowSlow)
 {
-    CBlockIndex *pindexSlow = NULL;
-
     LOCK(cs_main);
 
     if (mempool.lookup(hash, certOut))
-    {
         return true;
-    }
 
-    if (fTxIndex) {
+    if (fTxIndex)
+    {
         CDiskTxPos postx;
-        if (pblocktree->ReadTxIndex(hash, postx)) {
+        if (pblocktree->ReadTxIndex(hash, postx))
+        {
             CAutoFile file(OpenBlockFile(postx, true), SER_DISK, CLIENT_VERSION);
             if (file.IsNull())
                 return error("%s: OpenBlockFile failed", __func__);
             CBlockHeader header;
-            try {
+            try
+            {
                 file >> header;
                 fseek(file.Get(), postx.nTxOffset, SEEK_CUR);
                 file >> certOut;
-            } catch (const std::exception& e) {
-                return error("%s: Deserialize or I/O error - %s", __func__, e.what());
+            } catch (const std::exception& e)
+            {
+                return error("%s: Attempt to deserialize cert from disk failed or I/O error - %s", __func__, e.what());
             }
             hashBlock = header.GetHash();
             if (certOut.GetHash() != hash)
@@ -1814,8 +1805,10 @@ bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashB
         }
     }
 
-    if (fAllowSlow) { // use coin database to locate block that contains cert, and scan it
+    if (fAllowSlow) // use coin database to locate block that contains cert, and scan it
+    {
         int nHeight = -1;
+        CBlockIndex *pindexSlow = nullptr;
         {
             CCoinsViewCache &view = *pcoinsTip;
             const CCoins* coins = view.AccessCoins(hash);
@@ -1824,16 +1817,20 @@ bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashB
         }
         if (nHeight > 0)
             pindexSlow = chainActive[nHeight];
-    }
 
-    if (pindexSlow) {
-        CBlock block;
-        if (ReadBlockFromDisk(block, pindexSlow)) {
-            BOOST_FOREACH(const CScCertificate &cert, block.vcert) {
-                if (cert.GetHash() == hash) {
-                    certOut = cert;
-                    hashBlock = pindexSlow->GetBlockHash();
-                    return true;
+        if (pindexSlow)
+        {
+            CBlock block;
+            if (ReadBlockFromDisk(block, pindexSlow))
+            {
+                for(const CScCertificate &cert: block.vcert)
+                {
+                    if (cert.GetHash() == hash)
+                    {
+                        certOut = cert;
+                        hashBlock = pindexSlow->GetBlockHash();
+                        return true;
+                    }
                 }
             }
         }
@@ -1842,10 +1839,24 @@ bool GetCertificate(const uint256 &hash, CScCertificate &certOut, uint256 &hashB
     return false;
 }
 
+bool GetTxBaseObj(const uint256 &hash, std::unique_ptr<CTransactionBase>& pTxBase, uint256 &hashBlock, bool fAllowSlow)
+{
+    CTransaction txAttempt;
+    if (GetTransaction(hash, txAttempt, hashBlock, fAllowSlow))
+    {
+        pTxBase.reset(new CTransaction(txAttempt));
+        return true;
+    }
 
+    CScCertificate certAttempt;
+    if (GetCertificate(hash, certAttempt, hashBlock, fAllowSlow))
+    {
+        pTxBase.reset(new CScCertificate(certAttempt));
+        return true;
+    }
 
-
-
+    return false;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -6469,25 +6480,13 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         int txVers = 0;
         ::Unserialize(vRecv, txVers, nType, nVersion);
-        LogPrint("cert", "%s():%d - ############################### txVers[%d]\n", __func__, __LINE__, txVers );
 
-        if (CTransactionBase::IsTransaction(txVers) )
-        {
-            CTransaction tx(txVers);
-            tx.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
-            LogPrint("cert", "%s():%d - tx[%s]\n", __func__, __LINE__, tx.GetHash().ToString() );
-            ProcessTxBaseMsg(tx, pfrom);
-        }
-        else
-        if (CTransactionBase::IsCertificate(txVers) )
-        {
-            CScCertificate cert(txVers);
-            cert.SerializationOpInternal(vRecv, CSerActionUnserialize(), nType, nVersion);
-            LogPrint("cert", "%s():%d - cert[%s]\n", __func__, __LINE__, cert.GetHash().ToString() );
-            ProcessTxBaseMsg(cert, pfrom);
-        }
-        else
-        {
+        // allocated by the callee
+        std::unique_ptr<CTransactionBase> pTxBase;
+        ::makeSerializedTxObj(vRecv, txVers, pTxBase, nType, nVersion);
+        if (pTxBase) {
+            ProcessTxBaseMsg(*pTxBase, pfrom);
+        } else {
             // This case should never happen. Consider that failing to read stream properly throws an exception
             // which is not handled here
             LogPrintf("%s():%d - pushing reject: invalid obj got from peer=%d %s\n",

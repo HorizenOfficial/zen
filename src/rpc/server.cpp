@@ -265,6 +265,7 @@ static const CRPCCommand vRPCCommands[] =
     { "control",            "dbg_do",                 &dbg_do,                 true  },
     { "control",            "getscinfo",              &getscinfo,              true  },
     { "control",            "getactivecertdatahash",  &getactivecertdatahash,  true  },
+    { "control",            "getceasingcumsccommtreehash", &getceasingcumsccommtreehash, true  },
     { "control",            "getscgenesisinfo",       &getscgenesisinfo,       true  },
     { "control",            "getproofverifierstats",  &getproofverifierstats,  true  },
 

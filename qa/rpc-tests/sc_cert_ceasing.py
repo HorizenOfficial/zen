@@ -125,8 +125,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
                 "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [pkh_node1], [bwt_amount[0]])
 
-            cert_1 = self.nodes[0].send_certificate(scids[0], epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
-                                                    proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_1 = self.nodes[0].send_certificate(scids[0], epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -144,8 +144,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
                 "sc2", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [], [])
 
-            cert_2 = self.nodes[0].send_certificate(scids[1], epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
-                                                    proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_2 = self.nodes[0].send_certificate(scids[1], epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']

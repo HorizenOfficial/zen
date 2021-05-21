@@ -32,7 +32,7 @@ public:
         sidechain.lastTopQualityCertReferencedEpoch = -1;
         sidechain.lastTopQualityCertBwtAmount = 50;
         sidechain.balance = CAmount(100);
-        sidechain.fixedParams.wCertVk = CScVKey{ParseHex(SAMPLE_VK_NO_BWT)};
+        sidechain.fixedParams.wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
     }
 
     void SetUp() override
@@ -485,11 +485,25 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
 
     CTransaction cswTransaction = cswMutTransaction;
 
-    CCswProofVerifierInput input1 = { .transactionPtr = std::make_shared<CTransaction>(cswTransaction), .cswInput = cswInput1 };
-    CCswProofVerifierInput input2 = { .transactionPtr = std::make_shared<CTransaction>(cswTransaction), .cswInput = cswInput2 };
-    element.insert(std::make_pair(0, input1));
-    element.insert(std::make_pair(1, input2));
+    std::vector<CCswProofVerifierInput> inputs;
 
+    for (int i = 0; i < cswMutTransaction.vcsw_ccin.size(); i++)
+    {
+        CCswProofVerifierInput input = { .ceasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK},
+                                         .ceasingCumScTxCommTree = cswInput1.ceasingCumScTxCommTree,
+                                         .certDataHash = cswInput1.actCertDataHash,
+                                         .cswProof = cswInput1.scProof,
+                                         .node = &dummyNode,
+                                         .nValue = cswInput1.nValue,
+                                         .pubKeyHash = cswInput1.pubKeyHash,
+                                         .scId = cswInput1.scId,
+                                         .transactionPtr = std::make_shared<CTransaction>(cswTransaction)};
+
+        inputs.push_back(input);
+        element.insert(std::make_pair(i, input));
+    }
+
+    
     cswEnqueuedData.insert(std::make_pair(uint256S("aaaa"), element));
 
     std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> tempQueue;
@@ -508,10 +522,16 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
     std::map</*outputPos*/unsigned int, CCswProofVerifierInput> tempElement = tempQueue.begin()->second;
     ASSERT_EQ(tempElement.size(), 2);
     
-    ASSERT_NE(tempElement.at(0).transactionPtr, nullptr);
-    ASSERT_EQ(tempElement.at(0).transactionPtr->GetVcswCcIn().size(), 2);
-    ASSERT_EQ(tempElement.at(0).cswInput, cswInput1);
-    ASSERT_NE(tempElement.at(1).transactionPtr, nullptr);
-    ASSERT_EQ(tempElement.at(1).transactionPtr->GetVcswCcIn().size(), 2);
-    ASSERT_EQ(tempElement.at(1).cswInput, cswInput2);
+    for (int i = 0; i < tempElement.size(); i++)
+    {
+        ASSERT_NE(tempElement.at(i).ceasedVk, inputs.at(i).ceasedVk);
+        ASSERT_NE(tempElement.at(i).ceasingCumScTxCommTree, inputs.at(i).ceasingCumScTxCommTree);
+        ASSERT_NE(tempElement.at(i).certDataHash, inputs.at(i).certDataHash);
+        ASSERT_NE(tempElement.at(i).cswProof, inputs.at(i).cswProof);
+        ASSERT_NE(tempElement.at(i).node, inputs.at(i).node);
+        ASSERT_NE(tempElement.at(i).nValue, inputs.at(i).nValue);
+        ASSERT_NE(tempElement.at(i).pubKeyHash, inputs.at(i).pubKeyHash);
+        ASSERT_NE(tempElement.at(i).scId, inputs.at(i).scId);
+        ASSERT_NE(tempElement.at(i).transactionPtr, inputs.at(i).transactionPtr);
+    }
 }

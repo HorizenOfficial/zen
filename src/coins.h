@@ -674,7 +674,7 @@ public:
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
-    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx) const;
+    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode = nullptr) const;
     bool CheckScTxTiming(const uint256& scId) const;
     bool CheckScFtFee(const CTxForwardTransferOut& ftOutput) const;
     bool CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const;
@@ -683,7 +683,7 @@ public:
     int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    CValidationState::Code IsCertApplicableToState(const CScCertificate& cert) const;
+    CValidationState::Code IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode = nullptr) const;
     bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
 
     CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(
@@ -708,6 +708,7 @@ public:
     bool AddCswNullifier(const uint256& scId, const CFieldElement &nullifier);
     bool RemoveCswNullifier(const uint256& scId, const CFieldElement &nullifier);
 
+    CFieldElement GetCeasingCumTreeHash(const uint256& scId) const;
     const CScCertificateView& GetActiveCertView(const uint256& scId) const;
     CSidechain::State GetSidechainState(const uint256& scId) const;
 

@@ -188,7 +188,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
     result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
     result.push_back(Pair("anchor", blockindex->hashAnchorEnd.GetHex()));
-    result.push_back(Pair("anchor", blockindex->hashAnchorEnd.GetHex()));
+    result.push_back(Pair("scTxsCommitment", blockindex->hashScTxsCommitment.GetHex()));
     result.push_back(Pair("scCumTreeHash", blockindex->scCumTreeHash.GetHexRepr()));
 
     UniValue valuePools(UniValue::VARR);
@@ -1114,6 +1114,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
  
         if (bVerbose)
         {
+            sc.push_back(Pair("certProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCertVk.getProvingSystemType())));
             sc.push_back(Pair("wCertVk", info.fixedParams.wCertVk.GetHexRepr()));
             sc.push_back(Pair("customData", HexStr(info.fixedParams.customData)));
 
@@ -1123,7 +1124,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 sc.push_back(Pair("constant", std::string{"NOT INITIALIZED"}));
 
             if(info.fixedParams.wCeasedVk.is_initialized())
+            {
+                sc.push_back(Pair("cswProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType())));
                 sc.push_back(Pair("wCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr()));
+            }
             else
                 sc.push_back(Pair("wCeasedVk", std::string{"NOT INITIALIZED"}));
 
@@ -1204,6 +1208,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
 
             if (bVerbose)
             {
+                sc.push_back(Pair("unconf certProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCertVk.getProvingSystemType())));
                 sc.push_back(Pair("unconf wCertVk", info.fixedParams.wCertVk.GetHexRepr()));
                 sc.push_back(Pair("unconf customData", HexStr(info.fixedParams.customData)));
 
@@ -1213,7 +1218,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     sc.push_back(Pair("unconf constant", std::string{"NOT INITIALIZED"}));
 
                 if(info.fixedParams.wCeasedVk.is_initialized())
+                {
+                    sc.push_back(Pair("unconf cswProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType())));
                     sc.push_back(Pair("unconf wCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr()));
+                }
                 else
                     sc.push_back(Pair("unconf wCeasedVk", std::string{"NOT INITIALIZED"}));
 
@@ -1343,6 +1351,25 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
     ret.push_back(Pair("certDataHash", certDataHash.GetHexRepr()));
 }
 
+void FillCeasingCumScTxCommTree(const uint256& scid, UniValue& ret)
+{
+    CCoinsViewCache scView(pcoinsTip);
+
+    if (!scView.HaveSidechain(scid))
+    {
+        LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scid.ToString() );
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
+    }
+
+    CFieldElement fe = scView.GetCeasingCumTreeHash(scid);
+    if (fe.IsNull() )
+    {
+        LogPrint("sc", "%s():%d - scid[%s] ceasing cum sc commitment tree not in db\n", __func__, __LINE__, scid.ToString());
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing ceasing cum sc commitment tree not for required scid"));
+    }
+    ret.push_back(Pair("ceasingCumScTxCommTree", fe.GetHexRepr()));
+}
+
 UniValue getscinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() == 0 || params.size() > 5)
@@ -1379,9 +1406,11 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "     \"active mbtrScFee\":        xxxxx,   (numeric) The currently active fee required to create a Mainchain Backward Transfer Request to sidechain\n"
             "     \"mbtrRequestDataLength\":   xxxxx,   (numeric) The size of the MBTR request data length\n"
             "     \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
+            "     \"certProvingSystem\"        xxxxx,   (numeric) The type of proving system used for certificate verification\n"
             "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
             "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
             "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
+            "     \"cswProvingSystem\"         xxxxx,   (numeric) The type of proving system used for CSW verification\n"
             "     \"wCeasedVk\":               xxxxx,   (string)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
             "     \"vFieldElementCertificateFieldConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
             "     \"vBitVectorCertificateFieldConfig\"    xxxxx,   (string) A string representation of an array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom vBitVectorCertificateField with the corresponding sizes\n"
@@ -1503,6 +1532,39 @@ UniValue getactivecertdatahash(const UniValue& params, bool fHelp)
     scId.SetHex(scIdString);
 
     FillCertDataHash(scId, ret);
+ 
+    return ret;
+}
+
+UniValue getceasingcumsccommtreehash(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getceasingcumsccommtreehash (\"scid\")\n"
+            "\nArgument:\n"
+            "   \"scid\"   (string, mandatory)  Retrive information about specified scid\n"
+            "\nReturns the Cumulative SC Committment tree hash of the ceasing block for the given scid.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"ceasingCumScTxCommTree\":  xxxxx,   (string)  A hex string representation of the field element containing Cumulative SC Committment tree hash of the ceasing block for the given scid.\n"
+            "}\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("getceasingcumsccommtreehash", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+        );
+
+    string scIdString = params[0].get_str();
+    {
+        if (scIdString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid scid format: not an hex");
+    }
+
+    UniValue ret(UniValue::VOBJ);
+ 
+    uint256 scId;
+    scId.SetHex(scIdString);
+
+    FillCeasingCumScTxCommTree(scId, ret);
  
     return ret;
 }
@@ -1648,7 +1710,7 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
 
     std::string nullifierError;
     std::vector<unsigned char> nullifierVec;
-    if (!AddScData(inputString, nullifierVec, CFieldElement::ByteSize(), true, nullifierError))
+    if (!AddScData(inputString, nullifierVec, CFieldElement::ByteSize(), CheckSizeMode::STRICT, nullifierError))
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": " + nullifierError;
         throw JSONRPCError(RPC_TYPE_ERROR, error);

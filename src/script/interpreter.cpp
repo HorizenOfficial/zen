@@ -1069,12 +1069,13 @@ public:
         // In case of SIGHASH_ANYONECANPAY, only the CSW input being signed is serialized
         if (fAnyoneCanPay)
             nCswInput = nIn - txTo.GetVin().size();
-        // Serialize all CSW input fields before redeemScript
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nValue, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scId, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nullifier, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].pubKeyHash, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scProof, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].actCertDataHash, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].ceasingCumScTxCommTree, nType, nVersion);
 
         // Serialize the script
         unsigned int nTotalInIdx = nCswInput + txTo.GetVin().size();
@@ -1084,9 +1085,6 @@ public:
             ::Serialize(s, CScript(), nType, nVersion);
         else
             SerializeScriptCode(s, nType, nVersion);
-
-        // serialize the CSW input fields after the redeem script
-        ::Serialize(s, VARINT(txTo.GetVcswCcIn()[nCswInput].actCertDataIdx), nType, nVersion);
     }
 
     /** Serialize txTo */
@@ -1147,12 +1145,6 @@ public:
                 ::WriteCompactSize(s, nCcOutputs);
                 for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
                     ::Serialize(s, txTo.GetVBwtRequestOut()[nCcOutput], nType, nVersion);
-
-                // serialize active cert data vector
-                unsigned int nData = fHashNone ? 0 : (txTo.GetVActCertData().size());
-                ::WriteCompactSize(s, nData);
-                for (unsigned int n = 0; n < nData; n++)
-                    ::Serialize(s, txTo.GetVActCertData()[n], nType, nVersion);
             }
  
             // Serialize nLockTime

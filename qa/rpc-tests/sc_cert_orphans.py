@@ -124,8 +124,8 @@ class sc_cert_orphans(BitcoinTestFramework):
 
         mark_logs("Node1 sends a certificate for SC {} using unconfirmed UTXO from tx1".format(scid_1), self.nodes, DEBUG_MODE)
         try:
-            cert1 = self.nodes[1].send_certificate(scid_1, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
-                                                   proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert1 = self.nodes[1].send_certificate(scid_1, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("======> cert1 = {}".format(cert1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -181,8 +181,8 @@ class sc_cert_orphans(BitcoinTestFramework):
 
         mark_logs("Node1 tries to sends a certificate for SC {} using unconfirmed change from cert1".format(scid_2), self.nodes, DEBUG_MODE)
         try:
-            cert2 = self.nodes[1].send_certificate(scid_2, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
-                                                   proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert2 = self.nodes[1].send_certificate(scid_2, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("======> cert2 = {}".format(cert2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']

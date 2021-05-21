@@ -98,7 +98,7 @@ CMutableTransaction BuildCSWInputSpendingTransaction(const CKeyID& pubKeyHash, c
     txSpend.vcsw_ccin[0].scId = uint256();
     txSpend.vcsw_ccin[0].nullifier = CFieldElement{};
     txSpend.vcsw_ccin[0].pubKeyHash = pubKeyHash;
-    txSpend.vcsw_ccin[0].scProof.SetByteArray(std::vector<unsigned char>(CScProof::ByteSize(),0x0));
+    txSpend.vcsw_ccin[0].scProof.SetByteArray(std::vector<unsigned char>(CScProof::MaxByteSize(),0x0));
     txSpend.vcsw_ccin[0].redeemScript = redeemScript;
 
     txSpend.resizeOut(1);
