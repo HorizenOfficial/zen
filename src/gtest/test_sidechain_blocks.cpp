@@ -12,24 +12,6 @@
 #include <miner.h>
 #include <gtest/libzendoo_test_files.h>
 
-class CNakedCCoinsViewCache : public CCoinsViewCache
-{
-public:
-    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
-    {
-        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
-        this->hashAnchor = dummyAnchor;
-
-        CAnchorsCacheEntry dummyAnchorsEntry;
-        dummyAnchorsEntry.entered = true;
-        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
-        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
-
-    };
-    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
-    CSidechainEventsMap& getScEventsMap() {return this->cacheSidechainEvents; };
-};
-
 class CInMemorySidechainDb final: public CCoinsView {
 public:
     CInMemorySidechainDb()  = default;
@@ -103,7 +85,7 @@ public:
         mGlobalForkTips.clear();
 
         fakeChainStateDb   = new CInMemorySidechainDb();
-        sidechainsView     = new CNakedCCoinsViewCache(fakeChainStateDb);
+        sidechainsView     = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
 
         dummyHash = dummyBlock.GetHash();
         dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
@@ -124,7 +106,7 @@ public:
 
 protected:
     CInMemorySidechainDb  *fakeChainStateDb;
-    CNakedCCoinsViewCache *sidechainsView;
+    txCreationUtils::CNakedCCoinsViewCache *sidechainsView;
 
     //helpers
     CBlock                                    dummyBlock;
@@ -188,7 +170,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     CMutableScCertificate singleCert;
     singleCert.vin.push_back(CTxIn(inputTxHash, 0, CScript(), 0));
     singleCert.nVersion    = SC_CERT_VERSION;
-    singleCert.scProof     = CScProof{ParseHex(SAMPLE_PROOF)};
+    singleCert.scProof     = CScProof{SAMPLE_CERT_DARLIN_PROOF};
     singleCert.scId        = scId;
     singleCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch;
     singleCert.quality     = initialScState.lastTopQualityCertQuality * 2;
@@ -263,7 +245,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     CMutableScCertificate singleCert;
     singleCert.vin.push_back(CTxIn(inputTxHash, 0, CScript(), 0));
     singleCert.nVersion    = SC_CERT_VERSION;
-    singleCert.scProof     = CScProof{ParseHex(SAMPLE_PROOF)};
+    singleCert.scProof     = CScProof{SAMPLE_CERT_DARLIN_PROOF};
     singleCert.scId        = scId;
     singleCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1;
     singleCert.quality     = 1;
@@ -339,7 +321,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     CMutableScCertificate lowQualityCert;
     lowQualityCert.vin.push_back(CTxIn(inputLowQCertHash, 0, CScript(), 0));
     lowQualityCert.nVersion    = SC_CERT_VERSION;
-    lowQualityCert.scProof     = CScProof{ParseHex(SAMPLE_PROOF)};
+    lowQualityCert.scProof     = CScProof{SAMPLE_CERT_DARLIN_PROOF};
     lowQualityCert.scId        = scId;
     lowQualityCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch;
     lowQualityCert.quality     = initialScState.lastTopQualityCertQuality * 2;
@@ -431,7 +413,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     CMutableScCertificate lowQualityCert;
     lowQualityCert.vin.push_back(CTxIn(inputLowQCertHash, 0, CScript(), 0));
     lowQualityCert.nVersion    = SC_CERT_VERSION;
-    lowQualityCert.scProof     = CScProof{ParseHex(SAMPLE_PROOF)};
+    lowQualityCert.scProof     = CScProof{SAMPLE_CERT_DARLIN_PROOF};
     lowQualityCert.scId        = scId;
     lowQualityCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch +1;
     lowQualityCert.quality     = 1;
@@ -517,7 +499,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_I
     scCreation.vsc_ccout[0].forwardTransferScFee = CAmount(0);
     scCreation.vsc_ccout[0].mainchainBackwardTransferRequestScFee = CAmount(0);
     scCreation.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1; // The size of mcBwtReq.vScRequestData
-    scCreation.vsc_ccout[0].wCertVk =  CScVKey{ParseHex(SAMPLE_VK)};
+    scCreation.vsc_ccout[0].wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
 
     CMutableTransaction mbtrTx;
     mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
@@ -577,7 +559,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_I
     scCreation.vsc_ccout.resize(1);
     scCreation.vsc_ccout[0].nValue = CAmount(1);
     scCreation.vsc_ccout[0].withdrawalEpochLength = 15;
-    scCreation.vsc_ccout[0].wCertVk = CScVKey(ParseHex(SAMPLE_VK));
+    scCreation.vsc_ccout[0].wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
 
     CMutableTransaction mbtrTx;
     mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));

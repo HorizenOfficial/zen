@@ -21,6 +21,8 @@
 #include <undo.h>
 #include <gtest/libzendoo_test_files.h>
 
+using namespace txCreationUtils;
+
 class CCoinsOnlyViewDB : public CCoinsViewDB
 {
 public:
@@ -39,23 +41,6 @@ public:
 
         return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents, cswNullifiers);
     }
-};
-
-class CNakedCCoinsViewCache : public CCoinsViewCache
-{
-public:
-    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
-    {
-        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
-        this->hashAnchor = dummyAnchor;
-
-        CAnchorsCacheEntry dummyAnchorsEntry;
-        dummyAnchorsEntry.entered = true;
-        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
-        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
-
-    };
-    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
 };
 
 class SidechainsInMempoolTestSuite: public ::testing::Test {
@@ -1788,8 +1773,8 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creation
     scTx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = CAmount(1); // Dummy amount
     scTx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1;
 
-    scTx.vsc_ccout[0].wCertVk = CScVKey(ParseHex(SAMPLE_VK));
-    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    scTx.vsc_ccout[0].wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 
@@ -1912,7 +1897,7 @@ CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(
     res.endEpochBlockHash = endEpochBlockHash;
     res.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     res.quality = quality;
-    res.scProof = CScProof{ParseHex(SAMPLE_PROOF)};
+    res.scProof = CScProof{SAMPLE_CERT_DARLIN_PROOF};
     res.forwardTransferScFee = ftScFee;
     res.mainchainBackwardTransferRequestScFee = mbtrScFee;
 
@@ -1941,7 +1926,10 @@ CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(
     return res;
 }
 
-void SidechainsInMempoolTestSuite::storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight)
+void SidechainsInMempoolTestSuite::storeSidechainWithCurrentHeight(txCreationUtils::CNakedCCoinsViewCache& view,
+                                                                   const uint256& scId,
+                                                                   const CSidechain& sidechain,
+                                                                   int chainActiveHeight)
 {
     chainSettingUtils::ExtendChainActiveToHeight(chainActiveHeight);
     view.SetBestBlock(chainActive.Tip()->GetBlockHash());

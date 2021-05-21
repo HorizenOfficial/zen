@@ -78,7 +78,7 @@ class sc_cr_fw(BitcoinTestFramework):
         # sidechain creation
         #-------------------
         # generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 

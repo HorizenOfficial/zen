@@ -11,6 +11,7 @@ class CTransaction;
 namespace Sidechain
 {
     static const boost::filesystem::path GetSidechainDataDir();
+    bool InitDLogKeys();
     bool InitSidechainsFolder();
     void ClearSidechainsFolder();
     void LoadCumulativeProofsParameters();

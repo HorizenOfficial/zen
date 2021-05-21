@@ -179,9 +179,11 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk = mcTest.generate_params("sc1")
-        cswVk = mcTest.generate_params("csw1")
+        certMcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk = certMcTest.generate_params("sc1")
+
+        cswMcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir)
+        cswVk = cswMcTest.generate_params("csw1")
         constant = generate_random_field_element_hex()
 
         sc_cr = []
@@ -297,7 +299,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         mark_logs("\nLet 2 epochs pass by...", self.nodes, DEBUG_MODE)
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
-            mcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[0], self.sync_all,
             scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
 
         mark_logs("==> certificate for SC1 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
@@ -305,7 +307,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         prev_epoch_hash = epoch_block_hash
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
-            mcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[0], self.sync_all,
              scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
 
         mark_logs("==> certificate for SC1 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
@@ -376,8 +378,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         sc_ft2 = [{"address": "ffff", "amount":sc_ft_amount, "scid": scid2}]
 
         # another sc creation, just to have a different cc output
-        vk2 = mcTest.generate_params("sc2")
-        cswVk2 = mcTest.generate_params("csw2")
+        vk2 = certMcTest.generate_params("sc2")
+        cswVk2 = cswMcTest.generate_params("csw2")
         constant2 = generate_random_field_element_hex()
         sc_cr2 = [{
             "epoch_length": sc_epoch_len,

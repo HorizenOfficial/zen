@@ -120,6 +120,11 @@ bool CScProofVerifier::BatchVerify() const
         return true;
     }
 
+    if (cswEnqueuedData.size() + certEnqueuedData.size() == 0)
+    {
+        return true;
+    }
+
     CctpErrorCode code;
     ZendooBatchProofVerifier batchVerifier;
     uint32_t idx = 0;
@@ -192,6 +197,17 @@ bool CScProofVerifier::BatchVerify() const
             LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify: ret[%d], code [0x%x]\n",
                 __func__, __LINE__, input.certHash.ToString(), (int)ret, code);
         }
+    }
+
+    int64_t failingProof = -1;
+    ZendooBatchProofVerifierResult verRes = batchVerifier.batch_verify_all(&code);
+    if (!verRes.result)
+    {
+        failingProof = verRes.failing_proof;
+ 
+        LogPrintf("ERROR: %s():%d - verify all failed: proofId[%lld], code [0x%x]\n",
+            __func__, __LINE__, failingProof, code);
+        return false; 
     }
 
     return true; 

@@ -22,6 +22,7 @@
 
 #include <regex>
 
+#include "sc/asyncproofverifier.h"
 #include "sc/sidechain.h"
 #include "sc/sidechainrpc.h"
 
@@ -1909,5 +1910,39 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
     return ret;
 }
 
+/**
+ * @brief Retrieves the statistics about the sidechain proof verifier, for instance
+ * the number of accepted and failed verifications, the number of pending
+ * proves, etc.
+ */
+UniValue getproofverifierstats(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+    {
+        throw runtime_error(
+            "getproofverifierstatistics: collects statistics about the sidechain proof verification system\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getproofverifierstatistics", "")
+            + HelpExampleRpc("getproofverifierstatistics", "")
+        );
+    }
 
+    if (Params().NetworkIDString() != "regtest")
+    {
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method can only be used in regtest");
+    }
 
+    AsyncProofVerifierStatistics stats = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().GetStatistics();
+    size_t pendingCerts = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCertProves();
+    size_t pendingCSWs = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProves();
+
+    UniValue obj(UniValue::VOBJ);
+    obj.push_back(Pair("pendingCerts",  pendingCerts));
+    obj.push_back(Pair("pendingCSWs",   pendingCSWs));
+    obj.push_back(Pair("failedCerts",   static_cast<uint64_t>(stats.failedCertCounter)));
+    obj.push_back(Pair("failedCSWs",    static_cast<uint64_t>(stats.failedCswCounter)));
+    obj.push_back(Pair("okCerts",       static_cast<uint64_t>(stats.okCertCounter)));
+    obj.push_back(Pair("okCSWs",        static_cast<uint64_t>(stats.okCswCounter)));
+
+    return obj;
+}

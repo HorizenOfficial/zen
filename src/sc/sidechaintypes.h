@@ -38,6 +38,8 @@ namespace Sidechain
     static const int SC_FE_SIZE_IN_BYTES        = 32;
     static const int MAX_SC_PROOF_SIZE_IN_BYTES = 1024*10;  
     static const int MAX_SC_VK_SIZE_IN_BYTES    = 1024*10;
+
+    static const int SEGMENT_SIZE = 1 << 19;
 }
 
 class CZendooCctpLibraryChecker
@@ -271,8 +273,8 @@ public:
     //for serialization only, which requires the default ctor. No checkValid call here
     BitVectorCertificateFieldConfig(): CustomCertificateFieldConfig(), bitVectorSizeBits(-1), maxCompressedSizeBytes(-1) {}
 
-    static const int32_t MAX_BIT_VECTOR_SIZE_BITS = 1024*1024;
-    static const int32_t MAX_COMPRESSED_SIZE_BYTES = MAX_BIT_VECTOR_SIZE_BITS / 8;
+    static const int32_t MAX_BIT_VECTOR_SIZE_BITS = 1040384; // 2^12 * 254
+    static const int32_t MAX_COMPRESSED_SIZE_BYTES = MAX_BIT_VECTOR_SIZE_BITS / 8; // no rounding here, since 2^12 is divisible by 8
 
     bool IsValid() const override final;
 

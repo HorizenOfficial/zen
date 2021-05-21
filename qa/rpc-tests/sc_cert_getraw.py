@@ -132,9 +132,7 @@ class sc_cert_getraw(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 0
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node1], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
@@ -183,9 +181,7 @@ class sc_cert_getraw(BitcoinTestFramework):
 
         # Create new proof for WCert
         quality = 1
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [], [])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
 
         nullFee = Decimal("0.0")
         try:

@@ -69,7 +69,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrScFee = 20
         mbtrRequestDataLength = 1
 
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk_tag = "sc1"
         vk = mcTest.generate_params(vk_tag)
         constant = generate_random_field_element_hex()
@@ -217,7 +217,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         errorString = ""
         mbtrFee = Decimal(mbtrScFee - 1)
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk1 = mcTest.generate_params(scid)
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
@@ -259,7 +259,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         errorString = ""
         mbtrFee = Decimal(mbtrScFee)
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk1 = mcTest.generate_params(scid)
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)

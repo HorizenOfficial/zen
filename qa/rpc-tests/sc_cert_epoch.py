@@ -137,9 +137,8 @@ class sc_cert_epoch(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 0
-        proof_bad = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node2], [bwt_amount + fwt_amount_immature_at_epoch])
+        
+        proof_bad = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node2], [bwt_amount + fwt_amount_immature_at_epoch])
 
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
@@ -153,9 +152,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         
         #Create proof for WCert
         quality = 0
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node2], [bwt_amount])
         
         try:
             cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
@@ -204,9 +201,7 @@ class sc_cert_epoch(BitcoinTestFramework):
             
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [], [])
+            proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
 
             cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

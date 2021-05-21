@@ -181,6 +181,19 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
                     LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%d] \n",
                              __func__, __LINE__, output.tx->GetHash().ToString(), output.node->GetId(), output.proofVerified);
 
+                    // CODE USED FOR UNIT TEST ONLY [Start]
+                    if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest"))
+                    {
+                        UpdateStatistics(output); // Update the statistics
+
+                        // Check if the AcceptToMemoryPool has to be skipped.
+                        if (skipAcceptToMemoryPool)
+                        {
+                            continue;
+                        }
+                    }
+                    // CODE USED FOR UNIT TEST ONLY [End]
+
                     CValidationState dummyState;
                     ProcessTxBaseAcceptToMemoryPool(*output.tx.get(), output.node,
                                                     output.proofVerified ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
@@ -242,6 +255,8 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
  
                 LogPrintf("ERROR: %s():%d - tx [%s] has csw proof which does not verify: ret[%d], code [0x%x]\n",
                     __func__, __LINE__, input.transactionPtr->GetHash().ToString(), (int)ret, code);
+                // If one of csw tx inputs fail the whole tx must be marked as invalid. Break here. 
+                break;
             }
         }
         outputs.push_back(AsyncProofVerifierOutput{ .tx = verifierInput.second.begin()->second.transactionPtr,
@@ -290,6 +305,17 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
         outputs.push_back(AsyncProofVerifierOutput{ .tx = verifierInput.second.certificatePtr,
                                                     .node = verifierInput.second.node,
                                                     .proofVerified = ret });
+    }
+
+    int64_t failingProof = -1;
+    ZendooBatchProofVerifierResult verRes = batchVerifier.batch_verify_all(&code);
+    if (!verRes.result)
+    {
+        allProvesVerified = false;
+        failingProof = verRes.failing_proof;
+ 
+        LogPrintf("ERROR: %s():%d - verify all failed: proofId[%lld], code [0x%x]\n",
+            __func__, __LINE__, failingProof, code);
     }
 
     return std::pair<bool, std::vector<AsyncProofVerifierOutput>> { allProvesVerified, outputs };
@@ -411,7 +437,41 @@ bool CScAsyncProofVerifier::NormalVerifyCsw(uint256 txHash, std::map</*outputPos
         {
             LogPrintf("ERROR: %s():%d - tx [%s] has csw proof which does not verify: ret[%d], code [0x%x]\n",
                 __func__, __LINE__, input.transactionPtr->GetHash().ToString(), (int)ret, code);
+            return false;
         }
     }
     return true;
+}
+
+/**
+ * @brief Update the statistics of the proof verifier.
+ * It must be used in regression test mode only.
+ * @param output The result of the proof verification that has been performed.
+ */
+void CScAsyncProofVerifier::UpdateStatistics(const AsyncProofVerifierOutput& output)
+{
+    assert(Params().NetworkIDString() == "regtest");
+
+    if (output.tx->IsCertificate())
+    {
+        if (output.proofVerified)
+        {
+            stats.okCertCounter++;
+        }
+        else
+        {
+            stats.failedCertCounter++;
+        }
+    }
+    else
+    {
+        if (output.proofVerified)
+        {
+            stats.okCswCounter++;
+        }
+        else
+        {
+            stats.failedCswCounter++;
+        }
+    }
 }

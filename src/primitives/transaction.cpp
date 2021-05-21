@@ -363,9 +363,16 @@ void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) con
     CctpErrorCode code;
     const BufferWithSize bws_tx_hash(txHash.begin(), txHash.size());
     field_t* scid_fe = zendoo_compute_sc_id(&bws_tx_hash, pos, &code); 
+    assert(code == CctpErrorCode::OK);
+    assert(scid_fe != nullptr);
+
+    unsigned char serialized_buffer[CFieldElement::ByteSize()] = {};
+    zendoo_serialize_field(scid_fe, serialized_buffer, &code);
+    assert(code == CctpErrorCode::OK);
+
 #endif
 
-    const std::vector<unsigned char> tmp((uint8_t*)scid_fe, (uint8_t*)scid_fe + Sidechain::SC_FE_SIZE_IN_BYTES);
+    const std::vector<unsigned char> tmp((uint8_t*)serialized_buffer, (uint8_t*)serialized_buffer + Sidechain::SC_FE_SIZE_IN_BYTES);
     uint256 scid(tmp);
     *const_cast<uint256*>(&generatedScId) = scid;
 
