@@ -1109,15 +1109,15 @@ struct CMutableTransaction : public CMutableTransactionBase
  */
 struct CCswProofVerifierInput
 {
-    std::shared_ptr<CTransaction> transactionPtr;
-    CAmount nValue;
-    uint256 scId;
-    uint160 pubKeyHash;
-    CFieldElement certDataHash;
-    CFieldElement ceasingCumScTxCommTree;
-    CScProof cswProof;
     CScVKey ceasedVk;
+    CFieldElement ceasingCumScTxCommTree;
+    CFieldElement certDataHash;
+    CScProof cswProof;
     CNode* node;    /**< The node that sent the transaction. */
+    CAmount nValue;
+    uint160 pubKeyHash;
+    uint256 scId;
+    std::shared_ptr<CTransaction> transactionPtr;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

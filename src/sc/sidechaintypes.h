@@ -38,6 +38,8 @@ namespace Sidechain
     static const int SC_FE_SIZE_IN_BYTES        = 32;
     static const int MAX_SC_PROOF_SIZE_IN_BYTES = 1024*10;  
     static const int MAX_SC_VK_SIZE_IN_BYTES    = 1024*10;
+
+    static const int SEGMENT_SIZE = 1 << 19;
 }
 
 class CZendooCctpLibraryChecker

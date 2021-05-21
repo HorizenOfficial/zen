@@ -96,9 +96,7 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
         quality = 0
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node1], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
         
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)
         try:
@@ -125,9 +123,7 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
 
         quality = 1
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node2], [bwt_amount])
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
@@ -154,9 +150,7 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node3, "amount": bwt_amount}]
 
         quality = 2
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node3], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node3], [bwt_amount])
 
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 pkh".format(bwt_amount, pkh_node3), self.nodes, DEBUG_MODE)
         try:

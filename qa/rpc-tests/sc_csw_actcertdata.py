@@ -75,13 +75,14 @@ class CswActCertDataTest(BitcoinTestFramework):
         sc_epoch_len = EPOCH_LENGTH
         sc_cr_amount = Decimal('12.00000000')
 
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        certMcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+        cswMcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir)
 
         # generate wCertVk and constant
-        vk1 = mcTest.generate_params("sc1")
-        vk2 = mcTest.generate_params("sc2")
-        cswVk1 = mcTest.generate_params("csw1")
-        cswVk2 = mcTest.generate_params("csw2")
+        vk1 = certMcTest.generate_params("sc1")
+        vk2 = certMcTest.generate_params("sc2")
+        cswVk1 = cswMcTest.generate_params("csw1")
+        cswVk2 = cswMcTest.generate_params("csw2")
         constant1 = generate_random_field_element_hex()
         constant2 = generate_random_field_element_hex()
 
@@ -121,13 +122,13 @@ class CswActCertDataTest(BitcoinTestFramework):
         mark_logs("\nLet 2 epochs pass by...", self.nodes, DEBUG_MODE)
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
-            mcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[0], self.sync_all,
             scid1, prev_epoch_hash, "sc1", constant1, sc_epoch_len)
 
         mark_logs("\n==> certificate for SC1 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
-            mcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[0], self.sync_all,
             scid2, prev_epoch_hash, "sc2", constant2, sc_epoch_len, generate=False) # do not generate
 
         mark_logs("\n==> certificate for SC2 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
@@ -135,13 +136,13 @@ class CswActCertDataTest(BitcoinTestFramework):
         prev_epoch_hash = epoch_block_hash
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
-            mcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[0], self.sync_all,
              scid1, prev_epoch_hash, "sc1", constant1, sc_epoch_len)
 
         mark_logs("\n==> certificate for SC1 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
-            mcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[0], self.sync_all,
              scid2, prev_epoch_hash, "sc2", constant2, sc_epoch_len, generate=False) # do not generate
 
         mark_logs("\n==> certificate for SC2 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)

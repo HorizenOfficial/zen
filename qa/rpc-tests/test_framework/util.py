@@ -569,9 +569,7 @@ def advance_epoch(mcTest, node, sync_call,
 
     epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, node, epoch_length)
 
-    proof = mcTest.create_test_proof(
-        sc_tag, epoch_number, epoch_block_hash, prev_epoch_hash,
-        cert_quality, constant, [], [])
+    proof = mcTest.create_test_proof(sc_tag, epoch_number, cert_quality, mbtrScFee, ftScFee, constant, epoch_cum_tree_hash, [], [])
 
     try:
         cert = node.send_certificate(scid, epoch_number, cert_quality, epoch_block_hash,

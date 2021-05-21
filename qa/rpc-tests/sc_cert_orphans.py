@@ -77,7 +77,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         self.sync_all()
 
         # (1) node0 create sidechains with 10.0 coins each
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
 
         vk_1 = mcTest.generate_params("sc1")
         constant_1 = generate_random_field_element_hex()
@@ -118,9 +118,7 @@ class sc_cert_orphans(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 0
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant_1, [pkh_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash, [pkh_node2], [bwt_amount])
 
         mark_logs("Node1 sends a certificate for SC {} using unconfirmed UTXO from tx1".format(scid_1), self.nodes, DEBUG_MODE)
         try:
@@ -175,9 +173,7 @@ class sc_cert_orphans(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 0
-        proof = mcTest.create_test_proof(
-            "sc2", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant_2, [], [])
+        proof = mcTest.create_test_proof("sc2", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant_2, epoch_cum_tree_hash, [], [])
 
         mark_logs("Node1 tries to sends a certificate for SC {} using unconfirmed change from cert1".format(scid_2), self.nodes, DEBUG_MODE)
         try:

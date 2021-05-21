@@ -531,6 +531,9 @@ std::string HelpMessage(HelpMessageMode mode)
 
     strUsage += HelpMessageOpt("-sccoinsmaturity=<n>",
         "regtest only - Set the maturity of sc funds as number of blocks to be mined before they are computed in the sc balance (default depends on regtest/testnet params)");
+
+    strUsage += HelpMessageOpt("-skipscproof",
+    "regtest only - Skip the proof verification for sidechain certificates or CSW transactions (by default it is never skipped)");
         
 #ifdef ENABLE_MINING
     strUsage += HelpMessageGroup(_("Mining options:"));
@@ -1167,6 +1170,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Initialize sidechains folder, hosting keys for sidechains validations
     if(!Sidechain::InitSidechainsFolder())
         return InitError(strprintf(_("Cannot create or access sidechains folder.")));
+
+    // Initialize DLog keys
+    if(!Sidechain::InitDLogKeys())
+        return InitError(strprintf(_("Cannot initialize DLog keys in sidechains folder.")));
 
 #ifndef WIN32
     CreatePidFile(GetPidFile(), getpid());

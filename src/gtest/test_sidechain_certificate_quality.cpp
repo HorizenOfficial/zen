@@ -9,24 +9,6 @@
 #include <main.h>
 #include <consensus/validation.h>
 
-class CNakedCCoinsViewCache : public CCoinsViewCache
-{
-public:
-    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
-    {
-        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
-        this->hashAnchor = dummyAnchor;
-
-        CAnchorsCacheEntry dummyAnchorsEntry;
-        dummyAnchorsEntry.entered = true;
-        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
-        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
-
-    };
-    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
-    CSidechainEventsMap& getScEventsMap() {return this->cacheSidechainEvents; };
-};
-
 class CInMemorySidechainDb final: public CCoinsView {
 public:
     CInMemorySidechainDb()  = default;
@@ -93,7 +75,7 @@ public:
         SelectParams(CBaseChainParams::REGTEST);
 
         fakeChainStateDb   = new CInMemorySidechainDb();
-        sidechainsView     = new CNakedCCoinsViewCache(fakeChainStateDb);
+        sidechainsView     = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
     };
 
     void TearDown() override {
@@ -105,7 +87,7 @@ public:
     };
 protected:
     CInMemorySidechainDb   *fakeChainStateDb;
-    CNakedCCoinsViewCache  *sidechainsView;
+    txCreationUtils::CNakedCCoinsViewCache  *sidechainsView;
 
     //helpers
     CBlock                  dummyBlock;
@@ -124,7 +106,10 @@ protected:
 
     CValidationState    dummyState;
 
-    void storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
+    void storeSidechainWithCurrentHeight(txCreationUtils::CNakedCCoinsViewCache& view,
+                                         const uint256& scId,
+                                         const CSidechain& sidechain,
+                                         int chainActiveHeight);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -734,7 +719,10 @@ TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_MultipleScIds)
 ///////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// HELPERS ///////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-void SidechainsMultipleCertsTestSuite::storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight)
+void SidechainsMultipleCertsTestSuite::storeSidechainWithCurrentHeight(txCreationUtils::CNakedCCoinsViewCache& view,
+                                                                       const uint256& scId,
+                                                                       const CSidechain& sidechain,
+                                                                       int chainActiveHeight)
 {
     chainSettingUtils::ExtendChainActiveToHeight(chainActiveHeight);
     view.SetBestBlock(chainActive.Tip()->GetBlockHash());
