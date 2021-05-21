@@ -553,7 +553,7 @@ private:
                     if (GetCertificate(topQualCertHash, topQualCert, blockHash, false)) {
                         chainTopQualityCert.push_back(Pair("quality", topQualityCertQuality));
                         chainTopQualityCert.push_back(Pair("certHash", topQualCertHash.GetHex()));
-                        chainTopQualityCert.push_back(Pair("rawCertificateHex", topQualCert.ToString()));
+                        chainTopQualityCert.push_back(Pair("rawCertificateHex", certHex));
                     } else {
                         LogPrint("ws", "%s():%d - unable to retrieve last top quality certificate[%s]\n", __func__, __LINE__, topQualCertHash.GetHex());
                         return INVALID_PARAMETER;
