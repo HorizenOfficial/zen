@@ -98,7 +98,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         prev_epoch_block_hash = self.nodes[0].getbestblockhash()
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
@@ -201,8 +201,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
             #Create proof for WCert
             quality = 1
             proof = mcTest.create_test_proof(
-                "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-                quality, constant, [pkh_node1], [bwt_amount1])
+                "sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount1])
 
             #----------------------------------------------------------------------------------------------
             cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,

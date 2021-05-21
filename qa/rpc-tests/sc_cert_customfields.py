@@ -253,10 +253,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         # do some negative test for having a raw cert rejected by mempool
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         bwt_amount = Decimal("0.1")
-
-        scProof2 = mcTest.create_test_proof(
-            'sc2', epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            10, constant2, [pkh_node1], [bwt_amount])
+        scProof2 = mcTest.create_test_proof('sc2',epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant2, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
 
         # get a UTXO
         utx, change = get_spendable(self.nodes[0], CERT_FEE)
@@ -316,9 +313,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         certs.append(cert);
 
         #-------------------------------------------------------
-        scProof1 = mcTest.create_test_proof(
-            'sc1', epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            10, constant1, [pkh_node1], [bwt_amount])
+        scProof1 = mcTest.create_test_proof('sc1', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
 
         # get another UTXO
         utx, change = get_spendable(self.nodes[0], CERT_FEE)
@@ -383,9 +378,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         mark_logs("\nCreate Cert for SC3 with good custom field elements", self.nodes, DEBUG_MODE)
-        scProof3 = mcTest.create_test_proof(
-            'sc3', epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            5, constant3, [], [])
+        scProof3 = mcTest.create_test_proof('sc3', epoch_number_1, 5, MBTR_SC_FEE, FT_SC_FEE, constant3, epoch_cum_tree_hash_1, [], [])
 
         vCfe = []
         vCmt = ["1122334455667788"]
@@ -423,9 +416,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         # cfgs for SC1: [31, 48, 16], [[8, 4], [16, 8]]
-        scProof1 = mcTest.create_test_proof(
-            'sc1', epoch_number_2, epoch_block_hash_2, prev_epoch_block_hash,
-            5, constant1, [], [])
+        scProof1 = mcTest.create_test_proof('sc1', epoch_number_2, 5, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_2, [], [])
 
         mark_logs("\nCreate Cert without custom field elements (should fail)", self.nodes, DEBUG_MODE)
         try:

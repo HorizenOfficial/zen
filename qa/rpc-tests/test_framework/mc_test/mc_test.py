@@ -5,6 +5,8 @@ from subprocess import call
 
 SC_FIELD_SIZE = 32
 SC_FIELD_SAFE_SIZE = 31
+MAX_SC_PROOF_SIZE_IN_BYTES = 1024*10                                                                     
+MAX_SC_VK_SIZE_IN_BYTES    = 1024*10
 COIN = 100000000
 
 def generate_random_field_element_hex():
@@ -12,7 +14,7 @@ def generate_random_field_element_hex():
 
 class MCTestUtils(object):
 
-    def __init__(self, datadir, srcdir, ps_type):
+    def __init__(self, datadir, srcdir, ps_type = "cob_marlin"):
         self.datadir = datadir
         self.srcdir = srcdir
         assert(ps_type == "darlin" or ps_type == "cob_marlin")
@@ -21,7 +23,7 @@ class MCTestUtils(object):
     def _generate_params(self, id, circuit_type, ps_type, file_prefix):
         params_dir = self._get_params_dir(id)
 
-        if os.path.isfile(params_dir + file_prefix + "test_mc_pk") and os.path.isfile(params_dir + file_prefix + "test_mc_vk"):
+        if os.path.isfile(params_dir + file_prefix + "test_pk") and os.path.isfile(params_dir + file_prefix + "test_vk"):
             return
         args = []
         args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
@@ -31,7 +33,7 @@ class MCTestUtils(object):
         args.append(str(params_dir))
 
         subprocess.check_call(args)
-
+        print params_dir
         assert(os.path.isfile(params_dir + file_prefix + "test_pk"))
         return self._get_vk(params_dir + file_prefix + "test_vk")
 
@@ -58,7 +60,7 @@ class MCTestUtils(object):
         return binascii.b2a_hex(vk)
 
 class CertTestUtils(MCTestUtils):
-    def __init__(self, datadir, srcdir, ps_type):
+    def __init__(self, datadir, srcdir, ps_type = "cob_marlin"):
         MCTestUtils.__init__(self, datadir, srcdir, ps_type)
         self.file_prefix = str(ps_type) + "_cert_"
 
@@ -67,7 +69,7 @@ class CertTestUtils(MCTestUtils):
 
     def create_test_proof(self, id, epoch_number, quality, btr_fee, ft_min_amount, constant, end_cum_comm_tree_root, pks, amounts):
         params_dir = self._get_params_dir(id)
-        if not os.path.isfile(params_dir + self.file_prefix + "test_mc_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_mc_vk"):
+        if not os.path.isfile(params_dir + self.file_prefix + "test_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_vk"):
             return
         proof_path = "{}_epoch_{}_{}_proof".format(self._get_proofs_dir(id), epoch_number, self.file_prefix)
         args = []
@@ -81,7 +83,7 @@ class CertTestUtils(MCTestUtils):
         return self._get_proof(proof_path)
 
 class CSWTestUtils(MCTestUtils):
-    def __init__(self, datadir, srcdir, ps_type):
+    def __init__(self, datadir, srcdir, ps_type = "cob_marlin"):
         MCTestUtils.__init__(self, datadir, srcdir, ps_type)
         self.file_prefix = str(ps_type) + "_csw_"
 
@@ -90,7 +92,7 @@ class CSWTestUtils(MCTestUtils):
 
     def create_test_proof(self, id, amount, sc_id, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash):
         params_dir = self._get_params_dir(id)
-        if not os.path.isfile(params_dir + self.file_prefix + "test_mc_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_mc_vk"):
+        if not os.path.isfile(params_dir + self.file_prefix + "test_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_vk"):
             return
         proof_path = "{}_addr_{}_{}_proof".format(self._get_proofs_dir(id), mc_pk_hash, self.file_prefix)
         args = []

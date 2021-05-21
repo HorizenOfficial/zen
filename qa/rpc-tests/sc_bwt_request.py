@@ -82,7 +82,7 @@ class sc_bwt_request(BitcoinTestFramework):
         self.sync_all()
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk1  = mcTest.generate_params("sc1")
         c1 = generate_random_field_element_hex()
 
@@ -414,8 +414,7 @@ class sc_bwt_request(BitcoinTestFramework):
         bwt_amount = creation_amount1
         amounts = [{"pubkeyhash":pkh2, "amount":bwt_amount}]
         proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            0, c1, [pkh2], [bwt_amount])
+            "sc1", epoch_number, 0, mbtrScFee, ftScFee, c1, epoch_cum_tree_hash, [pkh2], [bwt_amount])
 
         mark_logs("Node1 sends a cert withdrawing the contribution of the creation amount to the sc balance", self.nodes, DEBUG_MODE)
         try:
@@ -536,8 +535,7 @@ class sc_bwt_request(BitcoinTestFramework):
         quality = 10
  
         proof = mcTest.create_test_proof(
-            "sc2", epoch_number, epoch_block_hash, prev_epoch_hash_2,
-            quality, c2, [pkh_node1], [bt_amount])
+            "sc2", epoch_number, quality, mbtrScFee, ftScFee, c2, epoch_cum_tree_hash, [pkh_node1], [bt_amount])
  
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:

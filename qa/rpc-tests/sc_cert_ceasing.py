@@ -81,7 +81,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         prev_epoch_hash = self.nodes[0].getbestblockhash()
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
 
         constant = generate_random_field_element_hex()
 
@@ -121,9 +121,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         try:
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof(
-                "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
-                quality, constant, [pkh_node1], [bwt_amount[0]])
+            proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount[0]])
 
             cert_1 = self.nodes[0].send_certificate(scids[0], epoch_number, quality, epoch_block_hash,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -140,9 +138,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         try:
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof(
-                "sc2", epoch_number, epoch_block_hash, prev_epoch_hash,
-                quality, constant, [], [])
+            proof = mcTest.create_test_proof("sc2", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
 
             cert_2 = self.nodes[0].send_certificate(scids[1], epoch_number, quality, epoch_block_hash,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
