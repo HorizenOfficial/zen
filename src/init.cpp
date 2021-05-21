@@ -1171,6 +1171,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if(!Sidechain::InitSidechainsFolder())
         return InitError(strprintf(_("Cannot create or access sidechains folder.")));
 
+    // Initialize DLog keys
+    if(!Sidechain::InitDLogKeys())
+        return InitError(strprintf(_("Cannot initialize DLog keys in sidechains folder.")));
+
 #ifndef WIN32
     CreatePidFile(GetPidFile(), getpid());
 #endif
