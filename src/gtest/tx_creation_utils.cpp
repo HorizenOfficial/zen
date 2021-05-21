@@ -38,11 +38,17 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
 
     mtx.vsc_ccout.resize(1);
     mtx.vsc_ccout[0].nValue = creationTxAmount;
+    mtx.vsc_ccout[0].address = uint256S("bebe111222dada");
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
     mtx.vsc_ccout[0].wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
     mtx.vsc_ccout[0].wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
-    mtx.vsc_ccout[0].vFieldElementCertificateFieldConfig.push_back(22);
-    mtx.vsc_ccout[0].customData.push_back(0x33);
+    mtx.vsc_ccout[0].vFieldElementCertificateFieldConfig.push_back(0x4);
+    mtx.vsc_ccout[0].vFieldElementCertificateFieldConfig.push_back(0x7);
+    mtx.vsc_ccout[0].vBitVectorCertificateFieldConfig.push_back({254*8, 33});
+    mtx.vsc_ccout[0].vBitVectorCertificateFieldConfig.push_back({254*8*2, 55});
+    mtx.vsc_ccout[0].customData.push_back(0x66);
+    mtx.vsc_ccout[0].customData.push_back(0x77);
+    mtx.vsc_ccout[0].customData.push_back(0xfe);
     mtx.vsc_ccout[0].forwardTransferScFee = ftScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = mbtrScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = mbtrDataLength;

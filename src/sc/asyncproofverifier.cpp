@@ -223,15 +223,20 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
             const uint160& csw_pk_hash = input.pubKeyHash;
             BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
  
+            wrappedFieldPtr   sptrCdh      = input.certDataHash.GetFieldElement();
+            wrappedFieldPtr   sptrCum      = input.ceasingCumScTxCommTree.GetFieldElement();
+            wrappedScProofPtr sptrCswProof = input.cswProof.GetProofPtr();
+            wrappedScVkeyPtr  sptrCeasedVk = input.ceasedVk.GetVKeyPtr();
+
             ret = batchVerifier.add_csw_proof(
                 idx,
                 input.nValue,
                 scid_fe, 
                 &bws_csw_pk_hash,
-                input.certDataHash.GetFieldElement().get(),
-                input.ceasingCumScTxCommTree.GetFieldElement().get(),
-                input.cswProof.GetProofPtr().get(),
-                input.ceasedVk.GetVKeyPtr().get(),
+                sptrCdh.get(),
+                sptrCum.get(),
+                sptrCswProof.get(),
+                sptrCeasedVk.get(),
                 &code
             );
             idx++;
@@ -256,26 +261,34 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
         int custom_fields_len = input.vCustomFields.size(); 
         std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
         int i = 0;
+        std::vector<wrappedFieldPtr> vSptr;
         for (auto entry: input.vCustomFields)
         {
-            custom_fields[i] = entry.GetFieldElement().get();
+            wrappedFieldPtr sptr = entry.GetFieldElement();
+            custom_fields[i] = sptr.get();
+            vSptr.push_back(sptr);
             i++;
         }
 
+        wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
+        wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
+        wrappedScProofPtr sptrProof  = input.certProof.GetProofPtr();
+        wrappedScVkeyPtr  sptrCertVk = input.CertVk.GetVKeyPtr();
+
         bool ret = batchVerifier.add_certificate_proof(
             idx,
-            input.constant.GetFieldElement().get(),
+            sptrConst.get(),
             input.epochNumber,
             input.quality,
             input.bt_list.data(),
             input.bt_list.size(),
             custom_fields.get(),
             custom_fields_len,
-            input.endEpochCumScTxCommTreeRoot.GetFieldElement().get(),
+            sptrCum.get(),
             input.mainchainBackwardTransferRequestScFee,
             input.forwardTransferScFee,
-            input.certProof.GetProofPtr().get(),
-            input.CertVk.GetVKeyPtr().get(),
+            sptrProof.get(),
+            sptrCertVk.get(),
             &code
         );
         idx++;
@@ -356,25 +369,33 @@ bool CScAsyncProofVerifier::NormalVerifyCertificate(CCertProofVerifierInput inpu
 
     std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
     int i = 0;
+    std::vector<wrappedFieldPtr> vSptr;
     for (auto entry: input.vCustomFields)
     {
-        custom_fields[i] = entry.GetFieldElement().get();
+        wrappedFieldPtr sptr = entry.GetFieldElement();
+        custom_fields[i] = sptr.get();
+        vSptr.push_back(sptr);
         i++;
     }
 
+    wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
+    wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
+    wrappedScProofPtr sptrProof  = input.certProof.GetProofPtr();
+    wrappedScVkeyPtr  sptrCertVk = input.CertVk.GetVKeyPtr();
+
     bool ret = zendoo_verify_certificate_proof(
-        input.constant.GetFieldElement().get(),
+        sptrConst.get(),
         input.epochNumber,
         input.quality,
         input.bt_list.data(),
         input.bt_list.size(),
         custom_fields.get(),
         custom_fields_len,
-        input.endEpochCumScTxCommTreeRoot.GetFieldElement().get(),
+        sptrCum.get(),
         input.mainchainBackwardTransferRequestScFee,
         input.forwardTransferScFee,
-        input.certProof.GetProofPtr().get(),
-        input.CertVk.GetVKeyPtr().get(),
+        sptrProof.get(),
+        sptrCertVk.get(),
         &code
     );
 
@@ -407,15 +428,20 @@ bool CScAsyncProofVerifier::NormalVerifyCsw(uint256 txHash, std::map</*outputPos
         const uint160& csw_pk_hash = input.pubKeyHash;
         BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
      
+        wrappedFieldPtr   sptrCdh      = input.certDataHash.GetFieldElement();
+        wrappedFieldPtr   sptrCum      = input.ceasingCumScTxCommTree.GetFieldElement();
+        wrappedScProofPtr sptrProof    = input.cswProof.GetProofPtr();
+        wrappedScVkeyPtr  sptrCeasedVk = input.ceasedVk.GetVKeyPtr();
+
         CctpErrorCode code;
         bool ret = zendoo_verify_csw_proof(
                     input.nValue,
                     scid_fe, 
                     &bws_csw_pk_hash,
-                    input.certDataHash.GetFieldElement().get(),
-                    input.ceasingCumScTxCommTree.GetFieldElement().get(),
-                    input.cswProof.GetProofPtr().get(),
-                    input.ceasedVk.GetVKeyPtr().get(),
+                    sptrCdh.get(),
+                    sptrCum.get(),
+                    sptrProof.get(),
+                    sptrCeasedVk.get(),
                     &code);
 
         if (!ret || code != CctpErrorCode::OK)
