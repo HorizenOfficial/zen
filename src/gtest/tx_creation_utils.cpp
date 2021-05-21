@@ -41,8 +41,10 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vsc_ccout.resize(1);
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
-    mtx.vsc_ccout[0].wCertVk = CScVKey(ParseHex(SAMPLE_VK));
-    mtx.vsc_ccout[0].wCeasedVk = CScVKey(ParseHex(SAMPLE_VK));
+    mtx.vsc_ccout[0].wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    mtx.vsc_ccout[0].wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    mtx.vsc_ccout[0].vFieldElementCertificateFieldConfig.push_back(22);
+    mtx.vsc_ccout[0].customData.push_back(0x33);
     mtx.vsc_ccout[0].forwardTransferScFee = ftScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = mbtrScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = mbtrDataLength;
@@ -114,17 +116,26 @@ CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, c
 }
 
 CTxCeasedSidechainWithdrawalInput txCreationUtils::CreateCSWInput(
-    const uint256& scId, const std::string& nullifierHex, CAmount amount, int32_t actCertDataIdx)
+    const uint256& scId, const std::string& nullifierHex, const std::string& actCertDataHex,
+    const std::string& ceasingCumScTxCommTreeHex, CAmount amount)
 {
-    std::vector<unsigned char> tmp(nullifierHex.begin(), nullifierHex.end());
-    tmp.resize(CFieldElement::ByteSize());
-    CFieldElement nullifier{tmp};
+    std::vector<unsigned char> tmp1 = ParseHex(nullifierHex);
+    tmp1.resize(CFieldElement::ByteSize());
+    CFieldElement nullifier{tmp1};
+
+    std::vector<unsigned char> tmp2 = ParseHex(actCertDataHex);
+    tmp2.resize(CFieldElement::ByteSize());
+    CFieldElement actCertDataHash{tmp2};
+
+    std::vector<unsigned char> tmp3 = ParseHex(ceasingCumScTxCommTreeHex);
+    tmp3.resize(CFieldElement::ByteSize());
+    CFieldElement ceasingCumScTxCommTree{tmp3};
 
     uint160 dummyPubKeyHash {};
-    CScProof dummyScProof{ParseHex(SAMPLE_PROOF)};
+    CScProof dummyScProof{SAMPLE_CERT_DARLIN_PROOF};
     CScript dummyRedeemScript;
 
-    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript, actCertDataIdx);
+    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, actCertDataHash, ceasingCumScTxCommTree, dummyRedeemScript);
 }
 
 CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawalInput& csw)
@@ -133,11 +144,6 @@ CTransaction txCreationUtils::createCSWTxWith(const CTxCeasedSidechainWithdrawal
     mtx.nVersion = SC_TX_VERSION;
     mtx.vcsw_ccin.resize(1);
     mtx.vcsw_ccin[0] = csw;
-
-    // idx points at an entry to this vector
-    assert(csw.actCertDataIdx >= 0);
-    mtx.vact_cert_data.resize(csw.actCertDataIdx);
-    mtx.vact_cert_data.push_back(CFieldElement{SAMPLE_FIELD});
 
     return CTransaction(mtx);
 }
@@ -202,11 +208,10 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
     return;
 }
 
-CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
-                                                  const CFieldElement& endEpochCumScTxCommTreeRoot,
-                                                  CAmount changeTotalAmount, unsigned int numChangeOut,
-                                                  CAmount bwtTotalAmount, unsigned int numBwt,
-                                                  CAmount ftScFee, CAmount mbtrScFee, const int quality)
+CScCertificate txCreationUtils::createCertificate(
+    const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+    const CFieldElement& endEpochCumScTxCommTreeRoot, CAmount changeTotalAmount, unsigned int numChangeOut,
+    CAmount bwtTotalAmount, unsigned int numBwt, CAmount ftScFee, CAmount mbtrScFee, const int quality)
 {
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
@@ -218,7 +223,7 @@ CScCertificate txCreationUtils::createCertificate(const uint256 & scId, int epoc
     res.forwardTransferScFee = ftScFee;
     res.mainchainBackwardTransferRequestScFee = mbtrScFee;
 
-    res.scProof = CScProof{ParseHex(SAMPLE_PROOF)};
+    res.scProof = CScProof{SAMPLE_CERT_DARLIN_PROOF};
 
     res.vin.resize(1);
     res.vin[0].prevout.hash = uint256S("1");
@@ -461,7 +466,7 @@ CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 
 
     input.scId = scId;
     input.nValue = nValue;
-    input.scProof = CScProof{ParseHex(SAMPLE_PROOF)};
+    input.scProof = CScProof{SAMPLE_CSW_DARLIN_PROOF};
 
     return input;
 }
@@ -539,7 +544,7 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
     }
 
     // TODO: when the CCTP lib integration is ready, create the proof properly.
-    res.scProof = CScProof{ParseHex(SAMPLE_PROOF)};
+    res.scProof = CScProof{SAMPLE_CERT_DARLIN_PROOF};
 
     return res;
 }

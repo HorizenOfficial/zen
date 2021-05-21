@@ -123,8 +123,8 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 pkh".format(scid, bwt_amount_1, pkh_node1), self.nodes, DEBUG_MODE)
         try:
-            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
-                                                    proof, amounts_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amounts_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -160,8 +160,8 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 pkh".format(scid, bwt_amount_2, pkh_node1), self.nodes, DEBUG_MODE)
         try:
-            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
-                                                    proof, amounts_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, amounts_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -257,8 +257,8 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
                 "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
                 quality, constant, [], [])
 
-            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
-                                                    proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+                epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
             assert(False)
         except JSONRPCException, e:

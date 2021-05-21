@@ -31,8 +31,7 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
 
 CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
     scId(), epochNumber(EPOCH_NOT_INITIALIZED), quality(QUALITY_NULL),
-    endEpochBlockHash(), endEpochCumScTxCommTreeRoot(),
-    scProof(), vFieldElementCertificateField(),
+    endEpochBlockHash(), endEpochCumScTxCommTreeRoot(), scProof(), vFieldElementCertificateField(),
     vBitVectorCertificateField(), nFirstBwtPos(0),
     forwardTransferScFee(INT_NULL), mainchainBackwardTransferRequestScFee(INT_NULL) {}
 
@@ -233,15 +232,16 @@ std::string CScCertificate::ToString() const
     return str;
 }
 
-bool CScCertificate::CheckInputsLimit(CValidationState &state) const {
+bool CScCertificate::CheckInputsLimit() const {
     // Node operator can choose to reject tx by number of transparent inputs
     static_assert(std::numeric_limits<size_t>::max() >= std::numeric_limits<int64_t>::max(), "size_t too small");
     size_t limit = (size_t) GetArg("-mempooltxinputlimit", 0);
     if (limit > 0) {
         size_t n = GetVin().size();
         if (n > limit) {
-            return state.DoS(10, error("%s(): Dropping cert %s : too many inputs %zu > limit %zu\n",
-                __func__, GetHash().ToString(), n, limit), CValidationState::Code::INVALID, "bad-cert-vin-input-limit");
+            LogPrint("mempool", "%s():%d - Dropping cert %s : too many transparent inputs %zu > limit %zu\n",
+                __func__, __LINE__, GetHash().ToString(), n, limit);
+            return false;
         }
     }
     return true;
@@ -315,6 +315,9 @@ CScCertificate::MakeShared() const {
 
 CFieldElement CScCertificate::GetDataHash() const
 {
+    // in the final implementation this must not create an obj but should return a reference to a mem-only
+    // data member, similarly to what GetHash() is doing. This is for performances but expecially for avoiding 
+    // having temporary objs and playing with their internal data buffers. 
     std::vector<unsigned char> tmp(this->GetHash().begin(), this->GetHash().end());
     tmp.resize(CFieldElement::ByteSize(), 0x0);
     return CFieldElement{tmp};
@@ -371,9 +374,9 @@ CMutableScCertificate& CMutableScCertificate::operator=(const CMutableScCertific
     scProof                               = rhs.scProof;
     vFieldElementCertificateField         = rhs.vFieldElementCertificateField;
     vBitVectorCertificateField            = rhs.vBitVectorCertificateField;
+    *const_cast<int*>(&nFirstBwtPos)      = rhs.nFirstBwtPos;
     forwardTransferScFee                  = rhs.forwardTransferScFee;
     mainchainBackwardTransferRequestScFee = rhs.mainchainBackwardTransferRequestScFee;
-    *const_cast<int*>(&nFirstBwtPos)      = rhs.nFirstBwtPos;
 
     return *this;
 }

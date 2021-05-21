@@ -1092,8 +1092,8 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
 #ifdef BITCOIN_TX
 int CCoinsViewCache::GetHeight() const {return -1;}
-CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const {return CValidationState::Code::OK;}
-CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx) const { return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode) const {return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode) const { return CValidationState::Code::OK;}
 #else
 
 int CCoinsViewCache::GetHeight() const
@@ -1142,7 +1142,7 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certEpoch) const
     return true;
 }
 
-CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert) const
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -1157,10 +1157,18 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         return CValidationState::Code::SCID_NOT_FOUND;
     }
 
+    if (!CheckCertTiming(cert.GetScId(), cert.epochNumber))
+    {
+        LogPrintf("%s():%d - ERROR: cert %s timing is not valid\n", __func__, __LINE__, certHash.ToString());
+        return CValidationState::Code::INVALID;
+    }
+
     if (!Sidechain::checkCertCustomFields(sidechain, cert) )
     {
         LogPrintf("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
+        if (banSenderNode)
+            *banSenderNode = true;
         return CValidationState::Code::INVALID;
     }
 
@@ -1180,12 +1188,6 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         LogPrintf("%s():%d - ERROR: cert[%s], scId[%s], faild checking sc cum commitment tree hash\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
         return ret;
-    }
-
-    if (!CheckCertTiming(cert.GetScId(), cert.epochNumber))
-    {
-        LogPrintf("%s():%d - ERROR: cert %s timing is not valid\n", __func__, __LINE__, certHash.ToString());
-        return CValidationState::Code::INVALID;
     }
 
     if (!CheckQuality(cert))
@@ -1232,8 +1234,6 @@ CValidationState::Code CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
 
     if (pblockindex->scCumTreeHash != endEpochCumScTxCommTreeRoot)
     {
-        // TODO if !ret, then we could search into mGlobalForkTips backwards if at this height we have the matching block
-        // in a fork: that would be the only 'honest' reason for a node to submit this certificate     
         LogPrintf("%s():%d - ERROR: cert cumulative commitment tree root does not match the value found at block hight[%d]\n",
             __func__, __LINE__, endEpochHeight);
         return CValidationState::Code::SC_CUM_COMM_TREE;
@@ -1282,7 +1282,6 @@ bool CCoinsViewCache::CheckScTxTiming(const uint256& scId) const
     return true;
 }
 
-
 /**
  * @brief Checks whether a Forward Transfer output is still valid based on sidechain current FT fee.
  * 
@@ -1307,7 +1306,7 @@ bool CCoinsViewCache::CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const
     return mbtrOutput.scFee >= certView.mainchainBackwardTransferRequestScFee;
 }
 
-CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx) const
+CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode) const
 {
     if (tx.IsCoinBase())
     {
@@ -1399,6 +1398,8 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
             LogPrintf("%s():%d - ERROR: Invalid tx[%s] : MBTR request data size [%d] must be equal to the size specified "
                          "during sidechain creation [%d] for scId[%s]",
                     __func__, __LINE__, txHash.ToString(), mbtr.vScRequestData.size(), sidechain.fixedParams.mainchainBackwardTransferRequestDataLength, scId.ToString());
+            if (banSenderNode)
+                *banSenderNode = true;
             return CValidationState::Code::INVALID;
         }
 
@@ -1408,6 +1409,8 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
         if (sidechain.fixedParams.mainchainBackwardTransferRequestDataLength == 0)
         {
             LogPrintf("%s():%d - ERROR: mbtr is not allowed for scId[%s]\n",  __func__, __LINE__, scId.ToString());
+            if (banSenderNode)
+                *banSenderNode = true;
             return CValidationState::Code::INVALID;
         }
 
@@ -1452,6 +1455,8 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
         {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n refers to SC without CSW support\n",
                 __func__, __LINE__, tx.GetHash().ToString(), csw.ToString());
+            if (banSenderNode)
+                *banSenderNode = true;
             return CValidationState::Code::INVALID;
         }
 
@@ -1471,16 +1476,22 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
                 __func__, __LINE__, tx.ToString(), csw.ToString());
             return CValidationState::Code::INVALID;
         }
-        
-        int32_t idx = csw.actCertDataIdx;
-        // index should have been already checked at this point, at() throws an exception
-        const CFieldElement& certDataHash = tx.GetVActCertData().at(idx);
-        const CFieldElement& certDataHash2 = GetActiveCertView(csw.scId).certDataHash;
-        if (certDataHash2 != certDataHash)
+
+        CScCertificateView certView = this->GetActiveCertView(csw.scId);
+        // note: it's also fine to have an empty actCertDataHash fe obj 
+        // in this case both certView.certDataHash, csw.actCertDataHash have to be == CFieldElement() to be valid
+        if (certView.certDataHash != csw.actCertDataHash)
         {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n active cert data hash does not match\n",
                 __func__, __LINE__, tx.ToString(), csw.ToString());
             return CValidationState::Code::ACTIVE_CERT_DATA_HASH;
+        }
+
+        if (GetCeasingCumTreeHash(csw.scId) != csw.ceasingCumScTxCommTree)
+        {
+            LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n ceased cum Tree hash does not match\n",
+                __func__, __LINE__, tx.ToString(), csw.ToString());
+            return CValidationState::Code::SC_CUM_COMM_TREE;
         }
     }
 
@@ -1974,6 +1985,20 @@ const CScCertificateView& CCoinsViewCache::GetActiveCertView(const uint256& scId
         return pSidechain->pastEpochTopQualityCertView;
     else
         assert(false);
+}
+
+CFieldElement CCoinsViewCache::GetCeasingCumTreeHash(const uint256& scId) const
+{
+    const CSidechain* const pSidechain = this->AccessSidechain(scId);
+
+    if (pSidechain == nullptr)
+        return CFieldElement{};
+
+    CFieldElement ceasedBlockCum;
+    if (!pSidechain->GetCeasingCumTreeHash(ceasedBlockCum))
+        return CFieldElement{};
+
+    return ceasedBlockCum;
 }
 
 bool CCoinsViewCache::Flush() {

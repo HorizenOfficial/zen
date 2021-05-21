@@ -149,7 +149,7 @@ TEST(Mempool, TxInputLimit) {
     EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state3, tx3, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                                                     MempoolProofVerificationFlag::SYNC));
     // The -mempooltxinputlimit check doesn't set a reason
-    EXPECT_EQ(state3.GetRejectReason(), "bad-tx-vin-input-limit");
+    EXPECT_EQ(state3.GetRejectReason(), "");
 
     // Resize the transaction, add CSW inputs
     mtx.vin.resize(10);
@@ -161,7 +161,7 @@ TEST(Mempool, TxInputLimit) {
     EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state3csw, txWithCsw, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
                                                                     MempoolProofVerificationFlag::SYNC));
     // The -mempooltxinputlimit check doesn't set a reason
-    EXPECT_EQ(state3csw.GetRejectReason(), "bad-tx-vin-input-limit");
+    EXPECT_EQ(state3csw.GetRejectReason(), "");
 
     // Clear the limit
     mapArgs.erase("-mempooltxinputlimit");

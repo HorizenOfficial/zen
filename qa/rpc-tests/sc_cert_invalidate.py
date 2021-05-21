@@ -152,8 +152,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
             "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [bwt_amount_1])
 
-        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
-                                              proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+            epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()
@@ -204,8 +204,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
             "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node2], [bwt_amount_2])
 
-        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
-                                              proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+            epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()

@@ -345,8 +345,8 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, epoch_number, epoch_block_hash, prev_epoch_block_hash,
             quality, constant, [pkh_node1], [cert_amount])
-        cert_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, epoch_cum_tree_hash,
-                                                      proof, amount_cert_1, newFtFee, newMbtrFee)
+        cert_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+            epoch_cum_tree_hash, proof, amount_cert_1, newFtFee, newMbtrFee)
         
         mark_logs("Certificate sent to mempool, node 1 generates " + str(EPOCH_LENGTH / 2) + " blocks", self.nodes, DEBUG_MODE)
         self.nodes[1].generate(EPOCH_LENGTH / 2)
