@@ -33,7 +33,6 @@ class MCTestUtils(object):
         args.append(str(params_dir))
 
         subprocess.check_call(args)
-        print params_dir
         assert(os.path.isfile(params_dir + file_prefix + "test_pk"))
         return self._get_vk(params_dir + file_prefix + "test_vk")
 
@@ -65,7 +64,7 @@ class CertTestUtils(MCTestUtils):
         self.file_prefix = str(ps_type) + "_cert_"
 
     def generate_params(self, id):
-        self._generate_params(id, "cert", self.ps_type, self.file_prefix)
+        return self._generate_params(id, "cert", self.ps_type, self.file_prefix)
 
     def create_test_proof(self, id, epoch_number, quality, btr_fee, ft_min_amount, constant, end_cum_comm_tree_root, pks, amounts):
         params_dir = self._get_params_dir(id)
@@ -88,7 +87,7 @@ class CSWTestUtils(MCTestUtils):
         self.file_prefix = str(ps_type) + "_csw_"
 
     def generate_params(self, id):
-        self._generate_params(id, "csw", self.ps_type, self.file_prefix)
+        return self._generate_params(id, "csw", self.ps_type, self.file_prefix)
 
     def create_test_proof(self, id, amount, sc_id, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash):
         params_dir = self._get_params_dir(id)
