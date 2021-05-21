@@ -1551,3 +1551,46 @@ TEST(CctpLibrary, CheckTypeSize)
     ASSERT_TRUE(Sidechain::MAX_SC_CUSTOM_DATA_LEN == zendoo_get_sc_custom_data_size_in_bytes());
 }
 
+TEST(CctpLibrary, GetScIdFromNullInputs)
+{
+    unsigned char expected_res[CFieldElement::ByteSize()] = {
+        0xe5, 0x89, 0x89, 0x23, 0xc5, 0x50, 0x1d, 0xbe,
+        0xcd, 0x48, 0x45, 0x65, 0x55, 0xcf, 0x92, 0x25,
+        0xaa, 0x44, 0xbf, 0x3a, 0x4e, 0x84, 0xbc, 0x20,
+        0xec, 0x06, 0x9b, 0x4a, 0x4d, 0xcf, 0x97, 0x2a
+    };
+
+    // all zeroes array
+    uint256 nullTxId;
+
+    // null as well
+    int pos = 0;
+
+    CctpErrorCode code;
+    const BufferWithSize bws_tx_hash(nullTxId.begin(), nullTxId.size());
+
+    field_t* scid_fe = zendoo_compute_sc_id(&bws_tx_hash, pos, &code); 
+    ASSERT_TRUE(code == CctpErrorCode::OK);
+    ASSERT_TRUE(scid_fe != nullptr);
+
+    unsigned char field_bytes[CFieldElement::ByteSize()] = {};
+    zendoo_serialize_field(scid_fe, field_bytes, &code);
+    ASSERT_TRUE(code == CctpErrorCode::OK);
+
+    unsigned char* ptr = (unsigned char*)scid_fe;
+    printf("           scid_fe = [");
+    for (int i = 0; i < CFieldElement::ByteSize(); i++)
+        printf("%02x", *ptr++);
+    printf("]\n");
+
+    ptr = field_bytes;
+    printf("serialized_scid_fe = [");
+    for (int i = 0; i < CFieldElement::ByteSize(); i++)
+    {
+        printf("%02x", *ptr);
+        ASSERT_TRUE(expected_res[i] == *ptr);
+        ptr++;
+    }
+    printf("]\n");
+}
+
