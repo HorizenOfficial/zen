@@ -17,6 +17,8 @@
 #include <clientversion.h>
 #include <sc/proofverifier.h> // for MC_CRYPTO_LIB_MOCKED 
 
+#include <boost/filesystem.hpp>
+
 static CMutableTransaction CreateDefaultTx()
 {
     // Create a tx with a sc creation, a fwt, a bwtr and a csw
@@ -1646,3 +1648,122 @@ TEST(CctpLibrary, GetScIdFromNullInputs)
 
 }
 
+/**
+ * @brief This test is intended to generate verification parameters,
+ * generate a valid certificate proof (Marlin) and verify it through the batch verifier.
+ */
+TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
+{
+    boost::filesystem::path tempPath = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+    boost::filesystem::create_directories(tempPath);
+
+    size_t segmentSize = 1 << 9;
+    CctpErrorCode errorCode;
+
+    ASSERT_EQ(tempPath.size(), tempPath.string().length());
+    ASSERT_EQ(tempPath.size(), strlen(tempPath.c_str()));
+
+    std::cout << "Temp folder for proof verification test: " << tempPath.string() << std::endl;
+
+    ASSERT_TRUE(zendoo_init_dlog_keys(ProvingSystem::CoboundaryMarlin, segmentSize, (path_char_t*)tempPath.c_str(), strlen(tempPath.c_str()), &errorCode));
+
+    ASSERT_TRUE(zendoo_generate_mc_test_params(TestCircuitType::Certificate, ProvingSystem::CoboundaryMarlin, (path_char_t*)tempPath.c_str(), strlen(tempPath.c_str()), &errorCode));
+
+    boost::filesystem::path sc_pk_path = tempPath / "cob_marlin_cert_test_pk";
+    boost::filesystem::path sc_vk_path = tempPath / "cob_marlin_cert_test_vk";
+    boost::filesystem::path sc_cert_proof_path = tempPath / "cob_marlin_cert_test_proof";
+
+    sc_pk_t* sc_pk = zendoo_deserialize_sc_pk_from_file(
+        (path_char_t*)sc_pk_path.c_str(),
+        strlen(sc_pk_path.c_str()),
+        true, /*semantic_checks*/
+        &errorCode
+    );
+
+    ASSERT_NE(sc_pk, nullptr);
+
+    CCertProofVerifierInput certInput;
+    certInput.constant = CFieldElement(SAMPLE_FIELD);
+    certInput.epochNumber = 7;
+    certInput.quality = 10;
+    certInput.endEpochCumScTxCommTreeRoot = CFieldElement(SAMPLE_FIELD);
+    certInput.mainchainBackwardTransferRequestScFee = 1;
+    certInput.forwardTransferScFee = 1;
+
+    wrappedFieldPtr   sptrConst  = certInput.constant.GetFieldElement();
+    wrappedFieldPtr   sptrCum    = certInput.endEpochCumScTxCommTreeRoot.GetFieldElement();
+    wrappedScProofPtr sptrProof  = certInput.certProof.GetProofPtr();
+    wrappedScVkeyPtr  sptrCertVk = certInput.CertVk.GetVKeyPtr();
+
+    ASSERT_TRUE(zendoo_create_cert_test_proof(
+        false /*zk*/,
+        sptrConst.get(),
+        certInput.epochNumber,
+        certInput.quality,
+        nullptr, //certInput.bt_list.data(),
+        0, //certInput.bt_list.size(),
+        sptrCum.get(),
+        certInput.mainchainBackwardTransferRequestScFee,
+        certInput.forwardTransferScFee,
+        sc_pk,
+        (path_char_t*)sc_cert_proof_path.c_str(),
+        strlen(sc_cert_proof_path.c_str()),
+        &errorCode
+    ));
+
+    int custom_fields_len = certInput.vCustomFields.size(); 
+
+    std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
+    int i = 0;
+    std::vector<wrappedFieldPtr> vSptr;
+    for (auto entry: certInput.vCustomFields)
+    {
+        wrappedFieldPtr sptr = entry.GetFieldElement();
+        custom_fields[i] = sptr.get();
+        vSptr.push_back(sptr);
+        i++;
+    }
+
+    if (custom_fields_len == 0)
+    {
+        custom_fields.reset();
+        ASSERT_EQ(custom_fields.get(), nullptr);
+    }
+
+    sc_proof_t* certProof = zendoo_deserialize_sc_proof_from_file(
+        (path_char_t*)sc_cert_proof_path.c_str(),
+        strlen(sc_cert_proof_path.c_str()),
+        true, /*semantic_checks*/
+        &errorCode
+    );
+
+    ASSERT_NE(certProof, nullptr);
+
+    sc_vk_t* sc_vk = zendoo_deserialize_sc_vk_from_file(
+        (path_char_t*)sc_vk_path.c_str(),
+        strlen(sc_vk_path.c_str()),
+        true, /*semantic_checks*/
+        &errorCode
+    );
+
+    ASSERT_NE(sc_vk, nullptr);
+
+    ASSERT_TRUE(zendoo_verify_certificate_proof(
+        sptrConst.get(),
+        certInput.epochNumber,
+        certInput.quality,
+        nullptr, //certInput.bt_list.data(),
+        0, //certInput.bt_list.size(),
+        custom_fields.get(),
+        custom_fields_len,
+        sptrCum.get(),
+        certInput.mainchainBackwardTransferRequestScFee,
+        certInput.forwardTransferScFee,
+        certProof,
+        sc_vk,
+        &errorCode
+    ));
+
+    boost::system::error_code ec;
+    boost::filesystem::remove_all(tempPath.string(), ec);
+}
