@@ -74,6 +74,7 @@ CFieldElement::CFieldElement(const std::vector<unsigned char>& byteArrayIn) {};
 void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn) {};
 CFieldElement::CFieldElement(const uint256& value) {};
 CFieldElement::CFieldElement(const wrappedFieldPtr& wrappedField) {};
+uint256 CFieldElement::GetLegacyHash() const { return uint256(); };
 wrappedFieldPtr CFieldElement::GetFieldElement() const {return nullptr;};
 bool CFieldElement::IsValid() const {return false;};
 CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldElement& rhs) { return CFieldElement{}; }
@@ -131,7 +132,7 @@ wrappedFieldPtr CFieldElement::GetFieldElement() const
     return res;
 }
 
-uint256 CFieldElement::GetLegacyHashTO_BE_REMOVED() const
+uint256 CFieldElement::GetLegacyHash() const
 {
     std::vector<unsigned char> tmp(this->byteVector.begin(), this->byteVector.begin()+32);
     return uint256(tmp);
@@ -158,14 +159,16 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
         throw std::runtime_error("Could not compute poseidon hash on null field elements");
     }
 
-    digest.update(lhs.GetFieldElement().get(), &code);
+    wrappedFieldPtr sptr1 = lhs.GetFieldElement();
+    digest.update(sptr1.get(), &code);
     if (code != CctpErrorCode::OK)
     {
         LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
         throw std::runtime_error("Could not compute poseidon hash on null field elements");
     }
 
-    digest.update(rhs.GetFieldElement().get(), &code);
+    wrappedFieldPtr sptr2 = rhs.GetFieldElement();
+    digest.update(sptr2.get(), &code);
     if (code != CctpErrorCode::OK)
     {
         LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
@@ -232,7 +235,8 @@ bool CScProof::IsValid() const
 Sidechain::ProvingSystemType CScProof::getProvingSystemType() const
 {
     CctpErrorCode code;
-    ProvingSystem psType = zendoo_get_sc_proof_proving_system_type(GetProofPtr().get(), &code);
+    auto sptr = GetProofPtr();
+    ProvingSystem psType = zendoo_get_sc_proof_proving_system_type(sptr.get(), &code);
     if (code != CctpErrorCode::OK)
     {
         LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
@@ -287,7 +291,8 @@ bool CScVKey::IsValid() const
 Sidechain::ProvingSystemType CScVKey::getProvingSystemType() const
 {
     CctpErrorCode code;
-    ProvingSystem psType = zendoo_get_sc_vk_proving_system_type(GetVKeyPtr().get(), &code);
+    wrappedScVkeyPtr sptr = GetVKeyPtr();
+    ProvingSystem psType = zendoo_get_sc_vk_proving_system_type(sptr.get(), &code);
     if (code != CctpErrorCode::OK)
     {
         LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);

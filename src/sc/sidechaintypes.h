@@ -94,12 +94,12 @@ public:
     explicit CFieldElement(const std::vector<unsigned char>& byteArrayIn);
     void SetByteArray(const std::vector<unsigned char>& byteArrayIn) override final;
 
-    explicit CFieldElement(const uint256& value); //Currently for backward compability with pre-sidechain fork blockHeader. To re-evaluate its necessity
+    explicit CFieldElement(const uint256& value);
     explicit CFieldElement(const wrappedFieldPtr& wrappedField);
 
     static constexpr unsigned int ByteSize() { return Sidechain::SC_FE_SIZE_IN_BYTES; }
     static constexpr unsigned int BitSize()  { return ByteSize()*8; }
-    uint256 GetLegacyHashTO_BE_REMOVED() const;
+    uint256 GetLegacyHash() const;
 
     wrappedFieldPtr GetFieldElement() const;
     bool IsValid() const override final;
