@@ -53,7 +53,6 @@ private:
 public:
     const int32_t epochNumber;
     const int64_t quality;
-    const uint256 endEpochBlockHash;
     const CFieldElement endEpochCumScTxCommTreeRoot;
     const CScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
@@ -105,7 +104,6 @@ public:
         READWRITE(*const_cast<uint256*>(&scId));
         READWRITE(*const_cast<int32_t*>(&epochNumber));
         READWRITE(*const_cast<int64_t*>(&quality));
-        READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
         READWRITE(*const_cast<CFieldElement*>(&endEpochCumScTxCommTreeRoot));
         READWRITE(*const_cast<CScProof*>(&scProof));
         READWRITE(*const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField));
@@ -198,7 +196,6 @@ public:
             scId.IsNull() &&
             epochNumber == EPOCH_NULL &&
             quality == QUALITY_NULL &&
-            endEpochBlockHash.IsNull() &&
             endEpochCumScTxCommTreeRoot.IsNull() &&
             scProof.IsNull() &&
             vFieldElementCertificateField.empty() &&
@@ -228,7 +225,6 @@ struct CMutableScCertificate : public CMutableTransactionBase
     uint256 scId;
     int32_t epochNumber;
     int64_t quality;
-    uint256 endEpochBlockHash;
     CFieldElement endEpochCumScTxCommTreeRoot;
     CScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
@@ -254,7 +250,6 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(scId);
         READWRITE(epochNumber);
         READWRITE(quality);
-        READWRITE(endEpochBlockHash);
         READWRITE(endEpochCumScTxCommTreeRoot);
         READWRITE(scProof);
         READWRITE(vFieldElementCertificateField);
@@ -295,7 +290,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     template <typename Stream>
     CMutableScCertificate(deserialize_type, Stream& s) :
         scId(), epochNumber(CScCertificate::EPOCH_NULL),
-        quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), endEpochCumScTxCommTreeRoot(), scProof(),
+        quality(CScCertificate::QUALITY_NULL), endEpochCumScTxCommTreeRoot(), scProof(),
         vFieldElementCertificateField(), vBitVectorCertificateField()
     {
         Unserialize(s);

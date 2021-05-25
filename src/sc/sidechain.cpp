@@ -19,6 +19,19 @@ static const boost::filesystem::path Sidechain::GetSidechainDataDir()
     return sidechainsDataDir;
 }
 
+bool Sidechain::InitDLogKeys()
+{
+    CctpErrorCode errorCode;
+    std::string folderPath = Sidechain::GetSidechainDataDir().string();
+
+    if (!zendoo_init_dlog_keys(ProvingSystem::Darlin, SEGMENT_SIZE, (path_char_t*)folderPath.c_str(), folderPath.length(), &errorCode))
+    {
+        return false;
+    }
+
+    return true;
+}
+
 bool Sidechain::InitSidechainsFolder()
 {
     // Note: sidechainsDataDir cannot be global since
@@ -400,10 +413,10 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
                 CValidationState::Code::INVALID, "bad-cert-quality-negative");
     }
 
-    if (cert.epochNumber < 0 || cert.endEpochBlockHash.IsNull())
+    if (cert.epochNumber < 0)
     {
         return state.DoS(100,
-                error("%s():%d - ERROR: Invalid cert[%s], negative epoch number or null endEpochBlockHash\n",
+                error("%s():%d - ERROR: Invalid cert[%s], negative epoch number\n",
                 __func__, __LINE__, certHash.ToString()),
                 CValidationState::Code::INVALID, "bad-cert-invalid-epoch-data");;
     }

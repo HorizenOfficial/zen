@@ -150,7 +150,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         sc_fork_reached = True
 
         # create a sidechain and a certificate for it in the mempool
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
@@ -164,7 +164,6 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
 
         current_height = self.nodes[1].getblockcount()
-        pebh = self.nodes[1].getblockhash(current_height)
         block_list = self.nodes[0].generate(SC_EPOCH_LENGTH) 
         self.sync_all()
 
@@ -172,13 +171,12 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh, "amount": SC_CERT_AMOUNT}]
 
         #create wCert proof
-        eph = block_list[-1]
-        proof = mcTest.create_test_proof("sc1", 0, eph, pebh, 0, constant, [pkh], [SC_CERT_AMOUNT])
-
         epoch_cum_tree_hash = self.nodes[0].getblock(eph)['scCumTreeHash']
         ftScFee = 0.1
         mbtrScFee = 0.1
         fee = 0.000023
+
+        proof = mcTest.create_test_proof("sc1", 0, 0, mbtrScFee, ftScFee, constant, epoch_cum_tree_hash, [pkh], [SC_CERT_AMOUNT])
         cert = self.nodes[0].send_certificate(scid, 0, 0, block_list[-1], epoch_cum_tree_hash,
             proof, amounts, ftScFee, mbtrScFee, fee)
         self.sync_all()

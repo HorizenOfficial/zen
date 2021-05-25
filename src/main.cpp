@@ -5850,7 +5850,16 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
 
     if (!AlreadyHave(inv))
     {
-        ProcessTxBaseAcceptToMemoryPool(txBase, pfrom, BatchVerificationStateFlag::NOT_VERIFIED_YET, state);
+        BatchVerificationStateFlag flag = BatchVerificationStateFlag::NOT_VERIFIED_YET;
+        bool test = GetBoolArg("-skipscproof", false);
+        // CODE USED FOR UNIT TEST ONLY [Start]
+        if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest" && GetBoolArg("-skipscproof", false)))
+        {
+            flag = BatchVerificationStateFlag::VERIFIED;
+        }
+        // CODE USED FOR UNIT TEST ONLY [End]
+
+        ProcessTxBaseAcceptToMemoryPool(txBase, pfrom, flag, state);
     }
     else
     {

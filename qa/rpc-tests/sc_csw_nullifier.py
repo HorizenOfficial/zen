@@ -82,11 +82,12 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_epoch_len = EPOCH_LENGTH
         sc_cr_amount = Decimal('12.00000000')
 
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        certMcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+        cswMcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir)
 
         # generate wCertVk and constant
-        vk = mcTest.generate_params("sc1")
-        cswVk = mcTest.generate_params("csw1")
+        vk = certMcTest.generate_params("sc1")
+        cswVk = cswMcTest.generate_params("csw1")
         constant = generate_random_field_element_hex()
 
         sc_cr = []
@@ -115,7 +116,7 @@ class CswNullifierTest(BitcoinTestFramework):
         mark_logs("\nLet 2 epochs pass by...".  format(sc_epoch_len), self.nodes, DEBUG_MODE)
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
-            mcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[0], self.sync_all,
              scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
@@ -123,7 +124,7 @@ class CswNullifierTest(BitcoinTestFramework):
         prev_epoch_hash = epoch_block_hash
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
-            mcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[0], self.sync_all,
              scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}l".format(epoch_number, cert), self.nodes, DEBUG_MODE)
@@ -464,8 +465,8 @@ class CswNullifierTest(BitcoinTestFramework):
         mark_logs("\nVerify we need a valid active cert data hash  for a CSW to be legal...", self.nodes, DEBUG_MODE)
         
         prev_epoch_hash = self.nodes[0].getbestblockhash()
-        vk2 = mcTest.generate_params("sc2")
-        cswVk2 = mcTest.generate_params("csw2")
+        vk2 = certMcTest.generate_params("sc2")
+        cswVk2 = cswMcTest.generate_params("csw2")
 
         ret = self.nodes[0].sc_create(sc_epoch_len, "dada", sc_cr_amount, vk2, "abcdef", constant, cswVk2)
         creating_tx = ret['txid']
@@ -478,7 +479,7 @@ class CswNullifierTest(BitcoinTestFramework):
         mark_logs("\nLet 2 epochs pass by...".  format(sc_epoch_len), self.nodes, DEBUG_MODE)
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
-            mcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[0], self.sync_all,
              scid2, prev_epoch_hash, "sc2", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
@@ -486,7 +487,7 @@ class CswNullifierTest(BitcoinTestFramework):
         prev_epoch_hash = epoch_block_hash
 
         cert, epoch_block_hash, epoch_number = advance_epoch(
-            mcTest, self.nodes[0], self.sync_all,
+            certMcTest, self.nodes[0], self.sync_all,
              scid2, prev_epoch_hash, "sc2", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)

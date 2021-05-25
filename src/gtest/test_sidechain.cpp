@@ -77,23 +77,6 @@ private:
     mutable boost::unordered_map<int, CSidechainEventsCacheEntry> eventsInMemoryMap;
 };
 
-class CNakedCCoinsViewCache : public CCoinsViewCache
-{
-public:
-    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
-    {
-        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
-        this->hashAnchor = dummyAnchor;
-
-        CAnchorsCacheEntry dummyAnchorsEntry;
-        dummyAnchorsEntry.entered = true;
-        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
-        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
-
-    };
-    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
-};
-
 class SidechainsTestSuite: public ::testing::Test {
 
 public:
@@ -105,7 +88,7 @@ public:
         SelectParams(CBaseChainParams::REGTEST);
 
         fakeChainStateDb   = new CInMemorySidechainDb();
-        sidechainsView     = new CNakedCCoinsViewCache(fakeChainStateDb);
+        sidechainsView     = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
     };
 
     void TearDown() override {
@@ -120,7 +103,7 @@ public:
 
 protected:
     CInMemorySidechainDb  *fakeChainStateDb;
-    CNakedCCoinsViewCache *sidechainsView;
+    txCreationUtils::CNakedCCoinsViewCache *sidechainsView;
 
     //Helpers
     CBlockUndo createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash = uint256());
@@ -1084,7 +1067,7 @@ TEST_F(SidechainsTestSuite, RestoreSidechainRestoresLastCertHash) {
 
     //Update sc with cert and create the associate blockUndo
     int certEpoch = 0;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(), dummyCumTree,
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyCumTree,
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     CBlockUndo blockUndo;
@@ -1175,7 +1158,7 @@ TEST_F(SidechainsTestSuite, CertificateUpdatesTopCommittedCertHash) {
 
     CBlockUndo blockUndo;
     CFieldElement dummyCumTree{SAMPLE_FIELD};
-    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
+    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     EXPECT_TRUE(sidechainsView->UpdateSidechain(aCertificate, blockUndo));
@@ -1829,7 +1812,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     CFieldElement dummyCumTree {SAMPLE_FIELD};
     CScCertificate originalCert = txCreationUtils::createCertificate(
         uint256S("aaa"),
-        /*epochNum*/0, dummyBlock.GetHash(), dummyCumTree,
+        /*epochNum*/0, dummyCumTree,
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2,
         /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
@@ -1952,7 +1935,7 @@ TEST_F(SidechainsTestSuite, NewCertificateUpdatesFeesAndDataLength)
     // Create new certificate
     //CBlockUndo dummyBlockUndo;
     CFieldElement dummyCumTree {SAMPLE_FIELD};
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*certEpoch*/0, dummyBlock.GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/ftFee, /*mbtrScFee*/mbtrFee);
 
@@ -1971,21 +1954,21 @@ TEST_F(SidechainsTestSuite, CertificatesWithValidFeesAreValid)
 {
     CValidationState txState;
     CFieldElement dummyCumTree {SAMPLE_FIELD};
-    CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/CAmount(0), /*mbtrScFee*/CAmount(0));
 
     EXPECT_TRUE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_TRUE(txState.IsValid());
 
-    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/CAmount(MAX_MONEY / 2), /*mbtrScFee*/CAmount(MAX_MONEY / 2));
 
     EXPECT_TRUE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_TRUE(txState.IsValid());
 
-    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/CAmount(MAX_MONEY), /*mbtrScFee*/CAmount(MAX_MONEY));
 
@@ -1997,14 +1980,14 @@ TEST_F(SidechainsTestSuite, CertificatesWithOutOfRangeFeesAreNotValid)
 {
     CValidationState txState;
     CFieldElement dummyCumTree {SAMPLE_FIELD};
-    CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/CAmount(-1), /*mbtrScFee*/CAmount(-1));
 
     EXPECT_FALSE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_FALSE(txState.IsValid());
 
-    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/CAmount(MAX_MONEY + 1), /*mbtrScFee*/CAmount(MAX_MONEY + 1));
 

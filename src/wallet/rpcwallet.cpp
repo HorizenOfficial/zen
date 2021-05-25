@@ -5270,30 +5270,29 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() < 9  )
+    if (fHelp || params.size() < 8  )
         throw runtime_error(
-            "send_certificate scid epochNumber quality endEpochBlockHash endEpochCumScTxCommTreeRoot scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
+            "send_certificate scid epochNumber quality endEpochCumScTxCommTreeRoot scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
             "\nArguments:\n"
             " 1. \"scid\"                        (string, required) The uint256 side chain ID\n"
             " 2. epochNumber                     (numeric, required) The epoch number this certificate refers to, zero-based numbered\n"
             " 3. quality                         (numeric, required) The quality of this withdrawal certificate. \n"
-            " 4. \"endEpochBlockHash\"           (string, required) The block hash determining the end of the referenced epoch\n"
-            " 5. \"endEpochCumScTxCommTreeRoot\"    (string, required) The hex string representation of the field element corresponding to the root of the cumulative scTxCommitment tree stored at the block marking the end of the referenced epoch\n"
-            " 6. \"scProof\"                     (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", CScProof::MaxByteSize()) + " bytes max\n"
-            " 7. transfers:                      (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
+            " 4. \"endEpochCumScTxCommTreeRoot\"    (string, required) The hex string representation of the field element corresponding to the root of the cumulative scTxCommitment tree stored at the block marking the end of the referenced epoch\n"
+            " 5. \"scProof\"                     (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", CScProof::MaxByteSize()) + " bytes max\n"
+            " 6. transfers:                      (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
             "     [{\n"                     
             "       \"pubkeyhash\":\"pkh\"       (string, required) The public key hash of the receiver\n"
             "       \"amount\":amount            (numeric, required) The numeric amount in ZEN\n"
             "     }, ... ]\n"
-            " 8. forwardTransferScFee           (numeric, optional) The amount of fee due to sidechain actors when creating a FT\n"
-            " 9. mainchainBackwardTransferScFee (numeric, optional) The amount of fee due to sidechain actors when creating a MBTR\n"
-            "10. fee                             (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
-            "11. vFieldElementCertificateField   (array, optional) An array of byte strings...TODO add description\n"
+            " 7. forwardTransferScFee           (numeric, optional) The amount of fee due to sidechain actors when creating a FT\n"
+            " 8. mainchainBackwardTransferScFee (numeric, optional) The amount of fee due to sidechain actors when creating a MBTR\n"
+            " 9. fee                             (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
+            "10. vFieldElementCertificateField   (array, optional) An array of byte strings...TODO add description\n"
             "    [\n"                     
             "      \"fieldElement\"             (string, required) The HEX string representing a generic field element\n"
             "    , ... ]\n"
-            "12. vBitVectorCertificateField      (array, optional) An array of byte strings...TODO add description\n"
+            "11. vBitVectorCertificateField      (array, optional) An array of byte strings...TODO add description\n"
             "    [\n"                     
             "      \"fieldElement\"             (string, required) The HEX string representing a generic field element\n"
             "    , ... ]\n"
@@ -5357,28 +5356,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     cert.quality = quality;
 
     //--------------------------------------------------------------------------
-    // epoch block hash
-    // TODO - endEpochBlockHash will disappear as soon as we will have a working interface for the proof verification
-    const string& blockHashStr = params[3].get_str();
-    if (blockHashStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid block hash format: not an hex");
-
-    uint256 endEpochBlockHash;
-    endEpochBlockHash.SetHex(blockHashStr);
-
-    // sanity check of the epoch number and epoch hash block: it must be a legal end-epoch hash and epoch number must
-    // be consistent with the current epoch (no old epoch certificates allowed)
-    if (!scView.CheckEndEpochBlockHash(sidechain, epochNumber, endEpochBlockHash) )
-    {
-        LogPrintf("ERROR: epochNumber[%d]/endEpochBlockHash[%s] are not legal\n", epochNumber, endEpochBlockHash.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid epoch data"));
-    }
-
-    cert.endEpochBlockHash = endEpochBlockHash;
-
-    //--------------------------------------------------------------------------
     // end epoch cumulative sc commitment tree root
-    const string& endCumCommTreeStr = params[4].get_str();
+    const string& endCumCommTreeStr = params[3].get_str();
     if (endCumCommTreeStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid end cum commitment tree root format: not an hex");
 
@@ -5413,7 +5392,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     //--------------------------------------------------------------------------
     //scProof
-    string inputString = params[5].get_str();
+    string inputString = params[4].get_str();
     {
         std::vector<unsigned char> scProofVec;
         if (!Sidechain::AddScData(inputString, scProofVec, CScProof::MaxByteSize(), Sidechain::CheckSizeMode::UPPER_LIMIT, errorStr))
@@ -5427,7 +5406,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     //--------------------------------------------------------------------------
     // can be empty
-    const UniValue& outputs = params[6].get_array();
+    const UniValue& outputs = params[5].get_array();
 
     // Recipients
     CAmount nTotalOut = 0;
@@ -5477,7 +5456,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     try
     {
-        ftScFee = AmountFromValue(params[7]);
+        ftScFee = AmountFromValue(params[6]);
     } catch (const UniValue& error)
     {
         UniValue errMsg  = find_value(error, "message");
@@ -5494,7 +5473,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     
     try
     {
-        mbtrScFee = AmountFromValue(params[8]);
+        mbtrScFee = AmountFromValue(params[7]);
     }
     catch (const UniValue& error)
     {
@@ -5510,10 +5489,10 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     //--------------------------------------------------------------------------
     // fee, default to a small amount
     CAmount nCertFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
-    if (params.size() > 9)
+    if (params.size() > 8)
     {
         try {
-            nCertFee = AmountFromValue(params[9]);
+            nCertFee = AmountFromValue(params[8]);
         } catch (const UniValue& error) {
             UniValue errMsg  = find_value(error, "message");
             throw JSONRPCError(RPC_TYPE_ERROR, ("Invalid fee param:" + errMsg.getValStr() ));
@@ -5529,9 +5508,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     const auto & vFieldElementCertificateFieldConfig = sidechain.fixedParams.vFieldElementCertificateFieldConfig;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     UniValue feArray(UniValue::VARR);
-    if (params.size() > 10)
+    if (params.size() > 9)
     {
-        feArray = params[10].get_array();
+        feArray = params[9].get_array();
         int count = 0;
         for (const UniValue& o : feArray.getValues())
         {
@@ -5564,9 +5543,9 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     const auto & vBitVectorCertificateFieldConfig = sidechain.fixedParams.vBitVectorCertificateFieldConfig;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
     UniValue cmtArray(UniValue::VARR);
-    if (params.size() > 11)
+    if (params.size() > 10)
     {
-        cmtArray = params[11].get_array();
+        cmtArray = params[10].get_array();
         int count = 0;
         for (const UniValue& o : cmtArray.getValues())
         {
