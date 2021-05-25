@@ -23,6 +23,8 @@ from test_framework.wsproxy import JSONWSException
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
+FT_SC_FEE = Decimal('0.0001')
+MBTR_SC_FEE = Decimal('0.0002')
 CERT_FEE = Decimal('0.00015')
 BLOCK_HASH_LIMIT = 100
 
@@ -32,7 +34,8 @@ def get_epoch_data(scid, node, epochLen):
     epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
     epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
     prev_epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number) * epochLen))
-    return epoch_block_hash, epoch_number, prev_epoch_block_hash
+    epoch_cum_tree_hash = node.getblock(epoch_block_hash)['scCumTreeHash']
+    return epoch_block_hash, epoch_number, prev_epoch_block_hash, epoch_cum_tree_hash
 
 
 def ws_client(node, arg):
@@ -173,7 +176,7 @@ class ws_messages(BitcoinTestFramework):
         self.nodes[0].generate(3)
         self.sync_all()
 
-        epoch_block_hash, epoch_number, prev_epoch_block_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_block_hash, epoch_number, prev_epoch_block_hash, cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
 
         pkh_node1 = self.nodes[1].getnewaddress("", True)
@@ -191,11 +194,23 @@ class ws_messages(BitcoinTestFramework):
         mark_logs("Node 0 performs a bwd transfer to Node1 pkh {} of {} coins via Websocket".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         #----------------------------------------------------------------"
         cert_epoch_0 = self.nodes[1].ws_send_certificate(
-            scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1)
+            scid, epoch_number, quality, epoch_block_hash, cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE)
         self.sync_all()
 
         mark_logs("Check cert is in mempool", self.nodes, DEBUG_MODE)
         assert_equal(True, cert_epoch_0 in self.nodes[0].getrawmempool())
+
+        mined = self.nodes[0].generate(1)[0]
+        self.sync_all()
+
+        mark_logs("Check cert is not in mempool anymore", self.nodes, DEBUG_MODE)
+        assert_equal(False, cert_epoch_0 in self.nodes[0].getrawmempool())
+
+        mark_logs("Check block coinbase contains the certificate fee", self.nodes, DEBUG_MODE)
+        coinbase = self.nodes[0].getblock(mined, True)['tx'][0]
+        decoded_coinbase = self.nodes[2].getrawtransaction(coinbase, 1)
+        miner_quota = decoded_coinbase['vout'][0]['value']
+        assert_equal(miner_quota, (Decimal('7.5') + CERT_FEE + FT_SC_FEE + MBTR_SC_FEE))
 
         # ----------------------------------------------------------------"
         # Test get single block
