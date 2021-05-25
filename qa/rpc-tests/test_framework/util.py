@@ -539,9 +539,9 @@ def get_epoch_data(scid, node, epochLen):
     sc_creating_height = node.getscinfo(scid)['items'][0]['created at block height']
     current_height = node.getblockcount()
     epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
-    epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
-    epoch_cum_tree_hash = node.getblock(epoch_block_hash)['scCumTreeHash']
-    return epoch_block_hash, epoch_number, epoch_cum_tree_hash
+    end_epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
+    epoch_cum_tree_hash = node.getblock(end_epoch_block_hash)['scCumTreeHash']
+    return epoch_number, epoch_cum_tree_hash
 
 def get_spendable(node, min_amount):
     # get a UTXO in node's wallet with minimal amount
@@ -567,12 +567,12 @@ def advance_epoch(mcTest, node, sync_call,
         node.generate(epoch_length)
     sync_call()
 
-    epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, node, epoch_length)
+    epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, node, epoch_length)
 
     proof = mcTest.create_test_proof(sc_tag, epoch_number, cert_quality, mbtrScFee, ftScFee, constant, epoch_cum_tree_hash, [], [])
 
     try:
-        cert = node.send_certificate(scid, epoch_number, cert_quality, epoch_block_hash,
+        cert = node.send_certificate(scid, epoch_number, cert_quality,
             epoch_cum_tree_hash, proof, [], ftScFee, mbtrScFee, cert_fee)
     except JSONRPCException, e:
         errorString = e.error['message']
@@ -582,5 +582,5 @@ def advance_epoch(mcTest, node, sync_call,
 
     assert_true(cert in node.getrawmempool())
 
-    return cert, epoch_block_hash, epoch_number
+    return cert, epoch_number
 
