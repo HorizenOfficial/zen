@@ -280,9 +280,9 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
         std::vector<wrappedFieldPtr> vSptr;
         for (auto entry: input.vCustomFields)
         {
-            wrappedFieldPtr sptr = entry.GetFieldElement();
-            custom_fields[i] = sptr.get();
-            vSptr.push_back(sptr);
+            wrappedFieldPtr sptrFe = entry.GetFieldElement();
+            custom_fields[i] = sptrFe.get();
+            vSptr.push_back(sptrFe);
             i++;
         }
 
@@ -398,9 +398,9 @@ bool CScAsyncProofVerifier::NormalVerifyCertificate(CCertProofVerifierInput inpu
     std::vector<wrappedFieldPtr> vSptr;
     for (auto entry: input.vCustomFields)
     {
-        wrappedFieldPtr sptr = entry.GetFieldElement();
-        custom_fields[i] = sptr.get();
-        vSptr.push_back(sptr);
+        wrappedFieldPtr sptrFe = entry.GetFieldElement();
+        custom_fields[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
         i++;
     }
 

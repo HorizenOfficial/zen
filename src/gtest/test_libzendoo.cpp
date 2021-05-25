@@ -388,9 +388,9 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
     // Add leaves to tree
     std::vector<wrappedFieldPtr> vSptr;
     for (int i = 0; i < leaves_len; i++){
-        wrappedFieldPtr sptr = leaves[i].GetFieldElement();
-        tree.append(sptr.get(), &code);
-        vSptr.push_back(sptr);
+        wrappedFieldPtr sptrFe = leaves[i].GetFieldElement();
+        tree.append(sptrFe.get(), &code);
+        vSptr.push_back(sptrFe);
         ASSERT_TRUE(code == CctpErrorCode::OK);
     }
 
@@ -886,8 +886,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
 
     for (const CTxScCreationOut& ccout : tx.GetVscCcOut() )
     {
-        wrappedFieldPtr sptr = CFieldElement(ccout.GetScId()).GetFieldElement();
-        field_t* scid_fe = sptr.get();
+        wrappedFieldPtr sptrScId = CFieldElement(ccout.GetScId()).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
 
         const uint256& pub_key = ccout.address;
         BufferWithSize bws_pk(pub_key.begin(), pub_key.size());
@@ -923,12 +923,12 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
             ));
         }
  
-        field_t* constant_fe = nullptr;
+        wrappedFieldPtr sptrConstant(nullptr);
         if(ccout.constant.is_initialized())
         {
-            wrappedFieldPtr sptr = ccout.constant->GetFieldElement();
-            constant_fe = sptr.get();
+            sptrConstant = ccout.constant->GetFieldElement();
         }
+        field_t* constant_fe = sptrConstant.get();
             
         BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
  
@@ -980,8 +980,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
 
     for (const CTxForwardTransferOut& ccout : tx.GetVftCcOut() )
     {
-        wrappedFieldPtr sptr = CFieldElement(ccout.GetScId()).GetFieldElement();
-        field_t* scid_fe = sptr.get();
+        wrappedFieldPtr sptrScId = CFieldElement(ccout.GetScId()).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
 
         const uint256& fwt_pub_key = ccout.address;
         BufferWithSize bws_fwt_pk((unsigned char*)fwt_pub_key.begin(), fwt_pub_key.size());
@@ -1016,8 +1016,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
 
     for (const CBwtRequestOut& ccout : tx.GetVBwtRequestOut() )
     {
-        wrappedFieldPtr sptr = CFieldElement(ccout.GetScId()).GetFieldElement();
-        field_t* scid_fe = sptr.get();
+        wrappedFieldPtr sptrScId = CFieldElement(ccout.GetScId()).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
 
         int sc_req_data_len = ccout.vScRequestData.size(); 
         std::unique_ptr<const field_t*[]> sc_req_data(new const field_t*[sc_req_data_len]);
@@ -1025,9 +1025,9 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
         std::vector<wrappedFieldPtr> vSptr;
         for (auto entry: ccout.vScRequestData)
         {
-            wrappedFieldPtr sptr = entry.GetFieldElement();
-            sc_req_data[i] = sptr.get();
-            vSptr.push_back(sptr);
+            wrappedFieldPtr sptrFe = entry.GetFieldElement();
+            sc_req_data[i] = sptrFe.get();
+            vSptr.push_back(sptrFe);
             i++;
         }
 
@@ -1080,8 +1080,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
 
     for (const CTxCeasedSidechainWithdrawalInput& ccin : tx.GetVcswCcIn() )
     {
-        wrappedFieldPtr sptr = CFieldElement(ccin.scId).GetFieldElement();
-        field_t* scid_fe = sptr.get();
+        wrappedFieldPtr sptrScId = CFieldElement(ccin.scId).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
 
         const uint160& csw_pk_hash = ccin.pubKeyHash;
         BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
@@ -1118,8 +1118,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
     CScCertificate cert = CreateDefaultCert();
 
     printf("Adding a cert to the commitment tree ...\n");
-    wrappedFieldPtr sptr = CFieldElement(cert.GetScId()).GetFieldElement();
-    field_t* scid_fe = sptr.get();
+    wrappedFieldPtr sptrScId = CFieldElement(cert.GetScId()).GetFieldElement();
+    field_t* scid_fe = sptrScId.get();
  
     int epoch_number = cert.epochNumber;
     int quality      = cert.quality;
@@ -1148,9 +1148,9 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
     for (auto entry: cert.vFieldElementCertificateField)
     {
         CFieldElement fe{entry.getVRawData()};
-        wrappedFieldPtr sptr = fe.GetFieldElement();
-        custom_fields[i] = sptr.get();
-        vSptr.push_back(sptr);
+        wrappedFieldPtr sptrFe = fe.GetFieldElement();
+        custom_fields[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
         i++;
     }
     if (custom_fields_len == 0)
@@ -1223,8 +1223,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Negative)
 
     for (const CTxScCreationOut& ccout : tx.GetVscCcOut() )
     {
-        wrappedFieldPtr sptr = CFieldElement(ccout.GetScId()).GetFieldElement();
-        field_t* scid_fe = sptr.get();
+        wrappedFieldPtr sptrScId = CFieldElement(ccout.GetScId()).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
 
         CAmount crAmount = ccout.nValue;
 
@@ -1268,12 +1268,12 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Negative)
             ));
         }
  
-        field_t* constant_fe = nullptr;
+        wrappedFieldPtr sptrConstant(nullptr);
         if(ccout.constant.is_initialized())
         {
-            wrappedFieldPtr sptr = ccout.constant->GetFieldElement();
-            constant_fe = sptr.get();
+            sptrConstant = ccout.constant->GetFieldElement();
         }
+        field_t* constant_fe = sptrConstant.get();
         
         BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
  
@@ -1489,8 +1489,8 @@ TEST(CctpLibrary, GetScIdFromNullInputs)
     uint256 scid(tmp);
 
     CFieldElement fe(scid);
-    auto sptr = fe.GetFieldElement();
-    field_t* fe_ptr = sptr.get();
+    auto sptrScId = fe.GetFieldElement();
+    field_t* fe_ptr = sptrScId.get();
     
     printf("        uint256 fe = [");
     ptr = (unsigned char*)fe_ptr;
@@ -1574,9 +1574,9 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
     std::vector<wrappedFieldPtr> vSptr;
     for (auto entry: certInput.vCustomFields)
     {
-        wrappedFieldPtr sptr = entry.GetFieldElement();
-        custom_fields[i] = sptr.get();
-        vSptr.push_back(sptr);
+        wrappedFieldPtr sptrFe = entry.GetFieldElement();
+        custom_fields[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
         i++;
     }
 
