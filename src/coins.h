@@ -684,7 +684,6 @@ public:
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
     CValidationState::Code IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode = nullptr) const;
-    bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
 
     CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(
         const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot) const;

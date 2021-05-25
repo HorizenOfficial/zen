@@ -114,7 +114,6 @@ CMutableScCertificate GetValidCertificate() {
 
     mcert.scId = GetRandHash();
     mcert.epochNumber = 3;
-    mcert.endEpochBlockHash = GetRandHash();
     mcert.endEpochCumScTxCommTreeRoot = CFieldElement{SAMPLE_FIELD};
 
     return mcert;

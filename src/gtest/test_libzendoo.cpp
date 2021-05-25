@@ -58,7 +58,6 @@ static CMutableScCertificate CreateDefaultCert()
     mcert.nVersion = SC_CERT_VERSION;
     mcert.scId = uint256S("abababcdcdcd"); // same as above
     mcert.epochNumber = 10;
-    mcert.endEpochBlockHash = uint256S("eeeeeeeeeee");;
     mcert.quality = 20;
     mcert.scProof.SetByteArray(SAMPLE_CERT_DARLIN_PROOF);
     mcert.endEpochCumScTxCommTreeRoot.SetByteArray(SAMPLE_FIELD);
@@ -424,160 +423,6 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
     }
 }
 
-// SILENCED SINCE BROKEN. TODO: Come up with correct byte arrays
-//// Execute the test from zen directory
-//TEST(SidechainsField, NakedZendooFeatures_TestProof)
-//{
-//    //Deserialize zero knowledge proof
-//    auto proof_serialized = ParseHex(SAMPLE_PROOF);
-//    ASSERT_EQ(proof_serialized.size(), zendoo_get_sc_proof_size_in_bytes());
-//    auto proof = zendoo_deserialize_sc_proof(proof_serialized.data());
-//    ASSERT_TRUE(proof != NULL);
-//
-//    //Inputs
-//    unsigned char end_epoch_mc_b_hash[32] = {
-//        78, 85, 161, 67, 167, 192, 185, 56, 133, 49, 134, 253, 133, 165, 182, 80, 152, 93, 203, 77, 165, 13, 67, 0, 64,
-//        200, 185, 46, 93, 135, 238, 70
-//    };
-//
-//    unsigned char prev_end_epoch_mc_b_hash[32] = {
-//        68, 214, 34, 70, 20, 109, 48, 39, 210, 156, 109, 60, 139, 15, 102, 79, 79, 2, 87, 190, 118, 38, 54, 18, 170, 67,
-//        212, 205, 183, 115, 182, 198
-//    };
-//
-//    unsigned char constant_bytes[96] = {
-//        170, 190, 140, 27, 234, 135, 240, 226, 158, 16, 29, 161, 178, 36, 69, 34, 29, 75, 195, 247, 29, 93, 92, 48, 214,
-//        102, 70, 134, 68, 165, 170, 201, 119, 162, 19, 254, 229, 115, 80, 248, 106, 182, 164, 40, 21, 154, 15, 177, 158,
-//        16, 172, 169, 189, 253, 206, 182, 72, 183, 128, 160, 182, 39, 98, 76, 95, 198, 62, 39, 87, 213, 251, 12, 154,
-//        180, 125, 231, 222, 73, 129, 120, 144, 197, 116, 248, 95, 206, 147, 108, 252, 125, 79, 118, 57, 26, 0, 0
-//    };
-//
-//    auto constant = zendoo_deserialize_field(constant_bytes);
-//    ASSERT_TRUE(constant != NULL);
-//
-//    uint64_t quality = 2;
-//
-//    //Create dummy bt
-//    const backward_transfer_t bt_list[10] = { {0}, 0 };
-//
-//    //Deserialize vk
-//    auto vk_serialized = ParseHex(SAMPLE_VK);
-//    ASSERT_EQ(vk_serialized.size(), zendoo_get_sc_vk_size_in_bytes());
-//    auto vk = zendoo_deserialize_sc_vk(vk_serialized.data());
-//    ASSERT_TRUE(vk != NULL);
-//
-//    //Verify zkproof
-//    ASSERT_TRUE(zendoo_verify_sc_proof(
-//            end_epoch_mc_b_hash,
-//            prev_end_epoch_mc_b_hash,
-//            bt_list,
-//            10,
-//            quality,
-//            constant,
-//            NULL,
-//            proof,
-//            vk
-//        ));
-//
-//    //Negative test: change quality (for instance) and ASSERT_TRUE proof failure
-//    ASSERT_FALSE(zendoo_verify_sc_proof(
-//            end_epoch_mc_b_hash,
-//            prev_end_epoch_mc_b_hash,
-//            bt_list,
-//            10,
-//            quality - 1,
-//            constant,
-//            NULL,
-//            proof,
-//            vk
-//        ));
-//
-//    //Free proof
-//    zendoo_sc_proof_free(proof);
-//    zendoo_sc_vk_free(vk);
-//    zendoo_field_free(constant);
-//
-//}
-
-// Execute the test from zen directory
-TEST(SidechainsField, NakedZendooFeatures_TestProofNoBwt)
-{
-#if 1
-    std::cout << "### THIS IS DEACTIVATED --- FIX IT ###" << std::endl;
-    ASSERT_TRUE(false);
-#else
-    //Deserialize zero knowledge proof
-    auto proof_serialized = ParseHex(SAMPLE_PROOF_NO_BWT);
-    ASSERT_EQ(proof_serialized.size(), zendoo_get_sc_proof_size_in_bytes());
-    auto proof = zendoo_deserialize_sc_proof(proof_serialized.data());
-
-    ASSERT_TRUE(proof != NULL);
-
-    //Inputs
-    unsigned char end_epoch_mc_b_hash[32] = {
-        28, 207, 62, 204, 135, 33, 168, 143, 231, 177, 64, 181, 184, 237, 93, 185, 196, 115, 241, 65, 176, 205, 254, 83,
-        216, 229, 119, 73, 184, 217, 26, 109
-    };
-
-    unsigned char prev_end_epoch_mc_b_hash[32] = {
-        64, 236, 160, 62, 217, 6, 240, 243, 184, 32, 158, 223, 218, 177, 165, 121, 12, 124, 153, 137, 218, 208, 152, 125,
-        187, 145, 172, 244, 223, 220, 234, 195
-    };
-
-    unsigned char constant_bytes[96] = {
-        249, 199, 228, 179, 227, 163, 140, 243, 174, 240, 187, 245, 152, 245, 74, 136, 36, 142, 231, 196, 162, 148, 139,
-        157, 198, 117, 186, 83, 72, 103, 121, 253, 5, 64, 230, 173, 84, 236, 12, 3, 199, 26, 171, 58, 141, 171, 85, 151,
-        209, 228, 76, 0, 21, 241, 65, 100, 50, 194, 8, 163, 121, 129, 242, 124, 166, 105, 158, 76, 146, 169, 188, 243,
-        188, 82, 176, 244, 255, 122, 125, 90, 154, 45, 12, 223, 62, 156, 140, 20, 35, 83, 55, 111, 47, 10, 1, 0
-    };
-
-    auto constant = zendoo_deserialize_field(constant_bytes);
-    ASSERT_TRUE(constant != NULL);
-
-    uint64_t quality = 2;
-
-    //Create empty bt_list
-    std::vector<backward_transfer_t> bt_list;
-
-    //Deserialize vk
-    auto vk_serialized = ParseHex(SAMPLE_VK_NO_BWT);
-    ASSERT_EQ(vk_serialized.size(), zendoo_get_sc_vk_size_in_bytes());
-    auto vk = zendoo_deserialize_sc_vk(vk_serialized.data());
-    ASSERT_TRUE(vk != NULL);
-
-    //Verify zkproof
-    ASSERT_TRUE(zendoo_verify_certificate_proof(
-            end_epoch_mc_b_hash,
-            prev_end_epoch_mc_b_hash,
-            bt_list.data(),
-            0,
-            quality,
-            constant,
-            NULL,
-            proof,
-            vk
-        ));
-
-    //Negative test: change quality (for instance) and ASSERT_TRUE proof failure
-    ASSERT_FALSE(zendoo_verify_certificate_proof(
-            end_epoch_mc_b_hash,
-            prev_end_epoch_mc_b_hash,
-            bt_list.data(),
-            0,
-            quality - 1,
-            constant,
-            NULL,
-            proof,
-            vk
-        ));
-
-    //Free proof
-    zendoo_sc_proof_free(proof);
-    zendoo_sc_vk_free(vk);
-    zendoo_field_free(constant);
-#endif
-}
-
 TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 {
     //fPrintToConsole = true;
@@ -603,7 +448,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(7));
 
     CScCertificate cert = txCreationUtils::createCertificate(scId,
-        /*epochNum*/12, /*endEpochBlockHash*/uint256S("abc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/0,
+        /*epochNum*/12, CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/0,
         /*numChangeOut */0, /*bwtTotalAmount*/1, /*numBwt*/1, /*ftScFee*/0, /*mbtrScFee*/0);
 
     SidechainTxsCommitmentBuilder builder;
@@ -614,7 +459,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("3158e16a0d7f1798dee6febea9fea01aff642a66f07e29b2bd18d08e781a5bdf"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("1fbdc0ba54a78d41acf3985fad0431ab2599d5e8d11d530a3b2484532742b733"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -1065,6 +910,9 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
             bvcfg[i].max_compressed_byte_size = entry.getMaxCompressedSizeBytes(); 
             i++;
         }
+        // mc crypto lib wants a null ptr if we have no fields
+        if (bvcfg_size == 0)
+            bvcfg.reset();
  
         std::unique_ptr<BufferWithSize> bws_custom_data(nullptr);
         if (!ccout.customData.empty())
@@ -1289,7 +1137,7 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
     }
 
     if (!vbt_list.empty())
-        bt_list = (const backward_transfer_t*)&vbt_list[0];
+        bt_list = (const backward_transfer_t*)vbt_list.data();
 
     size_t bt_list_len = vbt_list.size();
 
@@ -1304,6 +1152,11 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
         custom_fields[i] = sptr.get();
         vSptr.push_back(sptr);
         i++;
+    }
+    if (custom_fields_len == 0)
+    {
+        custom_fields.reset();
+        ASSERT_EQ(custom_fields.get(), nullptr);
     }
 
     wrappedFieldPtr sptrCum = cert.endEpochCumScTxCommTreeRoot.GetFieldElement();
@@ -1402,6 +1255,9 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Negative)
             bvcfg[i].max_compressed_byte_size = entry.getMaxCompressedSizeBytes(); 
             i++;
         }
+        // mc crypto lib wants a null ptr if we have no fields
+        if (bvcfg_size == 0)
+            bvcfg.reset();
 
         std::unique_ptr<BufferWithSize> bws_custom_data(nullptr);
         if (!ccout.customData.empty())
@@ -1767,3 +1623,34 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
     boost::system::error_code ec;
     boost::filesystem::remove_all(tempPath.string(), ec);
 }
+
+TEST(CctpLibrary, ReadWriteCmtObj)
+{
+    SidechainTxsCommitmentBuilder cmtObj;
+
+    uint256 cmt = cmtObj.getCommitment();
+
+    CMutableTransaction mtx;
+    mtx.nVersion = SC_TX_VERSION;
+    mtx.vsc_ccout.resize(1);
+    mtx.vsc_ccout[0].nValue = CAmount(1);
+    mtx.vsc_ccout[0].address = uint256S("dada");
+    mtx.vsc_ccout[0].constant = CFieldElement(ParseHex("034e12b30ad6adf00d043785a590bcd36f0f50c58a2b456dccb296ab035b1d00"));
+    mtx.vsc_ccout[0].customData = ParseHex("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    mtx.vsc_ccout[0].withdrawalEpochLength = 123;
+    mtx.vsc_ccout[0].wCertVk   = CScVKey{ParseHex("020004000000000000000400000000000000080000000000000c00000000000000043b7a9714b7bdc766cfc3e8eaee811b651079e11b67ed3991f990a1245e41e43a808405289f8ae6294311b5189c04885ef5aa9419f4d8837edf4b31e8a87cfbe30480c71e38705c9be628c0e4f85c9922115fbf0dddef1ee44cfc60b429b6cddb313b802e2b7b324aff5a92f082249c61e21cef4fe1a1c84b0916e2791000501c2e8024800004faa96a7208453523f485a9de708c1f4e305d10020cd5a40f7ffcb7608749110300a85134ec84f629be4707c24f67ca9631725b3efc40e8fd44bd07f75f967580360000842def9b5923c65d78c72ebe96af25fe14f4bd4cc247999b4dd265e352e31f80d7dc7a74ea25ab3e1cd8388d4cf1c4393304447cd94f06435ec07aea4ce1ce180000044aa74466fa675b26d5b7f6a1070b58110c5c7e8f73ad7b0811d416f5c44dab2c80d4a5d62556bc40c7c7a6f18c612eedfb52eae6fe8a836116d0ae3b7b5d49ed3e004f9d974b0c2ada4b85552392cc5f31de706feb34a03c10fd1bc074e9ee4252010085773266a56e49f672caf30d21f039d340bd79ae0f58c17a2866067426003621800004d5669c6b9ccc92b1c6092abf87ffe0af2e3672b1fde13acd3350e3c4ec94b02600fcf0c2ecc48ac392837fd512d840d61ed768ce50e568ad6482c3c9a44f1b7335003d44516a5d9df68abff2fa9399b3367f8f73909c4a08beb225add8a07dc69a33005d90007fe3595185722bd0260c51150f10c979b393bcc9dfa5414a33b161d32980000476e5ee40647dbf3825e6f7104de64828c68c12959af54f1bcc3b34d4a843f402800775c05370b59cda57ff51960de8ba4b5ce4b4f514aa759dec7fa047a9cfe20200b3b12741b0e327ab5d36694b61db3bf91807fff2b467dc62b68707d79da6d50a006d1c68ad8976a89b9e3c3fbd459eb4f73a6e576b2cc77ad105c5e5983011ce3d000004af96850b86746cd60c63c5fcb7dc1db2cce260c9c4ac5758a6bcc1041b85af1d802cb25d70012d4c5c563511198dc5a75de85a3b28a7b28a91e82d81ba6395d40c0066aa7efe1c1cb77f7160026448d794185c2ffeb1fd05fc27e426d3068b88eb090007d2ac5a309c5686ba85907464df62af1673a05f85c5f4d28fefb11ecae34b33800004d5821c9068d1e45f1b391a3b91dd340b12a23f31531b86392be1d9c11a5fef3a80a5c58cf1b79663713b75cb7c8b539b431faf641952753d5d6b9bf028ca91ab2580c6b3e3f4b2613dda332456dc53a8293360b5fdfb79161156c9637dddc1e76f3900cf46b3338a362e7c1d87b1b8448c74e0372e6a4289adc9d2e7a35fc2d256c5378000045bd2b1b11b169ebc2ca245982943f2992415ffc50a612d442cb29b4c13cb732800424fdf0ab99d4e5f52dde25c6ded990d009c201f8837acd6ec1ed89c2429f421001181192eef8f59e7fffbb552024a72dadf09c654507071bc1c89d4aa84c5603600a5be042887c740f273f5efa1521138d1448804c76055b21bfc4b75690e78ce3d00000155da0f9b641df9a3d820ae26f1520911032e611d06feae704d104b06138d3c2400000155da0f9b641df9a3d820ae26f1520911032e611d06feae704d104b06138d3c24000001000000000000000000000000000000000000000000000000000000000000000040000155da0f9b641df9a3d820ae26f1520911032e611d06feae704d104b06138d3c240000")};
+    mtx.vft_ccout.resize(0);
+    mtx.vmbtr_out.resize(0);
+    mtx.vcsw_ccin.resize(0);
+
+    CTransaction tx(mtx);
+    std::cout << tx.ToString() << std::endl;
+
+    ASSERT_TRUE(cmtObj.add(tx));
+
+    cmt = cmtObj.getCommitment();
+    printf("cmt = [%s]\n", cmt.ToString().c_str());
+}
+
+
+

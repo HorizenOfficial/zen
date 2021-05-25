@@ -31,13 +31,13 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
 
 CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
     scId(), epochNumber(EPOCH_NOT_INITIALIZED), quality(QUALITY_NULL),
-    endEpochBlockHash(), endEpochCumScTxCommTreeRoot(), scProof(), vFieldElementCertificateField(),
+    endEpochCumScTxCommTreeRoot(), scProof(), vFieldElementCertificateField(),
     vBitVectorCertificateField(), nFirstBwtPos(0),
     forwardTransferScFee(INT_NULL), mainchainBackwardTransferRequestScFee(INT_NULL) {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
-    endEpochBlockHash(cert.endEpochBlockHash), endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
+    endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
     scProof(cert.scProof), vFieldElementCertificateField(cert.vFieldElementCertificateField),
     vBitVectorCertificateField(cert.vBitVectorCertificateField),
     nFirstBwtPos(cert.nFirstBwtPos), forwardTransferScFee(cert.forwardTransferScFee),
@@ -49,7 +49,6 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
     *const_cast<uint256*>(&scId) = cert.scId;
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<int64_t*>(&quality) = cert.quality;
-    *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<CFieldElement*>(&endEpochCumScTxCommTreeRoot) = cert.endEpochCumScTxCommTreeRoot;
     *const_cast<CScProof*>(&scProof) = cert.scProof;
     *const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField) = cert.vFieldElementCertificateField;
@@ -62,7 +61,7 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
-    endEpochBlockHash(cert.endEpochBlockHash), endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
+    endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
     scProof(cert.scProof), vFieldElementCertificateField(cert.vFieldElementCertificateField),
     vBitVectorCertificateField(cert.vBitVectorCertificateField),
     nFirstBwtPos(cert.nFirstBwtPos), forwardTransferScFee(cert.forwardTransferScFee),
@@ -345,13 +344,13 @@ CAmount CScCertificate::GetValueOfChange() const
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate(): CMutableTransactionBase(),
     scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
-    endEpochBlockHash(), endEpochCumScTxCommTreeRoot(), scProof(), vFieldElementCertificateField(),
+    endEpochCumScTxCommTreeRoot(), scProof(), vFieldElementCertificateField(),
     vBitVectorCertificateField(), nFirstBwtPos(0),
     forwardTransferScFee(CScCertificate::INT_NULL), mainchainBackwardTransferRequestScFee(CScCertificate::INT_NULL) {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutableTransactionBase(),
     scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 
-    endEpochBlockHash(cert.endEpochBlockHash), endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
+    endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
     scProof(cert.scProof), vFieldElementCertificateField(cert.vFieldElementCertificateField),
     vBitVectorCertificateField(cert.vBitVectorCertificateField), nFirstBwtPos(cert.nFirstBwtPos),
     forwardTransferScFee(cert.forwardTransferScFee), mainchainBackwardTransferRequestScFee(cert.mainchainBackwardTransferRequestScFee)
@@ -369,7 +368,6 @@ CMutableScCertificate& CMutableScCertificate::operator=(const CMutableScCertific
     scId                                  = rhs.scId;
     epochNumber                           = rhs.epochNumber;
     quality                               = rhs.quality;
-    endEpochBlockHash                     = rhs.endEpochBlockHash;
     endEpochCumScTxCommTreeRoot           = rhs.endEpochCumScTxCommTreeRoot;
     scProof                               = rhs.scProof;
     vFieldElementCertificateField         = rhs.vFieldElementCertificateField;

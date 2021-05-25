@@ -57,7 +57,7 @@ CTransaction createSproutTx(bool ccIsNull = true);      //ccIsNull = false allow
 
 void addNewScCreationToTx(CTransaction& tx, const CAmount& scAmount);
 
-CScCertificate createCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+CScCertificate createCertificate(const uint256 & scId, int epochNum,
                                  const CFieldElement& endEpochCumScTxCommTreeRoot, CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,
                                  CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/, CAmount ftScFee/* = 0*/, CAmount mbtrScFee/* = 0*/, const int quality = 3);
 

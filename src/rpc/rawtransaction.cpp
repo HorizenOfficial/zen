@@ -229,7 +229,6 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
     x.push_back(Pair("scid", cert.GetScId().GetHex()));
     x.push_back(Pair("epochNumber", cert.epochNumber));
     x.push_back(Pair("quality", cert.quality));
-    x.push_back(Pair("endEpochBlockHash", cert.endEpochBlockHash.GetHex()));
     x.push_back(Pair("endEpochCumScTxCommTreeRoot", cert.endEpochCumScTxCommTreeRoot.GetHexRepr()));
     x.push_back(Pair("scProof", cert.scProof.GetHexRepr()));
 
@@ -478,7 +477,6 @@ UniValue getrawcertificate(const UniValue& params, bool fHelp)
             "       \"scid\" : \"sc id\",                      (string) the sidechain id\n"
             "       \"epochNumber\": epn,                      (numeric) the withdrawal epoch number this certificate refers to\n"
             "       \"quality\": n,                            (numeric) the quality of this withdrawal certificate. \n"
-            "       \"endEpochBlockHash\" : \"eph\"            (string) the hash of the block marking the end of the abovementioned epoch\n"
             "       \"endEpochCumScTxCommTreeRoot\" : \"ecum\" (string) The hex string representation of the field element corresponding to the root of the cumulative scTxCommitment tree stored at the block marking the end of the referenced epoch\n"
             "       \"scProof\": \"scp\"                       (string) SNARK proof whose verification key wCertVk was set upon sidechain registration\n"
             "       \"totalAmount\" : x.xxx                    (numeric) The total value of the certificate in " + CURRENCY_UNIT + "\n"
@@ -1025,7 +1023,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "createrawcertificate [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} {\"pubkeyhash\":amount,...} {\"scid\":\"id\", \"withdrawalEpochNumber\":n, \"quality\":n, \"endEpochBlockHash\":\"blockHash\", \"endEpochCumScTxCommTreeRoot\":\"cum\", \"scProof\":\"scProof\"})\n"
+            "createrawcertificate [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} {\"pubkeyhash\":amount,...} {\"scid\":\"id\", \"withdrawalEpochNumber\":n, \"quality\":n, \"endEpochCumScTxCommTreeRoot\":\"cum\", \"scProof\":\"scProof\"})\n"
             "\nCreate a SC certificate spending the given inputs, sending to the given addresses and transferring funds from the specified SC to the given pubkey hash list.\n"
             "Returns hex-encoded raw certificate.\n"
             "It is not stored in the wallet or transmitted to the network.\n"
@@ -1054,7 +1052,6 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "      \"scid\":\"id\",                    (string, required) The side chain id\n"
             "      \"withdrawalEpochNumber\":n       (numeric, required) The epoch number this certificate refers to\n"
             "      \"quality\":n                     (numeric, required) A positive number specifying the quality of this withdrawal certificate. \n"
-            "      \"endEpochBlockHash\":\"blockHash\" (string, required) The block hash determining the end of the referenced epoch\n"
             "      \"endEpochCumScTxCommTreeRoot\":\"ecum\" (string, required) The hex string representation of the field element corresponding to the root of the cumulative scTxCommitment tree stored at the block marking the end of the referenced epoch\n"
             "      \"scProof\":\"scProof\"             (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", CScProof::MaxByteSize()) + "bytes max\n"
             "      \"vFieldElementCertificateField\":\"field els\"     (array, optional) An array of HEX string... TODO add description\n"
@@ -1069,7 +1066,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             + HelpExampleCli("createrawcertificate",
                 "\'[{\"txid\":\"7e3caf89f5f56fa7466f41d869d48c17ed8148a5fc6cc4c5923664dd2e667afe\", \"vout\": 0}]\' "
                 "\'{\"ztmDWqXc2ZaMDGMhsgnVEmPKGLhi5GhsQok\":10.0}\' \'{\"fde10bda830e1d8590ca8bb8da8444cad953a852\":0.1}\' "
-                "\'{\"scid\":\"02c5e79e8090c32e01e2a8636bfee933fd63c0cc15a78f0888cdf2c25b4a5e5f\", \"withdrawalEpochNumber\":3, \"quality\":10, \"endEpochBlockHash\":\"05ae..4d\",  \"endEpochCumScTxCommTreeRoot\":\"abcd..ef\", \"scProof\": \"abcd..ef\"}\'"
+                "\'{\"scid\":\"02c5e79e8090c32e01e2a8636bfee933fd63c0cc15a78f0888cdf2c25b4a5e5f\", \"withdrawalEpochNumber\":3, \"quality\":10, \"endEpochCumScTxCommTreeRoot\":\"abcd..ef\", \"scProof\": \"abcd..ef\"}\'"
                 )
         );
 
@@ -1122,7 +1119,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 
     // valid input keywords for certificate data
     static const std::set<std::string> validKeyArgs = {
-        "scid", "withdrawalEpochNumber", "quality", "endEpochBlockHash", "endEpochCumScTxCommTreeRoot", "scProof",
+        "scid", "withdrawalEpochNumber", "quality", "endEpochCumScTxCommTreeRoot", "scProof",
         "vFieldElementCertificateField", "vBitVectorCertificateField", "ftScFee", "mbtrScFee"};
 
     // sanity check, report error if unknown/duplicate key-value pairs
@@ -1170,18 +1167,6 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     else
     {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"quality\"" );
-    }
-
-    // TODO - endEpochBlockHash will disappear as soon as we will have a working interface for the proof verification
-    uint256 endEpochBlockHash;
-    if (setKeyArgs.count("endEpochBlockHash"))
-    {
-        string inputString = find_value(cert_params, "endEpochBlockHash").get_str();
-        endEpochBlockHash.SetHex(inputString);
-    }
-    else
-    {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"endEpochBlockHash\"" );
     }
 
     CFieldElement endEpochCumScTxCommTreeRoot;
@@ -1290,7 +1275,6 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     rawCert.scId = scId;
     rawCert.epochNumber = withdrawalEpochNumber;
     rawCert.quality = quality;
-    rawCert.endEpochBlockHash = endEpochBlockHash;
     rawCert.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     rawCert.forwardTransferScFee = ftScFee;
     rawCert.mainchainBackwardTransferRequestScFee = mbtrScFee;

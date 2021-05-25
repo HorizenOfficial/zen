@@ -174,7 +174,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     singleCert.scId        = scId;
     singleCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch;
     singleCert.quality     = initialScState.lastTopQualityCertQuality * 2;
-    singleCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     singleCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     singleCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
     singleCert.forwardTransferScFee = 0;
@@ -249,7 +248,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     singleCert.scId        = scId;
     singleCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1;
     singleCert.quality     = 1;
-    singleCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     singleCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     singleCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
     singleCert.forwardTransferScFee = 0;
@@ -325,7 +323,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     lowQualityCert.scId        = scId;
     lowQualityCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch;
     lowQualityCert.quality     = initialScState.lastTopQualityCertQuality * 2;
-    lowQualityCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     lowQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     lowQualityCert.addBwt(CTxOut(CAmount(40), dummyScriptPubKey));
     lowQualityCert.forwardTransferScFee = 0;
@@ -338,7 +335,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     highQualityCert.scId        = lowQualityCert.scId;
     highQualityCert.epochNumber = lowQualityCert.epochNumber;
     highQualityCert.quality     = lowQualityCert.quality * 2;
-    highQualityCert.endEpochBlockHash = lowQualityCert.endEpochBlockHash;
     highQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     highQualityCert.addBwt(CTxOut(CAmount(50), dummyScriptPubKey));
     highQualityCert.forwardTransferScFee = 0;
@@ -417,7 +413,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     lowQualityCert.scId        = scId;
     lowQualityCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch +1;
     lowQualityCert.quality     = 1;
-    lowQualityCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
     lowQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     lowQualityCert.addBwt(CTxOut(CAmount(40), dummyScriptPubKey));
     lowQualityCert.forwardTransferScFee = 0;
@@ -430,7 +425,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     highQualityCert.scId        = lowQualityCert.scId;
     highQualityCert.epochNumber = lowQualityCert.epochNumber;
     highQualityCert.quality     = lowQualityCert.quality * 2;
-    highQualityCert.endEpochBlockHash = lowQualityCert.endEpochBlockHash;
     highQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     highQualityCert.addBwt(CTxOut(CAmount(50), dummyScriptPubKey));
     highQualityCert.forwardTransferScFee = 0;

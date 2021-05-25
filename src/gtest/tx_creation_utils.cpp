@@ -215,7 +215,7 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
 }
 
 CScCertificate txCreationUtils::createCertificate(
-    const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+    const uint256 & scId, int epochNum,
     const CFieldElement& endEpochCumScTxCommTreeRoot, CAmount changeTotalAmount, unsigned int numChangeOut,
     CAmount bwtTotalAmount, unsigned int numBwt, CAmount ftScFee, CAmount mbtrScFee, const int quality)
 {
@@ -223,7 +223,6 @@ CScCertificate txCreationUtils::createCertificate(
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
     res.epochNumber = epochNum;
-    res.endEpochBlockHash = endEpochBlockHash;
     res.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     res.quality = quality;
     res.forwardTransferScFee = ftScFee;
@@ -521,7 +520,6 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
     res.epochNumber = epochNumber;
-    res.endEpochBlockHash = dummyBlockHash;
     res.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     res.quality = quality;
     res.forwardTransferScFee = 0;

@@ -231,7 +231,8 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
         {
             const CCswProofVerifierInput& input = entry.second;
 
-            field_t* scid_fe = (field_t*)input.scId.begin();
+            wrappedFieldPtr sptrScId = CFieldElement(input.scId).GetFieldElement();
+            field_t* scid_fe = sptrScId.get();
  
             const uint160& csw_pk_hash = input.pubKeyHash;
             BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
@@ -285,6 +286,16 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
             i++;
         }
 
+        const backward_transfer_t* bt_list_ptr = input.bt_list.data();
+        int bt_list_len = input.bt_list.size();
+ 
+        // mc crypto lib wants a null ptr if we have no elements
+        if (custom_fields_len == 0)
+            custom_fields.reset();
+ 
+        if (bt_list_len == 0)
+            bt_list_ptr = nullptr;
+
         wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
         wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
         wrappedScProofPtr sptrProof  = input.certProof.GetProofPtr();
@@ -295,8 +306,8 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
             sptrConst.get(),
             input.epochNumber,
             input.quality,
-            input.bt_list.data(),
-            input.bt_list.size(),
+            bt_list_ptr,
+            bt_list_len,
             custom_fields.get(),
             custom_fields_len,
             sptrCum.get(),
@@ -393,6 +404,16 @@ bool CScAsyncProofVerifier::NormalVerifyCertificate(CCertProofVerifierInput inpu
         i++;
     }
 
+    const backward_transfer_t* bt_list_ptr = input.bt_list.data();
+    int bt_list_len = input.bt_list.size();
+
+    // mc crypto lib wants a null ptr if we have no elements
+    if (custom_fields_len == 0)
+        custom_fields.reset();
+
+    if (bt_list_len == 0)
+        bt_list_ptr = nullptr;
+
     wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
     wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
     wrappedScProofPtr sptrProof  = input.certProof.GetProofPtr();
@@ -402,8 +423,8 @@ bool CScAsyncProofVerifier::NormalVerifyCertificate(CCertProofVerifierInput inpu
         sptrConst.get(),
         input.epochNumber,
         input.quality,
-        input.bt_list.data(),
-        input.bt_list.size(),
+        bt_list_ptr,
+        bt_list_len,
         custom_fields.get(),
         custom_fields_len,
         sptrCum.get(),
@@ -438,8 +459,9 @@ bool CScAsyncProofVerifier::NormalVerifyCsw(uint256 txHash, std::map</*outputPos
     {
         const CCswProofVerifierInput& input = entry.second;
     
-        field_t* scid_fe = (field_t*)input.scId.begin();
-     
+        wrappedFieldPtr sptrScId = CFieldElement(input.scId).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
+ 
         const uint160& csw_pk_hash = input.pubKeyHash;
         BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
      

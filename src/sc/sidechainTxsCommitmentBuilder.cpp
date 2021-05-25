@@ -34,6 +34,8 @@ SidechainTxsCommitmentBuilder::~SidechainTxsCommitmentBuilder()
 
 bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code)
 {
+    LogPrint("sc", "%s():%d entering \n", __func__, __LINE__);
+
     wrappedFieldPtr sptr = CFieldElement(ccout.GetScId()).GetFieldElement();
     field_t* scid_fe = sptr.get();
 
@@ -65,7 +67,11 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
         bvcfg[i].max_compressed_byte_size = entry.getMaxCompressedSizeBytes(); 
         i++;
     }
-    //dumpBvCfg(bvcfg.get(), bvcfg_size, "bws_fe_cfg");
+    // mc crypto lib wants a null ptr if we have no fields
+    if (bvcfg_size == 0)
+        bvcfg.reset();
+
+    //dumpBvCfg(bvcfg.get(), bvcfg_size, "bws_bv_cfg");
 
     std::unique_ptr<BufferWithSize> bws_custom_data(nullptr);
     if (!ccout.customData.empty())
@@ -98,34 +104,36 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
     }
     //dumpBuffer(bws_csw_vk.get(), "bws_csw_vk");
 
-    //printf("\nValue = %ld, out_idx=%d, epochLen=%d, mbtrReqLen=%d\n",
-    //    ccout.nValue, out_idx, ccout.withdrawalEpochLength, ccout.mainchainBackwardTransferRequestDataLength);
+    //printf("\nValue = %ld, out_idx=%d, epochLen=%d, mbtrReqLen=%d, mbtrFee=%ld, fwdFee=%ld\n",
+    //     ccout.nValue, out_idx, ccout.withdrawalEpochLength, ccout.mainchainBackwardTransferRequestDataLength,
+    //     ccout.mainchainBackwardTransferRequestScFee, ccout.forwardTransferScFee);
 
     bool ret = zendoo_commitment_tree_add_scc(const_cast<commitment_tree_t*>(_cmt),
          scid_fe, 
-         ccout.nValue,
+         (uint64_t)ccout.nValue,
          &bws_pk,
          &bws_tx_hash,
-         out_idx,
-         ccout.withdrawalEpochLength,
-         ccout.mainchainBackwardTransferRequestDataLength,
+         (uint32_t)out_idx,
+         (uint32_t)ccout.withdrawalEpochLength,
+         (uint8_t)ccout.mainchainBackwardTransferRequestDataLength,
          bws_fe_cfg.get(),
          bvcfg.get(),
-         bvcfg_size,
-         ccout.mainchainBackwardTransferRequestScFee, 
-         ccout.forwardTransferScFee, 
+         (size_t)bvcfg_size,
+         (uint64_t)ccout.mainchainBackwardTransferRequestScFee, 
+         (uint64_t)ccout.forwardTransferScFee, 
          bws_custom_data.get(),
          constant_fe, 
          &bws_cert_vk,
          bws_csw_vk.get(),
          &ret_code
     );
-    std::cout << "sc cmt:   " << this->getCommitment().ToString() << std::endl;
     return ret;
 }
 
 bool SidechainTxsCommitmentBuilder::add_fwt(const CTxForwardTransferOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code)
 {
+    LogPrint("sc", "%s():%d entering \n", __func__, __LINE__);
+
     wrappedFieldPtr sptr = CFieldElement(ccout.GetScId()).GetFieldElement();
     field_t* scid_fe = sptr.get();
 
@@ -146,6 +154,8 @@ bool SidechainTxsCommitmentBuilder::add_fwt(const CTxForwardTransferOut& ccout, 
 
 bool SidechainTxsCommitmentBuilder::add_bwtr(const CBwtRequestOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code)
 {
+    LogPrint("sc", "%s():%d entering \n", __func__, __LINE__);
+
     wrappedFieldPtr sptr = CFieldElement(ccout.GetScId()).GetFieldElement();
     field_t* scid_fe = sptr.get();
 
@@ -160,6 +170,9 @@ bool SidechainTxsCommitmentBuilder::add_bwtr(const CBwtRequestOut& ccout, const 
         vSptr.push_back(sptr);
         i++;
     }
+    // mc crypto lib wants a null ptr if we have no fields
+    if (sc_req_data_len == 0)
+        sc_req_data.reset();
 
     const uint160& bwtr_pk_hash = ccout.mcDestinationAddress;
     BufferWithSize bws_bwtr_pk_hash(bwtr_pk_hash.begin(), bwtr_pk_hash.size());
@@ -178,6 +191,8 @@ bool SidechainTxsCommitmentBuilder::add_bwtr(const CBwtRequestOut& ccout, const 
 
 bool SidechainTxsCommitmentBuilder::add_csw(const CTxCeasedSidechainWithdrawalInput& ccin, CctpErrorCode& ret_code)
 {
+    LogPrint("sc", "%s():%d entering \n", __func__, __LINE__);
+
     wrappedFieldPtr sptr = CFieldElement(ccin.scId).GetFieldElement();
     field_t* scid_fe = sptr.get();
 
@@ -197,6 +212,8 @@ bool SidechainTxsCommitmentBuilder::add_csw(const CTxCeasedSidechainWithdrawalIn
 
 bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, CctpErrorCode& ret_code)
 {
+    LogPrint("sc", "%s():%d entering \n", __func__, __LINE__);
+
     wrappedFieldPtr sptr = CFieldElement(cert.GetScId()).GetFieldElement();
     field_t* scid_fe = sptr.get();
 
@@ -213,7 +230,7 @@ bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, CctpErr
     }
 
     if (!vbt_list.empty())
-        bt_list = (const backward_transfer_t*)&vbt_list[0];
+        bt_list = (const backward_transfer_t*)vbt_list.data();
 
     size_t bt_list_len = vbt_list.size();
 
@@ -229,6 +246,9 @@ bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, CctpErr
         vSptr.push_back(sptr);
         i++;
     }
+    // mc crypto lib wants a null ptr if we have no fields
+    if (custom_fields_len == 0)
+        custom_fields.reset();
 
     wrappedFieldPtr sptrCum = cert.endEpochCumScTxCommTreeRoot.GetFieldElement();
 
@@ -253,6 +273,9 @@ bool SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
 
     if (!tx.IsScVersion())
         return true;
+
+    LogPrint("sc", "%s():%d entering with comm[%s] for adding tx[%s]\n", __func__, __LINE__,
+        getCommitment().ToString(), tx.GetHash().ToString());
 
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
@@ -312,6 +335,19 @@ bool SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
             return false;
         }
     }
+
+#if 0
+    CctpErrorCode code;
+    field_t* fe = zendoo_commitment_tree_get_commitment(const_cast<commitment_tree_t*>(_cmt), &code);
+    assert(code == CctpErrorCode::OK);
+    assert(fe != nullptr);
+
+    //wrappedFieldPtr sptr = CFieldElement(getCommitment()).GetFieldElement();
+    //field_t* scid_fe = sptr.get();
+    dumpFe(fe, "committment resulting");
+
+    LogPrint("sc", "%s():%d exiting with comm[%s]\n", __func__, __LINE__, getCommitment().ToString());
+#endif
     return true;
 }
 
@@ -337,12 +373,7 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
     field_t* fe = zendoo_commitment_tree_get_commitment(const_cast<commitment_tree_t*>(_cmt), &code);
     assert(code == CctpErrorCode::OK);
     assert(fe != nullptr);
-
-    unsigned char* ptr = (unsigned char*)fe;
-    printf("           commitment fe = [");
-    for (int i = 0; i < CFieldElement::ByteSize(); i++)
-        printf("%02x", *ptr++);
-    printf("]\n");
+    //dumpFe(fe, "com fe");
 
     wrappedFieldPtr res = {fe, CFieldPtrDeleter{}};
     CFieldElement finalTreeRoot{res};

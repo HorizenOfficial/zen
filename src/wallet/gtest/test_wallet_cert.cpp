@@ -158,7 +158,7 @@ TEST(Wallet, DocumentingWalletDbConstructionMachinery) {
 TEST_F(SidechainsCertInWalletTestSuite, WalletCertSerializationOps) {
     CWallet dummyWallet;
     CScCertificate cert =
-            txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0, uint256S("bbb"),
+            txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
                 CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
                 /*bwTotaltAmount*/CAmount(10), /*numBwt*/4,
                 /*ftScFee*/0, /*mbtrScFee*/0);
@@ -219,7 +219,7 @@ TEST_F(SidechainsCertInWalletTestSuite, LoadWalletTxFromDb) {
 TEST_F(SidechainsCertInWalletTestSuite, LoadWalletCertFromDb) {
     //Create wallet cert to be stored
     CScCertificate cert =
-            txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0, uint256S("bbb"),
+            txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
                 CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
                 /*bwTotaltAmount*/CAmount(10), /*numBwt*/4,
                 /*ftScFee*/0, /*mbtrScFee*/0);
@@ -306,7 +306,7 @@ TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_CoinBase_InBlockChain) {
 
 TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_Certificate_InBlockChain) {
     //Create certificate
-    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12, /*endEpochBlockHash*/uint256S("ccc"),
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
         /*bwTotaltAmount*/CAmount(10), /*numBwt*/4,
         /*ftScFee*/0, /*mbtrScFee*/0);
@@ -391,7 +391,7 @@ TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_TransparentTx_InMemoryPoo
 
 TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_Certificate_InMemoryPool) {
     //Create certificate
-    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12, /*endEpochBlockHash*/uint256S("ccc"),
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
         /*bwTotaltAmount*/CAmount(10), /*numBwt*/4,
         /*ftScFee*/0, /*mbtrScFee*/0);
@@ -462,7 +462,7 @@ TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_CoinBase_Conflicted) {
 
 TEST_F(SidechainsCertInWalletTestSuite, IsOutputMature_Certificate_Conflicted) {
     //Create certificate
-    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12, /*endEpochBlockHash*/uint256S("ccc"),
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/12,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2,
         /*bwTotaltAmount*/CAmount(10), /*numBwt*/4,
         /*ftScFee*/0, /*mbtrScFee*/0);
@@ -543,7 +543,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetCredit_FullCertificate_NotVoided)
     CAmount changeAmount = 20;
     CAmount bwtAmount = 12;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -593,7 +593,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetCredit_BwtOnlyCertificate_NotVoided)
     CAmount changeAmount = 0;
     CAmount bwtAmount = 12;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -643,7 +643,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetCredit_NoBwtCertificate_NotVoided)
     CAmount changeAmount = 20;
     CAmount bwtAmount = 0;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -693,7 +693,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetCredit_FullCertificate_Voided)
     CAmount changeAmount = 20;
     CAmount bwtAmount = 12;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD},
+            CFieldElement{SAMPLE_FIELD},
             /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount,
             /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
@@ -745,7 +745,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetCredit_BwtOnlyCertificate_Voided)
     CAmount changeAmount = 0;
     CAmount bwtAmount = 12;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -796,7 +796,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetCredit_NoBwtCertificate_Voided)
     CAmount changeAmount = 20;
     CAmount bwtAmount = 0;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -896,7 +896,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_FullCertificate_NotVoi
     CAmount changeAmount = 20;
     CAmount bwtAmount = 12;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -946,7 +946,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_BwtOnlyCertificate_Not
     CAmount changeAmount = 0;
     CAmount bwtAmount = 12;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -996,7 +996,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_NoBwtCertificate_NotVo
     CAmount changeAmount = 20;
     CAmount bwtAmount = 0;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -1046,7 +1046,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_FullCertificate_Voided
     CAmount changeAmount = 20;
     CAmount bwtAmount = 12;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -1097,7 +1097,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_BwtOnlyCertificate_Voi
     CAmount changeAmount = 0;
     CAmount bwtAmount = 12;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/0, /*bwtTotalAmount*/bwtAmount, /*numBwt*/4,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -1148,7 +1148,7 @@ TEST_F(SidechainsCertInWalletTestSuite, GetImmatureCredit_NoBwtCertificate_Voide
     CAmount changeAmount = 20;
     CAmount bwtAmount = 0;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -1202,7 +1202,7 @@ TEST_F(SidechainsCertInWalletTestSuite, SyncCertificate)
     CAmount changeAmount = 20;
     CAmount bwtAmount = 10;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/2,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/2,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
@@ -1249,7 +1249,7 @@ TEST_F(SidechainsCertInWalletTestSuite, SyncCertStatusInfo)
     CAmount changeAmount = 20;
     CAmount bwtAmount = 10;
     CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
-            /*endEpochBlockHash*/uint256S("ccc"), CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/2,
+            CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/changeAmount, /*numChangeOut*/2, /*bwtTotalAmount*/bwtAmount, /*numBwt*/2,
             /*ftScFee*/0, /*mbtrScFee*/0);
     SetLockingScriptFor(cert);
 
