@@ -66,7 +66,7 @@ class CertTestUtils(MCTestUtils):
     def generate_params(self, id):
         return self._generate_params(id, "cert", self.ps_type, self.file_prefix)
 
-    def create_test_proof(self, id, epoch_number, quality, btr_fee, ft_min_amount, constant, end_cum_comm_tree_root, pks, amounts):
+    def create_test_proof(self, id, epoch_number, quality, btr_fee, ft_min_amount, constant, end_cum_comm_tree_root, pks = [], amounts = [], custom_fields = []):
         params_dir = self._get_params_dir(id)
         if not os.path.isfile(params_dir + self.file_prefix + "test_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_vk"):
             return
@@ -75,9 +75,13 @@ class CertTestUtils(MCTestUtils):
         args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
         args += ["create", "cert", str(self.ps_type), str(proof_path), str(params_dir)]
         args += [str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(btr_fee), str(ft_min_amount)]
+        args.append(str(len(pks)))
         for (pk, amount) in zip(pks, amounts):
             args.append(str(pk))
             args.append(str(int(amount * COIN))) #codebase works in satoshi
+        args.append(str(len(custom_fields)))
+        for custom_field in custom_fields:
+            args.append(str(custom_field))
         subprocess.check_call(args)
         return self._get_proof(proof_path)
 

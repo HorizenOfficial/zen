@@ -1521,7 +1521,7 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
 
     std::cout << "Temp folder for proof verification test: " << tempPath.string() << std::endl;
 
-    ASSERT_TRUE(zendoo_init_dlog_keys(ProvingSystem::CoboundaryMarlin, segmentSize, (path_char_t*)tempPath.c_str(), strlen(tempPath.c_str()), &errorCode));
+    ASSERT_TRUE(zendoo_init_dlog_keys(segmentSize, (path_char_t*)tempPath.c_str(), strlen(tempPath.c_str()), &errorCode));
 
     ASSERT_TRUE(zendoo_generate_mc_test_params(TestCircuitType::Certificate, ProvingSystem::CoboundaryMarlin, (path_char_t*)tempPath.c_str(), strlen(tempPath.c_str()), &errorCode));
 
@@ -1551,22 +1551,6 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
     wrappedScProofPtr sptrProof  = certInput.certProof.GetProofPtr();
     wrappedScVkeyPtr  sptrCertVk = certInput.CertVk.GetVKeyPtr();
 
-    ASSERT_TRUE(zendoo_create_cert_test_proof(
-        false /*zk*/,
-        sptrConst.get(),
-        certInput.epochNumber,
-        certInput.quality,
-        nullptr, //certInput.bt_list.data(),
-        0, //certInput.bt_list.size(),
-        sptrCum.get(),
-        certInput.mainchainBackwardTransferRequestScFee,
-        certInput.forwardTransferScFee,
-        sc_pk,
-        (path_char_t*)sc_cert_proof_path.c_str(),
-        strlen(sc_cert_proof_path.c_str()),
-        &errorCode
-    ));
-
     int custom_fields_len = certInput.vCustomFields.size(); 
 
     std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
@@ -1585,6 +1569,24 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
         custom_fields.reset();
         ASSERT_EQ(custom_fields.get(), nullptr);
     }
+
+    ASSERT_TRUE(zendoo_create_cert_test_proof(
+        false /*zk*/,
+        sptrConst.get(),
+        certInput.epochNumber,
+        certInput.quality,
+        nullptr, //certInput.bt_list.data(),
+        0, //certInput.bt_list.size(),
+        custom_fields.get(),
+        custom_fields_len,
+        sptrCum.get(),
+        certInput.mainchainBackwardTransferRequestScFee,
+        certInput.forwardTransferScFee,
+        sc_pk,
+        (path_char_t*)sc_cert_proof_path.c_str(),
+        strlen(sc_cert_proof_path.c_str()),
+        &errorCode
+    ));
 
     sc_proof_t* certProof = zendoo_deserialize_sc_proof_from_file(
         (path_char_t*)sc_cert_proof_path.c_str(),

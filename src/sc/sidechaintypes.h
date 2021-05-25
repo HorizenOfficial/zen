@@ -39,8 +39,7 @@ namespace Sidechain
     static const int MAX_SC_PROOF_SIZE_IN_BYTES = 1024*10;  
     static const int MAX_SC_VK_SIZE_IN_BYTES    = 1024*10;
 
-//    static const int SEGMENT_SIZE = 1 << 19;
-    static const int SEGMENT_SIZE = 1 << 9;
+    static const int SEGMENT_SIZE = 1 << 17;
 }
 
 class CZendooCctpLibraryChecker
@@ -95,7 +94,7 @@ public:
     explicit CFieldElement(const std::vector<unsigned char>& byteArrayIn);
     void SetByteArray(const std::vector<unsigned char>& byteArrayIn) override final;
 
-    explicit CFieldElement(const uint256& value);
+    explicit CFieldElement(const uint256& value); //Currently for backward compability with pre-sidechain fork blockHeader. To re-evaluate its necessity
     explicit CFieldElement(const wrappedFieldPtr& wrappedField);
 
     static constexpr unsigned int ByteSize() { return Sidechain::SC_FE_SIZE_IN_BYTES; }

@@ -24,7 +24,7 @@ bool Sidechain::InitDLogKeys()
     CctpErrorCode errorCode;
     std::string folderPath = Sidechain::GetSidechainDataDir().string();
 
-    if (!zendoo_init_dlog_keys(ProvingSystem::Darlin, SEGMENT_SIZE, (path_char_t*)folderPath.c_str(), folderPath.length(), &errorCode))
+    if (!zendoo_init_dlog_keys(SEGMENT_SIZE, (path_char_t*)folderPath.c_str(), folderPath.length(), &errorCode))
     {
         return false;
     }
