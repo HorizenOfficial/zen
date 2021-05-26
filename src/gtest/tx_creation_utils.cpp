@@ -621,14 +621,34 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(CCertProofVerifierI
         btList = nullptr;
     }
 
+    int custom_fields_len = certificate.vCustomFields.size(); 
+    std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
+    int i = 0;
+    std::vector<wrappedFieldPtr> vSptr;
+    for (auto entry: certificate.vCustomFields)
+    {
+        wrappedFieldPtr sptrFe = entry.GetFieldElement();
+        custom_fields[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
+        i++;
+    }
+    if (custom_fields_len == 0)
+    {
+        custom_fields.reset();
+        assert(custom_fields.get() == nullptr);
+    }
+
     CctpErrorCode errorCode;
 
+    //TODO: Add custom fields
     zendoo_create_cert_test_proof(false /*zk*/,
                                   sptrConst.get(),
                                   certificate.epochNumber,
                                   certificate.quality,
                                   btList,
                                   certificate.bt_list.size(),
+                                  custom_fields.get(),
+                                  custom_fields_len,
                                   sptrCum.get(),
                                   certificate.mainchainBackwardTransferRequestScFee,
                                   certificate.forwardTransferScFee,
@@ -936,7 +956,7 @@ void BlockchainTestManager::InitSidechainParameters()
     boost::filesystem::create_directories(tempFolderPath);
 
     CctpErrorCode errorCode;
-    zendoo_init_dlog_keys(ProvingSystem::Darlin, Sidechain::SEGMENT_SIZE, (path_char_t*)tempFolderPath.c_str(), strlen(tempFolderPath.c_str()), &errorCode);
+    zendoo_init_dlog_keys(Sidechain::SEGMENT_SIZE, (path_char_t*)tempFolderPath.c_str(), strlen(tempFolderPath.c_str()), &errorCode);
 }
 
 std::pair<uint256, CCoinsCacheEntry> BlockchainTestManager::GenerateCoinsAmount(const CAmount & amountToGenerate) const

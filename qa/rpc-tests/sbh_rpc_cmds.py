@@ -99,7 +99,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
 
         #generate wCertVk and constant
         certMcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
-        cswMcTest  = CswTestUtils(self.options.tmpdir, self.options.srcdir)
+        cswMcTest  = CSWTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = certMcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 

@@ -1,5 +1,6 @@
 #include <zendoo/zendoo_mc.h>
 #include <utilstrencodings.h>
+#include <sc/sidechaintypes.h>
 #include <uint256.h>
 #include <iostream>
 #include <cassert>
@@ -14,7 +15,8 @@
  *
  *  2) ./mcTest "create" "cert" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "epoch_number" "quality"
  *  "constant" "end_cum_comm_tree_root", "btr_fee", "ft_min_amount"
- *  "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n"
+ *  "bt_list_len", "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n",
+ *  "custom_fields_list_len", "custom_field_0", ... , "custom_field_1"
  *  Generates a TestCertificateProof;
  *
  *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "amount" "sc_id"
@@ -68,7 +70,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     assert(ret_code == CctpErrorCode::OK);
 
     // Load DLOG keys
-    assert(zendoo_init_dlog_keys(ps_type, 1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
+    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Parse epoch number and quality
@@ -97,9 +99,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
 
     // Create bt_list
     // Inputs must be (pk_dest, amount) pairs from which construct backward_transfer_t objects
-    assert((argc - arg) % 2 == 0);
-    int bt_list_length = (argc - arg)/2;
-    assert(bt_list_length >= 0);
+    uint32_t bt_list_length = strtoull(argv[arg++], NULL, 0);
 
     // Parse backward transfer list
     std::vector<backward_transfer_t> bt_list;
@@ -119,6 +119,25 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
         bt_list.push_back(bt);
     }
 
+    // Create custom_fields
+    uint32_t custom_fields_list_length = strtoull(argv[arg++], NULL, 0);
+
+    // Parse backward transfer list
+    std::vector<field_t*> custom_fields_list;
+    custom_fields_list.reserve(custom_fields_list_length);
+    for(int i = 0; i < custom_fields_list_length; i ++){
+
+        // Parse custom field
+        assert(IsHex(argv[arg]));
+        auto custom_field = ParseHex(argv[arg++]);
+        assert(custom_field.size() == 32);
+        field_t* custom_field_f = zendoo_deserialize_field(custom_field.data(), &ret_code);
+        assert(custom_field_f != NULL);
+        assert(ret_code == CctpErrorCode::OK);
+
+        custom_fields_list.push_back(custom_field_f);
+    }
+
     // Generate proof and vk
     assert(zendoo_create_cert_test_proof(
         zk,
@@ -127,6 +146,8 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
         quality,
         bt_list.data(),
         bt_list_length,
+        (const field_t**)custom_fields_list.data(),
+        custom_fields_list_length,
         end_cum_comm_tree_root_f,
         btr_fee,
         ft_min_amount,
@@ -169,8 +190,8 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
             quality,
             bt_list.data(),
             bt_list_length,
-            NULL,
-            0,
+            (const field_t**)custom_fields_list.data(),
+            custom_fields_list_length,
             end_cum_comm_tree_root_f,
             btr_fee,
             ft_min_amount,
@@ -188,8 +209,8 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
             quality,
             bt_list.data(),
             bt_list_length,
-            NULL,
-            0,
+            (const field_t**)custom_fields_list.data(),
+            custom_fields_list_length,
             end_cum_comm_tree_root_f,
             btr_fee,
             ft_min_amount,
@@ -206,6 +227,10 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     zendoo_sc_pk_free(pk);
     zendoo_field_free(constant_f);
     zendoo_field_free(end_cum_comm_tree_root_f);
+
+    for(int i = 0; i < custom_fields_list_length; i ++){
+        zendoo_field_free(custom_fields_list[i]);
+    }
 }
 
 void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv) {
@@ -253,7 +278,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
     assert(ret_code == CctpErrorCode::OK);
 
     // Load DLOG keys
-    assert(zendoo_init_dlog_keys(ps_type, 1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
+    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Parse amount
@@ -411,7 +436,7 @@ void generate(char** argv)
 
     // Load DLOG keys
     CctpErrorCode ret_code = CctpErrorCode::OK;
-    assert(zendoo_init_dlog_keys(ps_type, 1 << 9, (path_char_t*)path.c_str(), path.size(), &ret_code));
+    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, (path_char_t*)path.c_str(), path.size(), &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Generate proving and verifying key
