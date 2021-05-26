@@ -83,10 +83,9 @@ CCswProofVerifierInput CScAsyncProofVerifier::CswInputToVerifierInput(const CTxC
     cswData.nValue = cswInput.nValue;
     cswData.scId = cswInput.scId;
     cswData.pubKeyHash = cswInput.pubKeyHash;
-
     cswData.certDataHash = cswInput.actCertDataHash;
     cswData.ceasingCumScTxCommTree = cswInput.ceasingCumScTxCommTree;
-
+    cswData.nullifier = cswInput.nullifier;
     cswData.cswProof = cswInput.scProof;
 
     CSidechain sidechain;
