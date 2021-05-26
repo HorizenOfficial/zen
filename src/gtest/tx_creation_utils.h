@@ -173,11 +173,11 @@ public:
     void Reset();
 
     // TRANSACTION HELPERS
-    CTxCeasedSidechainWithdrawalInput CreateCswInput(uint256 scId, CAmount nValue) const;
+    CTxCeasedSidechainWithdrawalInput CreateCswInput(uint256 scId, CAmount nValue, ProvingSystem provingSystem) const;
     CMutableTransaction CreateTransaction(const CTransactionCreationArguments& args) const;
 
     // SIDECHAIN HELPERS
-    CScCertificate GenerateCertificate(uint256 scId, int epochNumber, int64_t quality, CTransactionBase* inputTxBase = nullptr) const;
+    CScCertificate GenerateCertificate(uint256 scId, int epochNumber, int64_t quality, ProvingSystem provingSystem, CTransactionBase* inputTxBase = nullptr) const;
     void GenerateSidechainTestParameters(ProvingSystem provingSystem, TestCircuitType circuitType) const;
     CScProof GenerateTestCertificateProof(CCertProofVerifierInput certificate, ProvingSystem provingSystem) const;
     CScProof GenerateTestCswProof(CCswProofVerifierInput csw, ProvingSystem provingSystem) const;
@@ -198,7 +198,7 @@ private:
     ~BlockchainTestManager();
 
     std::string GetTestFilePath(ProvingSystem provingSystem, TestCircuitType circuitType) const;
-    sc_pk_t* GetTestProofVerificationKey(ProvingSystem provingSystem, TestCircuitType circuitType) const;
+    sc_pk_t* GetTestProvingKey(ProvingSystem provingSystem, TestCircuitType circuitType) const;
     void InitCoinGeneration();
     void InitSidechainParameters();
     std::pair<uint256, CCoinsCacheEntry> GenerateCoinsAmount(const CAmount & amountToGenerate) const;

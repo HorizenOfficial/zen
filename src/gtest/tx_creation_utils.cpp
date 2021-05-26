@@ -486,15 +486,21 @@ void BlockchainTestManager::Reset()
  * @brief Creates a CSW input object.
  * 
  * @param scId The ID of the sidechain the CSW refers to
+ * @param nValue The amount of the CSW input
+ * @param provingSystem The proving system for the verification of the CSW input proof
  * @return CTxCeasedSidechainWithdrawalInput the CSW input created.
  */
-CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 scId, CAmount nValue) const
+CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 scId, CAmount nValue, ProvingSystem provingSystem) const
 {
     CTxCeasedSidechainWithdrawalInput input;
 
     input.scId = scId;
     input.nValue = nValue;
-    input.scProof = CScProof{SAMPLE_CSW_DARLIN_PROOF};
+    input.actCertDataHash = CFieldElement{SAMPLE_FIELD};
+    input.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
+
+    CCswProofVerifierInput verifierInput = CScAsyncProofVerifier::CswInputToVerifierInput(input, nullptr, viewCache.get(), nullptr);
+    input.scProof = GenerateTestCswProof(verifierInput, provingSystem);
 
     return input;
 }
@@ -525,9 +531,11 @@ CMutableTransaction BlockchainTestManager::CreateTransaction(const CTransactionC
  * @param scId The ID of the sidechain the certificate refers to
  * @param epochNumber The epoch number of the certificate
  * @param quality The quality of the certificate
+ * @param provingSystem The proving system to be used for the certificate generation
+ * @param inputTxBase The pointer to the transaction to be used as input for the certificate
  * @return CScCertificate The generated certificate.
  */
-CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epochNumber, int64_t quality, CTransactionBase* inputTxBase) const
+CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epochNumber, int64_t quality, ProvingSystem provingSystem, CTransactionBase* inputTxBase) const
 {
     uint256 dummyBlockHash {};
     CFieldElement endEpochCumScTxCommTreeRoot = CFieldElement{SAMPLE_FIELD};
@@ -537,7 +545,6 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
     CAmount bwtTotalAmount {0};
     unsigned int numChangeOut = 1;
     unsigned int numBwt = 2;
-    //CTransactionBase* inputTxBase = nullptr;
 
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
@@ -570,8 +577,8 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
         SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, res, 0);
     }
 
-    // TODO: when the CCTP lib integration is ready, create the proof properly.
-    res.scProof = CScProof{SAMPLE_CERT_DARLIN_PROOF};
+    CCertProofVerifierInput input = CScAsyncProofVerifier::CertificateToVerifierInput(res, viewCache.get(), nullptr);
+    res.scProof = GenerateTestCertificateProof(input, provingSystem);
 
     return res;
 }
@@ -603,7 +610,7 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(CCertProofVerifierI
     wrappedFieldPtr sptrCum   = certificate.endEpochCumScTxCommTreeRoot.GetFieldElement();
 
     std::string certProofPath = GetTestFilePath(provingSystem, TestCircuitType::Certificate) + "proof";
-    sc_pk_t* provingKey = GetTestProofVerificationKey(provingSystem, TestCircuitType::Certificate);
+    sc_pk_t* provingKey = GetTestProvingKey(provingSystem, TestCircuitType::Certificate);
 
     backward_transfer_t* btList = certificate.bt_list.data();
 
@@ -645,7 +652,8 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(CCertProofVerifierI
  */
 CScProof BlockchainTestManager::GenerateTestCswProof(CCswProofVerifierInput csw, ProvingSystem provingSystem) const
 {
-    field_t* scidFe = (field_t*)csw.scId.begin();
+    wrappedFieldPtr sptrScId = CFieldElement(csw.scId).GetFieldElement();
+    field_t* scidFe = sptrScId.get();
      
     const uint160& cswPkHash = csw.pubKeyHash;
     BufferWithSize bwsCswPkHash(cswPkHash.begin(), cswPkHash.size());
@@ -654,7 +662,7 @@ CScProof BlockchainTestManager::GenerateTestCswProof(CCswProofVerifierInput csw,
     wrappedFieldPtr sptrCum = csw.ceasingCumScTxCommTree.GetFieldElement();
 
     std::string cswProofPath = GetTestFilePath(provingSystem, TestCircuitType::CSW) + "proof";
-    sc_pk_t* provingKey = GetTestProofVerificationKey(provingSystem, TestCircuitType::CSW);
+    sc_pk_t* provingKey = GetTestProvingKey(provingSystem, TestCircuitType::CSW);
 
     CctpErrorCode code;
 
@@ -769,7 +777,8 @@ bool BlockchainTestManager::VerifyCertificateProof(CCertProofVerifierInput certi
  */
 bool BlockchainTestManager::VerifyCswProof(CCswProofVerifierInput csw) const
 {
-    field_t* scidFe = (field_t*)csw.scId.begin();
+    wrappedFieldPtr sptrScId = CFieldElement(csw.scId).GetFieldElement();
+    field_t* scidFe = sptrScId.get();
      
     const uint160& cswPkHash = csw.pubKeyHash;
     BufferWithSize bwsCswPkHash(cswPkHash.begin(), cswPkHash.size());
@@ -889,13 +898,13 @@ std::string BlockchainTestManager::GetTestFilePath(ProvingSystem provingSystem, 
 }
 
 /**
- * @brief Gets the proof verification key that can be used to verify a test proof.
+ * @brief Gets the proving key that can be used to verify a test proof.
  * 
  * @param provingSystem The proving system used to generate the proof
  * @param circuitType The type of proof to be verified (e.g. Certificate, CSW)
- * @return std::unique_ptr<sc_pk_t*> The pointer to the proof verification key.
+ * @return std::unique_ptr<sc_pk_t*> The pointer to the proving key.
  */
-sc_pk_t* BlockchainTestManager::GetTestProofVerificationKey(ProvingSystem provingSystem, TestCircuitType circuitType) const
+sc_pk_t* BlockchainTestManager::GetTestProvingKey(ProvingSystem provingSystem, TestCircuitType circuitType) const
 {
     std::string provingKeyPath = GetTestFilePath(provingSystem, circuitType) + "pk";
 

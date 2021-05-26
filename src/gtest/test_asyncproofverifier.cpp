@@ -12,6 +12,8 @@
 
 using namespace blockchain_test_utils;
 
+static const ProvingSystem testProvingSystem = ProvingSystem::Darlin;
+
 /**
  * @brief A test suite class to unit test the CScAsyncProofVerifier.
  * 
@@ -27,12 +29,12 @@ public:
 
         sidechain.creationBlockHeight = 100;
         sidechain.fixedParams.withdrawalEpochLength = 20;
+        sidechain.fixedParams.constant = CFieldElement{SAMPLE_FIELD};
         sidechain.lastTopQualityCertHash = uint256S("cccc");
         sidechain.lastTopQualityCertQuality = 100;
         sidechain.lastTopQualityCertReferencedEpoch = -1;
         sidechain.lastTopQualityCertBwtAmount = 50;
         sidechain.balance = CAmount(100);
-        sidechain.fixedParams.wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
     }
 
     void SetUp() override
@@ -42,6 +44,13 @@ public:
         // clear globals
         UnloadBlockIndex();
         mGlobalForkTips.clear();
+
+        // Initialize proof verifier test parameters
+        BlockchainTestManager::GetInstance().GenerateSidechainTestParameters(testProvingSystem, TestCircuitType::Certificate);
+        BlockchainTestManager::GetInstance().GenerateSidechainTestParameters(testProvingSystem, TestCircuitType::CSW);
+
+        sidechain.fixedParams.wCertVk = BlockchainTestManager::GetInstance().GetTestVerificationKey(testProvingSystem, TestCircuitType::Certificate);
+        sidechain.fixedParams.wCeasedVk = BlockchainTestManager::GetInstance().GetTestVerificationKey(testProvingSystem, TestCircuitType::CSW);
     };
 
     void TearDown() override
@@ -63,9 +72,14 @@ protected:
 TEST_F(AsyncProofVerifierTestSuite, Hash_Test)
 {
     BlockchainTestManager& blockchain = BlockchainTestManager::GetInstance();
-    
-    CTxCeasedSidechainWithdrawalInput input1 = blockchain.CreateCswInput(sidechainId, 1);
-    CTxCeasedSidechainWithdrawalInput input2 = blockchain.CreateCswInput(sidechainId, 2);
+
+    blockchain.Reset();
+
+    // Store the test sidechain and extend the blockchain to complete at least one epoch. 
+    blockchain.StoreSidechainWithCurrentHeight(sidechainId, sidechain, sidechain.creationBlockHeight + sidechain.fixedParams.withdrawalEpochLength);
+
+    CTxCeasedSidechainWithdrawalInput input1 = blockchain.CreateCswInput(sidechainId, 1, testProvingSystem);
+    CTxCeasedSidechainWithdrawalInput input2 = blockchain.CreateCswInput(sidechainId, 2, testProvingSystem);
     ASSERT_NE(input1, input2);
 
     CTransactionCreationArguments args;
@@ -112,7 +126,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Valid_Certificate_Proof_Processing)
     int64_t quality = 1;
     
     // Generate a valid certificate.
-    CMutableScCertificate cert = blockchain.GenerateCertificate(sidechainId, epochNumber, quality);
+    CMutableScCertificate cert = blockchain.GenerateCertificate(sidechainId, epochNumber, quality, testProvingSystem);
 
     // Check that the async proof verifier queues are empty.
     AsyncProofVerifierStatistics stats = blockchain.GetAsyncProofVerifierStatistics();
@@ -165,11 +179,10 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_Certificate_Proof_Processing)
     int64_t quality = 1;
     
     // Generate a valid certificate.
-    CMutableScCertificate cert = blockchain.GenerateCertificate(sidechainId, epochNumber, quality);
+    CMutableScCertificate cert = blockchain.GenerateCertificate(sidechainId, epochNumber, quality, testProvingSystem);
     
-    // A "null" proof is currently the only kind of invalid proof.
-    cert.scProof = CScProof();
-    ASSERT_TRUE(cert.scProof.IsNull());
+    // Change the FT fee (or any other certificate field) to make the proof invalid.
+    cert.forwardTransferScFee++;
 
     // Check that the async proof verifier queues are empty.
     AsyncProofVerifierStatistics stats = blockchain.GetAsyncProofVerifierStatistics();
@@ -220,7 +233,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Valid_CSW_Proof_Processing)
     ASSERT_EQ(blockchain.CoinsViewCache()->getSidechainMap().count(sidechainId), 1);
 
     // Create a new CSW input with valid proof.
-    CTxCeasedSidechainWithdrawalInput cswInput = blockchain.CreateCswInput(sidechainId, kDummyAmount);
+    CTxCeasedSidechainWithdrawalInput cswInput = blockchain.CreateCswInput(sidechainId, kDummyAmount, testProvingSystem);
 
     // Add the CSW input to the transaction creation arguments.
     CTransactionCreationArguments args;
@@ -275,10 +288,10 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_CSW_Proof_Processing)
     ASSERT_EQ(blockchain.CoinsViewCache()->getSidechainMap().count(sidechainId), 1);
 
     // Create a new CSW input with valid proof.
-    CTxCeasedSidechainWithdrawalInput cswInput = blockchain.CreateCswInput(sidechainId, kDummyAmount);
+    CTxCeasedSidechainWithdrawalInput cswInput = blockchain.CreateCswInput(sidechainId, kDummyAmount, testProvingSystem);
 
-    // Make the proof invalid.
-    cswInput.scProof = CScProof();
+    // Change the FT fee (or any other CSW input field) to make the proof invalid.
+    cswInput.nValue++;
 
     // Add the CSW input to the transaction creation arguments.
     CTransactionCreationArguments args;
@@ -334,11 +347,11 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Tx_With_Several_Csw_Inputs)
     ASSERT_EQ(blockchain.CoinsViewCache()->getSidechainMap().count(sidechainId), 1);
 
     // Create a new CSW input with valid proof.
-    CTxCeasedSidechainWithdrawalInput cswInput1 = blockchain.CreateCswInput(sidechainId, kDummyAmount);
-    CTxCeasedSidechainWithdrawalInput cswInput2 = blockchain.CreateCswInput(sidechainId, kDummyAmount);
+    CTxCeasedSidechainWithdrawalInput cswInput1 = blockchain.CreateCswInput(sidechainId, kDummyAmount, testProvingSystem);
+    CTxCeasedSidechainWithdrawalInput cswInput2 = blockchain.CreateCswInput(sidechainId, kDummyAmount, testProvingSystem);
 
-    // Make the first proof invalid.
-    cswInput1.scProof = CScProof();
+    // Change the FT fee (or any other CSW input field) to make the proof of the first CSW input invalid.
+    cswInput1.nValue++;
 
     // Add the CSW input to the transaction creation arguments.
     CTransactionCreationArguments args;
@@ -399,7 +412,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
     std::vector<CTransaction> transactions;
     
     // Create a new CSW input with invalid proof.
-    CTxCeasedSidechainWithdrawalInput cswInputInvalid = blockchain.CreateCswInput(sidechainId, kDummyAmount);
+    CTxCeasedSidechainWithdrawalInput cswInputInvalid = blockchain.CreateCswInput(sidechainId, kDummyAmount, testProvingSystem);
     cswInputInvalid.scProof = CScProof();
 
     // Add the CSW input to the transaction creation arguments.
@@ -414,7 +427,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
     for (int i = 0; i < numberOfValidTransactions; i++)
     {
         // Create a new CSW input with valid proof.
-        CTxCeasedSidechainWithdrawalInput cswInputValid = blockchain.CreateCswInput(sidechainId, kDummyAmount + i);
+        CTxCeasedSidechainWithdrawalInput cswInputValid = blockchain.CreateCswInput(sidechainId, kDummyAmount + i, testProvingSystem);
 
         // Add the CSW input to the transaction creation arguments.
         CTransactionCreationArguments validArgs;
@@ -524,14 +537,14 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
     
     for (int i = 0; i < tempElement.size(); i++)
     {
-        ASSERT_NE(tempElement.at(i).ceasedVk, inputs.at(i).ceasedVk);
-        ASSERT_NE(tempElement.at(i).ceasingCumScTxCommTree, inputs.at(i).ceasingCumScTxCommTree);
-        ASSERT_NE(tempElement.at(i).certDataHash, inputs.at(i).certDataHash);
-        ASSERT_NE(tempElement.at(i).cswProof, inputs.at(i).cswProof);
-        ASSERT_NE(tempElement.at(i).node, inputs.at(i).node);
-        ASSERT_NE(tempElement.at(i).nValue, inputs.at(i).nValue);
-        ASSERT_NE(tempElement.at(i).pubKeyHash, inputs.at(i).pubKeyHash);
-        ASSERT_NE(tempElement.at(i).scId, inputs.at(i).scId);
-        ASSERT_NE(tempElement.at(i).transactionPtr, inputs.at(i).transactionPtr);
+        ASSERT_EQ(tempElement.at(i).ceasedVk, inputs.at(i).ceasedVk);
+        ASSERT_EQ(tempElement.at(i).ceasingCumScTxCommTree, inputs.at(i).ceasingCumScTxCommTree);
+        ASSERT_EQ(tempElement.at(i).certDataHash, inputs.at(i).certDataHash);
+        ASSERT_EQ(tempElement.at(i).cswProof, inputs.at(i).cswProof);
+        ASSERT_EQ(tempElement.at(i).node, inputs.at(i).node);
+        ASSERT_EQ(tempElement.at(i).nValue, inputs.at(i).nValue);
+        ASSERT_EQ(tempElement.at(i).pubKeyHash, inputs.at(i).pubKeyHash);
+        ASSERT_EQ(tempElement.at(i).scId, inputs.at(i).scId);
+        ASSERT_EQ(tempElement.at(i).transactionPtr, inputs.at(i).transactionPtr);
     }
 }

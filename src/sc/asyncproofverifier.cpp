@@ -7,6 +7,111 @@
 #include "primitives/certificate.h"
 #include "sc/proofverifier.h"
 
+/**
+ * @brief Creates the proof verifier input of a certificate for the proof verifier.
+ * 
+ * @param certificate The certificate to send to the proof verifier
+ * @param view The reference coins view cache (in which the sidechain of the certificate is stored)
+ * @param node The node that sent the certificate
+ * @return CCertProofVerifierInput The structure containing all the data needed for the proof verification of the certificate.
+ */
+CCertProofVerifierInput CScAsyncProofVerifier::CertificateToVerifierInput(const CScCertificate& certificate, const CCoinsViewCache& view, CNode* pfrom)
+{
+    // TODO this is code duplicated from CScProofVerifier::LoadDataForCertVerification
+    CCertProofVerifierInput certData;
+
+    certData.certificatePtr = std::make_shared<CScCertificate>(certificate);
+    certData.certHash = certificate.GetHash();
+
+    CSidechain sidechain;
+    assert(view.GetSidechain(certificate.GetScId(), sidechain) && "Unknown sidechain at cert proof verification stage");
+
+    if (sidechain.fixedParams.constant.is_initialized())
+        certData.constant = sidechain.fixedParams.constant.get();
+    else
+        certData.constant = CFieldElement{};
+
+    certData.epochNumber = certificate.epochNumber;
+    certData.quality = certificate.quality;
+
+    for(int pos = certificate.nFirstBwtPos; pos < certificate.GetVout().size(); ++pos)
+    {
+        CBackwardTransferOut btout(certificate.GetVout().at(pos));
+        certData.bt_list.push_back(backward_transfer{});
+        backward_transfer& bt = certData.bt_list.back();
+
+        std::copy(btout.pubKeyHash.begin(), btout.pubKeyHash.end(), std::begin(bt.pk_dest));
+        bt.amount = btout.nValue;
+    }
+
+    for (auto entry: certificate.vFieldElementCertificateField)
+    {
+        CFieldElement fe{entry.getVRawData()};
+        certData.vCustomFields.push_back(fe);
+    }
+    for (auto entry: certificate.vBitVectorCertificateField)
+    {
+        CFieldElement fe{entry.getVRawData()};
+        certData.vCustomFields.push_back(fe);
+    }
+
+    certData.endEpochCumScTxCommTreeRoot = certificate.endEpochCumScTxCommTreeRoot;
+    certData.mainchainBackwardTransferRequestScFee = certificate.mainchainBackwardTransferRequestScFee;
+    certData.forwardTransferScFee = certificate.forwardTransferScFee;
+
+    certData.certProof = certificate.scProof;
+    certData.CertVk = sidechain.fixedParams.wCertVk;
+
+    certData.node = pfrom;
+
+    return certData;
+}
+
+/**
+ * @brief Creates the proof verifier input of a CSW transaction for the proof verifier.
+ * 
+ * @param cswInput The CSW input to be verified
+ * @param cswTransaction The pointer to the transaction containing the CSW input
+ * @param view The reference coins view cache (in which the ceased sidechain is stored)
+ * @param node The node that sent the certificate
+ * @return CCswProofVerifierInput The The structure containing all the data needed for the proof verification of the CSW input.
+ */
+CCswProofVerifierInput CScAsyncProofVerifier::CswInputToVerifierInput(const CTxCeasedSidechainWithdrawalInput& cswInput, const CTransaction* cswTransaction, const CCoinsViewCache& view, CNode* pfrom)
+{
+    CCswProofVerifierInput cswData;
+
+    cswData.nValue = cswInput.nValue;
+    cswData.scId = cswInput.scId;
+    cswData.pubKeyHash = cswInput.pubKeyHash;
+
+    cswData.certDataHash = cswInput.actCertDataHash;
+    cswData.ceasingCumScTxCommTree = cswInput.ceasingCumScTxCommTree;
+
+    cswData.cswProof = cswInput.scProof;
+
+    CSidechain sidechain;
+    assert(view.GetSidechain(cswInput.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
+
+    if (sidechain.fixedParams.wCeasedVk.is_initialized())
+        cswData.ceasedVk = sidechain.fixedParams.wCeasedVk.get();
+    else
+        cswData.ceasedVk = CScVKey{};
+
+    if (cswTransaction == nullptr)
+    {
+        // The pointer to the transaction can be null only when the function is called from unit tests.
+        assert(Params().NetworkIDString() == "regtest");
+    }
+    else
+    {
+        cswData.transactionPtr = std::make_shared<CTransaction>(*cswTransaction);
+    }
+
+    cswData.node = pfrom;
+    
+    return cswData;
+}
+
 #ifdef BITCOIN_TX
 void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom) {return;}
 void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom) {return;}
@@ -16,52 +121,8 @@ void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& v
     LogPrint("cert", "%s():%d - called: cert[%s], scId[%s]\n",
         __func__, __LINE__, scCert.GetHash().ToString(), scCert.GetScId().ToString());
 
-    // TODO this is code duplicated from CScProofVerifier::LoadDataForCertVerification
-    CCertProofVerifierInput certData;
+    CCertProofVerifierInput certData = CertificateToVerifierInput(scCert, view, pfrom);
 
-    certData.certificatePtr = std::make_shared<CScCertificate>(scCert);
-    certData.certHash = scCert.GetHash();
-
-    CSidechain sidechain;
-    assert(view.GetSidechain(scCert.GetScId(), sidechain) && "Unknown sidechain at cert proof verification stage");
-
-    if (sidechain.fixedParams.constant.is_initialized())
-        certData.constant = sidechain.fixedParams.constant.get();
-    else
-        certData.constant = CFieldElement{};
-
-    certData.epochNumber = scCert.epochNumber;
-    certData.quality = scCert.quality;
-
-    for(int pos = scCert.nFirstBwtPos; pos < scCert.GetVout().size(); ++pos)
-    {
-        CBackwardTransferOut btout(scCert.GetVout().at(pos));
-        certData.bt_list.push_back(backward_transfer{});
-        backward_transfer& bt = certData.bt_list.back();
-
-        std::copy(btout.pubKeyHash.begin(), btout.pubKeyHash.end(), std::begin(bt.pk_dest));
-        bt.amount = btout.nValue;
-    }
-
-    for (auto entry: scCert.vFieldElementCertificateField)
-    {
-        CFieldElement fe{entry.getVRawData()};
-        certData.vCustomFields.push_back(fe);
-    }
-    for (auto entry: scCert.vBitVectorCertificateField)
-    {
-        CFieldElement fe{entry.getVRawData()};
-        certData.vCustomFields.push_back(fe);
-    }
-
-    certData.endEpochCumScTxCommTreeRoot = scCert.endEpochCumScTxCommTreeRoot;
-    certData.mainchainBackwardTransferRequestScFee = scCert.mainchainBackwardTransferRequestScFee;
-    certData.forwardTransferScFee = scCert.forwardTransferScFee;
-
-    certData.certProof = scCert.scProof;
-    certData.CertVk = sidechain.fixedParams.wCertVk;
-
-    certData.node = pfrom;
     {
         LOCK(cs_asyncQueue);
         certEnqueuedData.insert(std::make_pair(scCert.GetHash(), certData));
@@ -78,32 +139,7 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
 
     for(size_t idx = 0; idx < scTx.GetVcswCcIn().size(); ++idx)
     {
-        CCswProofVerifierInput cswData;
-
-        const CTxCeasedSidechainWithdrawalInput& csw = scTx.GetVcswCcIn().at(idx);
-
-        cswData.nValue = csw.nValue;
-        cswData.scId = csw.scId;
-        cswData.pubKeyHash = csw.pubKeyHash;
-
-        cswData.certDataHash = csw.actCertDataHash;
-        cswData.ceasingCumScTxCommTree = csw.ceasingCumScTxCommTree;
-
-        cswData.cswProof = csw.scProof;
-
-        CSidechain sidechain;
-        assert(view.GetSidechain(csw.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
-
-        if (sidechain.fixedParams.wCeasedVk.is_initialized())
-            cswData.ceasedVk = sidechain.fixedParams.wCeasedVk.get();
-        else
-            cswData.ceasedVk = CScVKey{};
-
-        cswData.transactionPtr = std::make_shared<CTransaction>(scTx);
-
-        cswData.node = pfrom;
-
-        txMap.insert(std::make_pair(idx, cswData));
+        txMap.insert(std::make_pair(idx, CswInputToVerifierInput(scTx.GetVcswCcIn().at(idx), &scTx, view, pfrom)));
     }
 
     if (!txMap.empty())
