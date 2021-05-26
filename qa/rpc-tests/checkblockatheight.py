@@ -11,7 +11,7 @@ from test_framework.util import assert_equal, assert_greater_than, initialize_ch
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision, disconnect_nodes
 from test_framework.script import CScript
 from test_framework.mininode import CTransaction, ToHex
-from test_framework.util import hex_str_to_bytes, bytes_to_hex_str
+from test_framework.util import hex_str_to_bytes, bytes_to_hex_str, swap_bytes
 import traceback
 from binascii import unhexlify
 import cStringIO
@@ -99,9 +99,6 @@ class headers(BitcoinTestFramework):
         self.nodes[2].dbg_log(msg)
         self.nodes[3].dbg_log(msg)
 
-    def swap_bytes(self, input_buf):
-        return codecs.encode(codecs.decode(input_buf, 'hex')[::-1], 'hex').decode()
-
     def is_in_block(self, tx, bhash, node_idx = 0):
         blk_txs = self.nodes[node_idx].getblock(bhash, True)['tx']
         for i in blk_txs:
@@ -175,7 +172,7 @@ class headers(BitcoinTestFramework):
         modTargetHeigth = CBH_DELTA + small_target_h - FINALITY_MIN_AGE + 5
 
         # new referenced block hash
-        modTargetHash = hex_str_to_bytes(self.swap_bytes(blocks[modTargetHeigth]))
+        modTargetHash = hex_str_to_bytes(swap_bytes(blocks[modTargetHeigth]))
         
         # build modified script
         modScriptPubKey = CScript([OP_DUP, OP_HASH160, hash_script, OP_EQUALVERIFY, OP_CHECKSIG, modTargetHash, modTargetHeigth, OP_CHECKBLOCKATHEIGHT])
@@ -223,7 +220,7 @@ class headers(BitcoinTestFramework):
         script = self.nodes[1].getrawtransaction(tx1, 1)['vout'][0]['scriptPubKey']['asm']
         tokens = script.split()
         small_h = int(tokens[6])
-        small_h_hash = self.swap_bytes(tokens[5])
+        small_h_hash = swap_bytes(tokens[5])
 
         print "  ScriptPubKey: ", script
 
@@ -305,9 +302,9 @@ class headers(BitcoinTestFramework):
         hash_attacked = blocks[-1];
         h_attacked = self.nodes[1].getblockcount()
         assert hash_attacked == blocks[h_attacked]
-        hash_attacked_swapped = self.swap_bytes(hash_attacked)
+        hash_attacked_swapped = swap_bytes(hash_attacked)
         hex_s = "%04x" % h_attacked
-        h_attacked_swapped = self.swap_bytes(hex_s)
+        h_attacked_swapped = swap_bytes(hex_s)
         h_safe_estimated = h_attacked+FINALITY_SAFE_DEPTH+1
 
         print "  Honest network has current h[%d]" % h_attacked
@@ -315,9 +312,9 @@ class headers(BitcoinTestFramework):
         # we will create a transaction whose output will have a CHECKBLOCKATHEIGHT on this block
         h_checked = h_attacked - CBH_DELTA
         hex_s = "%04x" % h_checked
-        h_checked_swapped = self.swap_bytes(hex_s)
+        h_checked_swapped = swap_bytes(hex_s)
         hash_checked = blocks[h_checked]
-        hash_checked_swapped = self.swap_bytes(hash_checked)
+        hash_checked_swapped = swap_bytes(hash_checked)
 
         # select necessary utxos for doing the PAYMENT, there might be a lot of them
         usp = self.nodes[1].listunspent()

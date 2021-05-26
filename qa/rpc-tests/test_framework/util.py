@@ -14,6 +14,7 @@ import sys
 from binascii import hexlify, unhexlify
 from base64 import b64encode
 from decimal import Decimal, ROUND_DOWN
+import codecs
 import json
 import random
 import shutil
@@ -72,6 +73,9 @@ def hex_str_to_bytes(hex_str):
 
 def str_to_b64str(string):
     return b64encode(string.encode('utf-8')).decode('ascii')
+
+def swap_bytes(input_buf):
+    return codecs.encode(codecs.decode(input_buf, 'hex')[::-1], 'hex').decode()
 
 def sync_blocks(rpc_connections, wait=1, p=False, limit_loop=0):
     """

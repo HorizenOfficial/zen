@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
     wait_bitcoinds, stop_nodes, sync_mempools, sync_blocks, \
-    disconnect_nodes, advance_epoch
+    disconnect_nodes, advance_epoch, swap_bytes
 
 from test_framework.mc_test.mc_test import *
 
@@ -25,9 +25,6 @@ CERT_FEE = Decimal('0.0001')
 
 # Create one-input, one-output, no-fee transaction:
 class CswActCertDataTest(BitcoinTestFramework):
-
-    def swap_bytes(self, input_buf):
-        return codecs.encode(codecs.decode(input_buf, 'hex')[::-1], 'hex').decode()
 
     def setup_chain(self):
         print("Initializing test directory " + self.options.tmpdir)
