@@ -680,6 +680,7 @@ CScProof BlockchainTestManager::GenerateTestCswProof(CCswProofVerifierInput csw,
     
     wrappedFieldPtr sptrCdh = csw.certDataHash.GetFieldElement();
     wrappedFieldPtr sptrCum = csw.ceasingCumScTxCommTree.GetFieldElement();
+    wrappedFieldPtr sptrNullifier = csw.nullifier.GetFieldElement();
 
     std::string cswProofPath = GetTestFilePath(provingSystem, TestCircuitType::CSW) + "proof";
     sc_pk_t* provingKey = GetTestProvingKey(provingSystem, TestCircuitType::CSW);
@@ -688,7 +689,8 @@ CScProof BlockchainTestManager::GenerateTestCswProof(CCswProofVerifierInput csw,
 
     bool ret = zendoo_create_csw_test_proof(false, /*zk*/
                                             csw.nValue,
-                                            scidFe, 
+                                            scidFe,
+                                            sptrNullifier.get(), 
                                             &bwsCswPkHash,
                                             sptrCdh.get(),
                                             sptrCum.get(),
@@ -803,15 +805,17 @@ bool BlockchainTestManager::VerifyCswProof(CCswProofVerifierInput csw) const
     const uint160& cswPkHash = csw.pubKeyHash;
     BufferWithSize bwsCswPkHash(cswPkHash.begin(), cswPkHash.size());
     
-    wrappedFieldPtr   sptrCdh      = csw.certDataHash.GetFieldElement();
-    wrappedFieldPtr   sptrCum      = csw.ceasingCumScTxCommTree.GetFieldElement();
-    wrappedScProofPtr sptrProof    = csw.cswProof.GetProofPtr();
-    wrappedScVkeyPtr  sptrCeasedVk = csw.ceasedVk.GetVKeyPtr();
+    wrappedFieldPtr   sptrCdh        = csw.certDataHash.GetFieldElement();
+    wrappedFieldPtr   sptrCum        = csw.ceasingCumScTxCommTree.GetFieldElement();
+    wrappedFieldPtr   sptrNullifier  = csw.nullifier.GetFieldElement();
+    wrappedScProofPtr sptrProof      = csw.cswProof.GetProofPtr();
+    wrappedScVkeyPtr  sptrCeasedVk   = csw.ceasedVk.GetVKeyPtr();
 
     CctpErrorCode code;
 
     return zendoo_verify_csw_proof(csw.nValue,
-                                   scidFe, 
+                                   scidFe,
+                                   sptrNullifier.get(),
                                    &bwsCswPkHash,
                                    sptrCdh.get(),
                                    sptrCum.get(),

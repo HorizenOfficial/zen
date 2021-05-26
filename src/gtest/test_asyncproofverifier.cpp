@@ -508,6 +508,7 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
                                          .cswProof = cswInput1.scProof,
                                          .node = &dummyNode,
                                          .nValue = cswInput1.nValue,
+                                         .nullifier = cswInput1.nullifier,
                                          .pubKeyHash = cswInput1.pubKeyHash,
                                          .scId = cswInput1.scId,
                                          .transactionPtr = std::make_shared<CTransaction>(cswTransaction)};

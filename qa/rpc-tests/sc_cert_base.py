@@ -385,11 +385,12 @@ class sc_cert_base(BitcoinTestFramework):
         vk = tempCswMcTest.generate_params("sc_temp")
         amount = random.randint(0, 1000)
         sc_id = generate_random_field_element_hex()
+        nullifier = generate_random_field_element_hex()
         mc_pk_hash = binascii.b2a_hex(os.urandom(20))
         end_cum_comm_tree_root = generate_random_field_element_hex()
         cert_data_hash = generate_random_field_element_hex()
 
-        wrong_proof = tempCswMcTest.create_test_proof("sc_temp", amount, sc_id, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash)
+        wrong_proof = tempCswMcTest.create_test_proof("sc_temp", amount, sc_id, nullifier, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash)
 
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, 

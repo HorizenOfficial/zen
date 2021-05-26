@@ -86,7 +86,7 @@ CCswProofVerifierInput CScAsyncProofVerifier::CswInputToVerifierInput(const CTxC
 
     cswData.certDataHash = cswInput.actCertDataHash;
     cswData.ceasingCumScTxCommTree = cswInput.ceasingCumScTxCommTree;
-
+    cswData.nullifier = cswInput.nullifier;
     cswData.cswProof = cswInput.scProof;
 
     CSidechain sidechain;
@@ -281,15 +281,17 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
             const uint160& csw_pk_hash = input.pubKeyHash;
             BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
  
-            wrappedFieldPtr   sptrCdh      = input.certDataHash.GetFieldElement();
-            wrappedFieldPtr   sptrCum      = input.ceasingCumScTxCommTree.GetFieldElement();
-            wrappedScProofPtr sptrCswProof = input.cswProof.GetProofPtr();
-            wrappedScVkeyPtr  sptrCeasedVk = input.ceasedVk.GetVKeyPtr();
+            wrappedFieldPtr   sptrCdh       = input.certDataHash.GetFieldElement();
+            wrappedFieldPtr   sptrCum       = input.ceasingCumScTxCommTree.GetFieldElement();
+            wrappedFieldPtr   sptrNullifier = input.nullifier.GetFieldElement();
+            wrappedScProofPtr sptrCswProof  = input.cswProof.GetProofPtr();
+            wrappedScVkeyPtr  sptrCeasedVk  = input.ceasedVk.GetVKeyPtr();
 
             ret = batchVerifier.add_csw_proof(
                 idx,
                 input.nValue,
-                scid_fe, 
+                scid_fe,
+                sptrNullifier.get(),
                 &bws_csw_pk_hash,
                 sptrCdh.get(),
                 sptrCum.get(),
@@ -509,15 +511,17 @@ bool CScAsyncProofVerifier::NormalVerifyCsw(uint256 txHash, std::map</*outputPos
         const uint160& csw_pk_hash = input.pubKeyHash;
         BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
      
-        wrappedFieldPtr   sptrCdh      = input.certDataHash.GetFieldElement();
-        wrappedFieldPtr   sptrCum      = input.ceasingCumScTxCommTree.GetFieldElement();
-        wrappedScProofPtr sptrProof    = input.cswProof.GetProofPtr();
-        wrappedScVkeyPtr  sptrCeasedVk = input.ceasedVk.GetVKeyPtr();
+        wrappedFieldPtr   sptrCdh       = input.certDataHash.GetFieldElement();
+        wrappedFieldPtr   sptrCum       = input.ceasingCumScTxCommTree.GetFieldElement();
+        wrappedFieldPtr   sptrNullifier = input.nullifier.GetFieldElement();
+        wrappedScProofPtr sptrProof     = input.cswProof.GetProofPtr();
+        wrappedScVkeyPtr  sptrCeasedVk  = input.ceasedVk.GetVKeyPtr();
 
         CctpErrorCode code;
         bool ret = zendoo_verify_csw_proof(
                     input.nValue,
                     scid_fe, 
+                    sptrNullifier.get(),
                     &bws_csw_pk_hash,
                     sptrCdh.get(),
                     sptrCum.get(),
