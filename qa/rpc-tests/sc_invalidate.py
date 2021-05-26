@@ -121,15 +121,20 @@ class ScInvalidateTest(BitcoinTestFramework):
         sc_cr_amount = tx_amount
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk = mcTest.generate_params("sc1")
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir, "darlin")
+        certVk = mcTest.generate_params("sc1")
+        mcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir)
+        cswVk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
+        custom_data = generate_random_field_element_list_hex(3)
 
         sc = [{
             "epoch_length": sc_epoch,
             "amount": sc_cr_amount,
             "address": sc_address,
-            "wCertVk": vk,
+            "wCertVk": certVk,
+            "wCeasedVk": cswVk,
+            "customData": custom_data,
             "constant": constant,
             "mainchainBackwardTransferRequestDataLength": 1
         }]

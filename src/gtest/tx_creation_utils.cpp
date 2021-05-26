@@ -498,6 +498,7 @@ CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 
     input.nValue = nValue;
     input.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     input.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
+    input.nullifier = CFieldElement{SAMPLE_FIELD};
 
     CCswProofVerifierInput verifierInput = CScAsyncProofVerifier::CswInputToVerifierInput(input, nullptr, viewCache.get(), nullptr);
     input.scProof = GenerateTestCswProof(verifierInput, provingSystem);
