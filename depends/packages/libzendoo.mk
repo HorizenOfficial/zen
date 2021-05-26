@@ -3,8 +3,8 @@ $(package)_version=0.1.0
 $(package)_download_path=https://github.com/HorizenOfficial/zendoo-mc-cryptolib/archive/
 $(package)_file_name=$(package)-$($(package)_git_commit).tar.gz
 $(package)_download_file=$($(package)_git_commit).tar.gz
-$(package)_sha256_hash=826c78c98fda300d294f624100ec9a28d833473f362636676c95d0c68efe7bbd
-$(package)_git_commit=633ebf0b0bc6cde5cbf573641f1be2f26d3fd67c
+$(package)_sha256_hash=8f9bc2bcc97f160929f9c702ad3f3b5ed48209e3530d1a6216705530d913d6d9
+$(package)_git_commit=0cdbd7f17a5752153f6c540c9763932fbb39edfe
 $(package)_dependencies=rust $(rust_crates_z)
 $(package)_patches=cargo.config
 

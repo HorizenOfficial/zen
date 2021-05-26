@@ -98,6 +98,7 @@ static CCswProofVerifierInput CreateDefaultCswInput()
     cswInput.ceasingCumScTxCommTree = CFieldElement(SAMPLE_FIELD);
     cswInput.certDataHash = CFieldElement(SAMPLE_FIELD);
     cswInput.nValue = CAmount(15);
+    cswInput.nullifier = CFieldElement(SAMPLE_FIELD);
     cswInput.scId = uint256S("aaaa");
 
     return cswInput;
@@ -522,7 +523,7 @@ TEST(CctpLibrary, BitVectorUncompressed)
         ASSERT_TRUE(ptr[i+1] == buffer[i]);
     }
 
-    zendoo_free_bit_vector(bws_ret);
+    zendoo_free_bws(bws_ret);
 }
 
 TEST(CctpLibrary, BitVectorGzip)
@@ -591,8 +592,8 @@ TEST(CctpLibrary, BitVectorGzip)
     }
 
     printf("\nfreeing buffers...\n");
-    zendoo_free_bit_vector(bws_ret1);
-    zendoo_free_bit_vector(bws_ret2);
+    zendoo_free_bws(bws_ret1);
+    zendoo_free_bws(bws_ret2);
 }
 
 TEST(CctpLibrary, BitVectorBzip2)
@@ -661,8 +662,8 @@ TEST(CctpLibrary, BitVectorBzip2)
     }
 
     printf("\nfreeing buffers...\n");
-    zendoo_free_bit_vector(bws_ret1);
-    zendoo_free_bit_vector(bws_ret2);
+    zendoo_free_bws(bws_ret1);
+    zendoo_free_bws(bws_ret2);
 }
 
 TEST(CctpLibrary, BitVectorMerkleTree)
@@ -722,7 +723,7 @@ TEST(CctpLibrary, BitVectorMerkleTree)
 
     printf("\nfreeing mem...\n");
     zendoo_field_free(fe);
-    zendoo_free_bit_vector(bws_ret1);
+    zendoo_free_bws(bws_ret1);
 }
 
 TEST(CctpLibrary, BitVectorMerkleTreeData)
@@ -782,7 +783,7 @@ TEST(CctpLibrary, BitVectorMerkleTreeData)
     printf("]\n");
 
     printf("\nfreeing mem...\n");
-    zendoo_free_bit_vector(bws_ret);
+    zendoo_free_bws(bws_ret);
     zendoo_field_free(fe);
 }
 
@@ -829,7 +830,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldBadSize)
 
     const CFieldElement& fe = bvField.GetFieldElement(cfg);
     EXPECT_FALSE(fe.IsValid());
-    zendoo_free_bit_vector(bws_ret1);
+    zendoo_free_bws(bws_ret1);
 }
 
 TEST(CctpLibrary, BitVectorCertificateFieldFull)
@@ -864,7 +865,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldFull)
 
     const CFieldElement& fe = bvField.GetFieldElement(cfg);
     EXPECT_TRUE(fe.IsValid());
-    zendoo_free_bit_vector(bws_ret1);
+    zendoo_free_bws(bws_ret1);
 }
 
 

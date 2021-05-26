@@ -20,7 +20,7 @@
  *  Generates a TestCertificateProof;
  *
  *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "amount" "sc_id"
- *  "mc_pk_hash" "end_cum_comm_tree_root" "cert_data_hash",
+ *  "nullifier", "mc_pk_hash" "end_cum_comm_tree_root" "cert_data_hash",
  *  Generates a TestCSWProof.
  */
 
@@ -292,6 +292,14 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
     assert(sc_id_f != NULL);
     assert(ret_code == CctpErrorCode::OK);
 
+    // Parse nullifier
+    assert(IsHex(argv[arg]));
+    auto nullifier = ParseHex(argv[arg++]);
+    assert(nullifier.size() == 32);
+    field_t* nullifier_f = zendoo_deserialize_field(nullifier.data(), &ret_code);
+    assert(nullifier_f != NULL);
+    assert(ret_code == CctpErrorCode::OK);
+
     // Parse mc_pk_hash
     assert(IsHex(argv[arg]));
     uint160 mc_pk_hash_vec;
@@ -319,6 +327,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
         zk,
         amount,
         sc_id_f,
+        nullifier_f,
         &mc_pk_hash,
         cert_data_hash_f,
         end_cum_comm_tree_root_f,
@@ -359,6 +368,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
         assert(zendoo_verify_csw_proof(
             amount,
             sc_id_f,
+            nullifier_f,
             &mc_pk_hash,
             cert_data_hash_f,
             end_cum_comm_tree_root_f,
@@ -373,6 +383,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
         assert(!zendoo_verify_csw_proof(
             wrong_amount,
             sc_id_f,
+            nullifier_f,
             &mc_pk_hash,
             cert_data_hash_f,
             end_cum_comm_tree_root_f,
