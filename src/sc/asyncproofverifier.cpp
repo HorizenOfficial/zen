@@ -80,8 +80,6 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
     {
         CCswProofVerifierInput cswData;
 
-        cswData = cswEnqueuedData[scTx.GetHash()][idx]; //create or retrieve new entry
-
         const CTxCeasedSidechainWithdrawalInput& csw = scTx.GetVcswCcIn().at(idx);
 
         cswData.nValue = csw.nValue;
@@ -111,7 +109,17 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
     if (!txMap.empty())
     {
         LOCK(cs_asyncQueue);
-        cswEnqueuedData[scTx.GetHash()] = txMap;
+        auto pair_ret = cswEnqueuedData.insert(std::make_pair(scTx.GetHash(), txMap));
+        if (!pair_ret.second)
+        {
+            LogPrint("sc", "%s():%d - tx [%s] csw inputs already there\n",
+                __func__, __LINE__, scTx.GetHash().ToString());
+        }
+        else
+        {
+            LogPrint("sc", "%s():%d - tx [%s] added to queue with %d inputs\n",
+                __func__, __LINE__, scTx.GetHash().ToString(), txMap.size());
+        }
     }
 }
 #endif

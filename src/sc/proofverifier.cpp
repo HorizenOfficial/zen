@@ -80,8 +80,6 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
     {
         CCswProofVerifierInput cswData;
 
-        cswData = cswEnqueuedData[scTx.GetHash()][idx]; //create or retrieve new entry
-
         const CTxCeasedSidechainWithdrawalInput& csw = scTx.GetVcswCcIn().at(idx);
 
         cswData.nValue = csw.nValue;
@@ -108,7 +106,17 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
 
     if (!txMap.empty())
     {
-        cswEnqueuedData.insert(std::make_pair(scTx.GetHash(), txMap));
+        auto pair_ret = cswEnqueuedData.insert(std::make_pair(scTx.GetHash(), txMap));
+        if (!pair_ret.second)
+        {
+            LogPrint("sc", "%s():%d - tx [%s] csw inputs already there\n",
+                __func__, __LINE__, scTx.GetHash().ToString());
+        }
+        else
+        {
+            LogPrint("sc", "%s():%d - tx [%s] added to queue with %d inputs\n",
+                __func__, __LINE__, scTx.GetHash().ToString(), txMap.size());
+        }
     }
 }
 #endif
@@ -161,8 +169,13 @@ bool CScProofVerifier::BatchVerify() const
 
             if (!ret || code != CctpErrorCode::OK)
             {
+                std::string txHash = "NULL";;
+                if (input.transactionPtr.get())
+                {
+                    txHash = input.transactionPtr->GetHash().ToString();
+                }
                 LogPrintf("ERROR: %s():%d - tx [%s] has csw proof which does not verify: ret[%d], code [0x%x]\n",
-                    __func__, __LINE__, input.transactionPtr->GetHash().ToString(), (int)ret, code);
+                    __func__, __LINE__, txHash, (int)ret, code);
             }
         }
     }

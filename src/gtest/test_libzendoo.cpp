@@ -17,7 +17,7 @@
 #include <clientversion.h>
 #include <sc/proofverifier.h> // for MC_CRYPTO_LIB_MOCKED 
 
-#include <boost/filesystem.hpp>
+using namespace blockchain_test_utils;
 
 static CMutableTransaction CreateDefaultTx()
 {
@@ -77,6 +77,31 @@ static CMutableScCertificate CreateDefaultCert()
     return mcert;
 }
 
+static CCertProofVerifierInput CreateDefaultCertInput()
+{
+    CCertProofVerifierInput certInput;
+
+    certInput.constant = CFieldElement(SAMPLE_FIELD);
+    certInput.epochNumber = 7;
+    certInput.quality = 10;
+    certInput.endEpochCumScTxCommTreeRoot = CFieldElement(SAMPLE_FIELD);
+    certInput.mainchainBackwardTransferRequestScFee = 1;
+    certInput.forwardTransferScFee = 1;
+
+    return certInput;
+}
+
+static CCswProofVerifierInput CreateDefaultCswInput()
+{
+    CCswProofVerifierInput cswInput;
+
+    cswInput.ceasingCumScTxCommTree = CFieldElement(SAMPLE_FIELD);
+    cswInput.certDataHash = CFieldElement(SAMPLE_FIELD);
+    cswInput.nValue = CAmount(15);
+    cswInput.scId = uint256S("aaaa");
+
+    return cswInput;
+}
 
 TEST(SidechainsField, GetByteArray)
 {
@@ -1510,120 +1535,86 @@ TEST(CctpLibrary, GetScIdFromNullInputs)
  */
 TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
 {
-    boost::filesystem::path tempPath = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-    boost::filesystem::create_directories(tempPath);
+    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
+    const TestCircuitType circuitType = TestCircuitType::Certificate;
 
-    size_t segmentSize = 1 << 9;
-    CctpErrorCode errorCode;
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
 
-    ASSERT_EQ(tempPath.size(), tempPath.string().length());
-    ASSERT_EQ(tempPath.size(), strlen(tempPath.c_str()));
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    std::cout << "Temp folder for proof verification test: " << tempPath.string() << std::endl;
+    CCertProofVerifierInput certInput = CreateDefaultCertInput();
+    certInput.CertVk = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    certInput.certProof = testManager.GenerateTestCertificateProof(certInput, provingSystem);
 
-    ASSERT_TRUE(zendoo_init_dlog_keys(segmentSize, (path_char_t*)tempPath.c_str(), strlen(tempPath.c_str()), &errorCode));
+    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+}
 
-    ASSERT_TRUE(zendoo_generate_mc_test_params(TestCircuitType::Certificate, ProvingSystem::CoboundaryMarlin, (path_char_t*)tempPath.c_str(), strlen(tempPath.c_str()), &errorCode));
+/**
+ * @brief This test is intended to generate verification parameters,
+ * generate a valid certificate proof (Darlin) and verify it through the batch verifier.
+ */
+TEST(CctpLibrary, CreateAndVerifyDarlinCertificateProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::Darlin;
+    const TestCircuitType circuitType = TestCircuitType::Certificate;
 
-    boost::filesystem::path sc_pk_path = tempPath / "cob_marlin_cert_test_pk";
-    boost::filesystem::path sc_vk_path = tempPath / "cob_marlin_cert_test_vk";
-    boost::filesystem::path sc_cert_proof_path = tempPath / "cob_marlin_cert_test_proof";
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
 
-    sc_pk_t* sc_pk = zendoo_deserialize_sc_pk_from_file(
-        (path_char_t*)sc_pk_path.c_str(),
-        strlen(sc_pk_path.c_str()),
-        true, /*semantic_checks*/
-        &errorCode
-    );
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    ASSERT_NE(sc_pk, nullptr);
+    CCertProofVerifierInput certInput = CreateDefaultCertInput();
+    certInput.CertVk = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    certInput.certProof = testManager.GenerateTestCertificateProof(certInput, provingSystem);
 
-    CCertProofVerifierInput certInput;
-    certInput.constant = CFieldElement(SAMPLE_FIELD);
-    certInput.epochNumber = 7;
-    certInput.quality = 10;
-    certInput.endEpochCumScTxCommTreeRoot = CFieldElement(SAMPLE_FIELD);
-    certInput.mainchainBackwardTransferRequestScFee = 1;
-    certInput.forwardTransferScFee = 1;
+    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+}
 
-    wrappedFieldPtr   sptrConst  = certInput.constant.GetFieldElement();
-    wrappedFieldPtr   sptrCum    = certInput.endEpochCumScTxCommTreeRoot.GetFieldElement();
-    wrappedScProofPtr sptrProof  = certInput.certProof.GetProofPtr();
-    wrappedScVkeyPtr  sptrCertVk = certInput.CertVk.GetVKeyPtr();
+/**
+ * @brief This test is intended to generate verification parameters,
+ * generate a valid CSW proof (Marlin) and verify it through the batch verifier.
+ */
+TEST(CctpLibrary, CreateAndVerifyMarlinCswProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
+    const TestCircuitType circuitType = TestCircuitType::CSW;
 
-    int custom_fields_len = certInput.vCustomFields.size(); 
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
 
-    std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
-    int i = 0;
-    std::vector<wrappedFieldPtr> vSptr;
-    for (auto entry: certInput.vCustomFields)
-    {
-        wrappedFieldPtr sptrFe = entry.GetFieldElement();
-        custom_fields[i] = sptrFe.get();
-        vSptr.push_back(sptrFe);
-        i++;
-    }
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    if (custom_fields_len == 0)
-    {
-        custom_fields.reset();
-        ASSERT_EQ(custom_fields.get(), nullptr);
-    }
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput();
+    cswInput.ceasedVk = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    cswInput.cswProof = testManager.GenerateTestCswProof(cswInput, provingSystem);
 
-    ASSERT_TRUE(zendoo_create_cert_test_proof(
-        false /*zk*/,
-        sptrConst.get(),
-        certInput.epochNumber,
-        certInput.quality,
-        nullptr, //certInput.bt_list.data(),
-        0, //certInput.bt_list.size(),
-        custom_fields.get(),
-        custom_fields_len,
-        sptrCum.get(),
-        certInput.mainchainBackwardTransferRequestScFee,
-        certInput.forwardTransferScFee,
-        sc_pk,
-        (path_char_t*)sc_cert_proof_path.c_str(),
-        strlen(sc_cert_proof_path.c_str()),
-        &errorCode
-    ));
+    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+}
 
-    sc_proof_t* certProof = zendoo_deserialize_sc_proof_from_file(
-        (path_char_t*)sc_cert_proof_path.c_str(),
-        strlen(sc_cert_proof_path.c_str()),
-        true, /*semantic_checks*/
-        &errorCode
-    );
+/**
+ * @brief This test is intended to generate verification parameters,
+ * generate a valid CSW proof (Marlin) and verify it through the batch verifier.
+ */
+TEST(CctpLibrary, CreateAndVerifyDarlinCswProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::Darlin;
+    const TestCircuitType circuitType = TestCircuitType::CSW;
 
-    ASSERT_NE(certProof, nullptr);
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
 
-    sc_vk_t* sc_vk = zendoo_deserialize_sc_vk_from_file(
-        (path_char_t*)sc_vk_path.c_str(),
-        strlen(sc_vk_path.c_str()),
-        true, /*semantic_checks*/
-        &errorCode
-    );
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    ASSERT_NE(sc_vk, nullptr);
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput();
+    cswInput.ceasedVk = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    cswInput.cswProof = testManager.GenerateTestCswProof(cswInput, provingSystem);
 
-    ASSERT_TRUE(zendoo_verify_certificate_proof(
-        sptrConst.get(),
-        certInput.epochNumber,
-        certInput.quality,
-        nullptr, //certInput.bt_list.data(),
-        0, //certInput.bt_list.size(),
-        custom_fields.get(),
-        custom_fields_len,
-        sptrCum.get(),
-        certInput.mainchainBackwardTransferRequestScFee,
-        certInput.forwardTransferScFee,
-        certProof,
-        sc_vk,
-        &errorCode
-    ));
-
-    boost::system::error_code ec;
-    boost::filesystem::remove_all(tempPath.string(), ec);
+    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
 }
 
 TEST(CctpLibrary, ReadWriteCmtObj)
@@ -1653,6 +1644,5 @@ TEST(CctpLibrary, ReadWriteCmtObj)
     cmt = cmtObj.getCommitment();
     printf("cmt = [%s]\n", cmt.ToString().c_str());
 }
-
 
 
