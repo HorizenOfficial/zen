@@ -98,6 +98,7 @@ static CCswProofVerifierInput CreateDefaultCswInput()
     cswInput.ceasingCumScTxCommTree = CFieldElement(SAMPLE_FIELD);
     cswInput.certDataHash = CFieldElement(SAMPLE_FIELD);
     cswInput.nValue = CAmount(15);
+    cswInput.nullifier = CFieldElement(SAMPLE_FIELD);
     cswInput.scId = uint256S("aaaa");
 
     return cswInput;
