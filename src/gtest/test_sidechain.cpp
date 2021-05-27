@@ -1817,12 +1817,14 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
         /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
 
+    Sidechain::ScFixedParameters fixedParams;
+
     /**
      * Check that two certificates with same parameters
      * have the same hash.
      */
     CScCertificate newCert = CScCertificate(originalCert);
-    EXPECT_EQ(originalCert.GetDataHash(), newCert.GetDataHash());
+    EXPECT_EQ(originalCert.GetDataHash(fixedParams), newCert.GetDataHash(fixedParams));
 
     /**
      * Check that two certificates with same parameters but different
@@ -1831,7 +1833,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     CMutableScCertificate mutCert = originalCert;
     mutCert.forwardTransferScFee = 1;
     newCert = mutCert;
-    EXPECT_FALSE(originalCert.GetDataHash() == newCert.GetDataHash());
+    EXPECT_FALSE(originalCert.GetDataHash(fixedParams) == newCert.GetDataHash(fixedParams));
 
     /**
      * Check that two certificates with same parameters but different
@@ -1840,7 +1842,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     mutCert = originalCert;
     mutCert.mainchainBackwardTransferRequestScFee = 1;
     newCert = mutCert;
-    EXPECT_FALSE(originalCert.GetDataHash() == newCert.GetDataHash());
+    EXPECT_FALSE(originalCert.GetDataHash(fixedParams) == newCert.GetDataHash(fixedParams));
 }
 
 

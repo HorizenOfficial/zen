@@ -13,6 +13,7 @@
 #include <zen/forks/fork7_sidechainfork.h>
 #include <script/sign.h>
 #include <boost/filesystem.hpp>
+#include <sc/proofverifier.h>
 
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength,
                                                 const CAmount& ftScFee, const CAmount& mbtrScFee, int mbtrDataLength)
@@ -500,7 +501,10 @@ CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 
     input.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     input.nullifier = CFieldElement{SAMPLE_FIELD};
 
-    CCswProofVerifierInput verifierInput = CScAsyncProofVerifier::CswInputToVerifierInput(input, nullptr, viewCache.get(), nullptr);
+    CSidechain sidechain;
+    assert(viewCache->GetSidechain(scId, sidechain));
+
+    CCswProofVerifierInput verifierInput = SidechainProofVerifier::CswInputToVerifierInput(input, nullptr, sidechain.fixedParams, nullptr);
     input.scProof = GenerateTestCswProof(verifierInput, provingSystem);
 
     return input;
@@ -578,7 +582,10 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
         SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, res, 0);
     }
 
-    CCertProofVerifierInput input = CScAsyncProofVerifier::CertificateToVerifierInput(res, viewCache.get(), nullptr);
+    CSidechain sidechain;
+    assert(viewCache->GetSidechain(scId, sidechain));
+
+    CCertProofVerifierInput input = SidechainProofVerifier::CertificateToVerifierInput(res, sidechain.fixedParams, nullptr);
     res.scProof = GenerateTestCertificateProof(input, provingSystem);
 
     return res;

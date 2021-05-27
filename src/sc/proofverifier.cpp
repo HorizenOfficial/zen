@@ -18,49 +18,10 @@ void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, 
     LogPrint("cert", "%s():%d - called: cert[%s], scId[%s]\n",
         __func__, __LINE__, scCert.GetHash().ToString(), scCert.GetScId().ToString());
 
-    CCertProofVerifierInput certData;
-
-    certData.certificatePtr = std::make_shared<CScCertificate>(scCert);
-    certData.certHash = scCert.GetHash();
-
     CSidechain sidechain;
-    assert(view.GetSidechain(scCert.GetScId(), sidechain) && "Unknown sidechain at cert proof verification stage");
+    assert(view.GetSidechain(scCert.GetScId(), sidechain) && "Unknown sidechain at scTx proof verification stage");
 
-    if (sidechain.fixedParams.constant.is_initialized())
-        certData.constant = sidechain.fixedParams.constant.get();
-    else
-        certData.constant = CFieldElement{};
-
-    certData.epochNumber = scCert.epochNumber;
-    certData.quality = scCert.quality;
-
-    for(int pos = scCert.nFirstBwtPos; pos < scCert.GetVout().size(); ++pos)
-    {
-        CBackwardTransferOut btout(scCert.GetVout().at(pos));
-        certData.bt_list.push_back(backward_transfer{});
-        backward_transfer& bt = certData.bt_list.back();
-
-        std::copy(btout.pubKeyHash.begin(), btout.pubKeyHash.end(), std::begin(bt.pk_dest));
-        bt.amount = btout.nValue;
-    }
-
-    for (auto entry: scCert.vFieldElementCertificateField)
-    {
-        CFieldElement fe{entry.getVRawData()};
-        certData.vCustomFields.push_back(fe);
-    }
-    for (auto entry: scCert.vBitVectorCertificateField)
-    {
-        CFieldElement fe{entry.getVRawData()};
-        certData.vCustomFields.push_back(fe);
-    }
-
-    certData.endEpochCumScTxCommTreeRoot = scCert.endEpochCumScTxCommTreeRoot;
-    certData.mainchainBackwardTransferRequestScFee = scCert.mainchainBackwardTransferRequestScFee;
-    certData.forwardTransferScFee = scCert.forwardTransferScFee;
-
-    certData.certProof = scCert.scProof;
-    certData.CertVk = sidechain.fixedParams.wCertVk;
+    CCertProofVerifierInput certData = SidechainProofVerifier::CertificateToVerifierInput(scCert, sidechain.fixedParams, nullptr);
 
     certEnqueuedData.insert(std::make_pair(scCert.GetHash(), certData));
 
@@ -78,30 +39,12 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
 
     for(size_t idx = 0; idx < scTx.GetVcswCcIn().size(); ++idx)
     {
-        CCswProofVerifierInput cswData;
-
-        const CTxCeasedSidechainWithdrawalInput& csw = scTx.GetVcswCcIn().at(idx);
-
-        cswData.nValue = csw.nValue;
-        cswData.scId = csw.scId;
-        cswData.pubKeyHash = csw.pubKeyHash;
-
-        cswData.certDataHash = csw.actCertDataHash;
-        cswData.ceasingCumScTxCommTree = csw.ceasingCumScTxCommTree;
-
-        cswData.cswProof = csw.scProof;
+        const CTxCeasedSidechainWithdrawalInput& cswInput = scTx.GetVcswCcIn().at(idx);
 
         CSidechain sidechain;
-        assert(view.GetSidechain(csw.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
+        assert(view.GetSidechain(cswInput.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
 
-        if (sidechain.fixedParams.wCeasedVk.is_initialized())
-            cswData.ceasedVk = sidechain.fixedParams.wCeasedVk.get();
-        else
-            cswData.ceasedVk = CScVKey{};
-
-        cswData.transactionPtr = std::make_shared<CTransaction>(scTx);
-
-        txMap.insert(std::make_pair(idx, cswData));
+        txMap.insert(std::make_pair(idx, SidechainProofVerifier::CswInputToVerifierInput(scTx.GetVcswCcIn().at(idx), &scTx, sidechain.fixedParams, nullptr)));
     }
 
     if (!txMap.empty())
@@ -249,4 +192,98 @@ bool CScProofVerifier::BatchVerify() const
     }
 
     return true; 
+}
+
+
+/**
+ * @brief Creates the proof verifier input of a certificate for the proof verifier.
+ * 
+ * @param certificate The certificate to send to the proof verifier
+ * @param scFixedParams The fixed parameters of the sidechain referred by the certificate
+ * @param node The node that sent the certificate
+ * @return CCertProofVerifierInput The structure containing all the data needed for the proof verification of the certificate.
+ */
+CCertProofVerifierInput SidechainProofVerifier::CertificateToVerifierInput(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom)
+{
+    // TODO this is code duplicated from CScProofVerifier::LoadDataForCertVerification
+    CCertProofVerifierInput certData;
+
+    certData.certificatePtr = std::make_shared<CScCertificate>(certificate);
+    certData.certHash = certificate.GetHash();
+
+    if (scFixedParams.constant.is_initialized())
+        certData.constant = scFixedParams.constant.get();
+    else
+        certData.constant = CFieldElement{};
+
+    certData.epochNumber = certificate.epochNumber;
+    certData.quality = certificate.quality;
+
+    for(int pos = certificate.nFirstBwtPos; pos < certificate.GetVout().size(); ++pos)
+    {
+        CBackwardTransferOut btout(certificate.GetVout().at(pos));
+        certData.bt_list.push_back(backward_transfer{});
+        backward_transfer& bt = certData.bt_list.back();
+
+        std::copy(btout.pubKeyHash.begin(), btout.pubKeyHash.end(), std::begin(bt.pk_dest));
+        bt.amount = btout.nValue;
+    }
+
+    for (auto entry: certificate.vFieldElementCertificateField)
+    {
+        CFieldElement fe{entry.getVRawData()};
+        certData.vCustomFields.push_back(fe);
+    }
+    for (auto entry: certificate.vBitVectorCertificateField)
+    {
+        CFieldElement fe{entry.getVRawData()};
+        certData.vCustomFields.push_back(fe);
+    }
+
+    certData.endEpochCumScTxCommTreeRoot = certificate.endEpochCumScTxCommTreeRoot;
+    certData.mainchainBackwardTransferRequestScFee = certificate.mainchainBackwardTransferRequestScFee;
+    certData.forwardTransferScFee = certificate.forwardTransferScFee;
+
+    certData.certProof = certificate.scProof;
+    certData.CertVk = scFixedParams.wCertVk;
+
+    certData.node = pfrom;
+
+    return certData;
+}
+
+/**
+ * @brief Creates the proof verifier input of a CSW transaction for the proof verifier.
+ * 
+ * @param cswInput The CSW input to be verified
+ * @param cswTransaction The pointer to the transaction containing the CSW input
+ * @param scFixedParams The fixed parameters of the sidechain referred by the certificate
+ * @param node The node that sent the certificate
+ * @return CCswProofVerifierInput The The structure containing all the data needed for the proof verification of the CSW input.
+ */
+CCswProofVerifierInput SidechainProofVerifier::CswInputToVerifierInput(const CTxCeasedSidechainWithdrawalInput& cswInput, const CTransaction* cswTransaction, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom)
+{
+    CCswProofVerifierInput cswData;
+
+    cswData.nValue = cswInput.nValue;
+    cswData.scId = cswInput.scId;
+    cswData.pubKeyHash = cswInput.pubKeyHash;
+    cswData.certDataHash = cswInput.actCertDataHash;
+    cswData.ceasingCumScTxCommTree = cswInput.ceasingCumScTxCommTree;
+    cswData.nullifier = cswInput.nullifier;
+    cswData.cswProof = cswInput.scProof;
+
+    // The ceased verification key must be initialized to allow CSW. This check is already performed inside IsScTxApplicableToState().
+    assert(scFixedParams.wCeasedVk.is_initialized());
+    
+    cswData.ceasedVk = scFixedParams.wCeasedVk.get();
+
+    if (cswTransaction != nullptr)
+    {
+        cswData.transactionPtr = std::make_shared<CTransaction>(*cswTransaction);
+    }
+
+    cswData.node = pfrom;
+    
+    return cswData;
 }
