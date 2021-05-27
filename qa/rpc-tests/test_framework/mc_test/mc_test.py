@@ -12,13 +12,8 @@ COIN = 100000000
 def generate_random_field_element_hex():
     return (binascii.b2a_hex(os.urandom(SC_FIELD_SAFE_SIZE)) + "00" * (SC_FIELD_SIZE - SC_FIELD_SAFE_SIZE))
 
-def generate_random_field_element_list_hex(len):
-    fields = ""
-    for i in xrange(len):
-        fields += str(generate_random_field_element_hex())
-    return fields
-
-
+def generate_random_field_element_hex_list(len):
+    return [generate_random_field_element_hex() for i in xrange(len)]
 
 class MCTestUtils(object):
 
