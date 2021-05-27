@@ -82,7 +82,7 @@ class CertTestUtils(MCTestUtils):
         args = []
         args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
         args += ["create", "cert", str(self.ps_type), str(proof_path), str(params_dir)]
-        args += [str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(btr_fee), str(ft_min_amount)]
+        args += [str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(int(btr_fee * COIN)), str(int(ft_min_amount * COIN))]
         args.append(str(len(pks)))
         for (pk, amount) in zip(pks, amounts):
             args.append(str(pk))
