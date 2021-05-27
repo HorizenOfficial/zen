@@ -248,7 +248,7 @@ bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, CctpErr
     std::vector<wrappedFieldPtr> vSptr;
     for (auto entry: cert.vFieldElementCertificateField)
     {
-        CFieldElement fe{entry.getVRawData()};
+        CFieldElement fe{entry.getExtendedRawData()};
         wrappedFieldPtr sptrFe = fe.GetFieldElement();
         custom_fields[i] = sptrFe.get();
         vSptr.push_back(sptrFe);

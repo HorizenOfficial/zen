@@ -792,7 +792,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldNull)
     const BitVectorCertificateFieldConfig cfg(1024, 2048);
     BitVectorCertificateField bvField;
 
-    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
     EXPECT_FALSE(fe.IsValid());
 }
 
@@ -804,7 +804,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldUnsuppComprAlgo)
     const BitVectorCertificateFieldConfig cfg(1024, 2048);
     BitVectorCertificateField bvField(bvVec);
 
-    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
     EXPECT_FALSE(fe.IsValid());
 }
 
@@ -828,7 +828,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldBadSize)
     const BitVectorCertificateFieldConfig cfg(1024, 2048);
     BitVectorCertificateField bvField(bvVec);
 
-    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
     EXPECT_FALSE(fe.IsValid());
     zendoo_free_bws(bws_ret1);
 }
@@ -863,7 +863,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldFull)
     const BitVectorCertificateFieldConfig cfg(bitVectorSizeBits, maxCompressedSizeBytes);
     BitVectorCertificateField bvField(bvVec);
 
-    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
     EXPECT_TRUE(fe.IsValid());
     zendoo_free_bws(bws_ret1);
 }
@@ -1173,7 +1173,7 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
     std::vector<wrappedFieldPtr> vSptr;
     for (auto entry: cert.vFieldElementCertificateField)
     {
-        CFieldElement fe{entry.getVRawData()};
+        CFieldElement fe{entry.getExtendedRawData()};
         wrappedFieldPtr sptrFe = fe.GetFieldElement();
         custom_fields[i] = sptrFe.get();
         vSptr.push_back(sptrFe);

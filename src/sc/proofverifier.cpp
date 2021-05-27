@@ -231,12 +231,12 @@ CCertProofVerifierInput SidechainProofVerifier::CertificateToVerifierInput(const
 
     for (auto entry: certificate.vFieldElementCertificateField)
     {
-        CFieldElement fe{entry.getVRawData()};
+        CFieldElement fe{entry.getExtendedRawData()};
         certData.vCustomFields.push_back(fe);
     }
     for (auto entry: certificate.vBitVectorCertificateField)
     {
-        CFieldElement fe{entry.getVRawData()};
+        CFieldElement fe{entry.getExtendedRawData()};
         certData.vCustomFields.push_back(fe);
     }
 
