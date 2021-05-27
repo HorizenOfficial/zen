@@ -1527,7 +1527,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     currentSc.lastTopQualityCertReferencedEpoch = cert.epochNumber;
     currentSc.lastTopQualityCertQuality         = cert.quality;
     currentSc.lastTopQualityCertBwtAmount       = bwtTotalAmount;
-    currentSc.lastTopQualityCertView            = CScCertificateView(cert);
+    currentSc.lastTopQualityCertView            = CScCertificateView(cert, currentSc.fixedParams);
 
     LogPrint("cert", "%s():%d - updated sc state %s\n", __func__, __LINE__, currentSc.ToString());
 

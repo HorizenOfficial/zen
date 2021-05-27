@@ -168,7 +168,7 @@ public:
     const std::vector<JSDescription>&  GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                     GetScId()       const          {return scId;};
     const uint32_t&                    GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
-    CFieldElement                      GetDataHash() const;
+    CFieldElement                      GetDataHash(const Sidechain::ScFixedParameters& scFixedParams) const;
     //END OF GETTERS
 
     bool IsBackwardTransfer(int pos) const override final;
@@ -362,8 +362,8 @@ struct CScCertificateView
     CScCertificateView(): certDataHash(), forwardTransferScFee(CScCertificate::INT_NULL), mainchainBackwardTransferRequestScFee(CScCertificate::INT_NULL) {};
     CScCertificateView(const uint256& certDataHash, CAmount ftFee, CAmount mbtrFee):
         certDataHash(certDataHash), forwardTransferScFee(ftFee), mainchainBackwardTransferRequestScFee(mbtrFee) {};
-    CScCertificateView(const CScCertificate& certificate):
-        certDataHash(certificate.GetDataHash()), forwardTransferScFee(certificate.forwardTransferScFee),
+    CScCertificateView(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams):
+        certDataHash(certificate.GetDataHash(scFixedParams)), forwardTransferScFee(certificate.forwardTransferScFee),
         mainchainBackwardTransferRequestScFee(certificate.mainchainBackwardTransferRequestScFee) {};
 
     ADD_SERIALIZE_METHODS;

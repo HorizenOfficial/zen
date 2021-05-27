@@ -106,8 +106,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
         assert_equal(get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH), get_epoch_data(scids[1], self.nodes[0], EPOCH_LENGTH))
         assert_equal(get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH), get_epoch_data(scids[2], self.nodes[0], EPOCH_LENGTH))
 
-        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         last_cert_epochs = []
         last_cert_epochs.append(epoch_number)
@@ -123,7 +123,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
             quality = 1
             proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount[0]])
 
-            cert_1 = self.nodes[0].send_certificate(scids[0], epoch_number, quality, epoch_block_hash,
+            cert_1 = self.nodes[0].send_certificate(scids[0], epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -140,7 +140,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
             quality = 1
             proof = mcTest.create_test_proof("sc2", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
 
-            cert_2 = self.nodes[0].send_certificate(scids[1], epoch_number, quality, epoch_block_hash,
+            cert_2 = self.nodes[0].send_certificate(scids[1], epoch_number, quality,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:

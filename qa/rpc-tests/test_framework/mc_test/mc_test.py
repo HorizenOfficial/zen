@@ -3,6 +3,7 @@ import os, os.path, binascii
 import random
 from subprocess import call
 
+
 SC_FIELD_SIZE = 32
 SC_FIELD_SAFE_SIZE = 31
 MAX_SC_PROOF_SIZE_IN_BYTES = 1024*10                                                                     

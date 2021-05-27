@@ -14,6 +14,7 @@ import sys
 from binascii import hexlify, unhexlify
 from base64 import b64encode
 from decimal import Decimal, ROUND_DOWN
+import codecs
 import json
 import random
 import shutil
@@ -72,6 +73,9 @@ def hex_str_to_bytes(hex_str):
 
 def str_to_b64str(string):
     return b64encode(string.encode('utf-8')).decode('ascii')
+
+def swap_bytes(input_buf):
+    return codecs.encode(codecs.decode(input_buf, 'hex')[::-1], 'hex').decode()
 
 def sync_blocks(rpc_connections, wait=1, p=False, limit_loop=0):
     """
@@ -534,6 +538,13 @@ def mark_logs(msg,nodes,debug=0):
     print (msg)
     for node in nodes:
         node.dbg_log(msg)
+
+def get_end_epoch_height(scid, node, epochLen):
+    sc_creating_height = node.getscinfo(scid)['items'][0]['created at block height']
+    current_height = node.getblockcount()
+    epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
+    end_epoch_height = sc_creating_height - 1 + ((epoch_number + 1) * epochLen)
+    return end_epoch_height
 
 def get_epoch_data(scid, node, epochLen):
     sc_creating_height = node.getscinfo(scid)['items'][0]['created at block height']

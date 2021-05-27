@@ -5,7 +5,7 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_true, assert_false, assert_equal, mark_logs
+from test_framework.util import assert_true, assert_false, assert_equal, mark_logs, swap_bytes
 from test_framework.mininode import COIN, hash256, ser_string
 from test_framework.mc_test.mc_test import *
 
@@ -87,9 +87,6 @@ def genmrklroot(leaflist):
             n.append(dblsha(cur[i] + cur[i+1]))
         cur = n
     return cur[0]
-
-def swap_bytes(hex_string):
-    return codecs.encode(codecs.decode(hex_string, 'hex')[::-1], 'hex').decode()
 
 def template_to_bytes(tmpl, txlist, certlist, input_sc_commitment = None):
     blkver = pack('<L', tmpl['version'])

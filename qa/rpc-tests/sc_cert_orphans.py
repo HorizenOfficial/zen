@@ -101,7 +101,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         self.nodes[0].generate(5)
         self.sync_all()
-        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid_1, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid_1, self.nodes[0], EPOCH_LENGTH)
 
         # (2) node0 sends fund to node1, the resulting tx1 is in mempool
         taddr1 = self.nodes[1].getnewaddress()
@@ -122,7 +122,7 @@ class sc_cert_orphans(BitcoinTestFramework):
 
         mark_logs("Node1 sends a certificate for SC {} using unconfirmed UTXO from tx1".format(scid_1), self.nodes, DEBUG_MODE)
         try:
-            cert1 = self.nodes[1].send_certificate(scid_1, epoch_number, quality, epoch_block_hash,
+            cert1 = self.nodes[1].send_certificate(scid_1, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("======> cert1 = {}".format(cert1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -177,7 +177,7 @@ class sc_cert_orphans(BitcoinTestFramework):
 
         mark_logs("Node1 tries to sends a certificate for SC {} using unconfirmed change from cert1".format(scid_2), self.nodes, DEBUG_MODE)
         try:
-            cert2 = self.nodes[1].send_certificate(scid_2, epoch_number, quality, epoch_block_hash,
+            cert2 = self.nodes[1].send_certificate(scid_2, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("======> cert2 = {}".format(cert2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -192,7 +192,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         inputs  = [{'txid' : cert1, 'vout' : 0}]
         change_dum = amount1 - CERT_FEE
         outputs = { self.nodes[1].getnewaddress() : change_dum }
-        params = {"scid": scid_2, "quality": quality, "endEpochBlockHash": epoch_block_hash, "scProof": proof, "withdrawalEpochNumber": epoch_number}
+        params = {"scid": scid_2, "quality": quality, "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash, "scProof": proof, "withdrawalEpochNumber": epoch_number}
         try:
             rawcert    = self.nodes[1].createrawcertificate(inputs, outputs, {}, params)
             signed_cert = self.nodes[1].signrawcertificate(rawcert)

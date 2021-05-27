@@ -57,12 +57,6 @@ void Sidechain::ClearSidechainsFolder()
     }
 }
 
-void Sidechain::LoadCumulativeProofsParameters()
-{
-    //Todo: call rust circuitry, passing the files hosting keys
-    return;
-}
-
 int CSidechain::EpochFor(int targetHeight) const
 {
     if (!isCreationConfirmed()) //default value
