@@ -62,7 +62,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.sync_all()
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params('sc1')
         constant1 = generate_random_field_element_hex()
 
@@ -244,16 +244,13 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.nodes[0].generate(EPOCH_LENGTH - 1)
         self.sync_all()
 
-        epoch_block_hash_1, epoch_number_1, epoch_cum_tree_hash_1 = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number_1, epoch_block_hash_1), self.nodes, DEBUG_MODE)
-
-        prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number_1) * EPOCH_LENGTH))
+        epoch_number_1, epoch_cum_tree_hash_1 = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number_1, epoch_cum_tree_hash_1), self.nodes, DEBUG_MODE)
 
         #-------------------------------------------------------
         # do some negative test for having a raw cert rejected by mempool
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         bwt_amount = Decimal("0.1")
-        scProof2 = mcTest.create_test_proof('sc2',epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant2, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
 
         # get a UTXO
         utx, change = get_spendable(self.nodes[0], CERT_FEE)
@@ -264,14 +261,28 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         # cfgs for SC2: [16], []
         mark_logs("\nCreate raw cert with wrong field element for the referred SC2 (expecting failure)...", self.nodes, DEBUG_MODE)
+
         vCfe = ["abcd1234", "ccccddddeeee", "aaee"]
         vCmt = ["1111", "0660101a"]
+
+        # TODO do padding in a better way
+        fe1 = "abcd123400000000000000000000000000000000000000000000000000000000"
+        fe2 = "ccccddddeeee0000000000000000000000000000000000000000000000000000"
+        fe3 = "aaee000000000000000000000000000000000000000000000000000000000000"
+        fe4 = "1111000000000000000000000000000000000000000000000000000000000000"
+        fe5 = "0660101a00000000000000000000000000000000000000000000000000000000"
+
+        scProof2 = mcTest.create_test_proof(
+            'sc2', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant2, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            [fe1, fe2, fe3, fe4, fe5])
+
         params = {
             'scid': scid2,
             'quality': 10,
-            'endEpochBlockHash': epoch_block_hash_1,
             'scProof': scProof2,
-            'withdrawalEpochNumber': epoch_number_1, 'vFieldElementCertificateField': vCfe, 'vBitVectorCertificateField':vCmt}
+            'withdrawalEpochNumber': epoch_number_1,
+            'vFieldElementCertificateField': vCfe,
+            'vBitVectorCertificateField':vCmt}
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
@@ -288,12 +299,18 @@ class sc_cert_customfields(BitcoinTestFramework):
         # because last 15 bits are set to 0
         vCfe = ["0100"]
         vCmt = []
+
+        fe1 = "0100000000000000000000000000000000000000000000000000000000000000"
+
+        scProof3 = mcTest.create_test_proof(
+            'sc2', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant2, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            [fe1])
+
         params = {
             'scid': scid2,
             'quality': 10,
-            'endEpochBlockHash': epoch_block_hash_1,
             'endEpochCumScTxCommTreeRoot': epoch_cum_tree_hash_1,
-            'scProof': scProof2,
+            'scProof': scProof3,
             'withdrawalEpochNumber': epoch_number_1,
             'vFieldElementCertificateField': vCfe,
             'vBitVectorCertificateField':vCmt
@@ -329,7 +346,6 @@ class sc_cert_customfields(BitcoinTestFramework):
         params = {
             'scid': scid1,
             'quality': 10,
-            'endEpochBlockHash': epoch_block_hash_1,
             'endEpochCumScTxCommTreeRoot': epoch_cum_tree_hash_1,
             'scProof': scProof1,
             'withdrawalEpochNumber': epoch_number_1,
@@ -355,7 +371,6 @@ class sc_cert_customfields(BitcoinTestFramework):
         params = {
             'scid': scid1,
             'quality': 10,
-            'endEpochBlockHash': epoch_block_hash_1,
             'endEpochCumScTxCommTreeRoot': epoch_cum_tree_hash_1,
             'scProof': scProof1,
             'withdrawalEpochNumber': epoch_number_1,
@@ -383,7 +398,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         vCfe = []
         vCmt = ["1122334455667788"]
         try:
-            cert = self.nodes[0].send_certificate(scid3, epoch_number_1, 5, epoch_block_hash_1,
+            cert = self.nodes[0].send_certificate(scid3, epoch_number_1, 5,
                 epoch_cum_tree_hash_1, scProof3, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, vCfe, vCmt)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -409,10 +424,8 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.nodes[0].generate(4)
         self.sync_all()
 
-        epoch_block_hash_2, epoch_number_2, epoch_cum_tree_hash_2 = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number_2, epoch_block_hash_2), self.nodes, DEBUG_MODE)
-
-        prev_epoch_block_hash = epoch_block_hash_1
+        epoch_number_2, epoch_cum_tree_hash_2 = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number_2, epoch_cum_tree_hash_2), self.nodes, DEBUG_MODE)
 
         #-------------------------------------------------------
         # cfgs for SC1: [31, 48, 16], [[8, 4], [16, 8]]
@@ -420,7 +433,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nCreate Cert without custom field elements (should fail)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[0].send_certificate(scid1, epoch_number_2, 5, epoch_block_hash_2,
+            self.nodes[0].send_certificate(scid1, epoch_number_2, 5,
                 epoch_cum_tree_hash_2, scProof1, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
@@ -433,7 +446,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         vCfe = ["06601c01528416d44682d41d979ded016d950924418ec354663f0bd761188da3", "0912f922dd37b01258eaf5311d68e723f8a8ced4a3c64471511b0020bf3fdcc9"]
         vCmt = ["6d950924418ec337b01258eaf5311d68e723f8a8ced4", "233311860324"]
         try:
-            self.nodes[0].send_certificate(scid1, epoch_number_2, 5, epoch_block_hash_2,
+            self.nodes[0].send_certificate(scid1, epoch_number_2, 5,
                 epoch_cum_tree_hash_2, scProof1, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, vCfe, vCmt)
             assert(False)
         except JSONRPCException, e:
@@ -446,7 +459,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         vCmt = ["6d950924418ec337b01258eaf5311d68e723f8a8ced4", "23331186032400aaff"]
         # vCmt[1]---> 9 bytes (!= 2^3 * 8 = 64 bits)
         try:
-            self.nodes[0].send_certificate(scid1, epoch_number_2, 5, epoch_block_hash_2,
+            self.nodes[0].send_certificate(scid1, epoch_number_2, 5,
                 epoch_cum_tree_hash_2, scProof1, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, vCfe, vCmt)
             assert(False)
         except JSONRPCException, e:
@@ -459,7 +472,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         vCfe = ["18ec3546", "12f922dd37b0", "abcd"]
         vCmt = ["6d950924418ec337b01258eaf5311d68e723f8a8ced4", "23331186032400ff"]
         try:
-            cert = self.nodes[0].send_certificate(scid1, epoch_number_2, 5, epoch_block_hash_2,
+            cert = self.nodes[0].send_certificate(scid1, epoch_number_2, 5,
                 epoch_cum_tree_hash_2, scProof1, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, vCfe, vCmt)
         except JSONRPCException, e:
             errorString = e.error['message']
