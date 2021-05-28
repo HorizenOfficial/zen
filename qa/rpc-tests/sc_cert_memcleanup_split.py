@@ -121,17 +121,17 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         # advance two epochs
         mark_logs("\nLet 2 epochs pass by...".  format(sc_epoch_len), self.nodes, DEBUG_MODE)
 
-        cert, epoch_block_hash, epoch_number = advance_epoch(
+        cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
+             scid, "sc1", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
         prev_epoch_hash = epoch_block_hash
 
-        cert, epoch_block_hash, epoch_number = advance_epoch(
+        cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
+             scid, "sc1", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}l".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
