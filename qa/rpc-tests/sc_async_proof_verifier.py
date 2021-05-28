@@ -114,7 +114,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
 
         cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-            scid, prev_epoch_hash, "sc", constant, sc_epoch_len)
+            scid, "sc", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for SC epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 

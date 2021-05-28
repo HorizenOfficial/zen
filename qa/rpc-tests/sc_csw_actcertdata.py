@@ -124,26 +124,25 @@ class CswActCertDataTest(BitcoinTestFramework):
 
         cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-            scid1, prev_epoch_hash, "sc1", constant1, sc_epoch_len)
+            scid1, "sc1", constant1, sc_epoch_len)
 
         mark_logs("\n==> certificate for SC1 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
         cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-            scid2, prev_epoch_hash, "sc2", constant2, sc_epoch_len, generate=False) # do not generate
+            scid2, "sc2", constant2, sc_epoch_len, generate=False) # do not generate
 
         mark_logs("\n==> certificate for SC2 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
-
         cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid1, prev_epoch_hash, "sc1", constant1, sc_epoch_len)
+             scid1, "sc1", constant1, sc_epoch_len)
 
         mark_logs("\n==> certificate for SC1 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
         cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid2, prev_epoch_hash, "sc2", constant2, sc_epoch_len, generate=False) # do not generate
+             scid2, "sc2", constant2, sc_epoch_len, generate=False) # do not generate
 
         mark_logs("\n==> certificate for SC2 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
@@ -183,7 +182,6 @@ class CswActCertDataTest(BitcoinTestFramework):
         null_1_1 = generate_random_field_element_hex()
         null_1_2 = generate_random_field_element_hex()
         null_1_3 = generate_random_field_element_hex()
-
         null_2_1 = generate_random_field_element_hex()
 
         actCertData1 = self.nodes[0].getactivecertdatahash(scid1)['certDataHash']
@@ -192,13 +190,19 @@ class CswActCertDataTest(BitcoinTestFramework):
         ceasingCumScTxCommTree1 = self.nodes[0].getceasingcumsccommtreehash(scid1)['ceasingCumScTxCommTree']
         ceasingCumScTxCommTree2 = self.nodes[0].getceasingcumsccommtreehash(scid2)['ceasingCumScTxCommTree']
 
-        scid1_swapped = self.swap_bytes(scid1)
-        sc_proof1 = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid1_swapped), pkh_mc_address, ceasingCumScTxCommTree1, actCertData1) 
+        scid1_swapped = swap_bytes(scid1)
+        sc_proof1_1 = cswMcTest.create_test_proof(
+                "sc1", sc_csw_amount, str(scid1_swapped), null_1_1, pkh_mc_address, ceasingCumScTxCommTree1, actCertData1)
+        
+        sc_proof1_2 = cswMcTest.create_test_proof(
+        "sc1", sc_csw_amount, str(scid1_swapped), null_1_2, pkh_mc_address, ceasingCumScTxCommTree1, actCertData1) 
 
-        scid2_swapped = self.swap_bytes(scid2)
+        sc_proof1_3 = cswMcTest.create_test_proof(
+        "sc1", sc_csw_amount, str(scid1_swapped), null_1_3, pkh_mc_address, ceasingCumScTxCommTree1, actCertData1) 
+
+        scid2_swapped = swap_bytes(scid2)
         sc_proof2 = cswMcTest.create_test_proof(
-                "sc2", sc_csw_amount, str(scid2_swapped), pkh_mc_address, ceasingCumScTxCommTree2, actCertData2) 
+                "sc2", sc_csw_amount, str(scid2_swapped), null_2_1, pkh_mc_address, ceasingCumScTxCommTree2, actCertData2) 
         #print "sc_proof1 =", sc_proof1
         #print "sc_proof2 =", sc_proof2
 
@@ -211,7 +215,7 @@ class CswActCertDataTest(BitcoinTestFramework):
             "nullifier": null_1_1,
             "activeCertData": actCertData1,
             "ceasingCumScTxCommTree": ceasingCumScTxCommTree1,
-            "scProof": sc_proof1
+            "scProof": sc_proof1_1
         },
         {
             "amount": sc_csw_amount,
@@ -221,7 +225,7 @@ class CswActCertDataTest(BitcoinTestFramework):
             "nullifier": null_1_2,
             "activeCertData": actCertData1,
             "ceasingCumScTxCommTree": ceasingCumScTxCommTree1,
-            "scProof": sc_proof1
+            "scProof": sc_proof1_2
         },
         {
             "amount": sc_csw_amount,
@@ -231,7 +235,7 @@ class CswActCertDataTest(BitcoinTestFramework):
             "nullifier": null_1_3,
             "activeCertData": actCertData1,
             "ceasingCumScTxCommTree": ceasingCumScTxCommTree1,
-            "scProof": sc_proof1
+            "scProof": sc_proof1_3
         },
         {
             "amount": sc_csw_amount,
@@ -284,6 +288,9 @@ class CswActCertDataTest(BitcoinTestFramework):
         mark_logs("now create a tx with a csw having a wrong act cert data...", self.nodes, DEBUG_MODE)
 
         null_1_4 = generate_random_field_element_hex()
+        wrong_act_cert_data = generate_random_field_element_hex()
+        sc_proof1_4 = cswMcTest.create_test_proof(
+        "sc1", sc_csw_amount, str(scid1_swapped), null_1_4, pkh_mc_address, ceasingCumScTxCommTree1, wrong_act_cert_data) 
 
         sc_csws = [ {
             "amount": sc_csw_amount,
@@ -291,9 +298,9 @@ class CswActCertDataTest(BitcoinTestFramework):
             "scId": scid1,
             "epoch": 0,
             "nullifier": null_1_4,
-            "activeCertData": generate_random_field_element_hex(),
+            "activeCertData": wrong_act_cert_data,
             "ceasingCumScTxCommTree": ceasingCumScTxCommTree1,
-            "scProof": sc_proof1
+            "scProof": sc_proof1_4
         } ]
 
         # recipient MC address
