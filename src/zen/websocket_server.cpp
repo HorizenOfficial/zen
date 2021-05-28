@@ -789,19 +789,6 @@ private:
 
                 const UniValue& feeVal = find_value(reqPayload, "fee");
 
-                // can be null, it is optional. The default is set in the cmd
-                if (!feeVal.isNull()) {
-                    try {
-                        cmdParams.push_back(feeVal);
-                    } catch (const UniValue& e) {
-                        dumpUniValueError(e, outMsg);
-                        return INVALID_PARAMETER;
-                    } catch (...) {
-                        LogPrint("ws", "%s():%d - Generic exception\n", __func__, __LINE__);
-                        return INVALID_PARAMETER;
-                    }
-                }
-
                 const UniValue& ftScFeeVal = find_value(reqPayload, "forwardTransferScFee");
 
                 // can be null, it is optional. The default is set in the cmd
@@ -823,6 +810,19 @@ private:
                 if (!mbtrScFeeVal.isNull()) {
                     try {
                         cmdParams.push_back(mbtrScFeeVal);
+                    } catch (const UniValue& e) {
+                        dumpUniValueError(e, outMsg);
+                        return INVALID_PARAMETER;
+                    } catch (...) {
+                        LogPrint("ws", "%s():%d - Generic exception\n", __func__, __LINE__);
+                        return INVALID_PARAMETER;
+                    }
+                }
+
+                // can be null, it is optional. The default is set in the cmd
+                if (!feeVal.isNull()) {
+                    try {
+                        cmdParams.push_back(feeVal);
                     } catch (const UniValue& e) {
                         dumpUniValueError(e, outMsg);
                         return INVALID_PARAMETER;
