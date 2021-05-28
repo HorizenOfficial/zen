@@ -357,10 +357,10 @@ FieldElementCertificateField& FieldElementCertificateField::operator=(const Fiel
 
 bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg) const
 {
-    return !this->GetCheckedFieldElement(cfg).IsNull();
+    return !this->GetFieldElement(cfg).IsNull();
 }
 
-const CFieldElement& FieldElementCertificateField::GetCheckedFieldElement(const FieldElementCertificateFieldConfig& cfg) const
+const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const
 {
     if (state != VALIDATION_STATE::NOT_INITIALIZED)
     {
@@ -445,10 +445,10 @@ BitVectorCertificateField& BitVectorCertificateField::operator=(const BitVectorC
 
 bool BitVectorCertificateField::IsValid(const BitVectorCertificateFieldConfig& cfg) const
 {
-    return !this->GetCheckedFieldElement(cfg).IsNull();
+    return !this->GetFieldElement(cfg).IsNull();
 }
 
-const CFieldElement& BitVectorCertificateField::GetCheckedFieldElement(const BitVectorCertificateFieldConfig& cfg) const
+const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const
 {
     if (state != VALIDATION_STATE::NOT_INITIALIZED)
     {

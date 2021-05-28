@@ -232,15 +232,17 @@ CCertProofVerifierInput SidechainProofVerifier::CertificateToVerifierInput(const
         bt.amount = btout.nValue;
     }
 
-    for (auto entry: certificate.vFieldElementCertificateField)
+    for (int i = 0; i < certificate.vFieldElementCertificateField.size(); i++)
     {
-        CFieldElement fe{entry.GetFieldElement()};
+        FieldElementCertificateField entry = certificate.vFieldElementCertificateField.at(i);
+        CFieldElement fe{entry.GetFieldElement(scFixedParams.vFieldElementCertificateFieldConfig.at(i))};
         assert(fe.IsValid());
         certData.vCustomFields.push_back(fe);
     }
-    for (auto entry: certificate.vBitVectorCertificateField)
+    for (int i = 0; i < certificate.vBitVectorCertificateField.size(); i++)
     {
-        CFieldElement fe{entry.GetFieldElement()};
+        BitVectorCertificateField entry = certificate.vBitVectorCertificateField.at(i);
+        CFieldElement fe{entry.GetFieldElement(scFixedParams.vBitVectorCertificateFieldConfig.at(i))};
         assert(fe.IsValid());
         certData.vCustomFields.push_back(fe);
     }

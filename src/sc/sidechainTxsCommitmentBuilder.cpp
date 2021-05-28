@@ -11,7 +11,7 @@
 
 #ifdef BITCOIN_TX
 bool SidechainTxsCommitmentBuilder::add(const CTransaction& tx) { return true; }
-bool SidechainTxsCommitmentBuilder::add(const CScCertificate& cert) { return true; }
+bool SidechainTxsCommitmentBuilder::add(const CScCertificate& cert, const CCoinsViewCache& view) { return true; }
 uint256 SidechainTxsCommitmentBuilder::getCommitment() { return uint256(); }
 SidechainTxsCommitmentBuilder::SidechainTxsCommitmentBuilder(): _cmt(nullptr) {}
 SidechainTxsCommitmentBuilder::~SidechainTxsCommitmentBuilder(){}
@@ -218,7 +218,7 @@ bool SidechainTxsCommitmentBuilder::add_csw(const CTxCeasedSidechainWithdrawalIn
     );
 }
 
-bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, CctpErrorCode& ret_code)
+bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, const Sidechain::ScFixedParameters scFixedParams, CctpErrorCode& ret_code)
 {
     LogPrint("sc", "%s():%d entering \n", __func__, __LINE__);
 
@@ -247,25 +247,22 @@ bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, CctpErr
     std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
     int i = 0;
     std::vector<wrappedFieldPtr> vSptr;
-    for (auto entry: cert.vFieldElementCertificateField)
+    for (i = 0; i < cert.vFieldElementCertificateField.size(); i++)
     {
-        CFieldElement fe{entry.GetFieldElement()};
-        assert(fe.IsValid());
+        FieldElementCertificateField entry = cert.vFieldElementCertificateField.at(i);
+        CFieldElement fe{entry.GetFieldElement(scFixedParams.vFieldElementCertificateFieldConfig.at(i))};
         wrappedFieldPtr sptrFe = fe.GetFieldElement();
         custom_fields[i] = sptrFe.get();
         vSptr.push_back(sptrFe);
-        i++;
     }
 
-    int j = 0;
-    for (auto entry: cert.vBitVectorCertificateField)
+    for (int j = 0; j < cert.vBitVectorCertificateField.size(); j++)
     {
-        CFieldElement fe{entry.GetFieldElement()};
-        assert(fe.IsValid());
+        BitVectorCertificateField entry = cert.vBitVectorCertificateField.at(j);
+        CFieldElement fe{entry.GetFieldElement(scFixedParams.vBitVectorCertificateFieldConfig.at(j))};
         wrappedFieldPtr sptrFe = fe.GetFieldElement();
         custom_fields[i+j] = sptrFe.get();
         vSptr.push_back(sptrFe);
-        j++;
     }
     // mc crypto lib wants a null ptr if we have no fields
     if (custom_fields_len == 0)
@@ -362,13 +359,16 @@ bool SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
     return true;
 }
 
-bool SidechainTxsCommitmentBuilder::add(const CScCertificate& cert)
+bool SidechainTxsCommitmentBuilder::add(const CScCertificate& cert, const CCoinsViewCache& view)
 {
     assert(_cmt != nullptr);
 
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
-    if (!add_cert(cert, ret_code))
+    CSidechain sidechain;
+    view.GetSidechain(cert.GetScId(), sidechain);
+
+    if (!add_cert(cert, sidechain.fixedParams, ret_code))
     {
         LogPrintf("%s():%d Error adding cert[%s], ret_code[%d]\n", __func__, __LINE__,
             cert.GetHash().ToString(), ret_code);

@@ -318,7 +318,7 @@ protected:
     enum class VALIDATION_STATE {NOT_INITIALIZED, INVALID, VALID};
     mutable VALIDATION_STATE state;
     mutable CFieldElement fieldElement; // memory only, lazy-initialized
-    virtual const CFieldElement& GetCheckedFieldElement(const T& cfg) const = 0;
+    virtual const CFieldElement& GetFieldElement(const T& cfg) const = 0;
 
 public:
     CustomCertificateField(): state(VALIDATION_STATE::NOT_INITIALIZED) {};
@@ -326,7 +326,6 @@ public:
         :vRawData(rawBytes), state(VALIDATION_STATE::NOT_INITIALIZED) {};
     virtual ~CustomCertificateField() = default;
 
-    const CFieldElement& GetFieldElement() const { return fieldElement;}
     const std::vector<unsigned char>& getVRawData() const { return vRawData; }
 };
 
@@ -347,7 +346,7 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
-    const CFieldElement& GetCheckedFieldElement(const FieldElementCertificateFieldConfig& cfg) const override;
+    const CFieldElement& GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const override;
     bool IsValid(const FieldElementCertificateFieldConfig& cfg) const;
 };
 
@@ -368,7 +367,7 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
-    const CFieldElement& GetCheckedFieldElement(const BitVectorCertificateFieldConfig& cfg) const override;
+    const CFieldElement& GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const override;
     bool IsValid(const BitVectorCertificateFieldConfig& cfg) const;
 };
 ////////////////////////// End of Custom Field types ///////////////////////////

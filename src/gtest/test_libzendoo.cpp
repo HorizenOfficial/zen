@@ -479,9 +479,12 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     SidechainTxsCommitmentBuilder builder;
 
+    SelectParams(CBaseChainParams::REGTEST);
+    const BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+
     ASSERT_TRUE(builder.add(scCreationTx));
     ASSERT_TRUE(builder.add(fwdTx));
-    ASSERT_TRUE(builder.add(cert));
+    ASSERT_TRUE(builder.add(cert, testManager.CoinsViewCache().get()));
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
@@ -800,7 +803,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldNull)
     const BitVectorCertificateFieldConfig cfg(1024, 2048);
     BitVectorCertificateField bvField;
 
-    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetFieldElement(cfg);
     EXPECT_FALSE(fe.IsValid());
 }
 
@@ -812,7 +815,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldUnsuppComprAlgo)
     const BitVectorCertificateFieldConfig cfg(1024, 2048);
     BitVectorCertificateField bvField(bvVec);
 
-    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetFieldElement(cfg);
     EXPECT_FALSE(fe.IsValid());
 }
 
@@ -836,7 +839,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldBadSize)
     const BitVectorCertificateFieldConfig cfg(1024, 2048);
     BitVectorCertificateField bvField(bvVec);
 
-    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetFieldElement(cfg);
     EXPECT_FALSE(fe.IsValid());
     zendoo_free_bws(bws_ret1);
 }
@@ -871,7 +874,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldFull)
     const BitVectorCertificateFieldConfig cfg(bitVectorSizeBits, maxCompressedSizeBytes);
     BitVectorCertificateField bvField(bvVec);
 
-    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetFieldElement(cfg);
     EXPECT_TRUE(fe.IsValid());
     zendoo_free_bws(bws_ret1);
 }
@@ -1177,12 +1180,15 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
 
     int custom_fields_len = cert.vFieldElementCertificateField.size() + cert.vBitVectorCertificateField.size(); 
 
+    FieldElementCertificateFieldConfig fieldConfig;
+    BitVectorCertificateFieldConfig bitVectorConfig;
+
     std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
     int i = 0;
     std::vector<wrappedFieldPtr> vSptr;
     for (auto entry: cert.vFieldElementCertificateField)
     {
-        CFieldElement fe{entry.GetFieldElement()};
+        CFieldElement fe{entry.GetFieldElement(fieldConfig)};
         assert(fe.IsValid());
         wrappedFieldPtr sptrFe = fe.GetFieldElement();
         custom_fields[i] = sptrFe.get();
@@ -1193,7 +1199,7 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
     int j = 0;
     for (auto entry: cert.vBitVectorCertificateField)
     {
-        CFieldElement fe{entry.GetFieldElement()};
+        CFieldElement fe{entry.GetFieldElement(bitVectorConfig)};
         assert(fe.IsValid());
         wrappedFieldPtr sptrFe = fe.GetFieldElement();
         custom_fields[i+j] = sptrFe.get();
@@ -1430,7 +1436,11 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Object)
     printf("cmt = [%s]\n", cmt.ToString().c_str());
 
     CScCertificate cert = CreateDefaultCert();
-    ASSERT_TRUE(cmtObj.add(cert));
+
+    SelectParams(CBaseChainParams::REGTEST);
+    const BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+
+    ASSERT_TRUE(cmtObj.add(cert, testManager.CoinsViewCache().get()));
 
     cmt = cmtObj.getCommitment();
     printf("cmt = [%s]\n", cmt.ToString().c_str());

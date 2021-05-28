@@ -1,6 +1,7 @@
 #ifndef SIDECHAIN_TX_COMMITMENT_BUILDER
 #define SIDECHAIN_TX_COMMITMENT_BUILDER
 
+#include "coins.h"
 #include <sc/sidechaintypes.h>
 
 class CTransaction;
@@ -23,7 +24,7 @@ public:
     SidechainTxsCommitmentBuilder& operator=(const SidechainTxsCommitmentBuilder&) = delete;
 
     bool add(const CTransaction& tx);
-    bool add(const CScCertificate& cert);
+    bool add(const CScCertificate& cert, const CCoinsViewCache& view);
     uint256 getCommitment();
 
 private:
@@ -37,7 +38,7 @@ private:
     bool add_bwtr(const CBwtRequestOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code);
 
     bool add_csw(const CTxCeasedSidechainWithdrawalInput& ccin, CctpErrorCode& ret_code);
-    bool add_cert(const CScCertificate& cert, CctpErrorCode& ret_code);
+    bool add_cert(const CScCertificate& cert, Sidechain::ScFixedParameters scFixedParams, CctpErrorCode& ret_code);
 };
 
 #endif

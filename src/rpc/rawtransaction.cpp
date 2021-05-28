@@ -1921,8 +1921,14 @@ UniValue sendrawcertificate(const UniValue& params, bool fHelp)
     {
         // push to local node and sync with wallets
         CValidationState state;
-        MempoolReturnValue res = AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee,
-                                                               MempoolProofVerificationFlag::SYNC);
+        MempoolProofVerificationFlag flag = MempoolProofVerificationFlag::SYNC;
+
+        if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest" && GetBoolArg("-skipscproof", false)))
+        {
+            flag = MempoolProofVerificationFlag::DISABLED;
+        }
+
+        MempoolReturnValue res = AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee, flag);
 
         if (res == MempoolReturnValue::MISSING_INPUT)
             throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
