@@ -23,16 +23,10 @@ from test_framework.wsproxy import JSONWSException
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
+FT_SC_FEE = Decimal('0.0005')
+MBTR_SC_FEE = Decimal('0.0004')
 CERT_FEE = Decimal('0.00015')
 BLOCK_HASH_LIMIT = 100
-
-def get_epoch_data(scid, node, epochLen):
-    sc_creating_height = node.getscinfo(scid)['items'][0]['created at block height']
-    current_height = node.getblockcount()
-    epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
-    epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
-    prev_epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number) * epochLen))
-    return epoch_block_hash, epoch_number, prev_epoch_block_hash
 
 
 def ws_client(node, arg):
@@ -144,13 +138,14 @@ class ws_messages(BitcoinTestFramework):
         # SC creation
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
         ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
+        pprint.pprint(scid)
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
         self.sync_all()
@@ -173,29 +168,40 @@ class ws_messages(BitcoinTestFramework):
         self.nodes[0].generate(3)
         self.sync_all()
 
-        epoch_block_hash, epoch_number, prev_epoch_block_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        epoch_number, cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, cumulative_hash = {}".format(epoch_number, cum_tree_hash), self.nodes, DEBUG_MODE)
 
         pkh_node1 = self.nodes[1].getnewaddress("", True)
 
         #Create proof for WCert
         quality = 0
         proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node1], [bwt_amount])
-
-        epoch_number_0     = epoch_number
-        epoch_block_hash_0 = epoch_block_hash
+            "sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE,
+            constant, cum_tree_hash, [pkh_node1], [bwt_amount])
 
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         mark_logs("Node 0 performs a bwd transfer to Node1 pkh {} of {} coins via Websocket".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         #----------------------------------------------------------------"
         cert_epoch_0 = self.nodes[1].ws_send_certificate(
-            scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1)
+            scid, epoch_number, quality, cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         self.sync_all()
 
         mark_logs("Check cert is in mempool", self.nodes, DEBUG_MODE)
         assert_equal(True, cert_epoch_0 in self.nodes[0].getrawmempool())
+
+        mined = self.nodes[0].generate(1)[0]
+        self.sync_all()
+
+        mark_logs("Check cert is not in mempool anymore", self.nodes, DEBUG_MODE)
+        assert_equal(False, cert_epoch_0 in self.nodes[0].getrawmempool())
+
+        mark_logs("Check block coinbase contains the certificate fee", self.nodes, DEBUG_MODE)
+        coinbase = self.nodes[0].getblock(mined, True)['tx'][0]
+        decoded_coinbase = self.nodes[2].getrawtransaction(coinbase, 1)
+        miner_quota = decoded_coinbase['vout'][0]['value']
+        assert_equal((Decimal('7.5') + CERT_FEE), miner_quota)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['last ftScFee'], FT_SC_FEE)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['last mbtrScFee'], MBTR_SC_FEE)
 
         # ----------------------------------------------------------------"
         # Test get single block

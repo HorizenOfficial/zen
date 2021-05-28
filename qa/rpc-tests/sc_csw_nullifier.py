@@ -12,7 +12,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
     wait_bitcoinds, stop_nodes, get_epoch_data, sync_mempools, sync_blocks, \
-    disconnect_nodes, advance_epoch
+    disconnect_nodes, advance_epoch, swap_bytes
 
 from test_framework.mc_test.mc_test import *
 
@@ -87,7 +87,7 @@ class CswNullifierTest(BitcoinTestFramework):
 
         # generate wCertVk and constant
         vk = certMcTest.generate_params("sc1")
-        cswVk = cswMcTest.generate_params("csw1")
+        cswVk = cswMcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
         sc_cr = []
@@ -115,21 +115,19 @@ class CswNullifierTest(BitcoinTestFramework):
         # advance two epochs
         mark_logs("\nLet 2 epochs pass by...".  format(sc_epoch_len), self.nodes, DEBUG_MODE)
 
-        cert, epoch_block_hash, epoch_number = advance_epoch(
+        cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
+             scid, "sc1", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
-        prev_epoch_hash = epoch_block_hash
 
-        cert, epoch_block_hash, epoch_number = advance_epoch(
+        cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
+             scid, "sc1", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}l".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
-        prev_epoch_hash = epoch_block_hash
 
         # mine one block for having last cert in chain
         mark_logs("\nNode0 generates 1 block confirming last cert", self.nodes, DEBUG_MODE)
@@ -164,12 +162,18 @@ class CswNullifierTest(BitcoinTestFramework):
 
         # CSW sender MC address
         csw_mc_address = self.nodes[0].getnewaddress()
+        pkh_mc_address = self.nodes[0].validateaddress(csw_mc_address)['pubkeyhash']
+
         sc_csw_amount = sc_bal/2
         null1 = generate_random_field_element_hex()
         actCertData = self.nodes[0].getactivecertdatahash(scid)['certDataHash']
         print "Active Cert Data Hash: -------> ", actCertData
 
         ceasingCumScTxCommTree = self.nodes[0].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
+
+        scid_swapped = swap_bytes(scid)
+        sc_proof1 = cswMcTest.create_test_proof(
+                "sc1", sc_csw_amount, str(scid_swapped), null1, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -179,8 +183,7 @@ class CswNullifierTest(BitcoinTestFramework):
             "nullifier": null1,
             "activeCertData": actCertData,
             "ceasingCumScTxCommTree": ceasingCumScTxCommTree,
-            # Temp hardcoded proof with valid structure TODO: generate a real valid CSW proof
-            "scProof": "927e725a39f1c219a458f02d27fb327cc9595985ed947553d979261261b96360b23633b747df8141bcb12076b75f654c35ba0869df74a236763fe0c070e6da2959c1a8c77330783e76e4ad5801818c5edb06567196813355bea5e08beaa5010088965b13b48cbf962106500727ba05b31b4f429076230a90384d18b0e5f395a87ea466704a56375d3a68e65777568881b432208029c12cda5d089f596cf91da14392ed6c619c195a6bebe04c2caba17443906fbf386bc4555b0b721a1ead0000007acd59b470379a38d8de9e82b54fdd1e4e8bd8b2059b62552814989c25f7e07c6261ebc6de8b4b875893a874df953594beb119d53fd74e33e09cb66ed717c393c3fd22f1b465332a17c3d934172fdd33d1c641a9121c5e762b6e59305d1d0100ec5aed56c4290c6bb57e1d1b5b2b1f861f9926403446482f72cede346c0feae2817a2f18b7a37a9b55a3e9deb2a555ffb0d9331cb320ce18aa99a2c2c025c3d28afc77c631263b91160b1f556a6d1d158a8d3c56ab61dc9396e6536094720000741ae2c1569b098231dce089680fb1e561d974ce4f4e00cbe1150281ce12dd561be12a7fefcb30f62d3c8934926ae4eb4a4cb4378dd2568648ff12a7c36302be4d5a578dc360a3125b0c1427fb6b55a067f01d24d616c954bce363a8ef1001003a1ebe119da0561bf1d3294819759677fbd37dbac403662e263bfa71a4992228557a31d2d9ce0a7ffcbe91aa57f38cae7b51ef2681b16f275c0f87c89fbc2060690ac77dc1d3d20b7d3c6b5af1c92ee96e61b6635e343c3976112eb4ec91000000fe60207ddf86be08604c41f46f2e3740b479cad9fd1cb5f8c589595ba3d50f6c3984bbe707d460a0e27d4ec90d89a3476c647a6ea262b910dcb267325c375c713ff7031fe3a200130060bf09900e2e5244f88355a2a0587b068caae7f65b01005f0fb082380604a78c66e21681c2c7f3f59042c7b4495435b8d972bbb535ae8dd09ea8232b0161dc3a13f4a718b5a7fa4cb01d6625e38d73032baf3a9ffcff5a7493a27eeab25c97bee8eddf2fd2c9e9dd1bd1813c22b046c01caccc7478000000"
+            "scProof": sc_proof1
         }]
 
         # recipient MC address
@@ -275,10 +278,24 @@ class CswNullifierTest(BitcoinTestFramework):
 
         mark_logs("\nCreate a CSW withdrawing un third of the original sc balance... ", self.nodes, DEBUG_MODE)
         sc_csw_amount = sc_bal/3
-        sc_csws[0]['amount'] = sc_csw_amount
         sc_csw_tx_outs = {taddr_2: sc_csw_amount}
         null2 = generate_random_field_element_hex()
-        sc_csws[0]['nullifier'] = null2
+
+        scid_swapped = swap_bytes(scid)
+        sc_proof2 = cswMcTest.create_test_proof(
+                "sc1", sc_csw_amount, str(scid_swapped), null2, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+
+        sc_csws = [{
+            "amount": sc_csw_amount,
+            "senderAddress": csw_mc_address,
+            "scId": scid,
+            "epoch": 0,
+            "nullifier": null2,
+            "activeCertData": actCertData,
+            "ceasingCumScTxCommTree": ceasingCumScTxCommTree,
+            "scProof": sc_proof2
+        }]
+
         try:
             rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws)
             funded_tx = self.nodes[0].fundrawtransaction(rawtx)
@@ -310,11 +327,23 @@ class CswNullifierTest(BitcoinTestFramework):
         # Node0 create CSW Tx with a new unused nullifier
         mark_logs("\nCreate a CSW withdrawing one sixth of the original sc balance... ", self.nodes, DEBUG_MODE)
         sc_csw_amount = sc_bal/6
-        sc_csws[0]['amount'] = sc_csw_amount
         null_n0 = generate_random_field_element_hex()
-        sc_csws[0]['nullifier'] = null_n0
         taddr_1 = self.nodes[1].getnewaddress()
         sc_csw_tx_outs_1 = {taddr_1: sc_csw_amount}
+
+        sc_proof_n0 = cswMcTest.create_test_proof(
+                "sc1", sc_csw_amount, str(scid_swapped), null_n0, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+
+        sc_csws = [{
+            "amount": sc_csw_amount,
+            "senderAddress": csw_mc_address,
+            "scId": scid,
+            "epoch": 0,
+            "nullifier": null_n0,
+            "activeCertData": actCertData,
+            "ceasingCumScTxCommTree": ceasingCumScTxCommTree,
+            "scProof": sc_proof_n0
+        }]
 
         try:
             rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs_1, sc_csws)
@@ -362,12 +391,25 @@ class CswNullifierTest(BitcoinTestFramework):
         #------------------
         mark_logs("Create a CSW withdrawing one twelfth of the original sc balance... ", self.nodes, DEBUG_MODE)
         sc_csw_amount = sc_bal/12
-        sc_csws[0]['amount'] = sc_csw_amount
         sc_csw_tx_outs = {taddr_2: sc_csw_amount}
         null_n2 = generate_random_field_element_hex()
-        sc_csws[0]['nullifier'] = null_n2
         csw_mc_address = self.nodes[2].getnewaddress()
-        sc_csws[0]['senderAddress'] = csw_mc_address
+        pkh_mc_address = self.nodes[2].validateaddress(csw_mc_address)['pubkeyhash']
+
+        sc_proof_n2 = cswMcTest.create_test_proof(
+                "sc1", sc_csw_amount, str(scid_swapped), null_n2, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+
+        sc_csws = [{
+            "amount": sc_csw_amount,
+            "senderAddress": csw_mc_address,
+            "scId": scid,
+            "epoch": 0,
+            "nullifier": null_n2,
+            "activeCertData": actCertData,
+            "ceasingCumScTxCommTree": ceasingCumScTxCommTree,
+            "scProof": sc_proof_n2
+        }]
+
         try:
             rawtx = self.nodes[2].createrawtransaction([], sc_csw_tx_outs, sc_csws)
             funded_tx = self.nodes[2].fundrawtransaction(rawtx)
@@ -466,7 +508,7 @@ class CswNullifierTest(BitcoinTestFramework):
         
         prev_epoch_hash = self.nodes[0].getbestblockhash()
         vk2 = certMcTest.generate_params("sc2")
-        cswVk2 = cswMcTest.generate_params("csw2")
+        cswVk2 = cswMcTest.generate_params("sc2")
 
         ret = self.nodes[0].sc_create(sc_epoch_len, "dada", sc_cr_amount, vk2, "abcdef", constant, cswVk2)
         creating_tx = ret['txid']
@@ -478,17 +520,16 @@ class CswNullifierTest(BitcoinTestFramework):
         # advance two epochs and cease it
         mark_logs("\nLet 2 epochs pass by...".  format(sc_epoch_len), self.nodes, DEBUG_MODE)
 
-        cert, epoch_block_hash, epoch_number = advance_epoch(
+        cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid2, prev_epoch_hash, "sc2", constant, sc_epoch_len)
+             scid2, "sc2", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
         
-        prev_epoch_hash = epoch_block_hash
 
-        cert, epoch_block_hash, epoch_number = advance_epoch(
+        cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid2, prev_epoch_hash, "sc2", constant, sc_epoch_len)
+             scid2, "sc2", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
@@ -515,16 +556,19 @@ class CswNullifierTest(BitcoinTestFramework):
         actCertData3 = generate_random_field_element_hex()
         ceasingCumScTxCommTree2 = self.nodes[0].getceasingcumsccommtreehash(scid2)['ceasingCumScTxCommTree']
 
+        scid2_swapped = swap_bytes(scid2)
+        sc_proof2 = cswMcTest.create_test_proof(
+                "sc2", sc_csw_amount, str(scid2_swapped), null3, pkh_mc_address, ceasingCumScTxCommTree2, actCertData3) 
+
         sc_csws = [{
             "amount": sc_csw_amount,
             "senderAddress": csw_mc_address,
             "scId": scid2,
             "epoch": 0,
-            "nullifier": null2,
+            "nullifier": null3,
             "activeCertData": actCertData3,
             "ceasingCumScTxCommTree": ceasingCumScTxCommTree2,
-            # Temp hardcoded proof with valid structure TODO: generate a real valid CSW proof
-            "scProof": "927e725a39f1c219a458f02d27fb327cc9595985ed947553d979261261b96360b23633b747df8141bcb12076b75f654c35ba0869df74a236763fe0c070e6da2959c1a8c77330783e76e4ad5801818c5edb06567196813355bea5e08beaa5010088965b13b48cbf962106500727ba05b31b4f429076230a90384d18b0e5f395a87ea466704a56375d3a68e65777568881b432208029c12cda5d089f596cf91da14392ed6c619c195a6bebe04c2caba17443906fbf386bc4555b0b721a1ead0000007acd59b470379a38d8de9e82b54fdd1e4e8bd8b2059b62552814989c25f7e07c6261ebc6de8b4b875893a874df953594beb119d53fd74e33e09cb66ed717c393c3fd22f1b465332a17c3d934172fdd33d1c641a9121c5e762b6e59305d1d0100ec5aed56c4290c6bb57e1d1b5b2b1f861f9926403446482f72cede346c0feae2817a2f18b7a37a9b55a3e9deb2a555ffb0d9331cb320ce18aa99a2c2c025c3d28afc77c631263b91160b1f556a6d1d158a8d3c56ab61dc9396e6536094720000741ae2c1569b098231dce089680fb1e561d974ce4f4e00cbe1150281ce12dd561be12a7fefcb30f62d3c8934926ae4eb4a4cb4378dd2568648ff12a7c36302be4d5a578dc360a3125b0c1427fb6b55a067f01d24d616c954bce363a8ef1001003a1ebe119da0561bf1d3294819759677fbd37dbac403662e263bfa71a4992228557a31d2d9ce0a7ffcbe91aa57f38cae7b51ef2681b16f275c0f87c89fbc2060690ac77dc1d3d20b7d3c6b5af1c92ee96e61b6635e343c3976112eb4ec91000000fe60207ddf86be08604c41f46f2e3740b479cad9fd1cb5f8c589595ba3d50f6c3984bbe707d460a0e27d4ec90d89a3476c647a6ea262b910dcb267325c375c713ff7031fe3a200130060bf09900e2e5244f88355a2a0587b068caae7f65b01005f0fb082380604a78c66e21681c2c7f3f59042c7b4495435b8d972bbb535ae8dd09ea8232b0161dc3a13f4a718b5a7fa4cb01d6625e38d73032baf3a9ffcff5a7493a27eeab25c97bee8eddf2fd2c9e9dd1bd1813c22b046c01caccc7478000000"
+            "scProof": sc_proof2
         }]
 
         out_amount = sc_csw_amount / Decimal("2.0")

@@ -254,7 +254,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertMovesSidechainTerminationToNextEpochSa
 
     // update sidechain with next epoch certificate
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0),
         /*numBwt*/2, /*ftScFee*/0, /*mbtrScFee*/0);
     ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
@@ -295,7 +295,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCertificateMovesSidechainTerminationToN
 
     // update sidechain with next epoch certificate
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(10), /*numBwt*/1,
         /*ftScFee*/0, /*mbtrScFee*/0);
     ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
@@ -335,7 +335,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificateMovesSidechainTerminationToNex
 
     // update sidechain with next epoch certificate
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
              CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(10),/*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0,
              /*ftScFee*/0, /*mbtrScFee*/0);
     ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
@@ -375,7 +375,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificateMovesSidechainTerminationToNex
 
     // update sidechain with next epoch certificate
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
@@ -436,7 +436,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForFullCert) {
 
     // update sidechain with next epoch certificate
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
             /*ftScFee*/0, /*mbtrScFee*/0);
     ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
@@ -471,7 +471,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForPureBwtCert) {
 
     // update sidechain with next epoch certificate
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/4,
             /*ftScFee*/0, /*mbtrScFee*/0);
     ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
@@ -505,7 +505,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForNoBwtCert) {
 
     // update sidechain with next epoch certificate
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(3), /*numChangeOut*/3,/*bwtAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
@@ -539,7 +539,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForEmptyCertificate) {
 
     // update sidechain with next epoch certificate
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch+1;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
@@ -577,7 +577,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(2), /*numBwt*/1,
         /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -633,7 +633,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(1), /*numBwt*/1,
             /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -698,7 +698,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -753,7 +753,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -808,7 +808,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(2), /*numBwt*/1,
         /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -870,7 +870,7 @@ TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(1), /*numBwt*/1,
             /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -931,7 +931,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -992,7 +992,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -1069,7 +1069,7 @@ TEST_F(SidechainsEventsTestSuite, UndoFullCertUpdatesToCeasingScs) {
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/2, /*bwtTotalAmount*/CAmount(2), /*numBwt*/1,
         /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -1119,7 +1119,7 @@ TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(3), /*numBwt*/3,
             /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -1168,7 +1168,7 @@ TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/4, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -1217,7 +1217,7 @@ TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, initialScState.creationBlockHeight - COINBASE_MATURITY);
     int certEpoch = initialScState.lastTopQualityCertReferencedEpoch +1;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -1260,7 +1260,7 @@ TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendChan
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, 100);
     CBlock dummyBlock;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1,
         /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -1312,7 +1312,7 @@ TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendBwtO
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, 100);
     CBlock dummyBlock;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1,
         /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -1363,8 +1363,7 @@ TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendFull
 
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, 100);
-    CBlock dummyBlock;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/1, /*bwtTotalAmount*/CAmount(0), /*numBwt*/0,
         /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
@@ -1415,8 +1414,7 @@ TEST_F(SidechainsEventsTestSuite, Cert_CoinReconstructionFromBlockUndo_SpendFull
 
     //Generate certificate
     uint256 inputCoinHash = txCreationUtils::CreateSpendableCoinAtHeight(*view, 100);
-    CBlock dummyBlock;
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0, dummyBlock.GetHash(),
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*epochNumber*/0,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4), /*numChangeOut*/0, /*bwtTotalAmount*/CAmount(0), /*numBwt*/1,
         /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();

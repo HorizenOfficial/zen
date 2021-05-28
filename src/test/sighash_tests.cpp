@@ -416,7 +416,6 @@ void static RandomCertificate(CMutableScCertificate &cert, bool fSingle, bool em
     RandomScProof(cert.scProof);
     cert.epochNumber = (insecure_rand() % NUM_RAND_UCHAR) + 1;
     cert.quality = (insecure_rand() % NUM_RAND_UINT) + 1;
-    cert.endEpochBlockHash = GetRandHash();
     RandomSidechainField(cert.endEpochCumScTxCommTreeRoot);
 
     int FieldElementCertificateFieldLength = (insecure_rand() % NUM_RAND_UCHAR);

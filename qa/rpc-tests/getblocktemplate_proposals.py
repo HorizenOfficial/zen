@@ -5,7 +5,7 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_true, assert_false, assert_equal, mark_logs
+from test_framework.util import assert_true, assert_false, assert_equal, mark_logs, swap_bytes
 from test_framework.mininode import COIN, hash256, ser_string
 from test_framework.mc_test.mc_test import *
 
@@ -88,9 +88,6 @@ def genmrklroot(leaflist):
         cur = n
     return cur[0]
 
-def swap_bytes(hex_string):
-    return codecs.encode(codecs.decode(hex_string, 'hex')[::-1], 'hex').decode()
-
 def template_to_bytes(tmpl, txlist, certlist, input_sc_commitment = None):
     blkver = pack('<L', tmpl['version'])
     objlist = txlist + certlist
@@ -171,13 +168,13 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh, "amount": SC_CERT_AMOUNT}]
 
         #create wCert proof
-        epoch_cum_tree_hash = self.nodes[0].getblock(eph)['scCumTreeHash']
+        epoch_cum_tree_hash = self.nodes[0].getblock(block_list[-1])['scCumTreeHash']
         ftScFee = 0.1
         mbtrScFee = 0.1
         fee = 0.000023
 
         proof = mcTest.create_test_proof("sc1", 0, 0, mbtrScFee, ftScFee, constant, epoch_cum_tree_hash, [pkh], [SC_CERT_AMOUNT])
-        cert = self.nodes[0].send_certificate(scid, 0, 0, block_list[-1], epoch_cum_tree_hash,
+        cert = self.nodes[0].send_certificate(scid, 0, 0, epoch_cum_tree_hash,
             proof, amounts, ftScFee, mbtrScFee, fee)
         self.sync_all()
         assert_true(cert in self.nodes[0].getrawmempool() ) 
@@ -342,7 +339,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
             # Test 15: wrong commitment
             # compute commitment for the only contribution of certificate (no tx/btr)
             fake_commitment = dblsha(b'\w'*32)
-            assert_template(node, tmpl, txlist, certlist, 'bad-sc-txs-committment', fake_commitment)
+            assert_template(node, tmpl, txlist, certlist, 'bad-hashScTxsCommitment', fake_commitment)
 
 
 if __name__ == '__main__':

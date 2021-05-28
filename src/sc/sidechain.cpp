@@ -24,7 +24,7 @@ bool Sidechain::InitDLogKeys()
     CctpErrorCode errorCode;
     std::string folderPath = Sidechain::GetSidechainDataDir().string();
 
-    if (!zendoo_init_dlog_keys(ProvingSystem::Darlin, SEGMENT_SIZE, (path_char_t*)folderPath.c_str(), folderPath.length(), &errorCode))
+    if (!zendoo_init_dlog_keys(SEGMENT_SIZE, (path_char_t*)folderPath.c_str(), folderPath.length(), &errorCode))
     {
         return false;
     }
@@ -55,12 +55,6 @@ void Sidechain::ClearSidechainsFolder()
         if (is_regular_file(*it))
             remove(it->path());
     }
-}
-
-void Sidechain::LoadCumulativeProofsParameters()
-{
-    //Todo: call rust circuitry, passing the files hosting keys
-    return;
 }
 
 int CSidechain::EpochFor(int targetHeight) const
@@ -413,10 +407,10 @@ bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidatio
                 CValidationState::Code::INVALID, "bad-cert-quality-negative");
     }
 
-    if (cert.epochNumber < 0 || cert.endEpochBlockHash.IsNull())
+    if (cert.epochNumber < 0)
     {
         return state.DoS(100,
-                error("%s():%d - ERROR: Invalid cert[%s], negative epoch number or null endEpochBlockHash\n",
+                error("%s():%d - ERROR: Invalid cert[%s], negative epoch number\n",
                 __func__, __LINE__, certHash.ToString()),
                 CValidationState::Code::INVALID, "bad-cert-invalid-epoch-data");;
     }

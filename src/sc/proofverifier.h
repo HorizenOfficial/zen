@@ -45,4 +45,10 @@ private:
     std::map</*certHash*/uint256, CCertProofVerifierInput> certEnqueuedData;
 };
 
+namespace SidechainProofVerifier
+{
+CCertProofVerifierInput CertificateToVerifierInput(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom);
+CCswProofVerifierInput CswInputToVerifierInput(const CTxCeasedSidechainWithdrawalInput& cswInput, const CTransaction* cswTransaction, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom);
+}
+
 #endif // _SC_PROOF_VERIFIER_H

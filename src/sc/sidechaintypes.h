@@ -39,7 +39,7 @@ namespace Sidechain
     static const int MAX_SC_PROOF_SIZE_IN_BYTES = 1024*10;  
     static const int MAX_SC_VK_SIZE_IN_BYTES    = 1024*10;
 
-    static const int SEGMENT_SIZE = 1 << 19;
+    static const int SEGMENT_SIZE = 1 << 17;
 }
 
 class CZendooCctpLibraryChecker
@@ -99,7 +99,7 @@ public:
 
     static constexpr unsigned int ByteSize() { return Sidechain::SC_FE_SIZE_IN_BYTES; }
     static constexpr unsigned int BitSize()  { return ByteSize()*8; }
-    uint256 GetLegacyHashTO_BE_REMOVED() const;
+    uint256 GetLegacyHash() const;
 
     wrappedFieldPtr GetFieldElement() const;
     bool IsValid() const override final;
@@ -318,6 +318,7 @@ protected:
     enum class VALIDATION_STATE {NOT_INITIALIZED, INVALID, VALID};
     mutable VALIDATION_STATE state;
     mutable CFieldElement fieldElement; // memory only, lazy-initialized
+    virtual const CFieldElement& GetFieldElement(const T& cfg) const = 0;
 
 public:
     CustomCertificateField(): state(VALIDATION_STATE::NOT_INITIALIZED) {};
@@ -345,8 +346,8 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
+    const CFieldElement& GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const override;
     bool IsValid(const FieldElementCertificateFieldConfig& cfg) const;
-    const CFieldElement& GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const;
 };
 
 class BitVectorCertificateField : public CustomCertificateField<BitVectorCertificateFieldConfig>
@@ -366,8 +367,8 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
+    const CFieldElement& GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const override;
     bool IsValid(const BitVectorCertificateFieldConfig& cfg) const;
-    const CFieldElement& GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const;
 };
 ////////////////////////// End of Custom Field types ///////////////////////////
 
@@ -537,5 +538,11 @@ struct CRecipientBwtRequest
 };
 
 }; // end of namespace
+
+void dumpBuffer(BufferWithSize* buf, const std::string& name);
+void dumpBvCfg(BitVectorElementsConfig* buf, size_t len, const std::string& name);
+void dumpFe(field_t* fe, const std::string& name);
+void dumpFeArr(field_t** feArr, size_t len, const std::string& name);
+
 
 #endif // _SIDECHAIN_TYPES_H

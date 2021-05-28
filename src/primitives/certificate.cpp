@@ -14,6 +14,7 @@
 #include "script/interpreter.h"
 #include "script/sigcache.h"
 #include "main.h"
+#include "sc/proofverifier.h"
 
 CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nValue), pubKeyHash()
 {
@@ -31,13 +32,13 @@ CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nV
 
 CScCertificate::CScCertificate(int versionIn): CTransactionBase(versionIn),
     scId(), epochNumber(EPOCH_NOT_INITIALIZED), quality(QUALITY_NULL),
-    endEpochBlockHash(), endEpochCumScTxCommTreeRoot(), scProof(), vFieldElementCertificateField(),
+    endEpochCumScTxCommTreeRoot(), scProof(), vFieldElementCertificateField(),
     vBitVectorCertificateField(), nFirstBwtPos(0),
     forwardTransferScFee(INT_NULL), mainchainBackwardTransferRequestScFee(INT_NULL) {}
 
 CScCertificate::CScCertificate(const CScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
-    endEpochBlockHash(cert.endEpochBlockHash), endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
+    endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
     scProof(cert.scProof), vFieldElementCertificateField(cert.vFieldElementCertificateField),
     vBitVectorCertificateField(cert.vBitVectorCertificateField),
     nFirstBwtPos(cert.nFirstBwtPos), forwardTransferScFee(cert.forwardTransferScFee),
@@ -49,7 +50,6 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
     *const_cast<uint256*>(&scId) = cert.scId;
     *const_cast<int32_t*>(&epochNumber) = cert.epochNumber;
     *const_cast<int64_t*>(&quality) = cert.quality;
-    *const_cast<uint256*>(&endEpochBlockHash) = cert.endEpochBlockHash;
     *const_cast<CFieldElement*>(&endEpochCumScTxCommTreeRoot) = cert.endEpochCumScTxCommTreeRoot;
     *const_cast<CScProof*>(&scProof) = cert.scProof;
     *const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField) = cert.vFieldElementCertificateField;
@@ -62,7 +62,7 @@ CScCertificate& CScCertificate::operator=(const CScCertificate &cert)
 
 CScCertificate::CScCertificate(const CMutableScCertificate &cert): CTransactionBase(cert),
     scId(cert.scId), epochNumber(cert.epochNumber), quality(cert.quality),
-    endEpochBlockHash(cert.endEpochBlockHash), endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
+    endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
     scProof(cert.scProof), vFieldElementCertificateField(cert.vFieldElementCertificateField),
     vBitVectorCertificateField(cert.vBitVectorCertificateField),
     nFirstBwtPos(cert.nFirstBwtPos), forwardTransferScFee(cert.forwardTransferScFee),
@@ -262,7 +262,7 @@ std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
 {
     return std::shared_ptr<const CTransactionBase>();
 }
-CFieldElement CScCertificate::GetDataHash() const
+CFieldElement CScCertificate::GetDataHash(const Sidechain::ScFixedParameters& scFixedParams) const
 {
      static const CFieldElement dummy; return dummy;
 }
@@ -313,14 +313,51 @@ CScCertificate::MakeShared() const {
     return std::shared_ptr<const CTransactionBase>(new CScCertificate(*this));
 }
 
-CFieldElement CScCertificate::GetDataHash() const
+CFieldElement CScCertificate::GetDataHash(const Sidechain::ScFixedParameters& scFixedParams) const
 {
-    // in the final implementation this must not create an obj but should return a reference to a mem-only
-    // data member, similarly to what GetHash() is doing. This is for performances but expecially for avoiding 
-    // having temporary objs and playing with their internal data buffers. 
-    std::vector<unsigned char> tmp(this->GetHash().begin(), this->GetHash().end());
-    tmp.resize(CFieldElement::ByteSize(), 0x0);
-    return CFieldElement{tmp};
+    CCertProofVerifierInput input = SidechainProofVerifier::CertificateToVerifierInput(*this, scFixedParams, nullptr);
+
+    int custom_fields_len = input.vCustomFields.size(); 
+    std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
+    int i = 0;
+    std::vector<wrappedFieldPtr> vSptr;
+    for (auto entry: input.vCustomFields)
+    {
+        wrappedFieldPtr sptrFe = entry.GetFieldElement();
+        custom_fields[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
+        i++;
+    }
+
+    const backward_transfer_t* bt_list_ptr = input.bt_list.data();
+    int bt_list_len = input.bt_list.size();
+
+    // mc crypto lib wants a null ptr if we have no fields
+    if (custom_fields_len == 0)
+        custom_fields.reset();
+    if (bt_list_len == 0)
+        bt_list_ptr = nullptr;
+
+    wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
+    wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
+    wrappedScProofPtr sptrProof  = input.certProof.GetProofPtr();
+    wrappedScVkeyPtr  sptrCertVk = input.CertVk.GetVKeyPtr();
+
+    CctpErrorCode errorCode;
+
+    field_t* certDataHash = zendoo_get_cert_data_hash(input.epochNumber,
+                                                      input.quality,
+                                                      bt_list_ptr,
+                                                      bt_list_len,
+                                                      custom_fields.get(),
+                                                      custom_fields_len,
+                                                      input.endEpochCumScTxCommTreeRoot.GetFieldElement().get(),
+                                                      input.mainchainBackwardTransferRequestScFee,
+                                                      input.forwardTransferScFee,
+                                                      &errorCode
+                                                      );
+
+    return CFieldElement{wrappedFieldPtr{certDataHash, CFieldPtrDeleter{}}};
 }
 #endif
 
@@ -345,13 +382,13 @@ CAmount CScCertificate::GetValueOfChange() const
 //-------------------------------------
 CMutableScCertificate::CMutableScCertificate(): CMutableTransactionBase(),
     scId(), epochNumber(CScCertificate::EPOCH_NULL), quality(CScCertificate::QUALITY_NULL),
-    endEpochBlockHash(), endEpochCumScTxCommTreeRoot(), scProof(), vFieldElementCertificateField(),
+    endEpochCumScTxCommTreeRoot(), scProof(), vFieldElementCertificateField(),
     vBitVectorCertificateField(), nFirstBwtPos(0),
     forwardTransferScFee(CScCertificate::INT_NULL), mainchainBackwardTransferRequestScFee(CScCertificate::INT_NULL) {}
 
 CMutableScCertificate::CMutableScCertificate(const CScCertificate& cert): CMutableTransactionBase(),
     scId(cert.GetScId()), epochNumber(cert.epochNumber), quality(cert.quality), 
-    endEpochBlockHash(cert.endEpochBlockHash), endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
+    endEpochCumScTxCommTreeRoot(cert.endEpochCumScTxCommTreeRoot),
     scProof(cert.scProof), vFieldElementCertificateField(cert.vFieldElementCertificateField),
     vBitVectorCertificateField(cert.vBitVectorCertificateField), nFirstBwtPos(cert.nFirstBwtPos),
     forwardTransferScFee(cert.forwardTransferScFee), mainchainBackwardTransferRequestScFee(cert.mainchainBackwardTransferRequestScFee)
@@ -369,7 +406,6 @@ CMutableScCertificate& CMutableScCertificate::operator=(const CMutableScCertific
     scId                                  = rhs.scId;
     epochNumber                           = rhs.epochNumber;
     quality                               = rhs.quality;
-    endEpochBlockHash                     = rhs.endEpochBlockHash;
     endEpochCumScTxCommTreeRoot           = rhs.endEpochCumScTxCommTreeRoot;
     scProof                               = rhs.scProof;
     vFieldElementCertificateField         = rhs.vFieldElementCertificateField;

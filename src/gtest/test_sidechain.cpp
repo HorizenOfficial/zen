@@ -414,9 +414,6 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidActCertData) {
     EXPECT_FALSE(txState.IsValid());
     EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
         <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
-
-    // TODO remove as soon as libzendoo funcs are not mocked anymore
-    std::cout << "### THIS IS EXPECTED SINCE LIBZENDOO HAS MOCKED CALLS ###" << std::endl;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1067,7 +1064,7 @@ TEST_F(SidechainsTestSuite, RestoreSidechainRestoresLastCertHash) {
 
     //Update sc with cert and create the associate blockUndo
     int certEpoch = 0;
-    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyBlock.GetHash(), dummyCumTree,
+    CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyCumTree,
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     CBlockUndo blockUndo;
@@ -1158,7 +1155,7 @@ TEST_F(SidechainsTestSuite, CertificateUpdatesTopCommittedCertHash) {
 
     CBlockUndo blockUndo;
     CFieldElement dummyCumTree{SAMPLE_FIELD};
-    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0, dummyBlock.GetHash(),
+    CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     EXPECT_TRUE(sidechainsView->UpdateSidechain(aCertificate, blockUndo));
@@ -1812,17 +1809,19 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     CFieldElement dummyCumTree {SAMPLE_FIELD};
     CScCertificate originalCert = txCreationUtils::createCertificate(
         uint256S("aaa"),
-        /*epochNum*/0, dummyBlock.GetHash(), dummyCumTree,
+        /*epochNum*/0, dummyCumTree,
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2,
         /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
+
+    Sidechain::ScFixedParameters fixedParams;
 
     /**
      * Check that two certificates with same parameters
      * have the same hash.
      */
     CScCertificate newCert = CScCertificate(originalCert);
-    EXPECT_EQ(originalCert.GetDataHash(), newCert.GetDataHash());
+    EXPECT_EQ(originalCert.GetDataHash(fixedParams), newCert.GetDataHash(fixedParams));
 
     /**
      * Check that two certificates with same parameters but different
@@ -1831,7 +1830,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     CMutableScCertificate mutCert = originalCert;
     mutCert.forwardTransferScFee = 1;
     newCert = mutCert;
-    EXPECT_FALSE(originalCert.GetDataHash() == newCert.GetDataHash());
+    EXPECT_FALSE(originalCert.GetDataHash(fixedParams) == newCert.GetDataHash(fixedParams));
 
     /**
      * Check that two certificates with same parameters but different
@@ -1840,7 +1839,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     mutCert = originalCert;
     mutCert.mainchainBackwardTransferRequestScFee = 1;
     newCert = mutCert;
-    EXPECT_FALSE(originalCert.GetDataHash() == newCert.GetDataHash());
+    EXPECT_FALSE(originalCert.GetDataHash(fixedParams) == newCert.GetDataHash(fixedParams));
 }
 
 
@@ -1935,7 +1934,7 @@ TEST_F(SidechainsTestSuite, NewCertificateUpdatesFeesAndDataLength)
     // Create new certificate
     //CBlockUndo dummyBlockUndo;
     CFieldElement dummyCumTree {SAMPLE_FIELD};
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*certEpoch*/0, dummyBlock.GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/ftFee, /*mbtrScFee*/mbtrFee);
 
@@ -1954,21 +1953,21 @@ TEST_F(SidechainsTestSuite, CertificatesWithValidFeesAreValid)
 {
     CValidationState txState;
     CFieldElement dummyCumTree {SAMPLE_FIELD};
-    CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/CAmount(0), /*mbtrScFee*/CAmount(0));
 
     EXPECT_TRUE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_TRUE(txState.IsValid());
 
-    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/CAmount(MAX_MONEY / 2), /*mbtrScFee*/CAmount(MAX_MONEY / 2));
 
     EXPECT_TRUE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_TRUE(txState.IsValid());
 
-    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/CAmount(MAX_MONEY), /*mbtrScFee*/CAmount(MAX_MONEY));
 
@@ -1980,14 +1979,14 @@ TEST_F(SidechainsTestSuite, CertificatesWithOutOfRangeFeesAreNotValid)
 {
     CValidationState txState;
     CFieldElement dummyCumTree {SAMPLE_FIELD};
-    CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+    CScCertificate cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/CAmount(-1), /*mbtrScFee*/CAmount(-1));
 
     EXPECT_FALSE(Sidechain::checkCertSemanticValidity(cert, txState));
     EXPECT_FALSE(txState.IsValid());
 
-    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0, CBlock().GetHash(),
+    cert = txCreationUtils::createCertificate(uint256(), /*certEpoch*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/CAmount(MAX_MONEY + 1), /*mbtrScFee*/CAmount(MAX_MONEY + 1));
 

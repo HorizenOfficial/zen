@@ -12,6 +12,8 @@
 #include "serialize.h"
 #include "uint256.h"
 
+class CCoinsViewCache;
+
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
@@ -166,7 +168,7 @@ public:
 
     // return the sc txs commitment calculated as described in zendoo paper. It is based on contribution from
     // sidechains-related txes and certificates contained in this block
-    uint256 BuildScTxsCommitment();
+    uint256 BuildScTxsCommitment(const CCoinsViewCache& view);
     
     std::vector<uint256> GetMerkleBranch(int nIndex) const;
     std::string ToString() const;

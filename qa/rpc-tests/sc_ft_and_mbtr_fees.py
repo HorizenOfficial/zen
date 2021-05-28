@@ -175,7 +175,6 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         assert_equal(mbtrRequestDataLength, decoded_tx['vsc_ccout'][0]['mbtrRequestDataLength'])
 
         mark_logs("Node0 generating 1 block", self.nodes, DEBUG_MODE)
-        prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
@@ -217,8 +216,6 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         errorString = ""
         mbtrFee = Decimal(mbtrScFee - 1)
-        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk1 = mcTest.generate_params(scid)
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
         mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
@@ -259,11 +256,8 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         errorString = ""
         mbtrFee = Decimal(mbtrScFee)
-        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk1 = mcTest.generate_params(scid)
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
-        p1 = mcTest.create_test_proof(scid, 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
         mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
@@ -301,11 +295,8 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         errorString = ""
         mbtrFee = Decimal(mbtrScFee + 1)
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk1 = mcTest.generate_params(scid)
         fe1 = generate_random_field_element_hex()
         pkh1 = self.nodes[1].getnewaddress("", True)
-        p1 = mcTest.create_test_proof(scid, 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
         mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
@@ -332,7 +323,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         self.is_network_split = True
 
         quality = 1
-        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[1], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[1], EPOCH_LENGTH)
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         cert_amount = Decimal("10.0")
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": cert_amount}]
@@ -341,13 +332,12 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrFee = mbtrScFee
         newFtFee = ftFee + 1
         newMbtrFee = mbtrFee + 1
-        
+
         proof = mcTest.create_test_proof(
-            vk_tag, epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node1], [cert_amount])
-        cert_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+            vk_tag, epoch_number, quality, newMbtrFee, newFtFee, constant, epoch_cum_tree_hash, [pkh_node1], [cert_amount])
+        cert_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, newFtFee, newMbtrFee)
-        
+
         mark_logs("Certificate sent to mempool, node 1 generates " + str(EPOCH_LENGTH / 2) + " blocks", self.nodes, DEBUG_MODE)
         self.nodes[1].generate(EPOCH_LENGTH / 2)
 

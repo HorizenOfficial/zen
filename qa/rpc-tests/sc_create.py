@@ -17,6 +17,7 @@ import pprint
 NUMB_OF_NODES = 3
 DEBUG_MODE = 1
 SC_COINS_MAT = 2
+SC_VK_SIZE = 1024
 
 
 class SCCreateTest(BitcoinTestFramework):

@@ -12,6 +12,8 @@
 #include <coins.h>
 #include <zen/forks/fork7_sidechainfork.h>
 #include <script/sign.h>
+#include <boost/filesystem.hpp>
+#include <sc/proofverifier.h>
 
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength,
                                                 const CAmount& ftScFee, const CAmount& mbtrScFee, int mbtrDataLength)
@@ -40,11 +42,17 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
 
     mtx.vsc_ccout.resize(1);
     mtx.vsc_ccout[0].nValue = creationTxAmount;
+    mtx.vsc_ccout[0].address = uint256S("bebe111222dada");
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
     mtx.vsc_ccout[0].wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
     mtx.vsc_ccout[0].wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
-    mtx.vsc_ccout[0].vFieldElementCertificateFieldConfig.push_back(22);
-    mtx.vsc_ccout[0].customData.push_back(0x33);
+    mtx.vsc_ccout[0].vFieldElementCertificateFieldConfig.push_back(0x4);
+    mtx.vsc_ccout[0].vFieldElementCertificateFieldConfig.push_back(0x7);
+    mtx.vsc_ccout[0].vBitVectorCertificateFieldConfig.push_back({254*8, 33});
+    mtx.vsc_ccout[0].vBitVectorCertificateFieldConfig.push_back({254*8*2, 55});
+    mtx.vsc_ccout[0].customData.push_back(0x66);
+    mtx.vsc_ccout[0].customData.push_back(0x77);
+    mtx.vsc_ccout[0].customData.push_back(0xfe);
     mtx.vsc_ccout[0].forwardTransferScFee = ftScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = mbtrScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = mbtrDataLength;
@@ -209,7 +217,7 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
 }
 
 CScCertificate txCreationUtils::createCertificate(
-    const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
+    const uint256 & scId, int epochNum,
     const CFieldElement& endEpochCumScTxCommTreeRoot, CAmount changeTotalAmount, unsigned int numChangeOut,
     CAmount bwtTotalAmount, unsigned int numBwt, CAmount ftScFee, CAmount mbtrScFee, const int quality)
 {
@@ -217,7 +225,6 @@ CScCertificate txCreationUtils::createCertificate(
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
     res.epochNumber = epochNum;
-    res.endEpochBlockHash = endEpochBlockHash;
     res.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     res.quality = quality;
     res.forwardTransferScFee = ftScFee;
@@ -331,12 +338,12 @@ void chainSettingUtils::ExtendChainActiveWithBlock(const CBlock& block)
 namespace blockchain_test_utils
 {
 /**
- * @brief Constructs a new BlockchainTestManager.
+ * @brief BlockchainTestManager constructor.
  */
 BlockchainTestManager::BlockchainTestManager()
 {
     assert(Params().NetworkIDString() == "regtest");
-
+    InitSidechainParameters();
     Reset();
 
     // Start the thread for async sidechain proof verification
@@ -349,11 +356,23 @@ BlockchainTestManager::BlockchainTestManager()
 }
 
 /**
+ * @brief BlockchainTestManager desctructor.
+ */
+BlockchainTestManager::~BlockchainTestManager()
+{
+    if (!tempFolderPath.empty())
+    {
+        boost::system::error_code ec;
+        boost::filesystem::remove_all(tempFolderPath.string(), ec);
+    }
+}
+
+/**
  * @brief CoinsView getter.
  * 
  * @return std::shared_ptr<CInMemorySidechainDb> The in-memory CoinsView used by the manager.
  */
-std::shared_ptr<CInMemorySidechainDb> BlockchainTestManager::CoinsView()
+std::shared_ptr<CInMemorySidechainDb> BlockchainTestManager::CoinsView() const
 {
     return view;
 }
@@ -363,9 +382,19 @@ std::shared_ptr<CInMemorySidechainDb> BlockchainTestManager::CoinsView()
  * 
  * @return std::shared_ptr<CNakedCCoinsViewCache> The CoinsViewCache used by the manager.
  */
-std::shared_ptr<CNakedCCoinsViewCache> BlockchainTestManager::CoinsViewCache()
+std::shared_ptr<CNakedCCoinsViewCache> BlockchainTestManager::CoinsViewCache() const
 {
     return viewCache;
+}
+
+/**
+ * @brief Temp folder path getter.
+ * 
+ * @return std::string The path used as temporary folder.
+ */
+std::string BlockchainTestManager::TempFolderPath() const
+{
+    return tempFolderPath.string();
 }
 
 /**
@@ -373,7 +402,7 @@ std::shared_ptr<CNakedCCoinsViewCache> BlockchainTestManager::CoinsViewCache()
  * 
  * @param targetHeight The height to be reached by the active chain.
  */
-void BlockchainTestManager::ExtendChainActiveToHeight(int targetHeight)
+void BlockchainTestManager::ExtendChainActiveToHeight(int targetHeight) const
 {
     if (chainActive.Height() > targetHeight)
        return chainActive.SetTip(chainActive[targetHeight]); //TODO: delete content before setting tip
@@ -416,7 +445,7 @@ void BlockchainTestManager::ExtendChainActiveToHeight(int targetHeight)
  * 
  * @param block The block to be added to the active chain.
  */
-void BlockchainTestManager::ExtendChainActiveWithBlock(const CBlock& block)
+void BlockchainTestManager::ExtendChainActiveWithBlock(const CBlock& block) const
 {
     ZCIncrementalMerkleTree dummyTree;
     dummyTree.append(GetRandHash());
@@ -458,15 +487,25 @@ void BlockchainTestManager::Reset()
  * @brief Creates a CSW input object.
  * 
  * @param scId The ID of the sidechain the CSW refers to
+ * @param nValue The amount of the CSW input
+ * @param provingSystem The proving system for the verification of the CSW input proof
  * @return CTxCeasedSidechainWithdrawalInput the CSW input created.
  */
-CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 scId, CAmount nValue)
+CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 scId, CAmount nValue, ProvingSystem provingSystem) const
 {
     CTxCeasedSidechainWithdrawalInput input;
 
     input.scId = scId;
     input.nValue = nValue;
-    input.scProof = CScProof{SAMPLE_CSW_DARLIN_PROOF};
+    input.actCertDataHash = CFieldElement{SAMPLE_FIELD};
+    input.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
+    input.nullifier = CFieldElement{SAMPLE_FIELD};
+
+    CSidechain sidechain;
+    assert(viewCache->GetSidechain(scId, sidechain));
+
+    CCswProofVerifierInput verifierInput = SidechainProofVerifier::CswInputToVerifierInput(input, nullptr, sidechain.fixedParams, nullptr);
+    input.scProof = GenerateTestCswProof(verifierInput, provingSystem);
 
     return input;
 }
@@ -477,7 +516,7 @@ CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 
  * @param args The parameters of the transaction
  * @return CMutableTransaction the generated transaction.
  */
-CMutableTransaction BlockchainTestManager::CreateTransaction(const CTransactionCreationArguments& args)
+CMutableTransaction BlockchainTestManager::CreateTransaction(const CTransactionCreationArguments& args) const
 {
     CMutableTransaction tx;
 
@@ -497,9 +536,11 @@ CMutableTransaction BlockchainTestManager::CreateTransaction(const CTransactionC
  * @param scId The ID of the sidechain the certificate refers to
  * @param epochNumber The epoch number of the certificate
  * @param quality The quality of the certificate
+ * @param provingSystem The proving system to be used for the certificate generation
+ * @param inputTxBase The pointer to the transaction to be used as input for the certificate
  * @return CScCertificate The generated certificate.
  */
-CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epochNumber, int64_t quality, CTransactionBase* inputTxBase)
+CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epochNumber, int64_t quality, ProvingSystem provingSystem, CTransactionBase* inputTxBase) const
 {
     uint256 dummyBlockHash {};
     CFieldElement endEpochCumScTxCommTreeRoot = CFieldElement{SAMPLE_FIELD};
@@ -509,13 +550,11 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
     CAmount bwtTotalAmount {0};
     unsigned int numChangeOut = 1;
     unsigned int numBwt = 2;
-    //CTransactionBase* inputTxBase = nullptr;
 
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
     res.epochNumber = epochNumber;
-    res.endEpochBlockHash = dummyBlockHash;
     res.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     res.quality = quality;
     res.forwardTransferScFee = 0;
@@ -543,10 +582,146 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
         SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, res, 0);
     }
 
-    // TODO: when the CCTP lib integration is ready, create the proof properly.
-    res.scProof = CScProof{SAMPLE_CERT_DARLIN_PROOF};
+    CSidechain sidechain;
+    assert(viewCache->GetSidechain(scId, sidechain));
+
+    CCertProofVerifierInput input = SidechainProofVerifier::CertificateToVerifierInput(res, sidechain.fixedParams, nullptr);
+    res.scProof = GenerateTestCertificateProof(input, provingSystem);
 
     return res;
+}
+
+/**
+ * @brief Generate the proof test parameters (proving and verification keys) for the specified
+ * proving system and circuit type.
+ * 
+ * @param provingSystem The proving system whose parameters have to be created
+ * @param circuitType The type of circuit whose parameters have to be created
+ */
+void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provingSystem, TestCircuitType circuitType) const
+{
+    CctpErrorCode errorCode;
+    zendoo_generate_mc_test_params(circuitType, provingSystem, (path_char_t*)tempFolderPath.c_str(), strlen(tempFolderPath.c_str()), &errorCode);
+}
+
+/**
+ * @brief Generate a certificate proof based on the certificate parameters
+ * and the proving key provided.
+ * 
+ * @param certificate The parameters of the certificate to be proved
+ * @param provingSystem The proving system to use for the proof generation
+ * @return CScProof The generated proof.
+ */
+CScProof BlockchainTestManager::GenerateTestCertificateProof(CCertProofVerifierInput certificate, ProvingSystem provingSystem) const
+{
+    wrappedFieldPtr sptrConst = certificate.constant.GetFieldElement();
+    wrappedFieldPtr sptrCum   = certificate.endEpochCumScTxCommTreeRoot.GetFieldElement();
+
+    std::string certProofPath = GetTestFilePath(provingSystem, TestCircuitType::Certificate) + "proof";
+    sc_pk_t* provingKey = GetTestProvingKey(provingSystem, TestCircuitType::Certificate);
+
+    backward_transfer_t* btList = certificate.bt_list.data();
+
+    // In case there are no custom fields, return a null pointer.
+    // This is required by the CCTP Lib.
+    if (certificate.bt_list.size() == 0)
+    {
+        btList = nullptr;
+    }
+
+    int custom_fields_len = certificate.vCustomFields.size(); 
+    std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
+    int i = 0;
+    std::vector<wrappedFieldPtr> vSptr;
+    for (auto entry: certificate.vCustomFields)
+    {
+        wrappedFieldPtr sptrFe = entry.GetFieldElement();
+        custom_fields[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
+        i++;
+    }
+    if (custom_fields_len == 0)
+    {
+        custom_fields.reset();
+        assert(custom_fields.get() == nullptr);
+    }
+
+    CctpErrorCode errorCode;
+
+    //TODO: Add custom fields
+    zendoo_create_cert_test_proof(false /*zk*/,
+                                  sptrConst.get(),
+                                  certificate.epochNumber,
+                                  certificate.quality,
+                                  btList,
+                                  certificate.bt_list.size(),
+                                  custom_fields.get(),
+                                  custom_fields_len,
+                                  sptrCum.get(),
+                                  certificate.mainchainBackwardTransferRequestScFee,
+                                  certificate.forwardTransferScFee,
+                                  provingKey,
+                                  (path_char_t*)certProofPath.c_str(),
+                                  strlen(certProofPath.c_str()),
+                                  &errorCode);
+
+    zendoo_sc_pk_free(provingKey);
+
+    return CScProof(ReadBytesFromFile(certProofPath));
+}
+
+/**
+ * @brief Generate a certificate proof based on the certificate parameters
+ * and the proving key provided.
+ * 
+ * @param csw The parameters of the CSW input to be proved
+ * @param provingSystem The proving system to use for the proof generation
+ * @return CScProof The generated proof.
+ */
+CScProof BlockchainTestManager::GenerateTestCswProof(CCswProofVerifierInput csw, ProvingSystem provingSystem) const
+{
+    wrappedFieldPtr sptrScId = CFieldElement(csw.scId).GetFieldElement();
+    field_t* scidFe = sptrScId.get();
+     
+    const uint160& cswPkHash = csw.pubKeyHash;
+    BufferWithSize bwsCswPkHash(cswPkHash.begin(), cswPkHash.size());
+    
+    wrappedFieldPtr sptrCdh = csw.certDataHash.GetFieldElement();
+    wrappedFieldPtr sptrCum = csw.ceasingCumScTxCommTree.GetFieldElement();
+    wrappedFieldPtr sptrNullifier = csw.nullifier.GetFieldElement();
+
+    std::string cswProofPath = GetTestFilePath(provingSystem, TestCircuitType::CSW) + "proof";
+    sc_pk_t* provingKey = GetTestProvingKey(provingSystem, TestCircuitType::CSW);
+
+    CctpErrorCode code;
+
+    bool ret = zendoo_create_csw_test_proof(false, /*zk*/
+                                            csw.nValue,
+                                            scidFe,
+                                            sptrNullifier.get(), 
+                                            &bwsCswPkHash,
+                                            sptrCdh.get(),
+                                            sptrCum.get(),
+                                            provingKey,
+                                            (path_char_t*)cswProofPath.c_str(),
+                                            strlen(cswProofPath.c_str()),
+                                            &code);
+
+    zendoo_sc_pk_free(provingKey);
+
+    return CScProof(ReadBytesFromFile(cswProofPath));
+}
+
+/**
+ * @brief Get the test verification key 
+ * 
+ * @param provingSystem 
+ * @param circuitType 
+ * @return CScVKey 
+ */
+CScVKey BlockchainTestManager::GetTestVerificationKey(ProvingSystem provingSystem, TestCircuitType circuitType) const
+{
+    return CScVKey(ReadBytesFromFile(GetTestFilePath(provingSystem, circuitType) + "vk"));
 }
 
 /**
@@ -556,7 +731,7 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
  * @param sidechain The parameters of the sidechain
  * @param chainActiveHeight The new height to be reaced by the active chain
  */
-void BlockchainTestManager::StoreSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight)
+void BlockchainTestManager::StoreSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight) const
 {
     ExtendChainActiveToHeight(chainActiveHeight);
     viewCache->SetBestBlock(chainActive.Tip()->GetBlockHash());
@@ -564,11 +739,105 @@ void BlockchainTestManager::StoreSidechainWithCurrentHeight(const uint256& scId,
 }
 
 /**
+ * @brief Checks whether the certificate proof is correct or not.
+ * 
+ * @param certificate The certificate parameters
+ * @return true If the certificate proof is correctly verified.
+ * @return false If the certificate proof is not valid.
+ */
+bool BlockchainTestManager::VerifyCertificateProof(CCertProofVerifierInput certificate) const
+{
+    wrappedFieldPtr   sptrConst  = certificate.constant.GetFieldElement();
+    wrappedFieldPtr   sptrCum    = certificate.endEpochCumScTxCommTreeRoot.GetFieldElement();
+    wrappedScProofPtr sptrProof  = certificate.certProof.GetProofPtr();
+    wrappedScVkeyPtr  sptrCertVk = certificate.CertVk.GetVKeyPtr();
+
+    int customFieldsLen = certificate.vCustomFields.size(); 
+
+    std::unique_ptr<const field_t*[]> customFields(new const field_t*[customFieldsLen]);
+    int i = 0;
+    std::vector<wrappedFieldPtr> customFieldsWrapper;
+    for (auto entry: certificate.vCustomFields)
+    {
+        wrappedFieldPtr sptr = entry.GetFieldElement();
+        customFields[i] = sptr.get();
+        customFieldsWrapper.push_back(sptr);
+        i++;
+    }
+
+    // In case there are no custom fields, return a null pointer.
+    // This is required by the CCTP Lib.
+    if (customFieldsLen == 0)
+    {
+        customFields.reset();
+    }
+
+    backward_transfer_t* btList = certificate.bt_list.data();
+
+    // In case there are no custom fields, return a null pointer.
+    // This is required by the CCTP Lib.
+    if (certificate.bt_list.size() == 0)
+    {
+        btList = nullptr;
+    }
+
+    CctpErrorCode errorCode;
+
+    return zendoo_verify_certificate_proof(sptrConst.get(),
+                                           certificate.epochNumber,
+                                           certificate.quality,
+                                           btList,
+                                           certificate.bt_list.size(),
+                                           customFields.get(),
+                                           customFieldsLen,
+                                           sptrCum.get(),
+                                           certificate.mainchainBackwardTransferRequestScFee,
+                                           certificate.forwardTransferScFee,
+                                           sptrProof.get(),
+                                           sptrCertVk.get(),
+                                           &errorCode);
+}
+
+/**
+ * @brief Checks whether the CSW input proof is correct or not.
+ * 
+ * @param csw The CSW input parameters
+ * @return true If the CSW input proof is correctly verified.
+ * @return false If the CSW input proof is not valid.
+ */
+bool BlockchainTestManager::VerifyCswProof(CCswProofVerifierInput csw) const
+{
+    wrappedFieldPtr sptrScId = CFieldElement(csw.scId).GetFieldElement();
+    field_t* scidFe = sptrScId.get();
+     
+    const uint160& cswPkHash = csw.pubKeyHash;
+    BufferWithSize bwsCswPkHash(cswPkHash.begin(), cswPkHash.size());
+    
+    wrappedFieldPtr   sptrCdh        = csw.certDataHash.GetFieldElement();
+    wrappedFieldPtr   sptrCum        = csw.ceasingCumScTxCommTree.GetFieldElement();
+    wrappedFieldPtr   sptrNullifier  = csw.nullifier.GetFieldElement();
+    wrappedScProofPtr sptrProof      = csw.cswProof.GetProofPtr();
+    wrappedScVkeyPtr  sptrCeasedVk   = csw.ceasedVk.GetVKeyPtr();
+
+    CctpErrorCode code;
+
+    return zendoo_verify_csw_proof(csw.nValue,
+                                   scidFe,
+                                   sptrNullifier.get(),
+                                   &bwsCswPkHash,
+                                   sptrCdh.get(),
+                                   sptrCum.get(),
+                                   sptrProof.get(),
+                                   sptrCeasedVk.get(),
+                                   &code);
+}
+
+/**
  * @brief Gets the number of pending certificate proves waiting to be verified in the async proof verifier.
  * 
  * @return size_t The number of pending certificate proves waiting to be verified in the async proof verifier.
  */
-size_t BlockchainTestManager::PendingAsyncCertProves()
+size_t BlockchainTestManager::PendingAsyncCertProves() const
 {
     return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCertProves();
 }
@@ -578,7 +847,7 @@ size_t BlockchainTestManager::PendingAsyncCertProves()
  * 
  * @return size_t The number of pending CSW proves waiting to be verified in the async proof verifier.
  */
-size_t BlockchainTestManager::PendingAsyncCswProves()
+size_t BlockchainTestManager::PendingAsyncCswProves() const
 {
     return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProves();
 }
@@ -588,7 +857,7 @@ size_t BlockchainTestManager::PendingAsyncCswProves()
  * 
  * @return AsyncProofVerifierStatistics The statistics of the async proof verifier.
  */
-AsyncProofVerifierStatistics BlockchainTestManager::GetAsyncProofVerifierStatistics()
+AsyncProofVerifierStatistics BlockchainTestManager::GetAsyncProofVerifierStatistics() const
 {
     return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().GetStatistics();
 }
@@ -598,7 +867,7 @@ AsyncProofVerifierStatistics BlockchainTestManager::GetAsyncProofVerifierStatist
  * 
  * @return uint32_t The maximum delay [ms] between batch verifications performed by the async proof verifier.
  */
-uint32_t BlockchainTestManager::GetAsyncProofVerifierMaxBatchVerifyDelay()
+uint32_t BlockchainTestManager::GetAsyncProofVerifierMaxBatchVerifyDelay() const
 {
     return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().GetMaxBatchVerifyDelay();
 }
@@ -609,9 +878,76 @@ uint32_t BlockchainTestManager::GetAsyncProofVerifierMaxBatchVerifyDelay()
  * This is particularly useful since the async proof verifier class is a singleton
  * and its state might need to be cleared when performing unit tests.
  */
-void BlockchainTestManager::ResetAsyncProofVerifier()
+void BlockchainTestManager::ResetAsyncProofVerifier()const
 {
     TEST_FRIEND_CScAsyncProofVerifier::GetInstance().Reset();
+}
+
+/**
+ * @brief Gets the path of the test file for a specific proving system and circuit.
+ * 
+ * Note that this is a generic function, returning a generic path to several files;
+ * to be used it is required to append a suffix specifying the file to use.
+ * 
+ * For instance, this function may return "/tmp/b2f9-3080-b5d4-0b68/cob_marlin_cert_test_"
+ * but the real files may be:
+ * 
+ *  - /tmp/b2f9-3080-b5d4-0b68/cob_marlin_cert_test_vk
+ *  - /tmp/b2f9-3080-b5d4-0b68/cob_marlin_cert_test_pk
+ *  - /tmp/b2f9-3080-b5d4-0b68/cob_marlin_cert_test_proof
+ * 
+ * @param provingSystem The proving system of interest
+ * @param circuitType The type of entity of interest
+ * @return std::string The path to the file.
+ */
+std::string BlockchainTestManager::GetTestFilePath(ProvingSystem provingSystem, TestCircuitType circuitType) const
+{
+    std::string filename;
+
+    switch (provingSystem)
+    {
+        case ProvingSystem::CoboundaryMarlin:
+            filename = "/cob_marlin_";
+            break;
+        case ProvingSystem::Darlin:
+            filename = "/darlin_";
+            break;
+        default:
+            assert(false);
+    }
+
+    switch (circuitType)
+    {
+        case TestCircuitType::Certificate:
+            filename += "cert_test_";
+            break;
+        case TestCircuitType::CSW:
+            filename += "csw_test_";
+            break;
+    }
+
+    return tempFolderPath.string() + filename;
+}
+
+/**
+ * @brief Gets the proving key that can be used to verify a test proof.
+ * 
+ * @param provingSystem The proving system used to generate the proof
+ * @param circuitType The type of proof to be verified (e.g. Certificate, CSW)
+ * @return std::unique_ptr<sc_pk_t*> The pointer to the proving key.
+ */
+sc_pk_t* BlockchainTestManager::GetTestProvingKey(ProvingSystem provingSystem, TestCircuitType circuitType) const
+{
+    std::string provingKeyPath = GetTestFilePath(provingSystem, circuitType) + "pk";
+
+    CctpErrorCode errorCode;
+
+    return zendoo_deserialize_sc_pk_from_file(
+        (path_char_t*)provingKeyPath.c_str(),
+        provingKeyPath.length(),
+        true, /*semantic_checks*/
+        &errorCode
+    );
 }
 
 void BlockchainTestManager::InitCoinGeneration()
@@ -621,7 +957,21 @@ void BlockchainTestManager::InitCoinGeneration()
     coinsScript << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
 }
 
-std::pair<uint256, CCoinsCacheEntry> BlockchainTestManager::GenerateCoinsAmount(const CAmount & amountToGenerate)
+/**
+ * @brief Initializes the sidechain related parameters, like the DLog keys, the verification key
+ * and the proving key.
+ */
+void BlockchainTestManager::InitSidechainParameters()
+{
+    // Create a new temporary folder
+    tempFolderPath = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+    boost::filesystem::create_directories(tempFolderPath);
+
+    CctpErrorCode errorCode;
+    zendoo_init_dlog_keys(Sidechain::SEGMENT_SIZE, (path_char_t*)tempFolderPath.c_str(), strlen(tempFolderPath.c_str()), &errorCode);
+}
+
+std::pair<uint256, CCoinsCacheEntry> BlockchainTestManager::GenerateCoinsAmount(const CAmount & amountToGenerate) const
 {
     static unsigned int hashSeed = 1987;
     CCoinsCacheEntry entry;
@@ -641,7 +991,26 @@ std::pair<uint256, CCoinsCacheEntry> BlockchainTestManager::GenerateCoinsAmount(
     return std::pair<uint256, CCoinsCacheEntry>(uint256S(num.str()), entry);
 }
 
-bool BlockchainTestManager::StoreCoins(std::pair<uint256, CCoinsCacheEntry> entryToStore)
+/**
+ * @brief Reads all bytes from a file.
+ * 
+ * @param filepath The path of the file to be read
+ * @return std::vector<unsigned char> The read bytes.
+ */
+std::vector<unsigned char> BlockchainTestManager::ReadBytesFromFile(std::string filepath) const
+{
+    std::ifstream input(filepath, std::ios::binary);
+
+    std::vector<unsigned char> bytes(
+         (std::istreambuf_iterator<char>(input)),
+         (std::istreambuf_iterator<char>()));
+
+    input.close();
+
+    return bytes;
+}
+
+bool BlockchainTestManager::StoreCoins(std::pair<uint256, CCoinsCacheEntry> entryToStore) const
 {
     viewCache->WriteCoins(entryToStore.first, entryToStore.second);
     

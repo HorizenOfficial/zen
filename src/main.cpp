@@ -3139,7 +3139,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (fScRelatedChecks == flagScRelatedChecks::ON)
         {
-            scCommitmentBuilder.add(cert);
+            scCommitmentBuilder.add(cert, view);
         }
 
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
@@ -5851,7 +5851,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
     if (!AlreadyHave(inv))
     {
         BatchVerificationStateFlag flag = BatchVerificationStateFlag::NOT_VERIFIED_YET;
-        bool test = GetBoolArg("-skipscproof", false);
+        
         // CODE USED FOR UNIT TEST ONLY [Start]
         if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest" && GetBoolArg("-skipscproof", false)))
         {

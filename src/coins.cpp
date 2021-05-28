@@ -1172,14 +1172,6 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         return CValidationState::Code::INVALID;
     }
 
-    // TODO Remove cert.endEpochBlockHash checks after changing of verification circuit.
-    if (!CheckEndEpochBlockHash(sidechain, cert.epochNumber, cert.endEpochBlockHash) )
-    {
-        LogPrintf("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid epoch data\n",
-            __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
-        return CValidationState::Code::INVALID;
-    }
-
     CValidationState::Code ret =
         CheckEndEpochCumScTxCommTreeRoot(sidechain, cert.epochNumber, cert.endEpochCumScTxCommTreeRoot);
 
@@ -1240,34 +1232,6 @@ CValidationState::Code CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
     }
 
     return CValidationState::Code::OK;
-}
-
-// TODO will be removed
-bool CCoinsViewCache::CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& endEpochBlockHash) const
-{
-    LOCK(cs_main);
-    int endEpochHeight = sidechain.GetEndHeightForEpoch(epochNumber);
-    CBlockIndex* pblockindex = chainActive[endEpochHeight];
-
-    if (!pblockindex)
-    {
-        return error("%s():%d - ERROR: end height %d for certificate epoch %d is not in current chain active (height %d)\n",
-            __func__, __LINE__, endEpochHeight, epochNumber, chainActive.Height());
-    }
-
-    const uint256& hash = pblockindex->GetBlockHash();
-    if (hash != endEpochBlockHash)
-    {
-        if (mapBlockIndex.count(endEpochBlockHash) != 0)
-        {
-            return error("%s():%d - ERROR: endEpochBlockHash %s at height %d is in fork\n",
-                __func__, __LINE__, endEpochBlockHash.ToString(), endEpochHeight);
-        }
-
-        return error("%s():%d - ERROR: endEpochBlockHash is unknown\n", __func__, __LINE__);
-    }
-
-    return true;
 }
 
 bool CCoinsViewCache::CheckScTxTiming(const uint256& scId) const
@@ -1563,7 +1527,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     currentSc.lastTopQualityCertReferencedEpoch = cert.epochNumber;
     currentSc.lastTopQualityCertQuality         = cert.quality;
     currentSc.lastTopQualityCertBwtAmount       = bwtTotalAmount;
-    currentSc.lastTopQualityCertView            = CScCertificateView(cert);
+    currentSc.lastTopQualityCertView            = CScCertificateView(cert, currentSc.fixedParams);
 
     LogPrint("cert", "%s():%d - updated sc state %s\n", __func__, __LINE__, currentSc.ToString());
 

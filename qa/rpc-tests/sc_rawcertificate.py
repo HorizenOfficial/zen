@@ -20,6 +20,8 @@ import time
 DEBUG_MODE = 1
 EPOCH_LENGTH = 5
 NUMB_OF_NODES = 4
+FT_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal("0.000135")
 
 class sc_rawcert(BitcoinTestFramework):
@@ -96,7 +98,7 @@ class sc_rawcert(BitcoinTestFramework):
         sc_address = "fade"
 
         #generate vk and constant for this sidechain
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
         
@@ -114,18 +116,14 @@ class sc_rawcert(BitcoinTestFramework):
 
         #retrieve previous_end_epoch_mc_b_hash
         current_height = self.nodes[3].getblockcount()
-        pebh = self.nodes[3].getblockhash(current_height)
         mark_logs("Node3 generating {} blocks".format(EPOCH_LENGTH), self.nodes, DEBUG_MODE)
-        #epn = 0
-        #eph = self.nodes[3].generate(EPOCH_LENGTH)[-1]
         self.nodes[3].generate(EPOCH_LENGTH)
         self.sync_all()
 
-        eph, epn, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         # save them for the last test
-        epn_0 = epn
-        eph_0 = eph
+        epn_0 = epoch_number
         epoch_cum_tree_hash_0 = epoch_cum_tree_hash
 
         # -------------------------- end epoch
@@ -141,8 +139,7 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 0
         proof = mcTest.create_test_proof(
-        "sc1", epn, eph, pebh,
-        quality, constant, [pkh_node2], [bt_amount])
+            "sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node2], [bt_amount])
 
         utx, change = get_spendable(0, CERT_FEE)
         raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
@@ -152,10 +149,9 @@ class sc_rawcert(BitcoinTestFramework):
         raw_params = {
             "scid": scid,
             "quality": quality,
-            "endEpochBlockHash": eph,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
             "scProof": proof,
-            "withdrawalEpochNumber": epn
+            "withdrawalEpochNumber": epoch_number
         }
         raw_cert = []
         cert = []
@@ -171,7 +167,7 @@ class sc_rawcert(BitcoinTestFramework):
         decoded_cert_pre = self.nodes[0].decoderawtransaction(raw_cert)
         decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
-        mark_logs("Node0 sending raw certificate for epoch {}, expecting failure...".format(epn), self.nodes, DEBUG_MODE)
+        mark_logs("Node0 sending raw certificate for epoch {}, expecting failure...".format(epoch_number), self.nodes, DEBUG_MODE)
         # we expect it to fail because beyond the safeguard
         try:
             cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
@@ -184,7 +180,7 @@ class sc_rawcert(BitcoinTestFramework):
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
         sync_mempools(self.nodes[1:3])
 
-        mark_logs("Node0 sending raw certificate for epoch {}, expecting success".format(epn), self.nodes, DEBUG_MODE)
+        mark_logs("Node0 sending raw certificate for epoch {}, expecting success".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
             cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
         except JSONRPCException, e:
@@ -199,11 +195,9 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node0 generating 4 block, also reverting other nodes' chains", self.nodes, DEBUG_MODE)
         mined = self.nodes[0].generate(1)[0]
-        #epn = 1
-        pebh = eph
+        #epoch_number = 1
         self.nodes[0].generate(3)
-        eph, epn, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        #eph = self.nodes[0].generate(3)[-1]
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         self.sync_all()
 
         # -------------------------- end epoch
@@ -248,16 +242,14 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 1
         proof = mcTest.create_test_proof(
-            "sc1", epn, eph, pebh,
-            quality, constant, [], [])
+            "sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
 
         raw_params = {
             "scid": scid,
             "quality": quality,
-            "endEpochBlockHash": eph,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
             "scProof": proof,
-            "withdrawalEpochNumber": epn
+            "withdrawalEpochNumber": epoch_number
         }
         raw_cert = []
         cert = []
@@ -280,7 +272,7 @@ class sc_rawcert(BitcoinTestFramework):
         decoded_cert_pre = self.nodes[0].decoderawtransaction(signed_cert['hex'])
         decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
-        mark_logs("Node3 sending raw certificate with no backward transfer for epoch {}".format(epn), self.nodes, DEBUG_MODE)
+        mark_logs("Node3 sending raw certificate with no backward transfer for epoch {}".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
             cert = self.nodes[3].sendrawcertificate(signed_cert['hex'])
         except JSONRPCException, e:
@@ -329,11 +321,8 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(node0_bal_after, node0_bal_before - CERT_FEE)
 
         mark_logs("Node0 generating 4 block reaching next epoch", self.nodes, DEBUG_MODE)
-        pebh = eph
-        #eph = self.nodes[0].generate(4)[-1]
-        #epn = 2
         self.nodes[0].generate(4)
-        eph, epn, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         self.sync_all()
 
         # -------------------------- end epoch
@@ -389,16 +378,14 @@ class sc_rawcert(BitcoinTestFramework):
             amounts.append(amount)
 
         proof = mcTest.create_test_proof(
-            "sc1", epn, eph, pebh,
-            quality, constant, pks, amounts)
+            "sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, pks, amounts)
 
         raw_params = {
             "scid": scid,
             "quality": quality,
-            "endEpochBlockHash": eph,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
             "scProof": proof,
-            "withdrawalEpochNumber": epn
+            "withdrawalEpochNumber": epoch_number
         }
 
         # generate a certificate with some backward transfer, several vin vout and a fee
@@ -406,7 +393,7 @@ class sc_rawcert(BitcoinTestFramework):
             raw_cert    = self.nodes[3].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
             signed_cert = self.nodes[3].signrawcertificate(raw_cert)
             # let a different node, Node0, send it
-            mark_logs("Node1 sending raw certificate for epoch {}".format(epn), self.nodes, DEBUG_MODE)
+            mark_logs("Node1 sending raw certificate for epoch {}".format(epoch_number), self.nodes, DEBUG_MODE)
             cert        = self.nodes[1].sendrawcertificate(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -427,11 +414,8 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(self.nodes[3].gettransaction(cert)['fee'], -certFee)
 
         mark_logs("Node0 generating 5 block reaching next epoch", self.nodes, DEBUG_MODE)
-        pebh = eph
-        #eph = self.nodes[0].generate(5)[-1]
-        #epn = 3
         self.nodes[0].generate(5)
-        eph, epn, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         self.sync_all()
         
         '''
@@ -450,9 +434,9 @@ class sc_rawcert(BitcoinTestFramework):
 
         # create wCert proof
         quality = 3
+
         proof = mcTest.create_test_proof(
-            "sc1", epn, eph, pebh,
-            quality, constant, [], [])
+            "sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
 
         raw_inputs   = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         raw_outs     = { self.nodes[0].getnewaddress() : change }
@@ -460,10 +444,9 @@ class sc_rawcert(BitcoinTestFramework):
         raw_params = {
             "scid": scid,
             "quality": quality,
-            "endEpochBlockHash": eph,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
             "scProof": proof,
-            "withdrawalEpochNumber": epn
+            "withdrawalEpochNumber": epoch_number
         }
         raw_cert     = []
         pk_arr       = []
@@ -474,7 +457,7 @@ class sc_rawcert(BitcoinTestFramework):
         pk_arr.append(pk_bad)
 
         try:
-            mark_logs("Node0 creates and signs a raw certificate for epoch {}, expecting failure because the priv key is not his...".format(epn), self.nodes, DEBUG_MODE)
+            mark_logs("Node0 creates and signs a raw certificate for epoch {}, expecting failure because the priv key is not his...".format(epoch_number), self.nodes, DEBUG_MODE)
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
             signed_cert = self.nodes[0].signrawcertificate(raw_cert, pk_arr)
             assert_equal(signed_cert['complete'], False)
@@ -489,7 +472,7 @@ class sc_rawcert(BitcoinTestFramework):
         pk_arr.append(pk_good)
 
         try:
-            mark_logs("Node0 creates and signs a raw certificate for epoch {}, expecting success because the priv key is the right one...".format(epn), self.nodes, DEBUG_MODE)
+            mark_logs("Node0 creates and signs a raw certificate for epoch {}, expecting success because the priv key is the right one...".format(epoch_number), self.nodes, DEBUG_MODE)
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
             signed_cert = self.nodes[0].signrawcertificate(raw_cert, pk_arr)
             assert_equal(signed_cert['complete'], True)
@@ -497,7 +480,7 @@ class sc_rawcert(BitcoinTestFramework):
             errorString = e.error['message']
             print "\n======> ", errorString
 
-        mark_logs("Node2 sending raw certificate for epoch {}".format(epn), self.nodes, DEBUG_MODE)
+        mark_logs("Node2 sending raw certificate for epoch {}".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
             cert = self.nodes[2].sendrawcertificate(signed_cert['hex'])
         except JSONRPCException, e:
@@ -539,7 +522,6 @@ class sc_rawcert(BitcoinTestFramework):
         raw_params = {
             "scid": scid,
             "quality": quality,
-            "endEpochBlockHash": eph_0,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash_0,
             "scProof": proof,
             "withdrawalEpochNumber": epn_0
@@ -554,26 +536,22 @@ class sc_rawcert(BitcoinTestFramework):
             print "======> ", errorString, "\n"
 
         mark_logs("Node0 generating 4 block reaching next epoch", self.nodes, DEBUG_MODE)
-        pebh = eph
-        #eph = self.nodes[0].generate(4)[-1]
-        #epn = 4
         self.nodes[0].generate(4)
-        eph, epn, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         self.sync_all()
         
         # create wCert proof
         quality = 1
+
         proof = mcTest.create_test_proof(
-            "sc1", epn, eph, pebh,
-            quality, constant, [], [])
+            "sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
 
         raw_params = {
             "scid": scid,
             "quality": quality,
-            "endEpochBlockHash": eph,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
             "scProof": proof,
-            "withdrawalEpochNumber": epn
+            "withdrawalEpochNumber": epoch_number
         }
         raw_cert = []
         cert = []
@@ -594,7 +572,7 @@ class sc_rawcert(BitcoinTestFramework):
         decoded_cert_pre = self.nodes[0].decoderawtransaction(signed_cert['hex'])
         decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
-        mark_logs("Node3 sending raw certificate with no vin for epoch {}, expecting failure...".format(epn), self.nodes, DEBUG_MODE)
+        mark_logs("Node3 sending raw certificate with no vin for epoch {}, expecting failure...".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
             cert = self.nodes[3].sendrawcertificate(signed_cert['hex'])
             assert_true(False)
@@ -617,7 +595,7 @@ class sc_rawcert(BitcoinTestFramework):
             print "\n======> ", errorString
             assert_true(False)
 
-        mark_logs("Node3 sending raw certificate with no fee for epoch {}...".format(epn), self.nodes, DEBUG_MODE)
+        mark_logs("Node3 sending raw certificate with no fee for epoch {}...".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
             cert = self.nodes[3].sendrawcertificate(signed_cert['hex'])
         except JSONRPCException, e:
@@ -648,10 +626,9 @@ class sc_rawcert(BitcoinTestFramework):
         raw_params = {
             "scid": scid,
             "quality": quality,
-            "endEpochBlockHash": eph,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
             "scProof": proof,
-            "withdrawalEpochNumber": epn,
+            "withdrawalEpochNumber": epoch_number,
             "ftScFee": ftScFee
         }
 
@@ -672,10 +649,9 @@ class sc_rawcert(BitcoinTestFramework):
         raw_params = {
             "scid": scid,
             "quality": quality,
-            "endEpochBlockHash": eph,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
             "scProof": proof,
-            "withdrawalEpochNumber": epn,
+            "withdrawalEpochNumber": epoch_number,
             "mbtrScFee": mbtrScFee
         }
 
@@ -697,10 +673,9 @@ class sc_rawcert(BitcoinTestFramework):
         raw_params = {
             "scid": scid,
             "quality": quality,
-            "endEpochBlockHash": eph,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash,
             "scProof": proof,
-            "withdrawalEpochNumber": epn,
+            "withdrawalEpochNumber": epoch_number,
             "ftScFee": ftScFee,
             "mbtrScFee": mbtrScFee
         }
