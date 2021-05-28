@@ -485,7 +485,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("1fbdc0ba54a78d41acf3985fad0431ab2599d5e8d11d530a3b2484532742b733"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("0e4f7fd4e934bc206ecf5eb01848deb24a218f39af1d97a12594742d6609269d"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -1175,18 +1175,33 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
 
     size_t bt_list_len = vbt_list.size();
 
-    int custom_fields_len = cert.vFieldElementCertificateField.size(); 
+    int custom_fields_len = cert.vFieldElementCertificateField.size() + cert.vBitVectorCertificateField.size(); 
+
     std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
     int i = 0;
     std::vector<wrappedFieldPtr> vSptr;
     for (auto entry: cert.vFieldElementCertificateField)
     {
         CFieldElement fe{entry.GetFieldElement()};
+        assert(fe.IsValid());
         wrappedFieldPtr sptrFe = fe.GetFieldElement();
         custom_fields[i] = sptrFe.get();
         vSptr.push_back(sptrFe);
         i++;
     }
+
+    int j = 0;
+    for (auto entry: cert.vBitVectorCertificateField)
+    {
+        CFieldElement fe{entry.GetFieldElement()};
+        assert(fe.IsValid());
+        wrappedFieldPtr sptrFe = fe.GetFieldElement();
+        custom_fields[i+j] = sptrFe.get();
+        vSptr.push_back(sptrFe);
+        j++;
+    }
+
+    // mc crypto lib wants a null ptr if we have no fields
     if (custom_fields_len == 0)
     {
         custom_fields.reset();

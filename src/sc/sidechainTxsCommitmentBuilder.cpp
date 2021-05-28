@@ -242,21 +242,36 @@ bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, CctpErr
 
     size_t bt_list_len = vbt_list.size();
 
-    int custom_fields_len = cert.vFieldElementCertificateField.size(); 
+    int custom_fields_len = cert.vFieldElementCertificateField.size() + cert.vBitVectorCertificateField.size(); 
+
     std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
     int i = 0;
     std::vector<wrappedFieldPtr> vSptr;
     for (auto entry: cert.vFieldElementCertificateField)
     {
         CFieldElement fe{entry.GetFieldElement()};
+        assert(fe.IsValid());
         wrappedFieldPtr sptrFe = fe.GetFieldElement();
         custom_fields[i] = sptrFe.get();
         vSptr.push_back(sptrFe);
         i++;
     }
+
+    int j = 0;
+    for (auto entry: cert.vBitVectorCertificateField)
+    {
+        CFieldElement fe{entry.GetFieldElement()};
+        assert(fe.IsValid());
+        wrappedFieldPtr sptrFe = fe.GetFieldElement();
+        custom_fields[i+j] = sptrFe.get();
+        vSptr.push_back(sptrFe);
+        j++;
+    }
     // mc crypto lib wants a null ptr if we have no fields
     if (custom_fields_len == 0)
         custom_fields.reset();
+
+    //dumpFeArr((field_t**)custom_fields.get(), custom_fields_len, "custom fields");
 
     wrappedFieldPtr sptrCum = cert.endEpochCumScTxCommTreeRoot.GetFieldElement();
 
