@@ -714,7 +714,7 @@ private:
                 std::set<std::string> setKeyArgs;
 
                 static const std::set<std::string> validKeyArgs = {
-                    "scid", "epochNumber", "quality", "fee", "endEpochCumScTxCommTreeRoot", "scProof",
+                    "scid", "epochNumber", "quality", "fee", "endEpochCumCommTreeHash", "scProof",
                     "backwardTransfers", "vFieldElementCertificateField", "vBitVectorCertificateField",
                     "forwardTransferScFee", "mainchainBackwardTransferScFee"
                 };
@@ -757,9 +757,9 @@ private:
                 }
                 cmdParams.push_back(qualVal.get_int());
 
-                std::string endEpochCumScTxCommTreeRootStr = findFieldValue("endEpochCumScTxCommTreeRoot", reqPayload);
+                std::string endEpochCumScTxCommTreeRootStr = findFieldValue("endEpochCumCommTreeHash", reqPayload);
                 if (endEpochCumScTxCommTreeRootStr.empty()) {
-                    outMsg = "endEpochCumScTxCommTreeRoot empty";
+                    outMsg = "endEpochCumCommTreeHash empty";
                     LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
                     return MISSING_PARAMETER;
                 }    
@@ -786,8 +786,6 @@ private:
                     LogPrint("ws", "%s():%d - bwtArray empty: msg[%s]\n", __func__, __LINE__, msg);
                 }
                 cmdParams.push_back(bwtArray);
-
-                const UniValue& feeVal = find_value(reqPayload, "fee");
 
                 const UniValue& ftScFeeVal = find_value(reqPayload, "forwardTransferScFee");
 
@@ -818,6 +816,8 @@ private:
                         return INVALID_PARAMETER;
                     }
                 }
+
+                const UniValue& feeVal = find_value(reqPayload, "fee");
 
                 // can be null, it is optional. The default is set in the cmd
                 if (!feeVal.isNull()) {
