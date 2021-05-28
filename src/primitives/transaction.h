@@ -1115,6 +1115,7 @@ struct CCswProofVerifierInput
     CScProof cswProof;
     CNode* node;    /**< The node that sent the transaction. */
     CAmount nValue;
+    CFieldElement nullifier;
     uint160 pubKeyHash;
     uint256 scId;
     std::shared_ptr<CTransaction> transactionPtr;

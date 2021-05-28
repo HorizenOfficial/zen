@@ -17,7 +17,7 @@
 #include <clientversion.h>
 #include <sc/proofverifier.h> // for MC_CRYPTO_LIB_MOCKED 
 
-#include <boost/filesystem.hpp>
+using namespace blockchain_test_utils;
 
 static CMutableTransaction CreateDefaultTx()
 {
@@ -77,6 +77,32 @@ static CMutableScCertificate CreateDefaultCert()
     return mcert;
 }
 
+static CCertProofVerifierInput CreateDefaultCertInput()
+{
+    CCertProofVerifierInput certInput;
+
+    certInput.constant = CFieldElement(SAMPLE_FIELD);
+    certInput.epochNumber = 7;
+    certInput.quality = 10;
+    certInput.endEpochCumScTxCommTreeRoot = CFieldElement(SAMPLE_FIELD);
+    certInput.mainchainBackwardTransferRequestScFee = 1;
+    certInput.forwardTransferScFee = 1;
+
+    return certInput;
+}
+
+static CCswProofVerifierInput CreateDefaultCswInput()
+{
+    CCswProofVerifierInput cswInput;
+
+    cswInput.ceasingCumScTxCommTree = CFieldElement(SAMPLE_FIELD);
+    cswInput.certDataHash = CFieldElement(SAMPLE_FIELD);
+    cswInput.nValue = CAmount(15);
+    cswInput.nullifier = CFieldElement(SAMPLE_FIELD);
+    cswInput.scId = uint256S("aaaa");
+
+    return cswInput;
+}
 
 TEST(SidechainsField, GetByteArray)
 {
@@ -388,9 +414,9 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
     // Add leaves to tree
     std::vector<wrappedFieldPtr> vSptr;
     for (int i = 0; i < leaves_len; i++){
-        wrappedFieldPtr sptr = leaves[i].GetFieldElement();
-        tree.append(sptr.get(), &code);
-        vSptr.push_back(sptr);
+        wrappedFieldPtr sptrFe = leaves[i].GetFieldElement();
+        tree.append(sptrFe.get(), &code);
+        vSptr.push_back(sptrFe);
         ASSERT_TRUE(code == CctpErrorCode::OK);
     }
 
@@ -459,7 +485,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("1fbdc0ba54a78d41acf3985fad0431ab2599d5e8d11d530a3b2484532742b733"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("0e4f7fd4e934bc206ecf5eb01848deb24a218f39af1d97a12594742d6609269d"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -497,7 +523,7 @@ TEST(CctpLibrary, BitVectorUncompressed)
         ASSERT_TRUE(ptr[i+1] == buffer[i]);
     }
 
-    zendoo_free_bit_vector(bws_ret);
+    zendoo_free_bws(bws_ret);
 }
 
 TEST(CctpLibrary, BitVectorGzip)
@@ -566,8 +592,8 @@ TEST(CctpLibrary, BitVectorGzip)
     }
 
     printf("\nfreeing buffers...\n");
-    zendoo_free_bit_vector(bws_ret1);
-    zendoo_free_bit_vector(bws_ret2);
+    zendoo_free_bws(bws_ret1);
+    zendoo_free_bws(bws_ret2);
 }
 
 TEST(CctpLibrary, BitVectorBzip2)
@@ -636,8 +662,8 @@ TEST(CctpLibrary, BitVectorBzip2)
     }
 
     printf("\nfreeing buffers...\n");
-    zendoo_free_bit_vector(bws_ret1);
-    zendoo_free_bit_vector(bws_ret2);
+    zendoo_free_bws(bws_ret1);
+    zendoo_free_bws(bws_ret2);
 }
 
 TEST(CctpLibrary, BitVectorMerkleTree)
@@ -697,7 +723,7 @@ TEST(CctpLibrary, BitVectorMerkleTree)
 
     printf("\nfreeing mem...\n");
     zendoo_field_free(fe);
-    zendoo_free_bit_vector(bws_ret1);
+    zendoo_free_bws(bws_ret1);
 }
 
 TEST(CctpLibrary, BitVectorMerkleTreeData)
@@ -717,6 +743,7 @@ TEST(CctpLibrary, BitVectorMerkleTreeData)
         0xf4, 0xc1, 0xae, 0x01, 0x31, 0x24, 0x95, 0x46, 0xef, 0x5e, 0x22, 0xf4, 0x18, 0x7a, 0x07
     };
 
+    // this is the resulting field element
     unsigned char solution[] = {
         0x8a, 0x7d, 0x52, 0x29, 0xf4, 0x40, 0xd4, 0x70, 0x0d, 0x8b, 0x03, 0x43, 0xde, 0x4e, 0x14, 0x40,
         0x0d, 0x1c, 0xb8, 0x74, 0x28, 0xab, 0xf8, 0x3b, 0xd6, 0x71, 0x53, 0xbf, 0x58, 0x87, 0x17, 0x21
@@ -735,7 +762,14 @@ TEST(CctpLibrary, BitVectorMerkleTreeData)
     ASSERT_TRUE(bws_ret != nullptr);
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
+    // this is the vector with the raw data which are serialized
     printf("\nCompressed data size = %lu ...\n", bws_ret->len);
+    printf("\ncompressed data = [");
+    for (int i = 0; i < bws_ret->len; i++)
+    {
+        printf("%02x", ((const unsigned char*)bws_ret->data)[i]);
+    }
+    printf("]\n");
 
     printf("\nBuilding merkle tree ...\n");
     field_t* fe = zendoo_merkle_root_from_compressed_bytes(bws_ret, len, &ret_code);
@@ -757,7 +791,7 @@ TEST(CctpLibrary, BitVectorMerkleTreeData)
     printf("]\n");
 
     printf("\nfreeing mem...\n");
-    zendoo_free_bit_vector(bws_ret);
+    zendoo_free_bws(bws_ret);
     zendoo_field_free(fe);
 }
 
@@ -766,7 +800,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldNull)
     const BitVectorCertificateFieldConfig cfg(1024, 2048);
     BitVectorCertificateField bvField;
 
-    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
     EXPECT_FALSE(fe.IsValid());
 }
 
@@ -778,7 +812,7 @@ TEST(CctpLibrary, BitVectorCertificateFieldUnsuppComprAlgo)
     const BitVectorCertificateFieldConfig cfg(1024, 2048);
     BitVectorCertificateField bvField(bvVec);
 
-    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
     EXPECT_FALSE(fe.IsValid());
 }
 
@@ -802,9 +836,9 @@ TEST(CctpLibrary, BitVectorCertificateFieldBadSize)
     const BitVectorCertificateFieldConfig cfg(1024, 2048);
     BitVectorCertificateField bvField(bvVec);
 
-    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
     EXPECT_FALSE(fe.IsValid());
-    zendoo_free_bit_vector(bws_ret1);
+    zendoo_free_bws(bws_ret1);
 }
 
 TEST(CctpLibrary, BitVectorCertificateFieldFull)
@@ -837,9 +871,9 @@ TEST(CctpLibrary, BitVectorCertificateFieldFull)
     const BitVectorCertificateFieldConfig cfg(bitVectorSizeBits, maxCompressedSizeBytes);
     BitVectorCertificateField bvField(bvVec);
 
-    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    const CFieldElement& fe = bvField.GetCheckedFieldElement(cfg);
     EXPECT_TRUE(fe.IsValid());
-    zendoo_free_bit_vector(bws_ret1);
+    zendoo_free_bws(bws_ret1);
 }
 
 
@@ -886,8 +920,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
 
     for (const CTxScCreationOut& ccout : tx.GetVscCcOut() )
     {
-        wrappedFieldPtr sptr = CFieldElement(ccout.GetScId()).GetFieldElement();
-        field_t* scid_fe = sptr.get();
+        wrappedFieldPtr sptrScId = CFieldElement(ccout.GetScId()).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
 
         const uint256& pub_key = ccout.address;
         BufferWithSize bws_pk(pub_key.begin(), pub_key.size());
@@ -923,12 +957,12 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
             ));
         }
  
-        field_t* constant_fe = nullptr;
+        wrappedFieldPtr sptrConstant(nullptr);
         if(ccout.constant.is_initialized())
         {
-            wrappedFieldPtr sptr = ccout.constant->GetFieldElement();
-            constant_fe = sptr.get();
+            sptrConstant = ccout.constant->GetFieldElement();
         }
+        field_t* constant_fe = sptrConstant.get();
             
         BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
  
@@ -980,8 +1014,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
 
     for (const CTxForwardTransferOut& ccout : tx.GetVftCcOut() )
     {
-        wrappedFieldPtr sptr = CFieldElement(ccout.GetScId()).GetFieldElement();
-        field_t* scid_fe = sptr.get();
+        wrappedFieldPtr sptrScId = CFieldElement(ccout.GetScId()).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
 
         const uint256& fwt_pub_key = ccout.address;
         BufferWithSize bws_fwt_pk((unsigned char*)fwt_pub_key.begin(), fwt_pub_key.size());
@@ -1016,8 +1050,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
 
     for (const CBwtRequestOut& ccout : tx.GetVBwtRequestOut() )
     {
-        wrappedFieldPtr sptr = CFieldElement(ccout.GetScId()).GetFieldElement();
-        field_t* scid_fe = sptr.get();
+        wrappedFieldPtr sptrScId = CFieldElement(ccout.GetScId()).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
 
         int sc_req_data_len = ccout.vScRequestData.size(); 
         std::unique_ptr<const field_t*[]> sc_req_data(new const field_t*[sc_req_data_len]);
@@ -1025,9 +1059,9 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
         std::vector<wrappedFieldPtr> vSptr;
         for (auto entry: ccout.vScRequestData)
         {
-            wrappedFieldPtr sptr = entry.GetFieldElement();
-            sc_req_data[i] = sptr.get();
-            vSptr.push_back(sptr);
+            wrappedFieldPtr sptrFe = entry.GetFieldElement();
+            sc_req_data[i] = sptrFe.get();
+            vSptr.push_back(sptrFe);
             i++;
         }
 
@@ -1080,8 +1114,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
 
     for (const CTxCeasedSidechainWithdrawalInput& ccin : tx.GetVcswCcIn() )
     {
-        wrappedFieldPtr sptr = CFieldElement(ccin.scId).GetFieldElement();
-        field_t* scid_fe = sptr.get();
+        wrappedFieldPtr sptrScId = CFieldElement(ccin.scId).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
 
         const uint160& csw_pk_hash = ccin.pubKeyHash;
         BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
@@ -1118,8 +1152,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
     CScCertificate cert = CreateDefaultCert();
 
     printf("Adding a cert to the commitment tree ...\n");
-    wrappedFieldPtr sptr = CFieldElement(cert.GetScId()).GetFieldElement();
-    field_t* scid_fe = sptr.get();
+    wrappedFieldPtr sptrScId = CFieldElement(cert.GetScId()).GetFieldElement();
+    field_t* scid_fe = sptrScId.get();
  
     int epoch_number = cert.epochNumber;
     int quality      = cert.quality;
@@ -1141,18 +1175,33 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
 
     size_t bt_list_len = vbt_list.size();
 
-    int custom_fields_len = cert.vFieldElementCertificateField.size(); 
+    int custom_fields_len = cert.vFieldElementCertificateField.size() + cert.vBitVectorCertificateField.size(); 
+
     std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
     int i = 0;
     std::vector<wrappedFieldPtr> vSptr;
     for (auto entry: cert.vFieldElementCertificateField)
     {
-        CFieldElement fe{entry.getVRawData()};
-        wrappedFieldPtr sptr = fe.GetFieldElement();
-        custom_fields[i] = sptr.get();
-        vSptr.push_back(sptr);
+        CFieldElement fe{entry.GetFieldElement()};
+        assert(fe.IsValid());
+        wrappedFieldPtr sptrFe = fe.GetFieldElement();
+        custom_fields[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
         i++;
     }
+
+    int j = 0;
+    for (auto entry: cert.vBitVectorCertificateField)
+    {
+        CFieldElement fe{entry.GetFieldElement()};
+        assert(fe.IsValid());
+        wrappedFieldPtr sptrFe = fe.GetFieldElement();
+        custom_fields[i+j] = sptrFe.get();
+        vSptr.push_back(sptrFe);
+        j++;
+    }
+
+    // mc crypto lib wants a null ptr if we have no fields
     if (custom_fields_len == 0)
     {
         custom_fields.reset();
@@ -1223,8 +1272,8 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Negative)
 
     for (const CTxScCreationOut& ccout : tx.GetVscCcOut() )
     {
-        wrappedFieldPtr sptr = CFieldElement(ccout.GetScId()).GetFieldElement();
-        field_t* scid_fe = sptr.get();
+        wrappedFieldPtr sptrScId = CFieldElement(ccout.GetScId()).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
 
         CAmount crAmount = ccout.nValue;
 
@@ -1268,12 +1317,12 @@ TEST(CctpLibrary, CommitmentTreeBuilding_Negative)
             ));
         }
  
-        field_t* constant_fe = nullptr;
+        wrappedFieldPtr sptrConstant(nullptr);
         if(ccout.constant.is_initialized())
         {
-            wrappedFieldPtr sptr = ccout.constant->GetFieldElement();
-            constant_fe = sptr.get();
+            sptrConstant = ccout.constant->GetFieldElement();
         }
+        field_t* constant_fe = sptrConstant.get();
         
         BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
  
@@ -1489,8 +1538,8 @@ TEST(CctpLibrary, GetScIdFromNullInputs)
     uint256 scid(tmp);
 
     CFieldElement fe(scid);
-    auto sptr = fe.GetFieldElement();
-    field_t* fe_ptr = sptr.get();
+    auto sptrScId = fe.GetFieldElement();
+    field_t* fe_ptr = sptrScId.get();
     
     printf("        uint256 fe = [");
     ptr = (unsigned char*)fe_ptr;
@@ -1510,118 +1559,86 @@ TEST(CctpLibrary, GetScIdFromNullInputs)
  */
 TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
 {
-    boost::filesystem::path tempPath = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-    boost::filesystem::create_directories(tempPath);
+    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
+    const TestCircuitType circuitType = TestCircuitType::Certificate;
 
-    size_t segmentSize = 1 << 9;
-    CctpErrorCode errorCode;
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
 
-    ASSERT_EQ(tempPath.size(), tempPath.string().length());
-    ASSERT_EQ(tempPath.size(), strlen(tempPath.c_str()));
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    std::cout << "Temp folder for proof verification test: " << tempPath.string() << std::endl;
+    CCertProofVerifierInput certInput = CreateDefaultCertInput();
+    certInput.CertVk = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    certInput.certProof = testManager.GenerateTestCertificateProof(certInput, provingSystem);
 
-    ASSERT_TRUE(zendoo_init_dlog_keys(ProvingSystem::CoboundaryMarlin, segmentSize, (path_char_t*)tempPath.c_str(), strlen(tempPath.c_str()), &errorCode));
+    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+}
 
-    ASSERT_TRUE(zendoo_generate_mc_test_params(TestCircuitType::Certificate, ProvingSystem::CoboundaryMarlin, (path_char_t*)tempPath.c_str(), strlen(tempPath.c_str()), &errorCode));
+/**
+ * @brief This test is intended to generate verification parameters,
+ * generate a valid certificate proof (Darlin) and verify it through the batch verifier.
+ */
+TEST(CctpLibrary, CreateAndVerifyDarlinCertificateProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::Darlin;
+    const TestCircuitType circuitType = TestCircuitType::Certificate;
 
-    boost::filesystem::path sc_pk_path = tempPath / "cob_marlin_cert_test_pk";
-    boost::filesystem::path sc_vk_path = tempPath / "cob_marlin_cert_test_vk";
-    boost::filesystem::path sc_cert_proof_path = tempPath / "cob_marlin_cert_test_proof";
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
 
-    sc_pk_t* sc_pk = zendoo_deserialize_sc_pk_from_file(
-        (path_char_t*)sc_pk_path.c_str(),
-        strlen(sc_pk_path.c_str()),
-        true, /*semantic_checks*/
-        &errorCode
-    );
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    ASSERT_NE(sc_pk, nullptr);
+    CCertProofVerifierInput certInput = CreateDefaultCertInput();
+    certInput.CertVk = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    certInput.certProof = testManager.GenerateTestCertificateProof(certInput, provingSystem);
 
-    CCertProofVerifierInput certInput;
-    certInput.constant = CFieldElement(SAMPLE_FIELD);
-    certInput.epochNumber = 7;
-    certInput.quality = 10;
-    certInput.endEpochCumScTxCommTreeRoot = CFieldElement(SAMPLE_FIELD);
-    certInput.mainchainBackwardTransferRequestScFee = 1;
-    certInput.forwardTransferScFee = 1;
+    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+}
 
-    wrappedFieldPtr   sptrConst  = certInput.constant.GetFieldElement();
-    wrappedFieldPtr   sptrCum    = certInput.endEpochCumScTxCommTreeRoot.GetFieldElement();
-    wrappedScProofPtr sptrProof  = certInput.certProof.GetProofPtr();
-    wrappedScVkeyPtr  sptrCertVk = certInput.CertVk.GetVKeyPtr();
+/**
+ * @brief This test is intended to generate verification parameters,
+ * generate a valid CSW proof (Marlin) and verify it through the batch verifier.
+ */
+TEST(CctpLibrary, CreateAndVerifyMarlinCswProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
+    const TestCircuitType circuitType = TestCircuitType::CSW;
 
-    ASSERT_TRUE(zendoo_create_cert_test_proof(
-        false /*zk*/,
-        sptrConst.get(),
-        certInput.epochNumber,
-        certInput.quality,
-        nullptr, //certInput.bt_list.data(),
-        0, //certInput.bt_list.size(),
-        sptrCum.get(),
-        certInput.mainchainBackwardTransferRequestScFee,
-        certInput.forwardTransferScFee,
-        sc_pk,
-        (path_char_t*)sc_cert_proof_path.c_str(),
-        strlen(sc_cert_proof_path.c_str()),
-        &errorCode
-    ));
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
 
-    int custom_fields_len = certInput.vCustomFields.size(); 
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
-    int i = 0;
-    std::vector<wrappedFieldPtr> vSptr;
-    for (auto entry: certInput.vCustomFields)
-    {
-        wrappedFieldPtr sptr = entry.GetFieldElement();
-        custom_fields[i] = sptr.get();
-        vSptr.push_back(sptr);
-        i++;
-    }
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput();
+    cswInput.ceasedVk = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    cswInput.cswProof = testManager.GenerateTestCswProof(cswInput, provingSystem);
 
-    if (custom_fields_len == 0)
-    {
-        custom_fields.reset();
-        ASSERT_EQ(custom_fields.get(), nullptr);
-    }
+    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+}
 
-    sc_proof_t* certProof = zendoo_deserialize_sc_proof_from_file(
-        (path_char_t*)sc_cert_proof_path.c_str(),
-        strlen(sc_cert_proof_path.c_str()),
-        true, /*semantic_checks*/
-        &errorCode
-    );
+/**
+ * @brief This test is intended to generate verification parameters,
+ * generate a valid CSW proof (Marlin) and verify it through the batch verifier.
+ */
+TEST(CctpLibrary, CreateAndVerifyDarlinCswProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::Darlin;
+    const TestCircuitType circuitType = TestCircuitType::CSW;
 
-    ASSERT_NE(certProof, nullptr);
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
 
-    sc_vk_t* sc_vk = zendoo_deserialize_sc_vk_from_file(
-        (path_char_t*)sc_vk_path.c_str(),
-        strlen(sc_vk_path.c_str()),
-        true, /*semantic_checks*/
-        &errorCode
-    );
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    ASSERT_NE(sc_vk, nullptr);
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput();
+    cswInput.ceasedVk = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    cswInput.cswProof = testManager.GenerateTestCswProof(cswInput, provingSystem);
 
-    ASSERT_TRUE(zendoo_verify_certificate_proof(
-        sptrConst.get(),
-        certInput.epochNumber,
-        certInput.quality,
-        nullptr, //certInput.bt_list.data(),
-        0, //certInput.bt_list.size(),
-        custom_fields.get(),
-        custom_fields_len,
-        sptrCum.get(),
-        certInput.mainchainBackwardTransferRequestScFee,
-        certInput.forwardTransferScFee,
-        certProof,
-        sc_vk,
-        &errorCode
-    ));
-
-    boost::system::error_code ec;
-    boost::filesystem::remove_all(tempPath.string(), ec);
+    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
 }
 
 TEST(CctpLibrary, ReadWriteCmtObj)
@@ -1651,6 +1668,5 @@ TEST(CctpLibrary, ReadWriteCmtObj)
     cmt = cmtObj.getCommitment();
     printf("cmt = [%s]\n", cmt.ToString().c_str());
 }
-
 
 

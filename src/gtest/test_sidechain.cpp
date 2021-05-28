@@ -414,9 +414,6 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidActCertData) {
     EXPECT_FALSE(txState.IsValid());
     EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
         <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
-
-    // TODO remove as soon as libzendoo funcs are not mocked anymore
-    std::cout << "### THIS IS EXPECTED SINCE LIBZENDOO HAS MOCKED CALLS ###" << std::endl;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1817,12 +1814,14 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
         /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
 
+    Sidechain::ScFixedParameters fixedParams;
+
     /**
      * Check that two certificates with same parameters
      * have the same hash.
      */
     CScCertificate newCert = CScCertificate(originalCert);
-    EXPECT_EQ(originalCert.GetDataHash(), newCert.GetDataHash());
+    EXPECT_EQ(originalCert.GetDataHash(fixedParams), newCert.GetDataHash(fixedParams));
 
     /**
      * Check that two certificates with same parameters but different
@@ -1831,7 +1830,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     CMutableScCertificate mutCert = originalCert;
     mutCert.forwardTransferScFee = 1;
     newCert = mutCert;
-    EXPECT_FALSE(originalCert.GetDataHash() == newCert.GetDataHash());
+    EXPECT_FALSE(originalCert.GetDataHash(fixedParams) == newCert.GetDataHash(fixedParams));
 
     /**
      * Check that two certificates with same parameters but different
@@ -1840,7 +1839,7 @@ TEST_F(SidechainsTestSuite, CertificateHashComputation)
     mutCert = originalCert;
     mutCert.mainchainBackwardTransferRequestScFee = 1;
     newCert = mutCert;
-    EXPECT_FALSE(originalCert.GetDataHash() == newCert.GetDataHash());
+    EXPECT_FALSE(originalCert.GetDataHash(fixedParams) == newCert.GetDataHash(fixedParams));
 }
 
 

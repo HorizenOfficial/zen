@@ -7,6 +7,7 @@
 #include "primitives/certificate.h"
 #include "sc/proofverifier.h"
 
+
 #ifdef BITCOIN_TX
 void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom) {return;}
 void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom) {return;}
@@ -16,52 +17,11 @@ void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& v
     LogPrint("cert", "%s():%d - called: cert[%s], scId[%s]\n",
         __func__, __LINE__, scCert.GetHash().ToString(), scCert.GetScId().ToString());
 
-    // TODO this is code duplicated from CScProofVerifier::LoadDataForCertVerification
-    CCertProofVerifierInput certData;
-
-    certData.certificatePtr = std::make_shared<CScCertificate>(scCert);
-    certData.certHash = scCert.GetHash();
-
     CSidechain sidechain;
-    assert(view.GetSidechain(scCert.GetScId(), sidechain) && "Unknown sidechain at cert proof verification stage");
+    assert(view.GetSidechain(scCert.GetScId(), sidechain) && "Unknown sidechain at scTx proof verification stage");
 
-    if (sidechain.fixedParams.constant.is_initialized())
-        certData.constant = sidechain.fixedParams.constant.get();
-    else
-        certData.constant = CFieldElement{};
+    CCertProofVerifierInput certData = SidechainProofVerifier::CertificateToVerifierInput(scCert, sidechain.fixedParams, pfrom);
 
-    certData.epochNumber = scCert.epochNumber;
-    certData.quality = scCert.quality;
-
-    for(int pos = scCert.nFirstBwtPos; pos < scCert.GetVout().size(); ++pos)
-    {
-        CBackwardTransferOut btout(scCert.GetVout().at(pos));
-        certData.bt_list.push_back(backward_transfer{});
-        backward_transfer& bt = certData.bt_list.back();
-
-        std::copy(btout.pubKeyHash.begin(), btout.pubKeyHash.end(), std::begin(bt.pk_dest));
-        bt.amount = btout.nValue;
-    }
-
-    for (auto entry: scCert.vFieldElementCertificateField)
-    {
-        CFieldElement fe{entry.getVRawData()};
-        certData.vCustomFields.push_back(fe);
-    }
-    for (auto entry: scCert.vBitVectorCertificateField)
-    {
-        CFieldElement fe{entry.getVRawData()};
-        certData.vCustomFields.push_back(fe);
-    }
-
-    certData.endEpochCumScTxCommTreeRoot = scCert.endEpochCumScTxCommTreeRoot;
-    certData.mainchainBackwardTransferRequestScFee = scCert.mainchainBackwardTransferRequestScFee;
-    certData.forwardTransferScFee = scCert.forwardTransferScFee;
-
-    certData.certProof = scCert.scProof;
-    certData.CertVk = sidechain.fixedParams.wCertVk;
-
-    certData.node = pfrom;
     {
         LOCK(cs_asyncQueue);
         certEnqueuedData.insert(std::make_pair(scCert.GetHash(), certData));
@@ -78,40 +38,28 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
 
     for(size_t idx = 0; idx < scTx.GetVcswCcIn().size(); ++idx)
     {
-        CCswProofVerifierInput cswData;
-
-        cswData = cswEnqueuedData[scTx.GetHash()][idx]; //create or retrieve new entry
-
-        const CTxCeasedSidechainWithdrawalInput& csw = scTx.GetVcswCcIn().at(idx);
-
-        cswData.nValue = csw.nValue;
-        cswData.scId = csw.scId;
-        cswData.pubKeyHash = csw.pubKeyHash;
-
-        cswData.certDataHash = csw.actCertDataHash;
-        cswData.ceasingCumScTxCommTree = csw.ceasingCumScTxCommTree;
-
-        cswData.cswProof = csw.scProof;
+        const CTxCeasedSidechainWithdrawalInput& cswInput = scTx.GetVcswCcIn().at(idx);
 
         CSidechain sidechain;
-        assert(view.GetSidechain(csw.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
-
-        if (sidechain.fixedParams.wCeasedVk.is_initialized())
-            cswData.ceasedVk = sidechain.fixedParams.wCeasedVk.get();
-        else
-            cswData.ceasedVk = CScVKey{};
-
-        cswData.transactionPtr = std::make_shared<CTransaction>(scTx);
-
-        cswData.node = pfrom;
-
-        txMap.insert(std::make_pair(idx, cswData));
+        assert(view.GetSidechain(cswInput.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
+        
+        txMap.insert(std::make_pair(idx, SidechainProofVerifier::CswInputToVerifierInput(scTx.GetVcswCcIn().at(idx), &scTx, sidechain.fixedParams, pfrom)));
     }
 
     if (!txMap.empty())
     {
         LOCK(cs_asyncQueue);
-        cswEnqueuedData[scTx.GetHash()] = txMap;
+        auto pair_ret = cswEnqueuedData.insert(std::make_pair(scTx.GetHash(), txMap));
+        if (!pair_ret.second)
+        {
+            LogPrint("sc", "%s():%d - tx [%s] csw inputs already there\n",
+                __func__, __LINE__, scTx.GetHash().ToString());
+        }
+        else
+        {
+            LogPrint("sc", "%s():%d - tx [%s] added to queue with %d inputs\n",
+                __func__, __LINE__, scTx.GetHash().ToString(), txMap.size());
+        }
     }
 }
 #endif
@@ -237,15 +185,17 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
             const uint160& csw_pk_hash = input.pubKeyHash;
             BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
  
-            wrappedFieldPtr   sptrCdh      = input.certDataHash.GetFieldElement();
-            wrappedFieldPtr   sptrCum      = input.ceasingCumScTxCommTree.GetFieldElement();
-            wrappedScProofPtr sptrCswProof = input.cswProof.GetProofPtr();
-            wrappedScVkeyPtr  sptrCeasedVk = input.ceasedVk.GetVKeyPtr();
+            wrappedFieldPtr   sptrCdh       = input.certDataHash.GetFieldElement();
+            wrappedFieldPtr   sptrCum       = input.ceasingCumScTxCommTree.GetFieldElement();
+            wrappedFieldPtr   sptrNullifier = input.nullifier.GetFieldElement();
+            wrappedScProofPtr sptrCswProof  = input.cswProof.GetProofPtr();
+            wrappedScVkeyPtr  sptrCeasedVk  = input.ceasedVk.GetVKeyPtr();
 
             ret = batchVerifier.add_csw_proof(
                 idx,
                 input.nValue,
-                scid_fe, 
+                scid_fe,
+                sptrNullifier.get(),
                 &bws_csw_pk_hash,
                 sptrCdh.get(),
                 sptrCum.get(),
@@ -280,9 +230,9 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
         std::vector<wrappedFieldPtr> vSptr;
         for (auto entry: input.vCustomFields)
         {
-            wrappedFieldPtr sptr = entry.GetFieldElement();
-            custom_fields[i] = sptr.get();
-            vSptr.push_back(sptr);
+            wrappedFieldPtr sptrFe = entry.GetFieldElement();
+            custom_fields[i] = sptrFe.get();
+            vSptr.push_back(sptrFe);
             i++;
         }
 
@@ -398,9 +348,9 @@ bool CScAsyncProofVerifier::NormalVerifyCertificate(CCertProofVerifierInput inpu
     std::vector<wrappedFieldPtr> vSptr;
     for (auto entry: input.vCustomFields)
     {
-        wrappedFieldPtr sptr = entry.GetFieldElement();
-        custom_fields[i] = sptr.get();
-        vSptr.push_back(sptr);
+        wrappedFieldPtr sptrFe = entry.GetFieldElement();
+        custom_fields[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
         i++;
     }
 
@@ -465,15 +415,17 @@ bool CScAsyncProofVerifier::NormalVerifyCsw(uint256 txHash, std::map</*outputPos
         const uint160& csw_pk_hash = input.pubKeyHash;
         BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
      
-        wrappedFieldPtr   sptrCdh      = input.certDataHash.GetFieldElement();
-        wrappedFieldPtr   sptrCum      = input.ceasingCumScTxCommTree.GetFieldElement();
-        wrappedScProofPtr sptrProof    = input.cswProof.GetProofPtr();
-        wrappedScVkeyPtr  sptrCeasedVk = input.ceasedVk.GetVKeyPtr();
+        wrappedFieldPtr   sptrCdh       = input.certDataHash.GetFieldElement();
+        wrappedFieldPtr   sptrCum       = input.ceasingCumScTxCommTree.GetFieldElement();
+        wrappedFieldPtr   sptrNullifier = input.nullifier.GetFieldElement();
+        wrappedScProofPtr sptrProof     = input.cswProof.GetProofPtr();
+        wrappedScVkeyPtr  sptrCeasedVk  = input.ceasedVk.GetVKeyPtr();
 
         CctpErrorCode code;
         bool ret = zendoo_verify_csw_proof(
                     input.nValue,
                     scid_fe, 
+                    sptrNullifier.get(),
                     &bws_csw_pk_hash,
                     sptrCdh.get(),
                     sptrCum.get(),

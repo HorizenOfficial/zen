@@ -24,7 +24,7 @@ bool Sidechain::InitDLogKeys()
     CctpErrorCode errorCode;
     std::string folderPath = Sidechain::GetSidechainDataDir().string();
 
-    if (!zendoo_init_dlog_keys(ProvingSystem::Darlin, SEGMENT_SIZE, (path_char_t*)folderPath.c_str(), folderPath.length(), &errorCode))
+    if (!zendoo_init_dlog_keys(SEGMENT_SIZE, (path_char_t*)folderPath.c_str(), folderPath.length(), &errorCode))
     {
         return false;
     }
@@ -55,12 +55,6 @@ void Sidechain::ClearSidechainsFolder()
         if (is_regular_file(*it))
             remove(it->path());
     }
-}
-
-void Sidechain::LoadCumulativeProofsParameters()
-{
-    //Todo: call rust circuitry, passing the files hosting keys
-    return;
 }
 
 int CSidechain::EpochFor(int targetHeight) const

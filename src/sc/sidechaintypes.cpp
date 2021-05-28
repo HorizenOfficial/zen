@@ -10,20 +10,6 @@ void CZendooCctpLibraryChecker::CheckTypeSizes()
             __func__, __LINE__, Sidechain::SC_FE_SIZE_IN_BYTES, zendoo_get_field_size_in_bytes());
         assert(!"ERROR: field element size mismatch between rust CCTP lib and c header!");
     }
-#if 0
-    if (SC_VK_SIZE != zendoo_get_sc_vk_size_in_bytes())
-    {
-        LogPrintf("%s():%d - ERROR: unexpected CCTP vk size: %d (rust lib returns %d)\n", 
-            __func__, __LINE__, SC_VK_SIZE, zendoo_get_sc_vk_size_in_bytes());
-        assert(!"ERROR: vk size mismatch between rust CCTP lib and c header!");
-    }
-    if (SC_PROOF_SIZE != zendoo_get_sc_proof_size_in_bytes())
-    {
-        LogPrintf("%s():%d - ERROR: unexpected CCTP proof size: %d (rust lib returns %d)\n", 
-            __func__, __LINE__, SC_PROOF_SIZE, zendoo_get_sc_proof_size_in_bytes());
-        assert(!"ERROR: proof size mismatch between rust CCTP lib and c header!");
-    }
-#endif
     if (Sidechain::MAX_SC_CUSTOM_DATA_LEN != zendoo_get_sc_custom_data_size_in_bytes())
     {
         LogPrintf("%s():%d - ERROR: unexpected CCTP custom data size: %d (rust lib returns %d)\n", 
@@ -346,8 +332,6 @@ BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVect
 
 
 ////////////////////////////// Custom Field types //////////////////////////////
-
-
 //----------------------------------------------------------------------------------------
 FieldElementCertificateField::FieldElementCertificateField(const std::vector<unsigned char>& rawBytes)
     :CustomCertificateField(rawBytes), pReferenceCfg{nullptr} {}
@@ -360,7 +344,10 @@ FieldElementCertificateField::FieldElementCertificateField(const FieldElementCer
 
 FieldElementCertificateField& FieldElementCertificateField::operator=(const FieldElementCertificateField& rhs)
 {
+    state = rhs.state;
+    fieldElement =  rhs.fieldElement;
     *const_cast<std::vector<unsigned char>*>(&vRawData) = rhs.vRawData;
+
     if (rhs.pReferenceCfg != nullptr)
         this->pReferenceCfg = new FieldElementCertificateFieldConfig(*rhs.pReferenceCfg);
     else
@@ -368,13 +355,12 @@ FieldElementCertificateField& FieldElementCertificateField::operator=(const Fiel
     return *this;
 }
 
-
 bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg) const
 {
-    return !this->GetFieldElement(cfg).IsNull();
+    return !this->GetCheckedFieldElement(cfg).IsNull();
 }
 
-const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const
+const CFieldElement& FieldElementCertificateField::GetCheckedFieldElement(const FieldElementCertificateFieldConfig& cfg) const
 {
     if (state != VALIDATION_STATE::NOT_INITIALIZED)
     {
@@ -446,7 +432,10 @@ BitVectorCertificateField::BitVectorCertificateField(const BitVectorCertificateF
 
 BitVectorCertificateField& BitVectorCertificateField::operator=(const BitVectorCertificateField& rhs)
 {
+    state = rhs.state;
+    fieldElement =  rhs.fieldElement;
     *const_cast<std::vector<unsigned char>*>(&vRawData) = rhs.vRawData;
+
     if (rhs.pReferenceCfg != nullptr)
         this->pReferenceCfg = new BitVectorCertificateFieldConfig(*rhs.pReferenceCfg);
     else
@@ -456,10 +445,10 @@ BitVectorCertificateField& BitVectorCertificateField::operator=(const BitVectorC
 
 bool BitVectorCertificateField::IsValid(const BitVectorCertificateFieldConfig& cfg) const
 {
-    return !this->GetFieldElement(cfg).IsNull();
+    return !this->GetCheckedFieldElement(cfg).IsNull();
 }
 
-const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const
+const CFieldElement& BitVectorCertificateField::GetCheckedFieldElement(const BitVectorCertificateFieldConfig& cfg) const
 {
     if (state != VALIDATION_STATE::NOT_INITIALIZED)
     {
@@ -562,3 +551,139 @@ bool Sidechain::IsUndefinedProvingSystemType(const std::string& str)
     return (str.empty() || str == PROVING_SYS_TYPE_UNDEFINED);
 }
 
+void dumpBuffer(BufferWithSize* buf, const std::string& name)
+{
+    printf("==================================================================================\n");
+    printf("### %s() - %s\n", __func__, name.c_str());
+    printf("--------------------------------------------------------------------------------\n");
+    if (buf == nullptr)
+    {
+        printf("----> Null Buffer\n");
+        printf("==================================================================================\n");
+        return;
+    }
+
+    const unsigned char* ptr = buf->data;
+    size_t len = buf->len;
+
+    printf("buffer address: %p\n", buf);
+    printf("     data ptr : %p\n", ptr);
+    printf("          len : %lu\n", len);
+    printf("--------------------------------------------------------------------------------\n");
+
+    if (ptr == nullptr)
+    {
+        printf("----> Null data ptr\n");
+        printf("==================================================================================\n");
+        return;
+    }
+
+    int row = 0;
+    printf("contents:");
+    for (int i = 0; i < len; i++)
+    {
+        if (i%32 == 0)
+        {
+            row++;
+            printf("\n%5d)     ", row);
+        }
+        printf("%02x", *ptr++);
+    }
+    printf("\n\n");
+}
+
+
+void dumpBvCfg(BitVectorElementsConfig* buf, size_t len, const std::string& name)
+{
+    printf("==================================================================================\n");
+    printf("### %s() - %s\n", __func__, name.c_str());
+    printf("--------------------------------------------------------------------------------\n");
+    if (buf == nullptr)
+    {
+        printf("----> Null Buffer Array\n");
+        printf("==================================================================================\n");
+        return;
+    }
+
+
+    printf("buffer arr address: %p\n", buf);
+    printf("              len : %lu\n", len);
+    printf("--------------------------------------------------------------------------------\n");
+
+    BitVectorElementsConfig* ptr = buf;
+    printf("contents:");
+    for (int i = 0; i < len; i++)
+    {
+        printf("\n%3d)  %5d / %5d", i, ptr->bit_vector_size_bits, ptr->max_compressed_byte_size);
+        ptr++;
+    }
+    printf("\n\n");
+}
+
+void dumpFe(field_t* fe, const std::string& name)
+{
+    printf("==================================================================================\n");
+    printf("### %s() - %s\n", __func__, name.c_str());
+    printf("--------------------------------------------------------------------------------\n");
+    if (fe == nullptr)
+    {
+        printf("----> Null Fe\n");
+        printf("==================================================================================\n");
+        return;
+    }
+
+    unsigned char* ptr = (unsigned char*)fe;
+    printf("     contents: [");
+    for (int i = 0; i < CFieldElement::ByteSize(); i++)
+    {
+        printf("%02x", *ptr);
+        ptr++;
+    }
+    printf("]\n");
+
+    CctpErrorCode code;
+    unsigned char serialized_buffer[CFieldElement::ByteSize()] = {};
+    zendoo_serialize_field(fe, serialized_buffer, &code);
+    if (code != CctpErrorCode::OK)
+    {
+        printf("----> Could not serialize Fe\n");
+        printf("==================================================================================\n");
+        return;
+    }
+
+    ptr = serialized_buffer;
+    printf("serialized fe: [");
+    for (int i = 0; i < CFieldElement::ByteSize(); i++)
+    {
+        printf("%02x", *ptr);
+        ptr++;
+    }
+    printf("]\n\n");
+}
+
+void dumpFeArr(field_t** feArr, size_t len, const std::string& name)
+#ifndef BITCOIN_TX
+{
+    printf("==================================================================================\n");
+    printf("### %s() - %s\n", __func__, name.c_str());
+    printf("--------------------------------------------------------------------------------\n");
+    if (feArr == nullptr)
+    {
+        printf("----> Null Fe\n");
+        printf("==================================================================================\n");
+        return;
+    }
+
+    static const size_t BUF_SIZE = 32;
+    for (size_t i = 0; i < len; i++)
+    {
+        char buf[BUF_SIZE] = {};
+        snprintf(buf, BUF_SIZE, "fe %2lu)", i);
+        field_t* fe = feArr[i];
+        dumpFe(fe, std::string(buf));
+    }
+
+}
+#else
+{}
+#endif

@@ -53,6 +53,9 @@ public:
         return instance;
     }
 
+    static CCertProofVerifierInput CertificateToVerifierInput(const CScCertificate& certificate, const CCoinsViewCache& view, CNode* pfrom);
+    static CCswProofVerifierInput CswInputToVerifierInput(const CTxCeasedSidechainWithdrawalInput& cswInput, const CTransaction* cswTransaction, const CCoinsViewCache& view, CNode* pfrom);
+
     CScAsyncProofVerifier(const CScAsyncProofVerifier&) = delete;
     CScAsyncProofVerifier& operator=(const CScAsyncProofVerifier&) = delete;
 

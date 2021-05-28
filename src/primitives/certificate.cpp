@@ -14,6 +14,7 @@
 #include "script/interpreter.h"
 #include "script/sigcache.h"
 #include "main.h"
+#include "sc/proofverifier.h"
 
 CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nValue), pubKeyHash()
 {
@@ -261,7 +262,7 @@ std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
 {
     return std::shared_ptr<const CTransactionBase>();
 }
-CFieldElement CScCertificate::GetDataHash() const
+CFieldElement CScCertificate::GetDataHash(const Sidechain::ScFixedParameters& scFixedParams) const
 {
      static const CFieldElement dummy; return dummy;
 }
@@ -312,14 +313,51 @@ CScCertificate::MakeShared() const {
     return std::shared_ptr<const CTransactionBase>(new CScCertificate(*this));
 }
 
-CFieldElement CScCertificate::GetDataHash() const
+CFieldElement CScCertificate::GetDataHash(const Sidechain::ScFixedParameters& scFixedParams) const
 {
-    // in the final implementation this must not create an obj but should return a reference to a mem-only
-    // data member, similarly to what GetHash() is doing. This is for performances but expecially for avoiding 
-    // having temporary objs and playing with their internal data buffers. 
-    std::vector<unsigned char> tmp(this->GetHash().begin(), this->GetHash().end());
-    tmp.resize(CFieldElement::ByteSize(), 0x0);
-    return CFieldElement{tmp};
+    CCertProofVerifierInput input = SidechainProofVerifier::CertificateToVerifierInput(*this, scFixedParams, nullptr);
+
+    int custom_fields_len = input.vCustomFields.size(); 
+    std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
+    int i = 0;
+    std::vector<wrappedFieldPtr> vSptr;
+    for (auto entry: input.vCustomFields)
+    {
+        wrappedFieldPtr sptrFe = entry.GetFieldElement();
+        custom_fields[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
+        i++;
+    }
+
+    const backward_transfer_t* bt_list_ptr = input.bt_list.data();
+    int bt_list_len = input.bt_list.size();
+
+    // mc crypto lib wants a null ptr if we have no fields
+    if (custom_fields_len == 0)
+        custom_fields.reset();
+    if (bt_list_len == 0)
+        bt_list_ptr = nullptr;
+
+    wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
+    wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
+    wrappedScProofPtr sptrProof  = input.certProof.GetProofPtr();
+    wrappedScVkeyPtr  sptrCertVk = input.CertVk.GetVKeyPtr();
+
+    CctpErrorCode errorCode;
+
+    field_t* certDataHash = zendoo_get_cert_data_hash(input.epochNumber,
+                                                      input.quality,
+                                                      bt_list_ptr,
+                                                      bt_list_len,
+                                                      custom_fields.get(),
+                                                      custom_fields_len,
+                                                      input.endEpochCumScTxCommTreeRoot.GetFieldElement().get(),
+                                                      input.mainchainBackwardTransferRequestScFee,
+                                                      input.forwardTransferScFee,
+                                                      &errorCode
+                                                      );
+
+    return CFieldElement{wrappedFieldPtr{certDataHash, CFieldPtrDeleter{}}};
 }
 #endif
 

@@ -3,6 +3,7 @@ import os, os.path, binascii
 import random
 from subprocess import call
 
+
 SC_FIELD_SIZE = 32
 SC_FIELD_SAFE_SIZE = 31
 MAX_SC_PROOF_SIZE_IN_BYTES = 1024*10                                                                     
@@ -11,6 +12,9 @@ COIN = 100000000
 
 def generate_random_field_element_hex():
     return (binascii.b2a_hex(os.urandom(SC_FIELD_SAFE_SIZE)) + "00" * (SC_FIELD_SIZE - SC_FIELD_SAFE_SIZE))
+
+def generate_random_field_element_hex_list(len):
+    return [generate_random_field_element_hex() for i in xrange(len)]
 
 class MCTestUtils(object):
 
@@ -66,7 +70,7 @@ class CertTestUtils(MCTestUtils):
     def generate_params(self, id):
         return self._generate_params(id, "cert", self.ps_type, self.file_prefix)
 
-    def create_test_proof(self, id, epoch_number, quality, btr_fee, ft_min_amount, constant, end_cum_comm_tree_root, pks, amounts):
+    def create_test_proof(self, id, epoch_number, quality, btr_fee, ft_min_amount, constant, end_cum_comm_tree_root, pks = [], amounts = [], custom_fields = []):
         params_dir = self._get_params_dir(id)
         if not os.path.isfile(params_dir + self.file_prefix + "test_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_vk"):
             return
@@ -74,10 +78,14 @@ class CertTestUtils(MCTestUtils):
         args = []
         args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
         args += ["create", "cert", str(self.ps_type), str(proof_path), str(params_dir)]
-        args += [str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(btr_fee), str(ft_min_amount)]
+        args += [str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(int(btr_fee * COIN)), str(int(ft_min_amount * COIN))]
+        args.append(str(len(pks)))
         for (pk, amount) in zip(pks, amounts):
             args.append(str(pk))
             args.append(str(int(amount * COIN))) #codebase works in satoshi
+        args.append(str(len(custom_fields)))
+        for custom_field in custom_fields:
+            args.append(str(custom_field))
         subprocess.check_call(args)
         return self._get_proof(proof_path)
 
@@ -89,7 +97,7 @@ class CSWTestUtils(MCTestUtils):
     def generate_params(self, id):
         return self._generate_params(id, "csw", self.ps_type, self.file_prefix)
 
-    def create_test_proof(self, id, amount, sc_id, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash):
+    def create_test_proof(self, id, amount, sc_id, nullifier, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash):
         params_dir = self._get_params_dir(id)
         if not os.path.isfile(params_dir + self.file_prefix + "test_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_vk"):
             return
@@ -97,6 +105,6 @@ class CSWTestUtils(MCTestUtils):
         args = []
         args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
         args += ["create", "csw", str(self.ps_type), str(proof_path), str(params_dir)]
-        args += [str(int(amount * COIN)), str(sc_id), str(mc_pk_hash), str(end_cum_comm_tree_root), str(cert_data_hash)]
+        args += [str(int(amount * COIN)), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root), str(cert_data_hash)]
         subprocess.check_call(args)
         return self._get_proof(proof_path)
