@@ -429,6 +429,9 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.sync_all()
 
         # check that the cert for this epoch is correctly mined
+        print("SC id = " + scid1)
+        print("Block hash with cert = " + bestHash)
+        print("Block with cert = " + self.nodes[0].getblock(bestHash, False))
         assert_true(cert in self.nodes[0].getblock(bestHash, True)['cert'])
         
         mark_logs("...stopping and restarting nodes", self.nodes, DEBUG_MODE)
