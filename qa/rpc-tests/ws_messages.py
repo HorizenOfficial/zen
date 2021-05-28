@@ -183,7 +183,7 @@ class ws_messages(BitcoinTestFramework):
         mark_logs("Node 0 performs a bwd transfer to Node1 pkh {} of {} coins via Websocket".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         #----------------------------------------------------------------"
         cert_epoch_0 = self.nodes[1].ws_send_certificate(
-            scid, epoch_number, quality, cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, FIELD_ELEMENT, BIT_VECTOR)
+            scid, epoch_number, quality, cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         self.sync_all()
 
         mark_logs("Check cert is in mempool", self.nodes, DEBUG_MODE)
