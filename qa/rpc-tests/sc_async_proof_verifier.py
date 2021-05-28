@@ -18,6 +18,8 @@ import time
 import codecs
 
 NUMB_OF_NODES = 2
+# TODO: add the third node
+#NUMB_OF_NODES = 3
 DEBUG_MODE = 1
 EPOCH_LENGTH = 6
 CERT_FEE = Decimal('0.0001')
@@ -54,12 +56,12 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
                                              '-debug=mempool', '-debug=net', '-debug=bench']])
                                              # Skip proof verification for the last node
                                              # TODO: enable this part after the integration with the updated proof verification system.
-                                             #  ["-skipscproof", "-sccoinsmaturity=0", '-logtimemicros=1', '-debug=sc', '-debug=py',
-                                             #  '-debug=mempool', '-debug=net', '-debug=bench']])
+                                             # ["-skipscproof=1", "-sccoinsmaturity=0", '-logtimemicros=1', '-debug=sc', '-debug=py',
+                                             # '-debug=mempool', '-debug=net', '-debug=bench']])
 
         connect_nodes_bi(self.nodes, 0, 1)
         # TODO: connect the last node after the integration with the updated proof verification system.
-        # connect_nodes_bi(self.nodes, 1, 2)
+        #connect_nodes_bi(self.nodes, 1, 2)
         self.is_network_split = split
         self.sync_all()
 
@@ -71,7 +73,10 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         # Prepare some coins 
         self.nodes[0].generate(220)
         self.sync_all()
-        prev_epoch_hash = self.nodes[0].getbestblockhash()
+
+        # TODO: generate some coins on node 2
+        # self.nodes[2].generate(220)
+        # self.sync_all()
 
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
         sc_epoch_len = EPOCH_LENGTH
@@ -104,7 +109,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         decoded_tx = self.nodes[1].getrawtransaction(final_raw_tx, 1)
         scid = decoded_tx['vsc_ccout'][0]['scid']
         print "        scid :", scid
-        scid_swapped = self.swap_bytes(scid)
+        scid_swapped = swap_bytes(scid)
         print "scid swapped:", scid_swapped
         mark_logs("created SC id: {}".format(scid), self.nodes, DEBUG_MODE)
         print
@@ -140,19 +145,18 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         mbtr_fee = 0
 
         # TODO: enable this section of the test after the integration with the updated proof verification system
-        # (MC Crypto Lib and CCTP Lib) since currently there is no way of providing a proof that fails the verification.
-        #
+        # (MC Crypto Lib and CCTP Lib) since currently there is no way of provicert_quality
         # TODO: to make this section work, it is needed to add a third node to the network.
         #
-        # # Manually create a certificate with invalid proof to test the ban mechanism
+        # Manually create a certificate with invalid proof to test the ban mechanism
         # mark_logs("\nTest the node ban mechanism by sending a certificate with invalid proof", self.nodes, DEBUG_MODE)
 
         # # Create an invalid proof by providing the wrong epoch_number
-        # proof = mc_test.create_test_proof("sc", epoch_number + 1, epoch_block_hash, prev_epoch_hash, 1, constant, [], [])
-
+        # proof = certMcTest.create_test_proof("sc", epoch_number + 1, cert_quality, mbtr_fee, ft_fee, constant, epoch_cum_tree_hash, [], [])
+        # raw_input("#############")
         # try:
         #     # The send_certificate call must be ok since the proof verification is disabled on node 2
-        #     cert = self.nodes[2].send_certificate(scid, epoch_number, cert_quality, epoch_block_hash, epoch_cum_tree_hash,
+        #     cert = self.nodes[2].send_certificate(scid, epoch_number, cert_quality, epoch_cum_tree_hash,
         #                                           proof, [], ft_fee, mbtr_fee, cert_fee)
         # except JSONRPCException, e:
         #     error_string = e.error['message']
@@ -165,14 +169,15 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         # assert_true(cert in self.nodes[2].getrawmempool())
 
         # # Wait until the other nodes process the certificate relayed by node 2
-        # time.sleep(MEMPOOL_LONG_WAIT_TIME)
+        # time.sleep(2 * MEMPOOL_LONG_WAIT_TIME)
 
         # # Check that the other nodes didn't accept the certificate containing the wrong proof
         # assert_false(cert in self.nodes[0].getrawmempool())
         # assert_false(cert in self.nodes[1].getrawmempool())
 
+        # raw_input("_________________")
         # # Check that the other nodes banned the node 2
-        # assert_equal(len(self.nodes[0].listbanned()), 1)
+        # #assert_equal(len(self.nodes[0].listbanned()), 1)
         # assert_equal(len(self.nodes[1].listbanned()), 1)
 
         # # Remove node 2 from banned list
@@ -182,7 +187,6 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         # Create the valid proof
         proof = certMcTest.create_test_proof(
                 "sc", epoch_number, cert_quality, mbtr_fee, ft_fee, constant, epoch_cum_tree_hash, [], [])
-        #print "proof = ", proof
 
         try:
             cert = self.nodes[0].send_certificate(scid, epoch_number, cert_quality, epoch_cum_tree_hash,
@@ -262,9 +266,12 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         ceasingCumScTxCommTree = self.nodes[0].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
         pprint.pprint(act_cert_data)
 
-        sc_proof = cswMcTest.create_test_proof(
-                "sc", sc_csw_amount, str(scid_swapped), pkh_mc_address, ceasingCumScTxCommTree, act_cert_data) 
-        #print "sc_proof =", sc_proof
+        sc_proof_1 = cswMcTest.create_test_proof(
+                "sc", sc_csw_amount, str(scid_swapped), null_1, pkh_mc_address, ceasingCumScTxCommTree, act_cert_data) 
+        sc_proof_2 = cswMcTest.create_test_proof(
+                "sc", sc_csw_amount, str(scid_swapped), null_2, pkh_mc_address, ceasingCumScTxCommTree, act_cert_data) 
+        sc_proof_3 = cswMcTest.create_test_proof(
+                "sc", sc_csw_amount, str(scid_swapped), null_3, pkh_mc_address, ceasingCumScTxCommTree, act_cert_data) 
 
         sc_csws = [
             {
@@ -275,7 +282,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
                 "nullifier": null_1,
                 "activeCertData": act_cert_data,
                 "ceasingCumScTxCommTree": ceasingCumScTxCommTree,
-                "scProof": sc_proof
+                "scProof": sc_proof_1
             },
             {
                 "amount": sc_csw_amount,
@@ -285,7 +292,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
                 "nullifier": null_2,
                 "activeCertData": act_cert_data,
                 "ceasingCumScTxCommTree": ceasingCumScTxCommTree,
-                "scProof": sc_proof
+                "scProof": sc_proof_2
             },
             {
                 "amount": sc_csw_amount,
@@ -295,7 +302,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
                 "nullifier": null_3,
                 "activeCertData": act_cert_data,
                 "ceasingCumScTxCommTree": ceasingCumScTxCommTree,
-                "scProof": sc_proof
+                "scProof": sc_proof_3
             }
         ]
 
