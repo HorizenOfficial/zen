@@ -173,6 +173,9 @@ bool CScProofVerifier::BatchVerify() const
         );
         idx++;
 
+        //dumpFeArr((field_t**)custom_fields.get(), custom_fields_len, "custom fields");
+        //dumpFe(sptrCum.get(), "cumTree");
+
         if (!ret || code != CctpErrorCode::OK)
         {
             LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify: ret[%d], code [0x%x]\n",
@@ -231,12 +234,14 @@ CCertProofVerifierInput SidechainProofVerifier::CertificateToVerifierInput(const
 
     for (auto entry: certificate.vFieldElementCertificateField)
     {
-        CFieldElement fe{entry.getExtendedRawData()};
+        CFieldElement fe{entry.GetFieldElement()};
+        assert(fe.IsValid());
         certData.vCustomFields.push_back(fe);
     }
     for (auto entry: certificate.vBitVectorCertificateField)
     {
-        CFieldElement fe{entry.getExtendedRawData()};
+        CFieldElement fe{entry.GetFieldElement()};
+        assert(fe.IsValid());
         certData.vCustomFields.push_back(fe);
     }
 

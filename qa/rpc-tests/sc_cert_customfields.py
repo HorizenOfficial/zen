@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
-    dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable
+    dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
@@ -20,6 +20,9 @@ EPOCH_LENGTH = 5
 FT_SC_FEE = Decimal('0')
 MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal("0.000123")
+
+BIT_VECTOR_BUF = "021f8b08000000000002ff017f0080ff44c7e21ba1c7c0a29de006cb8074e2ba39f15abfef2525a4cbb3f235734410bda21cdab6624de769ceec818ac6c2d3a01e382e357dce1f6e9a0ff281f0fedae0efe274351db37599af457984dcf8e3ae4479e0561341adfff4746fbe274d90f6f76b8a2552a6ebb98aee918c7ceac058f4c1ae0131249546ef5e22f4187a07da02ca5b7f000000"
+BIT_VECTOR_FE  = "8a7d5229f440d4700d8b0343de4e14400d1cb87428abf83bd67153bf58871721"
 
 class sc_cert_customfields(BitcoinTestFramework):
     alert_filename = None
@@ -131,7 +134,10 @@ class sc_cert_customfields(BitcoinTestFramework):
         # all certs must have custom FieldElements with exactly those values as size in bits 
         feCfg.append([31, 48, 16])
 
-        cmtCfg.append([[254*8, 4], [254*8*2, 8]])
+        # one custom bv element with:
+        # - as many bits in the uncompressed form (must be divisible by 254 and 8)
+        # - up to 151 bytes in the compressed form
+        cmtCfg.append([[254*4, 151]])
 
         cmdInput = {
             'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': fee,
@@ -262,27 +268,23 @@ class sc_cert_customfields(BitcoinTestFramework):
         # cfgs for SC2: [16], []
         mark_logs("\nCreate raw cert with wrong field element for the referred SC2 (expecting failure)...", self.nodes, DEBUG_MODE)
 
+        # custom fields are not consistent with cfg: should fail
         vCfe = ["abcd1234", "ccccddddeeee", "aaee"]
         vCmt = ["1111", "0660101a"]
 
-        # TODO do padding in a better way
-        fe1 = "abcd123400000000000000000000000000000000000000000000000000000000"
-        fe2 = "ccccddddeeee0000000000000000000000000000000000000000000000000000"
-        fe3 = "aaee000000000000000000000000000000000000000000000000000000000000"
-        fe4 = "1111000000000000000000000000000000000000000000000000000000000000"
-        fe5 = "0660101a00000000000000000000000000000000000000000000000000000000"
-
+        # this proof would be invalid but we expect an early failure
         scProof2 = mcTest.create_test_proof(
-            'sc2', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant2, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
-            [fe1, fe2, fe3, fe4, fe5])
+            'sc2', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant2, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
 
         params = {
             'scid': scid2,
             'quality': 10,
             'scProof': scProof2,
+            'endEpochCumScTxCommTreeRoot': epoch_cum_tree_hash_1,
             'withdrawalEpochNumber': epoch_number_1,
             'vFieldElementCertificateField': vCfe,
-            'vBitVectorCertificateField':vCmt}
+            'vBitVectorCertificateField':vCmt
+        }
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
@@ -291,23 +293,102 @@ class sc_cert_customfields(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert_true("bad-sc-cert-not-applicable" in errorString);
 
         #-------------------------------------------------------
         mark_logs("\nCreate raw cert with good custom field elements for SC2...", self.nodes, DEBUG_MODE)
         # cfgs for SC2: [16], []
-        # field element will be filled using trailing zeroes, therefore we must be careful with bits. "0x0100" = 0000 0001 0000 0000 is OK
-        # because last 15 bits are set to 0
+        # we must be careful with ending bits for having valid fe.
         vCfe = ["0100"]
         vCmt = []
 
-        fe1 = "0100000000000000000000000000000000000000000000000000000000000000"
+        # serialized fe for the proof has 32 byte size
+        fe1 = "000000000000000000000000000000000000000000000000000000000000" + "0100"
 
         scProof3 = mcTest.create_test_proof(
             'sc2', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant2, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
             [fe1])
 
+        print "cum =", epoch_cum_tree_hash_1
         params = {
             'scid': scid2,
+            'quality': 10,
+            'endEpochCumScTxCommTreeRoot': epoch_cum_tree_hash_1,
+            'scProof': scProof3,
+            'withdrawalEpochNumber': epoch_number_1,
+            'vFieldElementCertificateField': vCfe,
+            'vBitVectorCertificateField':vCmt
+        }
+
+        try:
+            rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
+            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert (False)
+
+        self.sync_all()
+        mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
+        assert_equal(True, cert in self.nodes[0].getrawmempool())
+        certs.append(cert);
+
+        #-------------------------------------------------------
+        # get another UTXO
+        utx, change = get_spendable(self.nodes[0], CERT_FEE)
+        inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
+        outputs = { self.nodes[0].getnewaddress() : change }
+
+        # cfgs for SC1: [31, 48, 16], [[254*4, 151]]
+        mark_logs("Create raw cert with bad custom field elements for SC1... (expecting failure)", self.nodes, DEBUG_MODE)
+
+        # In 0xcd (last byte of firts field) there are no trailing null bits, therefore it is not OK
+        vCfe = ["abde12cd", "ccccbbbbeeee", "cbbd"]
+        vCmt = ["1111"]
+
+        # this proof would not be valid, but we expect an early failure
+        scProof1 = mcTest.create_test_proof('sc1', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
+
+        params = {
+            'scid': scid1,
+            'quality': 10,
+            'endEpochCumScTxCommTreeRoot': epoch_cum_tree_hash_1,
+            'scProof': scProof1,
+            'withdrawalEpochNumber': epoch_number_1,
+            'vFieldElementCertificateField': vCfe,
+            'vBitVectorCertificateField':vCmt
+        }
+
+        try:
+            rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
+            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            assert (False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert_true("bad-sc-cert-not-applicable" in errorString);
+
+        self.sync_all()
+        mark_logs("\nCreate raw cert with good custom field elements for SC1...", self.nodes, DEBUG_MODE)
+
+        # Any number ending with 0x00 is not over module for being a valid field element, therefore it is OK
+        vCfe = ["ab000100", "ccccdddd0000", "0100"]
+        # this is a compressed buffer which will yield a valid field element for the proof (see below)
+        vCmt = [BIT_VECTOR_BUF]
+
+        fe1 = "00000000000000000000000000000000000000000000000000000000" + "ab000100"
+        fe2 = "0000000000000000000000000000000000000000000000000000" + "ccccdddd0000"
+        fe3 = "000000000000000000000000000000000000000000000000000000000000" + "0100"
+        fe4 = BIT_VECTOR_FE
+
+        scProof3 = mcTest.create_test_proof(
+            'sc1', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            [fe1, fe2, fe3, fe4])
+
+        params = {
+            'scid': scid1,
             'quality': 10,
             'endEpochCumScTxCommTreeRoot': epoch_cum_tree_hash_1,
             'scProof': scProof3,
@@ -328,159 +409,6 @@ class sc_cert_customfields(BitcoinTestFramework):
         mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
         assert_equal(True, cert in self.nodes[0].getrawmempool())
         certs.append(cert);
-
-        #-------------------------------------------------------
-        scProof1 = mcTest.create_test_proof('sc1', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
-
-        # get another UTXO
-        utx, change = get_spendable(self.nodes[0], CERT_FEE)
-        inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
-        outputs = { self.nodes[0].getnewaddress() : change }
-
-        # cfgs for SC1: [31, 48, 16], [[8, 4], [16, 8]]
-        mark_logs("Create raw cert with bad custom field elements for SC1...", self.nodes, DEBUG_MODE)
-
-        # In 0xcd there are no trailing null bits, therefore it is not OK
-        vCfe = ["abde12cd", "ccccbbbbeeee", "cbbd"]
-        vCmt = ["1111", "0660101a"]
-        params = {
-            'scid': scid1,
-            'quality': 10,
-            'endEpochCumScTxCommTreeRoot': epoch_cum_tree_hash_1,
-            'scProof': scProof1,
-            'withdrawalEpochNumber': epoch_number_1,
-            'vFieldElementCertificateField': vCfe,
-            'vBitVectorCertificateField':vCmt
-        }
-
-        try:
-            rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
-            assert (False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-
-        self.sync_all()
-        mark_logs("\nCreate raw cert with good custom field elements for SC1...", self.nodes, DEBUG_MODE)
-
-        # Any number ending with 0x00 0x01 0x00 is not over module for being a valid field element, therefore it is OK
-        vCfe = ["ab000100", "ccccdddd0000", "0100"]
-        vCmt = ["1111", "0660101a"]
-        params = {
-            'scid': scid1,
-            'quality': 10,
-            'endEpochCumScTxCommTreeRoot': epoch_cum_tree_hash_1,
-            'scProof': scProof1,
-            'withdrawalEpochNumber': epoch_number_1,
-            'vFieldElementCertificateField': vCfe,
-            'vBitVectorCertificateField':vCmt
-        }
-
-        try:
-            rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-            assert (False)
-        self.sync_all()
-        mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
-        assert_equal(True, cert in self.nodes[0].getrawmempool())
-        certs.append(cert);
-
-        #-------------------------------------------------------
-        mark_logs("\nCreate Cert for SC3 with good custom field elements", self.nodes, DEBUG_MODE)
-        scProof3 = mcTest.create_test_proof('sc3', epoch_number_1, 5, MBTR_SC_FEE, FT_SC_FEE, constant3, epoch_cum_tree_hash_1, [], [])
-
-        vCfe = []
-        vCmt = ["1122334455667788"]
-        try:
-            cert = self.nodes[0].send_certificate(scid3, epoch_number_1, 5,
-                epoch_cum_tree_hash_1, scProof3, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, vCfe, vCmt)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert(False)
-        self.sync_all()
-        mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
-        assert_equal(True, cert in self.nodes[0].getrawmempool())
-        certs.append(cert);
-
-        # advance epoch
-        #-------------------------------------------------------
-        mark_logs("\nNode 0 generates 1 block confirming certs", self.nodes, DEBUG_MODE)
-        bestHash = self.nodes[0].generate(1)[-1]
-        self.sync_all()
-
-        # check all certs for this epoch are correctly mined
-        blist = self.nodes[0].getblock(bestHash, True)['cert']
-        for x in certs:
-            assert_true(x in blist)
-        
-        mark_logs("\nNode 0 generates 4 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(4)
-        self.sync_all()
-
-        epoch_number_2, epoch_cum_tree_hash_2 = get_epoch_data(scid1, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number_2, epoch_cum_tree_hash_2), self.nodes, DEBUG_MODE)
-
-        #-------------------------------------------------------
-        # cfgs for SC1: [31, 48, 16], [[8, 4], [16, 8]]
-        scProof1 = mcTest.create_test_proof('sc1', epoch_number_2, 5, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_2, [], [])
-
-        mark_logs("\nCreate Cert without custom field elements (should fail)", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[0].send_certificate(scid1, epoch_number_2, 5,
-                epoch_cum_tree_hash_2, scProof1, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
-            assert(False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        #-------------------------------------------------------
-        mark_logs("\nCreate Cert with invalid custom field elements (should fail)", self.nodes, DEBUG_MODE)
-        # vCfe[0]---> 256 bits (!= 31)
-        vCfe = ["06601c01528416d44682d41d979ded016d950924418ec354663f0bd761188da3", "0912f922dd37b01258eaf5311d68e723f8a8ced4a3c64471511b0020bf3fdcc9"]
-        vCmt = ["6d950924418ec337b01258eaf5311d68e723f8a8ced4", "233311860324"]
-        try:
-            self.nodes[0].send_certificate(scid1, epoch_number_2, 5,
-                epoch_cum_tree_hash_2, scProof1, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, vCfe, vCmt)
-            assert(False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-
-        #-------------------------------------------------------
-        mark_logs("\nCreate Cert with invalid custom field elements (should fail)", self.nodes, DEBUG_MODE)
-        vCfe = ["18ec3546", "12f922dd37b0", "dddd"]
-        vCmt = ["6d950924418ec337b01258eaf5311d68e723f8a8ced4", "23331186032400aaff"]
-        # vCmt[1]---> 9 bytes (!= 2^3 * 8 = 64 bits)
-        try:
-            self.nodes[0].send_certificate(scid1, epoch_number_2, 5,
-                epoch_cum_tree_hash_2, scProof1, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, vCfe, vCmt)
-            assert(False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-        return
-
-        #-------------------------------------------------------
-        mark_logs("\nCreate Cert for SC1 with good custom field elements", self.nodes, DEBUG_MODE)
-        vCfe = ["18ec3546", "12f922dd37b0", "abcd"]
-        vCmt = ["6d950924418ec337b01258eaf5311d68e723f8a8ced4", "23331186032400ff"]
-        try:
-            cert = self.nodes[0].send_certificate(scid1, epoch_number_2, 5,
-                epoch_cum_tree_hash_2, scProof1, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, vCfe, vCmt)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert(False)
-        self.sync_all()
-        mark_logs("\nCheck cert is in mempool", self.nodes, DEBUG_MODE)
-        assert_equal(True, cert in self.nodes[0].getrawmempool())
 
         #-------------------------------------------------------
         # parse a good cert and check custom fields

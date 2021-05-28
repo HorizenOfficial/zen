@@ -326,13 +326,7 @@ public:
         :vRawData(rawBytes), state(VALIDATION_STATE::NOT_INITIALIZED) {};
     virtual ~CustomCertificateField() = default;
 
-    std::vector<unsigned char> getExtendedRawData() const
-    {
-        std::vector<unsigned char> extendedRawData = vRawData;
-        extendedRawData.insert(extendedRawData.begin(), CFieldElement::ByteSize() - vRawData.size(), 0x0);
-        return extendedRawData;
-    }
-
+    const CFieldElement& GetFieldElement() const { return fieldElement;}
     const std::vector<unsigned char>& getVRawData() const { return vRawData; }
 };
 
@@ -545,5 +539,11 @@ struct CRecipientBwtRequest
 };
 
 }; // end of namespace
+
+void dumpBuffer(BufferWithSize* buf, const std::string& name);
+void dumpBvCfg(BitVectorElementsConfig* buf, size_t len, const std::string& name);
+void dumpFe(field_t* fe, const std::string& name);
+void dumpFeArr(field_t** feArr, size_t len, const std::string& name);
+
 
 #endif // _SIDECHAIN_TYPES_H

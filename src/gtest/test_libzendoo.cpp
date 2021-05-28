@@ -743,6 +743,7 @@ TEST(CctpLibrary, BitVectorMerkleTreeData)
         0xf4, 0xc1, 0xae, 0x01, 0x31, 0x24, 0x95, 0x46, 0xef, 0x5e, 0x22, 0xf4, 0x18, 0x7a, 0x07
     };
 
+    // this is the resulting field element
     unsigned char solution[] = {
         0x8a, 0x7d, 0x52, 0x29, 0xf4, 0x40, 0xd4, 0x70, 0x0d, 0x8b, 0x03, 0x43, 0xde, 0x4e, 0x14, 0x40,
         0x0d, 0x1c, 0xb8, 0x74, 0x28, 0xab, 0xf8, 0x3b, 0xd6, 0x71, 0x53, 0xbf, 0x58, 0x87, 0x17, 0x21
@@ -761,7 +762,14 @@ TEST(CctpLibrary, BitVectorMerkleTreeData)
     ASSERT_TRUE(bws_ret != nullptr);
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
 
+    // this is the vector with the raw data which are serialized
     printf("\nCompressed data size = %lu ...\n", bws_ret->len);
+    printf("\ncompressed data = [");
+    for (int i = 0; i < bws_ret->len; i++)
+    {
+        printf("%02x", ((const unsigned char*)bws_ret->data)[i]);
+    }
+    printf("]\n");
 
     printf("\nBuilding merkle tree ...\n");
     field_t* fe = zendoo_merkle_root_from_compressed_bytes(bws_ret, len, &ret_code);
@@ -1173,7 +1181,7 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
     std::vector<wrappedFieldPtr> vSptr;
     for (auto entry: cert.vFieldElementCertificateField)
     {
-        CFieldElement fe{entry.getExtendedRawData()};
+        CFieldElement fe{entry.GetFieldElement()};
         wrappedFieldPtr sptrFe = fe.GetFieldElement();
         custom_fields[i] = sptrFe.get();
         vSptr.push_back(sptrFe);

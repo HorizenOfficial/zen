@@ -40,8 +40,4 @@ private:
     bool add_cert(const CScCertificate& cert, CctpErrorCode& ret_code);
 };
 
-void dumpBuffer(BufferWithSize* buf, const std::string& name);
-void dumpBvCfg(BitVectorElementsConfig* buf, size_t len, const std::string& name);
-void dumpFe(field_t* fe, const std::string& name);
-
 #endif
