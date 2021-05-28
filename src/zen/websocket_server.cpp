@@ -714,7 +714,7 @@ private:
                 std::set<std::string> setKeyArgs;
 
                 static const std::set<std::string> validKeyArgs = {
-                    "scid", "epochNumber", "quality", "fee", "endEpochCumScTxCommTreeRoot", "scProof",
+                    "scid", "epochNumber", "quality", "fee", "endEpochCumCommTreeHash", "scProof",
                     "backwardTransfers", "vFieldElementCertificateField", "vBitVectorCertificateField",
                     "forwardTransferScFee", "mainchainBackwardTransferScFee"
                 };
@@ -757,9 +757,9 @@ private:
                 }
                 cmdParams.push_back(qualVal.get_int());
 
-                std::string endEpochCumScTxCommTreeRootStr = findFieldValue("endEpochCumScTxCommTreeRoot", reqPayload);
+                std::string endEpochCumScTxCommTreeRootStr = findFieldValue("endEpochCumCommTreeHash", reqPayload);
                 if (endEpochCumScTxCommTreeRootStr.empty()) {
-                    outMsg = "endEpochCumScTxCommTreeRoot empty";
+                    outMsg = "endEpochCumCommTreeHash empty";
                     LogPrint("ws", "%s():%d - %s: msg[%s]\n", __func__, __LINE__, outMsg, msg);
                     return MISSING_PARAMETER;
                 }    

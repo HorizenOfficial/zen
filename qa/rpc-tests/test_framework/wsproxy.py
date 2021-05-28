@@ -53,7 +53,7 @@ def fill_ws_send_certificate_input(args):
     msg['requestPayload']['scid']                                = args[0] # scid
     msg['requestPayload']['epochNumber']                         = args[1] # epoch_number
     msg['requestPayload']['quality']                             = args[2] # quality
-    msg['requestPayload']['endEpochBlockHash']                   = args[3] # epoch_block_hash
+    msg['requestPayload']['endEpochCumCommTreeHash']             = args[3] # epoch_block_hash
     msg['requestPayload']['scProof']                             = args[4] # proof
     msg['requestPayload']['backwardTransfers']                   = args[5] # bwt
     msg['requestPayload']['forwardTransferScFee']                = args[6] # forward transfer fee
@@ -64,7 +64,7 @@ def fill_ws_send_certificate_input(args):
         msg['requestPayload']['fee']                            = args[8]  # fee
 
     if len(args) > 9:
-        msg['requestPayload']['vFieldElementCertificateField']  = args[9] #
+        msg['requestPayload']['vFieldElementCertificateField']  = args[9] # certificate field element
 
     if len(args) > 10:
         msg['requestPayload']['vBitVectorCertificateField']     = args[10] # BitVector
