@@ -332,8 +332,6 @@ BitVectorCertificateFieldConfig::BitVectorCertificateFieldConfig(int32_t bitVect
 
 
 ////////////////////////////// Custom Field types //////////////////////////////
-
-
 //----------------------------------------------------------------------------------------
 FieldElementCertificateField::FieldElementCertificateField(const std::vector<unsigned char>& rawBytes)
     :CustomCertificateField(rawBytes), pReferenceCfg{nullptr} {}
@@ -676,10 +674,11 @@ void dumpFeArr(field_t** feArr, size_t len, const std::string& name)
         return;
     }
 
+    static const size_t BUF_SIZE = 32;
     for (size_t i = 0; i < len; i++)
     {
-        char buf[16] = {};
-        sprintf(buf, "fe %2lu)", i);
+        char buf[BUF_SIZE] = {};
+        snprintf(buf, BUF_SIZE, "fe %2lu)", i);
         field_t* fe = feArr[i];
         dumpFe(fe, std::string(buf));
     }
