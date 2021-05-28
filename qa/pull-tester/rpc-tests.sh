@@ -126,7 +126,6 @@ testScriptsExt=(
   'smartfees.py'
   'maxblocksinflight.py'
 # 'invalidblockrequest.py'    # requires create_block functionality that is not implemented for zcash blocks yet
-# 'forknotify.py'
 # 'p2p-acceptblock.py'        # requires create_block functionality that is not implemented for zcash blocks yet
   'replay_protection.py'
   'headers_01.py'

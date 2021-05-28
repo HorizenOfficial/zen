@@ -126,7 +126,6 @@ class ScInvalidateTest(BitcoinTestFramework):
         mcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir)
         cswVk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
-        custom_data = generate_random_field_element_list_hex(3)
 
         sc = [{
             "epoch_length": sc_epoch,
@@ -134,7 +133,6 @@ class ScInvalidateTest(BitcoinTestFramework):
             "address": sc_address,
             "wCertVk": certVk,
             "wCeasedVk": cswVk,
-            "customData": custom_data,
             "constant": constant,
             "mainchainBackwardTransferRequestDataLength": 1
         }]
