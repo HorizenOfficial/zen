@@ -78,11 +78,13 @@ class quality_mempool(BitcoinTestFramework):
         mark_logs("Node1 balance before SC creation: {}".format(bal_before_sc_creation), self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk_1 = mcTest.generate_params("sc1")
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk_tag_1 = "sc1"
+        vk_1 = mcTest.generate_params(vk_tag_1)
         constant_1 = generate_random_field_element_hex()
 
-        vk_2 = mcTest.generate_params("sc2")
+        vk_tag_2 = "sc2"
+        vk_2 = mcTest.generate_params(vk_tag_2)
         constant_2 = generate_random_field_element_hex()
 
         ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk_1, "", constant_1)
@@ -158,25 +160,22 @@ class quality_mempool(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['balance'], creation_amount + fwt_amount) # Sc balance has matured
         assert_equal(len(self.nodes[0].getscinfo(scid_1)['items'][0]['immature amounts']), 0)
 
-        epoch_block_hash_1, epoch_number_1, epoch_cum_tree_hash_1 = get_epoch_data(scid_1, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number_1, epoch_block_hash_1), self.nodes, DEBUG_MODE)
-
-        prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number_1) * EPOCH_LENGTH))
+        epoch_number_1, epoch_cum_tree_hash_1 = get_epoch_data(scid_1, self.nodes[0], EPOCH_LENGTH)
 
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         self.sync_all()
 
-        epoch_block_hash_2, epoch_number_2, epoch_cum_tree_hash_2 = get_epoch_data(scid_2, self.nodes[0], EPOCH_LENGTH)
+        epoch_number_2, epoch_cum_tree_hash_2 = get_epoch_data(scid_2, self.nodes[0], EPOCH_LENGTH)
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
         # Create Cert1 with quality 100 and place it in mempool
         mark_logs("Create Cert1 with quality 100 and place it in mempool", self.nodes, DEBUG_MODE)
         quality = 100
         proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality, constant_1, [pkh_node1], [bwt_amount])
+            vk_tag_1, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
+
         try:
-            cert_1_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
+            cert_1_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
@@ -185,7 +184,7 @@ class quality_mempool(BitcoinTestFramework):
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
-        mark_logs("Checking mempools alignement", self.nodes, DEBUG_MODE)
+        mark_logs("Checking mempools alignment", self.nodes, DEBUG_MODE)
         self.sync_all()
         for i in range(1, NUMB_OF_NODES):
             assert_equal(sorted(self.nodes[0].getrawmempool()), sorted(self.nodes[i].getrawmempool()))
@@ -196,8 +195,7 @@ class quality_mempool(BitcoinTestFramework):
         # Create Cert2 with lower quality, any fee, deps on cert_1 and try to place it in mempool
         mark_logs("Checking rejection of cert_2 with same (scId, epoch), lower quality,  any fee, with spending deps on cert_1", self.nodes, DEBUG_MODE)
         low_quality_proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality - 10, constant_1, [pkh_node1], [bwt_amount])
+            vk_tag_1, epoch_number_1, quality - 10, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
 
         # get a UTXO
         utx = False
@@ -214,7 +212,6 @@ class quality_mempool(BitcoinTestFramework):
         params = {
             "scid": scid_1,
             "quality": quality - 10,
-            "endEpochBlockHash": epoch_block_hash_1,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash_1,
             "scProof": low_quality_proof,
             "withdrawalEpochNumber": epoch_number_1
@@ -237,10 +234,9 @@ class quality_mempool(BitcoinTestFramework):
         pkh_node2 = self.nodes[2].getnewaddress("", True)
         amount_cert_2 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
         low_quality_proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality - 10, constant_1, [pkh_node2], [bwt_amount])
+            vk_tag_1, epoch_number_1, quality - 10, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node2], [bwt_amount])
         try:
-            cert_2_epoch_0 = self.nodes[1].send_certificate(scid_1, epoch_number_1, quality - 10, epoch_block_hash_1,
+            cert_2_epoch_0 = self.nodes[1].send_certificate(scid_1, epoch_number_1, quality - 10,
                 epoch_cum_tree_hash_1, low_quality_proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_2_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_2_epoch_0), self.nodes, DEBUG_MODE)
@@ -259,10 +255,9 @@ class quality_mempool(BitcoinTestFramework):
         pkh_node2 = self.nodes[2].getnewaddress("", True)
         amount_cert_3 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
         cert3_proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality, constant_1, [pkh_node2], [bwt_amount])
+            vk_tag_1, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node2], [bwt_amount])
         try:
-            cert_3_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
+            cert_3_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, cert3_proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, LOW_CERT_FEE)
             assert (False)
         except JSONRPCException, e:
@@ -278,10 +273,9 @@ class quality_mempool(BitcoinTestFramework):
         mark_logs("Checking rejection of cert_3 with same (scId, epoch), equal quality, equal fee, no spending deps on cert_1", self.nodes, DEBUG_MODE)
         amount_cert_3 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
         cert3_proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality, constant_1, [pkh_node2], [bwt_amount])
+            vk_tag_1, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node2], [bwt_amount])
         try:
-            cert_3_epoch_0 = self.nodes[1].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
+            cert_3_epoch_0 = self.nodes[1].send_certificate(scid_1, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, cert3_proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert (False)
         except JSONRPCException, e:
@@ -297,9 +291,7 @@ class quality_mempool(BitcoinTestFramework):
         mark_logs("Checking rejection of cert_3 with same (scId, epoch), equal quality, higher fee, with spending deps on cert_1", self.nodes, DEBUG_MODE)
         amount_cert_3 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         cert3_proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality, constant_1, [pkh_node1], [bwt_amount])
-
+            vk_tag_1, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
 
         # get a UTXO
         utx = False
@@ -316,7 +308,6 @@ class quality_mempool(BitcoinTestFramework):
         params = {
             "scid": scid_1,
             "quality": quality,
-            "endEpochBlockHash": epoch_block_hash_1,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash_1,
             "scProof": cert3_proof,
             "withdrawalEpochNumber": epoch_number_1
@@ -337,10 +328,9 @@ class quality_mempool(BitcoinTestFramework):
 
         mark_logs("Substitution of cert_3 with same (scId, epoch), equal quality,  higher fee, no spending deps on cert_1", self.nodes, DEBUG_MODE)
         normal_quality_proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality, constant_1, [pkh_node3], [bwt_amount])
+            vk_tag_1, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node3], [bwt_amount])
         try:
-            cert_3_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
+            cert_3_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, normal_quality_proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, HIGH_CERT_FEE)
             mark_logs("Certificate is {}".format(cert_3_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -359,10 +349,9 @@ class quality_mempool(BitcoinTestFramework):
         pkh_node4 = self.nodes[2].getnewaddress("", True)
         amount_cert_4 = [{"pubkeyhash": pkh_node4, "amount": bwt_amount}]
         high_quality_proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality + 20, constant_1, [pkh_node4], [bwt_amount])
+            vk_tag_1, epoch_number_1, quality + 20, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node4], [bwt_amount])
         try:
-            cert_4_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality + 20, epoch_block_hash_1,
+            cert_4_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality + 20,
                 epoch_cum_tree_hash_1, high_quality_proof, amount_cert_4, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             sync_mempools(self.nodes[1:3])
             assert(len(cert_4_epoch_0) > 0)
@@ -402,10 +391,9 @@ class quality_mempool(BitcoinTestFramework):
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         quality = 150
         proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality, constant_1, [pkh_node1], [bwt_amount])
+            vk_tag_1, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
         try:
-            cert_1_sc1 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
+            cert_1_sc1 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_sc1) > 0)
             mark_logs("Certificate is {}".format(cert_1_sc1), self.nodes, DEBUG_MODE)
@@ -420,10 +408,9 @@ class quality_mempool(BitcoinTestFramework):
         amount_cert_2 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
         quality = 100
         proof = mcTest.create_test_proof(
-            "sc2", epoch_number_2, epoch_block_hash_2, prev_epoch_block_hash,
-            quality, constant_2, [pkh_node2], [bwt_amount])
+            vk_tag_2, epoch_number_2, quality, MBTR_SC_FEE, FT_SC_FEE, constant_2, epoch_cum_tree_hash_2, [pkh_node2], [bwt_amount])
         try:
-            cert_2_sc2 = self.nodes[2].send_certificate(scid_2, epoch_number_2, quality, epoch_block_hash_2,
+            cert_2_sc2 = self.nodes[2].send_certificate(scid_2, epoch_number_2, quality,
                 epoch_cum_tree_hash_2, proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_2_sc2) > 0)
             mark_logs("Certificate is {}".format(cert_2_sc2), self.nodes, DEBUG_MODE)
@@ -442,10 +429,9 @@ class quality_mempool(BitcoinTestFramework):
         amount_cert_3 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         quality = 150
         proof = mcTest.create_test_proof(
-            "sc2", epoch_number_2, epoch_block_hash_2, prev_epoch_block_hash,
-            quality, constant_2, [pkh_node1], [bwt_amount])
+            vk_tag_2, epoch_number_2, quality, MBTR_SC_FEE, FT_SC_FEE, constant_2, epoch_cum_tree_hash_2, [pkh_node1], [bwt_amount])
         try:
-            cert_3_sc2 = self.nodes[1].send_certificate(scid_2, epoch_number_2, quality, epoch_block_hash_2,
+            cert_3_sc2 = self.nodes[1].send_certificate(scid_2, epoch_number_2, quality,
                 epoch_cum_tree_hash_2, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_3_sc2) > 0)
             mark_logs("Certificate is {}".format(cert_3_sc2), self.nodes, DEBUG_MODE)
@@ -479,10 +465,9 @@ class quality_mempool(BitcoinTestFramework):
         #pkh_node2 = self.nodes[2].getnewaddress("", True)
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         quality_proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality, constant_1, [pkh_node1], [bwt_amount])
+            vk_tag_1, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
         try:
-            cert_5_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
+            cert_5_epoch_0 = self.nodes[0].send_certificate(scid_1, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, quality_proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_5_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_5_epoch_0), self.nodes, DEBUG_MODE)
@@ -498,8 +483,7 @@ class quality_mempool(BitcoinTestFramework):
         quality = 220
         amount_cert_6 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         cert6_proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality, constant_1, [pkh_node1], [bwt_amount])
+            vk_tag_1, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
 
         # get a UTXO
         utx = False
@@ -516,7 +500,6 @@ class quality_mempool(BitcoinTestFramework):
         params = {
             "scid": scid_1,
             "quality": quality,
-            "endEpochBlockHash": epoch_block_hash_1,
             "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash_1,
             "scProof": cert6_proof,
             "withdrawalEpochNumber": epoch_number_1
@@ -542,10 +525,9 @@ class quality_mempool(BitcoinTestFramework):
         pkh_node2 = self.nodes[2].getnewaddress("", True)
         amount_cert_2 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
         quality_proof = mcTest.create_test_proof(
-            "sc1", epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality, constant_1, [pkh_node2], [bwt_amount])
+            vk_tag_1, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash_1, [pkh_node2], [bwt_amount])
         try:
-            cert_7_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality, epoch_block_hash_1,
+            cert_7_epoch_0 = self.nodes[2].send_certificate(scid_1, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, quality_proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, HIGH_CERT_FEE)
             assert(len(cert_7_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_7_epoch_0), self.nodes, DEBUG_MODE)

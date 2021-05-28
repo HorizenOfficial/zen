@@ -23,6 +23,8 @@ import time
 NUMB_OF_NODES = 4
 DEBUG_MODE = 1
 EPOCH_LENGTH = 10
+FT_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0')
 
 # Create one-input, one-output, no-fee transaction:
 class CertMempoolCleanupSplit(BitcoinTestFramework):
@@ -80,11 +82,9 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         self.sync_all()
         self.nodes[0].generate(217)
         self.sync_all()
-        block_2 = self.nodes[0].getbestblockhash()
         self.nodes[0].generate(1)
         self.sync_all()
         prev_epoch_hash = self.nodes[0].getbestblockhash()
-        block_1 = prev_epoch_hash
 
         print "Node0 Chain h = ", self.nodes[0].getblockcount()
 
@@ -121,21 +121,17 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         # advance two epochs
         mark_logs("\nLet 2 epochs pass by...".  format(sc_epoch_len), self.nodes, DEBUG_MODE)
 
-        cert, epoch_block_hash, epoch_number = advance_epoch(
+        cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
+            scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
-        prev_epoch_hash = epoch_block_hash
-
-        cert, epoch_block_hash, epoch_number = advance_epoch(
+        cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
              scid, prev_epoch_hash, "sc1", constant, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}l".format(epoch_number, cert), self.nodes, DEBUG_MODE)
-
-        prev_epoch_hash = epoch_block_hash
 
         ceas_height = self.nodes[0].getscinfo(scid, False, False)['items'][0]['ceasing height']
         numbBlocks = ceas_height - self.nodes[0].getblockcount() + sc_epoch_len - 1
@@ -180,17 +176,17 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         assert_true(tx_bwt in self.nodes[0].getrawmempool()) 
 
         mark_logs("\nNTW part 1) Node2 sends a certificate", self.nodes, DEBUG_MODE)
-        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], sc_epoch_len)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], sc_epoch_len)
 
         bt_amount = Decimal("5.0")
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         quality = 10
 
-        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bt_amount])
+        proof = certMcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bt_amount])
 
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:
-            cert_bad = self.nodes[2].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+            cert_bad = self.nodes[2].send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert, 0, 0, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -205,17 +201,17 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         # Network part 2
         #------------------
         mark_logs("\nNTW part 2) Node3 sends a certificate", self.nodes, DEBUG_MODE)
-        epoch_block_hash, epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[3], sc_epoch_len)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[3], sc_epoch_len)
 
         bt_amount_2 = Decimal("10.0")
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         quality = 5
 
-        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bt_amount_2])
+        proof = certMcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bt_amount_2])
 
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount_2}]
         try:
-            cert = self.nodes[3].send_certificate(scid, epoch_number, quality, epoch_block_hash,
+            cert = self.nodes[3].send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert, 0, 0, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
