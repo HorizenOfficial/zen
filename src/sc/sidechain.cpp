@@ -24,8 +24,10 @@ bool Sidechain::InitDLogKeys()
     CctpErrorCode errorCode;
     std::string folderPath = Sidechain::GetSidechainDataDir().string();
 
+    // TODO remove folder data as soon as API is modified
     if (!zendoo_init_dlog_keys(SEGMENT_SIZE, (path_char_t*)folderPath.c_str(), folderPath.length(), &errorCode))
     {
+        LogPrintf("%s():%d - Error calling zendoo_init_dlog_keys: errCode[0x%x]\n", __func__, __LINE__, errorCode);
         return false;
     }
 
@@ -40,7 +42,6 @@ bool Sidechain::InitSidechainsFolder()
     if (!boost::filesystem::exists(Sidechain::GetSidechainDataDir()))
     {
         boost::filesystem::create_directories(Sidechain::GetSidechainDataDir());
-        //Todo: validate (possible here) availability (rw) of files with precalculated keys or create them
     }
     return true;
 }

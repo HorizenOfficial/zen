@@ -543,6 +543,8 @@ void dumpBuffer(BufferWithSize* buf, const std::string& name);
 void dumpBvCfg(BitVectorElementsConfig* buf, size_t len, const std::string& name);
 void dumpFe(field_t* fe, const std::string& name);
 void dumpFeArr(field_t** feArr, size_t len, const std::string& name);
+void dumpBt(const backward_transfer_t& bt, const std::string& name);
+void dumpBtArr(backward_transfer_t* buf, size_t len, const std::string& name);
 
 
 #endif // _SIDECHAIN_TYPES_H
