@@ -22,10 +22,8 @@ static const boost::filesystem::path Sidechain::GetSidechainDataDir()
 bool Sidechain::InitDLogKeys()
 {
     CctpErrorCode errorCode;
-    std::string folderPath = Sidechain::GetSidechainDataDir().string();
 
-    // TODO remove folder data as soon as API is modified
-    if (!zendoo_init_dlog_keys(SEGMENT_SIZE, (path_char_t*)folderPath.c_str(), folderPath.length(), &errorCode))
+    if (!zendoo_init_dlog_keys(SEGMENT_SIZE, &errorCode))
     {
         LogPrintf("%s():%d - Error calling zendoo_init_dlog_keys: errCode[0x%x]\n", __func__, __LINE__, errorCode);
         return false;

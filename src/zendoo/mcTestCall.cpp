@@ -20,8 +20,8 @@
  *  Generates a TestCertificateProof;
  *
  *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "amount" "sc_id"
- *  "nullifier", "mc_pk_hash" "end_cum_comm_tree_root" "cert_data_hash",
- *  Generates a TestCSWProof.
+ *  "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" <"cert_data_hash">,
+ *  Generates a TestCSWProof. cert_data_hash is optional
  */
 
 void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** argv) {
@@ -70,7 +70,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     assert(ret_code == CctpErrorCode::OK);
 
     // Load DLOG keys
-    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
+    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Parse epoch number and quality
@@ -102,40 +102,49 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     uint32_t bt_list_length = strtoull(argv[arg++], NULL, 0);
 
     // Parse backward transfer list
+    backward_transfer_t* bt_list_ptr = NULL;
     std::vector<backward_transfer_t> bt_list;
-    bt_list.reserve(bt_list_length);
-    for(int i = 0; i < bt_list_length; i ++){
-        backward_transfer_t bt;
+    if (bt_list_length != 0) {
+        bt_list.reserve(bt_list_length);
+        for(int i = 0; i < bt_list_length; i ++){
+            backward_transfer_t bt;
 
-        assert(IsHex(argv[arg]));
-        uint160 pk_dest;
-        pk_dest.SetHex(argv[arg++]);
-        std::copy(pk_dest.begin(), pk_dest.end(), std::begin(bt.pk_dest));
+            assert(IsHex(argv[arg]));
+            uint160 pk_dest;
+            pk_dest.SetHex(argv[arg++]);
+            std::copy(pk_dest.begin(), pk_dest.end(), std::begin(bt.pk_dest));
 
-        uint64_t amount = strtoull(argv[arg++], NULL, 0);
-        assert(amount >= 0);
-        bt.amount = amount;
+            uint64_t amount = strtoull(argv[arg++], NULL, 0);
+            assert(amount >= 0);
+            bt.amount = amount;
 
-        bt_list.push_back(bt);
+            bt_list.push_back(bt);
+        }
+        bt_list_ptr = bt_list.data();
     }
 
     // Create custom_fields
     uint32_t custom_fields_list_length = strtoull(argv[arg++], NULL, 0);
 
     // Parse backward transfer list
+    field_t** custom_fields_ptr = NULL;
     std::vector<field_t*> custom_fields_list;
-    custom_fields_list.reserve(custom_fields_list_length);
-    for(int i = 0; i < custom_fields_list_length; i ++){
 
-        // Parse custom field
-        assert(IsHex(argv[arg]));
-        auto custom_field = ParseHex(argv[arg++]);
-        assert(custom_field.size() == 32);
-        field_t* custom_field_f = zendoo_deserialize_field(custom_field.data(), &ret_code);
-        assert(custom_field_f != NULL);
-        assert(ret_code == CctpErrorCode::OK);
+    if (custom_fields_list_length != 0) {
+        custom_fields_list.reserve(custom_fields_list_length);
+        for(int i = 0; i < custom_fields_list_length; i ++){
 
-        custom_fields_list.push_back(custom_field_f);
+            // Parse custom field
+            assert(IsHex(argv[arg]));
+            auto custom_field = ParseHex(argv[arg++]);
+            assert(custom_field.size() == 32);
+            field_t* custom_field_f = zendoo_deserialize_field(custom_field.data(), &ret_code);
+            assert(custom_field_f != NULL);
+            assert(ret_code == CctpErrorCode::OK);
+
+            custom_fields_list.push_back(custom_field_f);
+        }
+        custom_fields_ptr = custom_fields_list.data();
     }
 
     // Generate proof and vk
@@ -144,9 +153,9 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
         constant_f,
         epoch_number,
         quality,
-        bt_list.data(),
+        bt_list_ptr,
         bt_list_length,
-        (const field_t**)custom_fields_list.data(),
+        (const field_t**)custom_fields_ptr,
         custom_fields_list_length,
         end_cum_comm_tree_root_f,
         btr_fee,
@@ -278,7 +287,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
     assert(ret_code == CctpErrorCode::OK);
 
     // Load DLOG keys
-    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, (path_char_t*)params_path.c_str(), params_path.size(), &ret_code));
+    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Parse amount
@@ -314,13 +323,18 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
     assert(end_cum_comm_tree_root_f != NULL);
     assert(ret_code == CctpErrorCode::OK);
 
-    // Parse cert_data_hash
-    assert(IsHex(argv[arg]));
-    auto cert_data_hash = ParseHex(argv[arg++]);
-    assert(cert_data_hash.size() == 32);
-    field_t* cert_data_hash_f = zendoo_deserialize_field(cert_data_hash.data(), &ret_code);
-    assert(cert_data_hash_f != NULL);
-    assert(ret_code == CctpErrorCode::OK);
+    // Parse cert_data_hash if present
+    field_t* cert_data_hash_f;
+    if (arg == argc) {
+        cert_data_hash_f = NULL;
+    } else {
+        assert(IsHex(argv[arg]));
+        auto cert_data_hash = ParseHex(argv[arg++]);
+        assert(cert_data_hash.size() == 32);
+        cert_data_hash_f = zendoo_deserialize_field(cert_data_hash.data(), &ret_code);
+        assert(cert_data_hash_f != NULL);
+        assert(ret_code == CctpErrorCode::OK);
+    }
 
     // Generate proof and vk
     assert(zendoo_create_csw_test_proof(
@@ -447,7 +461,7 @@ void generate(char** argv)
 
     // Load DLOG keys
     CctpErrorCode ret_code = CctpErrorCode::OK;
-    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, (path_char_t*)path.c_str(), path.size(), &ret_code));
+    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Generate proving and verifying key

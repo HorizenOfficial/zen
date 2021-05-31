@@ -97,7 +97,7 @@ class CSWTestUtils(MCTestUtils):
     def generate_params(self, id):
         return self._generate_params(id, "csw", self.ps_type, self.file_prefix)
 
-    def create_test_proof(self, id, amount, sc_id, nullifier, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash):
+    def create_test_proof(self, id, amount, sc_id, nullifier, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash = None):
         params_dir = self._get_params_dir(id)
         if not os.path.isfile(params_dir + self.file_prefix + "test_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_vk"):
             return
@@ -105,6 +105,8 @@ class CSWTestUtils(MCTestUtils):
         args = []
         args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
         args += ["create", "csw", str(self.ps_type), str(proof_path), str(params_dir)]
-        args += [str(int(amount * COIN)), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root), str(cert_data_hash)]
+        args += [str(int(amount * COIN)), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root)]
+        if cert_data_hash is not None:
+            args.append(str(cert_data_hash))
         subprocess.check_call(args)
         return self._get_proof(proof_path)

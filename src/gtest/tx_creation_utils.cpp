@@ -963,12 +963,8 @@ void BlockchainTestManager::InitCoinGeneration()
  */
 void BlockchainTestManager::InitSidechainParameters()
 {
-    // Create a new temporary folder
-    tempFolderPath = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-    boost::filesystem::create_directories(tempFolderPath);
-
     CctpErrorCode errorCode;
-    zendoo_init_dlog_keys(Sidechain::SEGMENT_SIZE, (path_char_t*)tempFolderPath.c_str(), strlen(tempFolderPath.c_str()), &errorCode);
+    zendoo_init_dlog_keys(Sidechain::SEGMENT_SIZE, &errorCode);
 }
 
 std::pair<uint256, CCoinsCacheEntry> BlockchainTestManager::GenerateCoinsAmount(const CAmount & amountToGenerate) const
