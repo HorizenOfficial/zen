@@ -324,23 +324,22 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 //---------------------------------------------------------------------------------------------
-        // parse active cert data (do not check it though)
-        const UniValue& valActCertData = find_value(o, "activeCertData");
-        if (valActCertData.isNull())
-        {
-            error = "Missing mandatory parameter \"activeCertData\" for the ceased sidechain withdrawal input";
-            return false;
-        }
-
-        std::string errStr;
+        // parse active cert data: it is an optional field and can be null string: it accounts for the case of an 
+        // early ceased SC without any valid ceritificate 
         std::vector<unsigned char> vActCertData;
-        if (!AddScData(valActCertData.get_str(), vActCertData, CFieldElement::ByteSize(), CheckSizeMode::STRICT, errStr))
+
+        const UniValue& valActCertData = find_value(o, "activeCertData");
+        if (!valActCertData.isNull() && !valActCertData.get_str().empty())
         {
-            error = "Invalid ceased sidechain withdrawal input parameter \"activeCertData\": " + errStr;
-            return false;
+            std::string errStr;
+            if (!AddScData(valActCertData.get_str(), vActCertData, CFieldElement::ByteSize(), CheckSizeMode::STRICT, errStr))
+            {
+                error = "Invalid ceased sidechain withdrawal input parameter \"activeCertData\": " + errStr;
+                return false;
+            }
         }
 
-        CFieldElement actCertDataHash {vActCertData};
+        CFieldElement actCertDataHash = vActCertData.empty() ? CFieldElement{} : CFieldElement{vActCertData};
         if (!actCertDataHash.IsValid() && !actCertDataHash.IsNull())
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"activeCertData\": invalid field element";
@@ -356,6 +355,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             return false;
         }
 
+        std::string errStr;
         std::vector<unsigned char> vCeasingCumScTxCommTree;
         if (!AddScData(valCumTree.get_str(), vCeasingCumScTxCommTree, CFieldElement::ByteSize(), CheckSizeMode::STRICT, errStr))
         {

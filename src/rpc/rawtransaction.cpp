@@ -730,7 +730,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "         \"scId\": \"hex\",                   (string, required) The ceased sidechain id\n"
             "         \"nullifier\": \"hex\",              (string, required) Withdrawal nullifier\n"
             "         \"scProof\": \"hex\"                 (string, required) SNARK proof whose verification key was set upon sidechain registration. Its size must be " + strprintf("%d", Sidechain::MAX_SC_PROOF_SIZE_IN_BYTES) + "bytes \n"
-            "         \"activeCertData\": \"hex\",         (string, required) Active Certificate Data Hash\n"
+            "         \"activeCertData\": \"hex\",         (string, optional) Active Certificate Data Hash\n"
             "         \"ceasingCumScTxCommTree\": \"hex\", (string, required) Cumulative SC Committment tree hash of the ceasing block\n"
             "       }\n"
             "       ,...\n"

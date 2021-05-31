@@ -104,6 +104,7 @@ testScripts=(
   'sc_quality_blockchain.py'
   'sc_quality_voiding.py'
   'sc_csw_actcertdata.py'
+  'sc_csw_actcertdata_null.py'
   'sc_cert_ceasing_sg.py'
   'sc_csw_nullifier.py'
   'sc_getscinfo.py'
