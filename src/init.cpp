@@ -534,6 +534,9 @@ std::string HelpMessage(HelpMessageMode mode)
 
     strUsage += HelpMessageOpt("-skipscproof",
     "regtest only - Skip the proof verification for sidechain certificates or CSW transactions (by default it is never skipped)");
+
+    strUsage += HelpMessageOpt("-forcelocalban",
+    "regtest only - Override the default behavior that prevents the ban of a misbehaving local node");
         
 #ifdef ENABLE_MINING
     strUsage += HelpMessageGroup(_("Mining options:"));

@@ -11,12 +11,10 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
      start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
-     get_epoch_data, advance_epoch, swap_bytes
+     get_epoch_data, advance_epoch, swap_bytes, stop_node
 from test_framework.mc_test.mc_test import CertTestUtils, CSWTestUtils, generate_random_field_element_hex
 
-NUMB_OF_NODES = 2
-# TODO: add the third node
-#NUMB_OF_NODES = 3
+NUMB_OF_NODES = 3
 DEBUG_MODE = 1
 EPOCH_LENGTH = 6
 CERT_FEE = Decimal('0.0001')
@@ -47,18 +45,16 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-                                 extra_args=[["-sccoinsmaturity=0", '-logtimemicros=1', '-debug=sc', '-debug=py',
-                                              '-debug=mempool', '-debug=net', '-debug=bench'],
-                                             ["-sccoinsmaturity=0", '-logtimemicros=1', '-debug=sc', '-debug=py',
-                                              '-debug=mempool', '-debug=net', '-debug=bench']])
-                                              # Skip proof verification for the last node
-                                              # TODO: enable this part after the integration with the updated proof verification system.
-                                              # ["-skipscproof=1", "-sccoinsmaturity=0", '-logtimemicros=1', '-debug=sc', '-debug=py',
-                                              # '-debug=mempool', '-debug=net', '-debug=bench']])
+                                 extra_args=[["-forcelocalban", "-sccoinsmaturity=0", '-logtimemicros=1', '-debug=sc',
+                                              '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench'],
+                                             ["-forcelocalban", "-sccoinsmaturity=0", '-logtimemicros=1', '-debug=sc',
+                                              '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench'],
+                                             # Skip proof verification for the last node
+                                             ["-forcelocalban", "-skipscproof", "-sccoinsmaturity=0", '-logtimemicros=1',
+                                              '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench']])
 
         connect_nodes_bi(self.nodes, 0, 1)
-        # TODO: connect the last node after the integration with the updated proof verification system.
-        #connect_nodes_bi(self.nodes, 1, 2)
+        connect_nodes_bi(self.nodes, 1, 2)
         self.is_network_split = split
         self.sync_all()
 
@@ -99,9 +95,9 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         self.nodes[0].generate(220)
         self.sync_all()
 
-        # TODO: generate some coins on node 2
-        # self.nodes[2].generate(220)
-        # self.sync_all()
+        # Generate some coins on node 2
+        self.nodes[2].generate(220)
+        self.sync_all()
 
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
         sc_epoch_len = EPOCH_LENGTH
@@ -166,45 +162,48 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         ft_fee = 0
         mbtr_fee = 0
 
-        # TODO: enable this section of the test after the integration with the updated proof verification system
-        # (MC Crypto Lib and CCTP Lib) since currently there is no way of provicert_quality
-        # TODO: to make this section work, it is needed to add a third node to the network.
-        #
         # Manually create a certificate with invalid proof to test the ban mechanism
         # mark_logs("\nTest the node ban mechanism by sending a certificate with invalid proof", self.nodes, DEBUG_MODE)
 
-        # # Create an invalid proof by providing the wrong epoch_number
-        # proof = cert_mc_test.create_test_proof("sc", epoch_number + 1, cert_quality, mbtr_fee, ft_fee, constant, epoch_cum_tree_hash, [], [])
-        # raw_input("#############")
-        # try:
-        #     # The send_certificate call must be ok since the proof verification is disabled on node 2
-        #     cert = self.nodes[2].send_certificate(scid, epoch_number, cert_quality, epoch_cum_tree_hash,
-        #                                           proof, [], ft_fee, mbtr_fee, cert_fee)
-        # except JSONRPCException, e:
-        #     error_string = e.error['message']
-        #     print "Send certificate failed with reason {}".format(error_string)
-        #     assert(False)
+        # Create an invalid proof by providing the wrong epoch_number
+        proof = cert_mc_test.create_test_proof("sc", epoch_number + 1, cert_quality, mbtr_fee, ft_fee, constant, epoch_cum_tree_hash, [], [])
 
-        # mark_logs("\n==> certificate for SC epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
+        try:
+            # The send_certificate call must be ok since the proof verification is disabled on node 2
+            invalid_cert = self.nodes[2].send_certificate(scid, epoch_number, cert_quality, epoch_cum_tree_hash,
+                                                          proof, [], ft_fee, mbtr_fee, cert_fee)
+        except JSONRPCException, e:
+            error_string = e.error['message']
+            print "Send certificate failed with reason {}".format(error_string)
+            assert(False)
 
-        # # Check that the certificate is in node 2 mempool
-        # assert_true(cert in self.nodes[2].getrawmempool())
+        mark_logs("\n==> certificate for SC epoch {} {}".format(epoch_number, invalid_cert), self.nodes, DEBUG_MODE)
 
-        # # Wait until the other nodes process the certificate relayed by node 2
-        # time.sleep(2 * MEMPOOL_LONG_WAIT_TIME)
+        # Check that the certificate is in node 2 mempool
+        assert_true(invalid_cert in self.nodes[2].getrawmempool())
 
-        # # Check that the other nodes didn't accept the certificate containing the wrong proof
-        # assert_false(cert in self.nodes[0].getrawmempool())
-        # assert_false(cert in self.nodes[1].getrawmempool())
+        # Wait until the other nodes process the certificate relayed by node 2
+        mark_logs("\nWait for the certificate to be relayed by node 2 and processd by node 1", self.nodes, DEBUG_MODE)
+        time.sleep(MEMPOOL_LONG_WAIT_TIME)
 
-        # raw_input("_________________")
-        # # Check that the other nodes banned the node 2
-        # #assert_equal(len(self.nodes[0].listbanned()), 1)
-        # assert_equal(len(self.nodes[1].listbanned()), 1)
+        # Check that the other nodes didn't accept the certificate containing the wrong proof
+        mark_logs("\nCheck that node 1 and node 2 didn't receive/accept the invalid certificate", self.nodes, DEBUG_MODE)
+        assert_false(invalid_cert in self.nodes[0].getrawmempool())
+        assert_false(invalid_cert in self.nodes[1].getrawmempool())
 
-        # # Remove node 2 from banned list
-        # self.nodes[0].clearbanned()
-        # self.nodes[1].clearbanned()
+        # Check that the node 1 (the only one connected to node 2) has banned node 2
+        mark_logs("\nCheck that node 1 has banned node 2", self.nodes, DEBUG_MODE)
+        assert_equal(len(self.nodes[1].listbanned()), 1)
+
+        # Remove node 2 from banned list
+        self.nodes[0].clearbanned()
+        self.nodes[1].clearbanned()
+
+        mark_logs("\nStop node 2", self.nodes, DEBUG_MODE)
+        stop_node(self.nodes[2], 2)
+        self.nodes.pop()
+
+        self.sync_all()
 
         # Create the valid proof
         proof = cert_mc_test.create_test_proof("sc", epoch_number, cert_quality, mbtr_fee, ft_fee,
@@ -221,7 +220,6 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         mark_logs("\n==> certificate for SC epoch {} {}".format(epoch_number, cert2), self.nodes, DEBUG_MODE)
 
         # Get the first unspent UTXO (special case since it's not possible to call self.sync_all())
-        #utxo = self.get_first_unspent_utxo_excluding(0, [cert1, cert2])
         utxo = self.get_first_unspent_utxo_excluding(0, [cert2])
 
         # Create a normal (not sidechain) transaction
@@ -351,8 +349,6 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         inputs = [{'txid' : utxo['txid'], 'vout' : utxo['vout']}]
         outputs = {self.nodes[0].getnewaddress() : utxo['amount']}
         normal_raw_tx = self.nodes[0].createrawtransaction(inputs, outputs)
-        #normal_funded_tx = self.nodes[0].fundrawtransaction(normal_raw_tx)
-        #normal_sig_raw_tx = self.nodes[0].signrawtransaction(normal_funded_tx['hex'], None, None, "NONE")
         normal_sig_raw_tx = self.nodes[0].signrawtransaction(normal_raw_tx, None, None, "NONE")
         normal_final_raw_tx = self.nodes[0].sendrawtransaction(normal_sig_raw_tx['hex'])
 

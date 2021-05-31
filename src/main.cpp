@@ -1137,6 +1137,18 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
     return nMinFee;
 }
 
+void RejectMemoryPoolTxBase(const CValidationState& state, const CTransactionBase& txBase, CNode* pfrom)
+{
+    LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
+             pfrom->id, pfrom->cleanSubVer,
+             state.GetRejectReason());
+    std::string cmdString("tx");
+    pfrom->PushMessage("reject", cmdString, CValidationState::CodeToChar(state.GetRejectCode()),
+                        state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), txBase.GetHash());
+    if (state.GetDoS() > 0)
+        Misbehaving(pfrom->GetId(), state.GetDoS());
+}
+
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
     LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom)
 {
@@ -5740,6 +5752,9 @@ void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfro
     {
         state.DoS(100, error("%s():%d - cert proof failed to verify", __func__, __LINE__),
                   CValidationState::Code::INVALID_PROOF, "bad-sc-cert-proof");
+
+        RejectMemoryPoolTxBase(state, txBase, pfrom);
+
         return;
     }
 
@@ -5891,14 +5906,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
    
     if (state.IsInvalid())
     {
-        LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
-            pfrom->id, pfrom->cleanSubVer,
-            state.GetRejectReason());
-        std::string cmdString("tx");
-        pfrom->PushMessage("reject", cmdString, CValidationState::CodeToChar(state.GetRejectCode()),
-                           state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
-        if (state.GetDoS() > 0)
-            Misbehaving(pfrom->GetId(), state.GetDoS());
+        RejectMemoryPoolTxBase(state, txBase, pfrom);
     }
 }
 
@@ -7052,7 +7060,16 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 LogPrintf("Warning: not punishing whitelisted peer %s!\n", pto->addr.ToString());
             else {
                 pto->fDisconnect = true;
-                if (pto->addr.IsLocal())
+
+                bool banLocal = false;
+
+                // Force the ban of local misbehaving nodes when running in "regtest" and the related flag has been set.
+                if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest" && GetBoolArg("-forcelocalban", false)))
+                {
+                    banLocal = true;
+                }
+
+                if (pto->addr.IsLocal() && !banLocal)
                     LogPrintf("Warning: not banning local peer %s!\n", pto->addr.ToString());
                 else
                 {
