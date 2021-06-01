@@ -31,41 +31,41 @@ TEST_F(SidechainsTxCumulativeHashTestSuite, CBlockIndexCumulativeHashCheck)
     SelectParams(CBaseChainParams::MAIN);
 
     // Previous block
-    std::vector<unsigned char> prevCumHashByteArray(32,'a');
+    std::vector<unsigned char> prevCumHashByteArray(32,0x1d);
     prevCumHashByteArray.resize(CFieldElement::ByteSize(),0x0);
     CFieldElement prevCumulativeHash{prevCumHashByteArray};
 
     CBlock prevBlock;
     prevBlock.nVersion = BLOCK_VERSION_SC_SUPPORT;
-    prevBlock.hashScTxsCommitment = prevCumulativeHash.GetLegacyHashTO_BE_REMOVED();
+    prevBlock.hashScTxsCommitment = prevCumulativeHash.GetLegacyHash();
 
     CBlockIndex* prevPindex = AddToBlockIndex(prevBlock);
     prevPindex->scCumTreeHash = prevCumulativeHash;
-    EXPECT_TRUE(prevCumulativeHash.GetLegacyHashTO_BE_REMOVED() == prevPindex->hashScTxsCommitment)
-    <<prevCumulativeHash.GetLegacyHashTO_BE_REMOVED().ToString()<<"\n"
+    EXPECT_TRUE(prevCumulativeHash.GetLegacyHash() == prevPindex->hashScTxsCommitment)
+    <<prevCumulativeHash.GetLegacyHash().ToString()<<"\n"
     <<prevPindex->hashScTxsCommitment.ToString();
 
     // Current block
-    std::vector<unsigned char> currentHashByteArray(32,'b');
+    std::vector<unsigned char> currentHashByteArray(32, 0x1e);
     currentHashByteArray.resize(CFieldElement::ByteSize(),0x0);
     CFieldElement currentHash{currentHashByteArray};
 
     CBlock block;
     block.nVersion = BLOCK_VERSION_SC_SUPPORT;
-    block.hashScTxsCommitment = currentHash.GetLegacyHashTO_BE_REMOVED();
+    block.hashScTxsCommitment = currentHash.GetLegacyHash();
     block.hashPrevBlock = prevBlock.GetHash();
 
     CBlockIndex* pindex = AddToBlockIndex(block);
-    EXPECT_TRUE(currentHash.GetLegacyHashTO_BE_REMOVED() == pindex->hashScTxsCommitment)
-    <<currentHash.GetLegacyHashTO_BE_REMOVED().ToString()<<"\n"
+    EXPECT_TRUE(currentHash.GetLegacyHash() == pindex->hashScTxsCommitment)
+    <<currentHash.GetLegacyHash().ToString()<<"\n"
     <<pindex->hashScTxsCommitment.ToString();
 
     EXPECT_TRUE(pindex->pprev == prevPindex);
 
     CFieldElement expectedHash = CFieldElement::ComputeHash(prevCumulativeHash, currentHash);
-    EXPECT_TRUE(expectedHash.GetLegacyHashTO_BE_REMOVED() == pindex->scCumTreeHash.GetLegacyHashTO_BE_REMOVED())
-    <<expectedHash.GetLegacyHashTO_BE_REMOVED().ToString()<<"\n"
-    <<pindex->scCumTreeHash.GetLegacyHashTO_BE_REMOVED().ToString();
+    EXPECT_TRUE(expectedHash.GetLegacyHash() == pindex->scCumTreeHash.GetLegacyHash())
+    <<expectedHash.GetLegacyHash().ToString()<<"\n"
+    <<pindex->scCumTreeHash.GetLegacyHash().ToString();
 
     UnloadBlockIndex();
 }

@@ -70,7 +70,7 @@ class sc_cert_change(BitcoinTestFramework):
         self.sync_all()
 
         # (1) node0 create sidechain with 10.0 coins
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
         ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
@@ -87,8 +87,8 @@ class sc_cert_change(BitcoinTestFramework):
         prev_epoch_block_hash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         self.nodes[0].generate(5)
         self.sync_all()
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_block_hash, epoch_number), self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_cum_tree_hash, epoch_number), self.nodes, DEBUG_MODE)
 
         # (2) node0 create a cert_ep0 for funding node1 1.0 coins
         pkh_node1 = self.nodes[1].getnewaddress("", True)
@@ -96,13 +96,12 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
         quality = 0
-        proof = mcTest.create_test_proof(
-        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-        quality, constant, [pkh_node1], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
         
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)
         try:
-            cert_ep0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_ep0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+                epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_ep0) > 0)
             mark_logs("Certificate is {}".format(cert_ep0), self.nodes, DEBUG_MODE)
             self.sync_all()
@@ -114,9 +113,8 @@ class sc_cert_change(BitcoinTestFramework):
         mark_logs("Node0 generates 5 blocks to achieve end of epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(5)
         self.sync_all()
-        prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         # (3) node0 create a cert_ep1 for funding node1 1.0 coins
         pkh_node2 = self.nodes[2].getnewaddress("", True)
@@ -124,13 +122,12 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
 
         quality = 1
-        proof = mcTest.create_test_proof(
-        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-        quality, constant, [pkh_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node2], [bwt_amount])
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            cert_ep1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_ep1 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+                epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_ep1) > 0)
             mark_logs("Certificate is {}".format(cert_ep1), self.nodes, DEBUG_MODE)
             self.sync_all()
@@ -142,9 +139,8 @@ class sc_cert_change(BitcoinTestFramework):
         mark_logs("Node0 generates 5 blocks to achieve end of epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(5)
         self.sync_all()
-        prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         # (4) node1 create a cert_ep2 for funding node3 3.0 coins: he uses cert_ep0 as input, change will be obtained out of a fee=0.0001
         pkh_node3 = self.nodes[3].getnewaddress("", True)
@@ -152,13 +148,12 @@ class sc_cert_change(BitcoinTestFramework):
         amounts = [{"pubkeyhash": pkh_node3, "amount": bwt_amount}]
 
         quality = 2
-        proof = mcTest.create_test_proof(
-        "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-        quality, constant, [pkh_node3], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node3], [bwt_amount])
 
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 pkh".format(bwt_amount, pkh_node3), self.nodes, DEBUG_MODE)
         try:
-            cert_ep2 = self.nodes[1].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_ep2 = self.nodes[1].send_certificate(scid, epoch_number, quality,
+                epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_ep2) > 0)
             mark_logs("Certificate is {}".format(cert_ep2), self.nodes, DEBUG_MODE)
             self.sync_all()

@@ -17,6 +17,8 @@ from decimal import Decimal
 DEBUG_MODE = 1
 NUMB_OF_NODES = 3
 EPOCH_LENGTH = 5
+FT_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal('0.00015')
 
 
@@ -70,8 +72,9 @@ class sc_cert_getraw(BitcoinTestFramework):
 
         # SC creation
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk = mcTest.generate_params("sc1")
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+        vk_tag = "sc1"
+        vk = mcTest.generate_params(vk_tag)
         constant = generate_random_field_element_hex()
 
         ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
@@ -120,10 +123,7 @@ class sc_cert_getraw(BitcoinTestFramework):
         self.nodes[0].generate(3)
         self.sync_all()
 
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
-
-        prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number) * EPOCH_LENGTH))
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
@@ -131,12 +131,12 @@ class sc_cert_getraw(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node1], [bwt_amount])
+            vk_tag, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amount_cert_1, CERT_FEE)
+            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+                epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("Certificate is {}".format(cert_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -172,21 +172,18 @@ class sc_cert_getraw(BitcoinTestFramework):
         self.nodes[0].generate(EPOCH_LENGTH - 1)
         self.sync_all()
 
-        prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         mark_logs("Generate new certificate for epoch {}. No bwt and no fee are included".format(epoch_number), self.nodes, DEBUG_MODE)
 
         # Create new proof for WCert
         quality = 1
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [], [])
+        proof = mcTest.create_test_proof(vk_tag, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
 
         nullFee = Decimal("0.0")
         try:
-            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, [], nullFee)
+            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+                epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, nullFee)
             mark_logs("Certificate is {}".format(cert_epoch_1), self.nodes, DEBUG_MODE)
             self.sync_all()
         except JSONRPCException, e:

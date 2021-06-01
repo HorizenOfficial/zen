@@ -79,10 +79,9 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(220)
         self.sync_all()
-        prev_epoch_hash = self.nodes[0].getbestblockhash()
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         constant = generate_random_field_element_hex()
 
         # SCs creation
@@ -101,8 +100,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         print "#### chain height=", self.nodes[0].getblockcount()
         print
 
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
         pprint.pprint(ret)
@@ -117,13 +115,12 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 0 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
-            quality, constant, [pkh_node1], [bwt_amount_1])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount_1])
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 pkh".format(scid, bwt_amount_1, pkh_node1), self.nodes, DEBUG_MODE)
         try:
-            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+                epoch_cum_tree_hash, proof, amounts_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -135,9 +132,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         self.nodes[0].generate(EPOCH_LENGTH)
         self.sync_all()
 
-        prev_epoch_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
         print "ceasing height   =", ret['ceasing height']
@@ -153,13 +148,12 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 1 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
-            quality, constant, [pkh_node1], [bwt_amount_2])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount_2])
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 pkh".format(scid, bwt_amount_2, pkh_node1), self.nodes, DEBUG_MODE)
         try:
-            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+                epoch_cum_tree_hash, proof, amounts_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -171,9 +165,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         self.nodes[0].generate(EPOCH_LENGTH)
         self.sync_all()
 
-        prev_epoch_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
         print "ceasing height   =", ret['ceasing height']
@@ -251,11 +243,10 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         try:
             #Create proof for WCert
             quality = 2
-            proof = mcTest.create_test_proof(
-                "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
-                quality, constant, [], [])
+            proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
 
-            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+                epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
             assert(False)
         except JSONRPCException, e:

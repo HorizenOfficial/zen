@@ -62,10 +62,9 @@ class sc_getscinfo(BitcoinTestFramework):
         mark_logs("Node 1 generates 110 block", self.nodes, DEBUG_MODE)
         self.nodes[1].generate(110)
         self.sync_all()
-        prev_epoch_hash = self.nodes[0].getbestblockhash()
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         constant = generate_random_field_element_hex()
 
         # number of sidechains to create
@@ -267,10 +266,7 @@ class sc_getscinfo(BitcoinTestFramework):
 
         item = self.nodes[0].getscinfo(scid_0)['items'][0]
         epoch_n = item['withdrawalEpochLength']
-        epoch_block_hash_1, epoch_number_1 = get_epoch_data(scid_0, self.nodes[0], epoch_n)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number_1, epoch_block_hash_1), self.nodes, DEBUG_MODE)
-
-        prev_epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number_1) * epoch_n))
+        epoch_number_1, epoch_cum_tree_hash_1 = get_epoch_data(scid_0, self.nodes[0], epoch_n)
 
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
@@ -279,11 +275,11 @@ class sc_getscinfo(BitcoinTestFramework):
         mark_logs("Create Cert1 with quality 100 and place it in mempool", self.nodes, DEBUG_MODE)
         quality = 100
         proof = mcTest.create_test_proof(
-            tag_0, epoch_number_1, epoch_block_hash_1, prev_epoch_block_hash,
-            quality, constant, [pkh_node1], [bwt_amount])
+            tag_0, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
 
         try:
-            cert_1_epoch_0 = self.nodes[0].send_certificate(scid_0, epoch_number_1, quality, epoch_block_hash_1, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_1_epoch_0 = self.nodes[0].send_certificate(scid_0, epoch_number_1, quality,
+                epoch_cum_tree_hash_1, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:

@@ -98,7 +98,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mark_logs("Node0 creates the SC spending {} coins ...".format(creation_amount), self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
@@ -139,8 +139,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         mark_logs("##### End epoch block = {}".format(self.nodes[0].getbestblockhash()), self.nodes, DEBUG_MODE)
 
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1...".format(bwt_amount_1), self.nodes, DEBUG_MODE)
         amounts = []
@@ -148,11 +148,9 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 0
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node1], [bwt_amount_1])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount_1])
 
-        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()
@@ -189,9 +187,11 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         self.refresh_sidechain(sc_info, scid)
 
-        prev_epoch_block_hash = epoch_block_hash
-        epoch_block_hash, epoch_number = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        sc_creating_height = self.nodes[0].getscinfo(scid)['items'][0]['created at block height']
+        epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
+
+        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2...".format(bwt_amount_2), self.nodes, DEBUG_MODE)
         amounts = []
@@ -199,11 +199,9 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 1
-        proof = mcTest.create_test_proof(
-            "sc1", epoch_number, epoch_block_hash, prev_epoch_block_hash,
-            quality, constant, [pkh_node2], [bwt_amount_2])
+        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node2], [bwt_amount_2])
 
-        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_block_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        cert = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         mark_logs("cert = {}".format(cert), self.nodes, DEBUG_MODE)
         certs.append(cert)
         self.sync_all()

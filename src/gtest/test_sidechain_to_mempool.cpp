@@ -21,6 +21,8 @@
 #include <undo.h>
 #include <gtest/libzendoo_test_files.h>
 
+using namespace txCreationUtils;
+
 class CCoinsOnlyViewDB : public CCoinsViewDB
 {
 public:
@@ -39,23 +41,6 @@ public:
 
         return CCoinsViewDB::BatchWrite(mapCoins, hashBlock, hashAnchor, mapAnchors, mapNullifiers, mapSidechains, mapSidechainEvents, cswNullifiers);
     }
-};
-
-class CNakedCCoinsViewCache : public CCoinsViewCache
-{
-public:
-    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
-    {
-        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
-        this->hashAnchor = dummyAnchor;
-
-        CAnchorsCacheEntry dummyAnchorsEntry;
-        dummyAnchorsEntry.entered = true;
-        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
-        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
-
-    };
-    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
 };
 
 class SidechainsInMempoolTestSuite: public ::testing::Test {
@@ -109,14 +94,19 @@ protected:
     CTransaction GenerateScTx(const CAmount & creationTxAmount, int epochLenght = -1, bool ceasedVkDefined = true);
     CTransaction GenerateFwdTransferTx(const uint256 & newScId, const CAmount & fwdTxAmount);
     CTransaction GenerateBtrTx(const uint256 & scId, const CAmount & mbtrFee = CAmount(1));
-    CTxCeasedSidechainWithdrawalInput GenerateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount);
+    CTxCeasedSidechainWithdrawalInput GenerateCSWInput(const uint256& scId,
+        const std::string& nullifierHex, const std::string& actCertDataHex, const std::string& ceasingCumScTxCommTreeHex,
+        CAmount amount);
     CTransaction GenerateCSWTx(const std::vector<CTxCeasedSidechainWithdrawalInput>& csws);
     CTransaction GenerateCSWTx(const CTxCeasedSidechainWithdrawalInput& csw);
-    CScCertificate GenerateCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
-                                 CAmount inputAmount, CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,
-                                 CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/,
-                                 CAmount ftScFee, CAmount mbtrScFee, int64_t quality,
-                                 const CTransactionBase* inputTxBase = nullptr);
+
+    CScCertificate GenerateCertificate(
+        const uint256 & scId, int epochNum,
+        const CFieldElement& endEpochCumScTxCommTreeRoot, CAmount inputAmount, CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,
+        CAmount bwtTotalAmount/* = 1*/, unsigned int numBwt/* = 1*/,
+        CAmount ftScFee, CAmount mbtrScFee, int64_t quality,
+        const CTransactionBase* inputTxBase = nullptr);
+
     void storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
     uint256 createAndStoreSidechain(CAmount ftScFee = CAmount(0), CAmount mbtrScFee = CAmount(0), size_t mbtrScDataLength = 0);
     void moveSidechainToNextEpoch(uint256 scId, CCoinsViewCache& sidechainView);
@@ -144,18 +134,20 @@ private:
 TEST_F(SidechainsInMempoolTestSuite, NewSidechainIsAcceptedToMempool) {
     CTransaction scTx = GenerateScTx(CAmount(1));
     CValidationState txState;
-    bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, txState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, txState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                  MempoolProofVerificationFlag::SYNC);
+    EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnknownSidechainAreNotAllowed) {
     uint256 scId = uint256S("dddd");
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
-    bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                  MempoolProofVerificationFlag::SYNC);
+    EXPECT_TRUE(res == MempoolReturnValue::INVALID);
 }
 
 //A proof that https://github.com/HorizenOfficial/zen/issues/215 is solved
@@ -163,13 +155,17 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToUnconfirmedSidechainsAreAllow
     CTransaction scTx = GenerateScTx(CAmount(1));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
-    bool missingInputs = false;
-    AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF);
+
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                  MempoolProofVerificationFlag::SYNC);
+    EXPECT_TRUE(res == MempoolReturnValue::VALID);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                               MempoolProofVerificationFlag::SYNC);
+    EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed) {
@@ -187,31 +183,37 @@ TEST_F(SidechainsInMempoolTestSuite, FwdTransfersToConfirmedSidechainsAreAllowed
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, CAmount(10));
     CValidationState fwdTxState;
-    bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                  MempoolProofVerificationFlag::SYNC);
+    EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, BtrToUnknownSidechainAreNotAllowed) {
     uint256 scId = uint256S("dddd");
     CTransaction btrTx = GenerateBtrTx(scId);
     CValidationState btrTxState;
-    bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                  MempoolProofVerificationFlag::SYNC);
+    EXPECT_TRUE(res == MempoolReturnValue::INVALID);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, BtrToUnconfirmedSidechainsAreAllowed) {
     CTransaction scTx = GenerateScTx(CAmount(1));
     const uint256& scId = scTx.GetScIdFromScCcOut(0);
     CValidationState scTxState;
-    bool missingInputs = false;
-    AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF);
+
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, scTxState, scTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                  MempoolProofVerificationFlag::SYNC);
+    ASSERT_TRUE(res == MempoolReturnValue::VALID);
     ASSERT_TRUE(mempool.hasSidechainCreationTx(scId));
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CValidationState btrTxState;
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                               MempoolProofVerificationFlag::SYNC);
+    ASSERT_TRUE(res == MempoolReturnValue::VALID);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
@@ -229,9 +231,10 @@ TEST_F(SidechainsInMempoolTestSuite, BtrToConfirmedSidechainsAreAllowed) {
 
     CTransaction btrTx = GenerateBtrTx(scId);
     CValidationState btrTxState;
-    bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, btrTxState, btrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                  MempoolProofVerificationFlag::SYNC);
+    EXPECT_TRUE(res == MempoolReturnValue::VALID);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, hasSidechainCreationTxTest) {
@@ -474,8 +477,8 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCertRemovalFromMempool) {
     sidechainsView.Flush();
 
     //load certificate in mempool
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2,
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0,
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry);
@@ -500,8 +503,8 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
     sidechainsView.Flush();
 
     //load a certificate in mempool
-    CScCertificate cert1 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2,
+    CScCertificate cert1 = txCreationUtils::createCertificate(scId, /*epochNum*/0,
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(6), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry1(cert1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert1.GetHash(), certEntry1);
@@ -509,8 +512,8 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCertRemovalFromMempool) {
     //Remove the certificate
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
-    CScCertificate cert2 = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
+    CScCertificate cert2 = txCreationUtils::createCertificate(scId, /*epochNum*/0,
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     mempool.removeConflicts(cert2, removedTxs, removedCerts);
 
@@ -534,8 +537,8 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_CertRemovalDoesNotAffe
     mempool.addUnchecked(fwdTx.GetHash(), fwdEntry);
 
     //load a certificate in mempool
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0,
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry1);
@@ -569,8 +572,8 @@ TEST_F(SidechainsInMempoolTestSuite, FwdsAndCertInMempool_FwtRemovalDoesNotAffec
     mempool.addUnchecked(fwdTx.GetHash(), fwdEntry);
 
     //load a certificate in mempool
-    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0, /*endEpochBlockHash*/ uint256(),
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
+    CScCertificate cert = txCreationUtils::createCertificate(scId, /*epochNum*/0,
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     CCertificateMemPoolEntry certEntry1(cert, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     mempool.addUnchecked(cert.GetHash(), certEntry1);
@@ -599,13 +602,13 @@ TEST_F(SidechainsInMempoolTestSuite, CertCannotSpendSameQualityCertOutput)
     txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, initialScState);
 
     int64_t certQuality = 10;
-    uint256 dummyBlockHash {};
+    CFieldElement dummyCumTree {SAMPLE_FIELD};
     CAmount dummyInputAmount{20};
     CAmount dummyNonZeroFee {10};
     CAmount dummyNonZeroChange = dummyInputAmount - dummyNonZeroFee;
     CAmount dummyBwtAmount {0};
 
-    CScCertificate parentCert = GenerateCertificate(scId, /*epochNum*/0, dummyBlockHash, /*inputAmount*/dummyInputAmount,
+    CScCertificate parentCert = GenerateCertificate(scId, /*epochNum*/0, dummyCumTree, /*inputAmount*/dummyInputAmount,
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/certQuality);
 
@@ -613,7 +616,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertCannotSpendSameQualityCertOutput)
     mempool.addUnchecked(parentCert.GetHash(), mempoolParentCertCertEntry);
     ASSERT_TRUE(mempool.exists(parentCert.GetHash()));
 
-    CScCertificate sameQualityChildCert = GenerateCertificate(scId, /*epochNum*/0, dummyBlockHash, /*inputAmount*/dummyInputAmount,
+    CScCertificate sameQualityChildCert = GenerateCertificate(scId, /*epochNum*/0, dummyCumTree, /*inputAmount*/dummyInputAmount,
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0, /*quality*/certQuality, &parentCert);
     ASSERT_TRUE(sameQualityChildCert.GetHash() != parentCert.GetHash());
@@ -632,13 +635,13 @@ TEST_F(SidechainsInMempoolTestSuite, CertCannotSpendHigherQualityCertOutput)
     txCreationUtils::storeSidechain(sidechainsView.getSidechainMap(), scId, initialScState);
 
     int64_t topQuality = 10;
-    uint256 dummyBlockHash {};
+    CFieldElement dummyCumTree {SAMPLE_FIELD};
     CAmount dummyInputAmount{20};
     CAmount dummyNonZeroFee {10};
     CAmount dummyNonZeroChange = dummyInputAmount - dummyNonZeroFee;
     CAmount dummyBwtAmount {0};
 
-    CScCertificate parentCert = GenerateCertificate(scId, /*epochNum*/0, dummyBlockHash, /*inputAmount*/dummyInputAmount,
+    CScCertificate parentCert = GenerateCertificate(scId, /*epochNum*/0, dummyCumTree, /*inputAmount*/dummyInputAmount,
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/CAmount(0), /*mbtrScFee*/CAmount(0), /*quality*/topQuality);
 
@@ -646,7 +649,7 @@ TEST_F(SidechainsInMempoolTestSuite, CertCannotSpendHigherQualityCertOutput)
     mempool.addUnchecked(parentCert.GetHash(), mempoolParentCertCertEntry);
     ASSERT_TRUE(mempool.exists(parentCert.GetHash()));
 
-    CScCertificate lowerQualityChildCert = GenerateCertificate(scId, /*epochNum*/0, dummyBlockHash, /*inputAmount*/dummyInputAmount,
+    CScCertificate lowerQualityChildCert = GenerateCertificate(scId, /*epochNum*/0, dummyCumTree, /*inputAmount*/dummyInputAmount,
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/CAmount(0), /*mbtrScFee*/CAmount(0), /*quality*/topQuality/2, &parentCert);
 
@@ -654,110 +657,10 @@ TEST_F(SidechainsInMempoolTestSuite, CertCannotSpendHigherQualityCertOutput)
     EXPECT_FALSE(mempool.checkIncomingCertConflicts(lowerQualityChildCert));
 }
 
-#if 0
-TEST_F(SidechainsInMempoolTestSuite, CertInMempool_QualityOfCerts) {
-
-    //Create and persist sidechain
-    CTransaction scTx = GenerateScTx(CAmount(10000), /*epochLenght*/5);
-    const uint256& scId = scTx.GetScIdFromScCcOut(0);
-    CBlock aBlock;
-    CCoinsViewCache sidechainsView(pcoinsTip);
-    sidechainsView.UpdateSidechain(scTx, aBlock, /*height*/int(401));
-    sidechainsView.Flush();
-
-    CBlockUndo dummyBlockUndo;
-    for(const CTxScCreationOut& scCreationOut: scTx.GetVscCcOut())
-        ASSERT_TRUE(sidechainsView.ScheduleSidechainEvent(scCreationOut, 401));
-
-    std::vector<CScCertificateStatusUpdateInfo> dummy;
-    ASSERT_TRUE(sidechainsView.HandleSidechainEvents(401 + Params().ScCoinsMaturity(), dummyBlockUndo, &dummy));
-    sidechainsView.Flush();
-
-    chainSettingUtils::ExtendChainActiveToHeight(/*startHeight*/406);
-
-    const uint256& endEpochBlockHash = ArithToUint256(405);
-    CValidationState state;
-    bool missingInputs = false;
-
-    //load a certificate in mempool (q=3, fee=600)
-    CScCertificate cert1 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(1000),
-        /*changeTotalAmount*/CAmount(400),/*numChangeOut*/1, /*bwtAmount*/CAmount(2000), /*numBwt*/2, /*quality*/3);
-
-    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert1,
-                LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
-
-    //load a certificate in mempool (q=2, fee=150)
-    CScCertificate cert2 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(300),
-        /*changeTotalAmount*/CAmount(150),/*numChangeOut*/1, /*bwtAmount*/CAmount(30), /*numBwt*/2, /*quality*/2);
-
-    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert2,
-                LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
-
-    //load a certificate in mempool (q=2, fee=150) ---> dropped because this fee is the same
-    CScCertificate cert3 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(400),
-        /*changeTotalAmount*/CAmount(250),/*numChangeOut*/1, /*bwtAmount*/CAmount(40), /*numBwt*/2, /*quality*/2);
-
-    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert3,
-                 LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
-
-    //load a certificate in mempool (q=2, fee=100) ---> dropped because this fee is lower
-    CScCertificate cert3b = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(390),
-        /*changeTotalAmount*/CAmount(290),/*numChangeOut*/1, /*bwtAmount*/CAmount(40), /*numBwt*/2, /*quality*/2);
-
-    EXPECT_FALSE(AcceptCertificateToMemoryPool(mempool, state, cert3b,
-                 LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
-
-    //load a certificate in mempool (q=4, fee=100)
-    CScCertificate cert4 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(1500),
-        /*changeTotalAmount*/CAmount(1400),/*numChangeOut*/2, /*bwtAmount*/CAmount(60), /*numBwt*/2, /*quality*/4);
-
-    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert4,
-                LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
-
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert1.GetHash()));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert2.GetHash()));
-    EXPECT_FALSE(mempool.mapSidechains.at(scId).HasCert(cert3.GetHash()));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).HasCert(cert4.GetHash()));
-
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert4.GetHash());
-    
-    // erase a cert from mempool
-    std::list<CTransaction> removedTxs;
-    std::list<CScCertificate> removedCerts;
-    mempool.remove(cert4, removedTxs, removedCerts, /*fRecursive*/false);
-
-    EXPECT_FALSE(mempool.mapSidechains.at(scId).HasCert(cert4.GetHash()));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert1.GetHash());
-
-    int64_t tq = mempool.mapSidechains.at(scId).GetTopQualityCert()->first;
-    
-    //create a certificate (not loading it in mempool) with quality same as top-quality and remove any conflict in mempool with that 
-    // verify that former top-quality has been removed
-    CScCertificate cert5 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(0),
-        /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(90), /*numBwt*/2, /*quality*/tq);
-
-    EXPECT_TRUE(mempool.RemoveCertAndSync(mempool.FindCertWithQuality(scId, cert5.quality).first));
-    
-    EXPECT_FALSE(mempool.mapSidechains.at(scId).HasCert(cert1.GetHash()));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert2.GetHash());
-    tq = mempool.mapSidechains.at(scId).GetTopQualityCert()->first;
-
-    //load a certificate in mempool (q=top=2, fee=200) --> former is removed since this fee is higher
-    CScCertificate cert6 = GenerateCertificate(scId, /*epochNum*/0, endEpochBlockHash, /*inputAmount*/CAmount(600),
-        /*changeTotalAmount*/CAmount(400),/*numChangeOut*/1, /*bwtAmount*/CAmount(30), /*numBwt*/2, /*quality*/tq);
-
-    EXPECT_TRUE(AcceptCertificateToMemoryPool(mempool, state, cert6,
-                LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
-
-    EXPECT_FALSE(mempool.mapSidechains.at(scId).HasCert(cert2.GetHash()));
-    EXPECT_TRUE(mempool.mapSidechains.at(scId).GetTopQualityCert()->second == cert6.GetHash());
-}
-#endif
-
 TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected) {
     uint256 scId = uint256S("aaa");
     CAmount cswTxCoins = 10;
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -768,7 +671,6 @@ TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected)
     ASSERT_TRUE(cswTx.GetHash() != duplicatedCswTx.GetHash());
 
     CValidationState dummyState;
-    libzendoomc::CScProofVerifier verifier = libzendoomc::CScProofVerifier::Disabled();
     EXPECT_FALSE(mempool.checkIncomingTxConflicts(duplicatedCswTx));
 }
 
@@ -830,7 +732,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAr
 
     // Create and add CSW Tx
     CAmount cswTxCoins = initialScState.balance; // csw coins = total sc mature coins
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -845,7 +747,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAr
 
     // Add without checks another CSW tx to the same sidechain
     CAmount cswTxCoins2 = 1;
-    CTxCeasedSidechainWithdrawalInput cswInput2 = GenerateCSWInput(scId, "ddcc", cswTxCoins2);
+    CTxCeasedSidechainWithdrawalInput cswInput2 = GenerateCSWInput(scId, "ddcc", "aabb", "eeff", cswTxCoins2);
     CTransaction cswTx2 = GenerateCSWTx(cswInput2);
     CTxMemPoolEntry cswEntry2(cswTx2, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
     EXPECT_TRUE(mempool.addUnchecked(cswTx2.GetHash(), cswEntry2));
@@ -878,7 +780,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCswForAliveSidechainsAreRemovedF
 
     // Create and add CSW Tx
     CAmount cswTxCoins = initialScState.balance; // csw coins = total sc mature coins
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -919,14 +821,18 @@ TEST_F(SidechainsInMempoolTestSuite, SimpleCswRemovalFromMempool) {
     //load csw tx to mempool
     CAmount dummyAmount(1);
     uint160 dummyPubKeyHash;
-    libzendoomc::ScProof dummyScProof;
+    CScProof dummyScProof;
+    CFieldElement dummyActCertData;
+    CFieldElement dummyCeasingCumTree;
     CScript dummyRedeemScript;
 
     CMutableTransaction mutTx;
     CFieldElement nullfier_1{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     CFieldElement nullfier_2{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'b')};
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(
+        dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyActCertData, dummyCeasingCumTree, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(
+        dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyActCertData, dummyCeasingCumTree, dummyRedeemScript));
 
     CTransaction cswTx(mutTx);
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -978,13 +884,14 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainWithoutVK) {
     // Create and add CSW Tx
     CAmount cswTxCoins = scCoins / 4;
     assert(cswTxCoins > 0);
-    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId,"aabb", cswTxCoins);
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = GenerateCSWTx(cswInput);
 
     CValidationState cswTxState;
-    bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, cswTxState, cswTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    MempoolReturnValue res = AcceptTxToMemoryPool(mempool, cswTxState, cswTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                  MempoolProofVerificationFlag::SYNC);
+    EXPECT_TRUE(res == MempoolReturnValue::INVALID);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
@@ -999,15 +906,19 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
     //load csw tx to mempool
     CAmount dummyAmount(1);
     uint160 dummyPubKeyHash;
-    libzendoomc::ScProof dummyScProof;
+    CScProof dummyScProof;
+    CFieldElement dummyActCertData;
+    CFieldElement dummyCeasingCumTree;
     CScript dummyRedeemScript;
 
     CMutableTransaction mutTx;
     mutTx.nVersion = SC_TX_VERSION;
     CFieldElement nullfier_1{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'a')};
     CFieldElement nullfier_2{std::vector<unsigned char>(size_t(CFieldElement::ByteSize()), 'b')};
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
-    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(
+        dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyActCertData, dummyCeasingCumTree, dummyRedeemScript));
+    mutTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(
+        dummyAmount, scId, nullfier_2, dummyPubKeyHash, dummyScProof, dummyActCertData, dummyCeasingCumTree, dummyRedeemScript));
 
     CTransaction cswTx(mutTx);
     CTxMemPoolEntry cswEntry(cswTx, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
@@ -1018,7 +929,9 @@ TEST_F(SidechainsInMempoolTestSuite, ConflictingCswRemovalFromMempool) {
     std::list<CScCertificate> removedCerts;
 
     CMutableTransaction mutConfirmedTx;
-    mutConfirmedTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyRedeemScript));
+    mutConfirmedTx.vcsw_ccin.push_back(CTxCeasedSidechainWithdrawalInput(
+        dummyAmount, scId, nullfier_1, dummyPubKeyHash, dummyScProof, dummyActCertData, dummyCeasingCumTree, dummyRedeemScript));
+
     CTransaction cswConfirmedTx(mutConfirmedTx);
     ASSERT_TRUE(cswTx.GetHash() != cswConfirmedTx.GetHash());
     mempool.removeConflicts(cswConfirmedTx, removedTxs, removedCerts);
@@ -1254,9 +1167,8 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardAliveSidechainIsNotDrop
     uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(sidechainsView, certHeight-COINBASE_MATURITY);
 
     //Add mbtr to mempool
-    uint256 dummyEndBlockHash = uint256S("aaa");
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, epochReferredByCert, dummyEndBlockHash,
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, epochReferredByCert,
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
     mutCert.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
@@ -1292,9 +1204,8 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardCeasedSidechainIsDroppe
     uint256 inputTxHash = txCreationUtils::CreateSpendableCoinAtHeight(sidechainsView, certHeight-COINBASE_MATURITY);
 
     //Add mbtr to mempool
-    uint256 dummyEndBlockHash = uint256S("aaa");
-    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*currentEpoch*/0, dummyEndBlockHash,
-        /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
+    CMutableScCertificate mutCert = txCreationUtils::createCertificate(scId, /*currentEpoch*/0,
+        CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     mutCert.vin.clear();
     mutCert.vin.push_back(CTxIn(inputTxHash, 0, CScript()));
@@ -1488,18 +1399,20 @@ TEST_F(SidechainsInMempoolTestSuite, CheckFtFeeValidationOnMempool)
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, ftScFee);
     CValidationState fwdTxState;
-    bool missingInputs = false;
 
     // Check that a FT with the fee equal to the minimum specified in the sidechain is rejected
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     // Check that a FT with the fee greater than the minimum specified in the sidechain is accepted
     fwdTx = GenerateFwdTransferTx(scId, ftScFee + 1);
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                     MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     // Check that a FT with the fee less than the minimum specified in the sidechain is rejected
     fwdTx = GenerateFwdTransferTx(scId, ftScFee - 1);
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, CheckMbtrFeeValidationOnMempool)
@@ -1509,18 +1422,20 @@ TEST_F(SidechainsInMempoolTestSuite, CheckMbtrFeeValidationOnMempool)
 
     CMutableTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
     CValidationState mbtrTxState;
-    bool missingInputs = false;
 
     // Check that a MBTR with the fee equal to the minimum specified in the sidechain is accepted
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                     MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     // Check that a MBTR with the fee greater than the minimum specified in the sidechain is accepted
     mbtrTx = GenerateBtrTx(scId, mbtrScFee + 1);
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                     MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     // Check that a MBTR with the fee less than the minimum specified in the sidechain is rejected
     mbtrTx = GenerateBtrTx(scId, mbtrScFee - 1);
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 }
 
 
@@ -1534,9 +1449,9 @@ TEST_F(SidechainsInMempoolTestSuite, MbtrDataLengthGreaterThanZeroEnablesMbtr)
 
     CMutableTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
     CValidationState mbtrTxState;
-    bool missingInputs = false;
 
-    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                     MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, MbtrDataLengthZeroDisablesMbtr)
@@ -1546,9 +1461,9 @@ TEST_F(SidechainsInMempoolTestSuite, MbtrDataLengthZeroDisablesMbtr)
 
     CMutableTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
     CValidationState mbtrTxState;
-    bool missingInputs = false;
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_FALSE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                      MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 }
 
 
@@ -1562,19 +1477,19 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, ftScFee + 1);
     CValidationState fwdTxState;
-    bool missingInputs = false;
 
     // Check that a FT with an amount greater than the Forward Transfer sidechain fee is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                     MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
-    uint256 dummyBlockHash {};
+    CFieldElement dummyCumTree {SAMPLE_FIELD};
     CAmount dummyInputAmount{20};
     CAmount dummyNonZeroFee {10};
     CAmount dummyNonZeroChange = dummyInputAmount - dummyNonZeroFee;
     CAmount dummyBwtAmount {0};
 
-    CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/0, dummyBlockHash, /*inputAmount*/dummyInputAmount,
+    CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/0, dummyCumTree, /*inputAmount*/dummyInputAmount,
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/ftScFee + 1, /*mbtrScFee*/CAmount(0), /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
@@ -1596,21 +1511,21 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempool)
 
     CTransaction fwdTx = GenerateFwdTransferTx(scId, ftScFee + 1);
     CValidationState fwdTxState;
-    bool missingInputs = false;
 
     // Check that a FT with an amount greater than the Forward Transfer sidechain fee is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, fwdTxState, fwdTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                     MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
-    uint256 dummyBlockHash {};
+    CFieldElement dummyCumTree {SAMPLE_FIELD};
     CAmount dummyInputAmount{20};
     CAmount dummyNonZeroFee {10};
     CAmount dummyNonZeroChange = dummyInputAmount - dummyNonZeroFee;
     CAmount dummyBwtAmount {0};
 
-    CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/0, dummyBlockHash, /*inputAmount*/dummyInputAmount,
-        /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
-        /*ftScFee*/ftScFee - 1, /*mbtrScFee*/CAmount(0), /*quality*/certQuality);
+    CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/0, CFieldElement{SAMPLE_FIELD},
+        /*inputAmount*/dummyInputAmount, /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount,
+        /*numBwt*/2, /*ftScFee*/ftScFee - 1, /*mbtrScFee*/CAmount(0), /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
     CBlockUndo aBlock;
     sidechainsView.UpdateSidechain(certificate, aBlock);
@@ -1630,19 +1545,19 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
 
     CTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
     CValidationState mbtrTxState;
-    bool missingInputs = false;
 
     // Check that a FT with the fee equal to the minimum specified in the sidechain is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                     MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
-    uint256 dummyBlockHash {};
+    CFieldElement dummyCumTree {SAMPLE_FIELD};
     CAmount dummyInputAmount{20};
     CAmount dummyNonZeroFee {10};
     CAmount dummyNonZeroChange = dummyInputAmount - dummyNonZeroFee;
     CAmount dummyBwtAmount {0};
 
-    CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/0, dummyBlockHash, /*inputAmount*/dummyInputAmount,
+    CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/0, dummyCumTree, /*inputAmount*/dummyInputAmount,
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/CAmount(0), /*mbtrScFee*/mbtrScFee + 1, /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
@@ -1664,19 +1579,19 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempool)
 
     CTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
     CValidationState mbtrTxState;
-    bool missingInputs = false;
 
     // Check that a FT with the fee equal to the minimum specified in the sidechain is accepted
-    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                     MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
 
     int64_t certQuality = 10;
-    uint256 dummyBlockHash {};
+    CFieldElement dummyCumTree {SAMPLE_FIELD};
     CAmount dummyInputAmount{20};
     CAmount dummyNonZeroFee {10};
     CAmount dummyNonZeroChange = dummyInputAmount - dummyNonZeroFee;
     CAmount dummyBwtAmount {0};
 
-    CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/0, dummyBlockHash, /*inputAmount*/dummyInputAmount,
+    CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/0, dummyCumTree, /*inputAmount*/dummyInputAmount,
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/CAmount(0), /*mbtrScFee*/mbtrScFee - 1, /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
@@ -1744,8 +1659,8 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creation
     scTx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = CAmount(1); // Dummy amount
     scTx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1;
 
-    scTx.vsc_ccout[0].wCertVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
-    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = libzendoomc::ScVk();
+    scTx.vsc_ccout[0].wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    if(ceasedVkDefined) scTx.vsc_ccout[0].wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
 
     SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, scTx, 0);
 
@@ -1798,18 +1713,31 @@ CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId, c
     return scTx;
 }
 
-CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput(const uint256& scId, const std::string& nullifierHex, CAmount amount)
+CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput(
+    const uint256& scId, const std::string& nullifierHex,
+    const std::string& actCertDataHex, const std::string& ceasingCumScTxCommTreeHex, CAmount amount)
 {
     CFieldElement nullifier{};
-    std::vector<unsigned char> tmp{nullifierHex.begin(), nullifierHex.end()};
-    tmp.resize(CFieldElement::ByteSize(), 0x0);
-    nullifier.SetByteArray(tmp);
+    std::vector<unsigned char> tmp1 = ParseHex(nullifierHex);
+    tmp1.resize(CFieldElement::ByteSize(), 0x0);
+    nullifier.SetByteArray(tmp1);
+
+    std::vector<unsigned char> tmp2 = ParseHex(actCertDataHex);
+    tmp2.resize(CFieldElement::ByteSize());
+    CFieldElement actCertDataHash{tmp2};
+
+    std::vector<unsigned char> tmp3 = ParseHex(ceasingCumScTxCommTreeHex);
+    tmp3.resize(CFieldElement::ByteSize());
+    CFieldElement ceasingCumScTxCommTree{tmp3};
 
     uint160 dummyPubKeyHash = coinsKey.GetPubKey().GetID();
-    libzendoomc::ScProof dummyScProof;
+    CScProof dummyScProof;
+    CFieldElement dummyActCertData;
+    CFieldElement dummyCeasingCumTree;
     CScript dummyRedeemScript;
 
-    return CTxCeasedSidechainWithdrawalInput(amount, scId, nullifier, dummyPubKeyHash, dummyScProof, dummyRedeemScript);
+    return CTxCeasedSidechainWithdrawalInput(
+        amount, scId, nullifier, dummyPubKeyHash, dummyScProof, actCertDataHash, ceasingCumScTxCommTree, dummyRedeemScript);
 }
 
 CTransaction SidechainsInMempoolTestSuite::GenerateCSWTx(const std::vector<CTxCeasedSidechainWithdrawalInput>& csws)
@@ -1842,18 +1770,19 @@ CTransaction SidechainsInMempoolTestSuite::GenerateCSWTx(const CTxCeasedSidechai
     return GenerateCSWTx(csws);
 }
 
-CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(const uint256 & scId, int epochNum, const uint256 & endEpochBlockHash,
-                 CAmount inputAmount, CAmount changeTotalAmount, unsigned int numChangeOut,
-                 CAmount bwtTotalAmount, unsigned int numBwt, CAmount ftScFee, CAmount mbtrScFee,
-                 int64_t quality, const CTransactionBase* inputTxBase)
+CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(
+    const uint256 & scId, int epochNum,
+    const CFieldElement& endEpochCumScTxCommTreeRoot, CAmount inputAmount, CAmount changeTotalAmount, unsigned int numChangeOut,
+    CAmount bwtTotalAmount, unsigned int numBwt, CAmount ftScFee, CAmount mbtrScFee,
+    int64_t quality, const CTransactionBase* inputTxBase)
 {
     CMutableScCertificate res;
     res.nVersion = SC_CERT_VERSION;
     res.scId = scId;
     res.epochNumber = epochNum;
-    res.endEpochBlockHash = endEpochBlockHash;
+    res.endEpochCumScTxCommTreeRoot = endEpochCumScTxCommTreeRoot;
     res.quality = quality;
-    res.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    res.scProof = CScProof{SAMPLE_CERT_DARLIN_PROOF};
     res.forwardTransferScFee = ftScFee;
     res.mainchainBackwardTransferRequestScFee = mbtrScFee;
 
@@ -1882,7 +1811,10 @@ CScCertificate SidechainsInMempoolTestSuite::GenerateCertificate(const uint256 &
     return res;
 }
 
-void SidechainsInMempoolTestSuite::storeSidechainWithCurrentHeight(CNakedCCoinsViewCache& view, const uint256& scId, const CSidechain& sidechain, int chainActiveHeight)
+void SidechainsInMempoolTestSuite::storeSidechainWithCurrentHeight(txCreationUtils::CNakedCCoinsViewCache& view,
+                                                                   const uint256& scId,
+                                                                   const CSidechain& sidechain,
+                                                                   int chainActiveHeight)
 {
     chainSettingUtils::ExtendChainActiveToHeight(chainActiveHeight);
     view.SetBestBlock(chainActive.Tip()->GetBlockHash());

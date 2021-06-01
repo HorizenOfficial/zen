@@ -15,6 +15,7 @@
 #include "consensus/consensus.h"
 #include "util.h"
 #include <array>
+#include "net.h"
 
 #include <boost/variant.hpp>
 
@@ -28,7 +29,13 @@
 #include "consensus/params.h"
 #include <sc/sidechaintypes.h>
 #include <script/script_error.h>
-#include <sc/proofverifier.h>
+
+class UniValue;
+class CBackwardTransferOut;
+class CValidationState;
+class CChain;
+class CMutableTransactionBase;
+struct CMutableTransaction;
 
 static const int32_t SC_CERT_VERSION = 0xFFFFFFFB; // -5
 static const int32_t SC_TX_VERSION = 0xFFFFFFFC; // -4
@@ -360,14 +367,18 @@ public:
     uint256 scId;
     CFieldElement nullifier;
     uint160 pubKeyHash;
-    libzendoomc::ScProof scProof;
+    CScProof scProof;
+    CFieldElement actCertDataHash; 
+    CFieldElement ceasingCumScTxCommTree; 
     CScript redeemScript;
 
-    CTxCeasedSidechainWithdrawalInput(): nValue(-1), scId(), nullifier(), pubKeyHash(), scProof(), redeemScript() {}
+    CTxCeasedSidechainWithdrawalInput();
 
     explicit CTxCeasedSidechainWithdrawalInput(const CAmount& nValueIn, const uint256& scIdIn,
                                                const CFieldElement& nullifierIn, const uint160& pubKeyHashIn,
-                                               const libzendoomc::ScProof& scProofIn, const CScript& redeemScriptIn);
+                                               const CScProof& scProofIn, const CFieldElement& actCertDataHashIn,
+                                               const CFieldElement& ceasingCumScTxCommTreeIn, const CScript& redeemScriptIn
+                                               );
 
     ADD_SERIALIZE_METHODS
 
@@ -378,17 +389,21 @@ public:
         READWRITE(nullifier);
         READWRITE(pubKeyHash);
         READWRITE(scProof);
+        READWRITE(actCertDataHash); // it is valid having actCertDataHash FE backed by an empty vector
+        READWRITE(ceasingCumScTxCommTree);
         READWRITE(redeemScript);
     }
 
     friend bool operator==(const CTxCeasedSidechainWithdrawalInput& a, const CTxCeasedSidechainWithdrawalInput& b)
     {
-        return (a.nValue        == b.nValue &&
-                a.scId          == b.scId &&
-                a.nullifier     == b.nullifier &&
-                a.pubKeyHash    == b.pubKeyHash &&
-                a.scProof       == b.scProof &&
-                a.redeemScript  == b.redeemScript);
+        return (a.nValue                 == b.nValue &&
+                a.scId                   == b.scId &&
+                a.nullifier              == b.nullifier &&
+                a.pubKeyHash             == b.pubKeyHash &&
+                a.scProof                == b.scProof &&
+                a.actCertDataHash            == b.actCertDataHash &&
+                a.ceasingCumScTxCommTree == b.ceasingCumScTxCommTree &&
+                a.redeemScript           == b.redeemScript);
     }
 
     friend bool operator!=(const CTxCeasedSidechainWithdrawalInput& a, const CTxCeasedSidechainWithdrawalInput& b)
@@ -400,8 +415,6 @@ public:
 
     CScript scriptPubKey() const;
 };
-
-class CBackwardTransferOut;
 
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
@@ -557,9 +570,6 @@ public:
     }
 };
 
-class FieldElementCertificateFieldConfig;
-class BitVectorCertificateFieldConfig;
-
 class CTxScCreationOut : public CTxCrosschainOut
 {
 friend class CTransaction;
@@ -573,17 +583,18 @@ public:
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
-    libzendoomc::ScVk wCertVk;
-    boost::optional<libzendoomc::ScVk> wCeasedVk;
+    CScVKey wCertVk;
+    boost::optional<CScVKey> wCeasedVk;
     std::vector<FieldElementCertificateFieldConfig> vFieldElementCertificateFieldConfig;
     std::vector<BitVectorCertificateFieldConfig> vBitVectorCertificateFieldConfig;
     CAmount forwardTransferScFee;
     CAmount mainchainBackwardTransferRequestScFee;
-    int32_t mainchainBackwardTransferRequestDataLength;
+    uint8_t mainchainBackwardTransferRequestDataLength;
 
-    CTxScCreationOut(): withdrawalEpochLength(-1), forwardTransferScFee(-1),
+    CTxScCreationOut(): withdrawalEpochLength(-1),
+                        forwardTransferScFee(-1),
                         mainchainBackwardTransferRequestScFee(-1),
-                        mainchainBackwardTransferRequestDataLength(-1) { }
+                        mainchainBackwardTransferRequestDataLength(0) { }
 
     CTxScCreationOut(const CAmount& nValueIn, const uint256& addressIn,
                      const CAmount& ftScFee, const CAmount& mbtrScFee,
@@ -680,22 +691,6 @@ class CBwtRequestOut : public CTxCrosschainOutBase
     std::string ToString() const override;
 };
 
-// forward declarations
-class CValidationState;
-class CTxMemPool;
-class CCoinsViewCache;
-class CChain;
-class CBlock;
-class CBlockTemplate;
-class CScriptCheck;
-class CBlockUndo;
-class CTxUndo;
-class UniValue;
-
-namespace Sidechain { class ScCoinsViewCache; }
-
-class CMutableTransactionBase;
-
 // abstract interface for CTransaction and CScCertificate
 class CTransactionBase
 {
@@ -718,7 +713,6 @@ public:
     CTransactionBase& operator=(const CTransactionBase& tx);
 
     explicit CTransactionBase(const CMutableTransactionBase& mutTxBase);
-
     virtual ~CTransactionBase() = default;
 
     template <typename Stream>
@@ -822,8 +816,6 @@ public:
         return !IsCertificate(nVersion);
     }
 };
-
-struct CMutableTransaction;
 
 /** The basic transaction that is broadcasted on the network and contained in
  * blocks.  A transaction can contain multiple inputs and outputs.
@@ -1109,6 +1101,24 @@ struct CMutableTransaction : public CMutableTransactionBase
     bool add(const CTxScCreationOut& out);
     bool add(const CTxForwardTransferOut& out);
     bool add(const CBwtRequestOut& out);
+    bool add(const CFieldElement& acd);
+};
+
+/**
+ * @brief A structure that includes all the arguments needed for verifying the proof of a CSW input.
+ */
+struct CCswProofVerifierInput
+{
+    CScVKey ceasedVk;
+    CFieldElement ceasingCumScTxCommTree;
+    CFieldElement certDataHash;
+    CScProof cswProof;
+    CNode* node;    /**< The node that sent the transaction. */
+    CAmount nValue;
+    CFieldElement nullifier;
+    uint160 pubKeyHash;
+    uint256 scId;
+    std::shared_ptr<CTransaction> transactionPtr;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

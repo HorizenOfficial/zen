@@ -18,11 +18,12 @@
 #include <boost/unordered_map.hpp>
 #include "zcash/IncrementalMerkleTree.hpp"
 #include <sc/sidechain.h>
-#include <sc/proofverifier.h>
+#include <consensus/validation.h>
 
 class CBlockUndo;
 class CTxInUndo;
 class CSidechainUndoData;
+class CScProofVerifier;
 
 static const int BWT_POS_UNSET = -1;
 
@@ -673,7 +674,7 @@ public:
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
-    bool IsScTxApplicableToState(const CTransaction& tx, libzendoomc::CScProofVerifier& scVerifier) const;
+    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode = nullptr) const;
     bool CheckScTxTiming(const uint256& scId) const;
     bool CheckScFtFee(const CTxForwardTransferOut& ftOutput) const;
     bool CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const;
@@ -682,8 +683,11 @@ public:
     int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    bool IsCertApplicableToState(const CScCertificate& cert, libzendoomc::CScProofVerifier& scVerifier) const;
-    bool CheckEndEpochBlockHash(const CSidechain& sidechain, int epochNumber, const uint256& epochBlockHash) const;
+    CValidationState::Code IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode = nullptr) const;
+
+    CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(
+        const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot) const;
+
     bool CheckCertTiming(const uint256& scId, int certEpoch) const;
     bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
     bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
@@ -703,6 +707,7 @@ public:
     bool AddCswNullifier(const uint256& scId, const CFieldElement &nullifier);
     bool RemoveCswNullifier(const uint256& scId, const CFieldElement &nullifier);
 
+    CFieldElement GetCeasingCumTreeHash(const uint256& scId) const;
     const CScCertificateView& GetActiveCertView(const uint256& scId) const;
     CSidechain::State GetSidechainState(const uint256& scId) const;
 

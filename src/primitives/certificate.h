@@ -2,8 +2,7 @@
 #define _CERTIFICATE_H
 
 #include "transaction.h"
-#include "sc/proofverifier.h"
-#include "policy/fees.h"
+#include "sc/sidechaintypes.h"
 
 struct CMutableScCertificate;
 
@@ -33,9 +32,6 @@ public:
     bool IsNull() const { return (nValue == -1);  }
 };
 
-class FieldElementCertificateField;
-class BitVectorCertificateField;
-
 class CScCertificate : public CTransactionBase
 {
     /** Memory only. */
@@ -57,8 +53,8 @@ private:
 public:
     const int32_t epochNumber;
     const int64_t quality;
-    const uint256 endEpochBlockHash;
-    const libzendoomc::ScProof scProof;
+    const CFieldElement endEpochCumScTxCommTreeRoot;
+    const CScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
     const CAmount forwardTransferScFee;
@@ -108,8 +104,8 @@ public:
         READWRITE(*const_cast<uint256*>(&scId));
         READWRITE(*const_cast<int32_t*>(&epochNumber));
         READWRITE(*const_cast<int64_t*>(&quality));
-        READWRITE(*const_cast<uint256*>(&endEpochBlockHash));
-        READWRITE(*const_cast<libzendoomc::ScProof*>(&scProof));
+        READWRITE(*const_cast<CFieldElement*>(&endEpochCumScTxCommTreeRoot));
+        READWRITE(*const_cast<CScProof*>(&scProof));
         READWRITE(*const_cast<std::vector<FieldElementCertificateField>*>(&vFieldElementCertificateField));
         READWRITE(*const_cast<std::vector<BitVectorCertificateField>*>(&vBitVectorCertificateField));
         READWRITE(*const_cast<CAmount*>(&forwardTransferScFee));
@@ -172,7 +168,7 @@ public:
     const std::vector<JSDescription>&  GetVjoinsplit() const override {static const std::vector<JSDescription> noJs; return noJs;};
     const uint256&                     GetScId()       const          {return scId;};
     const uint32_t&                    GetLockTime()   const override {static const uint32_t noLockTime(0); return noLockTime;};
-    CFieldElement                      GetDataHash() const;
+    CFieldElement                      GetDataHash(const Sidechain::ScFixedParameters& scFixedParams) const;
     //END OF GETTERS
 
     bool IsBackwardTransfer(int pos) const override final;
@@ -200,7 +196,7 @@ public:
             scId.IsNull() &&
             epochNumber == EPOCH_NULL &&
             quality == QUALITY_NULL &&
-            endEpochBlockHash.IsNull() &&
+            endEpochCumScTxCommTreeRoot.IsNull() &&
             scProof.IsNull() &&
             vFieldElementCertificateField.empty() &&
             vBitVectorCertificateField.empty() &&
@@ -229,8 +225,8 @@ struct CMutableScCertificate : public CMutableTransactionBase
     uint256 scId;
     int32_t epochNumber;
     int64_t quality;
-    uint256 endEpochBlockHash;
-    libzendoomc::ScProof scProof;
+    CFieldElement endEpochCumScTxCommTreeRoot;
+    CScProof scProof;
     std::vector<FieldElementCertificateField> vFieldElementCertificateField;
     std::vector<BitVectorCertificateField> vBitVectorCertificateField;
     CAmount forwardTransferScFee;
@@ -254,7 +250,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
         READWRITE(scId);
         READWRITE(epochNumber);
         READWRITE(quality);
-        READWRITE(endEpochBlockHash);
+        READWRITE(endEpochCumScTxCommTreeRoot);
         READWRITE(scProof);
         READWRITE(vFieldElementCertificateField);
         READWRITE(vBitVectorCertificateField);
@@ -294,7 +290,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     template <typename Stream>
     CMutableScCertificate(deserialize_type, Stream& s) :
         scId(), epochNumber(CScCertificate::EPOCH_NULL),
-        quality(CScCertificate::QUALITY_NULL), endEpochBlockHash(), scProof(),
+        quality(CScCertificate::QUALITY_NULL), endEpochCumScTxCommTreeRoot(), scProof(),
         vFieldElementCertificateField(), vBitVectorCertificateField()
     {
         Unserialize(s);
@@ -366,8 +362,8 @@ struct CScCertificateView
     CScCertificateView(): certDataHash(), forwardTransferScFee(CScCertificate::INT_NULL), mainchainBackwardTransferRequestScFee(CScCertificate::INT_NULL) {};
     CScCertificateView(const uint256& certDataHash, CAmount ftFee, CAmount mbtrFee):
         certDataHash(certDataHash), forwardTransferScFee(ftFee), mainchainBackwardTransferRequestScFee(mbtrFee) {};
-    CScCertificateView(const CScCertificate& certificate):
-        certDataHash(certificate.GetDataHash()), forwardTransferScFee(certificate.forwardTransferScFee),
+    CScCertificateView(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams):
+        certDataHash(certificate.GetDataHash(scFixedParams)), forwardTransferScFee(certificate.forwardTransferScFee),
         mainchainBackwardTransferRequestScFee(certificate.mainchainBackwardTransferRequestScFee) {};
 
     ADD_SERIALIZE_METHODS;
@@ -400,6 +396,26 @@ struct CScCertificateView
             mainchainBackwardTransferRequestScFee == CScCertificate::INT_NULL
         );
     }
+};
+
+/**
+ * @brief A structure that includes all the arguments needed for verifying the proof of a certificate.
+ */
+struct CCertProofVerifierInput
+{
+    std::shared_ptr<CScCertificate> certificatePtr;
+    uint256 certHash;
+    CFieldElement constant;
+    uint32_t epochNumber;
+    uint64_t quality;
+    std::vector<backward_transfer_t> bt_list;
+    std::vector<CFieldElement> vCustomFields;
+    CFieldElement endEpochCumScTxCommTreeRoot;
+    uint64_t mainchainBackwardTransferRequestScFee;
+    uint64_t forwardTransferScFee;
+    CScProof certProof;
+    CScVKey CertVk;
+    CNode* node;    /**< The node that sent the transaction. It can be null. */
 };
 
 #endif // _CERTIFICATE_H

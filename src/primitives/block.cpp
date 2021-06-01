@@ -100,7 +100,7 @@ uint256 CBlock::BuildMerkleTree(std::vector<uint256>& vMerkleTreeIn, size_t vtxS
     return (vMerkleTreeIn.empty() ? uint256() : vMerkleTreeIn.back());
 }
 
-uint256 CBlock::BuildScTxsCommitment()
+uint256 CBlock::BuildScTxsCommitment(const CCoinsViewCache& view)
 {
     SidechainTxsCommitmentBuilder scCommitmentBuilder;
 
@@ -111,7 +111,7 @@ uint256 CBlock::BuildScTxsCommitment()
 
     for (const auto& cert : vcert)
     {
-        scCommitmentBuilder.add(cert);
+        scCommitmentBuilder.add(cert, view);
     }
 
     return scCommitmentBuilder.getCommitment();

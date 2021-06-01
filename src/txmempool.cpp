@@ -38,7 +38,7 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTransaction& _tx, const CAmount& _nFee,
     CMemPoolEntry(_nFee, _nTime, _dPriority, _nHeight),
     tx(_tx), hadNoDependencies(poolHasNoInputsOf)
 {
-    nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+    nTxSize = tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     nModSize = tx.CalculateModifiedSize(nTxSize);
     nUsageSize = RecursiveDynamicUsage(tx);
 }
@@ -63,7 +63,7 @@ CCertificateMemPoolEntry::CCertificateMemPoolEntry(const CScCertificate& _cert, 
     CMemPoolEntry(_nFee, _nTime, _dPriority, _nHeight),
     cert(_cert) 
 {
-    nCertificateSize = ::GetSerializeSize(cert, SER_NETWORK, PROTOCOL_VERSION);
+    nCertificateSize = cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     nModSize = cert.CalculateModifiedSize(nCertificateSize);
     nUsageSize = RecursiveDynamicUsage(cert);
 }
