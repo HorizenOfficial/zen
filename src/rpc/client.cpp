@@ -117,13 +117,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "zcbenchmark", 1 },
     { "zcbenchmark", 2 },
     { "getblocksubsidy", 0},
-<<<<<<< 48753b98d96b3fd054dbfa892802b9aa1fb1003b
 	{ "getblockmerkleroots", 0},
 	{ "getblockmerkleroots", 1},
-=======
-	{ "getSidechainMerkleRoots", 0},
-	{ "getSidechainMerkleRoots", 1},
->>>>>>> Added new RPC command that calculate MerkleTree and ScTxsCommitment based on a list of transactions and certificates
     { "z_listreceivedbyaddress", 1},
     { "z_getbalance", 1},
     { "z_gettotalbalance", 0},
