@@ -924,7 +924,7 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
     return result;
 }
 
-UniValue getSidechainMerkleRoots(const UniValue& params, bool fHelp) {
+UniValue getBlockMerkleRoots(const UniValue& params, bool fHelp) {
     if (fHelp || params.size() > 2)
         throw runtime_error(
                 "getSidechainMerkleRoots transactions certificates\n"
