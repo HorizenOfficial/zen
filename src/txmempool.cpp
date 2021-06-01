@@ -1310,16 +1310,17 @@ bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) 
     return true;
 }
 
-void CTxMemPool::queryHashes(std::vector<uint256>& vtxid)
+void CTxMemPool::queryHashes(std::vector<uint256>& vtxid) const
 {
     vtxid.clear();
 
     LOCK(cs);
     vtxid.reserve(mapTx.size() + mapCertificate.size());
-    for (std::map<uint256, CTxMemPoolEntry>::iterator mi = mapTx.begin(); mi != mapTx.end(); ++mi)
-        vtxid.push_back((*mi).first);
-    for (std::map<uint256, CCertificateMemPoolEntry>::iterator mi = mapCertificate.begin(); mi != mapCertificate.end(); ++mi)
-        vtxid.push_back((*mi).first);
+    for(const auto& mapTxEntry : mapTx)
+        vtxid.push_back(mapTxEntry.first);
+
+    for(const auto& mapCertEntry : mapCertificate)
+        vtxid.push_back(mapCertEntry.first);
 }
 
 bool CTxMemPool::lookup(const uint256& hash, CTransaction& result) const
