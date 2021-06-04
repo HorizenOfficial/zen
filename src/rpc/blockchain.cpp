@@ -1710,7 +1710,7 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
 
     std::string nullifierError;
     std::vector<unsigned char> nullifierVec;
-    if (!AddScData(inputString, nullifierVec, CFieldElement::ByteSize(), CheckSizeMode::STRICT, nullifierError))
+    if (!AddScData(inputString, nullifierVec, CFieldElement::ByteSize(), CheckSizeMode::CHECK_STRICT, nullifierError))
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": " + nullifierError;
         throw JSONRPCError(RPC_TYPE_ERROR, error);

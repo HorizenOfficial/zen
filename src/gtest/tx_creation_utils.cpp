@@ -601,7 +601,9 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
 void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provingSystem, TestCircuitType circuitType) const
 {
     CctpErrorCode errorCode;
-    zendoo_generate_mc_test_params(circuitType, provingSystem, (path_char_t*)tempFolderPath.c_str(), strlen(tempFolderPath.c_str()), &errorCode);
+    zendoo_generate_mc_test_params(
+        circuitType, provingSystem,
+        (path_char_t*)tempFolderPath.string().c_str(), strlen(tempFolderPath.string().c_str()), &errorCode);
 }
 
 /**

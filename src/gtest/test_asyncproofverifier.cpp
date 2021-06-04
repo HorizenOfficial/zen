@@ -62,7 +62,7 @@ public:
 
 protected:
 
-    static const uint kDummyAmount = 1;
+    static const CAmount kDummyAmount = 1;
 
     CNode dummyNode;
     CSidechain sidechain;
@@ -400,7 +400,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Tx_With_Several_Csw_Inputs)
  */
 TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
 {
-    const uint numberOfValidTransactions = 3;
+    const uint8_t numberOfValidTransactions = 3;
 
     BlockchainTestManager& blockchain = BlockchainTestManager::GetInstance();
     blockchain.Reset();
@@ -423,8 +423,8 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
     // Create the invalid transaction.
     transactions.push_back(CTransaction(blockchain.CreateTransaction(invalidArgs)));
 
-    uint amount = 1;
-    for (int i = 0; i < numberOfValidTransactions; i++)
+    CAmount amount = 1;
+    for (uint8_t i = 0; i < numberOfValidTransactions; i++)
     {
         // Create a new CSW input with valid proof.
         CTxCeasedSidechainWithdrawalInput cswInputValid = blockchain.CreateCswInput(sidechainId, kDummyAmount + i, testProvingSystem);

@@ -1247,7 +1247,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             {
                 state.Invalid(
                     error("%s():%d - ERROR: cert[%s] inputs already spent\n", __func__, __LINE__, certHash.ToString()),
-                    CValidationState::Code::DUPLICATE, "bad-sc-cert-inputs-spent");
+                    CValidationState::Code::DUPLICATED, "bad-sc-cert-inputs-spent");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -1514,7 +1514,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             {
                 LogPrintf("%s():%d - ERROR: tx[%s]\n", __func__, __LINE__, hash.ToString());
                 state.Invalid(error("%s(): inputs already spent", __func__),
-                                     CValidationState::Code::DUPLICATE, "bad-txns-inputs-spent");
+                                     CValidationState::Code::DUPLICATED, "bad-txns-inputs-spent");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -1538,7 +1538,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             if (!view.HaveJoinSplitRequirements(tx))
             {
                 state.Invalid(error("%s():%d - joinsplit requirements not met", __func__, __LINE__),
-                              CValidationState::Code::DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
+                              CValidationState::Code::DUPLICATED, "bad-txns-joinsplit-requirements-not-met");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -5925,7 +5925,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         // Each connection can only send one version message
         if (pfrom->nVersion != 0)
         {
-            pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(CValidationState::Code::DUPLICATE), string("Duplicate version message"));
+            pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(CValidationState::Code::DUPLICATED), string("Duplicate version message"));
             Misbehaving(pfrom->GetId(), 1);
             return false;
         }

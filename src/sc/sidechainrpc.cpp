@@ -201,13 +201,13 @@ bool AddScData(
 
     unsigned int scDataLen = dataLen/2;
 
-    if (checkSizeMode == CheckSizeMode::STRICT && (scDataLen != vSize))
+    if (checkSizeMode == CheckSizeMode::CHECK_STRICT && (scDataLen != vSize))
     {
         error = strprintf("Invalid length %d, must be %d bytes", scDataLen, vSize);
         return false;
     }
 
-    if (checkSizeMode == CheckSizeMode::UPPER_LIMIT && (scDataLen > vSize))
+    if (checkSizeMode == CheckSizeMode::CHECK_UPPER_LIMIT && (scDataLen > vSize))
     {
         error = strprintf("Invalid length %d, must be %d bytes at most", scDataLen, vSize);
         return false;
@@ -311,7 +311,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
 
         std::string nullifierError;
         std::vector<unsigned char> nullifierVec;
-        if (!AddScData(nullifier_v.get_str(), nullifierVec, CFieldElement::ByteSize(), CheckSizeMode::STRICT, nullifierError))
+        if (!AddScData(nullifier_v.get_str(), nullifierVec, CFieldElement::ByteSize(), CheckSizeMode::CHECK_STRICT, nullifierError))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": " + nullifierError;
             return false;
@@ -332,7 +332,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
         if (!valActCertData.isNull() && !valActCertData.get_str().empty())
         {
             std::string errStr;
-            if (!AddScData(valActCertData.get_str(), vActCertData, CFieldElement::ByteSize(), CheckSizeMode::STRICT, errStr))
+            if (!AddScData(valActCertData.get_str(), vActCertData, CFieldElement::ByteSize(), CheckSizeMode::CHECK_STRICT, errStr))
             {
                 error = "Invalid ceased sidechain withdrawal input parameter \"activeCertData\": " + errStr;
                 return false;
@@ -357,7 +357,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
 
         std::string errStr;
         std::vector<unsigned char> vCeasingCumScTxCommTree;
-        if (!AddScData(valCumTree.get_str(), vCeasingCumScTxCommTree, CFieldElement::ByteSize(), CheckSizeMode::STRICT, errStr))
+        if (!AddScData(valCumTree.get_str(), vCeasingCumScTxCommTree, CFieldElement::ByteSize(), CheckSizeMode::CHECK_STRICT, errStr))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"ceasingCumScTxCommTree\": " + errStr;
             return false;
@@ -382,7 +382,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
 
         std::string proofError;
         std::vector<unsigned char> scProofVec;
-        if (!AddScData(proof_v.get_str(), scProofVec, CScProof::MaxByteSize(), CheckSizeMode::UPPER_LIMIT, proofError))
+        if (!AddScData(proof_v.get_str(), scProofVec, CScProof::MaxByteSize(), CheckSizeMode::CHECK_UPPER_LIMIT, proofError))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"scProof\": " + proofError;
             return false;
@@ -468,7 +468,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         {
             const std::string& inputString = wCertVk.get_str();
             std::vector<unsigned char> wCertVkVec;
-            if (!AddScData(inputString, wCertVkVec, CScVKey::MaxByteSize(), CheckSizeMode::UPPER_LIMIT, error))
+            if (!AddScData(inputString, wCertVkVec, CScVKey::MaxByteSize(), CheckSizeMode::CHECK_UPPER_LIMIT, error))
             {
                 error = "wCertVk: " + error;
                 return false;
@@ -485,7 +485,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         if (!cd.isNull())
         {
             const std::string& inputString = cd.get_str();
-            if (!AddScData(inputString, sc.customData, MAX_SC_CUSTOM_DATA_LEN, CheckSizeMode::UPPER_LIMIT, error))
+            if (!AddScData(inputString, sc.customData, MAX_SC_CUSTOM_DATA_LEN, CheckSizeMode::CHECK_UPPER_LIMIT, error))
             {
                 error = "customData: " + error;
                 return false;
@@ -497,7 +497,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         {
             const std::string& inputString = constant.get_str();
             std::vector<unsigned char> scConstantByteArray {};
-            if (!AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), CheckSizeMode::UPPER_LIMIT, error))
+            if (!AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), CheckSizeMode::CHECK_UPPER_LIMIT, error))
             {
                 error = "constant: " + error;
                 return false;
@@ -519,7 +519,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             if (!inputString.empty())
             {
                 std::vector<unsigned char> wCeasedVkVec;
-                if (!AddScData(inputString, wCeasedVkVec, CScVKey::MaxByteSize(), CheckSizeMode::UPPER_LIMIT, error))
+                if (!AddScData(inputString, wCeasedVkVec, CScVKey::MaxByteSize(), CheckSizeMode::CHECK_UPPER_LIMIT, error))
                 {
                     error = "wCeasedVk: " + error;
                     return false;
@@ -731,7 +731,7 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
         {
             std::vector<unsigned char> requestDataByteArray {};
 
-            if (!Sidechain::AddScData(inputElement.get_str(), requestDataByteArray, CFieldElement::ByteSize(), CheckSizeMode::STRICT, error))
+            if (!Sidechain::AddScData(inputElement.get_str(), requestDataByteArray, CFieldElement::ByteSize(), CheckSizeMode::CHECK_STRICT, error))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, std::string("requestDataByte: ") + error);
             }

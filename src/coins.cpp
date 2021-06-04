@@ -1927,11 +1927,12 @@ CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
 
 const CScCertificateView& CCoinsViewCache::GetActiveCertView(const uint256& scId) const
 {
+    static const CScCertificateView nullView;
+
     const CSidechain* const pSidechain = this->AccessSidechain(scId);
 
     if (pSidechain == nullptr)
     {
-        static CScCertificateView nullView;
         return nullView;
     }
 
@@ -1949,6 +1950,9 @@ const CScCertificateView& CCoinsViewCache::GetActiveCertView(const uint256& scId
         return pSidechain->pastEpochTopQualityCertView;
     else
         assert(false);
+
+    // just for compiler warning, should never reach this line
+    return nullView;
 }
 
 CFieldElement CCoinsViewCache::GetCeasingCumTreeHash(const uint256& scId) const
