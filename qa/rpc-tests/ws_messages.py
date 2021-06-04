@@ -419,26 +419,54 @@ class ws_messages(BitcoinTestFramework):
 
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         mark_logs("Node 0 performs a bwd transfer to Node1 pkh {} of {} coins via Websocket".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
-        #----------------------------------------------------------------"
-        cert_epoch_0 = self.nodes[1].ws_send_certificate(
-            scid2, epoch_number, cert1_quality, cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE)
+
+        cert_1_epoch_0 = self.nodes[1].ws_send_certificate(
+            scid2, epoch_number, cert1_quality, cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         self.sync_all()
 
         mark_logs("Check cert is in mempool", self.nodes, DEBUG_MODE)
-        assert_equal(True, cert_epoch_0 in self.nodes[0].getrawmempool())
+        assert_equal(True, cert_1_epoch_0 in self.nodes[0].getrawmempool())
+        decoded_cert_mempool_1 = self.nodes[1].getrawtransaction(cert_1_epoch_0, 1)
 
         mempool_cert_, chain_cert_ = self.nodes[0].ws_get_top_quality_certificates(scid2)
         assert_equal(cert1_quality, mempool_cert_['quality'])
-        assert_equal(cert_epoch_0, mempool_cert_['certHash'])
+        assert_equal(cert_1_epoch_0, mempool_cert_['certHash'])
+        assert_equal(decoded_cert_mempool_1['hex'], mempool_cert_['rawCertificateHex'])
+        assert_equal(CERT_FEE * 100000000, mempool_cert_['fee'])
         assert_equal({}, chain_cert_)
 
         self.nodes[0].generate(1)
-        assert_equal(False, cert_epoch_0 in self.nodes[0].getrawmempool())
+        assert_equal(False, cert_1_epoch_0 in self.nodes[0].getrawmempool())
 
         mempool_cert_, chain_cert_ = self.nodes[0].ws_get_top_quality_certificates(scid2)
         assert_equal(cert1_quality, chain_cert_['quality'])
-        assert_equal(cert_epoch_0, chain_cert_['certHash'])
+        assert_equal(cert_1_epoch_0, chain_cert_['certHash'])
+        assert_equal(decoded_cert_mempool_1['hex'], chain_cert_['rawCertificateHex'])
         assert_equal({}, mempool_cert_)
+
+        #Create proof for WCert
+        cert_2_quality = 25
+        proof2 = mcTest.create_test_proof(
+            "sc2", epoch_number, cert_2_quality, MBTR_SC_FEE, FT_SC_FEE,
+            sc2_constant, cum_tree_hash, [pkh_node1], [bwt_amount])
+
+        amount_cert_2 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        mark_logs("Node 0 performs a bwd transfer to Node1 pkh {} of {} coins via Websocket".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
+
+        cert_2_epoch_0 = self.nodes[1].ws_send_certificate(
+            scid2, epoch_number, cert_2_quality, cum_tree_hash, proof2, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        self.sync_all()
+
+        decoded_cert_mempool_2 = self.nodes[1].getrawtransaction(cert_2_epoch_0, 1)
+        mempool_cert_, chain_cert_ = self.nodes[0].ws_get_top_quality_certificates(scid2)
+        assert_equal(cert_2_quality, mempool_cert_['quality'])
+        assert_equal(cert_2_epoch_0, mempool_cert_['certHash'])
+        assert_equal(decoded_cert_mempool_2['hex'], mempool_cert_['rawCertificateHex'])
+        assert_equal(CERT_FEE * 100000000, mempool_cert_['fee'])
+        assert_equal(cert1_quality, chain_cert_['quality'])
+        assert_equal(cert_1_epoch_0, chain_cert_['certHash'])
+        assert_equal(decoded_cert_mempool_1['hex'], chain_cert_['rawCertificateHex'])
+
 
 if __name__ == '__main__':
     ws_messages().main()

@@ -507,7 +507,7 @@ private:
         return OK;
     }
 
-    int sendTopQualityCertificatesFromScid(const std::string& scIdString, const std::string& clientRequestId)
+    int sendTopQualityCertificatesForScid(const std::string& scIdString, const std::string& clientRequestId)
     {
         uint256 scId;
         scId.SetHex(scIdString);
@@ -528,6 +528,7 @@ private:
             {
                 const uint256& topQualCertHash = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
                 const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
+                const CAmount certFee = mempool.mapCertificate.at(topQualCertHash).GetFee();
                 CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
                 ssBlock << topQualCert;
                 std::string certHex = HexStr(ssBlock.begin(), ssBlock.end());
@@ -535,22 +536,23 @@ private:
                 mempoolTopQualityCert.push_back(Pair("quality", topQualCert.quality));
                 mempoolTopQualityCert.push_back(Pair("certHash", topQualCertHash.GetHex()));
                 mempoolTopQualityCert.push_back(Pair("rawCertificateHex", certHex));
-                mempoolTopQualityCert.push_back(Pair("fee", topQualCert.mainchainBackwardTransferRequestScFee));
+                mempoolTopQualityCert.push_back(Pair("fee", certFee));
             }
-            
+
             CSidechain sidechainInfo;
 
             if (view.GetSidechain(scId, sidechainInfo)) {
                 const uint256& topQualCertHash = sidechainInfo.lastTopQualityCertHash;
                 const int topQualityCertQuality = sidechainInfo.lastTopQualityCertQuality;
                 CScCertificate topQualCert;
-                uint256 blockHash;
-                CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
-                ssBlock << topQualCert;
-                std::string certHex = HexStr(ssBlock.begin(), ssBlock.end());
-                
+
                 if (!topQualCertHash.IsNull()) {
-                    if (GetCertificate(topQualCertHash, topQualCert, blockHash, false)) {
+                    uint256 blockHash;
+                    if (GetCertificate(topQualCertHash, topQualCert, blockHash)) {
+                        CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+                        ssBlock << topQualCert;
+                        std::string certHex = HexStr(ssBlock.begin(), ssBlock.end());
+
                         chainTopQualityCert.push_back(Pair("quality", topQualityCertQuality));
                         chainTopQualityCert.push_back(Pair("certHash", topQualCertHash.GetHex()));
                         chainTopQualityCert.push_back(Pair("rawCertificateHex", certHex));
@@ -976,7 +978,7 @@ private:
                     return MISSING_PARAMETER;
                 }
 
-                return sendTopQualityCertificatesFromScid(scId, clientRequestId);
+                return sendTopQualityCertificatesForScid(scId, clientRequestId);
             }
 
             // if we are here that means it is no valid request type, and reqType is an enum defaulting to 255
