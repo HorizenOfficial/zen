@@ -80,6 +80,7 @@ bool CScProofVerifier::BatchVerify() const
     ZendooBatchProofVerifier batchVerifier;
     uint32_t idx = 0;
 
+    LogPrint("sc", "%s():%d - starting verification\n", __func__, __LINE__);
     for (const auto& entry : cswEnqueuedData)
     {
         for (const auto& entry2 : entry.second)
@@ -194,6 +195,7 @@ bool CScProofVerifier::BatchVerify() const
         return false; 
     }
 
+    LogPrint("sc", "%s():%d - verification succesful\n", __func__, __LINE__);
     return true; 
 }
 

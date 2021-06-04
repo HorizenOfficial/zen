@@ -1382,6 +1382,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
             scVerifier.LoadDataForCertVerification(view, cert);
 
+            LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
             if (!scVerifier.BatchVerify())
             {
                 state.DoS(100, error("%s():%d - cert proof failed to verify",
@@ -1576,7 +1577,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         }
 
         double dPriority = view.GetPriority(tx, chainActive.Height());
-        LogPrint("mempool", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
+        LogPrint("mempool", "%s():%d - tx[%s], Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, hash.ToString(), nFees, dPriority);
 
         CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
         unsigned int nSize = entry.GetTxSize();
@@ -1676,6 +1677,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
                 scVerifier.LoadDataForCswVerification(view, tx);
 
+                LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
                 if (!scVerifier.BatchVerify())
                 {
                     state.DoS(100,
@@ -3159,6 +3161,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     if (fScProofVerification == flagScProofVerification::ON)
     {
+        LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
         if (!scVerifier.BatchVerify())
         {
             return state.DoS(100, error("%s():%d - ERROR: sc-related batch proof verification failed", __func__, __LINE__),
