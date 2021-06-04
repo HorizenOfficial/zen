@@ -3168,14 +3168,16 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
 
     // if we have ceased sc withdrawl inputs, they must be taken into account when doing computations for funding input amount
     CAmount cswInTotAmount = 0;
+    unsigned int cswInTotSize = 0;
     for(const CTxCeasedSidechainWithdrawalInput& cswIn: tx.vcsw_ccin)
     {
         cswInTotAmount += cswIn.nValue;
+        cswInTotSize   += cswIn.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     }
 
     CReserveKey reservekey(this);
     CWalletTx wtx;
-    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false, cswInTotAmount))
+    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false, cswInTotAmount, cswInTotSize))
         return false;
 
     if (nChangePosRet != -1)
@@ -3223,7 +3225,8 @@ bool CWallet::CreateTransaction(
     const std::vector<CRecipientForwardTransfer>& vecFtSend,
     const std::vector<CRecipientBwtRequest>& vecBwtRequest,
     CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
-    int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign, CAmount cswInTotAmount)
+    int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign,
+    CAmount cswInTotAmount, unsigned int cswInTotSize)
 {
     CAmount totalOutputValue = 0;
     unsigned int nSubtractFeeFromAmount = 0;
@@ -3260,7 +3263,7 @@ bool CWallet::CreateTransaction(
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
 
-    if (!vecScSend.empty() || !vecFtSend.empty() || !vecBwtRequest.empty() )
+    if (!vecScSend.empty() || !vecFtSend.empty() || !vecBwtRequest.empty() || cswInTotSize > 0)
     {
         // set proper version
         txNew.nVersion = SC_TX_VERSION;
@@ -3295,11 +3298,12 @@ bool CWallet::CreateTransaction(
             while (true)
             {
                 txNew.vin.clear();
-                // do not modify vcsw_ccin
+                // vcsw_ccin are not handled
                 txNew.resizeOut(0);
                 txNew.vsc_ccout.clear();
                 txNew.vft_ccout.clear();
                 txNew.vmbtr_out.clear();
+
                 wtxNew.fFromMe = true;
                 nChangePosRet = -1;
                 bool fFirst = true;
@@ -3356,7 +3360,6 @@ bool CWallet::CreateTransaction(
                 for (const auto& entry : vecBwtRequest)
                 {
                     CBwtRequestOut txccout(entry.scId, entry.mcDestinationAddress, entry.bwtRequestData);
-                    // we allow even 0 scFee, therefore no check for dust
                     txNew.add(txccout);
                 }
 
@@ -3366,28 +3369,31 @@ bool CWallet::CreateTransaction(
                 CAmount nValueIn = 0;
                 bool fOnlyCoinbaseCoins = false;
                 bool fNeedCoinbaseCoins = false;
-                if (!SelectCoins(nTotalValue, setCoins, nValueIn, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coinControl))
+                if (nTotalValue > 0)
                 {
-                    if (fOnlyCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
-                        strFailReason = _("Coinbase funds can only be sent to a zaddr");
-                    } else if (fNeedCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
-                        strFailReason = _("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr");
-                    } else {
-                        strFailReason = _("Insufficient funds");
+                    if ( !SelectCoins(nTotalValue, setCoins, nValueIn, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coinControl))
+                    {
+                        if (fOnlyCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
+                            strFailReason = _("Coinbase funds can only be sent to a zaddr");
+                        } else if (fNeedCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
+                            strFailReason = _("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr");
+                        } else {
+                            strFailReason = _("Insufficient funds");
+                        }
+                        return false;
                     }
-                    return false;
-                }
-                for (auto& pcoin : setCoins)
-                {
-                    CAmount nCredit = pcoin.first->getTxBase()->GetVout()[pcoin.second].nValue;
-                    //The coin age after the next block (depth+1) is used instead of the current,
-                    //reflecting an assumption the user would accept a bit more delay for
-                    //a chance at a free transaction.
-                    //But mempool inputs might still be in the mempool, so their age stays 0
-                    int age = pcoin.first->GetDepthInMainChain();
-                    if (age != 0)
-                        age += 1;
-                    dPriority += (double)nCredit * age;
+                    for (auto& pcoin : setCoins)
+                    {
+                        CAmount nCredit = pcoin.first->getTxBase()->GetVout()[pcoin.second].nValue;
+                        //The coin age after the next block (depth+1) is used instead of the current,
+                        //reflecting an assumption the user would accept a bit more delay for
+                        //a chance at a free transaction.
+                        //But mempool inputs might still be in the mempool, so their age stays 0
+                        int age = pcoin.first->GetDepthInMainChain();
+                        if (age != 0)
+                            age += 1;
+                        dPriority += (double)nCredit * age;
+                    }
                 }
 
                 CAmount nChange = nValueIn - totalOutputValue;
@@ -3505,6 +3511,8 @@ bool CWallet::CreateTransaction(
                 }
 
                 unsigned int nBytes = ::GetSerializeSize(txNew, SER_NETWORK, PROTOCOL_VERSION);
+                // add csw contribution if any for having the correct feeRate/priority
+                nBytes += cswInTotSize;
 
                 // Remove scriptSigs if we used dummy signatures for fee calculation
                 if (!sign) {
