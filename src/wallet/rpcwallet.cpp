@@ -5511,6 +5511,14 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (params.size() > 9)
     {
         feArray = params[9].get_array();
+        
+        if (vFieldElementCertificateFieldConfig.size() != feArray.size())
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+                "Invalid parameter, fe array has size %d, but the expected size is %d",
+                feArray.size(), vFieldElementCertificateFieldConfig.size()));
+        }
+
         int count = 0;
         for (const UniValue& o : feArray.getValues())
         {
@@ -5531,12 +5539,15 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             count++;
         }
     }
-    // check here because we must check also if custom field vec is empty and sc creation has a non-empty cfg 
-    if (feArray.size() != vFieldElementCertificateField.size() )
+    else
     {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
-            "Invalid parameter, fe array has size %d, but the expected size is %d",
-            feArray.size(), vFieldElementCertificateFieldConfig.size()));
+        // we must check also if custom field vec is empty and sc creation has a non-empty cfg 
+        if (!vFieldElementCertificateFieldConfig.empty() )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+                "Invalid parameter, fe array has size %d, but the expected size is %d",
+                feArray.size(), vFieldElementCertificateFieldConfig.size()));
+        }
     }
 
     //--------------------------------------------------------------------------
@@ -5546,6 +5557,13 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (params.size() > 10)
     {
         cmtArray = params[10].get_array();
+
+        if (cmtArray.size() != vBitVectorCertificateFieldConfig.size() )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+                "Invalid parameter, compr mkl tree array has size %d, but the expected size is %d",
+                cmtArray.size(), vBitVectorCertificateFieldConfig.size()));
+        }
         int count = 0;
         for (const UniValue& o : cmtArray.getValues())
         {
@@ -5564,11 +5582,15 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             count++;
         }
     }
-    if (cmtArray.size() != vBitVectorCertificateFieldConfig.size() )
+    else
     {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
-            "Invalid parameter, compr mkl tree array has size %d, but the expected size is %d",
-            cmtArray.size(), vBitVectorCertificateFieldConfig.size()));
+        // we must check also if vec is empty and sc creation has a non-empty cfg 
+        if (!vBitVectorCertificateFieldConfig.empty() )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+                "Invalid parameter, compr mkl tree array has size %d, but the expected size is %d",
+                cmtArray.size(), vBitVectorCertificateFieldConfig.size()));
+        }
     }
 
     EnsureWalletIsUnlocked();
