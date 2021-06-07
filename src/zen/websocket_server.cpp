@@ -20,6 +20,7 @@
 #include "consensus/validation.h"
 #include <univalue.h>
 #include "uint256.h"
+#include "utilmoneystr.h"
 
 extern UniValue send_certificate(const UniValue& params, bool fHelp);
 extern CAmount AmountFromValue(const UniValue& value);
@@ -536,7 +537,7 @@ private:
                 mempoolTopQualityCert.push_back(Pair("quality", topQualCert.quality));
                 mempoolTopQualityCert.push_back(Pair("certHash", topQualCertHash.GetHex()));
                 mempoolTopQualityCert.push_back(Pair("rawCertificateHex", certHex));
-                mempoolTopQualityCert.push_back(Pair("fee", certFee));
+                mempoolTopQualityCert.push_back(Pair("fee", FormatMoney(certFee)));
             }
 
             CSidechain sidechainInfo;

@@ -432,7 +432,7 @@ class ws_messages(BitcoinTestFramework):
         assert_equal(cert1_quality, mempool_cert_['quality'])
         assert_equal(cert_1_epoch_0, mempool_cert_['certHash'])
         assert_equal(decoded_cert_mempool_1['hex'], mempool_cert_['rawCertificateHex'])
-        assert_equal(CERT_FEE * 100000000, mempool_cert_['fee'])
+        assert_equal(CERT_FEE, Decimal(mempool_cert_['fee']))
         assert_equal({}, chain_cert_)
 
         self.nodes[0].generate(1)
@@ -462,7 +462,7 @@ class ws_messages(BitcoinTestFramework):
         assert_equal(cert_2_quality, mempool_cert_['quality'])
         assert_equal(cert_2_epoch_0, mempool_cert_['certHash'])
         assert_equal(decoded_cert_mempool_2['hex'], mempool_cert_['rawCertificateHex'])
-        assert_equal(CERT_FEE * 100000000, mempool_cert_['fee'])
+        assert_equal(CERT_FEE, Decimal(mempool_cert_['fee']))
         assert_equal(cert1_quality, chain_cert_['quality'])
         assert_equal(cert_1_epoch_0, chain_cert_['certHash'])
         assert_equal(decoded_cert_mempool_1['hex'], chain_cert_['rawCertificateHex'])
