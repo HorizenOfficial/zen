@@ -372,7 +372,7 @@ public:
 
     std::set<CInv> pushedInvList;
 
-    void PushInvs(const char* pszCommand, const std::vector<CInv>& invVec)
+    void PushInvs(const char* pszCommand, const std::vector<CInv>& invVec) override
     {
         for (auto const & inv : invVec)
             pushedInvList.insert(inv);
