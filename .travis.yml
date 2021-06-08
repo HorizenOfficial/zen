@@ -3,11 +3,11 @@ language: shell
 os: linux
 
 .com.github.horizenofficial.zend_oo.env-definitions:
-  - &docker_amd64_linux_ubuntu_xenial
+  - &docker_amd64_linux_ubuntu_focal
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
   - &docker_amd64_linux_ubuntu_bionic
     env:
@@ -21,43 +21,43 @@ os: linux
       - DOCKER_TARGET_OS=windows
       - DOCKER_FROM=ubuntu_bionic
       - DOCKER_IS_DEB=true
-  - &docker_amd64_linux_ubuntu_xenial_unit-tests
+  - &docker_amd64_linux_ubuntu_focal_unit-tests
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="btest gtest sec-hard no-dot-so util-test secp256k1 libsnark univalue"
-  - &docker_amd64_linux_ubuntu_xenial_rpc-tests_1
+  - &docker_amd64_linux_ubuntu_focal_rpc-tests_1
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-split=3:1"
-  - &docker_amd64_linux_ubuntu_xenial_rpc-tests_2
+  - &docker_amd64_linux_ubuntu_focal_rpc-tests_2
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-split=3:2"
-  - &docker_amd64_linux_ubuntu_xenial_rpc-tests_3
+  - &docker_amd64_linux_ubuntu_focal_rpc-tests_3
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zcash/full_test_suite.py"
       - TEST_ARGS="rpc --rpc-extended --rpc-split=3:3"
-  - &docker_amd64_linux_ubuntu_xenial_test-fetch-params
+  - &docker_amd64_linux_ubuntu_focal_test-fetch-params
     env:
       - DOCKER_ARCH=amd64
       - DOCKER_TARGET_OS=linux
-      - DOCKER_FROM=ubuntu_xenial
+      - DOCKER_FROM=ubuntu_focal
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zen/test-fetch-params.sh"
   - &docker_amd64_linux_ubuntu_bionic_unit-tests
@@ -165,10 +165,10 @@ jobs:
     # build and push docker build/test dependency images
     - stage: Prepare
       <<: *prepare_docker_amd64
-      <<: *docker_amd64_linux_ubuntu_xenial
+      <<: *docker_amd64_linux_ubuntu_bionic
     - stage: Prepare
       <<: *prepare_docker_amd64
-      <<: *docker_amd64_linux_ubuntu_bionic
+      <<: *docker_amd64_linux_ubuntu_focal
     - stage: Prepare
       <<: *prepare_docker_amd64
       <<: *docker_amd64_windows_ubuntu_bionic
@@ -184,10 +184,10 @@ jobs:
     # Docker based builds
     - stage: Build
       <<: *build_docker_amd64
-      <<: *docker_amd64_linux_ubuntu_xenial
+      <<: *docker_amd64_linux_ubuntu_bionic
     - stage: Build
       <<: *build_docker_amd64
-      <<: *docker_amd64_linux_ubuntu_bionic
+      <<: *docker_amd64_linux_ubuntu_focal
     - stage: Build
       <<: *build_docker_amd64
       <<: *docker_amd64_windows_ubuntu_bionic
@@ -206,21 +206,6 @@ jobs:
     # Docker based tests
     - stage: Test
       <<: *test_docker_amd64
-      <<: *docker_amd64_linux_ubuntu_xenial_unit-tests
-    - stage: Test
-      <<: *test_docker_amd64
-      <<: *docker_amd64_linux_ubuntu_xenial_rpc-tests_1
-    - stage: Test
-      <<: *test_docker_amd64
-      <<: *docker_amd64_linux_ubuntu_xenial_rpc-tests_2
-    - stage: Test
-      <<: *test_docker_amd64
-      <<: *docker_amd64_linux_ubuntu_xenial_rpc-tests_3
-    - stage: Test
-      <<: *test_docker_amd64
-      <<: *docker_amd64_linux_ubuntu_xenial_test-fetch-params
-    - stage: Test
-      <<: *test_docker_amd64
       <<: *docker_amd64_linux_ubuntu_bionic_unit-tests
     - stage: Test
       <<: *test_docker_amd64
@@ -231,6 +216,21 @@ jobs:
     - stage: Test
       <<: *test_docker_amd64
       <<: *docker_amd64_linux_ubuntu_bionic_rpc-tests_3
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_focal_unit-tests
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_focal_rpc-tests_1
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_focal_rpc-tests_2
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_focal_rpc-tests_3
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_focal_test-fetch-params
     # osx based tests
     - stage: Test
       <<: *test_osx_xcode9_4
