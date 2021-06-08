@@ -2996,7 +2996,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     ret_code, "bad-sc-tx-not-applicable");
             }
 
-            // Add the transaction proves (if any) to the sidechain proof verifier.
+            // Add the transaction proofs (if any) to the sidechain proof verifier.
             if (fScProofVerification == flagScProofVerification::ON)
             {
                 scVerifier.LoadDataForCswVerification(view, tx);

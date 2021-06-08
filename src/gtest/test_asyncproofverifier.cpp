@@ -139,22 +139,22 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Valid_Certificate_Proof_Processing)
     CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(*blockchain.CoinsViewCache(), cert, &dummyNode);
 
     // Check that the async proof verifier queue is not empty anymore.
-    ASSERT_EQ(blockchain.PendingAsyncCertProves(), 1);
-    ASSERT_EQ(blockchain.PendingAsyncCswProves(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 1);
+    ASSERT_EQ(blockchain.PendingAsyncCswProofs(), 0);
 
     uint32_t counter = 0;
     const uint32_t delay = 100;
 
     // Wait until the certificate proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCertProves() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
+    while (blockchain.PendingAsyncCertProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
     {
         MilliSleep(delay);
         counter += delay;
     }
 
     // Check that the async proof verifier queue is empty again.
-    ASSERT_EQ(blockchain.PendingAsyncCertProves(), 0);
-    ASSERT_EQ(blockchain.PendingAsyncCswProves(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCswProofs(), 0);
 
     // Check that the certificate proof has been correctly verified.
     stats = blockchain.GetAsyncProofVerifierStatistics();
@@ -195,22 +195,22 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_Certificate_Proof_Processing)
     CScAsyncProofVerifier::GetInstance().LoadDataForCertVerification(*blockchain.CoinsViewCache(), cert, &dummyNode);
 
     // Check that the async proof verifier queue is not empty anymore.
-    ASSERT_EQ(blockchain.PendingAsyncCertProves(), 1);
-    ASSERT_EQ(blockchain.PendingAsyncCswProves(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 1);
+    ASSERT_EQ(blockchain.PendingAsyncCswProofs(), 0);
 
     uint32_t counter = 0;
     const uint32_t delay = 100;
 
     // Wait until the certificate proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCertProves() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
+    while (blockchain.PendingAsyncCertProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
     {
         MilliSleep(delay);
         counter += delay;
     }
 
     // Check that the async proof verifier queue is empty again.
-    ASSERT_EQ(blockchain.PendingAsyncCertProves(), 0);
-    ASSERT_EQ(blockchain.PendingAsyncCswProves(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCswProofs(), 0);
 
     // Check that the certificate proof has been detected as invalid.
     stats = blockchain.GetAsyncProofVerifierStatistics();
@@ -257,15 +257,15 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Valid_CSW_Proof_Processing)
     const uint32_t delay = 100;
 
     // Wait until the CSW proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCswProves() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
+    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
     {
         MilliSleep(delay);
         counter += delay;
     }
 
     // Check that the async proof verifier queue is empty again.
-    ASSERT_EQ(blockchain.PendingAsyncCertProves(), 0);
-    ASSERT_EQ(blockchain.PendingAsyncCswProves(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCswProofs(), 0);
 
     // Check that the CSW proof has been correctly verified.
     stats = blockchain.GetAsyncProofVerifierStatistics();
@@ -315,15 +315,15 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Invalid_CSW_Proof_Processing)
     const uint32_t delay = 100;
 
     // Wait until the CSW proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCswProves() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
+    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
     {
         MilliSleep(delay);
         counter += delay;
     }
 
     // Check that the async proof verifier queue is empty again.
-    ASSERT_EQ(blockchain.PendingAsyncCertProves(), 0);
-    ASSERT_EQ(blockchain.PendingAsyncCswProves(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCswProofs(), 0);
 
     // Check that the CSW proof has been detected as invalid.
     stats = blockchain.GetAsyncProofVerifierStatistics();
@@ -376,15 +376,15 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Tx_With_Several_Csw_Inputs)
     const uint32_t delay = 100;
 
     // Wait until the CSW proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCswProves() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
+    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
     {
         MilliSleep(delay);
         counter += delay;
     }
 
     // Check that the async proof verifier queue is empty again.
-    ASSERT_EQ(blockchain.PendingAsyncCertProves(), 0);
-    ASSERT_EQ(blockchain.PendingAsyncCswProves(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCswProofs(), 0);
 
     // Check that the CSW proof has been detected as invalid.
     stats = blockchain.GetAsyncProofVerifierStatistics();
@@ -396,7 +396,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_Tx_With_Several_Csw_Inputs)
 
 /**
  * @brief Test that in case of failure during the batch verification
- * the verifier processes the proves one by one.
+ * the verifier processes the proofs one by one.
  */
 TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
 {
@@ -445,7 +445,7 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
     ASSERT_EQ(stats.okCertCounter, 0);
     ASSERT_EQ(stats.okCswCounter, 0);
 
-    // Add the CSW proves to the async queue.
+    // Add the CSW proofs to the async queue.
     for (CTransaction tx : transactions)
     {
         std::string hash = tx.GetHash().ToString();
@@ -453,22 +453,22 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
     }
 
     // Check that the async proof verifier queue contains all the pushed transactions.
-    ASSERT_EQ(blockchain.PendingAsyncCertProves(), 0);
-    ASSERT_EQ(blockchain.PendingAsyncCswProves(), numberOfValidTransactions + 1);
+    ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCswProofs(), numberOfValidTransactions + 1);
 
     uint32_t counter = 0;
     const uint32_t delay = 100;
 
     // Wait until the CSW proof is processed for a specific maximum time (to avoid to get stuck).
-    while (blockchain.PendingAsyncCswProves() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
+    while (blockchain.PendingAsyncCswProofs() > 0 || counter < blockchain.GetAsyncProofVerifierMaxBatchVerifyDelay() * 2)
     {
         MilliSleep(delay);
         counter += delay;
     }
 
     // Check that the async proof verifier queue is empty again.
-    ASSERT_EQ(blockchain.PendingAsyncCertProves(), 0);
-    ASSERT_EQ(blockchain.PendingAsyncCswProves(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCertProofs(), 0);
+    ASSERT_EQ(blockchain.PendingAsyncCswProofs(), 0);
 
     // Check that the CSW proof has been detected as invalid.
     stats = blockchain.GetAsyncProofVerifierStatistics();

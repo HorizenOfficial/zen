@@ -837,23 +837,23 @@ bool BlockchainTestManager::VerifyCswProof(CCswProofVerifierInput csw) const
 }
 
 /**
- * @brief Gets the number of pending certificate proves waiting to be verified in the async proof verifier.
+ * @brief Gets the number of pending certificate proofs waiting to be verified in the async proof verifier.
  * 
- * @return size_t The number of pending certificate proves waiting to be verified in the async proof verifier.
+ * @return size_t The number of pending certificate proofs waiting to be verified in the async proof verifier.
  */
-size_t BlockchainTestManager::PendingAsyncCertProves() const
+size_t BlockchainTestManager::PendingAsyncCertProofs() const
 {
-    return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCertProves();
+    return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCertProofs();
 }
 
 /**
- * @brief Gets the number of pending CSW proves waiting to be verified in the async proof verifier.
+ * @brief Gets the number of pending CSW proofs waiting to be verified in the async proof verifier.
  * 
- * @return size_t The number of pending CSW proves waiting to be verified in the async proof verifier.
+ * @return size_t The number of pending CSW proofs waiting to be verified in the async proof verifier.
  */
-size_t BlockchainTestManager::PendingAsyncCswProves() const
+size_t BlockchainTestManager::PendingAsyncCswProofs() const
 {
-    return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProves();
+    return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProofs();
 }
 
 /**
