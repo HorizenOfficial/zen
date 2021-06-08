@@ -2,6 +2,22 @@
 #include "util.h"
 #include <consensus/consensus.h>
 
+CZendooBatchProofVerifierResult::CZendooBatchProofVerifierResult(ZendooBatchProofVerifierResult* result) :
+    resultPtr(result)
+{
+    assert(result != nullptr);
+}
+
+bool CZendooBatchProofVerifierResult::Result() const
+{
+    return resultPtr->result;
+}
+
+std::vector<uint32_t> CZendooBatchProofVerifierResult::FailedProofs() const
+{
+    return std::vector<uint32_t>(resultPtr->failing_proofs, resultPtr->failing_proofs + resultPtr->failing_proofs_len);
+}
+
 void CZendooCctpLibraryChecker::CheckTypeSizes()
 {
     if (Sidechain::SC_FE_SIZE_IN_BYTES != zendoo_get_field_size_in_bytes())
