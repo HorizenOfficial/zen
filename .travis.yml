@@ -113,14 +113,16 @@ os: linux
 .com.github.horizenofficial.zend_oo.job-definitions:
   - &prepare_docker_amd64
     os: linux
-    dist: bionic
+    dist: focal
     cache: false
     script:
       - bash "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/docker_image_build.sh"
       - bash "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/docker_image_deploy.sh"
   - &build_docker_amd64
     os: linux
-    dist: bionic
+    dist: focal
+    vm:
+      size: x-large
     cache:
       directories:
         - "$HOME/.ccache"
@@ -130,7 +132,9 @@ os: linux
   - &test_docker_amd64
     if: env(SKIP_TESTS) != true
     os: linux
-    dist: bionic
+    dist: focal
+    vm:
+      size: x-large
     cache:
       directories:
         - "$HOME/.zcash-params"
