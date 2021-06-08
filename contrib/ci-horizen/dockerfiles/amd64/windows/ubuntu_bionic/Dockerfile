@@ -7,17 +7,17 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 SHELL ["/bin/bash", "-c"]
 
 RUN set -euxo pipefail \
-    && DEBIAN_FRONTEND=noninteractive \
+    && export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
     && apt-get -y --no-install-recommends install apt-utils \
     && apt-get -y --no-install-recommends dist-upgrade \
     && apt-get -y --no-install-recommends install aria2 autoconf automake bsdmainutils build-essential \
        ca-certificates cmake curl dirmngr git g++-multilib gnupg2 help2man libc6-dev libgomp1 libtool \
-       m4 mingw-w64 ncurses-dev pigz pkg-config pv python python-pip python-setuptools python-wheel \
+       m4 mingw-w64 ncurses-dev pigz pkg-config pv python-minimal python-pip python-setuptools python-wheel \
        python-wheel-common unzip wget zlib1g-dev \
     && pip install b2==1.4.2 \
     && BASEURL="https://github.com/tianon/gosu/releases/download/" \
-    && GOSU_VERSION="1.11" \
+    && GOSU_VERSION="1.13" \
     && DPKG_ARCH="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
     && curl -o /usr/local/bin/gosu -SL "${BASEURL}/${GOSU_VERSION}/gosu-${DPKG_ARCH}" \
     && curl -o /usr/local/bin/gosu.asc -SL "${BASEURL}/${GOSU_VERSION}/gosu-${DPKG_ARCH}.asc" \
