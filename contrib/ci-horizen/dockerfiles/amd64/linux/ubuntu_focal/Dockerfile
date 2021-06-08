@@ -13,7 +13,7 @@ RUN set -euxo pipefail \
     && apt-get -y --no-install-recommends dist-upgrade \
     && apt-get -y --no-install-recommends install aria2 autoconf automake bsdmainutils build-essential \
        ca-certificates cmake curl dirmngr fakeroot git g++-multilib gnupg2 help2man libc6-dev libgomp1 \
-       libtool lintian m4 ncurses-dev pigz pkg-config pv python2-dev python-setuptools unzip wget zlib1g-dev \
+       libtool lintian m4 ncurses-dev pigz pkg-config pv python2-dev python-setuptools time unzip wget zlib1g-dev \
     && curl -s https://bootstrap.pypa.io/pip/2.7/get-pip.py | python2 \
     && pip2 install b2==1.4.2 pyblake2 pyzmq websocket-client2 \
     && BASEURL="https://github.com/tianon/gosu/releases/download/" \
