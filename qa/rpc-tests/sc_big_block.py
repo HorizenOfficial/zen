@@ -13,10 +13,11 @@ import os
 import pprint
 from decimal import Decimal
 import json
+import time
 
 NUMB_OF_NODES = 2
 DEBUG_MODE = 1
-EPOCH_LENGTH = 5
+EPOCH_LENGTH = 20
 FT_SC_FEE = Decimal('0')
 MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal("0.000123")
@@ -37,8 +38,8 @@ class sc_big_block(BitcoinTestFramework):
     def setup_network(self, split=False):
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-                                 extra_args=[['-logtimemicros=1', '-debug=sc',
-                                              '-debug=py', '-debug=mempool', '-debug=net', '-debug=cert',
+                                 extra_args=[['-logtimemicros=1', '-debug=py', '-debug=net',
+                                              #'-debug=sc', '-debug=mempool', '-debug=cert',
                                               '-debug=bench']] * NUMB_OF_NODES)
 
         connect_nodes_bi(self.nodes, 0, 1)
@@ -52,6 +53,18 @@ class sc_big_block(BitcoinTestFramework):
         should contain all of cert and csw with related proofs.
         Restart the network and check DB integrity.
         '''
+#================================================================================
+# Modify these params for customizing the test:
+# -------------------------------------------------------------------------------
+# the number of sidechain to be used in the test (min 2)
+        TOT_NUM_OF_SIDECHAINS = 100
+# parameters for tuning the complexity (and the size) of the created proofs
+# These have impacts also on disk space
+        NUM_OF_CONSTRAINTS = 1 << 19
+        SEGMENT_SIZE = 1 << 17
+#================================================================================
+        assert_true(TOT_NUM_OF_SIDECHAINS >=2)
+
 
         def create_sc(cmdInput, node):
             try:
@@ -63,8 +76,38 @@ class sc_big_block(BitcoinTestFramework):
                 mark_logs(errorString,self.nodes,DEBUG_MODE)
                 assert_true(False);
 
-            mark_logs("\nCreated SC with scid={} via tx={}".format(scid, tx), self.nodes,DEBUG_MODE)
             return tx, scid
+
+        def advance_sidechains_epoch(num_of_scs):
+            for i in range(0, num_of_scs):
+                if i == 0:
+                    self.nodes[0].generate(EPOCH_LENGTH)
+                    self.sync_all()
+                    epoch_number, epoch_cum_tree_hash = get_epoch_data(scids[i], self.nodes[0], EPOCH_LENGTH)
+
+                    # here we take advantage from not having the scid in the set of proof inputs: we can use the
+                    # same proof for all the certificates.
+                    # When this issue will be fixed, we must generate each proof separatedly
+                    print "Generating cert proof..."
+                    t0 = time.time()
+                    proof = certMcTest.create_test_proof(
+                        "scs", epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [], proofCfeArray,
+                        NUM_OF_CONSTRAINTS, SEGMENT_SIZE)
+                    assert_true(proof != None)
+                    t1 = time.time()
+                    print "...proof generated: {} secs".format(t1-t0)
+ 
+                try:
+                    cert = self.nodes[0].send_certificate(scids[i], epoch_number, q,
+                        epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, vCfe, vCmt)
+                except JSONRPCException, e:
+                    errorString = e.error['message']
+                    print "Send certificate failed with reason {}".format(errorString)
+                    assert(False)
+                self.sync_all()
+ 
+                mark_logs("==> certificate for SC{} epoch {} {} (chain height={})".format(i, epoch_number, cert, self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
+                #pprint.pprint(self.nodes[0].getrawmempool())
 
         # network topology: (0)--(1)
 
@@ -80,8 +123,8 @@ class sc_big_block(BitcoinTestFramework):
         certMcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         cswMcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir)
 
-        certVk = certMcTest.generate_params('scs')
-        cswVk  = cswMcTest.generate_params('scs')
+        certVk = certMcTest.generate_params('scs', NUM_OF_CONSTRAINTS, SEGMENT_SIZE)
+        cswVk  = cswMcTest.generate_params('scs', NUM_OF_CONSTRAINTS, SEGMENT_SIZE)
 
         constant = generate_random_field_element_hex()
 
@@ -107,11 +150,10 @@ class sc_big_block(BitcoinTestFramework):
       
         scids = []
         scc_txs = []
-        #TOT_NUM_OF_SIDECHAINS = 100
-        TOT_NUM_OF_SIDECHAINS = 4
 
         for i in range(0, TOT_NUM_OF_SIDECHAINS):
             tx, scid = create_sc(cmdInput, self.nodes[0]);
+            mark_logs("Created SC {} with scid={} via tx={}".format(i, scid, tx), self.nodes,DEBUG_MODE)
             scids.append(scid)
             scc_txs.append(tx)
             self.sync_all()
@@ -126,45 +168,17 @@ class sc_big_block(BitcoinTestFramework):
         q=10
 
         for j in range(0, 2):
-            mark_logs("\nLet 1 epochs pass by and generate all certificates...", self.nodes, DEBUG_MODE)
-            for i in range(0, TOT_NUM_OF_SIDECHAINS):
-                generate = False
-                if i == 0:
-                    generate = True
-  
-                cert, epoch_number = advance_epoch(
-                    certMcTest, self.nodes[0], self.sync_all,
-                    scids[i], "scs", constant, EPOCH_LENGTH, q, CERT_FEE, FT_SC_FEE, MBTR_SC_FEE, vCfe, vCmt, proofCfeArray,
-                    generate)
-  
-                mark_logs("\n==> certificate for SC{} epoch {} {} (chain height={})".format(i, epoch_number, cert, self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-
-
-                self.sync_all()
-                pprint.pprint(self.nodes[0].getrawmempool())
+            mark_logs("Let 1 epochs pass by and generate all certificates...", self.nodes, DEBUG_MODE)
+            advance_sidechains_epoch(TOT_NUM_OF_SIDECHAINS)
 
         self.nodes[0].generate(1)
 
         self.sync_all()
 
         for j in range(0, 2):
-            mark_logs("\nLet half of the SCs cease...", self.nodes, DEBUG_MODE)
-            for i in range(0, TOT_NUM_OF_SIDECHAINS/2):
-                generate = False
-                if i == 0:
-                    generate = True
+            mark_logs("Let half of the SCs cease...", self.nodes, DEBUG_MODE)
+            advance_sidechains_epoch(TOT_NUM_OF_SIDECHAINS/2)
   
-                cert, epoch_number = advance_epoch(
-                    certMcTest, self.nodes[0], self.sync_all,
-                    scids[i], "scs", constant, EPOCH_LENGTH, q, CERT_FEE, FT_SC_FEE, MBTR_SC_FEE, vCfe, vCmt, proofCfeArray,
-                    generate)
-  
-                mark_logs("\n==> certificate for SC{} epoch {} {} (chain height={})".format(i, epoch_number, cert, self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
-
-
-                self.sync_all()
-                pprint.pprint(self.nodes[0].getrawmempool())
-
 
         # check SCs status
         for k in range(0, TOT_NUM_OF_SIDECHAINS):
@@ -184,8 +198,14 @@ class sc_big_block(BitcoinTestFramework):
             nullifier = generate_random_field_element_hex()
             scid_swapped = swap_bytes(scid)
  
+            print "Generating csw proof..."
+            t0 = time.time()
             sc_proof = cswMcTest.create_test_proof(
-                    "scs", sc_csw_amount, str(scid_swapped), nullifier, pkh_mc_address, ceasingCumScTxCommTree, actCertData)
+                    "scs", sc_csw_amount, str(scid_swapped), nullifier, pkh_mc_address, ceasingCumScTxCommTree, actCertData,
+                    NUM_OF_CONSTRAINTS, SEGMENT_SIZE)
+            assert_true(sc_proof != None)
+            t1 = time.time()
+            print "...proof generated: {} secs".format(t1-t0)
  
             sc_csws = [
             {
@@ -211,18 +231,18 @@ class sc_big_block(BitcoinTestFramework):
             mark_logs("sent csw tx {}".format(finalRawtx), self.nodes, DEBUG_MODE)
 
             self.sync_all()
-            pprint.pprint(self.nodes[0].getrawmempool())
+            #pprint.pprint(self.nodes[0].getrawmempool())
             #pprint.pprint(self.nodes[0].getrawtransaction(finalRawtx, 1))
             #print
 
-        mark_logs("\nGenerating big block...", self.nodes, DEBUG_MODE)
+        mark_logs("Generating big block...", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
 
         pprint.pprint(self.nodes[0].getblock(str(self.nodes[0].getblockcount())))
         pprint.pprint(self.nodes[0].getrawmempool())
 
-        mark_logs("\nChecking persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
+        mark_logs("Checking persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
         wait_bitcoinds()
         self.setup_network(False)

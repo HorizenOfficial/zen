@@ -1160,7 +1160,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
     if (!cert.CheckInputsLimit())
     {
-        LogPrintf("%s(): CheckInputsLimit failed", __func__);
+        LogPrintf("%s(): CheckInputsLimit failed\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1173,7 +1173,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
     static const int DOS_LEVEL = 10;
     if(!cert.ContextualCheck(state, nextBlockHeight, DOS_LEVEL))
     {
-        LogPrintf("%s(): ContextualCheck failed", __func__);
+        LogPrintf("%s(): ContextualCheck failed\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1188,7 +1188,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
     if (!pool.checkIncomingCertConflicts(cert))
     {
-        LogPrintf("%s(): certificate has conflicts in mempool", __func__);
+        LogPrintf("%s(): certificate has conflicts in mempool\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
