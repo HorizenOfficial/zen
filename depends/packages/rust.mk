@@ -1,12 +1,12 @@
 package=rust
-$(package)_version=nightly
-$(package)_download_path=https://static.rust-lang.org/dist/2021-04-25
+$(package)_version=1.51.0
+$(package)_download_path=https://static.rust-lang.org/dist
 $(package)_file_name_linux=rust-$($(package)_version)-x86_64-unknown-linux-gnu.tar.gz
-$(package)_sha256_hash_linux=1aa4ae25e798ad69a981ddd6cb661db898b8a73fba01535cd7aed572f9ac3a4a
+$(package)_sha256_hash_linux=9e125977aa13f012a68fdc6663629c685745091ae244f0587dd55ea4e3a3e42f
 $(package)_file_name_darwin=rust-$($(package)_version)-x86_64-apple-darwin.tar.gz
-$(package)_sha256_hash_darwin=d0e8f5e5bb8c840e7568d7975c53c1d51b165923a573a83899322c766f7c5f0b
+$(package)_sha256_hash_darwin=765212098a415996b767d1e372ce266caf94027402b269fec33291fffc085ca4
 $(package)_file_name_mingw32=rust-$($(package)_version)-x86_64-pc-windows-gnu.tar.gz
-$(package)_sha256_hash_mingw32=654b4061a53c5936835f71a099224c9b53a0f5b1168dbb80b7915b3b9cea075d
+$(package)_sha256_hash_mingw32=5a571ded9b870bcb25a64dfd37d4ba4863ebb9ed467219374ccd0147d491561f
 
 ifeq ($(host_os),mingw32)
 $(package)_build_subdir=buildos
