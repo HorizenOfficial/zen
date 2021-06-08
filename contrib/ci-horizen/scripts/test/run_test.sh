@@ -17,5 +17,5 @@ else
     -e LOCAL_USER_ID="$(id -u)" -e LOCAL_GRP_ID="$(id -g)" -e CMD -e ARGS \
     --env-file <(env | grep 'DOCKER_\|B2_\|TEST_\|TRAVIS_') --network=dockerbridge "${IMAGE_NAME}:${IMAGE_TAG}" \
     bash -c 'set -xeuo pipefail && export HOST=$(gcc -dumpmachine) \
-      && export MAKEFLAGS="-j $(($(nproc)+1))" && cd "${DOCKER_HOME}" && ./zcutil/fetch-params.sh && time "${CMD}" ${ARGS}'
+      && export MAKEFLAGS="-j $(($(nproc)+1))" && cd "${DOCKER_HOME}" && ./zcutil/fetch-params.sh && /usr/bin/time -v "${CMD}" ${ARGS}'
 fi
