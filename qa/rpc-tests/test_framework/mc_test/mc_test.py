@@ -24,7 +24,7 @@ class MCTestUtils(object):
         assert(ps_type == "darlin" or ps_type == "cob_marlin")
         self.ps_type = ps_type
 
-    def _generate_params(self, id, circuit_type, ps_type, file_prefix):
+    def _generate_params(self, id, circuit_type, ps_type, file_prefix, num_constraints, segment_size):
         params_dir = self._get_params_dir(id)
 
         if os.path.isfile(params_dir + file_prefix + "test_pk") and os.path.isfile(params_dir + file_prefix + "test_vk"):
@@ -35,6 +35,8 @@ class MCTestUtils(object):
         args.append(str(circuit_type))
         args.append(str(ps_type))
         args.append(str(params_dir))
+        args.append(str(segment_size))
+        args.append(str(num_constraints))
 
         subprocess.check_call(args)
         assert(os.path.isfile(params_dir + file_prefix + "test_pk"))
@@ -67,18 +69,19 @@ class CertTestUtils(MCTestUtils):
         MCTestUtils.__init__(self, datadir, srcdir, ps_type)
         self.file_prefix = str(ps_type) + "_cert_"
 
-    def generate_params(self, id):
-        return self._generate_params(id, "cert", self.ps_type, self.file_prefix)
+    def generate_params(self, id, num_constraints = 1 << 10, segment_size = 1 << 9):
+        return self._generate_params(id, "cert", self.ps_type, self.file_prefix, num_constraints, segment_size)
 
-    def create_test_proof(self, id, epoch_number, quality, btr_fee, ft_min_amount, constant, end_cum_comm_tree_root, pks = [], amounts = [], custom_fields = []):
+    def create_test_proof(self, id, epoch_number, quality, btr_fee, ft_min_amount, constant, end_cum_comm_tree_root, pks = [], amounts = [], custom_fields = [], num_constraints = 1 << 10, segment_size = 1 << 9):
         params_dir = self._get_params_dir(id)
         if not os.path.isfile(params_dir + self.file_prefix + "test_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_vk"):
             return
         proof_path = "{}_epoch_{}_{}_proof".format(self._get_proofs_dir(id), epoch_number, self.file_prefix)
         args = []
         args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
-        args += ["create", "cert", str(self.ps_type), str(proof_path), str(params_dir)]
+        args += ["create", "cert", str(self.ps_type), str(proof_path), str(params_dir), str(segment_size)]
         args += [str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(int(btr_fee * COIN)), str(int(ft_min_amount * COIN))]
+        args.append(str(num_constraints))
         args.append(str(len(pks)))
         for (pk, amount) in zip(pks, amounts):
             args.append(str(pk))
@@ -94,18 +97,18 @@ class CSWTestUtils(MCTestUtils):
         MCTestUtils.__init__(self, datadir, srcdir, ps_type)
         self.file_prefix = str(ps_type) + "_csw_"
 
-    def generate_params(self, id):
-        return self._generate_params(id, "csw", self.ps_type, self.file_prefix)
+    def generate_params(self, id, num_constraints = 1 << 10, segment_size = 1 << 9):
+        return self._generate_params(id, "csw", self.ps_type, self.file_prefix, num_constraints, segment_size)
 
-    def create_test_proof(self, id, amount, sc_id, nullifier, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash = None):
+    def create_test_proof(self, id, amount, sc_id, nullifier, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash = None, num_constraints = 1 << 10, segment_size = 1 << 9):
         params_dir = self._get_params_dir(id)
         if not os.path.isfile(params_dir + self.file_prefix + "test_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_vk"):
             return
         proof_path = "{}_addr_{}_{}_proof".format(self._get_proofs_dir(id), mc_pk_hash, self.file_prefix)
         args = []
         args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
-        args += ["create", "csw", str(self.ps_type), str(proof_path), str(params_dir)]
-        args += [str(int(amount * COIN)), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root)]
+        args += ["create", "csw", str(self.ps_type), str(proof_path), str(params_dir), str(segment_size)]
+        args += [str(int(amount * COIN)), str(sc_id), str(nullifier), str(mc_pk_hash), str(end_cum_comm_tree_root), str(num_constraints)]
         if cert_data_hash is not None:
             args.append(str(cert_data_hash))
         subprocess.check_call(args)

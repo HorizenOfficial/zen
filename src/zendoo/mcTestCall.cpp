@@ -9,18 +9,17 @@
 /*
  *  Usage:
  *
- *  1) ./mcTest "generate" "cert/csw" "darlin/cob_marlin" "params_dir"
+ *  1) ./mcTest "generate" "cert/csw" "darlin/cob_marlin" "params_dir" "segment_size" "num_constraints"
  *  Generates SNARK pk and vk for a test cert/csw circuit using darlin/coboundary_marlin proving system;
- *  Pre-requisites: DLOG keys should be already loaded in memory;
  *
- *  2) ./mcTest "create" "cert" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "epoch_number" "quality"
- *  "constant" "end_cum_comm_tree_root", "btr_fee", "ft_min_amount"
+ *  2) ./mcTest "create" "cert" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
+ *  "epoch_number" "quality" "constant" "end_cum_comm_tree_root", "btr_fee", "ft_min_amount" "num_constraints"
  *  "bt_list_len", "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n",
  *  "custom_fields_list_len", "custom_field_0", ... , "custom_field_1"
  *  Generates a TestCertificateProof;
  *
- *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "amount" "sc_id"
- *  "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" <"cert_data_hash">,
+ *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size",
+ *  "amount" "sc_id" "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">,
  *  Generates a TestCSWProof. cert_data_hash is optional
  */
 
@@ -70,7 +69,9 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     assert(ret_code == CctpErrorCode::OK);
 
     // Load DLOG keys
-    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, &ret_code));
+    // Parse segment_size
+    uint32_t segment_size = strtoull(argv[arg++], NULL, 0);
+    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, segment_size, &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Parse epoch number and quality
@@ -96,6 +97,9 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     // Parse btr_fee and ft_min_amount
     uint64_t btr_fee = strtoull(argv[arg++], NULL, 0);
     uint64_t ft_min_amount = strtoull(argv[arg++], NULL, 0);
+
+    // Parse num_constraints
+    uint32_t num_constraints = strtoull(argv[arg++], NULL, 0);
 
     // Create bt_list
     // Inputs must be (pk_dest, amount) pairs from which construct backward_transfer_t objects
@@ -163,6 +167,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
         pk,
         (path_char_t*)proof_path.c_str(),
         proof_path_len,
+        num_constraints,
         &ret_code
     ));
     assert(ret_code == CctpErrorCode::OK);
@@ -287,7 +292,9 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
     assert(ret_code == CctpErrorCode::OK);
 
     // Load DLOG keys
-    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, &ret_code));
+    // Parse segment_size
+    uint32_t segment_size = strtoull(argv[arg++], NULL, 0);
+    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, segment_size, &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Parse amount
@@ -323,6 +330,9 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
     assert(end_cum_comm_tree_root_f != NULL);
     assert(ret_code == CctpErrorCode::OK);
 
+    // Parse num_constraints
+    uint32_t num_constraints = strtoull(argv[arg++], NULL, 0);
+
     // Parse cert_data_hash if present
     field_t* cert_data_hash_f;
     if (arg == argc) {
@@ -348,6 +358,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, int argc, char** argv
         pk,
         (path_char_t*)proof_path.c_str(),
         proof_path_len,
+        num_constraints,
         &ret_code
     ));
     assert(ret_code == CctpErrorCode::OK);
@@ -424,6 +435,7 @@ void create_verify(int argc, char** argv)
 
     auto circ_type_raw = std::string(argv[2]);
     if (circ_type_raw == "cert") {
+        assert(argc >= 16);
         create_verify_test_cert_proof(ps_type_raw, argc, argv);
     } else if (circ_type_raw == "csw") {
         create_verify_test_csw_proof(ps_type_raw, argc, argv);
@@ -460,22 +472,24 @@ void generate(char** argv)
     auto path = std::string(argv[4]);
 
     // Load DLOG keys
+    uint32_t segment_size = strtoull(argv[5], NULL, 0);
     CctpErrorCode ret_code = CctpErrorCode::OK;
-    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, 1 << 9, &ret_code));
+    assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, segment_size, &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 
     // Generate proving and verifying key
-    assert(zendoo_generate_mc_test_params(circ_type, ps_type, (path_char_t*)path.c_str(), path.size(), &ret_code));
+    uint32_t num_constraints = strtoull(argv[6], NULL, 0);
+    assert(zendoo_generate_mc_test_params(circ_type, ps_type, num_constraints, (path_char_t*)path.c_str(), path.size(), &ret_code));
     assert(ret_code == CctpErrorCode::OK);
 }
 
 int main(int argc, char** argv)
 {
     if(std::string(argv[1]) == "generate") {
-        assert(argc == 5);
+        assert(argc == 7);
         generate(argv);
     } else if (std::string(argv[1]) == "create"){
-        assert(argc >= 9);
+        assert(argc >= 13);
         create_verify(argc, argv);
     } else {
         abort();

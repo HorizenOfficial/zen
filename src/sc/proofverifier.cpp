@@ -184,14 +184,12 @@ bool CScProofVerifier::BatchVerify() const
         }
     }
 
-    int64_t failingProof = -1;
-    ZendooBatchProofVerifierResult verRes = batchVerifier.batch_verify_all(&code);
-    if (!verRes.result)
-    {
-        failingProof = verRes.failing_proof;
- 
-        LogPrintf("ERROR: %s():%d - verify all failed: proofId[%lld], code [0x%x]\n",
-            __func__, __LINE__, failingProof, code);
+    CZendooBatchProofVerifierResult verRes(batchVerifier.batch_verify_all(&code));
+
+    if (!verRes.Result())
+    { 
+        LogPrintf("ERROR: %s():%d - verify failed for %d proof(s), code [0x%x]\n",
+            __func__, __LINE__, verRes.FailedProofs().size(), code);
         return false; 
     }
 
