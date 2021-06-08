@@ -14,7 +14,7 @@ RUN set -euxo pipefail \
     && apt-get -y --no-install-recommends install aria2 autoconf automake bsdmainutils build-essential \
        ca-certificates cmake curl dirmngr git g++-multilib gnupg2 help2man libc6-dev libgomp1 libtool \
        m4 mingw-w64 ncurses-dev pigz pkg-config pv python-minimal python-pip python-setuptools python-wheel \
-       python-wheel-common unzip wget zlib1g-dev \
+       python-wheel-common time unzip wget zlib1g-dev \
     && pip install b2==1.4.2 \
     && BASEURL="https://github.com/tianon/gosu/releases/download/" \
     && GOSU_VERSION="1.13" \
