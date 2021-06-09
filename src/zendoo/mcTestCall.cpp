@@ -13,7 +13,7 @@
  *  Generates SNARK pk and vk for a test cert/csw circuit using darlin/coboundary_marlin proving system;
  *
  *  2) ./mcTest "create" "cert" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
- *  "epoch_number" "quality" "constant" "end_cum_comm_tree_root", "btr_fee", "ft_min_amount" "num_constraints"
+ *  "sc_id" "epoch_number" "quality" "constant" "end_cum_comm_tree_root", "btr_fee", "ft_min_amount" "num_constraints"
  *  "bt_list_len", "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n",
  *  "custom_fields_list_len", "custom_field_0", ... , "custom_field_1"
  *  Generates a TestCertificateProof;
@@ -72,6 +72,14 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     // Parse segment_size
     uint32_t segment_size = strtoull(argv[arg++], NULL, 0);
     assert(zendoo_init_dlog_keys_test_mode(Sidechain::SEGMENT_SIZE, segment_size, &ret_code));
+    assert(ret_code == CctpErrorCode::OK);
+
+    // Parse sc_id
+    assert(IsHex(argv[arg]));
+    auto sc_id = ParseHex(argv[arg++]);
+    assert(sc_id.size() == 32);
+    field_t* sc_id_f = zendoo_deserialize_field(sc_id.data(), &ret_code);
+    assert(sc_id_f != NULL);
     assert(ret_code == CctpErrorCode::OK);
 
     // Parse epoch number and quality
@@ -155,6 +163,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     assert(zendoo_create_cert_test_proof(
         zk,
         constant_f,
+        sc_id_f,
         epoch_number,
         quality,
         bt_list_ptr,
@@ -200,6 +209,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
         // Verify proof
         assert(zendoo_verify_certificate_proof(
             constant_f,
+            sc_id_f,
             epoch_number,
             quality,
             bt_list.data(),
@@ -219,6 +229,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
         auto wrong_epoch_number = epoch_number + 1;
         assert(!zendoo_verify_certificate_proof(
             constant_f,
+            sc_id_f,
             wrong_epoch_number,
             quality,
             bt_list.data(),
@@ -435,7 +446,7 @@ void create_verify(int argc, char** argv)
 
     auto circ_type_raw = std::string(argv[2]);
     if (circ_type_raw == "cert") {
-        assert(argc >= 16);
+        assert(argc >= 17);
         create_verify_test_cert_proof(ps_type_raw, argc, argv);
     } else if (circ_type_raw == "csw") {
         create_verify_test_csw_proof(ps_type_raw, argc, argv);
