@@ -228,22 +228,6 @@ private:
         wsq.push(wse);
     }
 
-    void sendBlockHeaders(const UniValue& headers, WsEvent::WsMsgType msgType, std::string clientRequestId = "")
-    {
-        // Send a message to the client:  type = eventType
-        WsEvent* wse = new WsEvent(msgType);
-        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
-        UniValue rspPayload(UniValue::VOBJ);
-        
-        rspPayload.push_back(Pair("headers", headers));
-
-        UniValue* rv = wse->getPayload();
-        if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
-        rv->push_back(Pair("responsePayload", rspPayload));
-        wsq.push(wse);
-    }
-
     int getHashByHeight(std::string height, std::string& strHash)
     {
         int nHeight = -1;

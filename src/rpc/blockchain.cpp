@@ -1370,25 +1370,6 @@ void FillCeasingCumScTxCommTree(const uint256& scid, UniValue& ret)
     ret.push_back(Pair("ceasingCumScTxCommTree", fe.GetHexRepr()));
 }
 
-void FillCeasingCumScTxCommTree(const uint256& scid, UniValue& ret)
-{
-    CCoinsViewCache scView(pcoinsTip);
-
-    if (!scView.HaveSidechain(scid))
-    {
-        LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scid.ToString() );
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not yet created: ") + scid.ToString());
-    }
-
-    CFieldElement fe = scView.GetCeasingCumTreeHash(scid);
-    if (fe.IsNull() )
-    {
-        LogPrint("sc", "%s():%d - scid[%s] ceasing cum sc commitment tree not in db\n", __func__, __LINE__, scid.ToString());
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing ceasing cum sc commitment tree not for required scid"));
-    }
-    ret.push_back(Pair("ceasingCumScTxCommTree", fe.GetHexRepr()));
-}
-
 UniValue getscinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() == 0 || params.size() > 5)
