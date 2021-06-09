@@ -14,6 +14,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     wait_bitcoinds, stop_nodes, get_epoch_data, sync_mempools, sync_blocks, \
     disconnect_nodes, advance_epoch
 
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 
 from decimal import Decimal
@@ -78,7 +79,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         self.sync_all()
         self.nodes[1].generate(1)
         self.sync_all()
-        self.nodes[0].generate(218)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT-2)
         self.sync_all()
         block_2 = self.nodes[0].getbestblockhash()
         self.nodes[0].generate(1)
