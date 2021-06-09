@@ -20,6 +20,8 @@ from collections import namedtuple
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
 EPOCH_LENGTH = 5
+FT_SC_FEE = Decimal('0')
+MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal('0.00015')
 
 
@@ -80,7 +82,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         prev_epoch_hash = self.nodes[0].getbestblockhash()
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
 
         constant = generate_random_field_element_hex()
 
@@ -105,8 +107,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
         assert_equal(get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH), get_epoch_data(scids[1], self.nodes[0], EPOCH_LENGTH))
         assert_equal(get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH), get_epoch_data(scids[2], self.nodes[0], EPOCH_LENGTH))
 
-        epoch_block_hash, epoch_number = get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_block_hash = {}".format(epoch_number, epoch_block_hash), self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         last_cert_epochs = []
         last_cert_epochs.append(epoch_number)
@@ -120,11 +122,10 @@ class sc_cert_ceasing(BitcoinTestFramework):
         try:
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof(
-                "sc1", epoch_number, epoch_block_hash, prev_epoch_hash,
-                quality, constant, [pkh_node1], [bwt_amount[0]])
+            proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount[0]])
 
-            cert_1 = self.nodes[0].send_certificate(scids[0], epoch_number, quality, epoch_block_hash, proof, amounts, CERT_FEE)
+            cert_1 = self.nodes[0].send_certificate(scids[0], epoch_number, quality,
+                epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -138,11 +139,10 @@ class sc_cert_ceasing(BitcoinTestFramework):
         try:
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof(
-                "sc2", epoch_number, epoch_block_hash, prev_epoch_hash,
-                quality, constant, [], [])
+            proof = mcTest.create_test_proof("sc2", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
 
-            cert_2 = self.nodes[0].send_certificate(scids[1], epoch_number, quality, epoch_block_hash, proof, [], CERT_FEE)
+            cert_2 = self.nodes[0].send_certificate(scids[1], epoch_number, quality,
+                epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']

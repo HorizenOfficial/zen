@@ -1068,12 +1068,13 @@ public:
         // In case of SIGHASH_ANYONECANPAY, only the CSW input being signed is serialized
         if (fAnyoneCanPay)
             nCswInput = nIn - txTo.GetVin().size();
-        // Serialize all CSW input fields except redeemScript
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nValue, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scId, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nullifier, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].pubKeyHash, nType, nVersion);
         ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scProof, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].actCertDataHash, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].ceasingCumScTxCommTree, nType, nVersion);
 
         // Serialize the script
         unsigned int nTotalInIdx = nCswInput + txTo.GetVin().size();
@@ -1173,10 +1174,12 @@ public:
             ::Serialize(s, certTo.GetScId(), nType, nVersion);
             ::Serialize(s, certTo.epochNumber, nType, nVersion);
             ::Serialize(s, certTo.quality, nType, nVersion);
-            ::Serialize(s, certTo.endEpochBlockHash, nType, nVersion);
+            ::Serialize(s, certTo.endEpochCumScTxCommTreeRoot, nType, nVersion);
             ::Serialize(s, certTo.scProof, nType, nVersion);
             ::Serialize(s, certTo.vFieldElementCertificateField, nType, nVersion);
             ::Serialize(s, certTo.vBitVectorCertificateField, nType, nVersion);
+            ::Serialize(s, certTo.forwardTransferScFee, nType, nVersion);
+            ::Serialize(s, certTo.mainchainBackwardTransferRequestScFee, nType, nVersion);
 
             // Serialize vin
             unsigned int nInputs = fAnyoneCanPay ? 1 : certTo.GetVin().size();

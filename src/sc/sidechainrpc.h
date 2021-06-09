@@ -24,16 +24,18 @@ namespace Sidechain
 void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& parentObj);
 void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj);
 
+enum class CheckSizeMode {CHECK_OFF, CHECK_STRICT, CHECK_UPPER_LIMIT};
 // Parses an hex inputString and writes it into a vector vBytes of required size vSize. 
 // If enforceStrictvSize is set to true, it will be checked that inputString.size()/2 == vSize,
 // otherwise the check is relaxed to inputString.size()/2 <= vSize
-bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, unsigned int vSize, bool enforceStrictvSize, std::string& error);
+bool AddScData(
+    const std::string& inputString, std::vector<unsigned char>& vBytes,
+    unsigned int vSize, CheckSizeMode checkSizeMode, std::string& error);
 
 bool AddCustomFieldElement(const std::string& inputString, std::vector<unsigned char>& vBytes,
     unsigned int vSize, std::string& errString);
 
-// read an array of int in input and fills the passed cfg obj.
-template <typename T> bool AddScData(const UniValue& intArray, std::vector<T>& vCfg);
+bool AddScData(const UniValue& intArray, std::vector<FieldElementCertificateFieldConfig>& vCfg);
 
 // used when creating a raw transaction with cc outputs
 bool AddCeasedSidechainWithdrawalInputs(UniValue& csws, CMutableTransaction& rawTx, std::string& error);
@@ -125,6 +127,7 @@ class ScRpcCmdCert : public ScRpcCmd
   private:
     void addBackwardTransfers();
     void addCustomFields();
+    void addScFees();
 
   public:
     struct sBwdParams
@@ -142,11 +145,14 @@ class ScRpcCmdCert : public ScRpcCmd
     std::vector<sBwdParams> _bwdParams;
     std::vector<FieldElementCertificateField> _vCfe;
     std::vector<BitVectorCertificateField> _vCmt;
+    CAmount _ftScFee;
+    CAmount _mbtrScFee;
 
     ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
-        const std::vector<FieldElementCertificateField>& vCfe, const std::vector<BitVectorCertificateField>& vCmt);
+        const std::vector<FieldElementCertificateField>& vCfe, const std::vector<BitVectorCertificateField>& vCmt,
+        const CAmount& ftScFee, const CAmount& mbtrScFee);
 
     void execute() override;
 };
@@ -162,21 +168,27 @@ class ScRpcCreationCmdTx : public ScRpcCmdTx
     {
         uint256 _toScAddress;
         CAmount _nAmount;
-        sCrOutParams(): _toScAddress(), _nAmount(0) {}
 
-        sCrOutParams(
-            const uint256& toaddress, const CAmount nAmount):
-            _toScAddress(toaddress), _nAmount(nAmount) {}
+        sCrOutParams():
+            _toScAddress(), _nAmount(0)
+        {}
+
+        sCrOutParams(const uint256& toaddress, const CAmount nAmount):
+            _toScAddress(toaddress), _nAmount(nAmount)
+        {}
     };
 
     // cmd params
     std::vector<sCrOutParams> _outParams;
-    ScCreationParameters _creationData;
+    ScFixedParameters _fixedParams;
+    CAmount _ftScFee;     /**< Forward Transfer sidechain fee */
+    CAmount _mbtrScFee;   /**< Mainchain Backward Transfer Request sidechain fee */
 
     ScRpcCreationCmdTx(
         CMutableTransaction& tx, const std::vector<sCrOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
-        int minConf, const CAmount& nFee, const ScCreationParameters& cd);
+        int minConf, const CAmount& nFee, const CAmount& ftScFee, const CAmount& mbtrScFee,
+        const ScFixedParameters& cd);
 };
 
 class ScRpcSendCmdTx : public ScRpcCmdTx

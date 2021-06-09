@@ -122,18 +122,20 @@ class ScInvalidateTest(BitcoinTestFramework):
         sc_cr_amount = tx_amount
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk = mcTest.generate_params("sc1")
-        mbtrVk = mcTest.generate_params("sc1_mbtrVk")
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir, "darlin")
+        certVk = mcTest.generate_params("sc1")
+        mcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir)
+        cswVk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
         sc = [{
             "epoch_length": sc_epoch,
             "amount": sc_cr_amount,
             "address": sc_address,
-            "wCertVk": vk,
-            "wMbtrVk": mbtrVk,
-            "constant": constant
+            "wCertVk": certVk,
+            "wCeasedVk": cswVk,
+            "constant": constant,
+            "mainchainBackwardTransferRequestDataLength": 1
         }]
 
         inputs = [{'txid': txid, 'vout': vout['n']}]
@@ -167,11 +169,10 @@ class ScInvalidateTest(BitcoinTestFramework):
         mark_logs("Node1 creates a tx with a single bwt request for sc", self.nodes, DEBUG_MODE)
         totScFee = Decimal("0.0")
 
-        fe1 = generate_random_field_element_hex()
+        fe1 = [generate_random_field_element_hex()]
         pkh1 = self.nodes[1].getnewaddress("", True)
-        p1 = mcTest.create_test_proof("sc1", 0, blocks[-2], blocks[-1], 1, fe1, [pkh1], []) 
         TX_FEE = Decimal("0.000123")
-        outputs = [{'scRequestData':fe1, 'scFee':SC_FEE, 'scid':scid, 'scProof':p1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid, 'pubkeyhash':pkh1 }]
         cmdParms = { "minconf":0, "fee":TX_FEE}
 
         try:

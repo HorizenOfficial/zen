@@ -1,203 +1,394 @@
 #include <sc/sidechainTxsCommitmentBuilder.h>
 #include <primitives/transaction.h>
 #include <primitives/certificate.h>
+#include <uint256.h>
+#include <algorithm>
+#include <iostream>
+#include <zendoo/zendoo_mc.h>
+
+// TODO remove when not needed anymore
+#include <gtest/libzendoo_test_files.h>
 
 #ifdef BITCOIN_TX
-void SidechainTxsCommitmentBuilder::add(const CTransaction& tx) { return; }
-void SidechainTxsCommitmentBuilder::add(const CScCertificate& cert) { return; }
+bool SidechainTxsCommitmentBuilder::add(const CTransaction& tx) { return true; }
+bool SidechainTxsCommitmentBuilder::add(const CScCertificate& cert, const CCoinsViewCache& view) { return true; }
 uint256 SidechainTxsCommitmentBuilder::getCommitment() { return uint256(); }
+SidechainTxsCommitmentBuilder::SidechainTxsCommitmentBuilder(): _cmt(nullptr) {}
+SidechainTxsCommitmentBuilder::~SidechainTxsCommitmentBuilder(){}
 #else
-void SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
+SidechainTxsCommitmentBuilder::SidechainTxsCommitmentBuilder(): _cmt(initPtr())
 {
-    if (!tx.IsScVersion())
-        return;
-
-    LogPrint("sc", "%s():%d -getting leaves for vsc out\n", __func__, __LINE__);
-    for(unsigned int scIdx = 0; scIdx < tx.GetVscCcOut().size(); ++scIdx)
-    {
-        uint256 scId = tx.GetVscCcOut().at(scIdx).GetScId();
-        sScIds.insert(scId);
-
-        std::vector<field_t*>& vec = mScMerkleTreeLeavesFt[scId]; //create or pick entry for scId
-        field_t* pField = mapScTxToField(tx.GetVscCcOut().at(scIdx).GetHash(), tx.GetHash(), scIdx);
-        vec.push_back(pField);
-    }
-
-    unsigned int fwdBaseMapIdx = tx.GetVscCcOut().size();
-    LogPrint("sc", "%s():%d -getting leaves for vft out\n", __func__, __LINE__);
-    for(unsigned int fwdIdx = 0; fwdIdx < tx.GetVftCcOut().size(); ++fwdIdx)
-    {
-        uint256 scId = tx.GetVftCcOut().at(fwdIdx).GetScId();
-        sScIds.insert(scId);
-
-        std::vector<field_t*>& vec = mScMerkleTreeLeavesFt[scId]; //create or pick entry for scId
-        field_t* pField = mapScTxToField(tx.GetVftCcOut().at(fwdIdx).GetHash(), tx.GetHash(), fwdBaseMapIdx + fwdIdx);
-        vec.push_back(pField);
-    }
+    assert(_cmt != nullptr);
 }
 
-void SidechainTxsCommitmentBuilder::add(const CScCertificate& cert)
+const commitment_tree_t* const SidechainTxsCommitmentBuilder::initPtr()
 {
-    uint256 scId = cert.GetScId();
-    sScIds.insert(scId);
-    mScCerts[scId] = mapCertToField(cert.GetHash());
+    return zendoo_commitment_tree_create();
+}
+
+SidechainTxsCommitmentBuilder::~SidechainTxsCommitmentBuilder()
+{
+    assert(_cmt != nullptr);
+    zendoo_commitment_tree_delete(const_cast<commitment_tree_t*>(_cmt));
+}
+
+bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code)
+{
+    LogPrint("sc", "%s():%d entering \n", __func__, __LINE__);
+
+    wrappedFieldPtr sptrScId = CFieldElement(ccout.GetScId()).GetFieldElement();
+    field_t* scid_fe = sptrScId.get();
+
+    const uint256& pub_key = ccout.address;
+    BufferWithSize bws_pk(pub_key.begin(), pub_key.size());
+
+    std::unique_ptr<BufferWithSize> bws_fe_cfg(nullptr);
+    std::unique_ptr<uint8_t[]> dum(nullptr);
+    size_t l = ccout.vFieldElementCertificateFieldConfig.size();
+    if (l > 0)
+    {
+        dum.reset(new uint8_t[l]);
+        for (int i = 0; i < l; i++)
+            dum[i] = ccout.vFieldElementCertificateFieldConfig[i].getBitSize();
+
+        bws_fe_cfg.reset(new BufferWithSize(dum.get(), l));
+    }
+ 
+    size_t bvcfg_size = ccout.vBitVectorCertificateFieldConfig.size(); 
+    std::unique_ptr<BitVectorElementsConfig[]> bvcfg(new BitVectorElementsConfig[bvcfg_size]);
+    int i = 0;
+    for (auto entry: ccout.vBitVectorCertificateFieldConfig)
+    {
+        bvcfg[i].bit_vector_size_bits     = entry.getBitVectorSizeBits(); 
+        bvcfg[i].max_compressed_byte_size = entry.getMaxCompressedSizeBytes(); 
+        i++;
+    }
+    // mc crypto lib wants a null ptr if we have no fields
+    if (bvcfg_size == 0)
+        bvcfg.reset();
+
+    std::unique_ptr<BufferWithSize> bws_custom_data(nullptr);
+    if (!ccout.customData.empty())
+    {
+        bws_custom_data.reset(new BufferWithSize(
+            (unsigned char*)(&ccout.customData[0]),
+            ccout.customData.size()
+        ));
+    }
+
+    wrappedFieldPtr sptrConstant(nullptr);
+    if(ccout.constant.is_initialized())
+    {
+        sptrConstant = ccout.constant->GetFieldElement();
+    }
+    field_t* constant_fe = sptrConstant.get();
+        
+    BufferWithSize bws_cert_vk(ccout.wCertVk.GetDataBuffer(), ccout.wCertVk.GetDataSize());
+
+    std::unique_ptr<BufferWithSize> bws_csw_vk(nullptr);
+    if(ccout.wCeasedVk.is_initialized())
+    {
+        bws_csw_vk.reset(new BufferWithSize(
+            ccout.wCeasedVk->GetDataBuffer(),
+            ccout.wCeasedVk->GetDataSize()
+        ));
+    }
+
+    bool ret = zendoo_commitment_tree_add_scc(const_cast<commitment_tree_t*>(_cmt),
+         scid_fe, 
+         (uint64_t)ccout.nValue,
+         &bws_pk,
+         &bws_tx_hash,
+         (uint32_t)out_idx,
+         (uint32_t)ccout.withdrawalEpochLength,
+         (uint8_t)ccout.mainchainBackwardTransferRequestDataLength,
+         bws_fe_cfg.get(),
+         bvcfg.get(),
+         (size_t)bvcfg_size,
+         (uint64_t)ccout.mainchainBackwardTransferRequestScFee, 
+         (uint64_t)ccout.forwardTransferScFee, 
+         bws_custom_data.get(),
+         constant_fe, 
+         &bws_cert_vk,
+         bws_csw_vk.get(),
+         &ret_code
+    );
+#if 0
+    dumpFe(scid_fe, "scid");
+    dumpBuffer(&bws_pk, "bws_pk");
+    dumpBuffer((BufferWithSize*)&bws_tx_hash, "bws_tx_hash");
+    dumpBuffer(bws_fe_cfg.get(), "bws_fe_cfg");
+    dumpBvCfg(bvcfg.get(), bvcfg_size, "bws_bv_cfg");
+    dumpBuffer(bws_custom_data.get(), "bws_custom_data");
+    dumpFe(constant_fe, "constant_fe");
+    dumpBuffer(&bws_cert_vk, "bws_cert_vk");
+    dumpBuffer(bws_csw_vk.get(), "bws_csw_vk");
+    printf("\nValue = %ld, out_idx=%d, epochLen=%d, mbtrReqLen=%d, mbtrFee=%ld, fwdFee=%ld\n",
+         ccout.nValue, out_idx, ccout.withdrawalEpochLength, ccout.mainchainBackwardTransferRequestDataLength,
+         ccout.mainchainBackwardTransferRequestScFee, ccout.forwardTransferScFee);
+
+    CctpErrorCode code;
+    field_t* fe = zendoo_commitment_tree_get_commitment(const_cast<commitment_tree_t*>(_cmt), &code);
+    assert(code == CctpErrorCode::OK);
+    assert(fe != nullptr);
+
+    dumpFe(fe, "committment resulting");
+#endif
+
+    return ret;
+}
+
+bool SidechainTxsCommitmentBuilder::add_fwt(const CTxForwardTransferOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code)
+{
+    LogPrint("sc", "%s():%d entering \n", __func__, __LINE__);
+
+    wrappedFieldPtr sptrScId = CFieldElement(ccout.GetScId()).GetFieldElement();
+    field_t* scid_fe = sptrScId.get();
+
+    const uint256& fwt_pub_key = ccout.address;
+    BufferWithSize bws_fwt_pk((unsigned char*)fwt_pub_key.begin(), fwt_pub_key.size());
+
+    bool ret = zendoo_commitment_tree_add_fwt(const_cast<commitment_tree_t*>(_cmt),
+         scid_fe,
+         ccout.nValue,
+         &bws_fwt_pk,
+         &bws_tx_hash,
+         out_idx,
+         &ret_code
+    );
+
+    return ret;
+}
+
+bool SidechainTxsCommitmentBuilder::add_bwtr(const CBwtRequestOut& ccout, const BufferWithSize& bws_tx_hash, uint32_t out_idx, CctpErrorCode& ret_code)
+{
+    LogPrint("sc", "%s():%d entering \n", __func__, __LINE__);
+
+    wrappedFieldPtr sptrScId = CFieldElement(ccout.GetScId()).GetFieldElement();
+    field_t* scid_fe = sptrScId.get();
+
+    int sc_req_data_len = ccout.vScRequestData.size(); 
+    std::unique_ptr<const field_t*[]> sc_req_data(new const field_t*[sc_req_data_len]);
+    int i = 0;
+    std::vector<wrappedFieldPtr> vSptr;
+    for (auto entry: ccout.vScRequestData)
+    {
+        wrappedFieldPtr sptrFe = entry.GetFieldElement();
+        sc_req_data[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
+        i++;
+    }
+    // mc crypto lib wants a null ptr if we have no fields
+    if (sc_req_data_len == 0)
+        sc_req_data.reset();
+
+    const uint160& bwtr_pk_hash = ccout.mcDestinationAddress;
+    BufferWithSize bws_bwtr_pk_hash(bwtr_pk_hash.begin(), bwtr_pk_hash.size());
+
+    return zendoo_commitment_tree_add_bwtr(const_cast<commitment_tree_t*>(_cmt),
+         scid_fe,
+         ccout.scFee,
+         sc_req_data.get(),
+         sc_req_data_len,
+         &bws_bwtr_pk_hash,
+         &bws_tx_hash,
+         out_idx,
+         &ret_code
+    );
+}
+
+bool SidechainTxsCommitmentBuilder::add_csw(const CTxCeasedSidechainWithdrawalInput& ccin, CctpErrorCode& ret_code)
+{
+    LogPrint("sc", "%s():%d entering \n", __func__, __LINE__);
+
+    wrappedFieldPtr sptrScId = CFieldElement(ccin.scId).GetFieldElement();
+    field_t* scid_fe = sptrScId.get();
+
+    const uint160& csw_pk_hash = ccin.pubKeyHash;
+    BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
+
+    wrappedFieldPtr sptrNullifier = ccin.nullifier.GetFieldElement();
+
+    return zendoo_commitment_tree_add_csw(const_cast<commitment_tree_t*>(_cmt),
+         scid_fe,
+         ccin.nValue,
+         sptrNullifier.get(),
+         &bws_csw_pk_hash,
+         &ret_code
+    );
+}
+
+bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, const Sidechain::ScFixedParameters scFixedParams, CctpErrorCode& ret_code)
+{
+    LogPrint("sc", "%s():%d entering \n", __func__, __LINE__);
+
+    wrappedFieldPtr sptrScId = CFieldElement(cert.GetScId()).GetFieldElement();
+    field_t* scid_fe = sptrScId.get();
+
+    const backward_transfer_t* bt_list =  nullptr;
+    std::vector<backward_transfer_t> vbt_list;
+    for(int pos = cert.nFirstBwtPos; pos < cert.GetVout().size(); ++pos)
+    {
+        const CTxOut& out = cert.GetVout()[pos];
+        const auto& bto = CBackwardTransferOut(out);
+        backward_transfer_t x;
+        x.amount = bto.nValue;
+        memcpy(x.pk_dest, bto.pubKeyHash.begin(), sizeof(x.pk_dest));
+        vbt_list.push_back(x);
+    }
+
+    if (!vbt_list.empty())
+        bt_list = (const backward_transfer_t*)vbt_list.data();
+
+    size_t bt_list_len = vbt_list.size();
+
+    int custom_fields_len = cert.vFieldElementCertificateField.size() + cert.vBitVectorCertificateField.size(); 
+
+    std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
+    int i = 0;
+    std::vector<wrappedFieldPtr> vSptr;
+    for (i = 0; i < cert.vFieldElementCertificateField.size(); i++)
+    {
+        FieldElementCertificateField entry = cert.vFieldElementCertificateField.at(i);
+        CFieldElement fe{entry.GetFieldElement(scFixedParams.vFieldElementCertificateFieldConfig.at(i))};
+        wrappedFieldPtr sptrFe = fe.GetFieldElement();
+        custom_fields[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
+    }
+
+    for (int j = 0; j < cert.vBitVectorCertificateField.size(); j++)
+    {
+        BitVectorCertificateField entry = cert.vBitVectorCertificateField.at(j);
+        CFieldElement fe{entry.GetFieldElement(scFixedParams.vBitVectorCertificateFieldConfig.at(j))};
+        wrappedFieldPtr sptrFe = fe.GetFieldElement();
+        custom_fields[i+j] = sptrFe.get();
+        vSptr.push_back(sptrFe);
+    }
+    // mc crypto lib wants a null ptr if we have no fields
+    if (custom_fields_len == 0)
+        custom_fields.reset();
+
+    //dumpFeArr((field_t**)custom_fields.get(), custom_fields_len, "custom fields");
+
+    wrappedFieldPtr sptrCum = cert.endEpochCumScTxCommTreeRoot.GetFieldElement();
+
+    return zendoo_commitment_tree_add_cert(const_cast<commitment_tree_t*>(_cmt),
+         scid_fe,
+         cert.epochNumber,
+         cert.quality,
+         bt_list,
+         bt_list_len,
+         custom_fields.get(),
+         custom_fields_len,
+         sptrCum.get(),
+         cert.forwardTransferScFee,
+         cert.mainchainBackwardTransferRequestScFee,
+         &ret_code
+    );
+}
+
+bool SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
+{
+    assert(_cmt != nullptr);
+
+    if (!tx.IsScVersion())
+        return true;
+
+    LogPrint("sc", "%s():%d entering with comm[%s] for adding tx[%s]\n", __func__, __LINE__,
+        getCommitment().ToString(), tx.GetHash().ToString());
+
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+
+    const uint256& tx_hash = tx.GetHash();
+    const BufferWithSize bws_tx_hash(tx_hash.begin(), tx_hash.size());
+
+    uint32_t out_idx = 0;
+
+    for (unsigned int scIdx = 0; scIdx < tx.GetVscCcOut().size(); ++scIdx)
+    {
+        const CTxScCreationOut& ccout = tx.GetVscCcOut().at(scIdx);
+
+        if (!add_scc(ccout, bws_tx_hash, out_idx, ret_code))
+        {
+            LogPrintf("%s():%d Error adding sc creation: tx[%s], pos[%d], ret_code[%d]\n", __func__, __LINE__,
+                tx_hash.ToString(), scIdx, ret_code);
+            return false;
+        }
+        out_idx++;
+    }
+
+    for (unsigned int fwtIdx = 0; fwtIdx < tx.GetVftCcOut().size(); ++fwtIdx)
+    {
+        const CTxForwardTransferOut& ccout = tx.GetVftCcOut().at(fwtIdx);
+
+        if (!add_fwt(ccout, bws_tx_hash, out_idx, ret_code))
+        {
+            LogPrintf("%s():%d Error adding fwt: tx[%s], pos[%d], ret_code[%d]\n", __func__, __LINE__,
+                tx_hash.ToString(), fwtIdx, ret_code);
+            return false;
+        }
+        out_idx++;
+    }
+
+    for (unsigned int bwtrIdx = 0; bwtrIdx < tx.GetVBwtRequestOut().size(); ++bwtrIdx)
+    {
+        const CBwtRequestOut& ccout = tx.GetVBwtRequestOut().at(bwtrIdx);
+
+        if (!add_bwtr(ccout, bws_tx_hash, out_idx, ret_code))
+        {
+            LogPrintf("%s():%d Error adding bwtr: tx[%s], pos[%d], ret_code[%d]\n", __func__, __LINE__,
+                tx_hash.ToString(), bwtrIdx, ret_code);
+            return false;
+        }
+ 
+        out_idx++;
+    }
+
+    for (unsigned int cswIdx = 0; cswIdx < tx.GetVcswCcIn().size(); ++cswIdx)
+    {
+        const CTxCeasedSidechainWithdrawalInput& ccin = tx.GetVcswCcIn().at(cswIdx);
+
+        if (!add_csw(ccin, ret_code))
+        {
+            LogPrintf("%s():%d Error adding csw: tx[%s], pos[%d], ret_code[%d]\n", __func__, __LINE__,
+                tx_hash.ToString(), cswIdx, ret_code);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool SidechainTxsCommitmentBuilder::add(const CScCertificate& cert, const CCoinsViewCache& view)
+{
+    assert(_cmt != nullptr);
+
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+
+    CSidechain sidechain;
+    view.GetSidechain(cert.GetScId(), sidechain);
+
+    if (!add_cert(cert, sidechain.fixedParams, ret_code))
+    {
+        LogPrintf("%s():%d Error adding cert[%s], ret_code[%d]\n", __func__, __LINE__,
+            cert.GetHash().ToString(), ret_code);
+        return false;
+    }
+    return true;
 }
 
 uint256 SidechainTxsCommitmentBuilder::getCommitment()
 {
-    std::vector<field_t*> vSortedScLeaves;
+    assert(_cmt != nullptr);
+    CctpErrorCode code;
+    field_t* fe = zendoo_commitment_tree_get_commitment(const_cast<commitment_tree_t*>(_cmt), &code);
+    assert(code == CctpErrorCode::OK);
+    assert(fe != nullptr);
+    //dumpFe(fe, "com fe");
 
-    // set of scid is ordered
-    for (const auto& scid : sScIds)
-    {
-        field_t* ftRootField = nullptr;
-        auto itFt = mScMerkleTreeLeavesFt.find(scid);
-        if (itFt != mScMerkleTreeLeavesFt.end() )
-        {
-            ftRootField = merkleTreeRootOf(itFt->second);
-        }
+    wrappedFieldPtr res = {fe, CFieldPtrDeleter{}};
+    CFieldElement finalTreeRoot{res};
 
-        field_t* btrRootField = nullptr;
-        auto itBtr = mScMerkleTreeLeavesBtr.find(scid);
-        if (itBtr != mScMerkleTreeLeavesBtr.end() )
-        {
-            btrRootField = merkleTreeRootOf(itBtr->second);
-        }
-
-        field_t* certRootField = nullptr;
-        auto itCert = mScCerts.find(scid);
-        if (itCert != mScCerts.end() )
-        {
-            certRootField = itCert->second;
-        }
-
-        field_t* scIdField = mapCertToField(scid);
-
-        std::vector<field_t*> singleSidechainComponents = {ftRootField, btrRootField, certRootField, scIdField};
-        field_t * sidechainTreeRoot = merkleTreeRootOf(singleSidechainComponents);
-
-        vSortedScLeaves.push_back(sidechainTreeRoot);
-    }
-
-    field_t * finalTreeRoot = merkleTreeRootOf(vSortedScLeaves);
-    uint256 res = mapFieldToHash(finalTreeRoot);
-    zendoo_field_free(finalTreeRoot);
-
-    return res;
+    return finalTreeRoot.GetLegacyHash();
 }
 #endif
-
-#include <algorithm>
-#include <iostream>
-#define IMPLEMENTATION 2
-field_t* SidechainTxsCommitmentBuilder::mapScTxToField(const uint256& ccoutHash, const uint256& txHash, unsigned int outPos)
-{
-    static_assert((sizeof(uint256) + sizeof(uint256) + sizeof(unsigned int)) <= SC_FIELD_SAFE_SIZE,
-            "ScTx data to field point mapping not working with current configuration");
-
-#if IMPLEMENTATION == 1
-    std::vector<unsigned char> mediumTerm;
-    mediumTerm.insert(mediumTerm.end(), ccoutHash.begin(), ccoutHash.end());
-    mediumTerm.insert(mediumTerm.end(), txHash.begin(), txHash.end());
-
-    unsigned char* outPosPtr = static_cast<unsigned char*>(static_cast<void*>(&outPos));
-    std::vector<unsigned char> tmp(outPosPtr, outPosPtr + sizeof(unsigned int));
-    std::move(std::begin(tmp), std::end(tmp), std::back_inserter(mediumTerm));
-    mediumTerm.resize(SC_FIELD_SIZE, '\0');
-
-    LogPrintf("%s():%d - Data about to be mapped to field point [%s]\n",
-        __func__, __LINE__, HexStr(mediumTerm));
-
-    //generate field element. MISSING null-check
-    field_t* field = zendoo_deserialize_field(mediumTerm.data());
-    return field;
-#endif
-#if IMPLEMENTATION == 2
-    std::vector<unsigned char> mediumTerm(SC_FIELD_SIZE, '\0');
-    mediumTerm.insert(mediumTerm.begin(), ccoutHash.begin(), ccoutHash.end());
-    mediumTerm.insert(mediumTerm.begin()+ccoutHash.size()/sizeof(unsigned char), txHash.begin(), txHash.end());
-
-    unsigned char* outPosPtr = static_cast<unsigned char*>(static_cast<void*>(&outPos));
-    std::vector<unsigned char> tmp(outPosPtr, outPosPtr + sizeof(unsigned int));
-    std::move(std::begin(tmp), std::end(tmp), mediumTerm.begin()+(ccoutHash.size()+txHash.size())/sizeof(unsigned char));
-    mediumTerm.resize(SC_FIELD_SIZE, '\0');
-
-    LogPrintf("%s():%d - Data about to be mapped to field point [%s]\n",
-        __func__, __LINE__, HexStr(mediumTerm));
-
-    //generate field element. MISSING null-check
-    field_t* field = zendoo_deserialize_field(mediumTerm.data());
-    return field;
-#endif
-#if IMPLEMENTATION == 3
-    std::string toHash = std::string(ccoutHash.begin(), ccoutHash.end()) +
-            std::string(txHash.begin(), txHash.end()) +
-            std::string(static_cast<char*>(static_cast<void*>(&outPos)), sizeof(unsigned int));
-
-    unsigned char mediumTerm[SC_FIELD_SIZE] = {};
-    memcpy(mediumTerm, toHash.append(SC_FIELD_SIZE - toHash.size(), '\0').c_str(), SC_FIELD_SIZE);
-
-    LogPrintf("%s():%d - Data about to be mapped to field point [%s]\n",
-        __func__, __LINE__, HexStr(mediumTerm));
-
-    //generate field element. MISSING null-check
-    field_t* field = zendoo_deserialize_field(mediumTerm);
-    return field;
-#endif
-}
-
-field_t* SidechainTxsCommitmentBuilder::mapCertToField(const uint256& certHash)
-{
-    static_assert(sizeof(uint256) <= SC_FIELD_SAFE_SIZE,
-            "Certificate data to field point mapping not working with current configuration");
-    unsigned char hash[SC_FIELD_SIZE] = {};
-    std::string resHex = std::string(certHash.begin(), certHash.end());
-    memcpy(hash, resHex.append(SC_FIELD_SIZE - resHex.size(), '\0').c_str(), SC_FIELD_SIZE);
-
-    //generate field element. MISSING null-check
-    field_t* field = zendoo_deserialize_field(hash);
-    return field;
-}
-
-uint256 SidechainTxsCommitmentBuilder::mapFieldToHash(const field_t* pField)
-{
-    if (pField == nullptr)
-        throw;
-
-    unsigned char field_bytes[SC_FIELD_SIZE];
-    zendoo_serialize_field(pField, field_bytes);
-
-    uint256 res = Hash(BEGIN(field_bytes), END(field_bytes));
-    return res;
-}
-
-unsigned int SidechainTxsCommitmentBuilder::treeHeightForLeaves(unsigned int numberOfLeaves) const
-{
-    assert(numberOfLeaves > 0);
-
-    return static_cast<unsigned int>(ceil(log2f(static_cast<float>(numberOfLeaves))));
-}
-
-field_t* SidechainTxsCommitmentBuilder::merkleTreeRootOf(std::vector<field_t*>& leaves) const
-{
-    //Notes: Leaves are consumed, i.e. freed and nulled;
-    //       It is guaranteed not to return nullptr.
-
-    unsigned int numberOfLeaves = leaves.size();
-    if (numberOfLeaves == 0) 
-        numberOfLeaves = 1;
-    
-    auto btrTree = ZendooGingerMerkleTree(treeHeightForLeaves(numberOfLeaves), numberOfLeaves);
-    for(field_t* & leaf: leaves)
-    {
-        if (leaf != nullptr) {
-            btrTree.append(leaf);
-            zendoo_field_free(leaf);
-            leaf = nullptr;
-        }
-    }
-
-    btrTree.finalize_in_place();
-    field_t* root = btrTree.root();
-    return root;
-}

@@ -113,7 +113,7 @@ class ScSplitTest(BitcoinTestFramework):
         mark_logs("\nNode 1 creates the SC", self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir, "darlin")
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 

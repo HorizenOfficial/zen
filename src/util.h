@@ -270,6 +270,17 @@ std::string VecToStr(const std::vector<T>& vIn)
     return s.substr(0, s.length()-1).c_str();
 }
 
+template <typename T>
+int FindIndexOf(const std::vector<T>& vIn, const T& entry)
+{
+    // find() returns end() iterator for empty vecs
+    auto vIt = std::find(vIn.begin(), vIn.end(), entry);
+    if (vIt == vIn.end())
+        return -1;
+
+    return (vIt - vIn.begin());
+}
+
 // Utilities useful for developing and debugging
 //--------------------------------------------------------------
 class CBlockIndex;
@@ -287,4 +298,5 @@ std::string dbg_blk_global_tips();
 
 int getTrailingZeroBitsInByte(unsigned char inputByte);
 int getBytesFromBits(int nbits, int& reminder);
+
 #endif // BITCOIN_UTIL_H

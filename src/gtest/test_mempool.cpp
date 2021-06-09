@@ -10,6 +10,8 @@
 #include "util.h"
 #include <gtest/tx_creation_utils.h>
 #include "txdb.h"
+#include <boost/filesystem.hpp>
+#include "net.h"
 
 extern CMutableTransaction GetValidTransaction();
 extern CMutableTransaction GetValidTransaction(int txVersion);
@@ -112,9 +114,6 @@ TEST(Mempool, TxInputLimit) {
     CCoinsViewDB* pChainStateDb = new CCoinsViewDB(chainStateDbSize, /*fWipe*/true);
     pcoinsTip = new CCoinsViewCache(pChainStateDb);
 
-
-    bool missingInputs;
-
     // Create an obviously-invalid transaction
     // We intentionally set tx.nVersion = 0 to reliably trigger an error, as
     // it's the first check that occurs after the -mempooltxinputlimit check,
@@ -129,7 +128,8 @@ TEST(Mempool, TxInputLimit) {
     // Check it fails as expected
     CValidationState state1;
     CTransaction tx1(mtx);
-    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                                    MempoolProofVerificationFlag::SYNC));
     EXPECT_EQ(state1.GetRejectReason(), "bad-txns-version-too-low");
 
     // Set a limit
@@ -137,7 +137,8 @@ TEST(Mempool, TxInputLimit) {
 
     // Check it stil fails as expected
     CValidationState state2;
-    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state2, tx1, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state2, tx1, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                                    MempoolProofVerificationFlag::SYNC));
     EXPECT_EQ(state2.GetRejectReason(), "bad-txns-version-too-low");
 
     // Resize the transaction
@@ -146,7 +147,8 @@ TEST(Mempool, TxInputLimit) {
     // Check it now fails due to exceeding the limit
     CValidationState state3;
     CTransaction tx3(mtx);
-    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state3, tx3, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state3, tx3, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                                    MempoolProofVerificationFlag::SYNC));
     // The -mempooltxinputlimit check doesn't set a reason
     EXPECT_EQ(state3.GetRejectReason(), "");
 
@@ -157,7 +159,8 @@ TEST(Mempool, TxInputLimit) {
     // Check it now fails due to exceeding the total inputs limit
     CValidationState state3csw;
     CTransaction txWithCsw(mtx);
-    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state3csw, txWithCsw, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state3csw, txWithCsw, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                                    MempoolProofVerificationFlag::SYNC));
     // The -mempooltxinputlimit check doesn't set a reason
     EXPECT_EQ(state3csw.GetRejectReason(), "");
 
@@ -166,11 +169,13 @@ TEST(Mempool, TxInputLimit) {
 
     // Check it no longer fails due to exceeding the limit
     CValidationState state4;
-    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state4, tx3, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state4, tx3, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                                    MempoolProofVerificationFlag::SYNC));
     EXPECT_EQ(state4.GetRejectReason(), "bad-txns-version-too-low");
 
     CValidationState state4csw;
-    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state4csw, txWithCsw, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state4csw, txWithCsw, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                                    MempoolProofVerificationFlag::SYNC));
     EXPECT_EQ(state4.GetRejectReason(), "bad-txns-version-too-low");
 
     delete pcoinsTip;
@@ -198,7 +203,8 @@ TEST(Mempool, OverwinterNotActiveYet) {
     CValidationState state1;
 
     CTransaction tx1(mtx);
-    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF));
+    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF, DisconnectingFlag::OFF,
+                                      MempoolProofVerificationFlag::SYNC));
     EXPECT_EQ(state1.GetRejectReason(), "tx-overwinter-not-active");
 
     // Revert to default
@@ -220,7 +226,6 @@ TEST(Mempool, SproutV3TxFailsAsExpected) {
     pcoinsTip = new CCoinsViewCache(pChainStateDb);
 
     CTxMemPool pool(::minRelayTxFee);
-    bool missingInputs;
     CMutableTransaction mtx = GetValidTransaction(GROTH_TX_VERSION);
     mtx.vjoinsplit.resize(0); // no joinsplits
     CValidationState state1;
@@ -229,7 +234,8 @@ TEST(Mempool, SproutV3TxFailsAsExpected) {
     chainSettingUtils::ExtendChainActiveToHeight(100);
     pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
 
-    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                                    MempoolProofVerificationFlag::SYNC));
     //EXPECT_EQ(state1.GetRejectReason(), "version");
     //EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
     EXPECT_EQ(state1.GetRejectReason(), "bad-tx-version-unexpected");
@@ -257,7 +263,6 @@ TEST(Mempool, SproutV3TxWhenGrothNotActive) {
 
 
     CTxMemPool pool(::minRelayTxFee);
-    bool missingInputs;
     CMutableTransaction mtx = GetValidTransaction(GROTH_TX_VERSION);
     mtx.vjoinsplit.resize(0); // no joinsplits
 
@@ -266,7 +271,8 @@ TEST(Mempool, SproutV3TxWhenGrothNotActive) {
 
     CValidationState state1;
     CTransaction tx1(mtx);
-    EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+    EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                                    MempoolProofVerificationFlag::SYNC));
     //EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
     EXPECT_EQ(state1.GetRejectReason(), "bad-tx-version-unexpected");
 
@@ -296,7 +302,6 @@ TEST(Mempool, SproutNegativeVersionTx) {
     pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
 
     CTxMemPool pool(::minRelayTxFee);
-    bool missingInputs;
     CMutableTransaction mtx = GetValidTransaction();
     mtx.vjoinsplit.resize(0); // no joinsplits
 
@@ -314,7 +319,8 @@ TEST(Mempool, SproutNegativeVersionTx) {
         EXPECT_EQ(tx1.nVersion, -3);
 
         CValidationState state1;
-        EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+        EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                                        MempoolProofVerificationFlag::SYNC));
         //EXPECT_EQ(state1.GetRejectReason(), "bad-tx-shielded-version-too-low");
         EXPECT_EQ(state1.GetRejectReason(), "bad-tx-version-unexpected");
     }
@@ -331,7 +337,8 @@ TEST(Mempool, SproutNegativeVersionTx) {
         EXPECT_EQ(tx1.nVersion, -2147483645);
 
         CValidationState state1;
-        EXPECT_FALSE(AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, &missingInputs, RejectAbsurdFeeFlag::OFF));
+        EXPECT_TRUE(MempoolReturnValue::INVALID == AcceptTxToMemoryPool(pool, state1, tx1, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                                                        MempoolProofVerificationFlag::SYNC));
         EXPECT_EQ(state1.GetRejectReason(), "bad-txns-version-too-low");
     }
 
@@ -342,4 +349,63 @@ TEST(Mempool, SproutNegativeVersionTx) {
     ClearDatadirCache();
     boost::system::error_code ec;
     boost::filesystem::remove_all(pathTemp.string(), ec);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+////////////////////////////// ProcessMempoolMsg //////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+class CNodeExt : public CNode
+{
+public:
+    CService ip(uint32_t i)
+    {
+        struct in_addr s;
+        s.s_addr = i;
+        return CService(CNetAddr(s), Params().GetDefaultPort());
+    }
+
+    CNodeExt():
+        CNode(INVALID_SOCKET, CAddress(ip(0xa0b0c002)), "", true)
+    {
+    }
+
+    std::set<CInv> pushedInvList;
+
+    void PushInvs(const char* pszCommand, const std::vector<CInv>& invVec) override
+    {
+        for (auto const & inv : invVec)
+            pushedInvList.insert(inv);
+    }
+};
+
+TEST(ProcessMempoolMsgTest, TxesInMempoolAreRelayed)
+{
+    SelectParams(CBaseChainParams::REGTEST);
+
+    CTxMemPool aMempool(::minRelayTxFee);
+
+    // Populate mempool with a tx and a cert
+    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(0), /*epochLength*/0);
+    CTxMemPoolEntry scTxPoolEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(scTxPoolEntry.GetTx().GetHash(), scTxPoolEntry);
+    ASSERT_TRUE(aMempool.existsTx(scTx.GetHash()));
+
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            CFieldElement{}, /*changeTotalAmount*/0, /*numChangeOut*/0, /*bwtTotalAmount*/0,
+            /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0);
+
+    CCertificateMemPoolEntry certPoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(certPoolEntry.GetCertificate().GetHash(), certPoolEntry);
+    ASSERT_TRUE(aMempool.existsCert(cert.GetHash()));
+
+    CNodeExt theNode;
+
+    //test
+    ProcessMempoolMsg(aMempool, &theNode);
+
+    //Checks
+    EXPECT_TRUE(theNode.pushedInvList.size() == 2) << theNode.pushedInvList.size();
+    EXPECT_TRUE(theNode.pushedInvList.count(CInv{MSG_TX, scTx.GetHash()}));
+    EXPECT_TRUE(theNode.pushedInvList.count(CInv{MSG_TX, cert.GetHash()}));
 }

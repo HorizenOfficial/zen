@@ -38,7 +38,7 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTransaction& _tx, const CAmount& _nFee,
     CMemPoolEntry(_nFee, _nTime, _dPriority, _nHeight),
     tx(_tx), hadNoDependencies(poolHasNoInputsOf)
 {
-    nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+    nTxSize = tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     nModSize = tx.CalculateModifiedSize(nTxSize);
     nUsageSize = RecursiveDynamicUsage(tx);
 }
@@ -63,7 +63,7 @@ CCertificateMemPoolEntry::CCertificateMemPoolEntry(const CScCertificate& _cert, 
     CMemPoolEntry(_nFee, _nTime, _dPriority, _nHeight),
     cert(_cert) 
 {
-    nCertificateSize = ::GetSerializeSize(cert, SER_NETWORK, PROTOCOL_VERSION);
+    nCertificateSize = cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     nModSize = cert.CalculateModifiedSize(nCertificateSize);
     nUsageSize = RecursiveDynamicUsage(cert);
 }
@@ -155,8 +155,7 @@ void CTxMemPool::AddTransactionsUpdated(unsigned int n)
 }
 
 
-bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate,
-                              const std::map<uint256, CFieldElement>& scIdToCertDataHash)
+bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate)
 {
     // Add to memory pool without checking anything.
     // Used by main.cpp AcceptToMemoryPool(), which DOES do
@@ -200,8 +199,6 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
         if (mapSidechains.count(btr.scId) == 0)
             LogPrint("mempool", "%s():%d - adding [%s] in mapSidechain [%s], mcBtrsTxHashes\n", __func__, __LINE__, hash.ToString(), btr.scId.ToString());
         mapSidechains[btr.scId].mcBtrsTxHashes.insert(hash);
-        if (mapSidechains[btr.scId].mcBtrsCertDataHash.IsNull())
-            mapSidechains[btr.scId].mcBtrsCertDataHash = scIdToCertDataHash.at(btr.scId);
     }
 
     nTransactionsUpdated++;
@@ -422,8 +419,6 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             for(const auto& btr: tx.GetVBwtRequestOut()) {
                 if (mapSidechains.count(btr.scId)) { //Guard against double-delete on multiple btrs toward the same sc in same tx
                     mapSidechains.at(btr.scId).mcBtrsTxHashes.erase(tx.GetHash());
-                    if (mapSidechains.at(btr.scId).mcBtrsTxHashes.empty())
-                        mapSidechains.at(btr.scId).mcBtrsCertDataHash.SetNull();
 
                     if (mapSidechains.at(btr.scId).IsNull())
                     {
@@ -774,9 +769,10 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             if (hasSidechainCreationTx(ft.scId))
                 continue;
 
-            if (!pCoinsView->CheckScTxTiming(ft.scId))
+            if (!pCoinsView->CheckScTxTiming(ft.scId) || !pCoinsView->CheckScFtFee(ft))
             {
                 txesToRemove.insert(tx.GetHash());
+                break;
             }
         }
 
@@ -787,9 +783,10 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             if (hasSidechainCreationTx(mbtr.scId))
                 continue;
 
-            if (!pCoinsView->CheckScTxTiming(mbtr.scId))
+            if (!pCoinsView->CheckScTxTiming(mbtr.scId) || !pCoinsView->CheckScMbtrFee(mbtr))
             {
                 txesToRemove.insert(tx.GetHash());
+                break;
             }
         }
 
@@ -803,15 +800,6 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
         }
     }
 
-    // mbtr will be removed if they target outdated CertDataHash
-    for (auto it = mapSidechains.begin(); it != mapSidechains.end(); it++)
-    {
-        if (pCoinsView->GetActiveCertDataHash(it->first) != it->second.mcBtrsCertDataHash)
-        {
-            txesToRemove.insert(it->second.mcBtrsTxHashes.begin(), it->second.mcBtrsTxHashes.end());
-        }
-    }
-
     for(const auto& hash: txesToRemove)
     {
         // there can be dependancy also between txes, so check that a tx is still in map during the loop
@@ -821,6 +809,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             remove(tx, outdatedTxs, outdatedCerts, true);
         }
     }
+    
     LogPrint("mempool", "%s():%d - removed %d certs and %d txes", __func__, __LINE__, outdatedCerts.size(), outdatedTxs.size());
 }
 
@@ -1321,16 +1310,17 @@ bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) 
     return true;
 }
 
-void CTxMemPool::queryHashes(std::vector<uint256>& vtxid)
+void CTxMemPool::queryHashes(std::vector<uint256>& vtxid) const
 {
     vtxid.clear();
 
     LOCK(cs);
     vtxid.reserve(mapTx.size() + mapCertificate.size());
-    for (std::map<uint256, CTxMemPoolEntry>::iterator mi = mapTx.begin(); mi != mapTx.end(); ++mi)
-        vtxid.push_back((*mi).first);
-    for (std::map<uint256, CCertificateMemPoolEntry>::iterator mi = mapCertificate.begin(); mi != mapCertificate.end(); ++mi)
-        vtxid.push_back((*mi).first);
+    for(const auto& mapTxEntry : mapTx)
+        vtxid.push_back(mapTxEntry.first);
+
+    for(const auto& mapCertEntry : mapCertificate)
+        vtxid.push_back(mapCertEntry.first);
 }
 
 bool CTxMemPool::lookup(const uint256& hash, CTransaction& result) const
@@ -1535,14 +1525,16 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 //info.creationBlockHash doesn't exist here!
                 info.creationBlockHeight = -1; //default null value for creationBlockHeight
                 info.creationTxHash = scCreationHash;
-                info.creationData.withdrawalEpochLength = scCreation.withdrawalEpochLength;
-                info.creationData.customData = scCreation.customData;
-                info.creationData.constant = scCreation.constant;
-                info.creationData.wCertVk = scCreation.wCertVk;
-                info.creationData.wMbtrVk = scCreation.wMbtrVk;
-                info.creationData.wCeasedVk = scCreation.wCeasedVk;
-                info.creationData.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
-                info.creationData.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;
+                info.fixedParams.withdrawalEpochLength = scCreation.withdrawalEpochLength;
+                info.fixedParams.customData = scCreation.customData;
+                info.fixedParams.constant = scCreation.constant;
+                info.fixedParams.wCertVk = scCreation.wCertVk;
+                info.fixedParams.wCeasedVk = scCreation.wCeasedVk;
+                info.fixedParams.vFieldElementCertificateFieldConfig = scCreation.vFieldElementCertificateFieldConfig;
+                info.fixedParams.vBitVectorCertificateFieldConfig = scCreation.vBitVectorCertificateFieldConfig;
+                info.lastTopQualityCertView.forwardTransferScFee = scCreation.forwardTransferScFee;
+                info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = scCreation.mainchainBackwardTransferRequestScFee;
+                info.fixedParams.mainchainBackwardTransferRequestDataLength = scCreation.mainchainBackwardTransferRequestDataLength;
                 break;
             }
         }

@@ -12,24 +12,6 @@
 #include <miner.h>
 #include <gtest/libzendoo_test_files.h>
 
-class CNakedCCoinsViewCache : public CCoinsViewCache
-{
-public:
-    CNakedCCoinsViewCache(CCoinsView* pWrappedView): CCoinsViewCache(pWrappedView)
-    {
-        uint256 dummyAnchor = uint256S("59d2cde5e65c1414c32ba54f0fe4bdb3d67618125286e6a191317917c812c6d7"); //anchor for empty block!?
-        this->hashAnchor = dummyAnchor;
-
-        CAnchorsCacheEntry dummyAnchorsEntry;
-        dummyAnchorsEntry.entered = true;
-        dummyAnchorsEntry.flags = CAnchorsCacheEntry::DIRTY;
-        this->cacheAnchors[dummyAnchor] = dummyAnchorsEntry;
-
-    };
-    CSidechainsMap& getSidechainMap() {return this->cacheSidechains; };
-    CSidechainEventsMap& getScEventsMap() {return this->cacheSidechainEvents; };
-};
-
 class CInMemorySidechainDb final: public CCoinsView {
 public:
     CInMemorySidechainDb()  = default;
@@ -103,7 +85,7 @@ public:
         mGlobalForkTips.clear();
 
         fakeChainStateDb   = new CInMemorySidechainDb();
-        sidechainsView     = new CNakedCCoinsViewCache(fakeChainStateDb);
+        sidechainsView     = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
 
         dummyHash = dummyBlock.GetHash();
         dummyCoinbaseScript = CScript() << OP_DUP << OP_HASH160
@@ -124,7 +106,7 @@ public:
 
 protected:
     CInMemorySidechainDb  *fakeChainStateDb;
-    CNakedCCoinsViewCache *sidechainsView;
+    txCreationUtils::CNakedCCoinsViewCache *sidechainsView;
 
     //helpers
     CBlock                                    dummyBlock;
@@ -160,7 +142,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
-    initialScState.creationData.withdrawalEpochLength = 20;
+    initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -188,12 +170,14 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     CMutableScCertificate singleCert;
     singleCert.vin.push_back(CTxIn(inputTxHash, 0, CScript(), 0));
     singleCert.nVersion    = SC_CERT_VERSION;
-    singleCert.scProof     = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    singleCert.scProof     = CScProof{SAMPLE_CERT_DARLIN_PROOF};
     singleCert.scId        = scId;
     singleCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch;
     singleCert.quality     = initialScState.lastTopQualityCertQuality * 2;
-    singleCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
+    singleCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     singleCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+    singleCert.forwardTransferScFee = 0;
+    singleCert.mainchainBackwardTransferRequestScFee = 0;
 
     CBlock certBlock;
     fillBlockHeader(certBlock, uint256S("aaa"));
@@ -210,11 +194,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(certBlockIndex);
 
-    bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
-
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF,
+                            flagScProofVerification::ON, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -233,7 +216,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
-    initialScState.creationData.withdrawalEpochLength = 20;
+    initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -261,12 +244,14 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     CMutableScCertificate singleCert;
     singleCert.vin.push_back(CTxIn(inputTxHash, 0, CScript(), 0));
     singleCert.nVersion    = SC_CERT_VERSION;
-    singleCert.scProof     = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    singleCert.scProof     = CScProof{SAMPLE_CERT_DARLIN_PROOF};
     singleCert.scId        = scId;
     singleCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch + 1;
     singleCert.quality     = 1;
-    singleCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
+    singleCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     singleCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
+    singleCert.forwardTransferScFee = 0;
+    singleCert.mainchainBackwardTransferRequestScFee = 0;
 
     CBlock certBlock;
     fillBlockHeader(certBlock, uint256S("aaa"));
@@ -283,11 +268,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(certBlockIndex);
 
-    bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
-
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF,
+                            flagScProofVerification::ON, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -306,7 +290,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
-    initialScState.creationData.withdrawalEpochLength = 20;
+    initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -335,12 +319,14 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     CMutableScCertificate lowQualityCert;
     lowQualityCert.vin.push_back(CTxIn(inputLowQCertHash, 0, CScript(), 0));
     lowQualityCert.nVersion    = SC_CERT_VERSION;
-    lowQualityCert.scProof     = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    lowQualityCert.scProof     = CScProof{SAMPLE_CERT_DARLIN_PROOF};
     lowQualityCert.scId        = scId;
     lowQualityCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch;
     lowQualityCert.quality     = initialScState.lastTopQualityCertQuality * 2;
-    lowQualityCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
+    lowQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     lowQualityCert.addBwt(CTxOut(CAmount(40), dummyScriptPubKey));
+    lowQualityCert.forwardTransferScFee = 0;
+    lowQualityCert.mainchainBackwardTransferRequestScFee = 0;
 
     CMutableScCertificate highQualityCert;
     highQualityCert.vin.push_back(CTxIn(inputHighQCertHash, 0, CScript(), 0));
@@ -349,8 +335,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     highQualityCert.scId        = lowQualityCert.scId;
     highQualityCert.epochNumber = lowQualityCert.epochNumber;
     highQualityCert.quality     = lowQualityCert.quality * 2;
-    highQualityCert.endEpochBlockHash = lowQualityCert.endEpochBlockHash;
+    highQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     highQualityCert.addBwt(CTxOut(CAmount(50), dummyScriptPubKey));
+    highQualityCert.forwardTransferScFee = 0;
+    highQualityCert.mainchainBackwardTransferRequestScFee = 0;
 
     CBlock certBlock;
     fillBlockHeader(certBlock, uint256S("aaa"));
@@ -368,11 +356,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(certBlockIndex);
 
-    bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
-
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF,
+                            flagScProofVerification::ON, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -393,7 +380,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 100;
-    initialScState.creationData.withdrawalEpochLength = 20;
+    initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -422,12 +409,14 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     CMutableScCertificate lowQualityCert;
     lowQualityCert.vin.push_back(CTxIn(inputLowQCertHash, 0, CScript(), 0));
     lowQualityCert.nVersion    = SC_CERT_VERSION;
-    lowQualityCert.scProof     = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
+    lowQualityCert.scProof     = CScProof{SAMPLE_CERT_DARLIN_PROOF};
     lowQualityCert.scId        = scId;
     lowQualityCert.epochNumber = initialScState.lastTopQualityCertReferencedEpoch +1;
     lowQualityCert.quality     = 1;
-    lowQualityCert.endEpochBlockHash = *(chainActive.Tip()->pprev->phashBlock);
+    lowQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     lowQualityCert.addBwt(CTxOut(CAmount(40), dummyScriptPubKey));
+    lowQualityCert.forwardTransferScFee = 0;
+    lowQualityCert.mainchainBackwardTransferRequestScFee = 0;
 
     CMutableScCertificate highQualityCert;
     highQualityCert.vin.push_back(CTxIn(inputHighQCertHash, 0, CScript(), 0));
@@ -436,8 +425,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     highQualityCert.scId        = lowQualityCert.scId;
     highQualityCert.epochNumber = lowQualityCert.epochNumber;
     highQualityCert.quality     = lowQualityCert.quality * 2;
-    highQualityCert.endEpochBlockHash = lowQualityCert.endEpochBlockHash;
+    highQualityCert.endEpochCumScTxCommTreeRoot = chainActive.Tip()->pprev->scCumTreeHash;
     highQualityCert.addBwt(CTxOut(CAmount(50), dummyScriptPubKey));
+    highQualityCert.forwardTransferScFee = 0;
+    highQualityCert.mainchainBackwardTransferRequestScFee = 0;
 
     CBlock certBlock;
     fillBlockHeader(certBlock, uint256S("aaa"));
@@ -455,11 +446,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(certBlockIndex);
 
-    bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
-
     // test
-    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF,
+                            flagScProofVerification::ON, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -500,15 +490,17 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_I
     scCreation.vsc_ccout.resize(1);
     scCreation.vsc_ccout[0].nValue = CAmount(1);
     scCreation.vsc_ccout[0].withdrawalEpochLength = 15;
-    scCreation.vsc_ccout[0].wMbtrVk = libzendoomc::ScVk(ParseHex(SAMPLE_VK));
+    scCreation.vsc_ccout[0].forwardTransferScFee = CAmount(0);
+    scCreation.vsc_ccout[0].mainchainBackwardTransferRequestScFee = CAmount(0);
+    scCreation.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1; // The size of mcBwtReq.vScRequestData
+    scCreation.vsc_ccout[0].wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
 
     CMutableTransaction mbtrTx;
     mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
     CBwtRequestOut mcBwtReq;
     mcBwtReq.scId = CTransaction(scCreation).GetScIdFromScCcOut(0);
     mcBwtReq.scFee = CAmount(0);
-    mcBwtReq.scProof = libzendoomc::ScProof(ParseHex(SAMPLE_PROOF));
-    mcBwtReq.scRequestData = CFieldElement{SAMPLE_FIELD};
+    mcBwtReq.vScRequestData = std::vector<CFieldElement> { CFieldElement{ SAMPLE_FIELD } };
     mbtrTx.nVersion = SC_TX_VERSION;
     mbtrTx.vmbtr_out.push_back(mcBwtReq);
 
@@ -525,11 +517,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_I
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(blockIndex);
 
-    bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
-
     // test
-    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF,
+                            flagScProofVerification::ON, &dummyCertStatusUpdateInfo);
 
     //checks
     ASSERT_TRUE(res);
@@ -562,6 +553,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_I
     scCreation.vsc_ccout.resize(1);
     scCreation.vsc_ccout[0].nValue = CAmount(1);
     scCreation.vsc_ccout[0].withdrawalEpochLength = 15;
+    scCreation.vsc_ccout[0].wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
 
     CMutableTransaction mbtrTx;
     mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
@@ -584,11 +576,10 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_I
     // add checkpoint to skip expensive checks
     CreateCheckpointAfter(blockIndex);
 
-    bool fJustCheck = true;
-    bool fCheckScTxesCommitment = false;
-
     // test
-    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain, fJustCheck, fCheckScTxesCommitment, &dummyCertStatusUpdateInfo);
+    bool res = ConnectBlock(block, dummyState, blockIndex, *sidechainsView, dummyChain,
+                            flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF,
+                            flagScProofVerification::ON, &dummyCertStatusUpdateInfo);
 
     //checks
     EXPECT_FALSE(res);
@@ -888,9 +879,7 @@ TEST_F(SidechainsBlockFormationTestSuite, Unconfirmed_Mbtr_scCreation_DulyOrdere
     mbtrTx.nVersion = SC_TX_VERSION;
     mbtrTx.vmbtr_out.push_back(mcBwtReq);
     CTxMemPoolEntry mbtr_entry(mbtrTx, /*fee*/CAmount(1000),   /*time*/ 1000, /*priority*/1000.0, /*height*/dummyHeight);
-    std::map<uint256, CFieldElement> dummyCertDataHashInfo;
-    dummyCertDataHashInfo[scId] = CFieldElement{};
-    ASSERT_TRUE(mempool.addUnchecked(mbtrTx.GetHash(), mbtr_entry, /*fCurrentEstimate*/true, dummyCertDataHashInfo));
+    ASSERT_TRUE(mempool.addUnchecked(mbtrTx.GetHash(), mbtr_entry, /*fCurrentEstimate*/true));
 
     //test
     int64_t dummyLockTimeCutoff{0};

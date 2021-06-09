@@ -14,6 +14,7 @@ import sys
 from binascii import hexlify, unhexlify
 from base64 import b64encode
 from decimal import Decimal, ROUND_DOWN
+import codecs
 import json
 import random
 import shutil
@@ -29,6 +30,34 @@ def p2p_port(n):
     return 11000 + n + os.getpid()%999
 def rpc_port(n):
     return 12000 + n + os.getpid()%999
+def ws_port(n):
+    return 7474 + n + os.getpid()%999
+
+def get_ws_url(extra_args, i):
+    ws_url=None
+    wsport_arg=None
+
+    if extra_args is not None and '-websocket=1' in extra_args:
+        wsp = 0
+        for s in extra_args:
+            if '-wsport=' in s:
+                for d in s.split('='):
+                    if d.isdigit():
+                        wsp = int(d)
+                        break
+            # if more than one wsport option is set, the last wins
+            #if wsp != 0:
+            #    break
+        if wsp == 0:
+            # if ws port has not been set in args, we set it
+            wsp = ws_port(i)
+            wsport_arg = '-wsport=%d' % wsp
+
+        ws_url = "ws://localhost:%d" % wsp
+        print "######### WEBSOCKET URL: ", ws_url
+
+    return ws_url, wsport_arg
+
 
 def check_json_precision():
     """Make sure json library being used does not lose precision converting BTC values"""
@@ -45,6 +74,9 @@ def hex_str_to_bytes(hex_str):
 
 def str_to_b64str(string):
     return b64encode(string.encode('utf-8')).decode('ascii')
+
+def swap_bytes(input_buf):
+    return codecs.encode(codecs.decode(input_buf, 'hex')[::-1], 'hex').decode()
 
 def sync_blocks(rpc_connections, wait=1, p=False, limit_loop=0):
     """
@@ -217,6 +249,9 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
     if binary is None:
         binary = os.getenv("BITCOIND", "zend")
     args = [ binary, "-datadir="+datadir, "-keypool=1", "-discover=0", "-rest", "-rpcservertimeout=600" ]
+
+    ws_url, wsport_arg = get_ws_url(extra_args, i)
+    if wsport_arg is not None: args.extend([wsport_arg])
     if extra_args is not None: args.extend(extra_args)
     bitcoind_processes[i] = subprocess.Popen(args)
     devnull = open("/dev/null", "w+")
@@ -230,10 +265,11 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
     devnull.close()
     url = "http://rt:rt@%s:%d" % (rpchost or '127.0.0.1', rpc_port(i))
     if timewait is not None:
-        proxy = AuthServiceProxy(url, timeout=timewait)
+        proxy = AuthServiceProxy(url, ws_url=ws_url, timeout=timewait)
     else:
-        proxy = AuthServiceProxy(url)
+        proxy = AuthServiceProxy(url, ws_url=ws_url)
     proxy.url = url # store URL on proxy for info
+    proxy.ws_url = ws_url # store URL on proxy for info
     return proxy
 
 def start_nodes(num_nodes, dirname, extra_args=None, rpchost=None, binary=None):
@@ -504,12 +540,20 @@ def mark_logs(msg,nodes,debug=0):
     for node in nodes:
         node.dbg_log(msg)
 
+def get_end_epoch_height(scid, node, epochLen):
+    sc_creating_height = node.getscinfo(scid)['items'][0]['created at block height']
+    current_height = node.getblockcount()
+    epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
+    end_epoch_height = sc_creating_height - 1 + ((epoch_number + 1) * epochLen)
+    return end_epoch_height
+
 def get_epoch_data(scid, node, epochLen):
     sc_creating_height = node.getscinfo(scid)['items'][0]['created at block height']
     current_height = node.getblockcount()
     epoch_number = (current_height - sc_creating_height + 1) // epochLen - 1
-    epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
-    return epoch_block_hash, epoch_number
+    end_epoch_block_hash = node.getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epochLen))
+    epoch_cum_tree_hash = node.getblock(end_epoch_block_hash)['scCumTreeHash']
+    return epoch_number, epoch_cum_tree_hash
 
 def get_spendable(node, min_amount):
     # get a UTXO in node's wallet with minimal amount
@@ -528,19 +572,25 @@ def get_spendable(node, min_amount):
     return utx, change
 
 def advance_epoch(mcTest, node, sync_call,
-    scid, prev_epoch_hash, sc_tag, constant, epoch_length, cert_quality=1, cert_fee=Decimal("0.00001")):
+    scid, sc_tag, constant, epoch_length, cert_quality=1, cert_fee=Decimal("0.00001"),
+    ftScFee=Decimal("0"), mbtrScFee=Decimal("0"), vCfe=[], vCmt=[], proofCfeArray=[], generate=True):
 
-    node.generate(epoch_length)
+    if (generate == True):
+        node.generate(epoch_length)
     sync_call()
 
-    epoch_block_hash, epoch_number = get_epoch_data(scid, node, epoch_length)
+    epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, node, epoch_length)
 
     proof = mcTest.create_test_proof(
-        sc_tag, epoch_number, epoch_block_hash, prev_epoch_hash,
-        cert_quality, constant, [], [])
+        sc_tag, epoch_number, cert_quality, mbtrScFee, ftScFee, constant, epoch_cum_tree_hash, [], [], proofCfeArray)
+
+    if proof == None:
+        print "could not create proof"
+        assert(False)
 
     try:
-        cert = node.send_certificate(scid, epoch_number, cert_quality, epoch_block_hash, proof, [], cert_fee)
+        cert = node.send_certificate(scid, epoch_number, cert_quality,
+            epoch_cum_tree_hash, proof, [], ftScFee, mbtrScFee, cert_fee, vCfe, vCmt)
     except JSONRPCException, e:
         errorString = e.error['message']
         print "Send certificate failed with reason {}".format(errorString)
@@ -549,5 +599,5 @@ def advance_epoch(mcTest, node, sync_call,
 
     assert_true(cert in node.getrawmempool())
 
-    return cert, epoch_block_hash, epoch_number
+    return cert, epoch_number
 

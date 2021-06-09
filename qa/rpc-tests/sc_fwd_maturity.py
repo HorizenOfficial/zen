@@ -92,7 +92,8 @@ class sc_fwd_maturity(BitcoinTestFramework):
         amounts.append({"address": "dada", "amount": creation_amount})
         
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
