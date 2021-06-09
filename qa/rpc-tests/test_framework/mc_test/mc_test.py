@@ -72,7 +72,7 @@ class CertTestUtils(MCTestUtils):
     def generate_params(self, id, num_constraints = 1 << 10, segment_size = 1 << 9):
         return self._generate_params(id, "cert", self.ps_type, self.file_prefix, num_constraints, segment_size)
 
-    def create_test_proof(self, id, epoch_number, quality, btr_fee, ft_min_amount, constant, end_cum_comm_tree_root, pks = [], amounts = [], custom_fields = [], num_constraints = 1 << 10, segment_size = 1 << 9):
+    def create_test_proof(self, id, scid, epoch_number, quality, btr_fee, ft_min_amount, constant, end_cum_comm_tree_root, pks = [], amounts = [], custom_fields = [], num_constraints = 1 << 10, segment_size = 1 << 9):
         params_dir = self._get_params_dir(id)
         if not os.path.isfile(params_dir + self.file_prefix + "test_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_vk"):
             return
@@ -80,7 +80,7 @@ class CertTestUtils(MCTestUtils):
         args = []
         args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
         args += ["create", "cert", str(self.ps_type), str(proof_path), str(params_dir), str(segment_size)]
-        args += [str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(int(btr_fee * COIN)), str(int(ft_min_amount * COIN))]
+        args += [str(scid), str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(int(btr_fee * COIN)), str(int(ft_min_amount * COIN))]
         args.append(str(num_constraints))
         args.append(str(len(pks)))
         for (pk, amount) in zip(pks, amounts):

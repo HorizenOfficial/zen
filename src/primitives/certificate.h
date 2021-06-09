@@ -406,6 +406,7 @@ struct CCertProofVerifierInput
     std::shared_ptr<CScCertificate> certificatePtr;
     uint256 certHash;
     CFieldElement constant;
+    uint256 scId;
     uint32_t epochNumber;
     uint64_t quality;
     std::vector<backward_transfer_t> bt_list;

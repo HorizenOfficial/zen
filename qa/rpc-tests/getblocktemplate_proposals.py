@@ -173,7 +173,8 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         mbtrScFee = 0.1
         fee = 0.000023
 
-        proof = mcTest.create_test_proof("sc1", 0, 0, mbtrScFee, ftScFee, constant, epoch_cum_tree_hash, [pkh], [SC_CERT_AMOUNT])
+        scid_swapped = str(swap_bytes(scid))
+        proof = mcTest.create_test_proof("sc1", scid_swapped, 0, 0, mbtrScFee, ftScFee, constant, epoch_cum_tree_hash, [pkh], [SC_CERT_AMOUNT])
         cert = self.nodes[0].send_certificate(scid, 0, 0, epoch_cum_tree_hash,
             proof, amounts, ftScFee, mbtrScFee, fee)
         self.sync_all()

@@ -152,6 +152,9 @@ bool CScProofVerifier::BatchVerify() const
         if (bt_list_len == 0)
             bt_list_ptr = nullptr;
 
+        wrappedFieldPtr sptrScId = CFieldElement(input.scId).GetFieldElement();
+        field_t* scidFe = sptrScId.get();
+
         wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
         wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
         wrappedScProofPtr sptrProof  = input.certProof.GetProofPtr();
@@ -160,6 +163,7 @@ bool CScProofVerifier::BatchVerify() const
         bool ret = batchVerifier.add_certificate_proof(
             idx,
             sptrConst.get(),
+            scidFe,
             input.epochNumber,
             input.quality,
             bt_list_ptr,
@@ -221,6 +225,7 @@ CCertProofVerifierInput SidechainProofVerifier::CertificateToVerifierInput(const
     else
         certData.constant = CFieldElement{};
 
+    certData.scId = certificate.GetScId();
     certData.epochNumber = certificate.epochNumber;
     certData.quality = certificate.quality;
 

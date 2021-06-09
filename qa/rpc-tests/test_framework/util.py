@@ -580,8 +580,10 @@ def advance_epoch(mcTest, node, sync_call,
 
     epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, node, epoch_length)
 
+    scid_swapped = str(swap_bytes(scid))
+
     proof = mcTest.create_test_proof(
-        sc_tag, epoch_number, cert_quality, mbtrScFee, ftScFee, constant, epoch_cum_tree_hash, [], [], proofCfeArray)
+        sc_tag, scid_swapped, epoch_number, cert_quality, mbtrScFee, ftScFee, constant, epoch_cum_tree_hash, [], [], proofCfeArray)
 
     if proof == None:
         print "could not create proof"

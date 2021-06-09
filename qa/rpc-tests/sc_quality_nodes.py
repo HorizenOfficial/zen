@@ -7,8 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
-    get_epoch_data, disconnect_nodes,\
-    assert_false, assert_true
+    get_epoch_data, disconnect_nodes, assert_false, assert_true, swap_bytes
 from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
@@ -94,6 +93,7 @@ class quality_nodes(BitcoinTestFramework):
         ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk_1, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
+        scid_swapped = str(swap_bytes(scid))
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -169,7 +169,7 @@ class quality_nodes(BitcoinTestFramework):
         mark_logs("Create Cert1 with quality 100 and place it in node0", self.nodes, DEBUG_MODE)
         quality = 100
         proof = mcTest.create_test_proof(
-            vk_tag_1, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node0], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node0], [bwt_amount])
         try:
             cert_1_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_0, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -193,7 +193,7 @@ class quality_nodes(BitcoinTestFramework):
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         quality = 100
         proof = mcTest.create_test_proof(
-            vk_tag_1, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
         try:
             cert_2_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -240,7 +240,7 @@ class quality_nodes(BitcoinTestFramework):
         quality = 100
         amount_cert_0 = [{"pubkeyhash": pkh_node0, "amount": bwt_amount}]
         proof = mcTest.create_test_proof(
-            vk_tag_1, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node0], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node0], [bwt_amount])
         try:
             cert_1_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_0, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -277,7 +277,7 @@ class quality_nodes(BitcoinTestFramework):
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         quality = 110
         proof = mcTest.create_test_proof(
-            vk_tag_1, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
         try:
             cert_2_epoch_1 = self.nodes[1].send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

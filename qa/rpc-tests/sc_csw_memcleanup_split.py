@@ -155,8 +155,9 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         bt_amount = Decimal("5.0")
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         quality = 10
+        scid_swapped = str(swap_bytes(scid))
 
-        proof = certMcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bt_amount])
+        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bt_amount])
 
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:
@@ -198,7 +199,6 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         pkh_mc_address         = self.nodes[3].validateaddress(csw_mc_address)['pubkeyhash']
         ceasingCumScTxCommTree = self.nodes[3].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
 
-        scid_swapped = swap_bytes(scid)
         csw_proof = cswMcTest.create_test_proof(
                 "csw1", sc_csw_amount, str(scid_swapped), null, pkh_mc_address, ceasingCumScTxCommTree, actCertData)
 

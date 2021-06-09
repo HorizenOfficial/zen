@@ -246,6 +246,9 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
         if (bt_list_len == 0)
             bt_list_ptr = nullptr;
 
+        wrappedFieldPtr sptrScId = CFieldElement(input.scId).GetFieldElement();
+        field_t* scidFe = sptrScId.get();
+
         wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
         wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
         wrappedScProofPtr sptrProof  = input.certProof.GetProofPtr();
@@ -254,6 +257,7 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
         bool ret = batchVerifier.add_certificate_proof(
             idx,
             sptrConst.get(),
+            scidFe,
             input.epochNumber,
             input.quality,
             bt_list_ptr,
@@ -362,6 +366,9 @@ bool CScAsyncProofVerifier::NormalVerifyCertificate(CCertProofVerifierInput inpu
     if (bt_list_len == 0)
         bt_list_ptr = nullptr;
 
+    wrappedFieldPtr sptrScId = CFieldElement(input.scId).GetFieldElement();
+    field_t* scidFe = sptrScId.get();
+
     wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
     wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
     wrappedScProofPtr sptrProof  = input.certProof.GetProofPtr();
@@ -369,6 +376,7 @@ bool CScAsyncProofVerifier::NormalVerifyCertificate(CCertProofVerifierInput inpu
 
     bool ret = zendoo_verify_certificate_proof(
         sptrConst.get(),
+        scidFe,
         input.epochNumber,
         input.quality,
         bt_list_ptr,

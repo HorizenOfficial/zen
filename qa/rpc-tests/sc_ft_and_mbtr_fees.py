@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_true, assert_false, initialize_chain_clean, \
     stop_nodes, wait_bitcoinds, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, disconnect_nodes, mark_logs, \
-    dump_sc_info_record, get_epoch_data
+    dump_sc_info_record, get_epoch_data, swap_bytes
 from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
@@ -332,9 +332,10 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrFee = mbtrScFee
         newFtFee = ftFee + 1
         newMbtrFee = mbtrFee + 1
+        scid_swapped = str(swap_bytes(scid))
 
         proof = mcTest.create_test_proof(
-            vk_tag, epoch_number, quality, newMbtrFee, newFtFee, constant, epoch_cum_tree_hash, [pkh_node1], [cert_amount])
+            vk_tag, scid_swapped, epoch_number, quality, newMbtrFee, newFtFee, constant, epoch_cum_tree_hash, [pkh_node1], [cert_amount])
         cert_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, newFtFee, newMbtrFee)
 

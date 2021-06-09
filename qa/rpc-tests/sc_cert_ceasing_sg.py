@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
-    assert_false, assert_true
+    assert_false, assert_true, swap_bytes
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
@@ -92,6 +92,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         mark_logs("Node 0 created SC spending {} coins via tx1 {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
         scid = self.nodes[0].getrawtransaction(creating_tx, 1)['vsc_ccout'][0]['scid']
+        scid_swapped = str(swap_bytes(scid))
         mark_logs("==> created SC ids {}".format(scid), self.nodes, DEBUG_MODE)
 
         mark_logs("Node0 generates {} blocks to achieve end of withdrawal epochs".format(EPOCH_LENGTH), self.nodes, DEBUG_MODE)
@@ -115,7 +116,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 0 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount_1])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount_1])
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 pkh".format(scid, bwt_amount_1, pkh_node1), self.nodes, DEBUG_MODE)
         try:
@@ -148,7 +149,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 1 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount_2])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount_2])
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 pkh".format(scid, bwt_amount_2, pkh_node1), self.nodes, DEBUG_MODE)
         try:
@@ -243,7 +244,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         try:
             #Create proof for WCert
             quality = 2
-            proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
+            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
 
             cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

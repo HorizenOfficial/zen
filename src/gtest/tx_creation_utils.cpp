@@ -616,6 +616,9 @@ void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provin
  */
 CScProof BlockchainTestManager::GenerateTestCertificateProof(CCertProofVerifierInput certificate, ProvingSystem provingSystem) const
 {
+    wrappedFieldPtr sptrScId = CFieldElement(certificate.scId).GetFieldElement();
+    field_t* scidFe = sptrScId.get();
+
     wrappedFieldPtr sptrConst = certificate.constant.GetFieldElement();
     wrappedFieldPtr sptrCum   = certificate.endEpochCumScTxCommTreeRoot.GetFieldElement();
 
@@ -653,6 +656,7 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(CCertProofVerifierI
     //TODO: Add custom fields
     zendoo_create_cert_test_proof(false /*zk*/,
                                   sptrConst.get(),
+                                  scidFe,
                                   certificate.epochNumber,
                                   certificate.quality,
                                   btList,
@@ -751,6 +755,9 @@ void BlockchainTestManager::StoreSidechainWithCurrentHeight(const uint256& scId,
  */
 bool BlockchainTestManager::VerifyCertificateProof(CCertProofVerifierInput certificate) const
 {
+    wrappedFieldPtr sptrScId = CFieldElement(certificate.scId).GetFieldElement();
+    field_t* scidFe = sptrScId.get();
+
     wrappedFieldPtr   sptrConst  = certificate.constant.GetFieldElement();
     wrappedFieldPtr   sptrCum    = certificate.endEpochCumScTxCommTreeRoot.GetFieldElement();
     wrappedScProofPtr sptrProof  = certificate.certProof.GetProofPtr();
@@ -788,6 +795,7 @@ bool BlockchainTestManager::VerifyCertificateProof(CCertProofVerifierInput certi
     CctpErrorCode errorCode;
 
     return zendoo_verify_certificate_proof(sptrConst.get(),
+                                           scidFe,
                                            certificate.epochNumber,
                                            certificate.quality,
                                            btList,

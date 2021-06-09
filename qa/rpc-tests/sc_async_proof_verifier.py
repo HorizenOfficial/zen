@@ -166,7 +166,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         # mark_logs("\nTest the node ban mechanism by sending a certificate with invalid proof", self.nodes, DEBUG_MODE)
 
         # Create an invalid proof by providing the wrong epoch_number
-        proof = cert_mc_test.create_test_proof("sc", epoch_number + 1, cert_quality, mbtr_fee, ft_fee, constant, epoch_cum_tree_hash, [], [])
+        proof = cert_mc_test.create_test_proof("sc", scid_swapped, epoch_number + 1, cert_quality, mbtr_fee, ft_fee, constant, epoch_cum_tree_hash, [], [])
 
         try:
             # The send_certificate call must be ok since the proof verification is disabled on node 2
@@ -206,7 +206,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         self.sync_all()
 
         # Create the valid proof
-        proof = cert_mc_test.create_test_proof("sc", epoch_number, cert_quality, mbtr_fee, ft_fee,
+        proof = cert_mc_test.create_test_proof("sc", scid_swapped, epoch_number, cert_quality, mbtr_fee, ft_fee,
                                                constant, epoch_cum_tree_hash, [], [])
 
         try:

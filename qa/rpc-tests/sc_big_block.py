@@ -90,8 +90,10 @@ class sc_big_block(BitcoinTestFramework):
                     # When this issue will be fixed, we must generate each proof separatedly
                     print "Generating cert proof..."
                     t0 = time.time()
+                    scid_swapped = str(swap_bytes(scid))
+
                     proof = certMcTest.create_test_proof(
-                        "scs", epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [], proofCfeArray,
+                        "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [], proofCfeArray,
                         NUM_OF_CONSTRAINTS, SEGMENT_SIZE)
                     assert_true(proof != None)
                     t1 = time.time()
