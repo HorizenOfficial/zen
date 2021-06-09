@@ -180,7 +180,7 @@ def fill_ws_get_top_quality_certificates_input(args):
 
 def fill_ws_get_top_quality_certificates_output(jrsp):
     print "Json Received '%s'" % jrsp
-    return jrsp['responsePayload']['mempool_top_quality_cert'], jrsp['responsePayload']['chain_top_quality_cert']
+    return jrsp['responsePayload']['mempoolTopQualityCert'], jrsp['responsePayload']['chainTopQualityCert']
 
 # for negative tests
 #----------------------------------------------------------------

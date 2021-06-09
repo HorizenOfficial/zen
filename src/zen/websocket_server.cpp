@@ -238,8 +238,8 @@ private:
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
         
-        rspPayload.push_back(Pair("mempool_top_quality_cert", mempoolCert));
-        rspPayload.push_back(Pair("chain_top_quality_cert", chainCert));
+        rspPayload.push_back(Pair("mempoolTopQualityCert", mempoolCert));
+        rspPayload.push_back(Pair("chainTopQualityCert", chainCert));
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
