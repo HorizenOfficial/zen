@@ -1109,6 +1109,7 @@ struct CMutableTransaction : public CMutableTransactionBase
  */
 struct CCswProofVerifierInput
 {
+    uint64_t proofId;
     CScVKey ceasedVk;
     CFieldElement ceasingCumScTxCommTree;
     CFieldElement certDataHash;

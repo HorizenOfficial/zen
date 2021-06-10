@@ -39,14 +39,13 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
 
     std::map</*outputPos*/unsigned int, CCswProofVerifierInput> txMap;
 
-    for(size_t idx = 0; idx < scTx.GetVcswCcIn().size(); ++idx)
+    for(CTxCeasedSidechainWithdrawalInput cswInput : scTx.GetVcswCcIn())
     {
-        const CTxCeasedSidechainWithdrawalInput& cswInput = scTx.GetVcswCcIn().at(idx);
-
         CSidechain sidechain;
         assert(view.GetSidechain(cswInput.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
         
-        txMap.insert(std::make_pair(idx, SidechainProofVerifier::CswInputToVerifierInput(scTx.GetVcswCcIn().at(idx), &scTx, sidechain.fixedParams, pfrom)));
+        CCswProofVerifierInput verifierInput = SidechainProofVerifier::CswInputToVerifierInput(cswInput, &scTx, sidechain.fixedParams, pfrom);
+        txMap.insert(std::make_pair(verifierInput.proofId, verifierInput));
     }
 
     if (!txMap.empty())
@@ -201,7 +200,6 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
 
     CctpErrorCode code;
     ZendooBatchProofVerifier batchVerifier;
-    uint32_t idx = 0;
     bool ret = true;
 
     for (const auto& verifierInput : cswInputs)
@@ -223,7 +221,7 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
             wrappedScVkeyPtr  sptrCeasedVk  = input.ceasedVk.GetVKeyPtr();
 
             ret = batchVerifier.add_csw_proof(
-                idx,
+                input.proofId,
                 input.nValue,
                 scid_fe,
                 sptrNullifier.get(),
@@ -234,7 +232,6 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
                 sptrCeasedVk.get(),
                 &code
             );
-            idx++;
 
             if (!ret || code != CctpErrorCode::OK)
             {
@@ -283,7 +280,7 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
         wrappedScVkeyPtr  sptrCertVk = input.CertVk.GetVKeyPtr();
 
         bool ret = batchVerifier.add_certificate_proof(
-            idx,
+            input.proofId,
             sptrConst.get(),
             input.epochNumber,
             input.quality,
@@ -298,7 +295,6 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
             sptrCertVk.get(),
             &code
         );
-        idx++;
 
         if (!ret || code != CctpErrorCode::OK)
         {

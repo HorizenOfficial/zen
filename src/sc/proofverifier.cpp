@@ -37,14 +37,13 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
 
     std::map</*outputPos*/unsigned int, CCswProofVerifierInput> txMap;
 
-    for(size_t idx = 0; idx < scTx.GetVcswCcIn().size(); ++idx)
+    for(CTxCeasedSidechainWithdrawalInput cswInput : scTx.GetVcswCcIn())
     {
-        const CTxCeasedSidechainWithdrawalInput& cswInput = scTx.GetVcswCcIn().at(idx);
-
         CSidechain sidechain;
         assert(view.GetSidechain(cswInput.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
-
-        txMap.insert(std::make_pair(idx, SidechainProofVerifier::CswInputToVerifierInput(scTx.GetVcswCcIn().at(idx), &scTx, sidechain.fixedParams, nullptr)));
+        
+        CCswProofVerifierInput verifierInput = SidechainProofVerifier::CswInputToVerifierInput(cswInput, &scTx, sidechain.fixedParams, nullptr);
+        txMap.insert(std::make_pair(verifierInput.proofId, verifierInput));
     }
 
     if (!txMap.empty())
@@ -200,6 +199,8 @@ bool CScProofVerifier::BatchVerify() const
 }
 
 
+std::atomic<uint64_t> proofIdCounter(0);
+
 /**
  * @brief Creates the proof verifier input of a certificate for the proof verifier.
  * 
@@ -210,8 +211,9 @@ bool CScProofVerifier::BatchVerify() const
  */
 CCertProofVerifierInput SidechainProofVerifier::CertificateToVerifierInput(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom)
 {
-    // TODO this is code duplicated from CScProofVerifier::LoadDataForCertVerification
     CCertProofVerifierInput certData;
+
+    certData.proofId = proofIdCounter++;
 
     certData.certificatePtr = std::make_shared<CScCertificate>(certificate);
     certData.certHash = certificate.GetHash();
@@ -274,6 +276,7 @@ CCswProofVerifierInput SidechainProofVerifier::CswInputToVerifierInput(const CTx
 {
     CCswProofVerifierInput cswData;
 
+    cswData.proofId = proofIdCounter++;
     cswData.nValue = cswInput.nValue;
     cswData.scId = cswInput.scId;
     cswData.pubKeyHash = cswInput.pubKeyHash;

@@ -403,6 +403,7 @@ struct CScCertificateView
  */
 struct CCertProofVerifierInput
 {
+    uint64_t proofId;
     std::shared_ptr<CScCertificate> certificatePtr;
     uint256 certHash;
     CFieldElement constant;

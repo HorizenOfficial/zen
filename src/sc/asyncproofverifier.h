@@ -24,6 +24,7 @@ struct AsyncProofVerifierOutput
     std::shared_ptr<CTransactionBase> tx;    /**< The transaction which the proof verification refers to. */
     CNode* node;                             /**< The node that sent the transaction. */
     bool proofVerified;                      /**< True if the proof has been correctly verified, false otherwise. */
+    uint64_t proofId;                        /**< The unique identifier of the proof (used internally by the batch verifier). */
 };
 
 /**
