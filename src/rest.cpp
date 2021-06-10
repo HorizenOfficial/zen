@@ -351,7 +351,7 @@ static bool rest_tx(HTTPRequest* req, const std::string& strURIPart)
         return RESTERR(req, HTTP_BAD_REQUEST, "Invalid hash: " + hashStr);
 
     CTransaction tx;
-    uint256 hashBlock = uint256();
+    uint256 hashBlock{};
     if (!GetTransaction(hash, tx, hashBlock, true))
         return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
 

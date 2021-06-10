@@ -357,7 +357,7 @@ class ListTransactionsTest(BitcoinTestFramework):
         sc_creation_amount -= fee
 
         # generate vk and constant for this sidechain
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 

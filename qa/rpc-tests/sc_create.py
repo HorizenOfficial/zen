@@ -18,6 +18,7 @@ import pprint
 NUMB_OF_NODES = 3
 DEBUG_MODE = 1
 SC_COINS_MAT = 2
+SC_VK_SIZE = 1024
 
 
 class SCCreateTest(BitcoinTestFramework):
@@ -66,7 +67,7 @@ class SCCreateTest(BitcoinTestFramework):
         fwt_amount_many = fwt_amount_1 + fwt_amount_2 + fwt_amount_3
 
         #generate wCertVk and constant
-        mcTest = MCTestUtils(self.options.tmpdir, self.options.srcdir)
+        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
@@ -167,7 +168,7 @@ class SCCreateTest(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("bytes" in errorString, True)
+        assert_equal("Invalid wCertVk" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a wCertVk too long
@@ -179,7 +180,7 @@ class SCCreateTest(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("bytes" in errorString, True)
+        assert_equal("Invalid wCertVk" in errorString, True)
 
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with an invalid wCertVk

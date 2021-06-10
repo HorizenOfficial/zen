@@ -50,12 +50,14 @@ zen_gtest_SOURCES += \
 	gtest/test_paymentdisclosure.cpp \
 	gtest/test_relayforks.cpp	\
 	gtest/test_sidechain.cpp	\
+	gtest/test_sidechaintypes.cpp	\
 	gtest/test_sidechain_to_mempool.cpp \
 	gtest/test_sidechain_events.cpp \
 	gtest/test_sidechain_certificate_quality.cpp \
 	gtest/test_sidechain_blocks.cpp \
 	gtest/test_libzendoo.cpp \
-	gtest/test_reindex.cpp
+	gtest/test_reindex.cpp \
+	gtest/test_asyncproofverifier.cpp
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \

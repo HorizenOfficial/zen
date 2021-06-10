@@ -185,7 +185,7 @@ public:
     //! block header
     int nVersion;
     uint256 hashMerkleRoot;
-    uint256  hashScTxsCommitment;
+    uint256 hashScTxsCommitment;
     unsigned int nTime;
     unsigned int nBits;
     uint256 nNonce;

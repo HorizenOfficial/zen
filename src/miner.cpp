@@ -755,14 +755,14 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-        pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment();
+        pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment(view);
         UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
         pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, Params().GetConsensus());
         pblock->nSolution.clear();
         pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0]);
 
         CValidationState state;
-        if (!TestBlockValidity(state, *pblock, pindexPrev, false, false, false))
+        if (!TestBlockValidity(state, *pblock, pindexPrev, flagCheckPow::OFF, flagCheckMerkleRoot::OFF, flagScRelatedChecks::OFF))
             throw std::runtime_error("CreateNewBlock(): TestBlockValidity failed");
     }
 

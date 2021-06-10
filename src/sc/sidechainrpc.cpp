@@ -24,7 +24,7 @@ namespace Sidechain
 void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& parentObj)
 {
     UniValue vcsws(UniValue::VARR);
-    for (const CTxCeasedSidechainWithdrawalInput csw: tx.GetVcswCcIn())
+    for (const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
     {
         UniValue o(UniValue::VOBJ);
         o.pushKV("value", ValueFromAmount(csw.nValue));
@@ -35,18 +35,21 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
         ScriptPubKeyToJSON(csw.scriptPubKey(), spk, true);
         o.pushKV("scriptPubKey", spk);
 
-        o.pushKV("scProof", HexStr(csw.scProof));
+        o.pushKV("scProof", csw.scProof.GetHexRepr());
 
         UniValue rs(UniValue::VOBJ);
         rs.pushKV("asm", csw.redeemScript.ToString());
         rs.pushKV("hex", HexStr(csw.redeemScript));
         o.pushKV("redeemScript", rs);
+        o.pushKV("actCertDataHash", csw.actCertDataHash.GetHexRepr());
+        o.pushKV("ceasingCumScTxCommTree", csw.ceasingCumScTxCommTree.GetHexRepr());
 
         vcsws.push_back(o);
     }
 
     parentObj.pushKV("vcsw_ccin", vcsws);
 }
+
 // TODO: naming style is different. Use CamelCase
 void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
 {
@@ -62,7 +65,8 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.pushKV("withdrawal epoch length", (int)out.withdrawalEpochLength);
         o.pushKV("value", ValueFromAmount(out.nValue));
         o.pushKV("address", out.address.GetHex());
-        o.pushKV("wCertVk", HexStr(out.wCertVk));
+        o.pushKV("certProvingSystem", Sidechain::ProvingSystemTypeToString(out.wCertVk.getProvingSystemType()));
+        o.pushKV("wCertVk", out.wCertVk.GetHexRepr());
 
         UniValue arrFieldElementConfig(UniValue::VARR);
         for(const auto& cfgEntry: out.vFieldElementCertificateFieldConfig)
@@ -84,10 +88,14 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.pushKV("customData", HexStr(out.customData));
         if(out.constant.is_initialized())
             o.pushKV("constant", out.constant->GetHexRepr());
-        if(out.wMbtrVk.is_initialized())
-            o.pushKV("wMbtrVk", HexStr(out.wMbtrVk.get()));
         if(out.wCeasedVk.is_initialized())
-            o.pushKV("wCeasedVk", HexStr(out.wCeasedVk.get()));
+        {
+            o.pushKV("cswProvingSystem", Sidechain::ProvingSystemTypeToString(out.wCeasedVk.get().getProvingSystemType()));
+            o.pushKV("wCeasedVk", out.wCeasedVk.get().GetHexRepr());
+        }
+        o.pushKV("ftScFee", ValueFromAmount(out.forwardTransferScFee));
+        o.pushKV("mbtrScFee", ValueFromAmount(out.mainchainBackwardTransferRequestScFee));
+        o.pushKV("mbtrRequestDataLength", out.mainchainBackwardTransferRequestDataLength);
         vscs.push_back(o);
         nIdx++;
     }
@@ -129,8 +137,13 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         
         o.pushKV("mcDestinationAddress", mcAddr);
         o.pushKV("scFee", ValueFromAmount(out.GetScValue()));
-        o.pushKV("scRequestData", out.scRequestData.GetHexRepr());
-        o.pushKV("scProof", HexStr(out.scProof));
+
+        UniValue arrRequestData(UniValue::VARR);
+        for(const auto& requestData: out.vScRequestData)
+        {
+            arrRequestData.push_back(requestData.GetHexRepr());
+        }
+        o.pushKV("vScRequestData", arrRequestData);
         vbts.push_back(o);
         nIdx++;
     }
@@ -168,7 +181,9 @@ bool AddCustomFieldElement(const std::string& inputString, std::vector<unsigned 
     return true;
 }
 
-bool AddScData(const std::string& inputString, std::vector<unsigned char>& vBytes, unsigned int vSize, bool enforceStrictSize, std::string& error)
+bool AddScData(
+    const std::string& inputString, std::vector<unsigned char>& vBytes, unsigned int vSize,
+    CheckSizeMode checkSizeMode, std::string& error)
 { 
     if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
     {
@@ -186,13 +201,13 @@ bool AddScData(const std::string& inputString, std::vector<unsigned char>& vByte
 
     unsigned int scDataLen = dataLen/2;
 
-    if(enforceStrictSize && (scDataLen != vSize))
+    if (checkSizeMode == CheckSizeMode::CHECK_STRICT && (scDataLen != vSize))
     {
         error = strprintf("Invalid length %d, must be %d bytes", scDataLen, vSize);
         return false;
     }
 
-    if (!enforceStrictSize && (scDataLen > vSize))
+    if (checkSizeMode == CheckSizeMode::CHECK_UPPER_LIMIT && (scDataLen > vSize))
     {
         error = strprintf("Invalid length %d, must be %d bytes at most", scDataLen, vSize);
         return false;
@@ -204,8 +219,7 @@ bool AddScData(const std::string& inputString, std::vector<unsigned char>& vByte
     return true;
 }
 
-template <typename T>
-bool AddScData(const UniValue& intArray, std::vector<T>& vCfg)
+bool AddScData(const UniValue& intArray, std::vector<FieldElementCertificateFieldConfig>& vCfg)
 { 
     if (intArray.size() != 0)
     {
@@ -215,7 +229,12 @@ bool AddScData(const UniValue& intArray, std::vector<T>& vCfg)
             {
                 return false;
             }
-            vCfg.push_back(o.get_int());
+            int intVal = o.get_int();
+            if (intVal <= 0 || intVal > UINT8_MAX)
+            {
+                return false;
+            }
+            vCfg.push_back(static_cast<uint8_t>(intVal));
         }
     }
     return true;
@@ -292,7 +311,7 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
 
         std::string nullifierError;
         std::vector<unsigned char> nullifierVec;
-        if (!AddScData(nullifier_v.get_str(), nullifierVec, CFieldElement::ByteSize(), true, nullifierError))
+        if (!AddScData(nullifier_v.get_str(), nullifierVec, CFieldElement::ByteSize(), CheckSizeMode::CHECK_STRICT, nullifierError))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": " + nullifierError;
             return false;
@@ -304,7 +323,55 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
             error = "Invalid ceased sidechain withdrawal input parameter \"nullifier\": invalid nullifier data";
             return false;
         }
+//---------------------------------------------------------------------------------------------
+        // parse active cert data: it is an optional field and can be null string: it accounts for the case of an 
+        // early ceased SC without any valid ceritificate 
+        std::vector<unsigned char> vActCertData;
 
+        const UniValue& valActCertData = find_value(o, "activeCertData");
+        if (!valActCertData.isNull() && !valActCertData.get_str().empty())
+        {
+            std::string errStr;
+            if (!AddScData(valActCertData.get_str(), vActCertData, CFieldElement::ByteSize(), CheckSizeMode::CHECK_STRICT, errStr))
+            {
+                error = "Invalid ceased sidechain withdrawal input parameter \"activeCertData\": " + errStr;
+                return false;
+            }
+        }
+
+        CFieldElement actCertDataHash = vActCertData.empty() ? CFieldElement{} : CFieldElement{vActCertData};
+        if (!actCertDataHash.IsValid() && !actCertDataHash.IsNull())
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"activeCertData\": invalid field element";
+            return false;
+        }
+
+//---------------------------------------------------------------------------------------------
+        // parse ceasingCumScTxCommTree (do not check it though)
+        const UniValue& valCumTree = find_value(o, "ceasingCumScTxCommTree");
+        if (valCumTree.isNull())
+        {
+            error = "Missing mandatory parameter \"ceasingCumScTxCommTree\" for the ceased sidechain withdrawal input";
+            return false;
+        }
+
+        std::string errStr;
+        std::vector<unsigned char> vCeasingCumScTxCommTree;
+        if (!AddScData(valCumTree.get_str(), vCeasingCumScTxCommTree, CFieldElement::ByteSize(), CheckSizeMode::CHECK_STRICT, errStr))
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"ceasingCumScTxCommTree\": " + errStr;
+            return false;
+        }
+
+        CFieldElement ceasingCumScTxCommTree {vCeasingCumScTxCommTree};
+        if (!ceasingCumScTxCommTree.IsValid())
+        {
+            error = "Invalid ceased sidechain withdrawal input parameter \"ceasingCumScTxCommTree\": invalid field element";
+            return false;
+        }
+
+
+//---------------------------------------------------------------------------------------------
         // parse snark proof
         const UniValue& proof_v = find_value(o, "scProof");
         if (proof_v.isNull())
@@ -315,20 +382,20 @@ bool AddCeasedSidechainWithdrawalInputs(UniValue &csws, CMutableTransaction &raw
 
         std::string proofError;
         std::vector<unsigned char> scProofVec;
-        if (!AddScData(proof_v.get_str(), scProofVec, SC_PROOF_SIZE, true, proofError))
+        if (!AddScData(proof_v.get_str(), scProofVec, CScProof::MaxByteSize(), CheckSizeMode::CHECK_UPPER_LIMIT, proofError))
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"scProof\": " + proofError;
             return false;
         }
 
-        libzendoomc::ScProof scProof(scProofVec);
-        if (!libzendoomc::IsValidScProof(scProof))
+        CScProof scProof {scProofVec};
+        if (!scProof.IsValid())
         {
             error = "Invalid ceased sidechain withdrawal input parameter \"scProof\": invalid snark proof data";
             return false;
         }
 
-        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, nullifier, pubKeyHash, scProof, CScript());
+        CTxCeasedSidechainWithdrawalInput csw_input(amount, scId, nullifier, pubKeyHash, scProof, actCertDataHash, ceasingCumScTxCommTree, CScript());
         rawTx.vcsw_ccin.push_back(csw_input);
     }
 
@@ -341,7 +408,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
 
     for (size_t i = 0; i < sc_crs.size(); i++)
     {
-        ScCreationParameters sc;
+        ScFixedParameters sc;
 
         const UniValue& input = sc_crs[i];
         const UniValue& o = input.get_obj();
@@ -401,15 +468,13 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         {
             const std::string& inputString = wCertVk.get_str();
             std::vector<unsigned char> wCertVkVec;
-            if (!AddScData(inputString, wCertVkVec, SC_VK_SIZE, true, error))
+            if (!AddScData(inputString, wCertVkVec, CScVKey::MaxByteSize(), CheckSizeMode::CHECK_UPPER_LIMIT, error))
             {
                 error = "wCertVk: " + error;
                 return false;
             }
-
-            sc.wCertVk = libzendoomc::ScVk(wCertVkVec);
-
-            if (!libzendoomc::IsValidScVk(sc.wCertVk))
+            sc.wCertVk = CScVKey(wCertVkVec);
+            if (!sc.wCertVk.IsValid())
             {
                 error = "invalid wCertVk";
                 return false;
@@ -420,7 +485,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         if (!cd.isNull())
         {
             const std::string& inputString = cd.get_str();
-            if (!AddScData(inputString, sc.customData, MAX_SC_DATA_LEN, false, error))
+            if (!AddScData(inputString, sc.customData, MAX_SC_CUSTOM_DATA_LEN, CheckSizeMode::CHECK_UPPER_LIMIT, error))
             {
                 error = "customData: " + error;
                 return false;
@@ -432,7 +497,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         {
             const std::string& inputString = constant.get_str();
             std::vector<unsigned char> scConstantByteArray {};
-            if (!AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), false, error))
+            if (!AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), CheckSizeMode::CHECK_UPPER_LIMIT, error))
             {
                 error = "constant: " + error;
                 return false;
@@ -450,38 +515,22 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         if (!wCeasedVk.isNull())
         {
             const std::string& inputString = wCeasedVk.get_str();
-            std::vector<unsigned char> wCeasedVkVec;
-            if (!AddScData(inputString, wCeasedVkVec, SC_VK_SIZE, true, error))
-            {
-                error = "wCeasedVk: " + error;
-                return false;
-            }
 
-            sc.wCeasedVk = libzendoomc::ScVk(wCeasedVkVec);
-
-            if (!libzendoomc::IsValidScVk(sc.wCeasedVk.get()))
+            if (!inputString.empty())
             {
-                error = "invalid wCeasedVk";
-                return false;
-            }
-        }
+                std::vector<unsigned char> wCeasedVkVec;
+                if (!AddScData(inputString, wCeasedVkVec, CScVKey::MaxByteSize(), CheckSizeMode::CHECK_UPPER_LIMIT, error))
+                {
+                    error = "wCeasedVk: " + error;
+                    return false;
+                }
 
-        const UniValue& wMbtrVk = find_value(o, "wMbtrVk");
-        if (!wMbtrVk.isNull())
-        {
-            const std::string& inputString = wMbtrVk.get_str();
-            std::vector<unsigned char> wMbtrVkVec;
-            if (!AddScData(inputString, wMbtrVkVec, SC_VK_SIZE, true, error))
-            {
-                error = "wMbtrVk: " + error;
-                return false;
-            }
-
-            sc.wMbtrVk = libzendoomc::ScVk(wMbtrVkVec);
-            if (!libzendoomc::IsValidScVk(sc.wMbtrVk.get()))
-            {
-                error = "invalid wMbtrVkVec";
-                return false;
+                sc.wCeasedVk = CScVKey(wCeasedVkVec);
+                if (!sc.wCeasedVk.get().IsValid())
+                {
+                    error = "invalid wCeasedVk";
+                    return false;
+                }
             }
         }
 
@@ -516,7 +565,53 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
             }
         }
 
-        CTxScCreationOut txccout(nAmount, address, sc);
+        CAmount ftScFee(0);
+        const UniValue& uniFtScFee = find_value(o, "forwardTransferScFee");
+        if (!uniFtScFee.isNull())
+        {
+            ftScFee = AmountFromValue(uniFtScFee);
+
+            if (!MoneyRange(ftScFee))
+            {
+                error = strprintf("Invalid forwardTransferScFee: out of range [%d, %d]", 0, MAX_MONEY);
+                return false;
+            }
+        }
+
+        CAmount mbtrScFee(0);
+        const UniValue& uniMbtrScFee = find_value(o, "mainchainBackwardTransferScFee");
+        if (!uniMbtrScFee.isNull())
+        {
+            mbtrScFee = AmountFromValue(uniMbtrScFee);
+
+            if (!MoneyRange(mbtrScFee))
+            {
+                error = strprintf("Invalid mainchainBackwardTransferScFee: out of range [%d, %d]", 0, MAX_MONEY);
+                return false;
+            }
+        }
+
+        int32_t mbtrDataLength = 0;
+        const UniValue& uniMbtrDataLength = find_value(o, "mainchainBackwardTransferRequestDataLength");
+        if (!uniMbtrDataLength.isNull())
+        {
+            if (!uniMbtrDataLength.isNum())
+            {
+                error = "Invalid mainchainBackwardTransferRequestDataLength: numeric value expected";
+                return false;
+            }
+            
+            mbtrDataLength = uniMbtrDataLength.get_int();
+
+            if (mbtrDataLength < 0 || mbtrDataLength > MAX_SC_MBTR_DATA_LEN)
+            {
+                error = strprintf("Invalid mainchainBackwardTransferRequestDataLength: out of range [%d, %d]", 0, MAX_SC_MBTR_DATA_LEN);
+                return false;
+            }
+        }
+        sc.mainchainBackwardTransferRequestDataLength = mbtrDataLength;
+
+        CTxScCreationOut txccout(nAmount, address, ftScFee, mbtrScFee, sc);
 
         rawTx.vsc_ccout.push_back(txccout);
     }
@@ -624,48 +719,24 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
         bwtData.scFee = scFee;
 
         //---------------------------------------------------------------------
-        const UniValue& scRequestDataVal = find_value(o, "scRequestData");
-        if (scRequestDataVal.isNull())
+        const UniValue& vScRequestDataVal = find_value(o, "vScRequestData");
+        if (vScRequestDataVal.isNull())
         {
-            error = "Missing mandatory parameter scRequestData";
-            return false;
-        }
-        inputString = scRequestDataVal.get_str();
-        std::vector<unsigned char> scRequestDataVec;
-        if (!AddScData(inputString, scRequestDataVec, CFieldElement::ByteSize(), true, error))
-        {
-            error = "scRequestData: " + error;
+            error = "Missing mandatory parameter vScRequestData";
             return false;
         }
 
-        bwtData.scRequestData = CFieldElement{scRequestDataVec};
-        if (!bwtData.scRequestData.IsValid())
-        {
-            error = "invalid scRequestData";
-            return false;
-        }
 
-        //---------------------------------------------------------------------
-        const UniValue& scProofVal = find_value(o, "scProof");
-        if (scProofVal.isNull())
+        for (UniValue inputElement : vScRequestDataVal.get_array().getValues())
         {
-            error = "Missing mandatory parameter scProof";
-            return false;
-        }
-        inputString = scProofVal.get_str();
-        std::vector<unsigned char> scProofVec;
-        if (!AddScData(inputString, scProofVec, SC_PROOF_SIZE, true, error))
-        {
-            error = "scProof: " + error;
-            return false;
-        }
+            std::vector<unsigned char> requestDataByteArray {};
 
-        bwtData.scProof = libzendoomc::ScProof(scProofVec);
+            if (!Sidechain::AddScData(inputElement.get_str(), requestDataByteArray, CFieldElement::ByteSize(), CheckSizeMode::CHECK_STRICT, error))
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, std::string("requestDataByte: ") + error);
+            }
 
-        if (!libzendoomc::IsValidScProof(bwtData.scProof))
-        {
-            error = "invalid scProof";
-            return false;
+            bwtData.vScRequestData.push_back(CFieldElement{requestDataByteArray});
         }
 
 
@@ -685,14 +756,13 @@ void fundCcRecipients(const CTransaction& tx,
         CRecipientScCreation sc;
         sc.nValue = entry.nValue;
         sc.address = entry.address;
-        sc.creationData.withdrawalEpochLength               = entry.withdrawalEpochLength;
-        sc.creationData.wCertVk                             = entry.wCertVk;
-        sc.creationData.wMbtrVk                             = entry.wMbtrVk;
-        sc.creationData.wCeasedVk                           = entry.wCeasedVk;
-        sc.creationData.vFieldElementCertificateFieldConfig = entry.vFieldElementCertificateFieldConfig;
-        sc.creationData.vBitVectorCertificateFieldConfig    = entry.vBitVectorCertificateFieldConfig;
-        sc.creationData.customData                          = entry.customData;
-        sc.creationData.constant                            = entry.constant;
+        sc.fixedParams.withdrawalEpochLength               = entry.withdrawalEpochLength;
+        sc.fixedParams.wCertVk                             = entry.wCertVk;
+        sc.fixedParams.wCeasedVk                           = entry.wCeasedVk;
+        sc.fixedParams.vFieldElementCertificateFieldConfig = entry.vFieldElementCertificateFieldConfig;
+        sc.fixedParams.vBitVectorCertificateFieldConfig    = entry.vBitVectorCertificateFieldConfig;
+        sc.fixedParams.customData                          = entry.customData;
+        sc.fixedParams.constant                            = entry.constant;
 
         vecScSend.push_back(sc);
     }
@@ -713,8 +783,7 @@ void fundCcRecipients(const CTransaction& tx,
         bt.scId = entry.scId;
         bt.mcDestinationAddress = entry.mcDestinationAddress;
         bt.bwtRequestData.scFee = entry.scFee;
-        bt.bwtRequestData.scRequestData = entry.scRequestData;
-        bt.bwtRequestData.scProof = entry.scProof;
+        bt.bwtRequestData.vScRequestData = entry.vScRequestData;
 
         vecBwtRequest.push_back(bt);
     }
@@ -886,9 +955,11 @@ void ScRpcCmd::addChange()
 ScRpcCmdCert::ScRpcCmdCert(
         CMutableScCertificate& cert, const std::vector<sBwdParams>& bwdParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress, int minConf, const CAmount& nFee,
-        const std::vector<FieldElementCertificateField>& vCfe, const std::vector<BitVectorCertificateField>& vCmt):
+        const std::vector<FieldElementCertificateField>& vCfe, const std::vector<BitVectorCertificateField>& vCmt,
+        const CAmount& ftScFee, const CAmount& mbtrScFee):
         ScRpcCmd(fromaddress, changeaddress, minConf, nFee),
-        _cert(cert),_bwdParams(bwdParams), _vCfe(vCfe), _vCmt(vCmt)
+        _cert(cert),_bwdParams(bwdParams), _vCfe(vCfe), _vCmt(vCmt),
+        _ftScFee(ftScFee), _mbtrScFee(mbtrScFee)
 {
 }
 
@@ -898,6 +969,7 @@ void ScRpcCmdCert::execute()
     addChange();
     addBackwardTransfers();
     addCustomFields();
+    addScFees();
     sign();
     send();
 }
@@ -981,6 +1053,12 @@ void ScRpcCmdCert::addCustomFields()
         _cert.vBitVectorCertificateField = _vCmt;
 }
 
+void ScRpcCmdCert::addScFees()
+{
+    _cert.forwardTransferScFee = _ftScFee;
+    _cert.mainchainBackwardTransferRequestScFee = _mbtrScFee;
+}
+
 ScRpcCmdTx::ScRpcCmdTx(
         CMutableTransaction& tx,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
@@ -1059,8 +1137,9 @@ void ScRpcCmdTx::execute()
 ScRpcCreationCmdTx::ScRpcCreationCmdTx(
         CMutableTransaction& tx, const std::vector<sCrOutParams>& outParams,
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
-        int minConf, const CAmount& nFee, const ScCreationParameters& cd):
-        ScRpcCmdTx(tx, fromaddress, changeaddress, minConf, nFee), _creationData(cd), _outParams(outParams)
+        int minConf, const CAmount& nFee, const CAmount& ftScFee, const CAmount& mbtrScFee,
+        const ScFixedParameters& cd):
+        ScRpcCmdTx(tx, fromaddress, changeaddress, minConf, nFee), _fixedParams(cd), _outParams(outParams), _ftScFee(ftScFee), _mbtrScFee(mbtrScFee)
 {
     for (const auto& entry : _outParams)
     {
@@ -1076,7 +1155,7 @@ void ScRpcCreationCmdTx::addCcOutputs()
         throw JSONRPCError(RPC_WALLET_ERROR, strprintf("invalid number of output: %d!", _outParams.size()));
     }
 
-    CTxScCreationOut txccout(_outParams[0]._nAmount, _outParams[0]._toScAddress, _creationData);
+    CTxScCreationOut txccout(_outParams[0]._nAmount, _outParams[0]._toScAddress, _ftScFee, _mbtrScFee, _fixedParams);
     _tx.add(txccout);
 }
 
@@ -1136,6 +1215,4 @@ void ScRpcRetrieveCmdTx::addCcOutputs()
     }
 }
 
-// explicit instantiations
-template bool AddScData<FieldElementCertificateFieldConfig>(const UniValue& intArray, std::vector<FieldElementCertificateFieldConfig>& vCfg);
 }  // end of namespace

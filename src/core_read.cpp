@@ -125,6 +125,25 @@ bool DecodeHexCert(CScCertificate& cert, const std::string& strHexCert)
     return true;
 }
 
+bool DecodeHex(std::unique_ptr<CTransactionBase>& pTxBase, const std::string& strHex)
+{
+    if (!IsHex(strHex))
+        return false;
+
+    vector<unsigned char> objData(ParseHex(strHex));
+    CDataStream ssData(objData, SER_NETWORK, PROTOCOL_VERSION);
+    try {
+        int objVersion = 0;
+        ::Unserialize(ssData, objVersion, SER_NETWORK, PROTOCOL_VERSION);
+        ::makeSerializedTxObj(ssData, objVersion, pTxBase, SER_NETWORK, PROTOCOL_VERSION);
+    }
+    catch (const std::exception&) {
+        return false;
+    }
+
+    return true;
+}
+
 bool DecodeHexBlk(CBlock& block, const std::string& strHexBlk)
 {
     if (!IsHex(strHexBlk))
