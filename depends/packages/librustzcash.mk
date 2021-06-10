@@ -9,7 +9,7 @@ $(package)_dependencies=rust $(rust_crates)
 $(package)_patches=cargo.config
 
 ifeq ($(host_os),mingw32)
-$(package)_library_file=target/x86_64-pc-windows-gnu/release/rustzcash.lib
+$(package)_library_file=target/x86_64-pc-windows-gnu/release/librustzcash.a
 else
 $(package)_library_file=target/release/librustzcash.a
 endif

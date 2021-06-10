@@ -9,7 +9,7 @@ $(package)_dependencies=rust $(rust_crates_z)
 $(package)_patches=cargo.config
 
 ifeq ($(host_os),mingw32)
-$(package)_library_file=target/x86_64-pc-windows-gnu/release/zendoo_mc.lib
+$(package)_library_file=target/x86_64-pc-windows-gnu/release/libzendoo_mc.a
 else
 $(package)_library_file=target/release/libzendoo_mc.a
 endif
