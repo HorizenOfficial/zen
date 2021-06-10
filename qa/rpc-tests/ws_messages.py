@@ -4,7 +4,6 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
     get_epoch_data, \
@@ -15,7 +14,6 @@ import json
 import pprint
 from decimal import Decimal
 import threading
-import time
 from websocket import create_connection
 from websocket._exceptions import WebSocketConnectionClosedException
 from test_framework.wsproxy import JSONWSException
@@ -175,8 +173,6 @@ class ws_messages(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 0
-        ftScFee = 0
-        mbtrScFee = 0
         proof = mcTest.create_test_proof(
             "sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE,
             constant, cum_tree_hash, [pkh_node1], [bwt_amount])

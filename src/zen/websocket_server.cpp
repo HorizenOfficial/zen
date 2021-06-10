@@ -513,7 +513,7 @@ private:
         uint256 scId;
         scId.SetHex(scIdString);
         
-        CCoinsViewCache &view = *pcoinsTip;
+        const CCoinsViewCache &view = *pcoinsTip;
         
         UniValue mempoolTopQualityCert(UniValue::VOBJ);
         UniValue chainTopQualityCert(UniValue::VOBJ);
@@ -530,9 +530,9 @@ private:
                 const uint256& topQualCertHash = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
                 const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
                 const CAmount certFee = mempool.mapCertificate.at(topQualCertHash).GetFee();
-                CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
-                ssBlock << topQualCert;
-                std::string certHex = HexStr(ssBlock.begin(), ssBlock.end());
+                CDataStream ssCert(SER_NETWORK, PROTOCOL_VERSION);
+                ssCert << topQualCert;
+                std::string certHex = HexStr(ssCert.begin(), ssCert.end());
      
                 mempoolTopQualityCert.push_back(Pair("quality", topQualCert.quality));
                 mempoolTopQualityCert.push_back(Pair("certHash", topQualCertHash.GetHex()));
@@ -542,25 +542,22 @@ private:
 
             CSidechain sidechainInfo;
 
-            if (view.GetSidechain(scId, sidechainInfo)) {
-                const uint256& topQualCertHash = sidechainInfo.lastTopQualityCertHash;
+            if (view.GetSidechain(scId, sidechainInfo) && !sidechainInfo.lastTopQualityCertHash.IsNull()) {
                 const int topQualityCertQuality = sidechainInfo.lastTopQualityCertQuality;
                 CScCertificate topQualCert;
+                uint256 blockHash;
 
-                if (!topQualCertHash.IsNull()) {
-                    uint256 blockHash;
-                    if (GetCertificate(topQualCertHash, topQualCert, blockHash)) {
-                        CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
-                        ssBlock << topQualCert;
-                        std::string certHex = HexStr(ssBlock.begin(), ssBlock.end());
+                if (GetCertificate(sidechainInfo.lastTopQualityCertHash, topQualCert, blockHash)) {
+                    CDataStream ssCert(SER_NETWORK, PROTOCOL_VERSION);
+                    ssCert << topQualCert;
+                    std::string certHex = HexStr(ssCert.begin(), ssCert.end());
 
-                        chainTopQualityCert.push_back(Pair("quality", topQualityCertQuality));
-                        chainTopQualityCert.push_back(Pair("certHash", topQualCertHash.GetHex()));
-                        chainTopQualityCert.push_back(Pair("rawCertificateHex", certHex));
-                    } else {
-                        LogPrint("ws", "%s():%d - unable to retrieve last top quality certificate[%s]\n", __func__, __LINE__, topQualCertHash.GetHex());
-                        return INVALID_PARAMETER;
-                    }
+                    chainTopQualityCert.push_back(Pair("quality", topQualityCertQuality));
+                    chainTopQualityCert.push_back(Pair("certHash", sidechainInfo.lastTopQualityCertHash.GetHex()));
+                    chainTopQualityCert.push_back(Pair("rawCertificateHex", certHex));
+                } else {
+                    LogPrint("ws", "%s():%d - unable to retrieve last top quality certificate[%s]\n", __func__, __LINE__, sidechainInfo.lastTopQualityCertHash.GetHex());
+                    return INVALID_PARAMETER;
                 }
             }
         }
