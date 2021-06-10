@@ -601,7 +601,9 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
 void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provingSystem, TestCircuitType circuitType) const
 {
     CctpErrorCode errorCode;
-    zendoo_generate_mc_test_params(circuitType, provingSystem, (path_char_t*)tempFolderPath.c_str(), strlen(tempFolderPath.c_str()), &errorCode);
+    zendoo_generate_mc_test_params(
+        circuitType, provingSystem, 1 << 10,
+        (path_char_t*)tempFolderPath.string().c_str(), strlen(tempFolderPath.string().c_str()), &errorCode);
 }
 
 /**
@@ -663,6 +665,7 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(CCertProofVerifierI
                                   provingKey,
                                   (path_char_t*)certProofPath.c_str(),
                                   strlen(certProofPath.c_str()),
+                                  1 << 10,
                                   &errorCode);
 
     zendoo_sc_pk_free(provingKey);
@@ -705,6 +708,7 @@ CScProof BlockchainTestManager::GenerateTestCswProof(CCswProofVerifierInput csw,
                                             provingKey,
                                             (path_char_t*)cswProofPath.c_str(),
                                             strlen(cswProofPath.c_str()),
+                                            1 << 10,
                                             &code);
 
     zendoo_sc_pk_free(provingKey);
@@ -833,23 +837,23 @@ bool BlockchainTestManager::VerifyCswProof(CCswProofVerifierInput csw) const
 }
 
 /**
- * @brief Gets the number of pending certificate proves waiting to be verified in the async proof verifier.
+ * @brief Gets the number of pending certificate proofs waiting to be verified in the async proof verifier.
  * 
- * @return size_t The number of pending certificate proves waiting to be verified in the async proof verifier.
+ * @return size_t The number of pending certificate proofs waiting to be verified in the async proof verifier.
  */
-size_t BlockchainTestManager::PendingAsyncCertProves() const
+size_t BlockchainTestManager::PendingAsyncCertProofs() const
 {
-    return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCertProves();
+    return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCertProofs();
 }
 
 /**
- * @brief Gets the number of pending CSW proves waiting to be verified in the async proof verifier.
+ * @brief Gets the number of pending CSW proofs waiting to be verified in the async proof verifier.
  * 
- * @return size_t The number of pending CSW proves waiting to be verified in the async proof verifier.
+ * @return size_t The number of pending CSW proofs waiting to be verified in the async proof verifier.
  */
-size_t BlockchainTestManager::PendingAsyncCswProves() const
+size_t BlockchainTestManager::PendingAsyncCswProofs() const
 {
-    return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProves();
+    return TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProofs();
 }
 
 /**

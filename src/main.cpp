@@ -1160,7 +1160,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
     if (!cert.CheckInputsLimit())
     {
-        LogPrintf("%s(): CheckInputsLimit failed", __func__);
+        LogPrintf("%s(): CheckInputsLimit failed\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1173,7 +1173,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
     static const int DOS_LEVEL = 10;
     if(!cert.ContextualCheck(state, nextBlockHeight, DOS_LEVEL))
     {
-        LogPrintf("%s(): ContextualCheck failed", __func__);
+        LogPrintf("%s(): ContextualCheck failed\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1188,7 +1188,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
     if (!pool.checkIncomingCertConflicts(cert))
     {
-        LogPrintf("%s(): certificate has conflicts in mempool", __func__);
+        LogPrintf("%s(): certificate has conflicts in mempool\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1247,7 +1247,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             {
                 state.Invalid(
                     error("%s():%d - ERROR: cert[%s] inputs already spent\n", __func__, __LINE__, certHash.ToString()),
-                    CValidationState::Code::DUPLICATE, "bad-sc-cert-inputs-spent");
+                    CValidationState::Code::DUPLICATED, "bad-sc-cert-inputs-spent");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -1382,6 +1382,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
             scVerifier.LoadDataForCertVerification(view, cert);
 
+            LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
             if (!scVerifier.BatchVerify())
             {
                 state.DoS(100, error("%s():%d - cert proof failed to verify",
@@ -1514,7 +1515,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             {
                 LogPrintf("%s():%d - ERROR: tx[%s]\n", __func__, __LINE__, hash.ToString());
                 state.Invalid(error("%s(): inputs already spent", __func__),
-                                     CValidationState::Code::DUPLICATE, "bad-txns-inputs-spent");
+                                     CValidationState::Code::DUPLICATED, "bad-txns-inputs-spent");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -1538,7 +1539,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             if (!view.HaveJoinSplitRequirements(tx))
             {
                 state.Invalid(error("%s():%d - joinsplit requirements not met", __func__, __LINE__),
-                              CValidationState::Code::DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
+                              CValidationState::Code::DUPLICATED, "bad-txns-joinsplit-requirements-not-met");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -1576,7 +1577,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         }
 
         double dPriority = view.GetPriority(tx, chainActive.Height());
-        LogPrint("mempool", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
+        LogPrint("mempool", "%s():%d - tx[%s], Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, hash.ToString(), nFees, dPriority);
 
         CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
         unsigned int nSize = entry.GetTxSize();
@@ -1676,6 +1677,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
                 scVerifier.LoadDataForCswVerification(view, tx);
 
+                LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
                 if (!scVerifier.BatchVerify())
                 {
                     state.DoS(100,
@@ -2994,7 +2996,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     ret_code, "bad-sc-tx-not-applicable");
             }
 
-            // Add the transaction proves (if any) to the sidechain proof verifier.
+            // Add the transaction proofs (if any) to the sidechain proof verifier.
             if (fScProofVerification == flagScProofVerification::ON)
             {
                 scVerifier.LoadDataForCswVerification(view, tx);
@@ -3159,6 +3161,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     if (fScProofVerification == flagScProofVerification::ON)
     {
+        LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
         if (!scVerifier.BatchVerify())
         {
             return state.DoS(100, error("%s():%d - ERROR: sc-related batch proof verification failed", __func__, __LINE__),
@@ -5746,6 +5749,51 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
+void ProcessMempoolMsg(const CTxMemPool& pool, CNode* pfrom)
+{
+    LOCK2(cs_main, pfrom->cs_filter);
+
+    std::vector<uint256> vtxid;
+    pool.queryHashes(vtxid);
+    vector<CInv> vInv;
+    for(uint256& hash: vtxid)
+    {
+        CInv inv(MSG_TX, hash);
+        std::unique_ptr<CTransactionBase> mempoolObjPtr{};
+        bool fInMemPool = false;
+
+        if (pool.existsTx(hash))
+        {
+            CTransaction* txPtr = new CTransaction{};
+            fInMemPool = pool.lookup(hash, *txPtr);
+            mempoolObjPtr.reset(txPtr);
+        } else if (pool.existsCert(hash))
+        {
+            CScCertificate* certPtr = new CScCertificate{};
+            fInMemPool = pool.lookup(hash, *certPtr);
+            mempoolObjPtr.reset(certPtr);
+        }
+
+        if (!fInMemPool) continue; // another thread removed since queryHashes, maybe...
+
+        if ((pfrom->pfilter && pfrom->pfilter->IsRelevantAndUpdate(*mempoolObjPtr)) || (!pfrom->pfilter))
+        {
+            vInv.push_back(inv);
+        }
+
+        if (vInv.size() == MAX_INV_SZ)
+        {
+            pfrom->PushInvs("inv", vInv);
+            vInv.clear();
+        }
+    }
+
+    if (vInv.size() > 0)
+        pfrom->PushInvs("inv", vInv);
+
+    return;
+}
+
 void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfrom, BatchVerificationStateFlag proofVerificationState, CValidationState& state)
 {
     if (proofVerificationState == BatchVerificationStateFlag::FAILED)
@@ -5925,7 +5973,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         // Each connection can only send one version message
         if (pfrom->nVersion != 0)
         {
-            pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(CValidationState::Code::DUPLICATE), string("Duplicate version message"));
+            pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(CValidationState::Code::DUPLICATED), string("Duplicate version message"));
             Misbehaving(pfrom->GetId(), 1);
             return false;
         }
@@ -6627,26 +6675,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == "mempool")
     {
-        LOCK2(cs_main, pfrom->cs_filter);
-
-        std::vector<uint256> vtxid;
-        mempool.queryHashes(vtxid);
-        vector<CInv> vInv;
-        BOOST_FOREACH(uint256& hash, vtxid) {
-            CInv inv(MSG_TX, hash);
-            CTransaction tx;
-            bool fInMemPool = mempool.lookup(hash, tx);
-            if (!fInMemPool) continue; // another thread removed since queryHashes, maybe...
-            if ((pfrom->pfilter && pfrom->pfilter->IsRelevantAndUpdate(tx)) ||
-               (!pfrom->pfilter))
-                vInv.push_back(inv);
-            if (vInv.size() == MAX_INV_SZ) {
-                pfrom->PushMessage("inv", vInv);
-                vInv.clear();
-            }
-        }
-        if (vInv.size() > 0)
-            pfrom->PushMessage("inv", vInv);
+        ProcessMempoolMsg(mempool, pfrom);
     }
 
 

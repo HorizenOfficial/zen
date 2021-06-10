@@ -49,6 +49,7 @@ zen_gtest_SOURCES += \
 	gtest/test_paymentdisclosure.cpp \
 	gtest/test_relayforks.cpp	\
 	gtest/test_sidechain.cpp	\
+	gtest/test_sidechaintypes.cpp	\
 	gtest/test_sidechain_to_mempool.cpp \
 	gtest/test_sidechain_events.cpp \
 	gtest/test_sidechain_certificate_quality.cpp \

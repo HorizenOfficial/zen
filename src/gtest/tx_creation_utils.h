@@ -187,8 +187,8 @@ public:
     bool VerifyCswProof(CCswProofVerifierInput csw) const;
 
     // ASYNC PROOF VERIFIER HELPERS
-    size_t PendingAsyncCertProves() const;
-    size_t PendingAsyncCswProves() const;
+    size_t PendingAsyncCertProofs() const;
+    size_t PendingAsyncCswProofs() const;
     AsyncProofVerifierStatistics GetAsyncProofVerifierStatistics() const;
     uint32_t GetAsyncProofVerifierMaxBatchVerifyDelay() const;
     void ResetAsyncProofVerifier() const;

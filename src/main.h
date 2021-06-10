@@ -209,6 +209,8 @@ bool InitBlockIndex();
 bool LoadBlockIndex();
 /** Unload database information */
 void UnloadBlockIndex();
+// Utilities refactored out of ProcessMessages
+void ProcessMempoolMsg(const CTxMemPool& pool, CNode* pfrom);
 
 /**
  * @brief The enumeration of states of the sidechain batch proof verification.
