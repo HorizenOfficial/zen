@@ -9,6 +9,7 @@
 #include "chainparams.h"
 #include "primitives/certificate.h"
 #include "primitives/transaction.h"
+#include "sc/proofverifier.h"
 #include "sc/sidechaintypes.h"
 
 class CSidechain;
@@ -43,7 +44,7 @@ struct AsyncProofVerifierStatistics
  * @brief An asynchronous version of the sidechain Proof Verifier.
  * 
  */
-class CScAsyncProofVerifier
+class CScAsyncProofVerifier : public CScProofVerifier
 {
 public:
 
@@ -54,14 +55,11 @@ public:
         return instance;
     }
 
-    static CCertProofVerifierInput CertificateToVerifierInput(const CScCertificate& certificate, const CCoinsViewCache& view, CNode* pfrom);
-    static CCswProofVerifierInput CswInputToVerifierInput(const CTxCeasedSidechainWithdrawalInput& cswInput, const CTransaction* cswTransaction, const CCoinsViewCache& view, CNode* pfrom);
-
     CScAsyncProofVerifier(const CScAsyncProofVerifier&) = delete;
     CScAsyncProofVerifier& operator=(const CScAsyncProofVerifier&) = delete;
 
-    void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom);
-    void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom);
+    virtual void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom = nullptr) override;
+    virtual void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom = nullptr) override;
     void RunPeriodicVerification();
 
     static const uint32_t BATCH_VERIFICATION_MAX_DELAY;   /**< The maximum delay in milliseconds between batch verification requests */
@@ -76,16 +74,18 @@ private:
 
     static const uint32_t THREAD_WAKE_UP_PERIOD = 100;           /**< The period of time in milliseconds after which the thread wakes up. */
 
-    CCriticalSection cs_asyncQueue;
-    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> cswEnqueuedData; /**< The queue of CSW proofs to be verified. */
-    std::map</*certHash*/uint256, CCertProofVerifierInput> certEnqueuedData;    /**< The queue of certificate proofs to be verified. */
+    CCriticalSection cs_asyncQueue;         /**< The lock to be used for entering the critical section in async mode only. */
 
     // Members used for REGTEST mode only. [Start]
     AsyncProofVerifierStatistics stats;     /**< Async proof verifier statistics. */
     bool skipAcceptToMemoryPool;            /**< True to skip the call to AcceptToMemoryPool at the end of the proof verification, false otherwise (default false), */
     // Members used for REGTEST mode only. [End]
 
-    CScAsyncProofVerifier(): skipAcceptToMemoryPool(false) {}
+    CScAsyncProofVerifier() :
+        CScProofVerifier(Verification::Strict),
+        skipAcceptToMemoryPool(false)
+    {
+    }
 
     std::pair<bool, std::vector<AsyncProofVerifierOutput>> BatchVerify(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int,
                                                                         CCswProofVerifierInput>>& cswInputs,

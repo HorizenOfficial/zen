@@ -505,7 +505,7 @@ CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 
     CSidechain sidechain;
     assert(viewCache->GetSidechain(scId, sidechain));
 
-    CCswProofVerifierInput verifierInput = SidechainProofVerifier::CswInputToVerifierInput(input, nullptr, sidechain.fixedParams, nullptr);
+    CCswProofVerifierInput verifierInput = CScProofVerifier::CswInputToVerifierInput(input, nullptr, sidechain.fixedParams, nullptr);
     input.scProof = GenerateTestCswProof(verifierInput, provingSystem);
 
     return input;
@@ -586,7 +586,7 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
     CSidechain sidechain;
     assert(viewCache->GetSidechain(scId, sidechain));
 
-    CCertProofVerifierInput input = SidechainProofVerifier::CertificateToVerifierInput(res, sidechain.fixedParams, nullptr);
+    CCertProofVerifierInput input = CScProofVerifier::CertificateToVerifierInput(res, sidechain.fixedParams, nullptr);
     res.scProof = GenerateTestCertificateProof(input, provingSystem);
 
     return res;

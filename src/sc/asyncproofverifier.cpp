@@ -5,64 +5,22 @@
 #include "main.h"
 #include "util.h"
 #include "primitives/certificate.h"
-#include "sc/proofverifier.h"
 
 const uint32_t CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_DELAY = 5000;   /**< The maximum delay in milliseconds between batch verification requests */
 const uint32_t CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_SIZE = 10;      /**< The threshold size of the proof queue that triggers a call to the batch verification. */
 
 
-#ifdef BITCOIN_TX
-void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom) {return;}
-void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom) {return;}
-#else
+#ifndef BITCOIN_TX
 void CScAsyncProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom)
 {
-    LogPrint("cert", "%s():%d - called: cert[%s], scId[%s]\n",
-        __func__, __LINE__, scCert.GetHash().ToString(), scCert.GetScId().ToString());
-
-    CSidechain sidechain;
-    assert(view.GetSidechain(scCert.GetScId(), sidechain) && "Unknown sidechain at scTx proof verification stage");
-
-    CCertProofVerifierInput certData = SidechainProofVerifier::CertificateToVerifierInput(scCert, sidechain.fixedParams, pfrom);
-
-    {
-        LOCK(cs_asyncQueue);
-        certEnqueuedData.insert(std::make_pair(scCert.GetHash(), certData));
-    }
-
-    return;
+    LOCK(cs_asyncQueue);
+    CScProofVerifier::LoadDataForCertVerification(view, scCert, pfrom);
 }
 
 void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom)
 {
-    LogPrint("cert", "%s():%d - Loading CSW of tx [%s] \n", __func__, __LINE__, scTx.GetHash().ToString());
-
-    std::map</*outputPos*/unsigned int, CCswProofVerifierInput> txMap;
-
-    for(CTxCeasedSidechainWithdrawalInput cswInput : scTx.GetVcswCcIn())
-    {
-        CSidechain sidechain;
-        assert(view.GetSidechain(cswInput.scId, sidechain) && "Unknown sidechain at scTx proof verification stage");
-        
-        CCswProofVerifierInput verifierInput = SidechainProofVerifier::CswInputToVerifierInput(cswInput, &scTx, sidechain.fixedParams, pfrom);
-        txMap.insert(std::make_pair(verifierInput.proofId, verifierInput));
-    }
-
-    if (!txMap.empty())
-    {
-        LOCK(cs_asyncQueue);
-        auto pair_ret = cswEnqueuedData.insert(std::make_pair(scTx.GetHash(), txMap));
-        if (!pair_ret.second)
-        {
-            LogPrint("sc", "%s():%d - tx [%s] csw inputs already there\n",
-                __func__, __LINE__, scTx.GetHash().ToString());
-        }
-        else
-        {
-            LogPrint("sc", "%s():%d - tx [%s] added to queue with %d inputs\n",
-                __func__, __LINE__, scTx.GetHash().ToString(), txMap.size());
-        }
-    }
+    LOCK(cs_asyncQueue);
+    CScProofVerifier::LoadDataForCswVerification(view, scTx, pfrom);
 }
 #endif
 
