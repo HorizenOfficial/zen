@@ -1367,7 +1367,7 @@ void FillCeasingCumScTxCommTree(const uint256& scid, UniValue& ret)
         LogPrint("sc", "%s():%d - scid[%s] ceasing cum sc commitment tree not in db\n", __func__, __LINE__, scid.ToString());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing ceasing cum sc commitment tree not for required scid"));
     }
-    ret.push_back(Pair("ceasingCumScTxCommTree", fe.GetHexRepr()));
+    ret.pushKV("ceasingCumScTxCommTree", fe.GetHexRepr());
 }
 
 UniValue getscinfo(const UniValue& params, bool fHelp)
@@ -1937,12 +1937,12 @@ UniValue getproofverifierstats(const UniValue& params, bool fHelp)
     size_t pendingCSWs = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProofs();
 
     UniValue obj(UniValue::VOBJ);
-    obj.push_back(Pair("pendingCerts",  pendingCerts));
-    obj.push_back(Pair("pendingCSWs",   pendingCSWs));
-    obj.push_back(Pair("failedCerts",   static_cast<uint64_t>(stats.failedCertCounter)));
-    obj.push_back(Pair("failedCSWs",    static_cast<uint64_t>(stats.failedCswCounter)));
-    obj.push_back(Pair("okCerts",       static_cast<uint64_t>(stats.okCertCounter)));
-    obj.push_back(Pair("okCSWs",        static_cast<uint64_t>(stats.okCswCounter)));
+    obj.pushKV("pendingCerts",  pendingCerts);
+    obj.pushKV("pendingCSWs",   pendingCSWs);
+    obj.pushKV("failedCerts",   static_cast<uint64_t>(stats.failedCertCounter));
+    obj.pushKV("failedCSWs",    static_cast<uint64_t>(stats.failedCswCounter));
+    obj.pushKV("okCerts",       static_cast<uint64_t>(stats.okCertCounter));
+    obj.pushKV("okCSWs",        static_cast<uint64_t>(stats.okCswCounter));
 
     return obj;
 }
