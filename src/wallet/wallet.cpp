@@ -3166,18 +3166,12 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
     for (const CTxIn& txin: tx.vin)
         coinControl.Select(txin.prevout);
 
-    // if we have ceased sc withdrawl inputs, they must be taken into account when doing computations for funding input amount
-    CAmount cswInTotAmount = 0;
-    unsigned int cswInTotSize = 0;
-    for(const CTxCeasedSidechainWithdrawalInput& cswIn: tx.vcsw_ccin)
-    {
-        cswInTotAmount += cswIn.nValue;
-        cswInTotSize   += cswIn.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
-    }
+    // if we have ceased sc withdrawl inputs, they must be taken into account when doing computations for
+    // funding input amount. Such contribution is handled in the CreateTransaction() function
 
     CReserveKey reservekey(this);
     CWalletTx wtx;
-    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false, cswInTotAmount, cswInTotSize))
+    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false, tx.vcsw_ccin))
         return false;
 
     if (nChangePosRet != -1)
@@ -3198,6 +3192,8 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
         if (!found)
             tx.vin.push_back(txin);
     }
+
+    // csw inputs vector (if any) remains the same
 
     return true;
 }
@@ -3226,7 +3222,7 @@ bool CWallet::CreateTransaction(
     const std::vector<CRecipientBwtRequest>& vecBwtRequest,
     CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
     int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign,
-    CAmount cswInTotAmount, unsigned int cswInTotSize)
+    const std::vector<CTxCeasedSidechainWithdrawalInput>& vcsw_input)
 {
     CAmount totalOutputValue = 0;
     unsigned int nSubtractFeeFromAmount = 0;
@@ -3256,6 +3252,12 @@ bool CWallet::CreateTransaction(
         return false;
     }
 
+    CAmount cswInTotAmount = 0;
+    for(const CTxCeasedSidechainWithdrawalInput& cswIn: vcsw_input)
+    {
+        cswInTotAmount += cswIn.nValue;
+    }
+
     // remove ceased sidechain withdrawal input value if any, since must not be fund by wallet coins
     totalOutputValue -= cswInTotAmount;
 
@@ -3263,7 +3265,7 @@ bool CWallet::CreateTransaction(
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
 
-    if (!vecScSend.empty() || !vecFtSend.empty() || !vecBwtRequest.empty() || cswInTotSize > 0)
+    if (!vecScSend.empty() || !vecFtSend.empty() || !vecBwtRequest.empty() || !vcsw_input.empty())
     {
         // set proper version
         txNew.nVersion = SC_TX_VERSION;
@@ -3298,7 +3300,8 @@ bool CWallet::CreateTransaction(
             while (true)
             {
                 txNew.vin.clear();
-                // vcsw_ccin are not handled
+                txNew.vcsw_ccin.clear();
+
                 txNew.resizeOut(0);
                 txNew.vsc_ccout.clear();
                 txNew.vft_ccout.clear();
@@ -3489,6 +3492,9 @@ bool CWallet::CreateTransaction(
                     }
                 }
 
+                // add csw input 
+                txNew.vcsw_ccin = vcsw_input;
+
                 // Sign
                 int nIn = 0;
                 CTransaction txNewConst(txNew);
@@ -3510,14 +3516,34 @@ bool CWallet::CreateTransaction(
                     nIn++;
                 }
 
+                for (auto& cswIn: txNewConst.GetVcswCcIn())
+                {
+                    bool signSuccess;
+                    const CScript& scriptPubKey = cswIn.scriptPubKey();
+ 
+                    CScript& scriptSigRes = txNew.vcsw_ccin.at(nIn - setCoins.size()).redeemScript;
+
+                    if (sign)
+                        signSuccess = ProduceSignature(TransactionSignatureCreator(*this, txNewConst, nIn, SIGHASH_ALL), scriptPubKey, scriptSigRes);
+                    else
+                        signSuccess = ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes);
+
+                    if (!signSuccess)
+                    {
+                        strFailReason = _("Signing transaction failed");
+                        return false;
+                    }
+                    nIn++;
+                }
+
                 unsigned int nBytes = ::GetSerializeSize(txNew, SER_NETWORK, PROTOCOL_VERSION);
-                // add csw contribution if any for having the correct feeRate/priority
-                nBytes += cswInTotSize;
 
                 // Remove scriptSigs if we used dummy signatures for fee calculation
                 if (!sign) {
-                    BOOST_FOREACH (CTxIn& vin, txNew.vin)
+                    for (CTxIn& vin: txNew.vin)
                         vin.scriptSig = CScript();
+                    for (auto& cswIn: txNew.vcsw_ccin)
+                        cswIn.redeemScript = CScript();
                 }
 
                 // Embed the constructed transaction data in wtxNew.

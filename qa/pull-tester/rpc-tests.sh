@@ -110,6 +110,7 @@ testScripts=(
   'sc_getscinfo.py'
   'sc_quality_nodes.py'
   'sc_cert_memcleanup_split.py'
+  'sc_csw_fundrawtransaction.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'

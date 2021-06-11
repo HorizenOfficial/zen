@@ -1112,8 +1112,7 @@ public:
         const std::vector<Sidechain::CRecipientBwtRequest>& vecBwtRequest,
         CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosRet,
         std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true,
-        CAmount cswInTotAmount = 0,
-        unsigned int cswInTotSize = 0);
+        const std::vector<CTxCeasedSidechainWithdrawalInput>& vcsw_input = std::vector<CTxCeasedSidechainWithdrawalInput>() );
 
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
 
