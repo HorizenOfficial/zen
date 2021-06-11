@@ -88,7 +88,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
 
     def run_test(self):
         '''
-        Verify that the async proof verifier for sidechain proves works as expected.
+        Verify that the async proof verifier for sidechain proofs works as expected.
         '''
 
         # Prepare some coins
@@ -337,7 +337,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         final_raw_tx = self.nodes[0].sendrawtransaction(sig_raw_tx['hex'])
         mark_logs("sent csw tx {}".format(final_raw_tx), self.nodes, DEBUG_MODE)
 
-        # The CSW prooves will take some time to be verified
+        # The CSW proofs will take some time to be verified
         mark_logs("Check CSW tx is not in mempool...", self.nodes, DEBUG_MODE)
         assert_false(final_raw_tx in self.nodes[1].getrawmempool())
 

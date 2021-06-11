@@ -6,7 +6,7 @@ $(package)_sha256_hash_linux=1aa4ae25e798ad69a981ddd6cb661db898b8a73fba01535cd7a
 $(package)_file_name_darwin=rust-$($(package)_version)-x86_64-apple-darwin.tar.gz
 $(package)_sha256_hash_darwin=8fc6eeb116955ac9e11c8cd10d078915602300cf456ecb4820014564388680d8
 $(package)_file_name_mingw32=rust-$($(package)_version)-x86_64-pc-windows-gnu.tar.gz
-$(package)_sha256_hash_mingw32=e29ceb2a460cad614569b1ff682c06370f957f27f88fc5c1e9e9f0eaefcaa382
+$(package)_sha256_hash_mingw32=654b4061a53c5936835f71a099224c9b53a0f5b1168dbb80b7915b3b9cea075d
 
 ifeq ($(host_os),mingw32)
 $(package)_build_subdir=buildos

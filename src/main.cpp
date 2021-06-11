@@ -1160,7 +1160,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
     if (!cert.CheckInputsLimit())
     {
-        LogPrintf("%s(): CheckInputsLimit failed", __func__);
+        LogPrintf("%s(): CheckInputsLimit failed\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1173,7 +1173,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
     static const int DOS_LEVEL = 10;
     if(!cert.ContextualCheck(state, nextBlockHeight, DOS_LEVEL))
     {
-        LogPrintf("%s(): ContextualCheck failed", __func__);
+        LogPrintf("%s(): ContextualCheck failed\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1188,7 +1188,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
     if (!pool.checkIncomingCertConflicts(cert))
     {
-        LogPrintf("%s(): certificate has conflicts in mempool", __func__);
+        LogPrintf("%s(): certificate has conflicts in mempool\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -2996,7 +2996,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     ret_code, "bad-sc-tx-not-applicable");
             }
 
-            // Add the transaction proves (if any) to the sidechain proof verifier.
+            // Add the transaction proofs (if any) to the sidechain proof verifier.
             if (fScProofVerification == flagScProofVerification::ON)
             {
                 scVerifier.LoadDataForCswVerification(view, tx);
@@ -5749,6 +5749,51 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
+void ProcessMempoolMsg(const CTxMemPool& pool, CNode* pfrom)
+{
+    LOCK2(cs_main, pfrom->cs_filter);
+
+    std::vector<uint256> vtxid;
+    pool.queryHashes(vtxid);
+    vector<CInv> vInv;
+    for(uint256& hash: vtxid)
+    {
+        CInv inv(MSG_TX, hash);
+        std::unique_ptr<CTransactionBase> mempoolObjPtr{};
+        bool fInMemPool = false;
+
+        if (pool.existsTx(hash))
+        {
+            CTransaction* txPtr = new CTransaction{};
+            fInMemPool = pool.lookup(hash, *txPtr);
+            mempoolObjPtr.reset(txPtr);
+        } else if (pool.existsCert(hash))
+        {
+            CScCertificate* certPtr = new CScCertificate{};
+            fInMemPool = pool.lookup(hash, *certPtr);
+            mempoolObjPtr.reset(certPtr);
+        }
+
+        if (!fInMemPool) continue; // another thread removed since queryHashes, maybe...
+
+        if ((pfrom->pfilter && pfrom->pfilter->IsRelevantAndUpdate(*mempoolObjPtr)) || (!pfrom->pfilter))
+        {
+            vInv.push_back(inv);
+        }
+
+        if (vInv.size() == MAX_INV_SZ)
+        {
+            pfrom->PushInvs("inv", vInv);
+            vInv.clear();
+        }
+    }
+
+    if (vInv.size() > 0)
+        pfrom->PushInvs("inv", vInv);
+
+    return;
+}
+
 void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfrom, BatchVerificationStateFlag proofVerificationState, CValidationState& state)
 {
     if (proofVerificationState == BatchVerificationStateFlag::FAILED)
@@ -6630,26 +6675,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == "mempool")
     {
-        LOCK2(cs_main, pfrom->cs_filter);
-
-        std::vector<uint256> vtxid;
-        mempool.queryHashes(vtxid);
-        vector<CInv> vInv;
-        BOOST_FOREACH(uint256& hash, vtxid) {
-            CInv inv(MSG_TX, hash);
-            CTransaction tx;
-            bool fInMemPool = mempool.lookup(hash, tx);
-            if (!fInMemPool) continue; // another thread removed since queryHashes, maybe...
-            if ((pfrom->pfilter && pfrom->pfilter->IsRelevantAndUpdate(tx)) ||
-               (!pfrom->pfilter))
-                vInv.push_back(inv);
-            if (vInv.size() == MAX_INV_SZ) {
-                pfrom->PushMessage("inv", vInv);
-                vInv.clear();
-            }
-        }
-        if (vInv.size() > 0)
-            pfrom->PushMessage("inv", vInv);
+        ProcessMempoolMsg(mempool, pfrom);
     }
 
 

@@ -238,36 +238,15 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         mark_logs("Check fwd tx {} is still in mempool...".format(tx_fwd), self.nodes, DEBUG_MODE)
         assert_true(tx_fwd in self.nodes[0].getrawmempool()) 
 
-        any_error = False
-
-        mark_logs("Check bwd tx {} is no more in mempool, since we crossed the epoch safeguard".format(tx_bwt), self.nodes, DEBUG_MODE)
-        #assert_false(tx_bwt in self.nodes[0].getrawmempool()) 
-        if tx_bwt in self.nodes[0].getrawmempool():
-            print "FIX FIX FIX!!! bwt is still in mempool" 
-            any_error = True
-
-        mark_logs("And that no info are available too...", self.nodes, DEBUG_MODE)
-        try:
-            self.nodes[0].getrawtransaction(tx_bwt, 1)
-            print "FIX FIX FIX!!! tx_bwt has info in Node0" 
-            any_error = True
-            #assert (False)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("===> {}".format(errorString), self.nodes, DEBUG_MODE)
-            assert_true("No information" in errorString)
+        mark_logs("Check bwd tx {} is still in mempool, even though we crossed the epoch safeguard".format(tx_bwt), self.nodes, DEBUG_MODE)
+        assert_true(tx_bwt in self.nodes[0].getrawmempool()) 
 
         mark_logs("Check cert {} is no more in mempool, since we crossed the epoch safeguard".format(cert_bad), self.nodes, DEBUG_MODE)
         assert_false(cert_bad in self.nodes[0].getrawmempool()) 
-        if cert_bad in self.nodes[0].getrawmempool():
-            print "FIX FIX FIX!!! cert is still in mempool" 
-            any_error = True
 
         mark_logs("And that no info are available too...", self.nodes, DEBUG_MODE)
         try:
             self.nodes[0].getrawcertificate(cert_bad, 1)
-            print "FIX FIX FIX!!! cert has info in Node0" 
-            any_error = True
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -280,10 +259,6 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("===> {}".format(errorString), self.nodes, DEBUG_MODE)
-
-        if any_error:
-            print" =========================> Test failed!!!"
-            #assert(False)
 
         for i in range(NUMB_OF_NODES):
             pprint.pprint(self.nodes[i].getrawmempool())

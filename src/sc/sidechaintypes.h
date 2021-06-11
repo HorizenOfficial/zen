@@ -42,6 +42,30 @@ namespace Sidechain
     static const int SEGMENT_SIZE = 1 << 17;
 }
 
+///////////////////////////////// CZendooBatchProofVerifierResult ////////////////////////////////
+struct CZendooBatchProofVerifierResultPtrDeleter
+{ // deleter
+    CZendooBatchProofVerifierResultPtrDeleter() = default;
+    void operator()(ZendooBatchProofVerifierResult* p) const {
+        zendoo_free_batch_proof_verifier_result(p);
+        p = nullptr;
+    };
+};
+
+class CZendooBatchProofVerifierResult
+{
+public:
+    CZendooBatchProofVerifierResult() = default;
+    explicit CZendooBatchProofVerifierResult(ZendooBatchProofVerifierResult* result);
+
+    bool Result() const;
+    std::vector<uint32_t> FailedProofs() const;
+
+private:
+    const std::unique_ptr<ZendooBatchProofVerifierResult, CZendooBatchProofVerifierResultPtrDeleter> resultPtr;
+};
+///////////////////////////// End of CZendooBatchProofVerifierResult /////////////////////////////
+
 class CZendooCctpLibraryChecker
 {
     public:

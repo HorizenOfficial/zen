@@ -1913,7 +1913,7 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
 /**
  * @brief Retrieves the statistics about the sidechain proof verifier, for instance
  * the number of accepted and failed verifications, the number of pending
- * proves, etc.
+ * proofs, etc.
  */
 UniValue getproofverifierstats(const UniValue& params, bool fHelp)
 {
@@ -1933,8 +1933,8 @@ UniValue getproofverifierstats(const UniValue& params, bool fHelp)
     }
 
     AsyncProofVerifierStatistics stats = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().GetStatistics();
-    size_t pendingCerts = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCertProves();
-    size_t pendingCSWs = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProves();
+    size_t pendingCerts = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCertProofs();
+    size_t pendingCSWs = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProofs();
 
     UniValue obj(UniValue::VOBJ);
     obj.push_back(Pair("pendingCerts",  pendingCerts));

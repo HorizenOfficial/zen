@@ -80,7 +80,8 @@ bool CScProofVerifier::BatchVerify() const
     ZendooBatchProofVerifier batchVerifier;
     uint32_t idx = 0;
 
-    LogPrint("sc", "%s():%d - starting verification\n", __func__, __LINE__);
+    int64_t nTime1 = GetTimeMicros();
+    LogPrint("bench", "%s():%d - starting verification\n", __func__, __LINE__);
     for (const auto& entry : cswEnqueuedData)
     {
         for (const auto& entry2 : entry.second)
@@ -184,18 +185,17 @@ bool CScProofVerifier::BatchVerify() const
         }
     }
 
-    int64_t failingProof = -1;
-    ZendooBatchProofVerifierResult verRes = batchVerifier.batch_verify_all(&code);
-    if (!verRes.result)
-    {
-        failingProof = verRes.failing_proof;
- 
-        LogPrintf("ERROR: %s():%d - verify all failed: proofId[%lld], code [0x%x]\n",
-            __func__, __LINE__, failingProof, code);
+    CZendooBatchProofVerifierResult verRes(batchVerifier.batch_verify_all(&code));
+
+    if (!verRes.Result())
+    { 
+        LogPrintf("ERROR: %s():%d - verify failed for %d proof(s), code [0x%x]\n",
+            __func__, __LINE__, verRes.FailedProofs().size(), code);
         return false; 
     }
 
-    LogPrint("sc", "%s():%d - verification succesful\n", __func__, __LINE__);
+    int64_t nTime2 = GetTimeMicros();
+    LogPrint("bench", "%s():%d - verification succesful: %.2fms\n", __func__, __LINE__, (nTime2-nTime1) * 0.001);
     return true; 
 }
 

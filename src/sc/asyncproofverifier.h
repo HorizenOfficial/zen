@@ -32,10 +32,10 @@ struct AsyncProofVerifierOutput
  */
 struct AsyncProofVerifierStatistics
 {
-    uint32_t okCertCounter = 0;     /**< The number of certificate proves that have been correctly verified. */
-    uint32_t okCswCounter = 0;      /**< The number of CSW input proves that have been correctly verified. */
-    uint32_t failedCertCounter = 0; /**< The number of certificate proves whose verification failed. */
-    uint32_t failedCswCounter = 0;  /**< The number of CSW input proves whose verification failed. */
+    uint32_t okCertCounter = 0;     /**< The number of certificate proofs that have been correctly verified. */
+    uint32_t okCswCounter = 0;      /**< The number of CSW input proofs that have been correctly verified. */
+    uint32_t failedCertCounter = 0; /**< The number of certificate proofs whose verification failed. */
+    uint32_t failedCswCounter = 0;  /**< The number of CSW input proofs whose verification failed. */
 };
 
 /**
@@ -69,11 +69,15 @@ private:
 
     static const uint32_t THREAD_WAKE_UP_PERIOD = 100;           /**< The period of time in milliseconds after which the thread wakes up. */
     static const uint32_t BATCH_VERIFICATION_MAX_DELAY = 5000;   /**< The maximum delay in milliseconds between batch verification requests */
-    static const uint32_t BATCH_VERIFICATION_MAX_SIZE = 10;      /**< The threshold size of the proof queue that triggers a call to the batch verification. */
+
+    // static const uint32_t BATCH_VERIFICATION_MAX_SIZE = 10;      /**< The threshold size of the proof queue that triggers a call to the batch verification. */
+    // TODO: temporary - modified for benchmarking via py test:
+    // a modification will be added for rendering it (and also delay above) customizable with suited zend startup options
+    static const uint32_t BATCH_VERIFICATION_MAX_SIZE = 0;
 
     CCriticalSection cs_asyncQueue;
-    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> cswEnqueuedData; /**< The queue of CSW proves to be verified. */
-    std::map</*certHash*/uint256, CCertProofVerifierInput> certEnqueuedData;    /**< The queue of certificate proves to be verified. */
+    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> cswEnqueuedData; /**< The queue of CSW proofs to be verified. */
+    std::map</*certHash*/uint256, CCertProofVerifierInput> certEnqueuedData;    /**< The queue of certificate proofs to be verified. */
 
     // Members used for REGTEST mode only. [Start]
     AsyncProofVerifierStatistics stats;     /**< Async proof verifier statistics. */
@@ -128,23 +132,23 @@ public:
     }
 
     /**
-     * @brief Gets the current number of certificate proves waiting to be verified
+     * @brief Gets the current number of certificate proofs waiting to be verified
      * by the async proof verifier.
      * 
-     * @return size_t The number of pending certificate proves.
+     * @return size_t The number of pending certificate proofs.
      */
-    size_t PendingAsyncCertProves()
+    size_t PendingAsyncCertProofs()
     {
         return CScAsyncProofVerifier::GetInstance().certEnqueuedData.size();
     }
 
     /**
-     * @brief Gets the current number of CSW proves waiting to be verified
+     * @brief Gets the current number of CSW proofs waiting to be verified
      * by the async proof verifier.
      * 
-     * @return size_t The number of pending CSW proves.
+     * @return size_t The number of pending CSW proofs.
      */
-    size_t PendingAsyncCswProves()
+    size_t PendingAsyncCswProofs()
     {
         return CScAsyncProofVerifier::GetInstance().cswEnqueuedData.size();
     }
