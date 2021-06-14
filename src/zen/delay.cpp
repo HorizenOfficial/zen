@@ -34,7 +34,3 @@ int64_t GetBlockDelay(const CBlockIndex& newBlock, const CBlockIndex& prevBlock,
         }
     }
 }
-bool IsChainPenalised(const CChain& chain)
-{
-    return (chain.Tip()->nChainDelay < 0);
-}

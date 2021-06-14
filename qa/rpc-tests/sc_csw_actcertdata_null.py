@@ -10,6 +10,8 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     wait_bitcoinds, stop_nodes, sync_mempools, sync_blocks, \
     disconnect_nodes, advance_epoch, swap_bytes
 
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+
 from test_framework.mc_test.mc_test import *
 
 from decimal import Decimal
@@ -47,7 +49,7 @@ class CswActCertDataTest(BitcoinTestFramework):
         '''
 
         # prepare some coins 
-        self.nodes[0].generate(220)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
         self.sync_all()
         prev_epoch_hash = self.nodes[0].getbestblockhash()
 

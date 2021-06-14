@@ -60,13 +60,7 @@ class sc_big_block(BitcoinTestFramework):
         TOT_NUM_OF_SIDECHAINS = 100
 # parameters for tuning the complexity (and the size) of the created proofs
 # These have impacts also on disk space
-# TO TEST: 
-#   1) CERT_NUM_CONSTRAINTS = 1 << 19, CSW_NUM_CONSTRAINTS = 1 << 18;
-#   2) CERT_NUM_CONSTRAINTS = 1 << 20, CSW_NUM_CONSTRAINTS = 1 << 19;
-        CERT_NUM_CONSTRAINTS = 1 << 20
-        CERT_PROVING_SYSTEM = "darlin"
-        CSW_NUM_CONSTRAINTS = 1 << 19
-        CSW_PROVING_SYSTEM = "darlin"
+        NUM_OF_CONSTRAINTS = 1 << 19
         SEGMENT_SIZE = 1 << 17
 #================================================================================
         assert_true(TOT_NUM_OF_SIDECHAINS >=2)
@@ -98,7 +92,7 @@ class sc_big_block(BitcoinTestFramework):
                     t0 = time.time()
                     proof = certMcTest.create_test_proof(
                         "scs", epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [], proofCfeArray,
-                        CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
+                        NUM_OF_CONSTRAINTS, SEGMENT_SIZE)
                     assert_true(proof != None)
                     t1 = time.time()
                     print "...proof generated: {} secs".format(t1-t0)
@@ -126,11 +120,11 @@ class sc_big_block(BitcoinTestFramework):
         self.sync_all()
 
         #generate Vks and constant
-        certMcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir, CERT_PROVING_SYSTEM)
-        cswMcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir, CSW_PROVING_SYSTEM)
+        certMcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+        cswMcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir)
 
-        certVk = certMcTest.generate_params('scs', CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
-        cswVk  = cswMcTest.generate_params('scs', CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
+        certVk = certMcTest.generate_params('scs', NUM_OF_CONSTRAINTS, SEGMENT_SIZE)
+        cswVk  = cswMcTest.generate_params('scs', NUM_OF_CONSTRAINTS, SEGMENT_SIZE)
 
         constant = generate_random_field_element_hex()
 
@@ -208,7 +202,7 @@ class sc_big_block(BitcoinTestFramework):
             t0 = time.time()
             sc_proof = cswMcTest.create_test_proof(
                     "scs", sc_csw_amount, str(scid_swapped), nullifier, pkh_mc_address, ceasingCumScTxCommTree, actCertData,
-                    CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
+                    NUM_OF_CONSTRAINTS, SEGMENT_SIZE)
             assert_true(sc_proof != None)
             t1 = time.time()
             print "...proof generated: {} secs".format(t1-t0)

@@ -70,10 +70,7 @@ private:
     static const uint32_t THREAD_WAKE_UP_PERIOD = 100;           /**< The period of time in milliseconds after which the thread wakes up. */
     static const uint32_t BATCH_VERIFICATION_MAX_DELAY = 5000;   /**< The maximum delay in milliseconds between batch verification requests */
 
-    // static const uint32_t BATCH_VERIFICATION_MAX_SIZE = 10;      /**< The threshold size of the proof queue that triggers a call to the batch verification. */
-    // TODO: temporary - modified for benchmarking via py test:
-    // a modification will be added for rendering it (and also delay above) customizable with suited zend startup options
-    static const uint32_t BATCH_VERIFICATION_MAX_SIZE = 0;
+    static const uint32_t BATCH_VERIFICATION_MAX_SIZE = 10;      /**< The threshold size of the proof queue that triggers a call to the batch verification. */
 
     CCriticalSection cs_asyncQueue;
     std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> cswEnqueuedData; /**< The queue of CSW proofs to be verified. */

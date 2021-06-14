@@ -166,6 +166,7 @@ extern CAmount AmountFromValue(const UniValue& value);
 extern UniValue ValueFromAmount(const CAmount& amount);
 extern double GetDifficulty(const CBlockIndex* blockindex = NULL);
 extern double GetNetworkDifficulty(const CBlockIndex* blockindex = NULL);
+extern int64_t blocksToOvertakeTarget(const CBlockIndex* forkTip, const CBlockIndex* targetBlock);
 extern std::string HelpRequiringPassphrase();
 extern std::string HelpExampleCli(const std::string& methodname, const std::string& args);
 extern std::string HelpExampleRpc(const std::string& methodname, const std::string& args);

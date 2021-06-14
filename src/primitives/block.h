@@ -126,6 +126,11 @@ public:
         SetNull();
     }
 
+    void SetBlockHeader(const CBlockHeader &header)
+    {
+        *static_cast<CBlockHeader*>(this) = header;
+    }
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>

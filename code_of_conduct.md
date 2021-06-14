@@ -41,12 +41,12 @@ is deemed necessary and appropriate to the circumstances. Maintainers are
 obligated to maintain confidentiality with regard to the reporter of an
 incident.
 
-You may send reports to [our Conduct email](mailto:info@horizen.global).
+You may send reports to [our Conduct email](mailto:info@horizen.io).
 
 If you wish to contact specific maintainers directly, the following have made
 themselves available for conduct issues:
 
-- Jake (jake at horizen.global)
+- cronic (cronic at horizen.io)
 
 
 This Code of Conduct is adapted from the [Contributor Covenant][homepage],

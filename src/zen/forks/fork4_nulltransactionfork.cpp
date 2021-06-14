@@ -11,7 +11,7 @@ NullTransactionFork::NullTransactionFork()
                                      "zszpcLB6C5B8QvfDbF2dYWXsrpac5DL9WRk"
                                      }},
                                 {CBaseChainParams::Network::REGTEST,{
-                                     "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa"
+                                     "zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD"
                                  }},
                                 {CBaseChainParams::Network::TESTNET,{
                                      "zrFzxutppvxEdjyu4QNjogBMjtC1py9Hp1S"
@@ -21,7 +21,7 @@ NullTransactionFork::NullTransactionFork()
                                      "zsxWnyDbU8pk2Vp98Uvkx5Nh33RFzqnCpWN"
                                      }},
                                 {CBaseChainParams::Network::REGTEST,{
-                                     "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa"
+                                     "zrQG6x9j33DLbCfzAqu3qKMe7z1VDL1z2L7"
                                  }},
                                 {CBaseChainParams::Network::TESTNET,{
                                      "zrS7QUB2eDbbKvyP43VJys3t7RpojW8GdxH"
@@ -31,7 +31,7 @@ NullTransactionFork::NullTransactionFork()
                                      "zsnL6pKdzvZ1BPVzALUoqw2KsY966XFs5CE"
                                      }},
                                 {CBaseChainParams::Network::REGTEST,{
-                                     "zrKmSdqZKZjnARd5e8FfRg4v1m74X7twxGa"
+                                     "zrMasbhB1yyfQ5RBUm7NPcEjGWZdRneWCEx"
                                  }},
                                 {CBaseChainParams::Network::TESTNET,{
                                      "zrFr5HVm7woVq3oFzkMEdJdbfBchfPAPDsP"
@@ -44,7 +44,23 @@ NullTransactionFork::NullTransactionFork()
     };
 }
 
+/*
+ * These are the prv keys used in REGTEST for getting the community fund p2sh addresses:
+ *
+ * === FOUNDATION ===
+ * "privkey": "cQqMxnYBJUUS3jERyQSJWFuQV54eKTgS2v68wMNHXtNg9HzuyiAk"
+ * 
+ * === SECURENODE ===
+ * "privkey": "cTbp5QgshYtVGRqmTw5rA3GLSfnqnSX5RsBjdY1QPaXBxU6EfKAy"
+ * 
+ * === SUPERNODE ===
+ * "privkey": "cTjAijxL4AJxk4CFi1Sn88joturRYTaagB1NQdYVoDHsJqxqRCnM"
 
+ * After having imported the relevant priv key:
+ *     src/zen-cli --regtest importprivkey <privkey>
+ * The multi sig (m=1) redeemscript can be added to the wallet via:
+ *     src/zen-cli --regtest addmultisigaddress 1 "[\"<zen_addr>\"]
+ */
 
 /*
 * @brief getCommunityFundReward returns the community fund reward based on the height and passed-in reward
