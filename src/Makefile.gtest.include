@@ -56,6 +56,7 @@ zen_gtest_SOURCES += \
 	gtest/test_sidechain_certificate_quality.cpp \
 	gtest/test_sidechain_blocks.cpp \
 	gtest/test_libzendoo.cpp \
+	gtest/test_reindex.cpp \
 	gtest/test_asyncproofverifier.cpp
 
 if ENABLE_WALLET

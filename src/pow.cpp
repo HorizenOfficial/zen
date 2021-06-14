@@ -5,6 +5,8 @@
 
 #include "pow.h"
 
+#include "consensus/params.h"
+#include <primitives/block.h>
 #include "arith_uint256.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -13,9 +15,8 @@
 #include "streams.h"
 #include "uint256.h"
 #include "util.h"
-
+#include <metrics.h>
 #include "sodium.h"
-
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
@@ -105,6 +106,55 @@ bool CheckEquihashSolution(const CBlockHeader *pblock, const CChainParams& param
     return true;
 }
 
+/** extracted from rpc command generate and reused in UTs **/
+void generateEquihash(CBlock& block)
+{
+    //in rpc command this function should be used on regtest only
+    assert(Params().MineBlocksOnDemand());
+
+    unsigned int n = Params().EquihashN();
+    unsigned int k = Params().EquihashK();
+
+    // Hash state
+    crypto_generichash_blake2b_state eh_state;
+    EhInitialiseState(n, k, eh_state);
+
+    // I = the block header minus nonce and solution.
+    CEquihashInput I{block};
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << I;
+
+    // H(I||...
+    crypto_generichash_blake2b_update(&eh_state, (unsigned char*)&ss[0], ss.size());
+
+    bool fSolutionFound = false;
+    while (!fSolutionFound)
+    {
+        // Yes, there is a chance every nonce could fail to satisfy the -regtest
+        // target -- 1 in 2^(2^256). That ain't gonna happen
+        block.nNonce = ArithToUint256(UintToArith256(block.nNonce) + 1);
+
+        // H(I||V||...
+        crypto_generichash_blake2b_state curr_state;
+        curr_state = eh_state;
+        crypto_generichash_blake2b_update(&curr_state,
+                                          block.nNonce.begin(),
+                                          block.nNonce.size());
+
+        // (x_1, x_2, ...) = A(I, V, n, k)
+        std::function<bool(std::vector<unsigned char>)> validBlock =
+                [&block](std::vector<unsigned char> soln) {
+            block.nSolution = soln;
+            solutionTargetChecks.increment();
+            return CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus());
+        };
+        fSolutionFound = EhBasicSolveUncancellable(n, k, curr_state, validBlock);
+        ehSolverRuns.increment();
+    }
+
+    return;
+}
+
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params)
 {
     bool fNegative;
@@ -115,7 +165,10 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&
 
     // Check range
     if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(params.powLimit))
+    {
+        LogPrint("pow", "nBits = %x, n=%d, o=%d\n", nBits, (int)fNegative, (int)fOverflow);
         return error("CheckProofOfWork(): nBits below minimum work");
+    }
 
     // Check proof of work matches claimed amount
     if (UintToArith256(hash) > bnTarget)

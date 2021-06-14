@@ -12,8 +12,8 @@ def expand_array(inp, out_len, bit_len, byte_pad=0):
     assert bit_len >= 8 and word_size >= 7+bit_len
     bit_len_mask = (1<<bit_len)-1
 
-    out_width = (bit_len+7)/8 + byte_pad
-    assert out_len == 8*out_width*len(inp)/bit_len
+    out_width = (bit_len+7)//8 + byte_pad
+    assert out_len == 8*out_width*len(inp)//bit_len
     out = bytearray(out_len)
 
     bit_len_mask = (1 << bit_len) - 1
@@ -47,8 +47,8 @@ def expand_array(inp, out_len, bit_len, byte_pad=0):
 def compress_array(inp, out_len, bit_len, byte_pad=0):
     assert bit_len >= 8 and word_size >= 7+bit_len
 
-    in_width = (bit_len+7)/8 + byte_pad
-    assert out_len == bit_len*len(inp)/(8*in_width)
+    in_width = (bit_len+7)//8 + byte_pad
+    assert out_len == bit_len*len(inp)//(8*in_width)
     out = bytearray(out_len)
 
     bit_len_mask = (1 << bit_len) - 1
@@ -88,7 +88,7 @@ def get_indices_from_minimal(minimal, bit_len):
 
 def get_minimal_from_indices(indices, bit_len):
     eh_index_size = 4
-    assert (bit_len+7)/8 <= eh_index_size
+    assert (bit_len+7)//8 <= eh_index_size
     len_indices = len(indices)*eh_index_size
     min_len = bit_len*len_indices/(8*eh_index_size)
     byte_pad = eh_index_size - (bit_len+7)/8
@@ -130,9 +130,9 @@ def xor(ha, hb):
 def gbp_basic(digest, n, k):
     '''Implementation of Basic Wagner's algorithm for the GBP.'''
     validate_params(n, k)
-    collision_length = n/(k+1)
+    collision_length = n//(k+1)
     hash_length = (k+1)*((collision_length+7)//8)
-    indices_per_hash_output = 512/n
+    indices_per_hash_output = 512//n
 
     # 1) Generate first list
     if DEBUG: print 'Generating first list'
@@ -143,10 +143,10 @@ def gbp_basic(digest, n, k):
         if r == 0:
             # X_i = H(I||V||x_i)
             curr_digest = digest.copy()
-            hash_xi(curr_digest, i/indices_per_hash_output)
+            hash_xi(curr_digest, i//indices_per_hash_output)
             tmp_hash = curr_digest.digest()
         X.append((
-            expand_array(bytearray(tmp_hash[r*n/8:(r+1)*n/8]),
+            expand_array(bytearray(tmp_hash[r*n//8:(r+1)*n//8]),
                          hash_length, collision_length),
             (i,)
         ))
@@ -229,9 +229,9 @@ def gbp_basic(digest, n, k):
 
 def gbp_validate(digest, minimal, n, k):
     validate_params(n, k)
-    collision_length = n/(k+1)
+    collision_length = n//(k+1)
     hash_length = (k+1)*((collision_length+7)//8)
-    indices_per_hash_output = 512/n
+    indices_per_hash_output = 512//n
     solution_width = (1 << k)*(collision_length+1)//8
 
     if len(minimal) != solution_width:
@@ -247,7 +247,7 @@ def gbp_validate(digest, minimal, n, k):
         hash_xi(curr_digest, i/indices_per_hash_output)
         tmp_hash = curr_digest.digest()
         X.append((
-            expand_array(bytearray(tmp_hash[r*n/8:(r+1)*n/8]),
+            expand_array(bytearray(tmp_hash[r*n//8:(r+1)*n//8]),
                          hash_length, collision_length),
             (i,)
         ))

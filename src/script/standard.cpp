@@ -257,7 +257,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                 if (rpLevel < RPLEVEL_FIXED_2)
                 {
                     // Full-fledged implementation of the OP_CHECKBLOCKATHEIGHT opcode for verification of vout's
-  
 
                     if (vchBlockHash.size() != 32)
                     {

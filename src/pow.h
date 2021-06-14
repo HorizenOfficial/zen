@@ -2,14 +2,16 @@
 // Copyright (c) 2009-2014 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #ifndef BITCOIN_POW_H
 #define BITCOIN_POW_H
 
-#include "consensus/params.h"
-
 #include <stdint.h>
 
+namespace Consensus {
+    class Params;
+}
+
+class CBlock;
 class CBlockHeader;
 class CBlockIndex;
 class CChainParams;
@@ -23,6 +25,9 @@ unsigned int CalculateNextWorkRequired(arith_uint256 bnAvg,
 
 /** Check whether the Equihash solution in a block header is valid */
 bool CheckEquihashSolution(const CBlockHeader *pblock, const CChainParams&);
+
+/** extracted from rpc command generate and reused in UTs **/
+void generateEquihash(CBlock& block);
 
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&);

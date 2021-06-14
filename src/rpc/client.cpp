@@ -155,8 +155,9 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "z_getoperationresult", 0 },
     { "z_importkey", 2 },
     { "z_importviewingkey", 2 },
-    { "z_getpaymentdisclosure", 1 },
-    { "z_getpaymentdisclosure", 2 }
+    { "z_getpaymentdisclosure", 1},
+    { "z_getpaymentdisclosure", 2},
+    { "getchaintips", 0}
 };
 
 class CRPCConvertTable

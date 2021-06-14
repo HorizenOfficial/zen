@@ -110,6 +110,7 @@ testScripts=(
   'sc_getscinfo.py'
   'sc_quality_nodes.py'
   'sc_cert_memcleanup_split.py'
+  'subsidyhalving.py'
   'cbh_rpfix.py'
   'cbh_rpcheck.py'
   'tlsprotocols.py'
@@ -126,11 +127,12 @@ testScriptsExt=(
   'keypool.py'
   'receivedby.py'
   'rpcbind_test.py'
-# 'script_test.py'            # requires create_block functionality that is not implemented for zcash blocks yet
+#  'script_test.py'
   'smartfees.py'
   'maxblocksinflight.py'
-# 'invalidblockrequest.py'    # requires create_block functionality that is not implemented for zcash blocks yet
-# 'p2p-acceptblock.py'        # requires create_block functionality that is not implemented for zcash blocks yet
+  'invalidblockrequest.py'
+  'invalidblockposthalving.py'
+  'p2p-acceptblock.py'
   'replay_protection.py'
   'headers_01.py'
   'headers_02.py'
