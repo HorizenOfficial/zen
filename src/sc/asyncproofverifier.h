@@ -18,17 +18,6 @@ class uint256;
 class CCoinsViewCache;
 
 /**
- * @brief A structure containing the output data of a proof verification.
- */
-struct AsyncProofVerifierOutput
-{
-    std::shared_ptr<CTransactionBase> tx;    /**< The transaction which the proof verification refers to. */
-    CNode* node;                             /**< The node that sent the transaction. */
-    bool proofVerified;                      /**< True if the proof has been correctly verified, false otherwise. */
-    uint64_t proofId;                        /**< The unique identifier of the proof (used internally by the batch verifier). */
-};
-
-/**
  * @brief A structure storing statistics about the async batch verifier process.
  * 
  */
@@ -87,20 +76,13 @@ private:
     {
     }
 
-    std::pair<bool, std::vector<AsyncProofVerifierOutput>> BatchVerify(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int,
-                                                                        CCswProofVerifierInput>>& cswInputs,
-                                                                        const std::map</*certHash*/uint256, CCertProofVerifierInput>& certInputs) const;
-    std::vector<AsyncProofVerifierOutput> NormalVerify(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int,
-                                                       CCswProofVerifierInput>>& cswInputs,
-                                                       const std::map</*certHash*/uint256, CCertProofVerifierInput>& certInputs) const;
-    bool NormalVerifyCertificate(CCertProofVerifierInput input) const;
-    bool NormalVerifyCsw(uint256 txHash, std::map</*outputPos*/unsigned int, CCswProofVerifierInput> inputMap) const;
+    // std::vector<AsyncProofVerifierOutput> NormalVerify(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int,
+    //                                                    CCswProofVerifierInput>>& cswInputs,
+    //                                                    const std::map</*certHash*/uint256, CCertProofVerifierInput>& certInputs) const;
+    // bool NormalVerifyCertificate(CCertProofVerifierInput input) const;
+    // bool NormalVerifyCsw(uint256 txHash, std::map</*outputPos*/unsigned int, CCswProofVerifierInput> inputMap) const;
 
-    void UpdateStatistics(const AsyncProofVerifierOutput& output);
-
-    std::pair<bool, std::vector<AsyncProofVerifierOutput>> _batchVerifyInternal(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>>& cswInputs,
-                                                                                 const std::map</*certHash*/uint256, CCertProofVerifierInput>& certInputs) const;
-
+    void UpdateStatistics(const ProofVerifierOutput& output);
 };
 
 /**

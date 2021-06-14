@@ -486,9 +486,9 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
  */
 TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
 {
-    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> cswEnqueuedData;
+    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierItem>> cswEnqueuedData;
 
-    std::map</*outputPos*/unsigned int, CCswProofVerifierInput> element;
+    std::map</*outputPos*/unsigned int, CCswProofVerifierItem> element;
 
     CTxCeasedSidechainWithdrawalInput cswInput1, cswInput2;
 
@@ -498,20 +498,21 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
 
     CTransaction cswTransaction = cswMutTransaction;
 
-    std::vector<CCswProofVerifierInput> inputs;
+    std::vector<CCswProofVerifierItem> inputs;
 
     for (int i = 0; i < cswMutTransaction.vcsw_ccin.size(); i++)
     {
-        CCswProofVerifierInput input = { .ceasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK},
-                                         .ceasingCumScTxCommTree = cswInput1.ceasingCumScTxCommTree,
-                                         .certDataHash = cswInput1.actCertDataHash,
-                                         .cswProof = cswInput1.scProof,
-                                         .node = &dummyNode,
-                                         .nValue = cswInput1.nValue,
-                                         .nullifier = cswInput1.nullifier,
-                                         .pubKeyHash = cswInput1.pubKeyHash,
-                                         .scId = cswInput1.scId,
-                                         .transactionPtr = std::make_shared<CTransaction>(cswTransaction)};
+        CCswProofVerifierItem input;
+        input.verificationKey = CScVKey{SAMPLE_CSW_DARLIN_VK},
+        input.ceasingCumScTxCommTree = cswInput1.ceasingCumScTxCommTree,
+        input.certDataHash = cswInput1.actCertDataHash,
+        input.proof = cswInput1.scProof,
+        input.node = &dummyNode,
+        input.nValue = cswInput1.nValue,
+        input.nullifier = cswInput1.nullifier,
+        input.pubKeyHash = cswInput1.pubKeyHash,
+        input.scId = cswInput1.scId,
+        input.parentPtr = std::make_shared<CTransaction>(cswTransaction);
 
         inputs.push_back(input);
         element.insert(std::make_pair(i, input));
@@ -520,7 +521,7 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
     
     cswEnqueuedData.insert(std::make_pair(uint256S("aaaa"), element));
 
-    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> tempQueue;
+    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierItem>> tempQueue;
 
     ASSERT_EQ(tempQueue.size(), 0);
     ASSERT_EQ(cswEnqueuedData.size(), 1);
@@ -533,19 +534,19 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
     ASSERT_EQ(tempQueue.size(), 1);
     ASSERT_EQ(tempQueue.begin()->first, uint256S("aaaa"));
 
-    std::map</*outputPos*/unsigned int, CCswProofVerifierInput> tempElement = tempQueue.begin()->second;
+    std::map</*outputPos*/unsigned int, CCswProofVerifierItem> tempElement = tempQueue.begin()->second;
     ASSERT_EQ(tempElement.size(), 2);
     
     for (int i = 0; i < tempElement.size(); i++)
     {
-        ASSERT_EQ(tempElement.at(i).ceasedVk, inputs.at(i).ceasedVk);
+        ASSERT_EQ(tempElement.at(i).verificationKey, inputs.at(i).verificationKey);
         ASSERT_EQ(tempElement.at(i).ceasingCumScTxCommTree, inputs.at(i).ceasingCumScTxCommTree);
         ASSERT_EQ(tempElement.at(i).certDataHash, inputs.at(i).certDataHash);
-        ASSERT_EQ(tempElement.at(i).cswProof, inputs.at(i).cswProof);
+        ASSERT_EQ(tempElement.at(i).proof, inputs.at(i).proof);
         ASSERT_EQ(tempElement.at(i).node, inputs.at(i).node);
         ASSERT_EQ(tempElement.at(i).nValue, inputs.at(i).nValue);
         ASSERT_EQ(tempElement.at(i).pubKeyHash, inputs.at(i).pubKeyHash);
         ASSERT_EQ(tempElement.at(i).scId, inputs.at(i).scId);
-        ASSERT_EQ(tempElement.at(i).transactionPtr, inputs.at(i).transactionPtr);
+        ASSERT_EQ(tempElement.at(i).parentPtr, inputs.at(i).parentPtr);
     }
 }
