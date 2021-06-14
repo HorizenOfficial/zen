@@ -109,7 +109,7 @@ config file):
 
 	HiddenServiceDir /var/lib/tor/zen-service/
 	HiddenServicePort 9033 127.0.0.1:9033
-	HiddenServicePort 20033 127.0.0.1:20033
+	HiddenServicePort 21033 127.0.0.1:21033
 
 The directory can be different of course, but (both) port numbers should be equal to
 your Zend's P2P listen port (9033 by default).
