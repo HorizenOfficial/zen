@@ -3303,7 +3303,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     view.SetBestBlock(pindex->GetBlockHash());
 
     int64_t nTime3 = GetTimeMicros(); nTimeIndex += nTime3 - nTime2b;
-    LogPrint("bench", "    - Index writing: %.2fms [%.2fs]\n", 0.001 * nTimeIndex, nTimeIndex * 0.000001);
+    LogPrint("bench", "    - Index writing: %.2fms [%.2fs]\n", 0.001 * (nTime3 - nTime2b), nTimeIndex * 0.000001);
 
     // Watch for changes to the previous coinbase transaction.
     static uint256 hashPrevBestCoinBase;

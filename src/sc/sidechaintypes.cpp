@@ -248,7 +248,7 @@ wrappedScProofPtr CScProof::GetProofPtr() const
     wrappedScProofPtr res{nullptr};
     {
         LOCK(cs);
-        LogPrintf("%s():%d - obj[%p]: checks %s in deserialization call\n", __func__, __LINE__, this, firstDeserializeCall?"ON":"OFF");
+        //LogPrintf("%s():%d - obj[%p]: checks %s in deserialization call\n", __func__, __LINE__, this, firstDeserializeCall?"ON":"OFF");
  
         res = wrappedScProofPtr{zendoo_deserialize_sc_proof(&result, firstDeserializeCall, &code), theProofPtrDeleter};
  
@@ -316,7 +316,7 @@ wrappedScVkeyPtr CScVKey::GetVKeyPtr() const
     wrappedScVkeyPtr res{nullptr};
     {
         LOCK(cs);
-        LogPrintf("%s():%d - obj[%p]: checks %s in deserialization call\n", __func__, __LINE__, this, firstDeserializeCall?"ON":"OFF");
+        //LogPrintf("%s():%d - obj[%p]: checks %s in deserialization call\n", __func__, __LINE__, this, firstDeserializeCall?"ON":"OFF");
  
         res = wrappedScVkeyPtr{zendoo_deserialize_sc_vk(&result, firstDeserializeCall, &code), theVkPtrDeleter};
  
