@@ -17,6 +17,7 @@
 #include "amount.h"
 #include "serialize.h"
 #include "tinyformat.h"
+#include "sync.h"
 
 namespace Sidechain
 {
@@ -77,10 +78,13 @@ class CZendooCctpLibraryChecker
 class CZendooCctpObject
 {
 public:
-    CZendooCctpObject() = default;
+    CZendooCctpObject() : firstDeserializeCall(true) {};
+    CZendooCctpObject& operator=(const CZendooCctpObject& obj);
+    CZendooCctpObject(const CZendooCctpObject&);
+
     virtual ~CZendooCctpObject() = default;
 
-    CZendooCctpObject(const std::vector<unsigned char>& byteArrayIn): byteVector(byteArrayIn) {}
+    CZendooCctpObject(const std::vector<unsigned char>& byteArrayIn): firstDeserializeCall(true), byteVector(byteArrayIn) {}
     virtual void SetByteArray(const std::vector<unsigned char>& byteArrayIn) = 0; //Does custom-size check
     const std::vector<unsigned char>& GetByteArray() const;
     const unsigned char* const GetDataBuffer() const;
@@ -95,6 +99,9 @@ public:
 
 protected:
     bool isBaseEqual(const CZendooCctpObject& rhs) const { return this->byteVector == rhs.byteVector; }
+
+    mutable CCriticalSection cs;
+    mutable bool firstDeserializeCall;
 
     std::vector<unsigned char> byteVector;
 };

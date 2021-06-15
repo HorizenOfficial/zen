@@ -39,6 +39,26 @@ const std::vector<unsigned char>&  CZendooCctpObject::GetByteArray() const
     return byteVector;
 }
 
+CZendooCctpObject::CZendooCctpObject(const CZendooCctpObject& obj)
+{
+    firstDeserializeCall = obj.firstDeserializeCall;
+    byteVector = obj.byteVector;
+    //if (!firstDeserializeCall)
+    //    LogPrintf("%s():%d - %p copied from obj[%p]: checks OFF\n", __func__, __LINE__, this, &obj);
+}
+
+CZendooCctpObject& CZendooCctpObject::operator=(const CZendooCctpObject& obj)
+{
+    if (this != &obj)
+    {
+        firstDeserializeCall = obj.firstDeserializeCall;
+        byteVector = obj.byteVector;
+        //if (!firstDeserializeCall)
+        //    LogPrintf("%s():%d - %p assigned from obj[%p]: checks OFF\n", __func__, __LINE__, this, &obj);
+    }
+    return *this;
+}
+
 const unsigned char* const CZendooCctpObject::GetDataBuffer() const
 {
     if (GetByteArray().empty())
@@ -52,8 +72,15 @@ int CZendooCctpObject::GetDataSize() const
     return GetByteArray().size();
 }
 
-void CZendooCctpObject::SetNull() { byteVector.resize(0); }
-bool CZendooCctpObject::IsNull() const { return byteVector.empty();}
+void CZendooCctpObject::SetNull()
+{
+    firstDeserializeCall = true;
+    byteVector.resize(0);
+}
+
+bool CZendooCctpObject::IsNull() const {
+    return byteVector.empty() && firstDeserializeCall;
+}
 
 std::string CZendooCctpObject::GetHexRepr() const
 {
@@ -215,9 +242,21 @@ wrappedScProofPtr CScProof::GetProofPtr() const
     if (this->byteVector.empty())
         return wrappedScProofPtr{nullptr};
 
-    CctpErrorCode code;
     BufferWithSize result{(unsigned char*)&byteVector[0], byteVector.size()}; 
-    wrappedScProofPtr res = {zendoo_deserialize_sc_proof(&result, true, &code), theProofPtrDeleter};
+    CctpErrorCode code;
+
+    wrappedScProofPtr res{nullptr};
+    {
+        LOCK(cs);
+        LogPrintf("%s():%d - obj[%p]: checks %s in deserialization call\n", __func__, __LINE__, this, firstDeserializeCall?"ON":"OFF");
+ 
+        res = wrappedScProofPtr{zendoo_deserialize_sc_proof(&result, firstDeserializeCall, &code), theProofPtrDeleter};
+ 
+        // we do the semantic checks only the very first call
+        if (firstDeserializeCall)
+            firstDeserializeCall = false;
+    }
+
     if (code != CctpErrorCode::OK)
     {
         LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
@@ -271,9 +310,21 @@ wrappedScVkeyPtr CScVKey::GetVKeyPtr() const
     if (this->byteVector.empty())
         return wrappedScVkeyPtr{nullptr};
 
-    CctpErrorCode code;
     BufferWithSize result{(unsigned char*)&byteVector[0], byteVector.size()}; 
-    wrappedScVkeyPtr res = {zendoo_deserialize_sc_vk(&result, true, &code), theVkPtrDeleter};
+    CctpErrorCode code;
+
+    wrappedScVkeyPtr res{nullptr};
+    {
+        LOCK(cs);
+        LogPrintf("%s():%d - obj[%p]: checks %s in deserialization call\n", __func__, __LINE__, this, firstDeserializeCall?"ON":"OFF");
+ 
+        res = wrappedScVkeyPtr{zendoo_deserialize_sc_vk(&result, firstDeserializeCall, &code), theVkPtrDeleter};
+ 
+        // we do the semantic checks only the very first call
+        if (firstDeserializeCall)
+            firstDeserializeCall = false;
+    }
+
     if (code != CctpErrorCode::OK)
     {
         LogPrintf("%s():%d - ERROR: code[0x%x]\n", __func__, __LINE__, code);
