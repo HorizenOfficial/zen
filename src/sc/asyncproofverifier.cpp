@@ -100,46 +100,22 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
                 }
 
                 std::pair<bool, std::map<uint256, ProofVerifierOutput>> batchResult = BatchVerifyInternal(tempCswData, tempCertData);
-                std::map<uint256, ProofVerifierOutput> outputs = batchResult.second;
+                ProcessVerificationOutputs(batchResult.second, tempCswData, tempCertData);
 
                 if (!batchResult.first)
                 {
-                    LogPrint("cert", "%s():%d - Batch verification failed, removing proofs that caused the failure... \n",
-                             __func__, __LINE__);
+                    LogPrint("cert", "%s():%d - Batch verification failed, removed proofs that caused the failure and trying again... \n", __func__, __LINE__);
 
-                    // If the batch verification fails, check the proofs one by one
-                    outputs = NormalVerify(tempCswData, tempCertData);
-                }
+                    batchResult = BatchVerifyInternal(tempCswData, tempCertData);
+                    ProcessVerificationOutputs(batchResult.second, tempCswData, tempCertData);
 
-                // Post processing of proofs
-                for (auto entry : outputs)
-                {
-                    ProofVerifierOutput output = entry.second;
-
-                    // At the very end of the batch verification (after any eventual retry) the result of each proof must be
-                    // FAILED or PASSED, UNKNOWN is not admitted.
-                    assert(output.proofResult == ProofVerificationResult::Failed || output.proofResult == ProofVerificationResult::Passed);
-
-                    LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%d] \n",
-                             __func__, __LINE__, output.tx->GetHash().ToString(), output.node->GetId(), output.proofResult);
-
-                    // CODE USED FOR UNIT TEST ONLY [Start]
-                    if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest"))
+                    if (!batchResult.first)
                     {
-                        UpdateStatistics(output); // Update the statistics
+                        LogPrint("cert", "%s():%d - Batch verification failed again, verifying proofs one by one... \n", __func__, __LINE__);
 
-                        // Check if the AcceptToMemoryPool has to be skipped.
-                        if (skipAcceptToMemoryPool)
-                        {
-                            continue;
-                        }
+                        // As last attempt, verify the proofs one by one.
+                        ProcessVerificationOutputs(NormalVerify(tempCswData, tempCertData), tempCswData, tempCertData);
                     }
-                    // CODE USED FOR UNIT TEST ONLY [End]
-
-                    CValidationState dummyState;
-                    ProcessTxBaseAcceptToMemoryPool(*output.tx.get(), output.node,
-                                                    output.proofResult == ProofVerificationResult::Passed ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
-                                                    dummyState);
                 }
             }
         }
@@ -149,147 +125,69 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
 }
 
 /**
- * @brief Run the verification for CSW inputs and certificates one by one (not batched).
+ * @brief Process the outputs of the batch verification.
+ * This function is meant to process all the outputs having a state PASSED or FAILED;
+ * the related proofs are then removed from the cswProofs and certProofs maps.
  * 
- * @param cswInputs The map of CSW inputs data to be verified.
- * @param certInputs The map of certificates data to be verified.
- * @return std::vector<AsyncProofVerifierOutput> The result of all processed proofs.
- */
-std::map<uint256, ProofVerifierOutput> CScAsyncProofVerifier::NormalVerify(const std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
-                                                                     const std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs) const
-{
-    std::map<uint256, ProofVerifierOutput> outputs;
-
-    for (const auto& verifierInput : cswProofs)
-    {
-        ProofVerificationResult res = NormalVerifyCsw(verifierInput.second);
-
-        outputs.insert(std::make_pair(verifierInput.first, ProofVerifierOutput{ .tx = verifierInput.second.begin()->parentPtr,
-                                                                                .node = verifierInput.second.begin()->node,
-                                                                                .proofResult = res }));
-    }
-
-    for (const auto& verifierInput : certProofs)
-    {
-        ProofVerificationResult res = NormalVerifyCertificate(*verifierInput.second.begin());
-
-        outputs.insert(std::make_pair(verifierInput.first, ProofVerifierOutput{ .tx = verifierInput.second.begin()->parentPtr,
-                                                                                .node = verifierInput.second.begin()->node,
-                                                                                .proofResult = res }));
-    }
-
-    return outputs;
-}
-
-/**
- * @brief Run the normal verification for a certificate.
- * This is equivalent to running the batch verification with a single input.
+ * So, when this function returns:
  * 
- * @param input Data of the certificate to be verified.
- * @return true If the certificate proof is correctly verified
- * @return false If the certificate proof is rejected
- */
-ProofVerificationResult CScAsyncProofVerifier::NormalVerifyCertificate(CCertProofVerifierItem input) const
-{
-    CctpErrorCode code;
-
-    int custom_fields_len = input.vCustomFields.size(); 
-
-    std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
-    int i = 0;
-    std::vector<wrappedFieldPtr> vSptr;
-    for (auto entry: input.vCustomFields)
-    {
-        wrappedFieldPtr sptrFe = entry.GetFieldElement();
-        custom_fields[i] = sptrFe.get();
-        vSptr.push_back(sptrFe);
-        i++;
-    }
-
-    const backward_transfer_t* bt_list_ptr = input.bt_list.data();
-    int bt_list_len = input.bt_list.size();
-
-    // mc crypto lib wants a null ptr if we have no elements
-    if (custom_fields_len == 0)
-        custom_fields.reset();
-
-    if (bt_list_len == 0)
-        bt_list_ptr = nullptr;
-
-    wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
-    wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
-    wrappedScProofPtr sptrProof  = input.proof.GetProofPtr();
-    wrappedScVkeyPtr  sptrCertVk = input.verificationKey.GetVKeyPtr();
-
-    bool ret = zendoo_verify_certificate_proof(
-        sptrConst.get(),
-        input.epochNumber,
-        input.quality,
-        bt_list_ptr,
-        bt_list_len,
-        custom_fields.get(),
-        custom_fields_len,
-        sptrCum.get(),
-        input.mainchainBackwardTransferRequestScFee,
-        input.forwardTransferScFee,
-        sptrProof.get(),
-        sptrCertVk.get(),
-        &code
-    );
-
-    if (!ret || code != CctpErrorCode::OK)
-    {
-        LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify: code [0x%x]\n",
-            __func__, __LINE__, input.certHash.ToString(), code);
-    }
-
-    return ret ? ProofVerificationResult::Passed : ProofVerificationResult::Failed;
-}
-
-/**
- * @brief Run the normal verification for the CSW inputs of a sidechain transaction.
- * This is equivalent to running the batch verification with a single input.
+ * 1. All the transactions/certificates that passed the verification are resubmitted to
+ * the memory pool for continuing the add operation and the related proofs are removed
+ * from the cswProofs and certProofs maps.
  * 
- * @param inputMap The map of CSW input data to be verified.
- * @return true If the CSW proof is correctly verified
- * @return false If the CSW proof is rejected
+ * 2. All the transactions/certificates that did not pass the verification are rejected
+ * and the sender nodes are notified and the related proofs are removed
+ * from the cswProofs and certProofs maps.
+ * 
+ * 3. All the transactions/certificates that are in an UNKNOWN state are not processed
+ * and are kept into the related maps.
+ * 
+ * @param outputs The set of outputs returned by the batch verification process
+ * @param cswProofs The set of CSW proofs submitted as input to the proof verifier
+ * @param certProofs The set of certificate proofs submitted as inputs to the proof verifier
  */
-ProofVerificationResult CScAsyncProofVerifier::NormalVerifyCsw(std::vector<CCswProofVerifierItem> cswInputs) const
+void CScAsyncProofVerifier::ProcessVerificationOutputs(const std::map<uint256, ProofVerifierOutput> outputs,
+                                                       std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
+                                                       std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs)
 {
-    for (CCswProofVerifierItem input : cswInputs)
+    // Post processing of proofs
+    for (auto entry : outputs)
     {
-        wrappedFieldPtr sptrScId = CFieldElement(input.scId).GetFieldElement();
-        field_t* scid_fe = sptrScId.get();
- 
-        const uint160& csw_pk_hash = input.pubKeyHash;
-        BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
-     
-        wrappedFieldPtr   sptrCdh       = input.certDataHash.GetFieldElement();
-        wrappedFieldPtr   sptrCum       = input.ceasingCumScTxCommTree.GetFieldElement();
-        wrappedFieldPtr   sptrNullifier = input.nullifier.GetFieldElement();
-        wrappedScProofPtr sptrProof     = input.proof.GetProofPtr();
-        wrappedScVkeyPtr  sptrCeasedVk  = input.verificationKey.GetVKeyPtr();
+        ProofVerifierOutput output = entry.second;
 
-        CctpErrorCode code;
-        bool ret = zendoo_verify_csw_proof(
-                    input.nValue,
-                    scid_fe, 
-                    sptrNullifier.get(),
-                    &bws_csw_pk_hash,
-                    sptrCdh.get(),
-                    sptrCum.get(),
-                    sptrProof.get(),
-                    sptrCeasedVk.get(),
-                    &code);
-
-        if (!ret || code != CctpErrorCode::OK)
+        if (output.proofResult == ProofVerificationResult::Failed || output.proofResult == ProofVerificationResult::Passed)
         {
-            LogPrintf("ERROR: %s():%d - tx [%s] has csw proof which does not verify: ret[%d], code [0x%x]\n",
-                __func__, __LINE__, input.parentPtr->GetHash().ToString(), (int)ret, code);
-            return ProofVerificationResult::Failed;
+            if (output.tx->IsCertificate())
+            {
+                assert(certProofs.erase(output.tx->GetHash()) == 1);
+            }
+            else
+            {
+                assert(cswProofs.erase(output.tx->GetHash()) == 1);
+            }
         }
+
+        LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%d] \n",
+                    __func__, __LINE__, output.tx->GetHash().ToString(), output.node->GetId(), output.proofResult);
+
+        // CODE USED FOR UNIT TEST ONLY [Start]
+        if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest"))
+        {
+            UpdateStatistics(output); // Update the statistics
+
+            // Check if the AcceptToMemoryPool has to be skipped.
+            if (skipAcceptToMemoryPool)
+            {
+                continue;
+            }
+        }
+        // CODE USED FOR UNIT TEST ONLY [End]
+
+        CValidationState dummyState;
+        ProcessTxBaseAcceptToMemoryPool(*output.tx.get(), output.node,
+                                        output.proofResult == ProofVerificationResult::Passed ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
+                                        dummyState);
     }
-    return ProofVerificationResult::Passed;
 }
 
 /**

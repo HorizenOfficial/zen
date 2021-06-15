@@ -338,16 +338,164 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
         }
     }
 
-    // Add the failures that happened during the load process.
+    // Set the failures that happened during the load process.
     if (addFailures.size() > 0)
     {
-        results.insert(addFailures.begin(), addFailures.end());
+        for (auto failure : addFailures)
+        {
+            results[failure.first] = failure.second;
+        }
+
         totalResult = false;
     }
 
     int64_t nTime2 = GetTimeMicros();
     LogPrint("bench", "%s():%d - verification succesful: %.2fms\n", __func__, __LINE__, (nTime2-nTime1) * 0.001);
     return std::make_pair(totalResult, results);
+}
+
+/**
+ * @brief Run the verification for CSW inputs and certificates one by one (not batched).
+ * 
+ * @param cswInputs The map of CSW inputs data to be verified.
+ * @param certInputs The map of certificates data to be verified.
+ * @return std::vector<AsyncProofVerifierOutput> The result of all processed proofs.
+ */
+std::map<uint256, ProofVerifierOutput> CScProofVerifier::NormalVerify(const std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
+                                                                      const std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs) const
+{
+    std::map<uint256, ProofVerifierOutput> outputs;
+
+    for (const auto& verifierInput : cswProofs)
+    {
+        ProofVerificationResult res = NormalVerifyCsw(verifierInput.second);
+
+        outputs.insert(std::make_pair(verifierInput.first, ProofVerifierOutput{ .tx = verifierInput.second.begin()->parentPtr,
+                                                                                .node = verifierInput.second.begin()->node,
+                                                                                .proofResult = res }));
+    }
+
+    for (const auto& verifierInput : certProofs)
+    {
+        ProofVerificationResult res = NormalVerifyCertificate(*verifierInput.second.begin());
+
+        outputs.insert(std::make_pair(verifierInput.first, ProofVerifierOutput{ .tx = verifierInput.second.begin()->parentPtr,
+                                                                                .node = verifierInput.second.begin()->node,
+                                                                                .proofResult = res }));
+    }
+
+    return outputs;
+}
+
+/**
+ * @brief Run the normal verification for a certificate.
+ * This is equivalent to running the batch verification with a single input.
+ * 
+ * @param input Data of the certificate to be verified.
+ * @return true If the certificate proof is correctly verified
+ * @return false If the certificate proof is rejected
+ */
+ProofVerificationResult CScProofVerifier::NormalVerifyCertificate(CCertProofVerifierItem input) const
+{
+    CctpErrorCode code;
+
+    int custom_fields_len = input.vCustomFields.size(); 
+
+    std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
+    int i = 0;
+    std::vector<wrappedFieldPtr> vSptr;
+    for (auto entry: input.vCustomFields)
+    {
+        wrappedFieldPtr sptrFe = entry.GetFieldElement();
+        custom_fields[i] = sptrFe.get();
+        vSptr.push_back(sptrFe);
+        i++;
+    }
+
+    const backward_transfer_t* bt_list_ptr = input.bt_list.data();
+    int bt_list_len = input.bt_list.size();
+
+    // mc crypto lib wants a null ptr if we have no elements
+    if (custom_fields_len == 0)
+        custom_fields.reset();
+
+    if (bt_list_len == 0)
+        bt_list_ptr = nullptr;
+
+    wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
+    wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
+    wrappedScProofPtr sptrProof  = input.proof.GetProofPtr();
+    wrappedScVkeyPtr  sptrCertVk = input.verificationKey.GetVKeyPtr();
+
+    bool ret = zendoo_verify_certificate_proof(
+        sptrConst.get(),
+        input.epochNumber,
+        input.quality,
+        bt_list_ptr,
+        bt_list_len,
+        custom_fields.get(),
+        custom_fields_len,
+        sptrCum.get(),
+        input.mainchainBackwardTransferRequestScFee,
+        input.forwardTransferScFee,
+        sptrProof.get(),
+        sptrCertVk.get(),
+        &code
+    );
+
+    if (!ret || code != CctpErrorCode::OK)
+    {
+        LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify: code [0x%x]\n",
+            __func__, __LINE__, input.certHash.ToString(), code);
+    }
+
+    return ret ? ProofVerificationResult::Passed : ProofVerificationResult::Failed;
+}
+
+/**
+ * @brief Run the normal verification for the CSW inputs of a sidechain transaction.
+ * This is equivalent to running the batch verification with a single input.
+ * 
+ * @param inputMap The map of CSW input data to be verified.
+ * @return true If the CSW proof is correctly verified
+ * @return false If the CSW proof is rejected
+ */
+ProofVerificationResult CScProofVerifier::NormalVerifyCsw(std::vector<CCswProofVerifierItem> cswInputs) const
+{
+    for (CCswProofVerifierItem input : cswInputs)
+    {
+        wrappedFieldPtr sptrScId = CFieldElement(input.scId).GetFieldElement();
+        field_t* scid_fe = sptrScId.get();
+ 
+        const uint160& csw_pk_hash = input.pubKeyHash;
+        BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
+     
+        wrappedFieldPtr   sptrCdh       = input.certDataHash.GetFieldElement();
+        wrappedFieldPtr   sptrCum       = input.ceasingCumScTxCommTree.GetFieldElement();
+        wrappedFieldPtr   sptrNullifier = input.nullifier.GetFieldElement();
+        wrappedScProofPtr sptrProof     = input.proof.GetProofPtr();
+        wrappedScVkeyPtr  sptrCeasedVk  = input.verificationKey.GetVKeyPtr();
+
+        CctpErrorCode code;
+        bool ret = zendoo_verify_csw_proof(
+                    input.nValue,
+                    scid_fe, 
+                    sptrNullifier.get(),
+                    &bws_csw_pk_hash,
+                    sptrCdh.get(),
+                    sptrCum.get(),
+                    sptrProof.get(),
+                    sptrCeasedVk.get(),
+                    &code);
+
+        if (!ret || code != CctpErrorCode::OK)
+        {
+            LogPrintf("ERROR: %s():%d - tx [%s] has csw proof which does not verify: ret[%d], code [0x%x]\n",
+                __func__, __LINE__, input.parentPtr->GetHash().ToString(), (int)ret, code);
+            return ProofVerificationResult::Failed;
+        }
+    }
+    return ProofVerificationResult::Passed;
 }
 
 std::map<uint256, ProofVerifierOutput> CScProofVerifier::GenerateVerifierResults(const std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,

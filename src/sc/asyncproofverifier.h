@@ -76,11 +76,9 @@ private:
     {
     }
 
-    std::map<uint256, ProofVerifierOutput> NormalVerify(const std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
-                                                        const std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs) const;
-    ProofVerificationResult NormalVerifyCertificate(CCertProofVerifierItem input) const;
-    ProofVerificationResult NormalVerifyCsw(std::vector<CCswProofVerifierItem> cswInputs) const;
-
+    void ProcessVerificationOutputs(const std::map<uint256, ProofVerifierOutput> outputs,
+                                    std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
+                                    std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs);
     void UpdateStatistics(const ProofVerifierOutput& output);
 };
 

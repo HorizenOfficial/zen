@@ -115,6 +115,11 @@ protected:
     std::pair<bool, std::map<uint256, ProofVerifierOutput>> BatchVerifyInternal(const std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
                                                                                 const std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs) const;
 
+    std::map<uint256, ProofVerifierOutput> NormalVerify(const std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
+                                                        const std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs) const;
+    ProofVerificationResult NormalVerifyCertificate(CCertProofVerifierItem input) const;
+    ProofVerificationResult NormalVerifyCsw(std::vector<CCswProofVerifierItem> cswInputs) const;
+
 private:
 
     static std::atomic<uint32_t> proofIdCounter;   /**< The counter used to get a unique ID for proofs. */
@@ -122,8 +127,8 @@ private:
     const Verification verificationMode;    /**< The type of verification to be performed by this instance of proof verifier. */
 
     std::map<uint256, ProofVerifierOutput> GenerateVerifierResults(const std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
-                                                                       const std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs,
-                                                                       ProofVerificationResult defaultResult) const;
+                                                                   const std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs,
+                                                                   ProofVerificationResult defaultResult) const;
 };
 
 #endif // _SC_PROOF_VERIFIER_H
