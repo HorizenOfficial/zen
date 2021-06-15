@@ -3482,18 +3482,18 @@ bool CWallet::CreateTransaction(
                     txNew.vin.push_back(CTxIn(coin.first->getTxBase()->GetHash(),coin.second,CScript(),
                                               std::numeric_limits<unsigned int>::max()-1));
 
+                // add csw input 
+                txNew.vcsw_ccin = vcsw_input;
+
                 // Check mempooltxinputlimit to avoid creating a transaction which the local mempool rejects
                 size_t limit = (size_t)GetArg("-mempooltxinputlimit", 0);
                 if (limit > 0) {
-                    size_t n = txNew.vin.size();
+                    size_t n = txNew.vin.size() + txNew.vcsw_ccin.size();
                     if (n > limit) {
                         strFailReason = _(strprintf("Too many transparent inputs %zu > limit %zu", n, limit).c_str());
                         return false;
                     }
                 }
-
-                // add csw input 
-                txNew.vcsw_ccin = vcsw_input;
 
                 // Sign
                 int nIn = 0;
