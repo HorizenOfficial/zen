@@ -94,11 +94,11 @@ CCswProofVerifierItem CScProofVerifier::CswInputToVerifierItem(const CTxCeasedSi
     
     cswData.verificationKey = scFixedParams.wCeasedVk.get();
 
-    //if (cswTransaction != nullptr)
-    //{
-    assert(cswTransaction != nullptr);
+    if (cswTransaction != nullptr)
+    {
+    //assert(cswTransaction != nullptr);
     cswData.parentPtr = std::make_shared<CTransaction>(*cswTransaction);
-    //}
+    }
 
     cswData.node = pfrom;
     
@@ -183,7 +183,7 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
         return std::make_pair(true, GenerateVerifierResults(cswProofs, certProofs, ProofVerificationResult::Passed));
     }
 
-    if (cswEnqueuedData.size() + certEnqueuedData.size() == 0)
+    if (cswProofs.size() + certProofs.size() == 0)
     {
         return std::make_pair(true, GenerateVerifierResults(cswProofs, certProofs, ProofVerificationResult::Passed));
     }
@@ -196,7 +196,7 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
 
     int64_t nTime1 = GetTimeMicros();
     LogPrint("bench", "%s():%d - starting verification\n", __func__, __LINE__);
-    for (const auto& cswEntry : cswEnqueuedData)
+    for (const auto& cswEntry : cswProofs)
     {
         for (const auto& proof : cswEntry.second)
         {
@@ -242,7 +242,7 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
         }
     }
 
-    for (const auto& certEntry : certEnqueuedData)
+    for (const auto& certEntry : certProofs)
     {
         for (const auto& proof : certEntry.second)
         {
@@ -306,10 +306,11 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
         }
     }
 
-    std::map<uint256, ProofVerifierOutput> results;
     CZendooBatchProofVerifierResult verRes(batchVerifier.batch_verify_all(&code));
+    bool totalResult = verRes.Result();
+    std::map<uint256, ProofVerifierOutput> results;
 
-    if (verRes.Result())
+    if (totalResult)
     {
         assert(verRes.FailedProofs().size() == 0);
         results = GenerateVerifierResults(cswProofs, certProofs, ProofVerificationResult::Passed);
@@ -338,11 +339,15 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
     }
 
     // Add the failures that happened during the load process.
-    results.insert(addFailures.begin(), addFailures.end());
+    if (addFailures.size() > 0)
+    {
+        results.insert(addFailures.begin(), addFailures.end());
+        totalResult = false;
+    }
 
     int64_t nTime2 = GetTimeMicros();
     LogPrint("bench", "%s():%d - verification succesful: %.2fms\n", __func__, __LINE__, (nTime2-nTime1) * 0.001);
-    return std::make_pair(verRes.Result(), results);
+    return std::make_pair(totalResult, results);
 }
 
 std::map<uint256, ProofVerifierOutput> CScProofVerifier::GenerateVerifierResults(const std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
@@ -352,6 +357,14 @@ std::map<uint256, ProofVerifierOutput> CScProofVerifier::GenerateVerifierResults
     std::map<uint256, ProofVerifierOutput> results;
 
     for (auto proofEntry : cswProofs)
+    {
+        assert(proofEntry.second.size() > 0);
+        results.insert(std::make_pair(proofEntry.first, ProofVerifierOutput {.tx = proofEntry.second.at(0).parentPtr,
+                                                                                .node = proofEntry.second.at(0).node,
+                                                                                .proofResult = defaultResult}));
+    }
+
+    for (auto proofEntry : certProofs)
     {
         assert(proofEntry.second.size() > 0);
         results.insert(std::make_pair(proofEntry.first, ProofVerifierOutput {.tx = proofEntry.second.at(0).parentPtr,

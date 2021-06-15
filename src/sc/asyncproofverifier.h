@@ -76,11 +76,10 @@ private:
     {
     }
 
-    // std::vector<AsyncProofVerifierOutput> NormalVerify(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int,
-    //                                                    CCswProofVerifierInput>>& cswInputs,
-    //                                                    const std::map</*certHash*/uint256, CCertProofVerifierInput>& certInputs) const;
-    // bool NormalVerifyCertificate(CCertProofVerifierInput input) const;
-    // bool NormalVerifyCsw(uint256 txHash, std::map</*outputPos*/unsigned int, CCswProofVerifierInput> inputMap) const;
+    std::map<uint256, ProofVerifierOutput> NormalVerify(const std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
+                                                        const std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs) const;
+    ProofVerificationResult NormalVerifyCertificate(CCertProofVerifierItem input) const;
+    ProofVerificationResult NormalVerifyCsw(std::vector<CCswProofVerifierItem> cswInputs) const;
 
     void UpdateStatistics(const ProofVerifierOutput& output);
 };
