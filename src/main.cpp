@@ -2894,6 +2894,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     const CChain& chain, flagBlockProcessingType processingType, flagScRelatedChecks fScRelatedChecks,
     flagScProofVerification fScProofVerification, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
+    int64_t nTime0 = GetTimeMicros();
+
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
 
@@ -2965,6 +2967,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     CBlockUndo blockundo;
 
     CCheckQueueControl<CScriptCheck> control(fExpensiveChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
+
+    int64_t deltaPreProcTime = GetTimeMicros() - nTime0;
+    LogPrint("bench", "    - block preproc: %.2fms\n", 0.001 * deltaPreProcTime);
 
     int64_t nTimeStart = GetTimeMicros();
     CAmount nFees = 0;
@@ -3096,6 +3101,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
     {
         const CScCertificate &cert = block.vcert[certIdx];
+        nInputs += cert.GetVin().size();
         nSigOps += GetLegacySigOpCount(cert);
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("%s():%d: too many sigops",__func__, __LINE__),
@@ -3187,16 +3193,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
 
-    if (fScProofVerification == flagScProofVerification::ON)
-    {
-        LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
-        if (!scVerifier.BatchVerify())
-        {
-            return state.DoS(100, error("%s():%d - ERROR: sc-related batch proof verification failed", __func__, __LINE__),
-                            CValidationState::Code::INVALID_PROOF, "bad-sc-proof");
-        }
-    } 
-
     if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pCertsStateInfo))
     {
         return state.DoS(100, error("%s():%d - SIDECHAIN-EVENT: could not handle scheduled event",__func__, __LINE__),
@@ -3212,11 +3208,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     blockundo.old_tree_root = old_tree_root;
 
-    int64_t nTime1 = GetTimeMicros(); nTimeConnect += nTime1 - nTimeStart;
-    LogPrint("bench", "      - Connect %u txes, %u certs: %.2fms (%.3fms/(tx+cert), %.3fms/txin) [%.2fs]\n",
+    int64_t nTime1 = GetTimeMicros();
+
+    int64_t deltaConnectTime = nTime1 - nTimeStart;
+    nTimeConnect += deltaConnectTime;
+
+    LogPrint("bench", "      - Connect %u txes, %u certs: %.2fms (%.3fms/(tx+cert), %.3fms/(tx+cert inputs)) [%.2fs]\n",
         (unsigned)block.vtx.size(), (unsigned)block.vcert.size(),
-         0.001 * (nTime1 - nTimeStart), 0.001 * (nTime1 - nTimeStart) / (block.vtx.size() + block.vcert.size()),
-         nInputs <= 1 ? 0 : 0.001 * (nTime1 - nTimeStart) / (nInputs-1), nTimeConnect * 0.000001);
+         0.001 * deltaConnectTime, 0.001 * deltaConnectTime / (block.vtx.size() + block.vcert.size()),
+         nInputs <= 1 ? 0 : 0.001 * deltaConnectTime / (nInputs-1), nTimeConnect * 0.000001);
 
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (block.vtx[0].GetValueOut() > blockReward)
@@ -3225,9 +3225,22 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  __func__, __LINE__, block.vtx[0].GetValueOut(), blockReward),
                         CValidationState::Code::INVALID, "bad-cb-amount");
 
+    if (!control.Wait())
+        return state.DoS(100, false);
+
+    int64_t nTime2 = GetTimeMicros();
+    int64_t deltaVerifyTime = nTime2 - nTimeStart;
+
+    nTimeVerify += deltaVerifyTime;
+    LogPrint("bench", "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs] (nScriptCheckThreads=%d)\n", nInputs - 1, 0.001 * deltaVerifyTime, nInputs <= 1 ? 0 : 0.001 * deltaVerifyTime / (nInputs-1), nTimeVerify * 0.000001, nScriptCheckThreads);
+
     if (fScRelatedChecks == flagScRelatedChecks::ON)
     {
+        int64_t nCommTreeStartTime = GetTimeMicros();
         const uint256& scTxsCommittment = scCommitmentBuilder.getCommitment();
+        int64_t deltaCommTreeTime = GetTimeMicros() - nCommTreeStartTime;
+        LogPrint("bench", "    - txsCommTree: %.2fms\n", deltaCommTreeTime * 0.001);
+
         if (block.hashScTxsCommitment != scTxsCommittment)
         {
             // If this check fails, we return validation state obj with a state.corruptionPossible=false attribute,
@@ -3241,10 +3254,20 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             __func__, __LINE__, block.hashScTxsCommitment.ToString());
     }
 
-    if (!control.Wait())
-        return state.DoS(100, false);
-    int64_t nTime2 = GetTimeMicros(); nTimeVerify += nTime2 - nTimeStart;
-    LogPrint("bench", "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs - 1, 0.001 * (nTime2 - nTimeStart), nInputs <= 1 ? 0 : 0.001 * (nTime2 - nTimeStart) / (nInputs-1), nTimeVerify * 0.000001);
+    if (fScProofVerification == flagScProofVerification::ON)
+    {
+        LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
+        int64_t nBatchVerifyStartTime = GetTimeMicros();
+        if (!scVerifier.BatchVerify())
+        {
+            return state.DoS(100, error("%s():%d - ERROR: sc-related batch proof verification failed", __func__, __LINE__),
+                            CValidationState::Code::INVALID_PROOF, "bad-sc-proof");
+        }
+        int64_t deltaBatchVerifyTime = GetTimeMicros() - nBatchVerifyStartTime;
+        LogPrint("bench", "    - scBatchVerify: %.2fms\n", deltaBatchVerifyTime * 0.001);
+    } 
+
+    int64_t nTime2b = GetTimeMicros();
 
     if (processingType == flagBlockProcessingType::CHECK_ONLY)
         return true;
@@ -3279,8 +3302,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    int64_t nTime3 = GetTimeMicros(); nTimeIndex += nTime3 - nTime2;
-    LogPrint("bench", "    - Index writing: %.2fms [%.2fs]\n", 0.001 * (nTime3 - nTime2), nTimeIndex * 0.000001);
+    int64_t nTime3 = GetTimeMicros(); nTimeIndex += nTime3 - nTime2b;
+    LogPrint("bench", "    - Index writing: %.2fms [%.2fs]\n", 0.001 * nTimeIndex, nTimeIndex * 0.000001);
 
     // Watch for changes to the previous coinbase transaction.
     static uint256 hashPrevBestCoinBase;
