@@ -41,7 +41,7 @@ class sc_big_block(BitcoinTestFramework):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
                                  extra_args=[['-logtimemicros=1', '-debug=py', '-debug=net',
                                               #'-debug=sc', '-debug=mempool', '-debug=cert', '-par=5',
-                                              '-debug=bench']] * NUMB_OF_NODES)
+                                              '-scproofqueuesize=0', '-debug=bench']] * NUMB_OF_NODES)
 
         connect_nodes_bi(self.nodes, 0, 1)
         self.is_network_split = split
