@@ -23,7 +23,7 @@
 #include "core_io.h"
 #include <clientversion.h>
 #include <rpc/server.h>
-
+#include <chrono>
 
 extern CAmount AmountFromValue(const UniValue& value);
 
@@ -171,6 +171,10 @@ private:
         rv->push_back(Pair("eventType", eventType));
         rv->push_back(Pair("eventPayload", rspPayload));
         wsq.push(wse);
+        auto endTime = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = endTime-startTime;
+
+        std::cout << "elapsed time: " << elapsed_seconds.count() << "s\n";
     }
 
     void sendBlock(int height, const std::string& strHash, const std::string& blockHex, const std::string& chainwork,

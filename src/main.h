@@ -29,6 +29,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <chrono>
 
 #include <boost/unordered_map.hpp>
 
@@ -43,6 +44,9 @@ class CScriptCheck;
 class CValidationState;
 
 struct CNodeStateStats;
+
+extern std::chrono::system_clock::time_point startTime;
+
 
 /** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE;

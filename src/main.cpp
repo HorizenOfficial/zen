@@ -41,6 +41,7 @@
 
 #include "script/sigcache.h"
 #include "script/standard.h"
+#include <chrono>
 
 using namespace zen;
 
@@ -81,6 +82,7 @@ bool fIsStartupSyncing = true;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
 bool fAlerts = DEFAULT_ALERTS;
+std::chrono::system_clock::time_point startTime = std::chrono::system_clock::now();
 
 /** Fees smaller than this (in satoshi) are considered zero fee (for relaying and mining) */
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
@@ -3040,6 +3042,8 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock) {
             }
 
             // Notify external listeners about the new tip.
+            startTime = std::chrono::system_clock::now();
+
             GetMainSignals().UpdatedBlockTip(pindexNewTip);
             uiInterface.NotifyBlockTip(hashNewTip);
         }
