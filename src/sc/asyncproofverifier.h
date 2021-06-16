@@ -77,8 +77,7 @@ private:
     }
 
     void ProcessVerificationOutputs(const std::map<uint256, ProofVerifierOutput> outputs,
-                                    std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
-                                    std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs);
+                                    std::map</* Tx hash */ uint256, CProofVerifierItem>& proofs);
     void UpdateStatistics(const ProofVerifierOutput& output);
 };
 
@@ -119,7 +118,17 @@ public:
      */
     size_t PendingAsyncCertProofs()
     {
-        return CScAsyncProofVerifier::GetInstance().certEnqueuedData.size();
+        int counter = 0;
+
+        for (auto item : CScAsyncProofVerifier::GetInstance().proofQueue)
+        {
+            if (item.second.certInput)
+            {
+                counter++;
+            }
+        }
+
+        return counter;
     }
 
     /**
@@ -130,7 +139,17 @@ public:
      */
     size_t PendingAsyncCswProofs()
     {
-        return CScAsyncProofVerifier::GetInstance().cswEnqueuedData.size();
+        int counter = 0;
+
+        for (auto item : CScAsyncProofVerifier::GetInstance().proofQueue)
+        {
+            if (item.second.cswInputs)
+            {
+                counter++;
+            }
+        }
+
+        return counter;
     }
 
     /**
@@ -150,8 +169,7 @@ public:
     {
         CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
 
-        verifier.certEnqueuedData.clear();
-        verifier.cswEnqueuedData.clear();
+        verifier.proofQueue.clear();
         verifier.stats = AsyncProofVerifierStatistics();
     }
 

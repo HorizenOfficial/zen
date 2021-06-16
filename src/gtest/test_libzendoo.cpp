@@ -77,9 +77,9 @@ static CMutableScCertificate CreateDefaultCert()
     return mcert;
 }
 
-static CCertProofVerifierItem CreateDefaultCertInput()
+static CCertProofVerifierInput CreateDefaultCertInput()
 {
-    CCertProofVerifierItem certInput;
+    CCertProofVerifierInput certInput;
 
     certInput.constant = CFieldElement(SAMPLE_FIELD);
     certInput.epochNumber = 7;
@@ -91,9 +91,9 @@ static CCertProofVerifierItem CreateDefaultCertInput()
     return certInput;
 }
 
-static CCswProofVerifierItem CreateDefaultCswInput()
+static CCswProofVerifierInput CreateDefaultCswInput()
 {
-    CCswProofVerifierItem cswInput;
+    CCswProofVerifierInput cswInput;
 
     cswInput.ceasingCumScTxCommTree = CFieldElement(SAMPLE_FIELD);
     cswInput.certDataHash = CFieldElement(SAMPLE_FIELD);
@@ -1645,7 +1645,7 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
 
     std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    CCertProofVerifierItem certInput = CreateDefaultCertInput();
+    CCertProofVerifierInput certInput = CreateDefaultCertInput();
     certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
     certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem);
 
@@ -1667,7 +1667,7 @@ TEST(CctpLibrary, CreateAndVerifyDarlinCertificateProof)
 
     std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    CCertProofVerifierItem certInput = CreateDefaultCertInput();
+    CCertProofVerifierInput certInput = CreateDefaultCertInput();
     certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
     certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem);
 
@@ -1689,7 +1689,7 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCswProof)
 
     std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    CCswProofVerifierItem cswInput = CreateDefaultCswInput();
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput();
     cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
     cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem);
 
@@ -1711,7 +1711,7 @@ TEST(CctpLibrary, CreateAndVerifyDarlinCswProof)
 
     std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
 
-    CCswProofVerifierItem cswInput = CreateDefaultCswInput();
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput();
     cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
     cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem);
 

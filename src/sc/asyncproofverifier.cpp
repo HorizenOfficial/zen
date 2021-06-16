@@ -62,7 +62,7 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
 
     while (!ShutdownRequested())
     {
-        size_t currentQueueSize = certEnqueuedData.size() + cswEnqueuedData.size();
+        size_t currentQueueSize = proofQueue.size();
 
         if (currentQueueSize > 0)
         {
@@ -77,44 +77,39 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
             if (queueAge > batchVerificationMaxDelay || currentQueueSize > batchVerificationMaxSize)
             {
                 queueAge = 0;
-                std::map</*scTxHash*/uint256, std::vector<CCswProofVerifierItem>> tempCswData;
-                std::map</*certHash*/uint256, std::vector<CCertProofVerifierItem>> tempCertData;
+                std::map</*scTxHash*/uint256, CProofVerifierItem> tempProofData;
 
                 {
                     LOCK(cs_asyncQueue);
 
-                    size_t cswQueueSize = cswEnqueuedData.size();
-                    size_t certQueueSize = certEnqueuedData.size();
+                    size_t proofQueueSize = proofQueue.size();
 
-                    LogPrint("cert", "%s():%d - Async verification triggered, %d certificates and %d CSW inputs to verify \n",
-                             __func__, __LINE__, certQueueSize, cswQueueSize);
+                    LogPrint("cert", "%s():%d - Async verification triggered, %d proofs to be verified \n",
+                             __func__, __LINE__, proofQueueSize);
 
-                    // Move the queued proofs into local maps, so that we can release the lock
-                    tempCswData = std::move(cswEnqueuedData);
-                    tempCertData = std::move(certEnqueuedData);
+                    // Move the queued proofs into a local map, so that we can release the lock
+                    tempProofData = std::move(proofQueue);
 
-                    assert(cswEnqueuedData.size() == 0);
-                    assert(certEnqueuedData.size() == 0);
-                    assert(tempCswData.size() == cswQueueSize);
-                    assert(tempCertData.size() == certQueueSize);
+                    assert(proofQueue.size() == 0);
+                    assert(tempProofData.size() == proofQueueSize);
                 }
 
-                std::pair<bool, std::map<uint256, ProofVerifierOutput>> batchResult = BatchVerifyInternal(tempCswData, tempCertData);
-                ProcessVerificationOutputs(batchResult.second, tempCswData, tempCertData);
+                std::pair<bool, std::map<uint256, ProofVerifierOutput>> batchResult = BatchVerifyInternal(tempProofData);
+                ProcessVerificationOutputs(batchResult.second, tempProofData);
 
                 if (!batchResult.first)
                 {
                     LogPrint("cert", "%s():%d - Batch verification failed, removed proofs that caused the failure and trying again... \n", __func__, __LINE__);
 
-                    batchResult = BatchVerifyInternal(tempCswData, tempCertData);
-                    ProcessVerificationOutputs(batchResult.second, tempCswData, tempCertData);
+                    batchResult = BatchVerifyInternal(tempProofData);
+                    ProcessVerificationOutputs(batchResult.second, tempProofData);
 
                     if (!batchResult.first)
                     {
                         LogPrint("cert", "%s():%d - Batch verification failed again, verifying proofs one by one... \n", __func__, __LINE__);
 
                         // As last attempt, verify the proofs one by one.
-                        ProcessVerificationOutputs(NormalVerify(tempCswData, tempCertData), tempCswData, tempCertData);
+                        ProcessVerificationOutputs(NormalVerify(tempProofData), tempProofData);
                     }
                 }
             }
@@ -143,12 +138,10 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
  * and are kept into the related maps.
  * 
  * @param outputs The set of outputs returned by the batch verification process
- * @param cswProofs The set of CSW proofs submitted as input to the proof verifier
- * @param certProofs The set of certificate proofs submitted as inputs to the proof verifier
+ * @param proofs The set of proofs submitted as input to the proof verifier
  */
 void CScAsyncProofVerifier::ProcessVerificationOutputs(const std::map<uint256, ProofVerifierOutput> outputs,
-                                                       std::map</* Tx hash */ uint256, std::vector<CCswProofVerifierItem>>& cswProofs,
-                                                       std::map</* Cert hash */ uint256, std::vector<CCertProofVerifierItem>>& certProofs)
+                                                       std::map</* Tx hash */ uint256, CProofVerifierItem>& proofs)
 {
     // Post processing of proofs
     for (auto entry : outputs)
@@ -157,14 +150,7 @@ void CScAsyncProofVerifier::ProcessVerificationOutputs(const std::map<uint256, P
 
         if (output.proofResult == ProofVerificationResult::Failed || output.proofResult == ProofVerificationResult::Passed)
         {
-            if (output.tx->IsCertificate())
-            {
-                assert(certProofs.erase(output.tx->GetHash()) == 1);
-            }
-            else
-            {
-                assert(cswProofs.erase(output.tx->GetHash()) == 1);
-            }
+            assert(proofs.erase(output.tx->GetHash()) == 1);
         }
 
         LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%d] \n",

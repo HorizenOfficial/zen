@@ -486,9 +486,9 @@ TEST_F(AsyncProofVerifierTestSuite, Check_One_By_One_Verification)
  */
 TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
 {
-    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierItem>> cswEnqueuedData;
+    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> cswEnqueuedData;
 
-    std::map</*outputPos*/unsigned int, CCswProofVerifierItem> element;
+    std::map</*outputPos*/unsigned int, CCswProofVerifierInput> element;
 
     CTxCeasedSidechainWithdrawalInput cswInput1, cswInput2;
 
@@ -498,11 +498,11 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
 
     CTransaction cswTransaction = cswMutTransaction;
 
-    std::vector<CCswProofVerifierItem> inputs;
+    std::vector<CCswProofVerifierInput> inputs;
 
     for (int i = 0; i < cswMutTransaction.vcsw_ccin.size(); i++)
     {
-        CCswProofVerifierItem input;
+        CCswProofVerifierInput input;
         input.verificationKey = CScVKey{SAMPLE_CSW_DARLIN_VK},
         input.ceasingCumScTxCommTree = cswInput1.ceasingCumScTxCommTree,
         input.certDataHash = cswInput1.actCertDataHash,
@@ -521,7 +521,7 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
     
     cswEnqueuedData.insert(std::make_pair(uint256S("aaaa"), element));
 
-    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierItem>> tempQueue;
+    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> tempQueue;
 
     ASSERT_EQ(tempQueue.size(), 0);
     ASSERT_EQ(cswEnqueuedData.size(), 1);
@@ -534,7 +534,7 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
     ASSERT_EQ(tempQueue.size(), 1);
     ASSERT_EQ(tempQueue.begin()->first, uint256S("aaaa"));
 
-    std::map</*outputPos*/unsigned int, CCswProofVerifierItem> tempElement = tempQueue.begin()->second;
+    std::map</*outputPos*/unsigned int, CCswProofVerifierInput> tempElement = tempQueue.begin()->second;
     ASSERT_EQ(tempElement.size(), 2);
     
     for (int i = 0; i < tempElement.size(); i++)
