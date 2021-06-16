@@ -520,6 +520,12 @@ std::string HelpMessage(HelpMessageMode mode)
     );
     strUsage += HelpMessageOpt("-deprecatedgetblocktemplate", (_("Disable block complexity calculation and use the previous GetBlockTemplate implementation")));
 
+    strUsage += HelpMessageOpt("-scproofverificationdelay=<time>",
+        strprintf(_("The maximum delay in milliseconds between sc proof batch verification requests. (default: %d)"), CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_DELAY));
+
+    strUsage += HelpMessageOpt("-scproofqueuesize=<size>",
+        strprintf(_("The threshold size of the sc proof queue that triggers a call to the batch verification. (default: %d)"), CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_SIZE));
+
     strUsage += HelpMessageOpt("-cbhsafedepth=<n>",
         "regtest only - Set safe depth for skipping checkblockatheight in txout scripts (default depends on regtest/testnet params)");
         
