@@ -66,6 +66,9 @@ public:
     static const uint32_t BATCH_VERIFICATION_MAX_DELAY;   /**< The maximum delay in milliseconds between batch verification requests */
     static const uint32_t BATCH_VERIFICATION_MAX_SIZE;      /**< The threshold size of the proof queue that triggers a call to the batch verification. */
 
+    static uint32_t GetCustomMaxBatchVerifyDelay();
+    static uint32_t GetCustomMaxBatchVerifyMaxSize();
+
 private:
 
     friend class TEST_FRIEND_CScAsyncProofVerifier;
@@ -157,9 +160,7 @@ public:
      */
     uint32_t GetMaxBatchVerifyDelay()
     {
-        int32_t delay = GetArg("-scproofverificationdelay", CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_DELAY);
-        assert(delay >= 0 && "scproofverificationdelay must be non negative");
-        return static_cast<uint32_t>(delay);
+        return CScAsyncProofVerifier::GetCustomMaxBatchVerifyDelay();
     }
 
     /**

@@ -10,6 +10,7 @@
 const uint32_t CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_DELAY = 5000;   /**< The maximum delay in milliseconds between batch verification requests */
 const uint32_t CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_SIZE = 10;      /**< The threshold size of the proof queue that triggers a call to the batch verification. */
 
+
 #ifdef BITCOIN_TX
 void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom) {return;}
 void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom) {return;}
@@ -66,6 +67,30 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
 }
 #endif
 
+uint32_t CScAsyncProofVerifier::GetCustomMaxBatchVerifyDelay()
+{
+    int32_t delay = GetArg("-scproofverificationdelay", BATCH_VERIFICATION_MAX_DELAY);
+    if (delay < 0)
+    {
+        LogPrintf("%s():%d - ERROR: scproofverificationdelay=%d, must be non negative, setting to default value = %d\n",
+            __func__, __LINE__, delay, BATCH_VERIFICATION_MAX_DELAY);
+        delay = BATCH_VERIFICATION_MAX_DELAY;
+    }
+    return static_cast<uint32_t>(delay);
+}
+
+uint32_t CScAsyncProofVerifier::GetCustomMaxBatchVerifyMaxSize()
+{
+    int32_t size = GetArg("-scproofqueuesize", BATCH_VERIFICATION_MAX_SIZE);
+    if (size < 0)
+    {
+        LogPrintf("%s():%d - ERROR: scproofqueuesize=%d, must be non negative, setting to default value = %d\n",
+            __func__, __LINE__, size, BATCH_VERIFICATION_MAX_SIZE);
+        size = BATCH_VERIFICATION_MAX_SIZE;
+    }
+    return static_cast<uint32_t>(size);
+}
+
 void CScAsyncProofVerifier::RunPeriodicVerification()
 {
     /**
@@ -74,13 +99,8 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
      */
     uint32_t queueAge = 0;
 
-    int32_t delay = GetArg("-scproofverificationdelay", BATCH_VERIFICATION_MAX_DELAY);
-    assert(delay >= 0 && "scproofverificationdelay must be non negative");
-    uint32_t batchVerificationMaxDelay = static_cast<uint32_t>(delay);
-
-    int32_t size = GetArg("-scproofqueuesize", BATCH_VERIFICATION_MAX_SIZE);
-    assert(size >= 0 && "scproofqueuesize must be non negative");
-    uint32_t batchVerificationMaxSize = static_cast<uint32_t>(size);
+    uint32_t batchVerificationMaxDelay = GetCustomMaxBatchVerifyDelay();
+    uint32_t batchVerificationMaxSize  = GetCustomMaxBatchVerifyMaxSize();
 
 
     while (!ShutdownRequested())
