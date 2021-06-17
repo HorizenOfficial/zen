@@ -94,24 +94,27 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
                     assert(tempProofData.size() == proofQueueSize);
                 }
 
-                std::pair<bool, std::map<uint256, ProofVerifierOutput>> batchResult = BatchVerifyInternal(tempProofData);
-                ProcessVerificationOutputs(batchResult.second, tempProofData);
+                bool batchResult = BatchVerifyInternal(tempProofData);
+                ProcessVerificationOutputs(tempProofData);
 
-                if (!batchResult.first)
+                if (tempProofData.size() > 0)
                 {
                     LogPrint("cert", "%s():%d - Batch verification failed, removed proofs that caused the failure and trying again... \n", __func__, __LINE__);
 
                     batchResult = BatchVerifyInternal(tempProofData);
-                    ProcessVerificationOutputs(batchResult.second, tempProofData);
+                    ProcessVerificationOutputs(tempProofData);
 
-                    if (!batchResult.first)
+                    if (tempProofData.size() > 0)
                     {
                         LogPrint("cert", "%s():%d - Batch verification failed again, verifying proofs one by one... \n", __func__, __LINE__);
 
                         // As last attempt, verify the proofs one by one.
-                        ProcessVerificationOutputs(NormalVerify(tempProofData), tempProofData);
+                        NormalVerify(tempProofData);
+                        ProcessVerificationOutputs(tempProofData);
                     }
                 }
+
+                assert(tempProofData.size() == 0);
             }
         }
 
@@ -140,39 +143,42 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
  * @param outputs The set of outputs returned by the batch verification process
  * @param proofs The set of proofs submitted as input to the proof verifier
  */
-void CScAsyncProofVerifier::ProcessVerificationOutputs(const std::map<uint256, ProofVerifierOutput> outputs,
-                                                       std::map</* Tx hash */ uint256, CProofVerifierItem>& proofs)
+void CScAsyncProofVerifier::ProcessVerificationOutputs(std::map</* Tx hash */ uint256, CProofVerifierItem>& proofs)
 {
     // Post processing of proofs
-    for (auto entry : outputs)
+    for (auto i = proofs.begin(); i != proofs.end();)
     {
-        ProofVerifierOutput output = entry.second;
+        CProofVerifierItem item = i->second;
 
-        if (output.proofResult == ProofVerificationResult::Failed || output.proofResult == ProofVerificationResult::Passed)
+        if (item.result == ProofVerificationResult::Failed || item.result == ProofVerificationResult::Passed)
         {
-            assert(proofs.erase(output.tx->GetHash()) == 1);
-        }
+            LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%d] \n",
+                    __func__, __LINE__, item.parentPtr->GetHash().ToString(), item.node->GetId(), item.result);
 
-        LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%d] \n",
-                    __func__, __LINE__, output.tx->GetHash().ToString(), output.node->GetId(), output.proofResult);
-
-        // CODE USED FOR UNIT TEST ONLY [Start]
-        if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest"))
-        {
-            UpdateStatistics(output); // Update the statistics
-
-            // Check if the AcceptToMemoryPool has to be skipped.
-            if (skipAcceptToMemoryPool)
+            // CODE USED FOR UNIT TEST ONLY [Start]
+            if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest"))
             {
-                continue;
-            }
-        }
-        // CODE USED FOR UNIT TEST ONLY [End]
+                UpdateStatistics(item); // Update the statistics
 
-        CValidationState dummyState;
-        ProcessTxBaseAcceptToMemoryPool(*output.tx.get(), output.node,
-                                        output.proofResult == ProofVerificationResult::Passed ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
-                                        dummyState);
+                // Check if the AcceptToMemoryPool has to be skipped.
+                // if (skipAcceptToMemoryPool)
+                // {
+                //     continue;
+                // }
+            }
+            // CODE USED FOR UNIT TEST ONLY [End]
+
+            CValidationState dummyState;
+            mempoolCallback(*item.parentPtr.get(), item.node,
+                                            item.result == ProofVerificationResult::Passed ? BatchVerificationStateFlag::VERIFIED : BatchVerificationStateFlag::FAILED,
+                                            dummyState);
+
+            i = proofs.erase(i);
+        }
+        else
+        {
+            i++;
+        }
     }
 }
 
@@ -181,28 +187,28 @@ void CScAsyncProofVerifier::ProcessVerificationOutputs(const std::map<uint256, P
  * It must be used in regression test mode only.
  * @param output The result of the proof verification that has been performed.
  */
-void CScAsyncProofVerifier::UpdateStatistics(const ProofVerifierOutput& output)
+void CScAsyncProofVerifier::UpdateStatistics(const CProofVerifierItem& item)
 {
     assert(Params().NetworkIDString() == "regtest");
 
-    if (output.tx->IsCertificate())
+    if (item.parentPtr->IsCertificate())
     {
-        if (output.proofResult == ProofVerificationResult::Passed)
+        if (item.result == ProofVerificationResult::Passed)
         {
             stats.okCertCounter++;
         }
-        else if (output.proofResult == ProofVerificationResult::Failed)
+        else if (item.result == ProofVerificationResult::Failed)
         {
             stats.failedCertCounter++;
         }
     }
     else
     {
-        if (output.proofResult == ProofVerificationResult::Passed)
+        if (item.result == ProofVerificationResult::Passed)
         {
             stats.okCswCounter++;
         }
-        else if (output.proofResult == ProofVerificationResult::Failed)
+        else if (item.result == ProofVerificationResult::Failed)
         {
             stats.failedCswCounter++;
         }

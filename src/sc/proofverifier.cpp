@@ -178,9 +178,9 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
 }
 #endif
 
-bool CScProofVerifier::BatchVerify() const
+bool CScProofVerifier::BatchVerify()
 {
-    return BatchVerifyInternal(proofQueue).first;
+    return BatchVerifyInternal(proofQueue);
 }
 
 /**
@@ -190,22 +190,27 @@ bool CScProofVerifier::BatchVerify() const
  * @param certInputs The map of certificates data to be verified.
  * @return std::pair<bool, std::vector<uint32_t>> A pair containing the total result of the whole batch verification (bool) and the list of failed proofs.
  */
-std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchVerifyInternal(const std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs) const
+bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs)
 {
     if (verificationMode == Verification::Loose)
     {
-        return std::make_pair(true, GenerateVerifierResults(proofs, ProofVerificationResult::Passed));
+        for (auto& proof : proofs)
+        {
+            proof.second.result = ProofVerificationResult::Passed;
+            return true;
+        }
     }
 
     if (proofs.size() == 0)
     {
-        return std::make_pair(true, GenerateVerifierResults(proofs, ProofVerificationResult::Passed));
+        return true;
     }
 
     CctpErrorCode code;
     ZendooBatchProofVerifier batchVerifier;
+    bool addFailure = false;
 
-    std::map<uint256, ProofVerifierOutput> addFailures;   /**< The list of Tx/Cert that failed during the load operation. */
+    //std::map<uint256, ProofVerifierOutput> addFailures;   /**< The list of Tx/Cert that failed during the load operation. */
     std::map<uint32_t /* Proof ID */, uint256 /* Tx or Cert hash */> proofIdMap;
 
     int64_t nTime1 = GetTimeMicros();
@@ -213,29 +218,31 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
 
     for (auto& proofEntry : proofs)
     {
-        const CProofVerifierItem& item = proofEntry.second;
+        CProofVerifierItem& item = proofEntry.second;
+
+        assert(item.result == ProofVerificationResult::Unknown);
 
         if (item.cswInputs)
         {
-            for (auto& item : *item.cswInputs)
+            for (auto& cswInput : *item.cswInputs)
             {
-                proofIdMap.insert(std::make_pair(item.proofId, proofEntry.first));
+                proofIdMap.insert(std::make_pair(cswInput.proofId, proofEntry.first));
 
-                wrappedFieldPtr sptrScId = CFieldElement(item.scId).GetFieldElement();
+                wrappedFieldPtr sptrScId = CFieldElement(cswInput.scId).GetFieldElement();
                 field_t* scid_fe = sptrScId.get();
     
-                const uint160& csw_pk_hash = item.pubKeyHash;
+                const uint160& csw_pk_hash = cswInput.pubKeyHash;
                 BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
     
-                wrappedFieldPtr   sptrCdh       = item.certDataHash.GetFieldElement();
-                wrappedFieldPtr   sptrCum       = item.ceasingCumScTxCommTree.GetFieldElement();
-                wrappedFieldPtr   sptrNullifier = item.nullifier.GetFieldElement();
-                wrappedScProofPtr sptrProof     = item.proof.GetProofPtr();
-                wrappedScVkeyPtr  sptrCeasedVk  = item.verificationKey.GetVKeyPtr();
+                wrappedFieldPtr   sptrCdh       = cswInput.certDataHash.GetFieldElement();
+                wrappedFieldPtr   sptrCum       = cswInput.ceasingCumScTxCommTree.GetFieldElement();
+                wrappedFieldPtr   sptrNullifier = cswInput.nullifier.GetFieldElement();
+                wrappedScProofPtr sptrProof     = cswInput.proof.GetProofPtr();
+                wrappedScVkeyPtr  sptrCeasedVk  = cswInput.verificationKey.GetVKeyPtr();
 
                 bool ret = batchVerifier.add_csw_proof(
-                    item.proofId,
-                    item.nValue,
+                    cswInput.proofId,
+                    cswInput.nValue,
                     scid_fe, 
                     sptrNullifier.get(),
                     &bws_csw_pk_hash,
@@ -251,9 +258,12 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
                     LogPrintf("ERROR: %s():%d - tx [%s] has csw proof which does not verify: ret[%d], code [0x%x]\n",
                         __func__, __LINE__, proofEntry.first.ToString(), (int)ret, code);
 
-                    addFailures.insert(std::make_pair(proofEntry.first, ProofVerifierOutput {.tx = item.parentPtr,
-                                                                                        .node = item.node,
-                                                                                        .proofResult = ProofVerificationResult::Failed}));
+                    // addFailures.insert(std::make_pair(proofEntry.first, ProofVerifierOutput {.tx = item.parentPtr,
+                    //                                                                     .node = item.node,
+                    //                                                                     .proofResult = ProofVerificationResult::Failed}));
+
+                    item.result = ProofVerificationResult::Failed;
+                    addFailure = true;
 
                     // If one CSW input fails, it is possible to skip the whole transaction.
                     break;
@@ -315,9 +325,11 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
                 LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify: ret[%d], code [0x%x]\n",
                     __func__, __LINE__, item.certInput->certHash.ToString(), (int)ret, code);
 
-                addFailures.insert(std::make_pair(proofEntry.first, ProofVerifierOutput {.tx = item.certInput->parentPtr,
-                                                                                        .node = item.certInput->node,
-                                                                                        .proofResult = ProofVerificationResult::Failed}));
+                // addFailures.insert(std::make_pair(proofEntry.first, ProofVerifierOutput {.tx = item.certInput->parentPtr,
+                //                                                                         .node = item.certInput->node,
+                //                                                                         .proofResult = ProofVerificationResult::Failed}));
+                item.result = ProofVerificationResult::Failed;
+                addFailure = true;
             }
         }
         else
@@ -328,28 +340,40 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
     }
 
     CZendooBatchProofVerifierResult verRes(batchVerifier.batch_verify_all(&code));
-    bool totalResult = verRes.Result();
-    std::map<uint256, ProofVerifierOutput> results;
 
-    if (totalResult)
+    //std::map<uint256, ProofVerifierOutput> results;
+
+    if (verRes.Result())
     {
         assert(verRes.FailedProofs().size() == 0);
-        results = GenerateVerifierResults(proofs, ProofVerificationResult::Passed);
+        //results = GenerateVerifierResults(proofs, ProofVerificationResult::Passed);
+
+        for (auto& proof : proofs)
+        {
+            CProofVerifierItem& item = proof.second;
+
+            // Set as "passed" only proofs that didn't fail during the add process.
+            if (item.result == ProofVerificationResult::Unknown)
+            {
+                item.result = ProofVerificationResult::Passed;
+            }
+        }
     }
     else
     { 
-        results = GenerateVerifierResults(proofs, ProofVerificationResult::Unknown);
+        //results = GenerateVerifierResults(proofs, ProofVerificationResult::Unknown);
 
         if (verRes.FailedProofs().size() > 0)
         {
-            // We know for sure that some proofs failed, the other ones may be valid or not.
+            // We know for sure that some proofs failed, the other ones may be valid or not (unknown).
             LogPrintf("ERROR: %s():%d - verify failed for %d proof(s), code [0x%x]\n",
             __func__, __LINE__, verRes.FailedProofs().size(), code);
 
             for (uint32_t proofId : verRes.FailedProofs())
             {
                 uint256 txHash = proofIdMap.at(proofId);
-                results.at(txHash).proofResult = ProofVerificationResult::Failed;
+                //results.at(txHash).proofResult = ProofVerificationResult::Failed;
+                proofs.at(txHash).result = ProofVerificationResult::Failed;
             }
         }
         else
@@ -360,19 +384,20 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
     }
 
     // Set the failures that happened during the load process.
-    if (addFailures.size() > 0)
-    {
-        for (auto failure : addFailures)
-        {
-            results[failure.first] = failure.second;
-        }
+    // if (addFailures.size() > 0)
+    // {
+    //     for (auto failure : addFailures)
+    //     {
+    //         results[failure.first] = failure.second;
+    //     }
 
-        totalResult = false;
-    }
+    //     totalResult = false;
+    // }
 
     int64_t nTime2 = GetTimeMicros();
-    LogPrint("bench", "%s():%d - verification succesful: %.2fms\n", __func__, __LINE__, (nTime2-nTime1) * 0.001);
-    return std::make_pair(totalResult, results);
+    LogPrint("bench", "%s():%d - verification completed: %.2fms\n", __func__, __LINE__, (nTime2-nTime1) * 0.001);
+    //return std::make_pair(totalResult, results);
+    return !addFailure && verRes.Result();
 }
 
 /**
@@ -382,21 +407,22 @@ std::pair<bool, std::map<uint256, ProofVerifierOutput>> CScProofVerifier::BatchV
  * @param certInputs The map of certificates data to be verified.
  * @return std::vector<AsyncProofVerifierOutput> The result of all processed proofs.
  */
-std::map<uint256, ProofVerifierOutput> CScProofVerifier::NormalVerify(const std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs) const
+void CScProofVerifier::NormalVerify(std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs)
 {
-    std::map<uint256, ProofVerifierOutput> outputs;
+    //std::map<uint256, ProofVerifierOutput> outputs;
     
-    for (const auto& verifierInput : proofs)
+    for (auto& proof : proofs)
     {
-        ProofVerificationResult res;
+        //ProofVerificationResult res;
+        CProofVerifierItem& item = proof.second;
 
-        if (verifierInput.second.cswInputs)
+        if (item.cswInputs)
         {
-            res = NormalVerifyCsw(*verifierInput.second.cswInputs);
+            item.result = NormalVerifyCsw(*item.cswInputs);
         }
-        else if (verifierInput.second.certInput)
+        else if (item.certInput)
         {
-            res = NormalVerifyCertificate(*verifierInput.second.certInput);
+            item.result = NormalVerifyCertificate(*item.certInput);
         }
         else
         {
@@ -404,12 +430,12 @@ std::map<uint256, ProofVerifierOutput> CScProofVerifier::NormalVerify(const std:
             assert(false);
         }
 
-        outputs.insert(std::make_pair(verifierInput.first, ProofVerifierOutput{ .tx = verifierInput.second.parentPtr,
-                                                                                .node = verifierInput.second.node,
-                                                                                .proofResult = res }));
+        // outputs.insert(std::make_pair(verifierInput.first, ProofVerifierOutput{ .tx = verifierInput.second.parentPtr,
+        //                                                                         .node = verifierInput.second.node,
+        //                                                                         .proofResult = res }));
     }
 
-    return outputs;
+    //return outputs;
 }
 
 /**
@@ -523,17 +549,17 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCsw(std::vector<CCswProofV
     return ProofVerificationResult::Passed;
 }
 
-std::map<uint256, ProofVerifierOutput> CScProofVerifier::GenerateVerifierResults(const std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs,
-                                                                                 ProofVerificationResult defaultResult) const
-{
-    std::map<uint256, ProofVerifierOutput> results;
+// std::map<uint256, ProofVerifierOutput> CScProofVerifier::GenerateVerifierResults(const std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs,
+//                                                                                  ProofVerificationResult defaultResult) const
+// {
+//     std::map<uint256, ProofVerifierOutput> results;
 
-    for (auto proofEntry : proofs)
-    {
-        results.insert(std::make_pair(proofEntry.first, ProofVerifierOutput {.tx = proofEntry.second.parentPtr,
-                                                                                .node = proofEntry.second.node,
-                                                                                .proofResult = defaultResult}));
-    }
+//     for (auto proofEntry : proofs)
+//     {
+//         results.insert(std::make_pair(proofEntry.first, ProofVerifierOutput {.tx = proofEntry.second.parentPtr,
+//                                                                                 .node = proofEntry.second.node,
+//                                                                                 .proofResult = defaultResult}));
+//     }
 
-    return results;
-}
+//     return results;
+// }

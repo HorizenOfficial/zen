@@ -79,12 +79,12 @@ struct CProofVerifierItem
 /**
  * @brief A structure containing the output data of a proof verification.
  */
-struct ProofVerifierOutput
-{
-    std::shared_ptr<CTransactionBase> tx;    /**< The transaction which the proof verification refers to. */
-    CNode* node;                             /**< The node that sent the transaction. */
-    ProofVerificationResult proofResult;     /**< The result of the proof verification. */
-};
+// struct ProofVerifierOutput
+// {
+//     std::shared_ptr<CTransactionBase> tx;    /**< The transaction which the proof verification refers to. */
+//     CNode* node;                             /**< The node that sent the transaction. */
+//     ProofVerificationResult proofResult;     /**< The result of the proof verification. */
+// };
 
 // typedef std::shared_ptr<CBaseProofVerifierItem> CBaseProofVerifierItemPtr;
 // typedef std::shared_ptr<CCertProofVerifierInput> CCertProofVerifierInputPtr;
@@ -120,16 +120,16 @@ public:
     virtual void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom = nullptr);
 
     virtual void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom = nullptr);
-    bool BatchVerify() const;
+    bool BatchVerify();
 
 protected:
     //std::map</*scTxHash*/uint256, std::vector<CCswProofVerifierInput>> cswEnqueuedData;      /**< The queue of CSW proofs to be verified. */
     //std::map</*certHash*/uint256, std::vector<CCertProofVerifierInput>> certEnqueuedData;    /**< The queue of certificate proofs to be verified. */
     std::map</* Cert or Tx hash */ uint256, CProofVerifierItem> proofQueue;   /** The queue of proofs to be verified. */
 
-    std::pair<bool, std::map<uint256, ProofVerifierOutput>> BatchVerifyInternal(const std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs) const;
+    bool BatchVerifyInternal(std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs);
 
-    std::map<uint256, ProofVerifierOutput> NormalVerify(const std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs) const;
+    void NormalVerify(std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs);
     ProofVerificationResult NormalVerifyCertificate(CCertProofVerifierInput input) const;
     ProofVerificationResult NormalVerifyCsw(std::vector<CCswProofVerifierInput> cswInputs) const;
 
@@ -139,8 +139,8 @@ private:
 
     const Verification verificationMode;    /**< The type of verification to be performed by this instance of proof verifier. */
 
-    std::map<uint256, ProofVerifierOutput> GenerateVerifierResults(const std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs,
-                                                                   ProofVerificationResult defaultResult) const;
+    //std::map<uint256, ProofVerifierOutput> GenerateVerifierResults(const std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs,
+    //                                                               ProofVerificationResult defaultResult) const;
 };
 
 #endif // _SC_PROOF_VERIFIER_H

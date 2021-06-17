@@ -7,6 +7,7 @@
 
 #include "amount.h"
 #include "chainparams.h"
+#include "main.h"
 #include "primitives/certificate.h"
 #include "primitives/transaction.h"
 #include "sc/proofverifier.h"
@@ -69,16 +70,17 @@ private:
     AsyncProofVerifierStatistics stats;     /**< Async proof verifier statistics. */
     bool skipAcceptToMemoryPool;            /**< True to skip the call to AcceptToMemoryPool at the end of the proof verification, false otherwise (default false), */
     // Members used for REGTEST mode only. [End]
+    std::function<void(const CTransactionBase&, CNode*, BatchVerificationStateFlag, CValidationState&)> mempoolCallback;
 
     CScAsyncProofVerifier() :
         CScProofVerifier(Verification::Strict),
-        skipAcceptToMemoryPool(false)
+        skipAcceptToMemoryPool(false),
+        mempoolCallback(ProcessTxBaseAcceptToMemoryPool)
     {
     }
 
-    void ProcessVerificationOutputs(const std::map<uint256, ProofVerifierOutput> outputs,
-                                    std::map</* Tx hash */ uint256, CProofVerifierItem>& proofs);
-    void UpdateStatistics(const ProofVerifierOutput& output);
+    void ProcessVerificationOutputs(std::map</* Tx hash */ uint256, CProofVerifierItem>& proofs);
+    void UpdateStatistics(const CProofVerifierItem& item);
 };
 
 /**
@@ -178,6 +180,7 @@ private:
     {
         // Disables the call to AcceptToMemory pool from the async proof verifier when performing unit tests (not python ones).
         CScAsyncProofVerifier::GetInstance().skipAcceptToMemoryPool = true;
+        CScAsyncProofVerifier::GetInstance().mempoolCallback = [](const CTransactionBase&, CNode*, BatchVerificationStateFlag, CValidationState&){};
     }
 };
 
