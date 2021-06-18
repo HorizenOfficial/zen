@@ -24,7 +24,6 @@
 #include <clientversion.h>
 #include <rpc/server.h>
 #include <chrono>
-
 extern CAmount AmountFromValue(const UniValue& value);
 
 using tcp = boost::asio::ip::tcp;
@@ -81,6 +80,20 @@ static std::string findFieldValue(const std::string& field, const UniValue& requ
     }
     return "";
 }
+
+
+static void DFS(vector<pair<string, string> > graph, string node, std::map<string, bool> * visited, stack<string> * order) {
+	visited->at(node) = true;
+
+	for (int i = 0; i<graph.size(); i++) {
+		if (graph[i].first.compare(node) == 0) {
+			if (visited->at(graph[i].second) == false) {
+				DFS(graph, graph[i].second, visited, order);
+			}
+		}
+	};
+	order->push(node);
+};
 
 class WsNotificationInterface: public CValidationInterface
 {
@@ -286,7 +299,7 @@ private:
         wsq.push(wse);
     }
 
-    void sendTxs(const std::list<std::string> listHex,
+    void sendTxs(const std::list<std::string> listHex, const std::string& sessionId,
     		WsEvent::WsMsgType msgType, const std::string clientRequestId = "")
     {
         // Send a message to the client:  type = responseType
@@ -300,6 +313,7 @@ private:
         	txHex.push_back(*it);
         }
         rspPayload.push_back(Pair("hex", txHex));
+        rspPayload.push_back(Pair("sessionId", sessionId));
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
             rv->push_back(Pair("requestId", clientRequestId));
@@ -571,19 +585,55 @@ private:
     }
 
     int sendRawMempool(const std::string& clientRequestId) {
-        LOCK(mempool.cs);
-
+        vector<pair<string, string> > dependencyGraph;
+        stack<string> order;
+        std::map<string, bool> visited;
         std::list<uint256> hashes;
-        BOOST_FOREACH(const PAIRTYPE(uint256, CTxMemPoolEntry)& entry, mempool.mapTx)
+
+
         {
-           hashes.push_back(entry.first);
+            LOCK(mempool.cs);
+
+            //Build the transaction's dependency graph
+            for (std::map<uint256, CTxMemPoolEntry>::iterator mi = mempool.mapTx.begin();
+                mi != mempool.mapTx.end(); ++mi)
+            {
+                const CTransaction& tx = mi->second.GetTx();
+                visited.insert(make_pair(tx.GetHash().GetHex(),false));
+
+                // Detect orphan transaction and its dependencies
+                BOOST_FOREACH(const CTxIn& txin, tx.vin)
+                {
+                    if (mempool.mapTx.count(txin.prevout.hash))
+                    {
+                        dependencyGraph.push_back(make_pair(txin.prevout.hash.GetHex(), tx.GetHash().GetHex()));
+                    }
+                }
+
+            }
+
+            //Topologic-order
+            for(map<string, bool >::const_iterator it = visited.begin();
+                it != visited.end(); ++it)
+                {
+                    if (it->second == false) {
+                        DFS(dependencyGraph, it->first, &visited, &order);
+                    }
+                }
+
+            //Fill the array of txids
+            while (!order.empty()) {
+                hashes.push_back(uint256S(order.top()));
+                order.pop();
+            }
         }
+
         sendMempool(hashes.size(), hashes, WsEvent::MSG_RESPONSE, clientRequestId);
         return OK;
 
     }
 
-    int sendMempoolTxs(const UniValue& hashes, const std::string& clientRequestId) {
+    int sendMempoolTxs(const UniValue& hashes, const std::string& sessionId, const std::string& clientRequestId) {
         LOCK(mempool.cs);
 
         std::list<std::string> txs;
@@ -603,7 +653,7 @@ private:
 			}
 
         }
-        sendTxs(txs, WsEvent::MSG_RESPONSE, clientRequestId);
+        sendTxs(txs, sessionId, WsEvent::MSG_RESPONSE, clientRequestId);
         return OK;
     }
 
@@ -963,7 +1013,9 @@ private:
                     LogPrint("ws", "%s():%d - hash array empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
                 }
-                return sendMempoolTxs(hashes,clientRequestId);
+                std::string sessionId = findFieldValue("sessionId", reqPayload);
+
+                return sendMempoolTxs(hashes, sessionId, clientRequestId);
             }
             if (requestType == std::to_string(WsEvent::GET_NODE_STATIC_CONFIG))
             {
@@ -1290,16 +1342,53 @@ static void ws_updatetip(const CBlockIndex *pindex)
     }
 }
 
+
+
 static void ws_updatemempool()
 {
+
+	vector<pair<string, string> > dependencyGraph;
+	stack<string> order;
+	std::map<string, bool> visited;
 	std::list<uint256> hashes;
-    {
+
+
+	{
         LOCK(mempool.cs);
-		BOOST_FOREACH(const PAIRTYPE(uint256, CTxMemPoolEntry)& entry, mempool.mapTx)
+
+		//Build the transaction's dependency graph
+	    for (std::map<uint256, CTxMemPoolEntry>::iterator mi = mempool.mapTx.begin();
+	         mi != mempool.mapTx.end(); ++mi)
+	    {
+	        const CTransaction& tx = mi->second.GetTx();
+	        visited.insert(make_pair(tx.GetHash().GetHex(),false));
+
+	        // Detect orphan transaction and its dependencies
+	        BOOST_FOREACH(const CTxIn& txin, tx.vin)
+	        {
+	            if (mempool.mapTx.count(txin.prevout.hash))
+	            {
+                    dependencyGraph.push_back(make_pair(txin.prevout.hash.GetHex(), tx.GetHash().GetHex()));
+	            }
+	        }
+
+	    }
+
+		//Topologic-order
+		for(map<string, bool >::const_iterator it = visited.begin();
+			it != visited.end(); ++it)
 		{
-		   hashes.push_back(entry.first);
+			if (it->second == false) {
+				DFS(dependencyGraph, it->first, &visited, &order);
+			}
 		}
-    }
+
+		//Fill the array of txids
+		while (!order.empty()) {
+			hashes.push_back(uint256S(order.top()));
+	        order.pop();
+		}
+	}
 
 	std::unique_lock<std::mutex> lck(wsmtx);
 	if (listWsHandler.size() )
