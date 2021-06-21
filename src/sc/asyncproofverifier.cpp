@@ -48,6 +48,10 @@ uint32_t CScAsyncProofVerifier::GetCustomMaxBatchVerifyMaxSize()
     return static_cast<uint32_t>(size);
 }
 
+/**
+ * @brief A function that periodically performs batch verification over the queued proofs.
+ * It should run on a dedicated thread.
+ */
 void CScAsyncProofVerifier::RunPeriodicVerification()
 {
     /**
@@ -125,7 +129,7 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
 /**
  * @brief Process the outputs of the batch verification.
  * This function is meant to process all the outputs having a state PASSED or FAILED;
- * the related proofs are then removed from the cswProofs and certProofs maps.
+ * the related proofs are then removed from the proofs map.
  * 
  * So, when this function returns:
  * 
@@ -140,7 +144,6 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
  * 3. All the transactions/certificates that are in an UNKNOWN state are not processed
  * and are kept into the related maps.
  * 
- * @param outputs The set of outputs returned by the batch verification process
  * @param proofs The set of proofs submitted as input to the proof verifier
  */
 void CScAsyncProofVerifier::ProcessVerificationOutputs(std::map</* Tx hash */ uint256, CProofVerifierItem>& proofs)
@@ -152,19 +155,13 @@ void CScAsyncProofVerifier::ProcessVerificationOutputs(std::map</* Tx hash */ ui
 
         if (item.result == ProofVerificationResult::Failed || item.result == ProofVerificationResult::Passed)
         {
-            LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%d] \n",
-                    __func__, __LINE__, item.parentPtr->GetHash().ToString(), item.node->GetId(), item.result);
+            LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%s] \n",
+                    __func__, __LINE__, item.parentPtr->GetHash().ToString(), item.node->GetId(), ProofVerificationResultToString(item.result));
 
             // CODE USED FOR UNIT TEST ONLY [Start]
             if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest"))
             {
                 UpdateStatistics(item); // Update the statistics
-
-                // Check if the AcceptToMemoryPool has to be skipped.
-                // if (skipAcceptToMemoryPool)
-                // {
-                //     continue;
-                // }
             }
             // CODE USED FOR UNIT TEST ONLY [End]
 
@@ -183,9 +180,10 @@ void CScAsyncProofVerifier::ProcessVerificationOutputs(std::map</* Tx hash */ ui
 }
 
 /**
- * @brief Update the statistics of the proof verifier.
- * It must be used in regression test mode only.
- * @param output The result of the proof verification that has been performed.
+ * @brief Updates the statistics of the proof verifier.
+ * It is available in regression test mode only.
+ * 
+ * @param item The item that has been processed by the proof verifier
  */
 void CScAsyncProofVerifier::UpdateStatistics(const CProofVerifierItem& item)
 {

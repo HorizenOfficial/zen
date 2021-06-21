@@ -19,7 +19,7 @@ class uint256;
 class CCoinsViewCache;
 
 /**
- * @brief A structure storing statistics about the async batch verifier process.
+ * @brief A structure that stores statistics about the async batch verifier process.
  * 
  */
 struct AsyncProofVerifierStatistics
@@ -48,8 +48,8 @@ public:
     CScAsyncProofVerifier(const CScAsyncProofVerifier&) = delete;
     CScAsyncProofVerifier& operator=(const CScAsyncProofVerifier&) = delete;
 
-    virtual void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom = nullptr) override;
-    virtual void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom = nullptr) override;
+    void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom = nullptr) override;
+    void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom = nullptr) override;
     void RunPeriodicVerification();
 
     static const uint32_t BATCH_VERIFICATION_MAX_DELAY;   /**< The maximum delay in milliseconds between batch verification requests */
@@ -60,7 +60,7 @@ public:
 
 private:
 
-    friend class TEST_FRIEND_CScAsyncProofVerifier;
+    friend class TEST_FRIEND_CScAsyncProofVerifier;         /**< A friend class used as a proxy for private members in unit tests (Regtest mode only). */
 
     static const uint32_t THREAD_WAKE_UP_PERIOD = 100;           /**< The period of time in milliseconds after which the thread wakes up. */
 
@@ -68,13 +68,15 @@ private:
 
     // Members used for REGTEST mode only. [Start]
     AsyncProofVerifierStatistics stats;     /**< Async proof verifier statistics. */
-    bool skipAcceptToMemoryPool;            /**< True to skip the call to AcceptToMemoryPool at the end of the proof verification, false otherwise (default false), */
     // Members used for REGTEST mode only. [End]
+
+    /**
+     * @brief The function to be called to make the mempool process a certificate/transaction after the verification of the proof.
+     */
     std::function<void(const CTransactionBase&, CNode*, BatchVerificationStateFlag, CValidationState&)> mempoolCallback;
 
     CScAsyncProofVerifier() :
         CScProofVerifier(Verification::Strict),
-        skipAcceptToMemoryPool(false),
         mempoolCallback(ProcessTxBaseAcceptToMemoryPool)
     {
     }
@@ -86,6 +88,8 @@ private:
 /**
  * @brief Friend class of the CScAsyncProofVerifier to be used in unit tests
  * to access private fields.
+ * 
+ * It is a singleton and can be instanciated in REGTEST mode only.
  */
 class TEST_FRIEND_CScAsyncProofVerifier
 {
@@ -120,6 +124,8 @@ public:
      */
     size_t PendingAsyncCertProofs()
     {
+        LOCK(CScAsyncProofVerifier::GetInstance().cs_asyncQueue);
+
         int counter = 0;
 
         for (auto item : CScAsyncProofVerifier::GetInstance().proofQueue)
@@ -141,6 +147,8 @@ public:
      */
     size_t PendingAsyncCswProofs()
     {
+        LOCK(CScAsyncProofVerifier::GetInstance().cs_asyncQueue);
+
         int counter = 0;
 
         for (auto item : CScAsyncProofVerifier::GetInstance().proofQueue)
@@ -165,13 +173,12 @@ public:
     }
 
     /**
-     * @brief Resets the async proof verifier statistics and queues.
+     * @brief Resets the async proof verifier statistics and queue.
      */
     void Reset()
     {
         CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
 
-        verifier.proofQueue.clear();
         verifier.stats = AsyncProofVerifierStatistics();
     }
 
@@ -179,7 +186,6 @@ private:
     TEST_FRIEND_CScAsyncProofVerifier()
     {
         // Disables the call to AcceptToMemory pool from the async proof verifier when performing unit tests (not python ones).
-        CScAsyncProofVerifier::GetInstance().skipAcceptToMemoryPool = true;
         CScAsyncProofVerifier::GetInstance().mempoolCallback = [](const CTransactionBase&, CNode*, BatchVerificationStateFlag, CValidationState&){};
     }
 };

@@ -507,12 +507,10 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
         input.ceasingCumScTxCommTree = cswInput1.ceasingCumScTxCommTree,
         input.certDataHash = cswInput1.actCertDataHash,
         input.proof = cswInput1.scProof,
-        input.node = &dummyNode,
         input.nValue = cswInput1.nValue,
         input.nullifier = cswInput1.nullifier,
         input.pubKeyHash = cswInput1.pubKeyHash,
         input.scId = cswInput1.scId,
-        input.parentPtr = std::make_shared<CTransaction>(cswTransaction);
 
         inputs.push_back(input);
         element.insert(std::make_pair(i, input));
@@ -543,10 +541,8 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
         ASSERT_EQ(tempElement.at(i).ceasingCumScTxCommTree, inputs.at(i).ceasingCumScTxCommTree);
         ASSERT_EQ(tempElement.at(i).certDataHash, inputs.at(i).certDataHash);
         ASSERT_EQ(tempElement.at(i).proof, inputs.at(i).proof);
-        ASSERT_EQ(tempElement.at(i).node, inputs.at(i).node);
         ASSERT_EQ(tempElement.at(i).nValue, inputs.at(i).nValue);
         ASSERT_EQ(tempElement.at(i).pubKeyHash, inputs.at(i).pubKeyHash);
         ASSERT_EQ(tempElement.at(i).scId, inputs.at(i).scId);
-        ASSERT_EQ(tempElement.at(i).parentPtr, inputs.at(i).parentPtr);
     }
 }
