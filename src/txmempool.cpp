@@ -536,6 +536,66 @@ bool CTxMemPool::IsFullyNotified() {
     return nRecentlyAddedSequence == nNotifiedSequence;
 }
 
+void CTxMemPool::DFS(std::vector<std::pair<std::string, std::string> > graph, std::string node, std::map<std::string, bool> * visited, stack<std::string> * order) {
+	visited->at(node) = true;
+
+	for (int i = 0; i<graph.size(); i++) {
+		if (graph[i].first.compare(node) == 0) {
+			if (visited->at(graph[i].second) == false) {
+				DFS(graph, graph[i].second, visited, order);
+			}
+		}
+	};
+	order->push(node);
+}
+
+std::list<uint256> CTxMemPool::TopologicalSort() {
+	vector<pair<string, string> > dependencyGraph;
+	stack<string> order;
+	std::map<string, bool> visited;
+	std::list<uint256> orderedMempool;
+
+
+	{
+        LOCK(cs);
+
+		//Build the transaction's dependency graph
+	    for (std::map<uint256, CTxMemPoolEntry>::iterator mi = mapTx.begin();
+	         mi != mapTx.end(); ++mi)
+	    {
+	        const CTransaction& tx = mi->second.GetTx();
+	        visited.insert(make_pair(tx.GetHash().GetHex(),false));
+
+	        // Detect orphan transaction and its dependencies
+	        BOOST_FOREACH(const CTxIn& txin, tx.vin)
+	        {
+	            if (mapTx.count(txin.prevout.hash))
+	            {
+                    dependencyGraph.push_back(make_pair(txin.prevout.hash.GetHex(), tx.GetHash().GetHex()));
+	            }
+	        }
+
+	    }
+
+		//Topologic-order
+		for(map<string, bool >::const_iterator it = visited.begin();
+			it != visited.end(); ++it)
+		{
+			if (it->second == false) {
+				DFS(dependencyGraph, it->first, &visited, &order);
+			}
+		}
+
+		//Fill the array of txids
+		while (!order.empty()) {
+			orderedMempool.push_back(uint256S(order.top()));
+	        order.pop();
+		}
+	}
+
+	return orderedMempool;
+}
+
 CCoinsViewMemPool::CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn) : CCoinsViewBacked(baseIn), mempool(mempoolIn) { }
 
 bool CCoinsViewMemPool::GetNullifier(const uint256 &nf) const {

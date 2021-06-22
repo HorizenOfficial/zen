@@ -24,6 +24,10 @@
 #include <clientversion.h>
 #include <rpc/server.h>
 #include <chrono>
+
+using namespace std;
+
+
 extern CAmount AmountFromValue(const UniValue& value);
 
 using tcp = boost::asio::ip::tcp;
@@ -80,20 +84,6 @@ static std::string findFieldValue(const std::string& field, const UniValue& requ
     }
     return "";
 }
-
-
-static void DFS(vector<pair<string, string> > graph, string node, std::map<string, bool> * visited, stack<string> * order) {
-	visited->at(node) = true;
-
-	for (int i = 0; i<graph.size(); i++) {
-		if (graph[i].first.compare(node) == 0) {
-			if (visited->at(graph[i].second) == false) {
-				DFS(graph, graph[i].second, visited, order);
-			}
-		}
-	};
-	order->push(node);
-};
 
 class WsNotificationInterface: public CValidationInterface
 {
@@ -585,47 +575,12 @@ private:
     }
 
     int sendRawMempool(const std::string& clientRequestId) {
-        vector<pair<string, string> > dependencyGraph;
-        stack<string> order;
-        std::map<string, bool> visited;
         std::list<uint256> hashes;
-
 
         {
             LOCK(mempool.cs);
+            hashes = mempool.TopologicalSort();
 
-            //Build the transaction's dependency graph
-            for (std::map<uint256, CTxMemPoolEntry>::iterator mi = mempool.mapTx.begin();
-                mi != mempool.mapTx.end(); ++mi)
-            {
-                const CTransaction& tx = mi->second.GetTx();
-                visited.insert(make_pair(tx.GetHash().GetHex(),false));
-
-                // Detect orphan transaction and its dependencies
-                BOOST_FOREACH(const CTxIn& txin, tx.vin)
-                {
-                    if (mempool.mapTx.count(txin.prevout.hash))
-                    {
-                        dependencyGraph.push_back(make_pair(txin.prevout.hash.GetHex(), tx.GetHash().GetHex()));
-                    }
-                }
-
-            }
-
-            //Topologic-order
-            for(map<string, bool >::const_iterator it = visited.begin();
-                it != visited.end(); ++it)
-                {
-                    if (it->second == false) {
-                        DFS(dependencyGraph, it->first, &visited, &order);
-                    }
-                }
-
-            //Fill the array of txids
-            while (!order.empty()) {
-                hashes.push_back(uint256S(order.top()));
-                order.pop();
-            }
         }
 
         sendMempool(hashes.size(), hashes, WsEvent::MSG_RESPONSE, clientRequestId);
@@ -1346,48 +1301,11 @@ static void ws_updatetip(const CBlockIndex *pindex)
 
 static void ws_updatemempool()
 {
-
-	vector<pair<string, string> > dependencyGraph;
-	stack<string> order;
-	std::map<string, bool> visited;
 	std::list<uint256> hashes;
-
 
 	{
         LOCK(mempool.cs);
-
-		//Build the transaction's dependency graph
-	    for (std::map<uint256, CTxMemPoolEntry>::iterator mi = mempool.mapTx.begin();
-	         mi != mempool.mapTx.end(); ++mi)
-	    {
-	        const CTransaction& tx = mi->second.GetTx();
-	        visited.insert(make_pair(tx.GetHash().GetHex(),false));
-
-	        // Detect orphan transaction and its dependencies
-	        BOOST_FOREACH(const CTxIn& txin, tx.vin)
-	        {
-	            if (mempool.mapTx.count(txin.prevout.hash))
-	            {
-                    dependencyGraph.push_back(make_pair(txin.prevout.hash.GetHex(), tx.GetHash().GetHex()));
-	            }
-	        }
-
-	    }
-
-		//Topologic-order
-		for(map<string, bool >::const_iterator it = visited.begin();
-			it != visited.end(); ++it)
-		{
-			if (it->second == false) {
-				DFS(dependencyGraph, it->first, &visited, &order);
-			}
-		}
-
-		//Fill the array of txids
-		while (!order.empty()) {
-			hashes.push_back(uint256S(order.top()));
-	        order.pop();
-		}
+        hashes = mempool.TopologicalSort();
 	}
 
 	std::unique_lock<std::mutex> lck(wsmtx);
