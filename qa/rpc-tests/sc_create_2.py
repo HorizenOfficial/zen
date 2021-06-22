@@ -221,19 +221,6 @@ class SCCreateTest(BitcoinTestFramework):
             assert_true("must be even" in errorString)
 
         # ---------------------------------------------------------------------------------------
-        # Node 1 try create a SC with a wCertVk too short
-        mark_logs("\nNode 1 try creates a SC with too short wCertVk byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "aa" * (MAX_SC_VK_SIZE_IN_BYTES - 1)}
-
-        try:
-            self.nodes[1].create_sidechain(cmdInput)
-            assert_true(False);
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs(errorString, self.nodes, DEBUG_MODE)
-            assert_true("Invalid wCertVk" in errorString)
-
-        # ---------------------------------------------------------------------------------------
         # Node 1 try create a SC with a wCertVk too long
         mark_logs("\nNode 1 try creates a SC with too long wCertVk byte string", self.nodes, DEBUG_MODE)
         cmdInput = {'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': "aa" * (MAX_SC_VK_SIZE_IN_BYTES + 1)}
