@@ -9,7 +9,7 @@ from test_framework.util import assert_true, assert_equal, initialize_chain_clea
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes
 from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
-from test_framework.mc_test.mc_test import *
+from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 import os
 import pprint
 from decimal import Decimal
@@ -23,6 +23,7 @@ MBTR_SC_FEE = Decimal('0')
 CERT_FEE = Decimal("0.000123")
 
 BIT_VECTOR_BUF = "021f8b08000000000002ff017f0080ff44c7e21ba1c7c0a29de006cb8074e2ba39f15abfef2525a4cbb3f235734410bda21cdab6624de769ceec818ac6c2d3a01e382e357dce1f6e9a0ff281f0fedae0efe274351db37599af457984dcf8e3ae4479e0561341adfff4746fbe274d90f6f76b8a2552a6ebb98aee918c7ceac058f4c1ae0131249546ef5e22f4187a07da02ca5b7f000000"
+BIT_VECTOR_BUF_NOT_POW2 = "01425a68393141592653591dadce4d0000fe8180900000100008200030cc09aa69901b5403c5dc914e1424076b739340"
 BIT_VECTOR_FE  = "8a7d5229f440d4700d8b0343de4e14400d1cb87428abf83bd67153bf58871721"
 
 class sc_cert_customfields(BitcoinTestFramework):
@@ -83,7 +84,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         mark_logs("\nNode 1 create SC with wrong vFieldElementCertificateFieldConfig obj in input (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
             self.nodes[1].create_sidechain(cmdInput)
-            assert_true(False);
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -96,7 +97,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         mark_logs("\nNode 1 create SC with wrong vBitVectorCertificateFieldConfig array in input (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
             self.nodes[1].create_sidechain(cmdInput)
-            assert_true(False);
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -109,24 +110,37 @@ class sc_cert_customfields(BitcoinTestFramework):
         mark_logs("\nNode 1 create SC with a vBitVectorCertificateFieldConfig array with too large integers (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
             self.nodes[1].create_sidechain(cmdInput)
-            assert_true(False);
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("invalid-custom-config" in errorString)
 
         #-------------------------------------------------------
-        zero_values_array = [0, 0] 
+        zero_values_array = [0, 0]
         cmdInput = {'vFieldElementCertificateFieldConfig': zero_values_array, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with a vFieldElementCertificateFieldConfig array with zeroes (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
             self.nodes[1].create_sidechain(cmdInput)
-            assert_true(False);
+            assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("Invalid parameter, expected positive integer in the range [1,..,255]" in errorString)
+
+        #-------------------------------------------------------
+        not_power_of_two_array = [[1039368, 151]]
+        cmdInput = {'vBitVectorCertificateFieldConfig': not_power_of_two_array, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
+
+        mark_logs("\nNode 1 create SC with a BitVector made of a number of FE leaves that is not a power of 2 (expecting failure...)", self.nodes, DEBUG_MODE)
+        try:
+            self.nodes[1].create_sidechain(cmdInput)
+            assert_true(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true("sidechain-sc-creation-invalid-custom-config" in errorString)
 
         #-------------------------------------------------------
         fee = 0.000025
@@ -155,7 +169,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true(False);
+            assert_true(False)
 
         self.sync_all()
 
@@ -184,7 +198,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true(False);
+            assert_true(False)
         self.sync_all()
  
         mark_logs("Verify vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig are correctly set in creation tx", self.nodes,DEBUG_MODE)
@@ -206,7 +220,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         constant3 = generate_random_field_element_hex()
         customData = "c0ffee"
         feCfg.append([])
-        cmtCfg.append([[254*8*3, 1967]])
+        cmtCfg.append([[254*8*4, 1967]])
 
         sc_cr = [{
             "epoch_length": EPOCH_LENGTH, "amount":amount, "address":"ddaa", "wCertVk": vk, "constant": constant3,
@@ -221,7 +235,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
-            assert_true(False);
+            assert_true(False)
         self.sync_all()
  
         mark_logs("Verify vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig are correctly set in creation tx", self.nodes,DEBUG_MODE)
@@ -236,7 +250,6 @@ class sc_cert_customfields(BitcoinTestFramework):
         #-------------------------------------------------------
         mark_logs("\nNode 0 generates 1 block confirming SC creations", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
-        sc_creating_height = self.nodes[0].getblockcount()
         self.sync_all()
 
         scids = [scid1, scid2, scid3]
@@ -297,7 +310,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-            assert_true("bad-sc-cert-not-applicable" in errorString);
+            assert_true("bad-sc-cert-not-applicable" in errorString)
 
         #-------------------------------------------------------
         mark_logs("\nCreate raw cert with good custom field elements for SC2...", self.nodes, DEBUG_MODE)
@@ -336,7 +349,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.sync_all()
         mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
         assert_equal(True, cert in self.nodes[0].getrawmempool())
-        certs.append(cert);
+        certs.append(cert)
 
         #-------------------------------------------------------
         # get another UTXO
@@ -372,7 +385,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-            assert_true("bad-sc-cert-not-applicable" in errorString);
+            assert_true("bad-sc-cert-not-applicable" in errorString)
 
         self.sync_all()
         mark_logs("\nCreate raw cert with good custom field elements for SC1...", self.nodes, DEBUG_MODE)
@@ -412,7 +425,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.sync_all()
         mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
         assert_equal(True, cert in self.nodes[0].getrawmempool())
-        certs.append(cert);
+        certs.append(cert)
 
         #-------------------------------------------------------
         # parse a good cert and check custom fields
