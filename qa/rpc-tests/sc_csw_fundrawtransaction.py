@@ -10,6 +10,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     wait_bitcoinds, stop_nodes, get_epoch_data, sync_mempools, sync_blocks, \
     disconnect_nodes, advance_epoch, swap_bytes
 
+from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.mc_test.mc_test import *
 
 from decimal import Decimal
@@ -31,7 +32,7 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-                                 extra_args=[['-logtimemicros=1', '-debug=sc', '-debug=py',
+                                 extra_args=[['-logtimemicros=1', '-scproofqueuesize=0', '-debug=sc', '-debug=py',
                                               '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES)
 
         if not split:
@@ -82,7 +83,7 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
         '''
 
         # prepare some coins 
-        self.nodes[0].generate(220)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
         self.sync_all()
         prev_epoch_hash = self.nodes[0].getbestblockhash()
 
