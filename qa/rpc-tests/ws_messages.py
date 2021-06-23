@@ -426,6 +426,7 @@ class ws_messages(BitcoinTestFramework):
 
         mempool_cert_, chain_cert_ = self.nodes[0].ws_get_top_quality_certificates(scid2)
         assert_equal(cert1_quality, mempool_cert_['quality'])
+        assert_equal(epoch_number, mempool_cert_['epoch'])
         assert_equal(cert_1_epoch_0, mempool_cert_['certHash'])
         assert_equal(decoded_cert_mempool_1['hex'], mempool_cert_['rawCertificateHex'])
         assert_equal(CERT_FEE, Decimal(mempool_cert_['fee']))
@@ -436,6 +437,7 @@ class ws_messages(BitcoinTestFramework):
 
         mempool_cert_, chain_cert_ = self.nodes[0].ws_get_top_quality_certificates(scid2)
         assert_equal(cert1_quality, chain_cert_['quality'])
+        assert_equal(epoch_number, chain_cert_['epoch'])
         assert_equal(cert_1_epoch_0, chain_cert_['certHash'])
         assert_equal(decoded_cert_mempool_1['hex'], chain_cert_['rawCertificateHex'])
         assert_equal({}, mempool_cert_)
@@ -456,12 +458,26 @@ class ws_messages(BitcoinTestFramework):
         decoded_cert_mempool_2 = self.nodes[1].getrawtransaction(cert_2_epoch_0, 1)
         mempool_cert_, chain_cert_ = self.nodes[0].ws_get_top_quality_certificates(scid2)
         assert_equal(cert_2_quality, mempool_cert_['quality'])
+        assert_equal(epoch_number, mempool_cert_['epoch'])
         assert_equal(cert_2_epoch_0, mempool_cert_['certHash'])
         assert_equal(decoded_cert_mempool_2['hex'], mempool_cert_['rawCertificateHex'])
         assert_equal(CERT_FEE, Decimal(mempool_cert_['fee']))
         assert_equal(cert1_quality, chain_cert_['quality'])
+        assert_equal(epoch_number, chain_cert_['epoch'])
         assert_equal(cert_1_epoch_0, chain_cert_['certHash'])
         assert_equal(decoded_cert_mempool_1['hex'], chain_cert_['rawCertificateHex'])
+
+        self.nodes[0].generate(SC2_EPOCH_LENGTH)
+        epoch_number, cum_tree_hash = get_epoch_data(scid2, self.nodes[0], SC2_EPOCH_LENGTH)
+        self.sync_all()
+        assert_equal(1, epoch_number)
+
+        mempool_cert_, chain_cert_ = self.nodes[0].ws_get_top_quality_certificates(scid2)
+        assert_equal(cert_2_quality, chain_cert_['quality'])
+        assert_equal(0, chain_cert_['epoch'])
+        assert_equal(cert_2_epoch_0, chain_cert_['certHash'])
+        assert_equal(decoded_cert_mempool_2['hex'], chain_cert_['rawCertificateHex'])
+        assert_equal({}, mempool_cert_)
 
 
 if __name__ == '__main__':

@@ -535,6 +535,7 @@ private:
                 std::string certHex = HexStr(ssCert.begin(), ssCert.end());
      
                 mempoolTopQualityCert.push_back(Pair("quality", topQualCert.quality));
+                mempoolTopQualityCert.push_back(Pair("epoch", topQualCert.epochNumber));
                 mempoolTopQualityCert.push_back(Pair("certHash", topQualCertHash.GetHex()));
                 mempoolTopQualityCert.push_back(Pair("rawCertificateHex", certHex));
                 mempoolTopQualityCert.push_back(Pair("fee", FormatMoney(certFee)));
@@ -547,12 +548,13 @@ private:
                 CScCertificate topQualCert;
                 uint256 blockHash;
 
-                if (GetCertificate(sidechainInfo.lastTopQualityCertHash, topQualCert, blockHash)) {
+                if (GetCertificate(sidechainInfo.lastTopQualityCertHash, topQualCert, blockHash, true)) {
                     CDataStream ssCert(SER_NETWORK, PROTOCOL_VERSION);
                     ssCert << topQualCert;
                     std::string certHex = HexStr(ssCert.begin(), ssCert.end());
 
                     chainTopQualityCert.push_back(Pair("quality", topQualityCertQuality));
+                    chainTopQualityCert.push_back(Pair("epoch", topQualCert.epochNumber));
                     chainTopQualityCert.push_back(Pair("certHash", sidechainInfo.lastTopQualityCertHash.GetHex()));
                     chainTopQualityCert.push_back(Pair("rawCertificateHex", certHex));
                 } else {
