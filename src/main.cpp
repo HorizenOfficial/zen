@@ -3237,11 +3237,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (fScRelatedChecks == flagScRelatedChecks::ON)
     {
         int64_t nCommTreeStartTime = GetTimeMicros();
-        const uint256& scTxsCommittment = scCommitmentBuilder.getCommitment();
+        const uint256& scTxsCommitment = scCommitmentBuilder.getCommitment();
         int64_t deltaCommTreeTime = GetTimeMicros() - nCommTreeStartTime;
         LogPrint("bench", "    - txsCommTree: %.2fms\n", deltaCommTreeTime * 0.001);
 
-        if (block.hashScTxsCommitment != scTxsCommittment)
+        if (block.hashScTxsCommitment != scTxsCommitment)
         {
             // If this check fails, we return validation state obj with a state.corruptionPossible=false attribute,
             // which will mark this header as failed. This is because the previous check on merkel root was successful,
