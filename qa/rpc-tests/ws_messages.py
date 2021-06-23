@@ -84,7 +84,7 @@ class ws_messages(BitcoinTestFramework):
             '-websocket=1', '-debug=ws',
             '-txindex=1',
             '-debug=py', '-debug=sc', '-debug=mempool', '-debug=net',
-            '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1']
+            '-debug=cert', '-scproofqueuesize=0', '-logtimemicros=1']
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args = [common_args]*NUMB_OF_NODES)
 

@@ -38,7 +38,7 @@ class sc_cert_customfields(BitcoinTestFramework):
     def setup_network(self, split=False):
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-                                 extra_args=[['-logtimemicros=1', '-debug=sc',
+                                 extra_args=[['-logtimemicros=1', '-debug=sc', '-scproofqueuesize=0', 
                                               '-debug=py', '-debug=mempool', '-debug=net', '-debug=cert',
                                               '-debug=bench']] * NUMB_OF_NODES)
 

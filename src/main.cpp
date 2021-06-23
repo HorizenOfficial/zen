@@ -3227,15 +3227,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     if (fScRelatedChecks == flagScRelatedChecks::ON)
     {
-        const uint256& scTxsCommittment = scCommitmentBuilder.getCommitment();
-        if (block.hashScTxsCommitment != scTxsCommittment)
+        const uint256& scTxsCommitment = scCommitmentBuilder.getCommitment();
+        if (block.hashScTxsCommitment != scTxsCommitment)
         {
             // If this check fails, we return validation state obj with a state.corruptionPossible=false attribute,
             // which will mark this header as failed. This is because the previous check on merkel root was successful,
-            // that means sc txes/cert are verified, and yet their contribution to scTxsCommittment is not
+            // that means sc txes/cert are verified, and yet their contribution to scTxsCommitment is not
             return state.DoS(100, error("%s():%d: SCTxsCommitment verification failed; block[%s] vs computed[%s]",__func__, __LINE__,
-                                        block.hashScTxsCommitment.ToString(), scTxsCommittment.ToString()),
-                               CValidationState::Code::INVALID, "bad-sc-txs-committment");
+                                        block.hashScTxsCommitment.ToString(), scTxsCommitment.ToString()),
+                               CValidationState::Code::INVALID, "bad-sc-txs-commitment");
         }
         LogPrint("cert", "%s():%d - Successfully verified SCTxsCommitment %s\n",
             __func__, __LINE__, block.hashScTxsCommitment.ToString());
@@ -4425,7 +4425,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
         CFieldElement fieldToValidate{block.hashScTxsCommitment};
         if (!fieldToValidate.IsValid())
             return state.DoS(100, error("%s: incorrect hashScTxsCommitment", __func__),
-                             CValidationState::Code::INVALID, "bad-hashScTxsCommitment");
+                             CValidationState::Code::INVALID, "invalid-sc-txs-commitment");
     }
 
     return true;
