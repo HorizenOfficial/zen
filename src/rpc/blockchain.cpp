@@ -1569,10 +1569,10 @@ UniValue getceasingcumsccommtreehash(const UniValue& params, bool fHelp)
             "getceasingcumsccommtreehash (\"scid\")\n"
             "\nArgument:\n"
             "   \"scid\"   (string, mandatory)  Retrive information about specified scid\n"
-            "\nReturns the Cumulative SC Committment tree hash of the ceasing block for the given scid.\n"
+            "\nReturns the Cumulative SC Commitment tree hash of the ceasing block for the given scid.\n"
             "\nResult:\n"
             "{\n"
-            "  \"ceasingCumScTxCommTree\":  xxxxx,   (string)  A hex string representation of the field element containing Cumulative SC Committment tree hash of the ceasing block for the given scid.\n"
+            "  \"ceasingCumScTxCommTree\":  xxxxx,   (string)  A hex string representation of the field element containing Cumulative SC Commitment tree hash of the ceasing block for the given scid.\n"
             "}\n"
 
             "\nExamples\n"
@@ -1689,7 +1689,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     // block height
     ssBlock << pblockindex->nHeight;
 
-    // block scCommittmentTreeCumulativeHash
+    // block scCommitmentTreeCumulativeHash
     ssBlock << pblockindex->scCumTreeHash;
     LogPrint("sc", "%s():%d - sc[%s], h[%d], cum[%s], bVers[0x%x]\n", __func__, __LINE__,
         scId.ToString(), pblockindex->nHeight, pblockindex->scCumTreeHash.GetHexRepr(), pblockindex->nVersion);
