@@ -71,6 +71,8 @@ const char* ScriptErrorString(const ScriptError serror)
             return "Transaction failed to pass replay prevention checks";
         case SCRIPT_ERR_CHECKBLOCKATHEIGHT_UNVERIFIED:
             return "OP_CHECKBLOCKATHEIGHT cannot be verified with zen-tx";
+        case SCRIPT_ERR_NOT_FINAL:
+            return "OP_CHECKBLOCKATHEIGHT height is not valid or blockhash did not match";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

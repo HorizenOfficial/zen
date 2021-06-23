@@ -20,6 +20,9 @@ from util import assert_equal, check_json_precision, \
     start_nodes, connect_nodes_bi, stop_nodes, \
     sync_blocks, sync_mempools, wait_bitcoinds
 
+MINIMAL_SC_HEIGHT = 420
+MINER_REWARD_POST_H200 = 7.50
+
 
 class BitcoinTestFramework(object):
 
@@ -181,6 +184,6 @@ class ComparisonTestFramework(BitcoinTestFramework):
 
     def setup_network(self):
         self.nodes = start_nodes(self.num_nodes, self.options.tmpdir,
-                                    extra_args=[['-debug', '-whitelist=127.0.0.1']] * self.num_nodes,
+                                    extra_args=[['-logtimemicros=1', '-debug=net', '-debug=rpc', '-whitelist=127.0.0.1']] * self.num_nodes,
                                     binary=[self.options.testbinary] +
                                            [self.options.refbinary]*(self.num_nodes-1))

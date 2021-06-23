@@ -360,7 +360,7 @@ bool AsyncRPCOperation_sendmany::main_impl() {
         }
 
         UniValue obj(UniValue::VOBJ);
-        obj.push_back(Pair("rawtxn", EncodeHexTx(tx_)));
+        obj.pushKV("rawtxn", EncodeHexTx(tx_));
         sign_send_raw_transaction(obj);
         return true;
     }
@@ -791,7 +791,7 @@ void AsyncRPCOperation_sendmany::sign_send_raw_transaction(UniValue obj)
         std::string txid = sendResultValue.get_str();
 
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("txid", txid));
+        o.pushKV("txid", txid);
         set_result(o);
     } else {
         // Test mode does not send the transaction to the network.
@@ -801,9 +801,9 @@ void AsyncRPCOperation_sendmany::sign_send_raw_transaction(UniValue obj)
         stream >> tx;
 
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("test", 1));
-        o.push_back(Pair("txid", tx.GetHash().ToString()));
-        o.push_back(Pair("hex", signedtxn));
+        o.pushKV("test", 1);
+        o.pushKV("txid", tx.GetHash().ToString());
+        o.pushKV("hex", signedtxn);
         set_result(o);
     }
 
@@ -1078,11 +1078,11 @@ UniValue AsyncRPCOperation_sendmany::perform_joinsplit(
     // !!! Payment disclosure END
 
     UniValue obj(UniValue::VOBJ);
-    obj.push_back(Pair("encryptednote1", encryptedNote1));
-    obj.push_back(Pair("encryptednote2", encryptedNote2));
-    obj.push_back(Pair("rawtxn", HexStr(ss.begin(), ss.end())));
-    obj.push_back(Pair("inputmap", arrInputMap));
-    obj.push_back(Pair("outputmap", arrOutputMap));
+    obj.pushKV("encryptednote1", encryptedNote1);
+    obj.pushKV("encryptednote2", encryptedNote2);
+    obj.pushKV("rawtxn", HexStr(ss.begin(), ss.end()));
+    obj.pushKV("inputmap", arrInputMap);
+    obj.pushKV("outputmap", arrOutputMap);
     return obj;
 }
 
@@ -1165,8 +1165,8 @@ UniValue AsyncRPCOperation_sendmany::getStatus() const {
     }
 
     UniValue obj = v.get_obj();
-    obj.push_back(Pair("method", "z_sendmany"));
-    obj.push_back(Pair("params", contextinfo_ ));
+    obj.pushKV("method", "z_sendmany");
+    obj.pushKV("params", contextinfo_ );
     return obj;
 }
 

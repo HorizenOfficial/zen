@@ -6,7 +6,7 @@
 # Exercise the listtransactions API
 
 from test_framework.test_framework import BitcoinTestFramework
-
+from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from decimal import Decimal
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal
@@ -33,7 +33,6 @@ def check_array_result(object_array, to_match, expected):
             num_matched = num_matched + 1
     if num_matched == 0:
         raise AssertionError("No objects matched %s" % (str(to_match)))
-
 
 
 class ListTransactionsTest(BitcoinTestFramework):
@@ -326,9 +325,9 @@ class ListTransactionsTest(BitcoinTestFramework):
                                {"txid": txes[i - 2]},
                                {"amount": Decimal("-"+str(i))})
 
-        chain_height = self.nodes[0].getblockcount
-        if chain_height < 220:
-            self.nodes[0].generate(220 - chain_height)
+        chain_height = self.nodes[0].getblockcount()
+        if chain_height < MINIMAL_SC_HEIGHT:
+            self.nodes[0].generate(MINIMAL_SC_HEIGHT - chain_height)
         self.sync_all()
 
         # verify we can filter sc related transactions even with an empty vout

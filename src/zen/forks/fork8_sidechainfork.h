@@ -1,12 +1,12 @@
 #ifndef _SIDECHAINFORK_H
 #define _SIDECHAINFORK_H
 
-#include "fork6_timeblockfork.h"
+#include "fork7_replayprotectionfixfork.h"
 #include "primitives/block.h"
 
 namespace zen {
 
-class SidechainFork : public TimeBlockFork
+class SidechainFork : public ReplayProtectionFixFork
 {
 public:
     SidechainFork();

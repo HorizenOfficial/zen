@@ -4,14 +4,14 @@
 #include "consensus/validation.h"
 #include "main.h"
 #include "zcash/Proof.hpp"
-#include "base58.h"
 #include <pow.h>
+#include "base58.h"
 #include "zen/forkmanager.h"
 #include "zen/forks/fork1_chainsplitfork.h"
 #include "zen/forks/fork3_communityfundandrpfixfork.h"
 #include "zen/forks/fork4_nulltransactionfork.h"
 #include "zen/forks/fork5_shieldfork.h"
-#include "zen/forks/fork7_sidechainfork.h"
+#include "zen/forks/fork8_sidechainfork.h"
 using namespace zen;
 
 TEST(CheckBlock, VersionTooLow) {
@@ -169,7 +169,10 @@ protected:
         // Set height
         mtx.vin[0].scriptSig = CScript() << height << OP_0;
 
-        mtx.addOut(CTxOut(0, CScript() << OP_TRUE));
+        mtx.resizeOut(1);
+        mtx.getOut(0).scriptPubKey = CScript() << OP_TRUE;
+        mtx.getOut(0).nValue = 0;
+
         CAmount reward = GetBlockSubsidy(height, Params().GetConsensus());
 
         for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
@@ -393,7 +396,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     mtx.getOut(0).nValue = 1.5 * COIN;
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
     indexPrev.nHeight = hardForkHeight - 1;
-    block.vtx[0] = CTransaction(mtx);;
+    block.vtx[0] = CTransaction(mtx);
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
 
@@ -454,6 +457,7 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
     //Exceed the LastCommunityRewardBlockHeight
+    // this is also the first block after the halving height
     int exceedHeight=Params().GetConsensus()._deprecatedGetLastCommunityRewardBlockHeight()+1;
 
     address_foundation.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::FOUNDATION).c_str());
@@ -477,7 +481,70 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     mtx.getOut(2).nValue = 0.625 * COIN;
 
     indexPrev.nHeight = exceedHeight -1;
-    block.vtx[0] = CTransaction(mtx);;
+    block.vtx[0] = CTransaction(mtx);
+    EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
+
+    // this is 10 block after the first halving height
+    exceedHeight = Params().GetConsensus().nSubsidyHalvingInterval + 10;
+
+    // consider that only in fork1 there were many adresses to rotate, from fork4 up to now there is just one and one
+    // only address for each cType and network
+    address_foundation.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::FOUNDATION).c_str());
+    address_sec_node.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::SECURENODE).c_str());
+    address_sup_node.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::SUPERNODE).c_str());
+
+    scriptID_found    = boost::get<CScriptID>(address_foundation.Get());
+    scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
+    scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
+
+    mtx.vin[0].scriptSig = CScript() << exceedHeight << OP_0;
+
+    mtx.resizeOut(3);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.getOut(0).nValue = 2.5 * COIN;
+
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 1.25 * COIN;
+
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 1.25 * COIN;
+
+    indexPrev.nHeight = exceedHeight -1;
+    block.vtx[0] = CTransaction(mtx);
+
+    // check that pre-halving amounts are rejected
+    EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+
+    // this is 10 block after the second halving height
+    exceedHeight = Params().GetConsensus().nSubsidyHalvingInterval*2  + 10;
+
+    address_foundation.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::FOUNDATION).c_str());
+    address_sec_node.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::SECURENODE).c_str());
+    address_sup_node.SetString(Params().GetCommunityFundAddressAtHeight(exceedHeight, Fork::CommunityFundType::SUPERNODE).c_str());
+
+    scriptID_found    = boost::get<CScriptID>(address_foundation.Get());
+    scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
+    scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
+
+    mtx.vin[0].scriptSig = CScript() << exceedHeight << OP_0;
+
+    mtx.resizeOut(4);
+    // add also miner subsidy quote, even if it is not checked by ContextualCheckBlock()
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ParseHex("28daa861e86d49694937c3ee6e637d50e8343e4b") << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.8755 * COIN;
+
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.getOut(1).nValue = 0.625 * COIN;
+
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 0.3125 * COIN;
+
+    mtx.getOut(3).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(3).nValue = 0.3125 * COIN;
+
+    indexPrev.nHeight = exceedHeight -1;
+    block.vtx[0] = CTransaction(mtx);
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 }
 

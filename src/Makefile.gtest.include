@@ -9,6 +9,7 @@ zen_gtest_SOURCES = \
 	gtest/utils.cpp \
 	gtest/tx_creation_utils.cpp \
 	gtest/test_checktransaction.cpp \
+	gtest/test_consensus.cpp \
 	gtest/json_test_vectors.cpp \
 	gtest/json_test_vectors.h \
 	gtest/libzendoo_test_files.h \
@@ -55,6 +56,7 @@ zen_gtest_SOURCES += \
 	gtest/test_sidechain_certificate_quality.cpp \
 	gtest/test_sidechain_blocks.cpp \
 	gtest/test_libzendoo.cpp \
+	gtest/test_reindex.cpp \
 	gtest/test_asyncproofverifier.cpp
 
 if ENABLE_WALLET
