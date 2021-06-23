@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <mutex>
 
 #include <boost/unordered_map.hpp>
 #include <boost/variant.hpp>
@@ -17,6 +18,7 @@
 #include "amount.h"
 #include "serialize.h"
 #include "tinyformat.h"
+#include "sync.h"
 
 namespace Sidechain
 {
@@ -46,10 +48,7 @@ namespace Sidechain
 struct CZendooBatchProofVerifierResultPtrDeleter
 { // deleter
     CZendooBatchProofVerifierResultPtrDeleter() = default;
-    void operator()(ZendooBatchProofVerifierResult* p) const {
-        zendoo_free_batch_proof_verifier_result(p);
-        p = nullptr;
-    };
+    void operator()(ZendooBatchProofVerifierResult* p) const;
 };
 
 class CZendooBatchProofVerifierResult
@@ -78,6 +77,9 @@ class CZendooCctpObject
 {
 public:
     CZendooCctpObject() = default;
+    CZendooCctpObject& operator=(const CZendooCctpObject& obj);
+    CZendooCctpObject(const CZendooCctpObject&);
+
     virtual ~CZendooCctpObject() = default;
 
     CZendooCctpObject(const std::vector<unsigned char>& byteArrayIn): byteVector(byteArrayIn) {}
@@ -96,6 +98,8 @@ public:
 protected:
     bool isBaseEqual(const CZendooCctpObject& rhs) const { return this->byteVector == rhs.byteVector; }
 
+    mutable std::mutex _mutex;
+
     std::vector<unsigned char> byteVector;
 };
 
@@ -103,11 +107,9 @@ protected:
 struct CFieldPtrDeleter
 { // deleter
     CFieldPtrDeleter() = default;
-    void operator()(field_t* p) const {
-        zendoo_field_free(p);
-        p = nullptr;
-    };
+    void operator()(field_t* p) const;
 };
+
 typedef std::shared_ptr<field_t> wrappedFieldPtr;
 
 class CFieldElement : public CZendooCctpObject
@@ -129,6 +131,7 @@ public:
     bool IsValid() const override final;
     bool operator<(const CFieldElement& rhs)  const { return this->byteVector < rhs.byteVector; } // FOR STD::MAP ONLY
 
+    // do not check wrapped ptr
     bool operator==(const CFieldElement& rhs) const { return isBaseEqual(rhs); }
     bool operator!=(const CFieldElement& rhs) const { return !(*this == rhs); }
 
@@ -143,6 +146,11 @@ public:
         READWRITE(byteVector);
     }
 
+    mutable wrappedFieldPtr fieldData; 
+
+    // shared_ptr reference count, mainly for UT
+    long getUseCount() const { return fieldData.use_count(); }
+
 private:
     static CFieldPtrDeleter theFieldPtrDeleter;
 };
@@ -154,10 +162,7 @@ typedef CFieldElement ScConstant;
 struct CProofPtrDeleter
 { // deleter
     CProofPtrDeleter() = default;
-    void operator()(sc_proof_t* p) const {
-        zendoo_sc_proof_free(p);
-        p = nullptr;
-    };
+    void operator()(sc_proof_t* p) const;
 };
 typedef std::shared_ptr<sc_proof_t> wrappedScProofPtr;
 
@@ -178,6 +183,7 @@ public:
     wrappedScProofPtr GetProofPtr() const;
     bool IsValid() const override final;
 
+    // do not check wrapped ptr
     bool operator==(const CScProof& rhs) const { return isBaseEqual(rhs); }
     bool operator!=(const CScProof& rhs) const { return !(*this == rhs); }
 
@@ -189,6 +195,11 @@ public:
         READWRITE(byteVector);
     }
 
+    mutable wrappedScProofPtr proofData; 
+
+    // shared_ptr reference count, mainly for UT
+    long getUseCount() const { return proofData.use_count(); }
+
 private:
     static CProofPtrDeleter theProofPtrDeleter;
 };
@@ -198,17 +209,14 @@ private:
 struct CVKeyPtrDeleter
 { // deleter
     CVKeyPtrDeleter() = default;
-    void operator()(sc_vk_t* p) const {
-        zendoo_sc_vk_free(p);
-        p = nullptr;
-    };
+    void operator()(sc_vk_t* p) const;
 };
 typedef std::shared_ptr<sc_vk_t> wrappedScVkeyPtr;
 
 class CScVKey : public CZendooCctpObject
 {
 public:
-    CScVKey();
+    CScVKey() = default;
     ~CScVKey() = default;
 
     /**< The type of proving system used for verifying proof.*/
@@ -230,9 +238,14 @@ public:
         READWRITE(byteVector);
     }
 
+    // do not check wrapped ptr
     bool operator==(const CScVKey& rhs) const { return isBaseEqual(rhs) && getProvingSystemType() == rhs.getProvingSystemType(); }
     bool operator!=(const CScVKey& rhs) const { return !(*this == rhs); }
 
+    mutable wrappedScVkeyPtr vkData; 
+
+    // shared_ptr reference count, mainly for UT
+    long getUseCount() const { return vkData.use_count(); }
 private:
     static CVKeyPtrDeleter theVkPtrDeleter;
 };
