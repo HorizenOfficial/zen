@@ -4,6 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     get_epoch_data, swap_bytes, \
@@ -39,7 +40,7 @@ class sc_rawcert(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib', '-logtimemicros=1', '-txindex=1', '-zapwallettxes=2']] * NUMB_OF_NODES)
+            [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-scproofqueuesize=0', '-logtimemicros=1', '-txindex=1', '-zapwallettxes=2']] * NUMB_OF_NODES)
 
         for idx, _ in enumerate(self.nodes):
             if idx < (NUMB_OF_NODES - 1):
@@ -86,8 +87,8 @@ class sc_rawcert(BitcoinTestFramework):
         mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
-        mark_logs("Node 3 generates 219 block", self.nodes, DEBUG_MODE)
-        self.nodes[3].generate(219)
+        mark_logs("Node 3 generates {} block".format(MINIMAL_SC_HEIGHT-1), self.nodes, DEBUG_MODE)
+        self.nodes[3].generate(MINIMAL_SC_HEIGHT - 1)
         self.sync_all()
 
         # node 1 has just the coinbase which is now mature
@@ -314,7 +315,7 @@ class sc_rawcert(BitcoinTestFramework):
         decoded_coinbase = self.nodes[2].getrawtransaction(coinbase, 1)
         miner_quota = decoded_coinbase['vout'][0]['value']
         mark_logs("check that the miner has got the cert fee", self.nodes, DEBUG_MODE)
-        assert_equal(miner_quota, Decimal("7.5") + CERT_FEE)
+        assert_equal(miner_quota, Decimal(MINER_REWARD_POST_H200) + CERT_FEE)
 
         # check that the Node 0 has been charged with the cert fee
         node0_bal_after = self.nodes[0].getbalance()

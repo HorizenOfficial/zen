@@ -37,7 +37,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-                                 extra_args=[['-logtimemicros=1', '-debug=sc', '-debug=py',
+                                 extra_args=[['-logtimemicros=1', '-scproofqueuesize=0', '-debug=sc', '-debug=py',
                                               '-debug=mempool', '-debug=net', '-debug=bench']] * NUMB_OF_NODES)
 
         if not split:

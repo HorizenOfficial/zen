@@ -7,7 +7,8 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
-    dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes
+    dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
@@ -37,7 +38,7 @@ class sc_cert_customfields(BitcoinTestFramework):
     def setup_network(self, split=False):
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-                                 extra_args=[['-logtimemicros=1', '-debug=sc',
+                                 extra_args=[['-logtimemicros=1', '-debug=sc', '-scproofqueuesize=0', 
                                               '-debug=py', '-debug=mempool', '-debug=net', '-debug=cert',
                                               '-debug=bench']] * NUMB_OF_NODES)
 
@@ -60,8 +61,9 @@ class sc_cert_customfields(BitcoinTestFramework):
         self.nodes[1].generate(2)
         self.sync_all()
 
-        mark_logs("Node 0 generates 220 block",self.nodes,DEBUG_MODE)
-        self.nodes[0].generate(220)
+
+        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
         self.sync_all()
 
         #generate wCertVk and constant

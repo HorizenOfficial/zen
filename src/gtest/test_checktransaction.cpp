@@ -575,9 +575,8 @@ TEST(checktransaction_tests, ScTxVersion) {
     CTransaction tx(mtx);
     CValidationState state;
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
-    EXPECT_TRUE(tx.ContextualCheck(state, 220, 100));
-
-    EXPECT_FALSE(tx.ContextualCheck(state, 219, 100));
+    EXPECT_TRUE(tx.ContextualCheck(state, 420, 100));
+    EXPECT_FALSE(tx.ContextualCheck(state, 419, 100));
     EXPECT_TRUE(state.GetDoS() == 100);
     EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
     EXPECT_TRUE(state.GetRejectReason() == std::string("bad-tx-version-unexpected"));
@@ -668,8 +667,8 @@ TEST(checktransaction_tests, ScCertVersion) {
 
     CScCertificate cert(mcert);
     CValidationState state;
-    EXPECT_TRUE(cert.ContextualCheck(state, 220, 100));
-    EXPECT_FALSE(cert.ContextualCheck(state, 219, 100));
+    EXPECT_TRUE(cert.ContextualCheck(state, 420, 100));
+    EXPECT_FALSE(cert.ContextualCheck(state, 419, 100));
 }
 
 TEST(TransactionManipulation, EmptyTxTransformationToMutableIsNotReversible) {
@@ -790,7 +789,8 @@ TEST(SidechainsCertificateManipulation, EmptyCertTransformationToMutableIsNotRev
     EXPECT_TRUE(revertedTxByAssignOp.nFirstBwtPos == 0);
 }
 
-TEST(SidechainsCertificateManipulation, NonEmptyCertTransformationToMutableIsReversible) {
+TEST(SidechainsCertificateManipulation, NonEmptyCertTransformationToMutableIsReversible)
+{
     //create non-empty transaction
     CMutableScCertificate helperMutCert;
     unsigned int OutNum = 10;
@@ -962,6 +962,200 @@ TEST(SidechainsCertificateManipulation, ResizingCertificateChangeOutputs) {
         EXPECT_FALSE(noBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as bwt";
     for(unsigned int idx = noOutNum; idx < noOutNum + noBwtNum; ++idx)
         EXPECT_TRUE(noBwtsCert.IsBackwardTransfer(idx))<<"Output at pos "<<idx<<" wrongly marked as output";
+}
+
+extern const CBlockIndex* makeMain(int trunk_size);
+extern void CleanUpAll();
+
+TEST(checktransaction_tests, isStandardTransaction) {
+
+//    fDebug = true;
+//    fPrintToConsole = true;
+//    mapMultiArgs["-debug"].push_back("cbh");
+//    mapArgs["-debug"] = "cbh";
+
+    SelectParams(CBaseChainParams::REGTEST);
+    CMutableTransaction mtx = GetValidTransaction(TRANSPARENT_TX_VERSION);
+    mtx.resizeOut(0);
+    mtx.resizeBwt(0);
+    CScript scriptPubKey;
+
+    // a -1 value for height, minimally encoded
+    scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << ToByteVector(uint256()) << -1 << OP_CHECKBLOCKATHEIGHT;
+    mtx.insertAtPos(0, CTxOut(CAmount(1),scriptPubKey));
+
+    // height and hash are swapped
+    scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << 2 << ToByteVector(uint256()) << OP_CHECKBLOCKATHEIGHT;
+    mtx.insertAtPos(1, CTxOut(CAmount(1),scriptPubKey));
+
+    // an invalid op (0xFF) where height is expected
+    std::vector<unsigned char> data1(ParseHex("76a914f85d211e4175cd4b0f53284af6ddab6bbb3c5f0288ac20bf309c2d04f3fdd3cb6f4ccddb3985211d360e08e4f790c3d780d5c3f912e704ffb4"));
+    CScript bad_script1(data1.begin(), data1.end());
+    mtx.insertAtPos(2, CTxOut(CAmount(1),bad_script1));
+
+    // an unknown op (0xBA) where height is expected
+    std::vector<unsigned char> data2(ParseHex("76a914f85d211e4175cd4b0f53284af6ddab6bbb3c5f0288ac20bf309c2d04f3fdd3cb6f4ccddb3985211d360e08e4f790c3d780d5c3f912e704bab4"));
+    CScript bad_script2(data2.begin(), data2.end());
+    mtx.insertAtPos(3, CTxOut(CAmount(1),bad_script2));
+
+    // a non minimal height, caught by CScriptNum
+    std::vector<unsigned char> hnm1(ParseHex("01000000"));
+    scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << ToByteVector(uint256()) << hnm1 << OP_CHECKBLOCKATHEIGHT;
+    mtx.insertAtPos(4, CTxOut(CAmount(1), scriptPubKey));
+
+    // another non minimal height
+    std::vector<unsigned char> hnm2(ParseHex("00"));
+    scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << ToByteVector(uint256()) << hnm2 << OP_CHECKBLOCKATHEIGHT;
+    mtx.insertAtPos(5, CTxOut(CAmount(1), scriptPubKey));
+
+    // another non minimal height, not caught by CScriptNum but checking minimal pushing
+    std::vector<unsigned char> hnm3(ParseHex("10"));
+    scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << ToByteVector(uint256()) << hnm3 << OP_CHECKBLOCKATHEIGHT;
+    mtx.insertAtPos(6, CTxOut(CAmount(1), scriptPubKey));
+
+    // minimal height, ok in both forks
+    std::vector<unsigned char> hnm4(ParseHex("11"));
+    scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << ToByteVector(uint256()) << hnm4 << OP_CHECKBLOCKATHEIGHT;
+    mtx.insertAtPos(7, CTxOut(CAmount(1), scriptPubKey));
+
+    // an OP_0 op (0x00) where height is expected
+    std::vector<unsigned char> good_data(ParseHex("76a914f85d211e4175cd4b0f53284af6ddab6bbb3c5f0288ac20bf309c2d04f3fdd3cb6f4ccddb3985211d360e08e4f790c3d780d5c3f912e70400b4"));
+    CScript good_script(good_data.begin(), good_data.end());
+    mtx.insertAtPos(8, CTxOut(CAmount(1), good_script));
+
+    CTransaction tx(mtx);
+
+    // these are expected to fail in both forks
+    CMutableTransaction mtx_bad_param = GetValidTransaction(TRANSPARENT_TX_VERSION);
+    mtx_bad_param.resizeOut(0);
+    mtx_bad_param.resizeBwt(0);
+
+    // a hash representation shorter than 32 bytes
+    std::vector<unsigned char> data31NullBytes;
+    data31NullBytes.resize(31);
+    scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << data31NullBytes << 19 << OP_CHECKBLOCKATHEIGHT;
+    mtx_bad_param.insertAtPos(0, CTxOut(CAmount(1), scriptPubKey));
+
+    // a hash representation longer than 32 bytes
+    std::vector<unsigned char> data33NullBytes;
+    data33NullBytes.resize(33);
+    scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << data33NullBytes << 19 << OP_CHECKBLOCKATHEIGHT;
+    mtx_bad_param.insertAtPos(1, CTxOut(CAmount(1), scriptPubKey));
+
+    // a -1 height not minimally encoded, caught in different places before an after the fork
+    std::vector<unsigned char> hnm5(ParseHex("81"));
+    scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << ToByteVector(uint256()) << hnm5 << OP_CHECKBLOCKATHEIGHT;
+    mtx_bad_param.insertAtPos(2, CTxOut(CAmount(1), scriptPubKey));
+
+    // a height larger than 4 bytes
+    std::vector<unsigned char> hnm6(ParseHex("aabbccddee"));
+    scriptPubKey = CScript() << OP_DUP << OP_HASH160 << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG
+        << ToByteVector(uint256()) << hnm6 << OP_CHECKBLOCKATHEIGHT;
+    mtx_bad_param.insertAtPos(3, CTxOut(CAmount(1), scriptPubKey));
+
+    CTransaction tx_bad_param(mtx_bad_param);
+
+    ReplayProtectionAttributes rpAttributes;
+    txnouttype whichType;
+    std::string reason;
+
+
+    // ------------------ before rp fix
+    static const int H_PRE_FORK = 220;
+    CleanUpAll();
+    makeMain(H_PRE_FORK);
+
+    // This is useful only for the tests of pre-rp-fix fork.
+    // This is for avoiding checking blockheight against blockhash in scripts, because hashes are fake
+    // in this simple test environment, and it would always make IsStandard() return false even when scripts parse ok.
+    mapArgs["-cbhsafedepth"] = "10";
+
+    EXPECT_TRUE(IsStandardTx(tx, reason, H_PRE_FORK));
+
+    EXPECT_TRUE(IsStandard(tx.GetVout()[0].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.GetVout()[1].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.GetVout()[2].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.GetVout()[3].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.GetVout()[4].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.GetVout()[5].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.GetVout()[6].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.GetVout()[7].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+    EXPECT_TRUE(IsStandard(tx.GetVout()[8].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+
+    // expecting to fail before and after the fork
+    EXPECT_FALSE(IsStandardTx(tx_bad_param, reason, H_PRE_FORK));
+    EXPECT_TRUE(reason == "scriptpubkey");
+
+    EXPECT_FALSE(IsStandard(tx_bad_param.GetVout()[0].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx_bad_param.GetVout()[1].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx_bad_param.GetVout()[2].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx_bad_param.GetVout()[3].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+
+
+
+    // ------------------ after rp fix
+    static const int H_POST_FORK = 500;
+    CleanUpAll();
+    makeMain(H_POST_FORK);
+
+    EXPECT_FALSE(IsStandardTx(tx, reason, H_POST_FORK));
+    EXPECT_TRUE(reason == "scriptpubkey");
+
+    EXPECT_FALSE(IsStandard(tx.GetVout()[0].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx.GetVout()[1].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx.GetVout()[2].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx.GetVout()[3].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+
+    // non minimal height encodings are not legal anymore
+    EXPECT_FALSE(IsStandard(tx.GetVout().at(4).scriptPubKey, whichType, rpAttributes));
+    EXPECT_FALSE(IsStandard(tx.GetVout().at(5).scriptPubKey, whichType, rpAttributes));
+    EXPECT_FALSE(IsStandard(tx.GetVout().at(6).scriptPubKey, whichType, rpAttributes));
+
+    // legal height encodings
+    EXPECT_TRUE(IsStandard(tx.GetVout().at(7).scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+
+    EXPECT_TRUE(IsStandard(tx.GetVout().at(8).scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_PUBKEYHASH_REPLAY);
+
+    // expecting to fail before and after the fork
+    EXPECT_FALSE(IsStandardTx(tx_bad_param, reason, H_PRE_FORK));
+    EXPECT_TRUE(reason == "scriptpubkey");
+
+    EXPECT_FALSE(IsStandard(tx_bad_param.GetVout()[0].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx_bad_param.GetVout()[1].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx_bad_param.GetVout()[2].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
+    EXPECT_FALSE(IsStandard(tx_bad_param.GetVout()[3].scriptPubKey, whichType, rpAttributes));
+    EXPECT_TRUE(whichType == TX_NONSTANDARD);
 }
 
 TEST(SidechainsCertificateCustomFields, FieldElementCertificateFieldConfig_Validation)

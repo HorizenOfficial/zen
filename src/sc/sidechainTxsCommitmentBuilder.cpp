@@ -132,7 +132,7 @@ bool SidechainTxsCommitmentBuilder::add_scc(const CTxScCreationOut& ccout, const
     assert(code == CctpErrorCode::OK);
     assert(fe != nullptr);
 
-    dumpFe(fe, "committment resulting");
+    dumpFe(fe, "commitment resulting");
 #endif
 
     return ret;

@@ -4,6 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     stop_nodes, wait_bitcoinds, \
@@ -55,8 +56,8 @@ class SCCreateTest(BitcoinTestFramework):
         '''
         # network topology: (0)--(1)--(2)
 
-        mark_logs("Node 1 generates 220 block", self.nodes, DEBUG_MODE)
-        self.nodes[1].generate(220)
+        mark_logs("Node 1 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
+        self.nodes[1].generate(MINIMAL_SC_HEIGHT)
         self.sync_all()
 
         creation_amount = Decimal("0.00000001")

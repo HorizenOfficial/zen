@@ -15,6 +15,7 @@
 #include "main.h"
 #include "consensus/validation.h"
 #include "miner.h"
+#include <pow.h>
 #include "wallet/wallet.h"
 #include "rpc/server.h"
 #include "pow.h"

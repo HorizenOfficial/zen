@@ -141,7 +141,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     // setup sidechain initial state...
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
-    initialScState.creationBlockHeight = 100;
+    initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -215,7 +215,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     // setup sidechain initial state...
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
-    initialScState.creationBlockHeight = 100;
+    initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -289,7 +289,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     // setup sidechain initial state...
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
-    initialScState.creationBlockHeight = 100;
+    initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -379,7 +379,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     // setup sidechain initial state...
     CSidechain initialScState;
     uint256 scId = uint256S("aaaa");
-    initialScState.creationBlockHeight = 100;
+    initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;

@@ -222,41 +222,107 @@ TEST(SidechainsField, IsValid)
 
 TEST(SidechainsField, CopyAndAssignement)
 {
+    CFieldElement AValidField {SAMPLE_FIELD};
+
+    // internal wrapped ptr is not built yet
+    EXPECT_EQ(AValidField.getUseCount(), 0);
+
+    ASSERT_TRUE(AValidField.IsValid());
+
+    // now it is
+    EXPECT_EQ(AValidField.getUseCount(), 1);
+
     {
-        CFieldElement AValidField {SAMPLE_FIELD};
-        ASSERT_TRUE(AValidField.IsValid());
         wrappedFieldPtr AValidPtr = AValidField.GetFieldElement();
         ASSERT_TRUE(AValidPtr.get() != nullptr);
+        EXPECT_EQ(AValidPtr.use_count(), 2);
 
         { //Scoped to invoke copied obj dtor
             CFieldElement copiedField(AValidField);
             EXPECT_TRUE(copiedField.IsValid());
             EXPECT_TRUE(copiedField == AValidField);
+            EXPECT_TRUE(AValidPtr.use_count() == 3);
 
             wrappedFieldPtr copiedPtr = copiedField.GetFieldElement();
             ASSERT_TRUE(copiedPtr.get() != nullptr);
-            ASSERT_TRUE(copiedPtr != AValidPtr);
+            ASSERT_TRUE(copiedPtr == AValidPtr);
+            ASSERT_TRUE(copiedPtr.get() == AValidPtr.get());
+            EXPECT_TRUE(AValidPtr.use_count() == 4);
         }
+
+        EXPECT_TRUE(AValidPtr.use_count() == 2);
         EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
+
         wrappedFieldPtr ptr = AValidField.GetFieldElement();
         ASSERT_TRUE(ptr.get() != nullptr);
-        ASSERT_TRUE(ptr != AValidPtr);
+        ASSERT_TRUE(ptr == AValidPtr);
+        EXPECT_TRUE(AValidPtr.use_count() == 3);
 
-        { //Scoped to invoke assigned obj dtor
+        {   //Scoped to invoke assigned obj dtor
             CFieldElement assignedField{};
             assignedField = AValidField;
             EXPECT_TRUE(assignedField.IsValid());
             EXPECT_TRUE(assignedField == AValidField);
+            EXPECT_TRUE(AValidPtr.use_count() == 4);
 
             wrappedFieldPtr assignedPtr = assignedField.GetFieldElement();
             ASSERT_TRUE(assignedPtr.get() != nullptr);
-            ASSERT_TRUE(assignedPtr != AValidPtr);
+            ASSERT_TRUE(assignedPtr == AValidPtr);
+            EXPECT_TRUE(AValidPtr.use_count() == 5);
         }
+        // two objects in the previous scope
+        EXPECT_TRUE(AValidPtr.use_count() == 3);
         EXPECT_TRUE(AValidField.IsValid()); //NO side effect from copy
+
+        // reassignment, no side effect also in reference counting
         ptr = AValidField.GetFieldElement();
         ASSERT_TRUE(ptr.get() != nullptr);
-        ASSERT_TRUE(ptr != AValidPtr);
+        ASSERT_TRUE(ptr == AValidPtr);
+        EXPECT_EQ(AValidPtr.use_count(), 3);
     }
+
+    // just the initial instance is left
+    EXPECT_EQ(AValidField.getUseCount(), 1);
+}
+
+TEST(SidechainsField, CtorWithWrappedPtr)
+{
+    CFieldElement fe_A {SAMPLE_FIELD};
+    EXPECT_EQ(fe_A.getUseCount(), 0);
+
+    {
+        wrappedFieldPtr wp_A = fe_A.GetFieldElement();
+        EXPECT_EQ(fe_A.getUseCount(), 2);
+
+        {
+            CFieldElement fe_B{wp_A};
+
+            EXPECT_EQ(fe_B.GetFieldElement(), wp_A); 
+
+            EXPECT_EQ(fe_A.getUseCount(), 3);
+            EXPECT_EQ(fe_B.getUseCount(), 3);
+
+        }
+        EXPECT_EQ(fe_A.getUseCount(), 2);
+    }
+    EXPECT_EQ(fe_A.getUseCount(), 1);
+
+    // using a null wrapped ptr sets a byte array made of 32 null bytes; such a byte array yields
+    // a null (but valid) array of bytes as a deserialized field_t
+    wrappedFieldPtr wp_null;
+    CFieldElement fe_C{wp_null};
+
+    unsigned char nullBuff[Sidechain::SC_FE_SIZE_IN_BYTES] = {};
+    ASSERT_TRUE(memcmp(nullBuff, fe_C.GetDataBuffer(), Sidechain::SC_FE_SIZE_IN_BYTES) == 0);
+
+    EXPECT_TRUE(fe_C.IsValid());
+    EXPECT_EQ(fe_C.getUseCount(), 1);
+    const field_t* const data = fe_C.GetFieldElement().get();
+    ASSERT_TRUE(memcmp(data, fe_C.GetDataBuffer(), Sidechain::SC_FE_SIZE_IN_BYTES) == 0);
+
+    // setting byte array resets the wrapped ptr
+    fe_C.SetByteArray(SAMPLE_FIELD);
+    EXPECT_EQ(fe_C.getUseCount(), 0);
 }
 
 TEST(SidechainsField, ComputeHash_EmptyField)
@@ -1521,6 +1587,7 @@ TEST(CctpLibrary, GetScIdFromNullInputs)
     const BufferWithSize bws_tx_hash(nullTxId.begin(), nullTxId.size());
 
     field_t* scid_fe = zendoo_compute_sc_id(&bws_tx_hash, pos, &code); 
+
     ASSERT_TRUE(code == CctpErrorCode::OK);
     ASSERT_TRUE(scid_fe != nullptr);
 
@@ -1560,7 +1627,7 @@ TEST(CctpLibrary, GetScIdFromNullInputs)
     }
 
     ASSERT_TRUE(0 == memcmp(scid_fe, fe_ptr, CFieldElement::ByteSize()));
-
+    zendoo_field_free(scid_fe);
 }
 
 /**

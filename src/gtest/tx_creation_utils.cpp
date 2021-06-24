@@ -7,10 +7,11 @@
 #include <pubkey.h>
 #include <miner.h>
 #include <undo.h>
+
 #include "tx_creation_utils.h"
 #include <pow.h>
 #include <coins.h>
-#include <zen/forks/fork7_sidechainfork.h>
+#include <zen/forks/fork8_sidechainfork.h>
 #include <script/sign.h>
 #include <boost/filesystem.hpp>
 #include <sc/proofverifier.h>

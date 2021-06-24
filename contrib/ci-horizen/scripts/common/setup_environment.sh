@@ -9,7 +9,7 @@ NEED_MAC_SIGN_CREDS="false"
 NEED_WIN_SIGN_CREDS="false"
 NEED_PGP_SIGN_CREDS="false"
 
-export B2_DOWNLOAD_URL="https://downloads.horizen.global/file/${B2_BUCKET_NAME}/"
+export B2_DOWNLOAD_URL="https://f001.backblazeb2.com/file/${B2_BUCKET_NAME}/"
 
 if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
   export DOCKER_UPDATE_PACKAGES="binfmt-support containerd.io docker-ce docker-ce-cli qemu-user-static"
@@ -58,8 +58,7 @@ if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
 fi
 
 if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
-#  export UPDATE_PACKAGES="aria2 pigz"
-  export UPDATE_PACKAGES="pigz"
+  export UPDATE_PACKAGES=""
   export PIP_INSTALL=""
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Prepare" ]; then
     export PIP_INSTALL="${PIP_INSTALL} b2==1.4.2"
@@ -81,6 +80,8 @@ if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
     export PIP_INSTALL="${PIP_INSTALL} pyblake2 pyzmq"
     export B2_DL_DECOMPRESS_FOLDER="${TRAVIS_BUILD_DIR}"
     export B2_DL_FILENAME="${TRAVIS_CPU_ARCH}-${TRAVIS_OS_NAME}-${TRAVIS_OSX_IMAGE}-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}.tar.gz"
+    mkdir -p "$HOME/ZcashParams"
+    ln -sf "$HOME/ZcashParams" "$HOME/Library/Application Support/ZcashParams"
   fi
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Package" ]; then
     NEED_B2_CREDS="true"

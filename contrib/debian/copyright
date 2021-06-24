@@ -11,7 +11,7 @@ License: Expat
 Comment: The Bitcoin Core developers encompasses the current developers listed on bitcoin.org,
  as well as the numerous contributors to the project.
  The Zcash developers are listed at https://z.cash/team.html.
- The Horizen developers are listed at https://horizen.global/team.
+ The Horizen developers are listed at https://horizen.io/team.
 
 Files: depends/sources/libsodium-*.tar.gz
 Copyright: 2013-2016 Frank Denis
