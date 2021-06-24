@@ -927,7 +927,7 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
 UniValue getblockmerkleroots(const UniValue& params, bool fHelp) {
     if (fHelp || params.size() != 2)
         throw runtime_error(
-                "getSidechainMerkleRoots transactions certificates\n"
+                "getblockmerkleroots transactions certificates\n"
                 "\nReturns Merkleroot and ScTxsCommitment.\n"
                 "\nArguments:\n"
                 "1. transactions         (array) Array of raw transactions (HEX format).\n"
@@ -938,8 +938,8 @@ UniValue getblockmerkleroots(const UniValue& params, bool fHelp) {
                 "  \"scTxsCommitment\" : \"xxxx\"      (string) scTxsCommitment calculated on certificates.\n"
                 "}\n"
                 "\nExamples:\n"
-                + HelpExampleCli("getSidechainMerkleRoots", "'[\"0100000001000000...\", ...]', '[\"0100000001000000...\", ...]'")
-                + HelpExampleRpc("getSidechainMerkleRoots", "'[\"0100000001000000...\", ...]', '[\"0100000001000000...\", ...]'")
+                + HelpExampleCli("getblockmerkleroots", "'[\"0100000001000000...\", ...]', '[\"0100000001000000...\", ...]'")
+                + HelpExampleRpc("getblockmerkleroots", "'[\"0100000001000000...\", ...]', '[\"0100000001000000...\", ...]'")
         );
     LOCK(cs_main);
 
@@ -974,8 +974,8 @@ UniValue getblockmerkleroots(const UniValue& params, bool fHelp) {
     uint256 scTxsCommitment = pblock->BuildScTxsCommitment();
 
     UniValue result(UniValue::VOBJ);
-    result.push_back(Pair("merkleTree", merkleTree.ToString()));
-    result.push_back(Pair("scTxsCommitment", scTxsCommitment.ToString()));
+    result.pushKV("merkleTree", merkleTree.ToString());
+    result.pushKV("scTxsCommitment", scTxsCommitment.ToString());
 
     return result;
 }
