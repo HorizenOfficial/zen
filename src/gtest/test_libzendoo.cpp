@@ -1746,4 +1746,32 @@ TEST(CctpLibrary, ReadWriteCmtObj)
     printf("cmt = [%s]\n", cmt.ToString().c_str());
 }
 
+TEST(CctpLibrary, TestVectorsValidity)
+{
+    auto fe = CFieldElement{SAMPLE_FIELD};
+    auto ct = CFieldElement{EMPTY_COMMITMENT_TREE_FIELD};
+
+    auto vk1 = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    auto vk2 = CScVKey{SAMPLE_CERT_COBMARLIN_VK};
+    auto vk3 = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    auto vk4 = CScVKey{SAMPLE_CSW_COBMARLIN_VK};
+
+    auto p1 = CScProof{SAMPLE_CERT_DARLIN_PROOF};
+    auto p2 = CScProof{SAMPLE_CERT_COBMARLIN_PROOF};
+    auto p3 = CScProof{SAMPLE_CSW_DARLIN_PROOF};
+    auto p4 = CScProof{SAMPLE_CSW_COBMARLIN_PROOF};
+
+    EXPECT_TRUE(fe.IsValid());
+    EXPECT_TRUE(ct.IsValid());
+
+    EXPECT_TRUE(vk1.IsValid());
+    EXPECT_TRUE(vk2.IsValid());
+    EXPECT_TRUE(vk3.IsValid());
+    EXPECT_TRUE(vk4.IsValid());
+
+    EXPECT_TRUE(p1.IsValid());
+    EXPECT_TRUE(p2.IsValid());
+    EXPECT_TRUE(p3.IsValid());
+    EXPECT_TRUE(p4.IsValid());
+}
 
