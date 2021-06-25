@@ -58,17 +58,24 @@ class sc_big_block(BitcoinTestFramework):
 # Modify these params for customizing the test:
 # -------------------------------------------------------------------------------
 # the number of sidechain to be used in the test (min 2)
-        TOT_NUM_OF_SIDECHAINS = 100
+        #TOT_NUM_OF_SIDECHAINS = 100
+        TOT_NUM_OF_SIDECHAINS = 2
 # parameters for tuning the complexity (and the size) of the created proofs
-# These have impacts also on disk space
+# These have impacts both in execution times and also on disk space
 # TO TEST: 
+#      SEGMENT_SIZE = 1 << 17
 #   1) CERT_NUM_CONSTRAINTS = 1 << 19, CSW_NUM_CONSTRAINTS = 1 << 18;
 #   2) CERT_NUM_CONSTRAINTS = 1 << 20, CSW_NUM_CONSTRAINTS = 1 << 19;
-        CERT_NUM_CONSTRAINTS = 1 << 20
-        CERT_PROVING_SYSTEM = "darlin"
-        CSW_NUM_CONSTRAINTS = 1 << 19
-        CSW_PROVING_SYSTEM = "darlin"
-        SEGMENT_SIZE = 1 << 17
+        CERT_NUM_CONSTRAINTS = 1 << 13
+        CSW_NUM_CONSTRAINTS = 1 << 13
+
+#        CERT_PROVING_SYSTEM = "darlin"
+#        CSW_PROVING_SYSTEM = "darlin"
+        CERT_PROVING_SYSTEM = "cob_marlin"
+        CSW_PROVING_SYSTEM = "cob_marlin"
+
+# Segment size should be  at most 2 powers less than number of constraints, otherwise out-of-size vk could be produced
+        SEGMENT_SIZE = 1 << 11
 #================================================================================
         assert_true(TOT_NUM_OF_SIDECHAINS >=2)
 
@@ -86,25 +93,25 @@ class sc_big_block(BitcoinTestFramework):
             return tx, scid
 
         def advance_sidechains_epoch(num_of_scs):
+
             for i in range(0, num_of_scs):
+
                 if i == 0:
                     self.nodes[0].generate(EPOCH_LENGTH)
                     self.sync_all()
+                    # these parameters are valid for all scs since they share the same epoch length 
                     epoch_number, epoch_cum_tree_hash = get_epoch_data(scids[i], self.nodes[0], EPOCH_LENGTH)
 
-                    # here we take advantage from not having the scid in the set of proof inputs: we can use the
-                    # same proof for all the certificates.
-                    # When this issue will be fixed, we must generate each proof separatedly
-                    print "Generating cert proof..."
-                    t0 = time.time()
-                    scid_swapped = str(swap_bytes(scid))
+                print "Generating cert proof..."
+                t0 = time.time()
+                scid_swapped = str(swap_bytes(scids[i]))
 
-                    proof = certMcTest.create_test_proof(
-                        "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [], proofCfeArray,
-                        CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
-                    assert_true(proof != None)
-                    t1 = time.time()
-                    print "...proof generated: {} secs".format(t1-t0)
+                proof = certMcTest.create_test_proof(
+                    "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [], proofCfeArray,
+                    CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
+                assert_true(proof != None)
+                t1 = time.time()
+                print "...proof generated: {} secs".format(t1-t0)
  
                 try:
                     cert = self.nodes[0].send_certificate(scids[i], epoch_number, q,
