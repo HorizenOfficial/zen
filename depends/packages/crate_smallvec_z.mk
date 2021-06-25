@@ -1,9 +1,9 @@
 package=crate_smallvec_z
 $(package)_crate_name=smallvec
-$(package)_version=0.6.14
+$(package)_version=1.6.1
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=b97fcaeba89edba30f044a10c6a3cc39df9c3f17d7cd829dd1446cab35f890e0
+$(package)_sha256_hash=fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

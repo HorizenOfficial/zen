@@ -1,9 +1,9 @@
 package=crate_winapi_z
 $(package)_crate_name=winapi
-$(package)_version=0.3.6
+$(package)_version=0.3.9
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=92c1eb33641e276cfa214a0522acad57be5c56b10cb348b3c5117db75f3ac4b0
+$(package)_sha256_hash=5c839a674fcd7a98952e593242ea400abe93992746761e38641405d28b00f419
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

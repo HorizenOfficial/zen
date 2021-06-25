@@ -1,9 +1,9 @@
 package=crate_rustc_version_z
 $(package)_crate_name=rustc_version
-$(package)_version=0.2.3
+$(package)_version=0.4.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a
+$(package)_sha256_hash=bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds
