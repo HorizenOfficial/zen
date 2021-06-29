@@ -2920,6 +2920,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
     }
 
+    bool pauseLowPrioZendooThread = (
+        fExpensiveChecks &&
+        fScRelatedChecks == flagScRelatedChecks::ON &&
+        fScProofVerification == flagScProofVerification::ON &&
+        SidechainTxsCommitmentBuilder::getEmptyCommitment() != block.hashScTxsCommitment // no sc related tx/certs 
+    );
+       
+    // if necessary pause rust low priority threads in order to speed up times
+    CZendooLowPrioThreadGuard lowPrioThreadGuard(pauseLowPrioZendooThread);
+     
     auto verifier = libzcash::ProofVerifier::Strict();
     auto disabledVerifier = libzcash::ProofVerifier::Disabled();
 

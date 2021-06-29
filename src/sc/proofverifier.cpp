@@ -232,7 +232,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
     }
 
     CctpErrorCode code;
-    ZendooBatchProofVerifier batchVerifier;
+    ZendooBatchProofVerifier batchVerifier(true);
     bool addFailure = false;
 
     std::map<uint32_t /* Proof ID */, uint256 /* Tx or Cert hash */> proofIdMap;

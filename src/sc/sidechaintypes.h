@@ -44,6 +44,18 @@ namespace Sidechain
     static const int SEGMENT_SIZE = 1 << 17;
 }
 
+class CZendooLowPrioThreadGuard
+{
+private:
+    const bool _pause;
+public:
+    CZendooLowPrioThreadGuard(bool pauseThreads);
+    ~CZendooLowPrioThreadGuard();
+
+    CZendooLowPrioThreadGuard(const CZendooLowPrioThreadGuard&) = delete;
+    CZendooLowPrioThreadGuard& operator=(const CZendooLowPrioThreadGuard&) = delete;
+};
+
 ///////////////////////////////// CZendooBatchProofVerifierResult ////////////////////////////////
 struct CZendooBatchProofVerifierResultPtrDeleter
 { // deleter

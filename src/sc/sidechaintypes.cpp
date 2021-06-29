@@ -2,6 +2,24 @@
 #include "util.h"
 #include <consensus/consensus.h>
 
+CZendooLowPrioThreadGuard::CZendooLowPrioThreadGuard(bool pauseThreads): _pause(pauseThreads)
+{
+    if (_pause)
+    {
+        LogPrint("sc", "%s():%d - calling zendoo_pause_low_priority_threads()\n", __func__, __LINE__);
+        zendoo_pause_low_priority_threads();
+    }
+}
+
+CZendooLowPrioThreadGuard::~CZendooLowPrioThreadGuard()
+{
+    if (_pause)
+    {
+        LogPrint("sc", "%s():%d - calling zendoo_unpause_low_priority_threads()\n", __func__, __LINE__);
+        zendoo_unpause_low_priority_threads();
+    }
+}
+
 CZendooBatchProofVerifierResult::CZendooBatchProofVerifierResult(ZendooBatchProofVerifierResult* result) :
     resultPtr(result)
 {

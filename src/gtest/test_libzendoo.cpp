@@ -568,6 +568,7 @@ TEST(SidechainsField, NakedZendooFeatures_EmptyTreeCommitmentCalculation)
     //Nothing to add
 
     uint256 scTxCommitmentHash = builder.getCommitment();
+    EXPECT_TRUE(SidechainTxsCommitmentBuilder::getEmptyCommitment() == emptySha);
     EXPECT_TRUE(scTxCommitmentHash == emptySha) <<scTxCommitmentHash.ToString() << "\n" << emptySha.ToString();
 }
 
