@@ -2604,7 +2604,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
     bool fClean = true;
 
-    CBlockUndo blockUndo;
+    
+    bool incSc = (block.nVersion == BLOCK_VERSION_SC_SUPPORT);
+    CBlockUndo blockUndo(incSc);
+
     CDiskBlockPos pos = pindex->GetUndoPos();
     if (pos.IsNull())
         return error("DisconnectBlock(): no undo data available");
@@ -2964,7 +2967,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // DERSIG (BIP66) is also always enforced, but does not have a flag.
 
-    CBlockUndo blockundo;
+    bool incSc = (block.nVersion == BLOCK_VERSION_SC_SUPPORT);
+    CBlockUndo blockundo(incSc);
 
     CCheckQueueControl<CScriptCheck> control(fExpensiveChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
 
@@ -5075,7 +5079,9 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             return error("VerifyDB(): *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 2: verify undo validity
         if (nCheckLevel >= 2 && pindex) {
-            CBlockUndo undo;
+            bool incSc = (block.nVersion == BLOCK_VERSION_SC_SUPPORT);
+            CBlockUndo undo(incSc);
+
             CDiskBlockPos pos = pindex->GetUndoPos();
             if (!pos.IsNull()) {
                 if (!UndoReadFromDisk(undo, pos, pindex->pprev->GetBlockHash()))

@@ -315,7 +315,9 @@ public:
     std::map<uint256, CSidechainUndoData> scUndoDatabyScId;
 
     /** create as new */
-    CBlockUndo() : includesSidechainAttributes(true) {}
+    //CBlockUndo() : includesSidechainAttributes(true) {}
+    CBlockUndo() = delete;
+    CBlockUndo(bool includeSC) : includesSidechainAttributes(includeSC) {}
 
     size_t GetSerializeSize(int nType, int nVersion) const
     {
