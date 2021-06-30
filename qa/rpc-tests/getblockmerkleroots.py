@@ -9,7 +9,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from decimal import Decimal
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, wait_and_assert_operationid_status
-from test_framework.mc_test.mc_test import *
+from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 
 
 
@@ -56,7 +56,7 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
 
         tAddr = self.nodes[0].getnewaddress()
 
-        for i in range (0,3):
+        for _ in range (0,3):
             self.nodes[0].sendtoaddress(tAddr, 1.0)
             self.sync_all()
         self.nodes[0].generate(1)
@@ -70,10 +70,10 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
         zAddr = self.nodes[0].z_getnewaddress()
         recipients= [{"address":zAddr, "amount": 2.0}]
         myopid = self.nodes[0].z_sendmany(tAddr,recipients,1,0.0001, True)
-        txid = wait_and_assert_operationid_status(self.nodes[0], myopid)
+        wait_and_assert_operationid_status(self.nodes[0], myopid)
         self.sync_all()
 
-        for i in range (0,3):
+        for _ in range (0,3):
             self.nodes[0].sendtoaddress(tAddr, 1.0)
             self.sync_all()
         
