@@ -157,7 +157,7 @@ bool AMQPPublishRawBlockNotifier::NotifyBlock(const CBlockIndex *pindex)
         LOCK(cs_main);
         CBlock block;
         if(!ReadBlockFromDisk(block, pindex)) {
-            LogPrint("amqp", "amqp: Can't read block from disk");
+            LogPrint("amqp", "amqp: Can't read block from disk\n");
             return false;
         }
 
