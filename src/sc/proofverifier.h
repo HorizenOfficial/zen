@@ -100,7 +100,7 @@ public:
     verificationMode(mode)
     {
     }
-    ~CScProofVerifier() = default;
+    virtual ~CScProofVerifier() = default;
 
     // CScProofVerifier should never be copied
     CScProofVerifier(const CScProofVerifier&) = delete;

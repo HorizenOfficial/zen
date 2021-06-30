@@ -153,7 +153,11 @@ void CScAsyncProofVerifier::ProcessVerificationOutputs(std::map</* Tx hash */ ui
     {
         CProofVerifierItem item = i->second;
 
-        if (item.result == ProofVerificationResult::Failed || item.result == ProofVerificationResult::Passed)
+        if (item.result == ProofVerificationResult::Unknown)
+        {
+            i++;
+        }
+        else
         {
             LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%s] \n",
                     __func__, __LINE__, item.parentPtr->GetHash().ToString(), item.node->GetId(), ProofVerificationResultToString(item.result));
@@ -171,10 +175,6 @@ void CScAsyncProofVerifier::ProcessVerificationOutputs(std::map</* Tx hash */ ui
                                             dummyState);
 
             i = proofs.erase(i);
-        }
-        else
-        {
-            i++;
         }
     }
 }

@@ -145,8 +145,6 @@ void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, 
     item.result = ProofVerificationResult::Unknown;
     item.certInput = CertificateToVerifierItem(scCert, sidechain.fixedParams, pfrom);
     assert(!item.cswInputs.is_initialized());
-    assert(item.cswInputs == boost::none);
-    assert(!item.cswInputs);
     proofQueue.insert(std::make_pair(scCert.GetHash(), item));
 }
 
@@ -183,8 +181,6 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
         item.node = pfrom;
         item.cswInputs = cswInputProofs;
         assert(!item.certInput.is_initialized());
-        assert(item.certInput == boost::none);
-        assert(!item.certInput);
         auto pair_ret = proofQueue.insert(std::make_pair(scTx.GetHash(), item));
 
         if (!pair_ret.second)
@@ -222,6 +218,11 @@ bool CScProofVerifier::BatchVerify()
  */
 bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint256, CProofVerifierItem>& proofs)
 {
+    if (proofs.size() == 0)
+    {
+        return true;
+    }
+
     if (verificationMode == Verification::Loose)
     {
         for (auto& proof : proofs)
@@ -229,11 +230,6 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
             proof.second.result = ProofVerificationResult::Passed;
             return true;
         }
-    }
-
-    if (proofs.size() == 0)
-    {
-        return true;
     }
 
     CctpErrorCode code;
@@ -393,7 +389,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
         else
         {
             // We don't know which proofs made the batch process fail.
-            LogPrintf("ERROR: %s():%d - verify failed without detailed information\n", __func__, __LINE__);
+            LogPrintf("ERROR: %s():%d - verify failed without detailed information, code [0x%x]\n", __func__, __LINE__, code);
         }
     }
 
