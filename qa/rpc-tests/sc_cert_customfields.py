@@ -14,6 +14,7 @@ import os
 import pprint
 from decimal import Decimal
 import json
+import bz2
 
 NUMB_OF_NODES = 2
 DEBUG_MODE = 1
@@ -130,7 +131,9 @@ class sc_cert_customfields(BitcoinTestFramework):
             assert_true("Invalid parameter, expected positive integer in the range [1,..,255]" in errorString)
 
         #-------------------------------------------------------
-        not_power_of_two_array = [[1039368, 151]]
+        not_power_of_two_size = len(bz2.BZ2Decompressor().decompress(BIT_VECTOR_BUF_NOT_POW2[2:].decode("hex"))) # Skip the first byte that is used internally to get the compression algorithm (BZip2).
+        not_power_of_two_compressed_size = len(BIT_VECTOR_BUF_NOT_POW2)
+        not_power_of_two_array = [[not_power_of_two_size, not_power_of_two_compressed_size]]#[[1039368, 151]]
         cmdInput = {'vBitVectorCertificateFieldConfig': not_power_of_two_array, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
 
         mark_logs("\nNode 1 create SC with a BitVector made of a number of FE leaves that is not a power of 2 (expecting failure...)", self.nodes, DEBUG_MODE)
@@ -388,6 +391,49 @@ class sc_cert_customfields(BitcoinTestFramework):
             assert_true("bad-sc-cert-not-applicable" in errorString)
 
         self.sync_all()
+
+
+        mark_logs("\nCreate raw cert with a BitVector whose size is not a power of 2 for SC1...", self.nodes, DEBUG_MODE)
+
+        # Any number ending with 0x00 is not over module for being a valid field element, therefore it is OK
+        vCfe = ["ab000100", "ccccdddd0000", "0100"]
+        # This is a compressed BitVector whose decompression expands to a merkle tree with an invalid number of leaves
+        # (not a power of 2).
+        # For this reason, the "send certificate" call should fail because the expected decompressed size does not match
+        # with the one declared during sidechain creation.
+        vCmt = [BIT_VECTOR_BUF_NOT_POW2]
+
+        fe1 = "00000000000000000000000000000000000000000000000000000000" + "ab000100"
+        fe2 = "0000000000000000000000000000000000000000000000000000" + "ccccdddd0000"
+        fe3 = "000000000000000000000000000000000000000000000000000000000000" + "0100"
+        fe4 = BIT_VECTOR_FE
+
+        scProof3 = mcTest.create_test_proof(
+            'sc1', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            [fe1, fe2, fe3, fe4])
+
+        params = {
+            'scid': scid1,
+            'quality': 10,
+            'endEpochCumScTxCommTreeRoot': epoch_cum_tree_hash_1,
+            'scProof': scProof3,
+            'withdrawalEpochNumber': epoch_number_1,
+            'vFieldElementCertificateField': vCfe,
+            'vBitVectorCertificateField':vCmt
+        }
+
+        try:
+            rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
+            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            assert(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert_true("bad-sc-cert-not-applicable" in errorString)
+        self.sync_all()
+
+
         mark_logs("\nCreate raw cert with good custom field elements for SC1...", self.nodes, DEBUG_MODE)
 
         # Any number ending with 0x00 is not over module for being a valid field element, therefore it is OK
