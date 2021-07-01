@@ -513,8 +513,8 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     block.vtx[0] = CTransaction(mtx);
 
     // check that pre-halving amounts are rejected
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
 
     // this is 10 block after the second halving height
     exceedHeight = Params().GetConsensus().nSubsidyHalvingInterval*2  + 10;

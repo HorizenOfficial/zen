@@ -1234,8 +1234,9 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
 
             if (bVerbose)
             {
-                sc.pushKV("unconf wCertVk", HexStr(info.creationData.wCertVk));
-                sc.pushKV("unconf customData", HexStr(info.creationData.customData));
+                sc.pushKV("unconf certProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCertVk.getProvingSystemType()));
+                sc.pushKV("unconf wCertVk", info.fixedParams.wCertVk.GetHexRepr());
+                sc.pushKV("unconf customData", HexStr(info.fixedParams.customData));
 
                 if(info.fixedParams.constant.is_initialized())
                     sc.pushKV("unconf constant", info.fixedParams.constant->GetHexRepr());
