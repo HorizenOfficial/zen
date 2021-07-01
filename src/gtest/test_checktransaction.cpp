@@ -789,7 +789,8 @@ TEST(SidechainsCertificateManipulation, EmptyCertTransformationToMutableIsNotRev
     EXPECT_TRUE(revertedTxByAssignOp.nFirstBwtPos == 0);
 }
 
-TEST(SidechainsCertificateManipulation, NonEmptyCertTransformationToMutableIsReversible) {
+TEST(SidechainsCertificateManipulation, NonEmptyCertTransformationToMutableIsReversible)
+{
     //create non-empty transaction
     CMutableScCertificate helperMutCert;
     unsigned int OutNum = 10;
@@ -1114,7 +1115,7 @@ TEST(checktransaction_tests, isStandardTransaction) {
 
 
 
-    // ------------------ after rp fix 
+    // ------------------ after rp fix
     static const int H_POST_FORK = 500;
     CleanUpAll();
     makeMain(H_POST_FORK);

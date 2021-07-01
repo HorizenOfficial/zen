@@ -757,7 +757,7 @@ class CBlock(CBlockHeader):
 
     def is_valid(self, n=48, k=5):
         # H(I||...
-        digest = blake2b(digest_size=(512/n)*n/8, person=zcash_person(n, k))
+        digest = blake2b(digest_size=(512//n)*n//8, person=zcash_person(n, k))
         digest.update(super(CBlock, self).serialize()[:108])
         hash_nonce(digest, self.nNonce)
         if not gbp_validate(self.nSolution, digest, n, k):
@@ -776,7 +776,7 @@ class CBlock(CBlockHeader):
     def solve(self, n=48, k=5):
         target = uint256_from_compact(self.nBits)
         # H(I||...
-        digest = blake2b(digest_size=(512/n)*n/8, person=zcash_person(n, k))
+        digest = blake2b(digest_size=(512//n)*n//8, person=zcash_person(n, k))
         digest.update(super(CBlock, self).serialize()[:108])
         self.nNonce = 0
         while True:
@@ -1359,14 +1359,27 @@ class NodeConn(asyncore.dispatcher):
         vt.addrTo.port = self.dstport
         vt.addrFrom.ip = "0.0.0.0"
         vt.addrFrom.port = 0
-        self.send_message(vt, True)
-        print 'MiniNode: Connecting to Bitcoin Node IP # ' + dstaddr + ':' \
-            + str(dstport)
+
+        print 'MiniNode: Connecting to Bitcoin Node IP # ' + dstaddr + ':' + str(dstport)
 
         try:
+            # No tls connection; workaround:
+            # - the first connection will fail because node expect a tls one
+            self.connect((dstaddr, dstport))
+            self.close()
+            self.state = "closed"
+
+            # - the second attempt will succeed because node falls back to non-tls
+            self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.state = "connecting"
+            self.disconnect = False
             self.connect((dstaddr, dstport))
         except:
+            print 'MiniNode: Could not connect to Node IP # ' + dstaddr + ':' + str(dstport)
             self.handle_close()
+
+        self.send_message(vt, True)
+
         self.rpc = rpc
 
     def show_debug_msg(self, msg):

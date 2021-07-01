@@ -5,7 +5,7 @@ BASE_CACHE ?= $(BASEDIR)/built
 SDK_PATH ?= $(BASEDIR)/SDKs
 NO_WALLET ?=
 NO_UPNP ?=
-PRIORITY_DOWNLOAD_PATH ?= https://downloads.horizen.global/file/depends-sources
+PRIORITY_DOWNLOAD_PATH ?= https://downloads.horizen.io/file/depends-sources
 
 BUILD ?= $(shell ./config.guess)
 HOST ?= $(BUILD)

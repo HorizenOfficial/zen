@@ -82,7 +82,7 @@ Review the automated changes in git:
 Push the resulting branch to github:
 
     export DEBVERSION="${ZCASH_RELEASE}"
-    export DEBEMAIL="${DEBEMAIL:-info@horizen.global}"
+    export DEBEMAIL="${DEBEMAIL:-info@horizen.io}"
     export DEBFULLNAME="${DEBFULLNAME:-Zcash Company}"
 
 Then create the PR on github. Complete the standard review process,
