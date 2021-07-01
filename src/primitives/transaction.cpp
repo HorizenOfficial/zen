@@ -1105,7 +1105,7 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
 
 void CTransaction::AddJoinSplitToJSON(UniValue& entry) const
 {
-    entry.push_back(Pair("vjoinsplit", TxJoinSplitToJSON(*this)));
+    entry.pushKV("vjoinsplit", TxJoinSplitToJSON(*this));
 }
 
 void CTransaction::AddCeasedSidechainWithdrawalInputsToJSON(UniValue& entry) const

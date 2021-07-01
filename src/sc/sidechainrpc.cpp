@@ -27,27 +27,27 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
     for (const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
     {
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("value", ValueFromAmount(csw.nValue)));
-        o.push_back(Pair("scId", csw.scId.GetHex()));
-        o.push_back(Pair("nullifier", csw.nullifier.GetHexRepr()));
+        o.pushKV("value", ValueFromAmount(csw.nValue));
+        o.pushKV("scId", csw.scId.GetHex());
+        o.pushKV("nullifier", csw.nullifier.GetHexRepr());
 
         UniValue spk(UniValue::VOBJ);
         ScriptPubKeyToJSON(csw.scriptPubKey(), spk, true);
-        o.push_back(Pair("scriptPubKey", spk));
+        o.pushKV("scriptPubKey", spk);
 
-        o.push_back(Pair("scProof", csw.scProof.GetHexRepr()));
+        o.pushKV("scProof", csw.scProof.GetHexRepr());
 
         UniValue rs(UniValue::VOBJ);
-        rs.push_back(Pair("asm", csw.redeemScript.ToString()));
-        rs.push_back(Pair("hex", HexStr(csw.redeemScript)));
-        o.push_back(Pair("redeemScript", rs));
-        o.push_back(Pair("actCertDataHash", csw.actCertDataHash.GetHexRepr()));
-        o.push_back(Pair("ceasingCumScTxCommTree", csw.ceasingCumScTxCommTree.GetHexRepr()));
+        rs.pushKV("asm", csw.redeemScript.ToString());
+        rs.pushKV("hex", HexStr(csw.redeemScript));
+        o.pushKV("redeemScript", rs);
+        o.pushKV("actCertDataHash", csw.actCertDataHash.GetHexRepr());
+        o.pushKV("ceasingCumScTxCommTree", csw.ceasingCumScTxCommTree.GetHexRepr());
 
         vcsws.push_back(o);
     }
 
-    parentObj.push_back(Pair("vcsw_ccin", vcsws));
+    parentObj.pushKV("vcsw_ccin", vcsws);
 }
 
 // TODO: naming style is different. Use CamelCase
@@ -60,20 +60,20 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
     for (unsigned int i = 0; i < tx.GetVscCcOut().size(); i++) {
         const CTxScCreationOut& out = tx.GetVscCcOut()[i];
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.GetScId().GetHex()));
-        o.push_back(Pair("n", (int64_t)nIdx));
-        o.push_back(Pair("withdrawal epoch length", (int)out.withdrawalEpochLength));
-        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
-        o.push_back(Pair("address", out.address.GetHex()));
-        o.push_back(Pair("certProvingSystem", Sidechain::ProvingSystemTypeToString(out.wCertVk.getProvingSystemType())));
-        o.push_back(Pair("wCertVk", out.wCertVk.GetHexRepr()));
+        o.pushKV("scid", out.GetScId().GetHex());
+        o.pushKV("n", (int64_t)nIdx);
+        o.pushKV("withdrawal epoch length", (int)out.withdrawalEpochLength);
+        o.pushKV("value", ValueFromAmount(out.nValue));
+        o.pushKV("address", out.address.GetHex());
+        o.pushKV("certProvingSystem", Sidechain::ProvingSystemTypeToString(out.wCertVk.getProvingSystemType()));
+        o.pushKV("wCertVk", out.wCertVk.GetHexRepr());
 
         UniValue arrFieldElementConfig(UniValue::VARR);
         for(const auto& cfgEntry: out.vFieldElementCertificateFieldConfig)
         {
             arrFieldElementConfig.push_back(cfgEntry.getBitSize());
         }
-        o.push_back(Pair("vFieldElementCertificateFieldConfig", arrFieldElementConfig));
+        o.pushKV("vFieldElementCertificateFieldConfig", arrFieldElementConfig);
 
         UniValue arrBitVectorConfig(UniValue::VARR);
         for(const auto& cfgEntry: out.vBitVectorCertificateFieldConfig)
@@ -83,43 +83,43 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
             singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
             arrBitVectorConfig.push_back(singlePair);
         }
-        o.push_back(Pair("vBitVectorCertificateFieldConfig", arrBitVectorConfig));
+        o.pushKV("vBitVectorCertificateFieldConfig", arrBitVectorConfig);
 
-        o.push_back(Pair("customData", HexStr(out.customData)));
+        o.pushKV("customData", HexStr(out.customData));
         if(out.constant.is_initialized())
-            o.push_back(Pair("constant", out.constant->GetHexRepr()));
+            o.pushKV("constant", out.constant->GetHexRepr());
         if(out.wCeasedVk.is_initialized())
         {
-            o.push_back(Pair("cswProvingSystem", Sidechain::ProvingSystemTypeToString(out.wCeasedVk.get().getProvingSystemType())));
-            o.push_back(Pair("wCeasedVk", out.wCeasedVk.get().GetHexRepr()));
+            o.pushKV("cswProvingSystem", Sidechain::ProvingSystemTypeToString(out.wCeasedVk.get().getProvingSystemType()));
+            o.pushKV("wCeasedVk", out.wCeasedVk.get().GetHexRepr());
         }
-        o.push_back(Pair("ftScFee", ValueFromAmount(out.forwardTransferScFee)));
-        o.push_back(Pair("mbtrScFee", ValueFromAmount(out.mainchainBackwardTransferRequestScFee)));
-        o.push_back(Pair("mbtrRequestDataLength", out.mainchainBackwardTransferRequestDataLength));
+        o.pushKV("ftScFee", ValueFromAmount(out.forwardTransferScFee));
+        o.pushKV("mbtrScFee", ValueFromAmount(out.mainchainBackwardTransferRequestScFee));
+        o.pushKV("mbtrRequestDataLength", out.mainchainBackwardTransferRequestDataLength);
         vscs.push_back(o);
         nIdx++;
     }
-    parentObj.push_back(Pair("vsc_ccout", vscs));
+    parentObj.pushKV("vsc_ccout", vscs);
 
     UniValue vfts(UniValue::VARR);
     for (unsigned int i = 0; i < tx.GetVftCcOut().size(); i++) {
         const CTxForwardTransferOut& out = tx.GetVftCcOut()[i];
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.scId.GetHex()));
-        o.push_back(Pair("n", (int64_t)nIdx));
-        o.push_back(Pair("value", ValueFromAmount(out.nValue)));
-        o.push_back(Pair("address", out.address.GetHex()));
+        o.pushKV("scid", out.scId.GetHex());
+        o.pushKV("n", (int64_t)nIdx);
+        o.pushKV("value", ValueFromAmount(out.nValue));
+        o.pushKV("address", out.address.GetHex());
         vfts.push_back(o);
         nIdx++;
     }
-    parentObj.push_back(Pair("vft_ccout", vfts));
+    parentObj.pushKV("vft_ccout", vfts);
 
     UniValue vbts(UniValue::VARR);
     for (unsigned int i = 0; i < tx.GetVBwtRequestOut().size(); i++) {
         const CBwtRequestOut& out = tx.GetVBwtRequestOut()[i];
         UniValue o(UniValue::VOBJ);
-        o.push_back(Pair("scid", out.GetScId().GetHex()));
-        o.push_back(Pair("n", (int64_t)nIdx));
+        o.pushKV("scid", out.GetScId().GetHex());
+        o.pushKV("n", (int64_t)nIdx);
 
         std::string taddrStr = "Invalid taddress";
         uint160 pkeyValue;
@@ -132,22 +132,22 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         }
 
         UniValue mcAddr(UniValue::VOBJ);
-        mcAddr.push_back(Pair("pubkeyhash", out.mcDestinationAddress.GetHex()));
-        mcAddr.push_back(Pair("taddr", taddrStr));
+        mcAddr.pushKV("pubkeyhash", out.mcDestinationAddress.GetHex());
+        mcAddr.pushKV("taddr", taddrStr);
         
-        o.push_back(Pair("mcDestinationAddress", mcAddr));
-        o.push_back(Pair("scFee", ValueFromAmount(out.GetScValue())));
+        o.pushKV("mcDestinationAddress", mcAddr);
+        o.pushKV("scFee", ValueFromAmount(out.GetScValue()));
 
         UniValue arrRequestData(UniValue::VARR);
         for(const auto& requestData: out.vScRequestData)
         {
             arrRequestData.push_back(requestData.GetHexRepr());
         }
-        o.push_back(Pair("vScRequestData", arrRequestData));
+        o.pushKV("vScRequestData", arrRequestData);
         vbts.push_back(o);
         nIdx++;
     }
-    parentObj.push_back(Pair("vmbtr_out", vbts));
+    parentObj.pushKV("vmbtr_out", vbts);
 }
 
 bool AddCustomFieldElement(const std::string& inputString, std::vector<unsigned char>& vBytes,

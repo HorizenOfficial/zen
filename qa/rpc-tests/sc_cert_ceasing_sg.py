@@ -9,6 +9,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
     assert_false, assert_true
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
@@ -76,8 +77,8 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         amounts_2 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_2}]
 
 
-        mark_logs("Node 0 generates 220 block", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(220)
+        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
         self.sync_all()
 
         #generate wCertVk and constant
@@ -104,9 +105,9 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
         pprint.pprint(ret)
-        assert_equal(ret['created at block height'], 221)
-        assert_equal(ret['end epoch height'], 230)
-        assert_equal(ret['ceasing height'], 232) # = 221 + epoch_len + subm_window -1  ---> where subm_window=2 (20% epoch_len)
+        assert_equal(ret['created at block height'], MINIMAL_SC_HEIGHT+1)
+        assert_equal(ret['end epoch height'], MINIMAL_SC_HEIGHT+EPOCH_LENGTH)
+        assert_equal(ret['ceasing height'], MINIMAL_SC_HEIGHT+EPOCH_LENGTH+EPOCH_LENGTH/5)
         assert_equal(ret['epoch'], 0)
         assert_equal(ret['scid'], scid)
         assert_equal(ret['withdrawalEpochLength'], EPOCH_LENGTH)
@@ -138,8 +139,8 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         print "ceasing height   =", ret['ceasing height']
         print "end epoch height =", ret['end epoch height']
         print "epoch number     =", ret['epoch']
-        assert_equal(ret['ceasing height'], 242) 
-        assert_equal(ret['end epoch height'], 240)
+        assert_equal(ret['ceasing height'], MINIMAL_SC_HEIGHT+2*EPOCH_LENGTH+EPOCH_LENGTH/5) 
+        assert_equal(ret['end epoch height'], MINIMAL_SC_HEIGHT+2*EPOCH_LENGTH)
         assert_equal(ret['epoch'], 1)
         print "#### chain height=", self.nodes[0].getblockcount()
         print
@@ -171,8 +172,8 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         print "ceasing height   =", ret['ceasing height']
         print "end epoch height =", ret['end epoch height']
         print "epoch number     =", ret['epoch']
-        assert_equal(ret['ceasing height'], 252) 
-        assert_equal(ret['end epoch height'], 250)
+        assert_equal(ret['ceasing height'], MINIMAL_SC_HEIGHT+3*EPOCH_LENGTH+EPOCH_LENGTH/5) 
+        assert_equal(ret['end epoch height'], MINIMAL_SC_HEIGHT+3*EPOCH_LENGTH)
         assert_equal(ret['epoch'], 2)
         print "#### chain height=", self.nodes[0].getblockcount()
         print

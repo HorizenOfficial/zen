@@ -48,6 +48,9 @@
 #include "script/sigcache.h"
 #include "script/standard.h"
 
+#include "script/sigcache.h"
+#include "script/standard.h"
+
 using namespace zen;
 
 using namespace std;
@@ -707,21 +710,24 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
     txnouttype whichType;
     for(int pos = 0; pos < txBase.GetVout().size(); ++pos) {
         const CTxOut & txout = txBase.GetVout()[pos];
-        CheckBlockResult checkBlockResult;
-        if (!::IsStandard(txout.scriptPubKey, whichType, checkBlockResult)) {
+        ReplayProtectionAttributes rpAttributes;
+        if (!::IsStandard(txout.scriptPubKey, whichType, rpAttributes)) {
+            LogPrintf("%s():%d - Non standard output: scriptPubKey[%s]\n",
+                __func__, __LINE__, txout.scriptPubKey.ToString());
             reason = "scriptpubkey";
             return false;
         }
 
-        if (checkBlockResult.referencedHeight > 0)
+        if (rpAttributes.GotValues())
         {
-            if ( (nHeight - checkBlockResult.referencedHeight) < getCheckBlockAtHeightMinAge())
+            if ( (nHeight - rpAttributes.referencedHeight) < getCheckBlockAtHeightMinAge())
             {
-                LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d]\n",
-                    __func__, __LINE__, checkBlockResult.referencedHeight, nHeight, getCheckBlockAtHeightMinAge() );
-            reason = "scriptpubkey checkblockatheight: referenced block too recent";
-            return false;
-        }
+                LogPrintf("%s():%d - referenced block h[%d], chain.h[%d], minAge[%d] (tx=%s)\n",
+                    __func__, __LINE__, rpAttributes.referencedHeight, nHeight, getCheckBlockAtHeightMinAge(),
+                    txBase.GetHash().ToString() );
+                reason = "scriptpubkey checkblockatheight: referenced block too recent";
+                return false;
+            }
         }
 
         // provide temporary replay protection for two minerconf windows during chainsplit
@@ -822,7 +828,9 @@ bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& ma
     if (txBase.IsCoinBase())
         return true; // Coinbases don't use vin normally
 
-    for(const CTxIn& in : txBase.GetVin()) {
+    for (unsigned int i = 0; i < txBase.GetVin().size(); i++)
+    {
+        const CTxIn&  in   = txBase.GetVin().at(i);
         const CTxOut& prev = mapInputs.GetOutputFor(in);
 
         vector<vector<unsigned char> > vSolutions;
@@ -830,7 +838,11 @@ bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& ma
         // get the scriptPubKey corresponding to this input:
         const CScript& prevScript = prev.scriptPubKey;
         if (!Solver(prevScript, whichType, vSolutions))
+        {
+            LogPrintf("%s():%d - Input %d: failed checking scriptpubkey %s\n",
+                __func__, __LINE__, i, prevScript.ToString());
             return false;
+        }
         int nArgsExpected = ScriptSigArgsExpected(whichType, vSolutions);
         if (nArgsExpected < 0)
             return false;
@@ -1169,6 +1181,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
     string reason;
     if (getRequireStandard() &&  !IsStandardTx(cert, reason, nextBlockHeight))
     {
+        LogPrintf("%s():%d - Dropping nonstandard certid %s\n", __func__, __LINE__, cert.GetHash().ToString());
         state.DoS(0, error("%s(): nonstandard certificate: %s", __func__, reason),
                             CValidationState::Code::NONSTANDARD, reason);
         return MempoolReturnValue::INVALID;
@@ -2282,7 +2295,9 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
         return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", txBase.GetHash().ToString()));
 
     CAmount nValueIn = 0;
-    for(const CTxIn& in: txBase.GetVin()) {
+    for (unsigned int i = 0; i < txBase.GetVin().size(); i++)
+    {
+        const CTxIn& in = txBase.GetVin().at(i);
         const COutPoint &prevout = in.prevout;
         const CCoins *coins = inputs.AccessCoins(prevout.hash);
         assert(coins);
@@ -2322,6 +2337,23 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                 return state.Invalid(
                     error("%s(): tried to spend coinbase with transparent outputs", __func__),
                     CValidationState::Code::INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
+                }
+            }
+        } else {
+            ReplayProtectionLevel rpLevel = ForkManager::getInstance().getReplayProtectionLevel(nSpendHeight);
+
+            if (rpLevel >= RPLEVEL_FIXED_2)
+            {
+                // check for invalid OP_CHECKBLOCKATHEIGHT in order to catch it before signature verifications are performed
+                std::string reason;
+                CScript scriptPubKey(coins->vout[prevout.n].scriptPubKey);
+
+                if (!CheckReplayProtectionAttributes(scriptPubKey, reason) )
+                {
+                    return state.Invalid(
+                        error("%s(): input %d has an invalid scriptPubKey %s (reason=%s)",
+                            __func__, i, scriptPubKey.ToString(), reason),
+                        REJECT_INVALID, "bad-txns-output-scriptpubkey");
                 }
             }
         }
@@ -5568,14 +5600,14 @@ void static ProcessGetData(CNode* pfrom)
 
                         // this is set by ConnectBlock method, when a new tip is added to the main chain
                         bool b1 = mi->second->IsValid(BLOCK_VALID_SCRIPTS);
-                        bool b2 = (pindexBestHeader != NULL);
-                        bool b3 = (pindexBestHeader->GetBlockTime() - mi->second->GetBlockTime() < nOneMonth);
-                        bool b4 = (GetBlockProofEquivalentTime(*pindexBestHeader, *mi->second, *pindexBestHeader, Params().GetConsensus()) < nOneMonth);
+                        bool b2 = (pindexBestHeader != NULL) &&
+                                  (pindexBestHeader->GetBlockTime() - mi->second->GetBlockTime() < nOneMonth) &&
+                                  (GetBlockProofEquivalentTime(*pindexBestHeader, *mi->second, *pindexBestHeader, Params().GetConsensus()) < nOneMonth);
 
-                        send = b1 && b2 && b3 && b4;
+                        send = b1 && b2;
                         if (!send)
                         {
-                            if (b2 && b3 && b4)
+                            if (b2)
                             {
                                 // BLOCK_VALID_SCRIPTS is set when connecting block on main chain, but we must
                                 // propagate also when relevant blocks are on a fork. Consider that a further check

@@ -4,6 +4,7 @@
 #include "consensus/validation.h"
 #include "main.h"
 #include "zcash/Proof.hpp"
+#include <pow.h>
 #include "base58.h"
 #include <pow.h>
 #include "zen/forkmanager.h"
@@ -11,7 +12,7 @@
 #include "zen/forks/fork3_communityfundandrpfixfork.h"
 #include "zen/forks/fork4_nulltransactionfork.h"
 #include "zen/forks/fork5_shieldfork.h"
-#include "zen/forks/fork7_sidechainfork.h"
+#include "zen/forks/fork8_sidechainfork.h"
 using namespace zen;
 
 TEST(CheckBlock, VersionTooLow) {

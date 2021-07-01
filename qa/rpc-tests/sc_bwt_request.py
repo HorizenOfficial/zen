@@ -8,6 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import initialize_chain_clean, assert_equal, assert_true, assert_false, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
@@ -77,8 +78,8 @@ class sc_bwt_request(BitcoinTestFramework):
         blocks.extend(self.nodes[1].generate(1))
         self.sync_all()
 
-        mark_logs("Node 0 generates 220 block to reach sidechain height", self.nodes, DEBUG_MODE)
-        blocks.extend(self.nodes[0].generate(220))
+        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
+        blocks.extend(self.nodes[0].generate(MINIMAL_SC_HEIGHT))
         self.sync_all()
 
         #generate wCertVk and constant

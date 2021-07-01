@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import time
 import re
+import codecs
 
 from authproxy import AuthServiceProxy, JSONRPCException
 

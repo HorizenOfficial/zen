@@ -109,6 +109,10 @@ testScripts=(
   'sc_getscinfo.py'
   'sc_quality_nodes.py'
   'sc_cert_memcleanup_split.py'
+  'sc_cert_ceasing_split.py'
+  'cbh_rpfix.py'
+  'cbh_rpcheck.py'
+  'tlsprotocols.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'

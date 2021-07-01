@@ -1,12 +1,10 @@
 #include <openssl/conf.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-#include "utiltls.h"
 #include "tlsenums.h"
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 #include "../util.h"
-#include "../protocol.h"
 #include "../net.h"
 #include "sync.h"
 #include <boost/filesystem/path.hpp>
@@ -40,8 +38,14 @@ bool operator==(const _NODE_ADDR b) const
 class TLSManager
 {
 public:
-     int waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl, int timeoutSec);
-     SSL* connect(SOCKET hSocket, const CAddress& addrConnect);
+     /* This is set as a custom error number which is not an error in OpenSSL protocol.
+        A true (not null) OpenSSL error returned by ERR_get_error() consists of a library number,
+        function code and reason code. */
+     static const long SELECT_TIMEDOUT = 0xFFFFFFFF;
+
+     int waitFor(SSLConnectionRoutine eRoutine, SOCKET hSocket, SSL* ssl, int timeoutSec, unsigned long& err_code);
+
+     SSL* connect(SOCKET hSocket, const CAddress& addrConnect, unsigned long& err_code);
      SSL_CTX* initCtx(
         TLSContextType ctxType,
         const boost::filesystem::path& privateKeyFile,
@@ -49,7 +53,7 @@ public:
         const std::vector<boost::filesystem::path>& trustedDirs);
 
      bool prepareCredentials();
-     SSL* accept(SOCKET hSocket, const CAddress& addr);
+     SSL* accept(SOCKET hSocket, const CAddress& addr, unsigned long& err_code);
      bool isNonTLSAddr(const string& strAddr, const vector<NODE_ADDR>& vPool, CCriticalSection& cs);
      void cleanNonTLSPool(std::vector<NODE_ADDR>& vPool, CCriticalSection& cs);
      int threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fdsetSend, fd_set& fdsetError);

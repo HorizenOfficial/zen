@@ -94,15 +94,15 @@ static UniValue ValuePoolDesc(
     const boost::optional<CAmount> valueDelta)
 {
     UniValue rv(UniValue::VOBJ);
-    rv.push_back(Pair("id", name));
-    rv.push_back(Pair("monitored", (bool)chainValue));
+    rv.pushKV("id", name);
+    rv.pushKV("monitored", (bool)chainValue);
     if (chainValue) {
-        rv.push_back(Pair("chainValue", ValueFromAmount(*chainValue)));
-        rv.push_back(Pair("chainValueZat", *chainValue));
+        rv.pushKV("chainValue", ValueFromAmount(*chainValue));
+        rv.pushKV("chainValueZat", *chainValue);
     }
     if (valueDelta) {
-        rv.push_back(Pair("valueDelta", ValueFromAmount(*valueDelta)));
-        rv.push_back(Pair("valueDeltaZat", *valueDelta));
+        rv.pushKV("valueDelta", ValueFromAmount(*valueDelta));
+        rv.pushKV("valueDeltaZat", *valueDelta);
     }
     return rv;
 }
@@ -110,46 +110,48 @@ static UniValue ValuePoolDesc(
 UniValue blockheaderToJSON(const CBlockIndex* blockindex)
 {
     UniValue result(UniValue::VOBJ);
-    result.push_back(Pair("hash", blockindex->GetBlockHash().GetHex()));
+    result.pushKV("hash", blockindex->GetBlockHash().GetHex());
     int confirmations = -1;
     // Only report confirmations if the block is on the main chain
     if (chainActive.Contains(blockindex))
         confirmations = chainActive.Height() - blockindex->nHeight + 1;
-    result.push_back(Pair("confirmations", confirmations));
-    result.push_back(Pair("height", blockindex->nHeight));
-    result.push_back(Pair("version", blockindex->nVersion));
-    result.push_back(Pair("merkleroot", blockindex->hashMerkleRoot.GetHex()));
-    result.push_back(Pair("time", (int64_t)blockindex->nTime));
-    result.push_back(Pair("nonce", blockindex->nNonce.GetHex()));
-    result.push_back(Pair("solution", HexStr(blockindex->nSolution)));
-    result.push_back(Pair("bits", strprintf("%08x", blockindex->nBits)));
-    result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
-    result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
-    result.push_back(Pair("scTxsCommitment", blockindex->hashScTxsCommitment.GetHex()));
-    result.push_back(Pair("scCumTreeHash", blockindex->scCumTreeHash.GetHexRepr()));
+    result.pushKV("confirmations", confirmations);
+    result.pushKV("height", blockindex->nHeight);
+    result.pushKV("version", blockindex->nVersion);
+    result.pushKV("merkleroot", blockindex->hashMerkleRoot.GetHex());
+    result.pushKV("time", (int64_t)blockindex->nTime);
+    result.pushKV("nonce", blockindex->nNonce.GetHex());
+    result.pushKV("solution", HexStr(blockindex->nSolution));
+    result.pushKV("bits", strprintf("%08x", blockindex->nBits));
+    result.pushKV("difficulty", GetDifficulty(blockindex));
+    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    result.pushKV("scTxsCommitment", blockindex->hashScTxsCommitment.GetHex());
+    result.pushKV("scCumTreeHash", blockindex->scCumTreeHash.GetHexRepr());
 
     if (blockindex->pprev)
-        result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
+        result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
     CBlockIndex *pnext = chainActive.Next(blockindex);
     if (pnext)
-        result.push_back(Pair("nextblockhash", pnext->GetBlockHash().GetHex()));
+        result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
     return result;
 }
 
 UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false)
 {
     UniValue result(UniValue::VOBJ);
-    result.push_back(Pair("hash", block.GetHash().GetHex()));
+    result.pushKV("hash", block.GetHash().GetHex());
     int confirmations = -1;
     // Only report confirmations if the block is on the main chain
     if (chainActive.Contains(blockindex))
         confirmations = chainActive.Height() - blockindex->nHeight + 1;
-    result.push_back(Pair("confirmations", confirmations));
-    result.push_back(Pair("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION)));
-    result.push_back(Pair("height", blockindex->nHeight));
-    result.push_back(Pair("version", block.nVersion));
-    result.push_back(Pair("merkleroot", block.hashMerkleRoot.GetHex()));
-    result.push_back(Pair("scTxsCommitment", block.hashScTxsCommitment.GetHex()));
+
+    result.pushKV("confirmations", confirmations);
+    result.pushKV("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION));
+    result.pushKV("height", blockindex->nHeight);
+    result.pushKV("version", block.nVersion);
+    result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
+    result.pushKV("scTxsCommitment", block.hashScTxsCommitment.GetHex());
+
     UniValue txs(UniValue::VARR);
     BOOST_FOREACH(const CTransaction&tx, block.vtx)
     {
@@ -162,7 +164,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
         else
             txs.push_back(tx.GetHash().GetHex());
     }
-    result.push_back(Pair("tx", txs));
+
+    result.pushKV("tx", txs);
     if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
     {
         UniValue certs(UniValue::VARR);
@@ -179,27 +182,28 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
                 certs.push_back(cert.GetHash().GetHex());
             }
         }
-        result.push_back(Pair("cert", certs));
+        result.pushKV("cert", certs);
     }
-    result.push_back(Pair("time", block.GetBlockTime()));
-    result.push_back(Pair("nonce", block.nNonce.GetHex()));
-    result.push_back(Pair("solution", HexStr(block.nSolution)));
-    result.push_back(Pair("bits", strprintf("%08x", block.nBits)));
-    result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
-    result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
-    result.push_back(Pair("anchor", blockindex->hashAnchorEnd.GetHex()));
-    result.push_back(Pair("scTxsCommitment", blockindex->hashScTxsCommitment.GetHex()));
-    result.push_back(Pair("scCumTreeHash", blockindex->scCumTreeHash.GetHexRepr()));
+
+    result.pushKV("time", block.GetBlockTime());
+    result.pushKV("nonce", block.nNonce.GetHex());
+    result.pushKV("solution", HexStr(block.nSolution));
+    result.pushKV("bits", strprintf("%08x", block.nBits));
+    result.pushKV("difficulty", GetDifficulty(blockindex));
+    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    result.pushKV("anchor", blockindex->hashAnchorEnd.GetHex());
+    result.pushKV("scTxsCommitment", blockindex->hashScTxsCommitment.GetHex());
+    result.pushKV("scCumTreeHash", blockindex->scCumTreeHash.GetHexRepr());
 
     UniValue valuePools(UniValue::VARR);
     valuePools.push_back(ValuePoolDesc("sprout", blockindex->nChainSproutValue, blockindex->nSproutValue));
-    result.push_back(Pair("valuePools", valuePools));
+    result.pushKV("valuePools", valuePools);
 
     if (blockindex->pprev)
-        result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
+        result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
     CBlockIndex *pnext = chainActive.Next(blockindex);
     if (pnext)
-        result.push_back(Pair("nextblockhash", pnext->GetBlockHash().GetHex()));
+        result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
     return result;
 }
 
@@ -263,7 +267,7 @@ static void AddDependancy(const CTransactionBase& root, UniValue& info)
         depends.push_back(hash.ToString());
     }
 
-    info.push_back(Pair("depends", depends));
+    info.pushKV("depends", depends);
 }
 
 UniValue mempoolToJSON(bool fVerbose = false)
@@ -277,30 +281,30 @@ UniValue mempoolToJSON(bool fVerbose = false)
             const uint256& hash = entry.first;
             const CTxMemPoolEntry& e = entry.second;
             UniValue info(UniValue::VOBJ);
-            info.push_back(Pair("size", (int)e.GetTxSize()));
-            info.push_back(Pair("fee", ValueFromAmount(e.GetFee())));
-            info.push_back(Pair("time", e.GetTime()));
-            info.push_back(Pair("height", (int)e.GetHeight()));
-            info.push_back(Pair("startingpriority", e.GetPriority(e.GetHeight())));
-            info.push_back(Pair("currentpriority", e.GetPriority(chainActive.Height())));
+            info.pushKV("size", (int)e.GetTxSize());
+            info.pushKV("fee", ValueFromAmount(e.GetFee()));
+            info.pushKV("time", e.GetTime());
+            info.pushKV("height", (int)e.GetHeight());
+            info.pushKV("startingpriority", e.GetPriority(e.GetHeight()));
+            info.pushKV("currentpriority", e.GetPriority(chainActive.Height()));
             const CTransaction& tx = e.GetTx();
             AddDependancy(tx, info);
-            o.push_back(Pair(hash.ToString(), info));
+            o.pushKV(hash.ToString(), info);
         }
         BOOST_FOREACH(const PAIRTYPE(uint256, CCertificateMemPoolEntry)& entry, mempool.mapCertificate)
         {
             const uint256& hash = entry.first;
             const auto& e = entry.second;
             UniValue info(UniValue::VOBJ);
-            info.push_back(Pair("size", (int)e.GetCertificateSize()));
-            info.push_back(Pair("fee", ValueFromAmount(e.GetFee())));
-            info.push_back(Pair("time", e.GetTime()));
-            info.push_back(Pair("height", (int)e.GetHeight()));
-            info.push_back(Pair("startingpriority", e.GetPriority(e.GetHeight())));
-            info.push_back(Pair("currentpriority", e.GetPriority(chainActive.Height())));
+            info.pushKV("size", (int)e.GetCertificateSize());
+            info.pushKV("fee", ValueFromAmount(e.GetFee()));
+            info.pushKV("time", e.GetTime());
+            info.pushKV("height", (int)e.GetHeight());
+            info.pushKV("startingpriority", e.GetPriority(e.GetHeight()));
+            info.pushKV("currentpriority", e.GetPriority(chainActive.Height()));
             const CScCertificate& cert = e.GetCertificate();
             AddDependancy(cert, info);
-            o.push_back(Pair(hash.ToString(), info));
+            o.pushKV(hash.ToString(), info);
         }
         BOOST_FOREACH(const auto& entry, mempool.mapDeltas)
         {
@@ -308,9 +312,9 @@ UniValue mempoolToJSON(bool fVerbose = false)
             const auto& p = entry.second.first;
             const auto& f = entry.second.second;
             UniValue info(UniValue::VOBJ);
-            info.push_back(Pair("fee", ValueFromAmount(f)));
-            info.push_back(Pair("priority", p));
-            o.push_back(Pair(hash.ToString(), info));
+            info.pushKV("fee", ValueFromAmount(f));
+            info.pushKV("priority", p);
+            o.pushKV(hash.ToString(), info);
         }
         return o;
     }
@@ -459,10 +463,9 @@ UniValue getblock(const UniValue& params, bool fHelp)
             "If verbosity is 2, returns an Object with information about the block and information about each transaction. \n"
             "\nArguments:\n"
             "1. \"hash|height\"     (string, required) The block hash or height\n"
-            "2. verbosity              (numeric, optional, default=1) 0 for hex encoded data, 1 for a json object, and 2 for json object with transaction data\n"
-            "\nResult (for verbosity = 0):\n"
-            "\"data\"             (string) A string that is serialized, hex-encoded data for block 'hash'.\n"
-            "\nResult (for verbosity = 1):\n"
+             "2. verbosity              (numeric, optional, default=1) 0 for hex encoded data, 1 for a json object, and 2 for json object with transaction data,\n"
+            "also accept boolean for backward compatibility where true=1 and false=0\n"
+            "\nResult (for verbose = 1):\n"
             "{\n"
             "  \"hash\" : \"hash\",       (string) the block hash (same as provided hash)\n"
             "  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the main chain\n"
@@ -481,9 +484,11 @@ UniValue getblock(const UniValue& params, bool fHelp)
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"
             "}\n"
+            "\nResult (for verbose=0):\n"
+            "\"data\"             (string) A string that is serialized, hex-encoded data for block 'hash'.\n"
             "\nResult (for verbosity = 2):\n"
             "{\n"
-            "  ...,                     Same output as verbosity = 1.\n"
+            "  ...,                     Same output as verbosity = 2.\n"
             "  \"tx\" : [               (array of Objects) The transactions in the format of the getrawtransaction RPC.\n"
             "         ,...\n"
             "  ],\n"
@@ -587,13 +592,13 @@ UniValue gettxoutsetinfo(const UniValue& params, bool fHelp)
     CCoinsStats stats;
     FlushStateToDisk();
     if (pcoinsTip->GetStats(stats)) {
-        ret.push_back(Pair("height", (int64_t)stats.nHeight));
-        ret.push_back(Pair("bestblock", stats.hashBlock.GetHex()));
-        ret.push_back(Pair("transactions", (int64_t)stats.nTransactions));
-        ret.push_back(Pair("txouts", (int64_t)stats.nTransactionOutputs));
-        ret.push_back(Pair("bytes_serialized", (int64_t)stats.nSerializedSize));
-        ret.push_back(Pair("hash_serialized", stats.hashSerialized.GetHex()));
-        ret.push_back(Pair("total_amount", ValueFromAmount(stats.nTotalAmount)));
+        ret.pushKV("height", (int64_t)stats.nHeight);
+        ret.pushKV("bestblock", stats.hashBlock.GetHex());
+        ret.pushKV("transactions", (int64_t)stats.nTransactions);
+        ret.pushKV("txouts", (int64_t)stats.nTransactionOutputs);
+        ret.pushKV("bytes_serialized", (int64_t)stats.nSerializedSize);
+        ret.pushKV("hash_serialized", stats.hashSerialized.GetHex());
+        ret.pushKV("total_amount", ValueFromAmount(stats.nTotalAmount));
     }
     return ret;
 }
@@ -663,22 +668,19 @@ UniValue gettxout(const UniValue& params, bool fHelp)
 
     BlockMap::iterator it = mapBlockIndex.find(pcoinsTip->GetBestBlock());
     CBlockIndex *pindex = it->second;
-    ret.push_back(Pair("bestblock", pindex->GetBlockHash().GetHex()));
+    ret.pushKV("bestblock", pindex->GetBlockHash().GetHex());
     if ((unsigned int)coins.nHeight == MEMPOOL_HEIGHT)
-        ret.push_back(Pair("confirmations", 0));
+        ret.pushKV("confirmations", 0);
     else
-        ret.push_back(Pair("confirmations", pindex->nHeight - coins.nHeight + 1));
-    ret.push_back(Pair("value", ValueFromAmount(coins.vout[n].nValue)));
+        ret.pushKV("confirmations", pindex->nHeight - coins.nHeight + 1);
+    ret.pushKV("value", ValueFromAmount(coins.vout[n].nValue));
     UniValue o(UniValue::VOBJ);
     ScriptPubKeyToJSON(coins.vout[n].scriptPubKey, o, true);
-    ret.push_back(Pair("scriptPubKey", o));
-    ret.push_back(Pair("version", coins.nVersion));
-#if 0
-    ret.push_back(Pair("coinbase", coins.fCoinBase));
-#else
-    ret.push_back(Pair("certificate", coins.IsFromCert()));
-    ret.push_back(Pair("coinbase", coins.IsCoinBase()));
-#endif
+
+    ret.pushKV("scriptPubKey", o);
+    ret.pushKV("version", coins.nVersion);
+    ret.pushKV("certificate", coins.IsFromCert());
+    ret.pushKV("coinbase", coins.IsCoinBase());
 
     return ret;
 }
@@ -724,20 +726,20 @@ static UniValue SoftForkMajorityDesc(int minVersion, CBlockIndex* pindex, int nR
     }
 
     UniValue rv(UniValue::VOBJ);
-    rv.push_back(Pair("status", nFound >= nRequired));
-    rv.push_back(Pair("found", nFound));
-    rv.push_back(Pair("required", nRequired));
-    rv.push_back(Pair("window", consensusParams.nMajorityWindow));
+    rv.pushKV("status", nFound >= nRequired);
+    rv.pushKV("found", nFound);
+    rv.pushKV("required", nRequired);
+    rv.pushKV("window", consensusParams.nMajorityWindow);
     return rv;
 }
 
 static UniValue SoftForkDesc(const std::string &name, int version, CBlockIndex* pindex, const Consensus::Params& consensusParams)
 {
     UniValue rv(UniValue::VOBJ);
-    rv.push_back(Pair("id", name));
-    rv.push_back(Pair("version", version));
-    rv.push_back(Pair("enforce", SoftForkMajorityDesc(version, pindex, consensusParams.nMajorityEnforceBlockUpgrade, consensusParams)));
-    rv.push_back(Pair("reject", SoftForkMajorityDesc(version, pindex, consensusParams.nMajorityRejectBlockOutdated, consensusParams)));
+    rv.pushKV("id", name);
+    rv.pushKV("version", version);
+    rv.pushKV("enforce", SoftForkMajorityDesc(version, pindex, consensusParams.nMajorityEnforceBlockUpgrade, consensusParams));
+    rv.pushKV("reject", SoftForkMajorityDesc(version, pindex, consensusParams.nMajorityRejectBlockOutdated, consensusParams));
     return rv;
 }
 
@@ -779,23 +781,23 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
     LOCK(cs_main);
 
     UniValue obj(UniValue::VOBJ);
-    obj.push_back(Pair("chain",                 Params().NetworkIDString()));
-    obj.push_back(Pair("blocks",                (int)chainActive.Height()));
-    obj.push_back(Pair("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1));
-    obj.push_back(Pair("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex()));
-    obj.push_back(Pair("difficulty",            (double)GetNetworkDifficulty()));
-    obj.push_back(Pair("verificationprogress",  Checkpoints::GuessVerificationProgress(Params().Checkpoints(), chainActive.Tip())));
-    obj.push_back(Pair("chainwork",             chainActive.Tip()->nChainWork.GetHex()));
-    obj.push_back(Pair("pruned",                fPruneMode));
+    obj.pushKV("chain",                 Params().NetworkIDString());
+    obj.pushKV("blocks",                (int)chainActive.Height());
+    obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
+    obj.pushKV("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex());
+    obj.pushKV("difficulty",            (double)GetNetworkDifficulty());
+    obj.pushKV("verificationprogress",  Checkpoints::GuessVerificationProgress(Params().Checkpoints(), chainActive.Tip()));
+    obj.pushKV("chainwork",             chainActive.Tip()->nChainWork.GetHex());
+    obj.pushKV("pruned",                fPruneMode);
 
     ZCIncrementalMerkleTree tree;
     pcoinsTip->GetAnchorAt(pcoinsTip->GetBestAnchor(), tree);
-    obj.push_back(Pair("commitments",           tree.size()));
+    obj.pushKV("commitments",           tree.size());
 
     CBlockIndex* tip = chainActive.Tip();
     UniValue valuePools(UniValue::VARR);
     valuePools.push_back(ValuePoolDesc("sprout", tip->nChainSproutValue, boost::none));
-    obj.push_back(Pair("valuePools",            valuePools));
+    obj.pushKV("valuePools",            valuePools);
 
     const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue softforks(UniValue::VARR);
@@ -804,7 +806,7 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
     softforks.push_back(SoftForkDesc("bip66", 3, tip, consensusParams));
     softforks.push_back(SoftForkDesc("bip65", 4, tip, consensusParams));
 
-    obj.push_back(Pair("softforks",             softforks));
+    obj.pushKV("softforks", softforks);
 
     if (fPruneMode)
     {
@@ -812,8 +814,7 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp)
         while (block && block->pprev && (block->pprev->nStatus & BLOCK_HAVE_DATA))
             block = block->pprev;
 
-        if (block)
-            obj.push_back(Pair("pruneheight",        block->nHeight));
+        if (block) obj.pushKV("pruneheight", block->nHeight);
     }
     return obj;
 }
@@ -874,11 +875,11 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
     BOOST_FOREACH(const CBlockIndex* block, setTips)
     {
         UniValue obj(UniValue::VOBJ);
-        obj.push_back(Pair("height", block->nHeight));
-        obj.push_back(Pair("hash", block->phashBlock->GetHex()));
+        obj.pushKV("height", block->nHeight);
+        obj.pushKV("hash", block->phashBlock->GetHex());
 
         const int branchLen = block->nHeight - chainActive.FindFork(block)->nHeight;
-        obj.push_back(Pair("branchlen", branchLen));
+        obj.pushKV("branchlen", branchLen);
 
         string status;
         if (chainActive.Contains(block)) {
@@ -900,7 +901,7 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
             // No clue.
             status = "unknown";
         }
-        obj.push_back(Pair("status", status));
+        obj.pushKV("status", status);
 
         res.push_back(obj);
     }
@@ -911,12 +912,12 @@ UniValue getchaintips(const UniValue& params, bool fHelp)
 UniValue mempoolInfoToJSON()
 {
     UniValue ret(UniValue::VOBJ);
-    ret.push_back(Pair("size", (int64_t) mempool.size()));
-    ret.push_back(Pair("bytes", (int64_t) mempool.GetTotalSize()));
-    ret.push_back(Pair("usage", (int64_t) mempool.DynamicMemoryUsage()));
+    ret.pushKV("size", (int64_t) mempool.size());
+    ret.pushKV("bytes", (int64_t) mempool.GetTotalSize());
+    ret.pushKV("usage", (int64_t) mempool.DynamicMemoryUsage());
 
     if (Params().NetworkIDString() == "regtest") {
-        ret.push_back(Pair("fullyNotified", mempool.IsFullyNotified()));
+        ret.pushKV("fullyNotified", mempool.IsFullyNotified());
     }
 
     return ret;
@@ -1034,7 +1035,7 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
             if (scId == scCrAmount.GetScId())
             {
                  UniValue o(UniValue::VOBJ);
-                 o.push_back(Pair("unconf amount", ValueFromAmount(scCrAmount.nValue)));
+                 o.pushKV("unconf amount", ValueFromAmount(scCrAmount.nValue));
                  ia.push_back(o);
              }
         }
@@ -1048,7 +1049,7 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
             if (scId == fwdAmount.scId)
             {
                  UniValue o(UniValue::VOBJ);
-                 o.push_back(Pair("unconf amount", ValueFromAmount(fwdAmount.GetScValue())));
+                 o.pushKV("unconf amount", ValueFromAmount(fwdAmount.GetScValue()));
                  ia.push_back(o);
              }
         }
@@ -1062,14 +1063,14 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
             if (scId == mbtrAmount.scId)
             {
                  UniValue o(UniValue::VOBJ);
-                 o.push_back(Pair("unconf amount", ValueFromAmount(mbtrAmount.GetScValue())));
+                 o.pushKV("unconf amount", ValueFromAmount(mbtrAmount.GetScValue()));
                  ia.push_back(o);
              }
         }
     }
 
     if (ia.size() > 0)
-        sc.push_back(Pair("unconf immature amounts", ia));
+        sc.pushKV("unconf immature amounts", ia);
 
     // there are no info about bwt requests in sc db, therefore we do not include them neither when they are in mempool
 }
@@ -1080,63 +1081,63 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     if (bOnlyAlive && (scState != CSidechain::State::ALIVE))
         return false;
 
-    sc.push_back(Pair("scid", scId.GetHex()));
+    sc.pushKV("scid", scId.GetHex());
     if (!info.IsNull() )
     {
         int currentEpoch = (scState == CSidechain::State::ALIVE)?
                 info.EpochFor(chainActive.Height()):
                 info.EpochFor(info.GetScheduledCeasingHeight());
  
-        sc.push_back(Pair("balance", ValueFromAmount(info.balance)));
-        sc.push_back(Pair("epoch", currentEpoch));
-        sc.push_back(Pair("end epoch height", info.GetEndHeightForEpoch(currentEpoch)));
-        sc.push_back(Pair("state", CSidechain::stateToString(scState)));
-        sc.push_back(Pair("ceasing height", info.GetScheduledCeasingHeight()));
+        sc.pushKV("balance", ValueFromAmount(info.balance));
+        sc.pushKV("epoch", currentEpoch);
+        sc.pushKV("end epoch height", info.GetEndHeightForEpoch(currentEpoch));
+        sc.pushKV("state", CSidechain::stateToString(scState));
+        sc.pushKV("ceasing height", info.GetScheduledCeasingHeight());
  
         if (bVerbose)
         {
-            sc.push_back(Pair("creating tx hash", info.creationTxHash.GetHex()));
+            sc.pushKV("creating tx hash", info.creationTxHash.GetHex());
         }
  
-        sc.push_back(Pair("created at block height", info.creationBlockHeight));
-        sc.push_back(Pair("last certificate epoch", info.lastTopQualityCertReferencedEpoch));
-        sc.push_back(Pair("last certificate hash", info.lastTopQualityCertHash.GetHex()));
-        sc.push_back(Pair("last certificate quality", info.lastTopQualityCertQuality));
-        sc.push_back(Pair("last certificate amount", ValueFromAmount(info.lastTopQualityCertBwtAmount)));
+        sc.pushKV("created at block height", info.creationBlockHeight);
+        sc.pushKV("last certificate epoch", info.lastTopQualityCertReferencedEpoch);
+        sc.pushKV("last certificate hash", info.lastTopQualityCertHash.GetHex());
+        sc.pushKV("last certificate quality", info.lastTopQualityCertQuality);
+        sc.pushKV("last certificate amount", ValueFromAmount(info.lastTopQualityCertBwtAmount));
 
         const CScCertificateView& certView = scView.GetActiveCertView(scId);
-        sc.push_back(Pair("active ftScFee", ValueFromAmount(certView.forwardTransferScFee)));
-        sc.push_back(Pair("active mbtrScFee", ValueFromAmount(certView.mainchainBackwardTransferRequestScFee)));
+        sc.pushKV("active ftScFee", ValueFromAmount(certView.forwardTransferScFee));
+        sc.pushKV("active mbtrScFee", ValueFromAmount(certView.mainchainBackwardTransferRequestScFee));
  
         // creation parameters
-        sc.push_back(Pair("mbtrRequestDataLength", info.fixedParams.mainchainBackwardTransferRequestDataLength));
-        sc.push_back(Pair("withdrawalEpochLength", info.fixedParams.withdrawalEpochLength));
+        sc.pushKV("mbtrRequestDataLength", info.fixedParams.mainchainBackwardTransferRequestDataLength);
+        sc.pushKV("withdrawalEpochLength", info.fixedParams.withdrawalEpochLength);
  
         if (bVerbose)
         {
-            sc.push_back(Pair("certProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCertVk.getProvingSystemType())));
-            sc.push_back(Pair("wCertVk", info.fixedParams.wCertVk.GetHexRepr()));
-            sc.push_back(Pair("customData", HexStr(info.fixedParams.customData)));
+            sc.pushKV("certProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCertVk.getProvingSystemType()));
+            sc.pushKV("wCertVk", info.fixedParams.wCertVk.GetHexRepr());
+            sc.pushKV("customData", HexStr(info.fixedParams.customData));
 
             if (info.fixedParams.constant.is_initialized())
-                sc.push_back(Pair("constant", info.fixedParams.constant->GetHexRepr()));
+                sc.pushKV("constant", info.fixedParams.constant->GetHexRepr());
             else
-                sc.push_back(Pair("constant", std::string{"NOT INITIALIZED"}));
+                sc.pushKV("constant", std::string{"NOT INITIALIZED"});
 
             if(info.fixedParams.wCeasedVk.is_initialized())
             {
-                sc.push_back(Pair("cswProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType())));
-                sc.push_back(Pair("wCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr()));
+                sc.pushKV("cswProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType()));
+                sc.pushKV("wCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr());
             }
             else
-                sc.push_back(Pair("wCeasedVk", std::string{"NOT INITIALIZED"}));
+                sc.pushKV("wCeasedVk", std::string{"NOT INITIALIZED"});
 
             UniValue arrFieldElementConfig(UniValue::VARR);
             for(const auto& cfgEntry: info.fixedParams.vFieldElementCertificateFieldConfig)
             {
                 arrFieldElementConfig.push_back(cfgEntry.getBitSize());
             }
-            sc.push_back(Pair("vFieldElementCertificateFieldConfig", arrFieldElementConfig));
+            sc.pushKV("vFieldElementCertificateFieldConfig", arrFieldElementConfig);
 
             UniValue arrBitVectorConfig(UniValue::VARR);
             for(const auto& cfgEntry: info.fixedParams.vBitVectorCertificateFieldConfig)
@@ -1146,23 +1147,23 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
                 arrBitVectorConfig.push_back(singlePair);
             }
-            sc.push_back(Pair("vBitVectorCertificateFieldConfig", arrBitVectorConfig));
+            sc.pushKV("vBitVectorCertificateFieldConfig", arrBitVectorConfig);
 
-            sc.push_back(Pair("past ftScFee", ValueFromAmount(info.pastEpochTopQualityCertView.forwardTransferScFee)));
-            sc.push_back(Pair("past mbtrScFee", ValueFromAmount(info.pastEpochTopQualityCertView.mainchainBackwardTransferRequestScFee)));
-            sc.push_back(Pair("last ftScFee", ValueFromAmount(info.lastTopQualityCertView.forwardTransferScFee)));
-            sc.push_back(Pair("last mbtrScFee", ValueFromAmount(info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee)));
+            sc.pushKV("past ftScFee", ValueFromAmount(info.pastEpochTopQualityCertView.forwardTransferScFee));
+            sc.pushKV("past mbtrScFee", ValueFromAmount(info.pastEpochTopQualityCertView.mainchainBackwardTransferRequestScFee));
+            sc.pushKV("last ftScFee", ValueFromAmount(info.lastTopQualityCertView.forwardTransferScFee));
+            sc.pushKV("last mbtrScFee", ValueFromAmount(info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee));
         }
  
         UniValue ia(UniValue::VARR);
         for(const auto& entry: info.mImmatureAmounts)
         {
             UniValue o(UniValue::VOBJ);
-            o.push_back(Pair("maturityHeight", entry.first));
-            o.push_back(Pair("amount", ValueFromAmount(entry.second)));
+            o.pushKV("maturityHeight", entry.first);
+            o.pushKV("amount", ValueFromAmount(entry.second));
             ia.push_back(o);
         }
-        sc.push_back(Pair("immature amounts", ia));
+        sc.pushKV("immature amounts", ia);
 
         // get unconfirmed data if any
         if (mempool.hasSidechainCertificate(scId))
@@ -1170,10 +1171,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
             const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
  
-            sc.push_back(Pair("unconf top quality certificate epoch",   topQualCert.epochNumber));
-            sc.push_back(Pair("unconf top quality certificate hash",    topQualCertHash.GetHex()));
-            sc.push_back(Pair("unconf top quality certificate quality", topQualCert.quality));
-            sc.push_back(Pair("unconf top quality certificate amount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers())));
+            sc.pushKV("unconf top quality certificate epoch",   topQualCert.epochNumber);
+            sc.pushKV("unconf top quality certificate hash",    topQualCertHash.GetHex());
+            sc.pushKV("unconf top quality certificate quality", topQualCert.quality);
+            sc.pushKV("unconf top quality certificate amount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers()));
         }
 
         addScUnconfCcData(scId, sc);
@@ -1202,35 +1203,34 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 }
             }
 
-            sc.push_back(Pair("state", CSidechain::stateToString(CSidechain::State::UNCONFIRMED)));
-            sc.push_back(Pair("unconf creating tx hash", info.creationTxHash.GetHex()));
-            sc.push_back(Pair("unconf withdrawalEpochLength", info.fixedParams.withdrawalEpochLength));
+            sc.pushKV("state", CSidechain::stateToString(CSidechain::State::UNCONFIRMED));
+            sc.pushKV("unconf creating tx hash", info.creationTxHash.GetHex());
+            sc.pushKV("unconf withdrawalEpochLength", info.fixedParams.withdrawalEpochLength);
 
             if (bVerbose)
             {
-                sc.push_back(Pair("unconf certProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCertVk.getProvingSystemType())));
-                sc.push_back(Pair("unconf wCertVk", info.fixedParams.wCertVk.GetHexRepr()));
-                sc.push_back(Pair("unconf customData", HexStr(info.fixedParams.customData)));
+                sc.pushKV("unconf wCertVk", HexStr(info.creationData.wCertVk));
+                sc.pushKV("unconf customData", HexStr(info.creationData.customData));
 
                 if(info.fixedParams.constant.is_initialized())
-                    sc.push_back(Pair("unconf constant", info.fixedParams.constant->GetHexRepr()));
+                    sc.pushKV("unconf constant", info.fixedParams.constant->GetHexRepr());
                 else
-                    sc.push_back(Pair("unconf constant", std::string{"NOT INITIALIZED"}));
+                    sc.pushKV("unconf constant", std::string{"NOT INITIALIZED"});
 
                 if(info.fixedParams.wCeasedVk.is_initialized())
                 {
-                    sc.push_back(Pair("unconf cswProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType())));
-                    sc.push_back(Pair("unconf wCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr()));
+                    sc.pushKV("unconf cswProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType()));
+                    sc.pushKV("unconf wCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr());
                 }
                 else
-                    sc.push_back(Pair("unconf wCeasedVk", std::string{"NOT INITIALIZED"}));
+                    sc.pushKV("unconf wCeasedVk", std::string{"NOT INITIALIZED"});
 
                 UniValue arrFieldElementConfig(UniValue::VARR);
                 for(const auto& cfgEntry: info.fixedParams.vFieldElementCertificateFieldConfig)
                 {
                     arrFieldElementConfig.push_back(cfgEntry.getBitSize());
                 }
-                sc.push_back(Pair("unconf vFieldElementCertificateFieldConfig", arrFieldElementConfig));
+                sc.pushKV("unconf vFieldElementCertificateFieldConfig", arrFieldElementConfig);
 
                 UniValue arrBitVectorConfig(UniValue::VARR);
                 for(const auto& cfgEntry: info.fixedParams.vBitVectorCertificateFieldConfig)
@@ -1240,7 +1240,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
                     arrBitVectorConfig.push_back(singlePair);
                 }
-                sc.push_back(Pair("unconf vBitVectorCertificateFieldConfig", arrBitVectorConfig));
+                sc.pushKV("unconf vBitVectorCertificateFieldConfig", arrBitVectorConfig);
             }
 
             addScUnconfCcData(scId, sc);
@@ -1348,7 +1348,7 @@ void FillCertDataHash(const uint256& scid, UniValue& ret)
         LogPrint("sc", "%s():%d - scid[%s] active cert data hash not in db\n", __func__, __LINE__, scid.ToString());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing active cert data hash for required scid"));
     }
-    ret.push_back(Pair("certDataHash", certDataHash.GetHexRepr()));
+    ret.pushKV("certDataHash", certDataHash.GetHexRepr());
 }
 
 void FillCeasingCumScTxCommTree(const uint256& scid, UniValue& ret)
@@ -1468,15 +1468,15 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
         {
             // after filtering no sc has been found, this can happen for instance when the sc is ceased
             // and bOnlyAlive is true
-            ret.push_back(Pair("totalItems", 0));
-            ret.push_back(Pair("from", 0));
-            ret.push_back(Pair("to", 0));
+            ret.pushKV("totalItems", 0);
+            ret.pushKV("from", 0);
+            ret.pushKV("to", 0);
         }
         else
         {
-            ret.push_back(Pair("totalItems", 1));
-            ret.push_back(Pair("from", 0));
-            ret.push_back(Pair("to", 1));
+            ret.pushKV("totalItems", 1);
+            ret.pushKV("from", 0);
+            ret.pushKV("to", 1);
             scItems.push_back(scRecord);
         }
     }
@@ -1494,12 +1494,12 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
         // retrieved scItems list
         int tot = FillScList(scItems, bOnlyAlive, bVerbose, from, to);
 
-        ret.push_back(Pair("totalItems", tot));
-        ret.push_back(Pair("from", from));
-        ret.push_back(Pair("to", from + scItems.size()));
+        ret.pushKV("totalItems", tot);
+        ret.pushKV("from", from);
+        ret.pushKV("to", from + scItems.size());
     }
 
-    ret.push_back(Pair("items", scItems));
+    ret.pushKV("items", scItems);
     return ret;
 }
 
@@ -1725,9 +1725,9 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
     UniValue ret(UniValue::VOBJ);
     
     if (pcoinsTip->HaveCswNullifier(scId, nullifier)) {
-        ret.push_back(Pair("data", "true"));
+        ret.pushKV("data", "true");
     } else {
-        ret.push_back(Pair("data", "false"));
+        ret.pushKV("data", "false");
     }
 
     return ret;
