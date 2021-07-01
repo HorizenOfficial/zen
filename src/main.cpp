@@ -2350,7 +2350,7 @@ bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, cons
                     return state.Invalid(
                         error("%s(): input %d has an invalid scriptPubKey %s (reason=%s)",
                             __func__, i, scriptPubKey.ToString(), reason),
-                        REJECT_INVALID, "bad-txns-output-scriptpubkey");
+                        CValidationState::Code::INVALID, "bad-txns-output-scriptpubkey");
                 }
             }
         }
