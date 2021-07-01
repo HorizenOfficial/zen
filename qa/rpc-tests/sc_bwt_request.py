@@ -415,7 +415,7 @@ class sc_bwt_request(BitcoinTestFramework):
         scid1_swapped = str(swap_bytes(scid1))
 
         proof = mcTest.create_test_proof(
-            "sc1", scid1_swapped, epoch_number, 0, mbtrScFee, ftScFee, c1, epoch_cum_tree_hash, [pkh2], [bwt_amount])
+            "sc1", scid1_swapped, epoch_number, 0, mbtrScFee, ftScFee, epoch_cum_tree_hash, c1, [pkh2], [bwt_amount])
 
         mark_logs("Node1 sends a cert withdrawing the contribution of the creation amount to the sc balance", self.nodes, DEBUG_MODE)
         try:
@@ -539,7 +539,7 @@ class sc_bwt_request(BitcoinTestFramework):
         scid2_swapped = str(swap_bytes(scid2))
 
         proof = mcTest.create_test_proof(
-            "sc2", scid2_swapped, epoch_number, quality, mbtrScFee, ftScFee, c2, epoch_cum_tree_hash, [pkh_node1], [bt_amount])
+            "sc2", scid2_swapped, epoch_number, quality, mbtrScFee, ftScFee, epoch_cum_tree_hash, c2, [pkh_node1], [bt_amount])
  
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:

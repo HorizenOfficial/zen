@@ -278,7 +278,7 @@ class sc_getscinfo(BitcoinTestFramework):
         scid0_swapped = str(swap_bytes(scid_0))
 
         proof = mcTest.create_test_proof(
-            tag_0, scid0_swapped, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
+            tag_0, scid0_swapped, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant, [pkh_node1], [bwt_amount])
 
         try:
             cert_1_epoch_0 = self.nodes[0].send_certificate(scid_0, epoch_number_1, quality,

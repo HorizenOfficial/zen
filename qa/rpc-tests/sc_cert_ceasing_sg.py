@@ -117,7 +117,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 0 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount_1])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount_1])
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 pkh".format(scid, bwt_amount_1, pkh_node1), self.nodes, DEBUG_MODE)
         try:
@@ -150,7 +150,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 1 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount_2])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount_2])
 
         mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 pkh".format(scid, bwt_amount_2, pkh_node1), self.nodes, DEBUG_MODE)
         try:
@@ -245,7 +245,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         try:
             #Create proof for WCert
             quality = 2
-            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
+            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
 
             cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

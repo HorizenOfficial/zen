@@ -141,7 +141,7 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 0
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node2], [bt_amount])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bt_amount])
 
         utx, change = get_spendable(0, CERT_FEE)
         raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
@@ -244,7 +244,7 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 1
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
 
         raw_params = {
             "scid": scid,
@@ -380,7 +380,7 @@ class sc_rawcert(BitcoinTestFramework):
             amounts.append(amount)
 
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, pks, amounts)
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, pks, amounts)
 
         raw_params = {
             "scid": scid,
@@ -438,7 +438,7 @@ class sc_rawcert(BitcoinTestFramework):
         quality = 3
 
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
 
         raw_inputs   = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         raw_outs     = { self.nodes[0].getnewaddress() : change }
@@ -546,7 +546,7 @@ class sc_rawcert(BitcoinTestFramework):
         quality = 1
 
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
 
         raw_params = {
             "scid": scid,
