@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cassert>
 #include <string>
+#include "gtest/libzendoo_test_files.h"
 
 /*
  *  Usage:
