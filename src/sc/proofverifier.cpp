@@ -143,8 +143,7 @@ void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, 
     item.parentPtr = std::make_shared<CScCertificate>(scCert);
     item.node = pfrom;
     item.result = ProofVerificationResult::Unknown;
-    item.certInput = CertificateToVerifierItem(scCert, sidechain.fixedParams, pfrom);
-    assert(!item.cswInputs.is_initialized());
+    item.proofInput = CertificateToVerifierItem(scCert, sidechain.fixedParams, pfrom);
     proofQueue.insert(std::make_pair(scCert.GetHash(), item));
 }
 
@@ -179,8 +178,7 @@ void CScProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& view, c
         item.parentPtr = std::make_shared<CTransaction>(scTx);
         item.result = ProofVerificationResult::Unknown;
         item.node = pfrom;
-        item.cswInputs = cswInputProofs;
-        assert(!item.certInput.is_initialized());
+        item.proofInput = cswInputProofs;
         auto pair_ret = proofQueue.insert(std::make_pair(scTx.GetHash(), item));
 
         if (!pair_ret.second)
@@ -247,9 +245,9 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
 
         assert(item.result == ProofVerificationResult::Unknown);
 
-        if (item.cswInputs)
+        if (item.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
         {
-            for (auto& cswInput : *item.cswInputs)
+            for (auto& cswInput : boost::get<std::vector<CCswProofVerifierInput>>(item.proofInput))
             {
                 proofIdMap.insert(std::make_pair(cswInput.proofId, proofEntry.first));
 
@@ -291,15 +289,16 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
                 }
             }
         }
-        else if (item.certInput)
+        else if (item.proofInput.type() == typeid(CCertProofVerifierInput))
         {
-            proofIdMap.insert(std::make_pair(item.certInput->proofId, proofEntry.first));
+            CCertProofVerifierInput certInput = boost::get<CCertProofVerifierInput>(item.proofInput);
+            proofIdMap.insert(std::make_pair(certInput.proofId, proofEntry.first));
 
-            int custom_fields_len = item.certInput->vCustomFields.size(); 
+            int custom_fields_len = certInput.vCustomFields.size(); 
             std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
             int i = 0;
             std::vector<wrappedFieldPtr> vSptr;
-            for (auto entry: item.certInput->vCustomFields)
+            for (auto entry: certInput.vCustomFields)
             {
                 wrappedFieldPtr sptrFe = entry.GetFieldElement();
                 custom_fields[i] = sptrFe.get();
@@ -307,8 +306,8 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
                 i++;
             }
 
-            const backward_transfer_t* bt_list_ptr = item.certInput->bt_list.data();
-            int bt_list_len = item.certInput->bt_list.size();
+            const backward_transfer_t* bt_list_ptr = certInput.bt_list.data();
+            int bt_list_len = certInput.bt_list.size();
 
             // mc crypto lib wants a null ptr if we have no fields
             if (custom_fields_len == 0)
@@ -316,23 +315,23 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
             if (bt_list_len == 0)
                 bt_list_ptr = nullptr;
 
-            wrappedFieldPtr   sptrConst  = item.certInput->constant.GetFieldElement();
-            wrappedFieldPtr   sptrCum    = item.certInput->endEpochCumScTxCommTreeRoot.GetFieldElement();
-            wrappedScProofPtr sptrProof  = item.certInput->proof.GetProofPtr();
-            wrappedScVkeyPtr  sptrCertVk = item.certInput->verificationKey.GetVKeyPtr();
+            wrappedFieldPtr   sptrConst  = certInput.constant.GetFieldElement();
+            wrappedFieldPtr   sptrCum    = certInput.endEpochCumScTxCommTreeRoot.GetFieldElement();
+            wrappedScProofPtr sptrProof  = certInput.proof.GetProofPtr();
+            wrappedScVkeyPtr  sptrCertVk = certInput.verificationKey.GetVKeyPtr();
 
             bool ret = batchVerifier.add_certificate_proof(
-                item.certInput->proofId,
+                certInput.proofId,
                 sptrConst.get(),
-                item.certInput->epochNumber,
-                item.certInput->quality,
+                certInput.epochNumber,
+                certInput.quality,
                 bt_list_ptr,
                 bt_list_len,
                 custom_fields.get(),
                 custom_fields_len,
                 sptrCum.get(),
-                item.certInput->mainchainBackwardTransferRequestScFee,
-                item.certInput->forwardTransferScFee,
+                certInput.mainchainBackwardTransferRequestScFee,
+                certInput.forwardTransferScFee,
                 sptrProof.get(),
                 sptrCertVk.get(),
                 &code
@@ -341,7 +340,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
             if (!ret || code != CctpErrorCode::OK)
             {
                 LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify: ret[%d], code [0x%x]\n",
-                    __func__, __LINE__, item.certInput->certHash.ToString(), (int)ret, code);
+                    __func__, __LINE__, certInput.certHash.ToString(), (int)ret, code);
 
                 item.result = ProofVerificationResult::Failed;
                 addFailure = true;
@@ -411,13 +410,13 @@ void CScProofVerifier::NormalVerify(std::map</* Cert or Tx hash */ uint256, CPro
     {
         CProofVerifierItem& item = proof.second;
 
-        if (item.cswInputs)
+        if (item.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
         {
-            item.result = NormalVerifyCsw(*item.cswInputs);
+            item.result = NormalVerifyCsw(boost::get<std::vector<CCswProofVerifierInput>>(item.proofInput));
         }
-        else if (item.certInput)
+        else if (item.proofInput.type() == typeid(CCertProofVerifierInput))
         {
-            item.result = NormalVerifyCertificate(*item.certInput);
+            item.result = NormalVerifyCertificate(boost::get<CCertProofVerifierInput>(item.proofInput));
         }
         else
         {

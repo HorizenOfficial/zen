@@ -71,12 +71,11 @@ struct CCertProofVerifierInput : CBaseProofVerifierInput
  */
 struct CProofVerifierItem
 {
-    uint256 txHash;                                                     /**< The hash of the transaction/certificate whose proof(s) have to be verified. */
-    std::shared_ptr<CTransactionBase> parentPtr;                        /**< The parent (Transaction or Certificate) that owns the item (CSW input or certificate itself). */
-    CNode* node;                                                        /**< The node that sent the parent (Transaction or Certiticate). */
-    ProofVerificationResult result;                                     /**< The overall result of the proof(s) verification for the transaction/certificate. */
-    boost::optional<CCertProofVerifierInput> certInput;                 /**< Certificate data to provide the proof verifier with. */
-    boost::optional<std::vector<CCswProofVerifierInput>> cswInputs;     /**< CSW outputs data to provide the proof verifier with. */
+    uint256 txHash;                                                                                 /**< The hash of the transaction/certificate whose proof(s) have to be verified. */
+    std::shared_ptr<CTransactionBase> parentPtr;                                                    /**< The parent (Transaction or Certificate) that owns the item (CSW input or certificate itself). */
+    CNode* node;                                                                                    /**< The node that sent the parent (Transaction or Certiticate). */
+    ProofVerificationResult result;                                                                 /**< The overall result of the proof(s) verification for the transaction/certificate. */
+    boost::variant<CCertProofVerifierInput, std::vector<CCswProofVerifierInput>> proofInput;        /**< The proof input data, it can be a (single) certificate input or a list of CSW inputs. */
 };
 
 /* A verifier that is able to verify different kind of ScProof(s) */

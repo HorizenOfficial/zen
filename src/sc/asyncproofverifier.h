@@ -130,7 +130,7 @@ public:
 
         for (auto item : CScAsyncProofVerifier::GetInstance().proofQueue)
         {
-            if (item.second.certInput)
+            if (item.second.proofInput.type() == typeid(CCertProofVerifierInput))
             {
                 counter++;
             }
@@ -153,7 +153,7 @@ public:
 
         for (auto item : CScAsyncProofVerifier::GetInstance().proofQueue)
         {
-            if (item.second.cswInputs)
+            if (item.second.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
             {
                 counter++;
             }
