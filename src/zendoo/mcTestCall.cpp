@@ -87,12 +87,19 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     uint64_t quality = strtoull(argv[arg++], NULL, 0);
 
     // Parse constant
-    assert(IsHex(argv[arg]));
-    auto constant = ParseHex(argv[arg++]);
-    assert(constant.size() == 32);
-    field_t* constant_f = zendoo_deserialize_field(constant.data(), &ret_code);
+    uint32_t constant_present = strtoull(argv[arg++], NULL, 0);
+
+    field_t* constant_f = NULL;
+    if (constant_present > 0) {
+        assert(IsHex(argv[arg]));
+        auto constant = ParseHex(argv[arg++]);
+        assert(constant.size() == 32);
+        constant_f = zendoo_deserialize_field(constant.data(), &ret_code);
+        assert(ret_code == CctpErrorCode::OK);
+    } else {
+        constant_f = zendoo_deserialize_field(SAMPLE_FIELD.data(), &ret_code);
+    }
     assert(constant_f != NULL);
-    assert(ret_code == CctpErrorCode::OK);
 
     // Parse end_cum_comm_tree_root
     assert(IsHex(argv[arg]));
