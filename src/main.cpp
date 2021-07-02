@@ -2604,9 +2604,12 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
     bool fClean = true;
 
-    
-    bool incSc = (block.nVersion == BLOCK_VERSION_SC_SUPPORT);
-    CBlockUndo blockUndo(incSc);
+    IncludeScAttributes includeSc = IncludeScAttributes::ON;
+
+    if (block.nVersion != BLOCK_VERSION_SC_SUPPORT)
+        includeSc = IncludeScAttributes::OFF;
+
+    CBlockUndo blockUndo(includeSc);
 
     CDiskBlockPos pos = pindex->GetUndoPos();
     if (pos.IsNull())
@@ -2967,8 +2970,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // DERSIG (BIP66) is also always enforced, but does not have a flag.
 
-    bool incSc = (block.nVersion == BLOCK_VERSION_SC_SUPPORT);
-    CBlockUndo blockundo(incSc);
+    IncludeScAttributes includeSc = IncludeScAttributes::ON;
+
+    if (block.nVersion != BLOCK_VERSION_SC_SUPPORT)
+        includeSc = IncludeScAttributes::OFF;
+
+    CBlockUndo blockundo(includeSc);
 
     CCheckQueueControl<CScriptCheck> control(fExpensiveChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
 
@@ -5079,8 +5086,13 @@ bool CVerifyDB::VerifyDB(CCoinsView *coinsview, int nCheckLevel, int nCheckDepth
             return error("VerifyDB(): *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 2: verify undo validity
         if (nCheckLevel >= 2 && pindex) {
-            bool incSc = (block.nVersion == BLOCK_VERSION_SC_SUPPORT);
-            CBlockUndo undo(incSc);
+
+            IncludeScAttributes includeSc = IncludeScAttributes::ON;
+
+            if (block.nVersion != BLOCK_VERSION_SC_SUPPORT)
+                includeSc = IncludeScAttributes::OFF;
+
+            CBlockUndo undo(includeSc);
 
             CDiskBlockPos pos = pindex->GetUndoPos();
             if (!pos.IsNull()) {
