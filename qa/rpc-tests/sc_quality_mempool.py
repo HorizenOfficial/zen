@@ -410,7 +410,7 @@ class quality_mempool(BitcoinTestFramework):
         amount_cert_2 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
         quality = 100
         proof = mcTest.create_test_proof(
-            vk_tag_2, scid2_swapped, epoch_number_2, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_2, constant_2,, [pkh_node2], [bwt_amount])
+            vk_tag_2, scid2_swapped, epoch_number_2, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_2, constant_2, [pkh_node2], [bwt_amount])
         try:
             cert_2_sc2 = self.nodes[2].send_certificate(scid_2, epoch_number_2, quality,
                 epoch_cum_tree_hash_2, proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -431,7 +431,7 @@ class quality_mempool(BitcoinTestFramework):
         amount_cert_3 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
         quality = 150
         proof = mcTest.create_test_proof(
-            vk_tag_2, scid2_swapped, epoch_number_2, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_2, constant_2,, [pkh_node1], [bwt_amount])
+            vk_tag_2, scid2_swapped, epoch_number_2, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_2, constant_2, [pkh_node1], [bwt_amount])
         try:
             cert_3_sc2 = self.nodes[1].send_certificate(scid_2, epoch_number_2, quality,
                 epoch_cum_tree_hash_2, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

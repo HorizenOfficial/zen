@@ -629,11 +629,10 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
 
         # Default proof constant test
-        # generate wCertVk and constant
+        # create new sidechain
         vk2 = mcTest.generate_params("sc2")
-        constant2 = generate_random_field_element_hex()
 
-        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dadb", creation_amount, vk2, "", constant2)
+        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dadb", creation_amount, vk2, "")
         creating_tx = ret['txid']
         scid2 = ret['scid']
         scid2_swapped = str(swap_bytes(scid2))
@@ -659,7 +658,7 @@ class sc_cert_base(BitcoinTestFramework):
         #Create proof for WCert
         quality = 10
         proof = mcTest.create_test_proof(
-            "sc2", scid2_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant)
+            "sc2", scid2_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash)
 
         mark_logs("Node 0 tries to send a cert with insufficient Sc balance...", self.nodes, DEBUG_MODE)
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_bad}]
