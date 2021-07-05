@@ -1190,6 +1190,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
     string reason;
     if (getRequireStandard() &&  !IsStandardTx(cert, reason, nextBlockHeight))
     {
+        LogPrintf("%s():%d - Dropping nonstandard certid %s\n", __func__, __LINE__, cert.GetHash().ToString());
         state.DoS(0, error("%s(): nonstandard certificate: %s", __func__, reason),
                             CValidationState::Code::NONSTANDARD, reason);
         return MempoolReturnValue::INVALID;

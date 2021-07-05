@@ -2116,16 +2116,6 @@ void CNode::NetCleanup()
 #endif
 }
 
-#if 0
-void Relay(const CTransaction& tx)
-{
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss.reserve(10000);
-    ss << tx;
-    Relay(tx, ss);
-}
-#endif
-
 void Relay(const CTransactionBase& tx, const CDataStream& ss)
 {
     CInv inv(MSG_TX, tx.GetHash());
