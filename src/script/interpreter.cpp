@@ -1432,38 +1432,7 @@ bool CertificateSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn
 
 bool CertificateSignatureChecker::CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& vchCompareTo) const
 {
-    if (!chain) {
-        return false;
-    }
-
-    // If the chain doesn't reach the desired height yet, the transaction is non-final
-    if (nHeight > chain->Height()) {
-        return false;
-    }
-
-    // Sufficiently old blocks are always valid
-#ifndef BITCOIN_TX
-    if (nHeight <= chain->Height() - getCheckBlockAtHeightSafeDepth() ) {
-        LogPrint("cbh", "%s: %s():%d - Old block: dont even check [h=%d, chain h=%d, safe depth = %d]\n",
-            __FILE__, __func__, __LINE__, nHeight, chain->Height(), getCheckBlockAtHeightSafeDepth() );
-        return true;
-    }
-#else
-    // zen-tx does not link all symbols
-    if (nHeight <= chain->Height() - 52596) {
-        return true;
-    }
-#endif
-
-    CBlockIndex* pblockindex = (*chain)[nHeight];
-    uint256 blockHash = pblockindex->GetBlockHash();
-    std::vector<unsigned char> vchBlockHash(blockHash.begin(), blockHash.end());
-
-    if (vchBlockHash.empty() || vchCompareTo.empty()) {
-        return false;
-    }
-
-    return (vchCompareTo == vchBlockHash);
+    return CheckReplayProtectionData(chain, nHeight, vchCompareTo);
 }
 
 bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& vchCompareTo) const

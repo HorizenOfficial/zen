@@ -7,6 +7,9 @@
 #include "primitives/certificate.h"
 #include "sc/proofverifier.h"
 
+const uint32_t CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_DELAY = 5000;   /**< The maximum delay in milliseconds between batch verification requests */
+const uint32_t CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_SIZE = 10;      /**< The threshold size of the proof queue that triggers a call to the batch verification. */
+
 
 #ifdef BITCOIN_TX
 void CScProofVerifier::LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom) {return;}
@@ -64,6 +67,30 @@ void CScAsyncProofVerifier::LoadDataForCswVerification(const CCoinsViewCache& vi
 }
 #endif
 
+uint32_t CScAsyncProofVerifier::GetCustomMaxBatchVerifyDelay()
+{
+    int32_t delay = GetArg("-scproofverificationdelay", BATCH_VERIFICATION_MAX_DELAY);
+    if (delay < 0)
+    {
+        LogPrintf("%s():%d - ERROR: scproofverificationdelay=%d, must be non negative, setting to default value = %d\n",
+            __func__, __LINE__, delay, BATCH_VERIFICATION_MAX_DELAY);
+        delay = BATCH_VERIFICATION_MAX_DELAY;
+    }
+    return static_cast<uint32_t>(delay);
+}
+
+uint32_t CScAsyncProofVerifier::GetCustomMaxBatchVerifyMaxSize()
+{
+    int32_t size = GetArg("-scproofqueuesize", BATCH_VERIFICATION_MAX_SIZE);
+    if (size < 0)
+    {
+        LogPrintf("%s():%d - ERROR: scproofqueuesize=%d, must be non negative, setting to default value = %d\n",
+            __func__, __LINE__, size, BATCH_VERIFICATION_MAX_SIZE);
+        size = BATCH_VERIFICATION_MAX_SIZE;
+    }
+    return static_cast<uint32_t>(size);
+}
+
 void CScAsyncProofVerifier::RunPeriodicVerification()
 {
     /**
@@ -71,6 +98,10 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
      * This value represents the time spent in the queue by the oldest proof in the queue.
      */
     uint32_t queueAge = 0;
+
+    uint32_t batchVerificationMaxDelay = GetCustomMaxBatchVerifyDelay();
+    uint32_t batchVerificationMaxSize  = GetCustomMaxBatchVerifyMaxSize();
+
 
     while (!ShutdownRequested())
     {
@@ -86,7 +117,7 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
              * 1. The queue has grown up beyond the threshold size;
              * 2. The oldest proof in the queue has waited for too long.
              */
-            if (queueAge > BATCH_VERIFICATION_MAX_DELAY || currentQueueSize > BATCH_VERIFICATION_MAX_SIZE)
+            if (queueAge > batchVerificationMaxDelay || currentQueueSize > batchVerificationMaxSize)
             {
                 queueAge = 0;
                 std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> tempCswData;
@@ -101,7 +132,7 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
                     LogPrint("cert", "%s():%d - Async verification triggered, %d certificates and %d CSW inputs to verify \n",
                              __func__, __LINE__, certQueueSize, cswQueueSize);
 
-                    // Move the queued proves into local maps, so that we can release the lock
+                    // Move the queued proofs into local maps, so that we can release the lock
                     tempCswData = std::move(cswEnqueuedData);
                     tempCertData = std::move(certEnqueuedData);
 
@@ -119,11 +150,11 @@ void CScAsyncProofVerifier::RunPeriodicVerification()
                     LogPrint("cert", "%s():%d - Batch verification failed, proceeding one by one... \n",
                              __func__, __LINE__);
 
-                    // If the batch verification fails, check the proves one by one
+                    // If the batch verification fails, check the proofs one by one
                     outputs = NormalVerify(tempCswData, tempCertData);
                 }
 
-                // Post processing of proves
+                // Post processing of proofs
                 for (AsyncProofVerifierOutput output : outputs)
                 {
                     LogPrint("cert", "%s():%d - Post processing certificate or transaction [%s] from node [%d], result [%d] \n",
@@ -165,7 +196,7 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
     const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>>& cswInputs,
     const std::map</*certHash*/uint256, CCertProofVerifierInput>& certInputs) const
 {
-    bool allProvesVerified = true;
+    bool allProofsVerified = true;
     std::vector<AsyncProofVerifierOutput> outputs;
 
     CctpErrorCode code;
@@ -207,7 +238,7 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
 
             if (!ret || code != CctpErrorCode::OK)
             {
-                allProvesVerified = false;
+                allProofsVerified = false;
  
                 LogPrintf("ERROR: %s():%d - tx [%s] has csw proof which does not verify: ret[%d], code [0x%x]\n",
                     __func__, __LINE__, input.transactionPtr->GetHash().ToString(), (int)ret, code);
@@ -271,7 +302,7 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
 
         if (!ret || code != CctpErrorCode::OK)
         {
-            allProvesVerified = false;
+            allProofsVerified = false;
  
             LogPrintf("ERROR: %s():%d - cert [%s] has proof which does not verify: ret[%d], code [0x%x]\n",
                 __func__, __LINE__, input.certHash.ToString(), (int)ret, code);
@@ -281,18 +312,16 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
                                                     .proofVerified = ret });
     }
 
-    int64_t failingProof = -1;
-    ZendooBatchProofVerifierResult verRes = batchVerifier.batch_verify_all(&code);
-    if (!verRes.result)
+    CZendooBatchProofVerifierResult verRes(batchVerifier.batch_verify_all(&code));
+    if (!verRes.Result())
     {
-        allProvesVerified = false;
-        failingProof = verRes.failing_proof;
+        allProofsVerified = false;
  
-        LogPrintf("ERROR: %s():%d - verify all failed: proofId[%lld], code [0x%x]\n",
-            __func__, __LINE__, failingProof, code);
+        LogPrintf("ERROR: %s():%d - verify failed for %d proof(s), code [0x%x]\n",
+            __func__, __LINE__, verRes.FailedProofs().size(), code);
     }
 
-    return std::pair<bool, std::vector<AsyncProofVerifierOutput>> { allProvesVerified, outputs };
+    return std::pair<bool, std::vector<AsyncProofVerifierOutput>> { allProofsVerified, outputs };
 }
 
 /**
@@ -300,7 +329,7 @@ std::pair<bool, std::vector<AsyncProofVerifierOutput>> CScAsyncProofVerifier::Ba
  * 
  * @param cswInputs The map of CSW inputs data to be verified.
  * @param certInputs The map of certificates data to be verified.
- * @return std::vector<AsyncProofVerifierOutput> The result of all processed proves.
+ * @return std::vector<AsyncProofVerifierOutput> The result of all processed proofs.
  */
 std::vector<AsyncProofVerifierOutput> CScAsyncProofVerifier::NormalVerify(const std::map</*scTxHash*/uint256,
                                                                           std::map</*outputPos*/unsigned int, CCswProofVerifierInput>>& cswInputs,

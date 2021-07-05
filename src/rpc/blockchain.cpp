@@ -1393,7 +1393,7 @@ void FillCeasingCumScTxCommTree(const uint256& scid, UniValue& ret)
         LogPrint("sc", "%s():%d - scid[%s] ceasing cum sc commitment tree not in db\n", __func__, __LINE__, scid.ToString());
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("missing ceasing cum sc commitment tree not for required scid"));
     }
-    ret.push_back(Pair("ceasingCumScTxCommTree", fe.GetHexRepr()));
+    ret.pushKV("ceasingCumScTxCommTree", fe.GetHexRepr());
 }
 
 UniValue getscinfo(const UniValue& params, bool fHelp)
@@ -1569,10 +1569,10 @@ UniValue getceasingcumsccommtreehash(const UniValue& params, bool fHelp)
             "getceasingcumsccommtreehash (\"scid\")\n"
             "\nArgument:\n"
             "   \"scid\"   (string, mandatory)  Retrive information about specified scid\n"
-            "\nReturns the Cumulative SC Committment tree hash of the ceasing block for the given scid.\n"
+            "\nReturns the Cumulative SC Commitment tree hash of the ceasing block for the given scid.\n"
             "\nResult:\n"
             "{\n"
-            "  \"ceasingCumScTxCommTree\":  xxxxx,   (string)  A hex string representation of the field element containing Cumulative SC Committment tree hash of the ceasing block for the given scid.\n"
+            "  \"ceasingCumScTxCommTree\":  xxxxx,   (string)  A hex string representation of the field element containing Cumulative SC Commitment tree hash of the ceasing block for the given scid.\n"
             "}\n"
 
             "\nExamples\n"
@@ -1689,7 +1689,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     // block height
     ssBlock << pblockindex->nHeight;
 
-    // block scCommittmentTreeCumulativeHash
+    // block scCommitmentTreeCumulativeHash
     ssBlock << pblockindex->scCumTreeHash;
     LogPrint("sc", "%s():%d - sc[%s], h[%d], cum[%s], bVers[0x%x]\n", __func__, __LINE__,
         scId.ToString(), pblockindex->nHeight, pblockindex->scCumTreeHash.GetHexRepr(), pblockindex->nVersion);
@@ -1736,7 +1736,7 @@ UniValue checkcswnullifier(const UniValue& params, bool fHelp)
 
     std::string nullifierError;
     std::vector<unsigned char> nullifierVec;
-    if (!AddScData(inputString, nullifierVec, CFieldElement::ByteSize(), CheckSizeMode::STRICT, nullifierError))
+    if (!AddScData(inputString, nullifierVec, CFieldElement::ByteSize(), CheckSizeMode::CHECK_STRICT, nullifierError))
     {
         std::string error = "Invalid checkcswnullifier input parameter \"nullifier\": " + nullifierError;
         throw JSONRPCError(RPC_TYPE_ERROR, error);
@@ -1939,7 +1939,7 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
 /**
  * @brief Retrieves the statistics about the sidechain proof verifier, for instance
  * the number of accepted and failed verifications, the number of pending
- * proves, etc.
+ * proofs, etc.
  */
 UniValue getproofverifierstats(const UniValue& params, bool fHelp)
 {
@@ -1959,16 +1959,16 @@ UniValue getproofverifierstats(const UniValue& params, bool fHelp)
     }
 
     AsyncProofVerifierStatistics stats = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().GetStatistics();
-    size_t pendingCerts = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCertProves();
-    size_t pendingCSWs = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProves();
+    size_t pendingCerts = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCertProofs();
+    size_t pendingCSWs = TEST_FRIEND_CScAsyncProofVerifier::GetInstance().PendingAsyncCswProofs();
 
     UniValue obj(UniValue::VOBJ);
-    obj.push_back(Pair("pendingCerts",  pendingCerts));
-    obj.push_back(Pair("pendingCSWs",   pendingCSWs));
-    obj.push_back(Pair("failedCerts",   static_cast<uint64_t>(stats.failedCertCounter)));
-    obj.push_back(Pair("failedCSWs",    static_cast<uint64_t>(stats.failedCswCounter)));
-    obj.push_back(Pair("okCerts",       static_cast<uint64_t>(stats.okCertCounter)));
-    obj.push_back(Pair("okCSWs",        static_cast<uint64_t>(stats.okCswCounter)));
+    obj.pushKV("pendingCerts",  pendingCerts);
+    obj.pushKV("pendingCSWs",   pendingCSWs);
+    obj.pushKV("failedCerts",   static_cast<uint64_t>(stats.failedCertCounter));
+    obj.pushKV("failedCSWs",    static_cast<uint64_t>(stats.failedCswCounter));
+    obj.pushKV("okCerts",       static_cast<uint64_t>(stats.okCertCounter));
+    obj.pushKV("okCSWs",        static_cast<uint64_t>(stats.okCswCounter));
 
     return obj;
 }

@@ -11,6 +11,7 @@
 #include <gtest/tx_creation_utils.h>
 #include "txdb.h"
 #include <boost/filesystem.hpp>
+#include "net.h"
 
 extern CMutableTransaction GetValidTransaction();
 extern CMutableTransaction GetValidTransaction(int txVersion);
@@ -348,4 +349,63 @@ TEST(Mempool, SproutNegativeVersionTx) {
     ClearDatadirCache();
     boost::system::error_code ec;
     boost::filesystem::remove_all(pathTemp.string(), ec);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+////////////////////////////// ProcessMempoolMsg //////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+class CNodeExt : public CNode
+{
+public:
+    CService ip(uint32_t i)
+    {
+        struct in_addr s;
+        s.s_addr = i;
+        return CService(CNetAddr(s), Params().GetDefaultPort());
+    }
+
+    CNodeExt():
+        CNode(INVALID_SOCKET, CAddress(ip(0xa0b0c002)), "", true)
+    {
+    }
+
+    std::set<CInv> pushedInvList;
+
+    void PushInvs(const char* pszCommand, const std::vector<CInv>& invVec) override
+    {
+        for (auto const & inv : invVec)
+            pushedInvList.insert(inv);
+    }
+};
+
+TEST(ProcessMempoolMsgTest, TxesInMempoolAreRelayed)
+{
+    SelectParams(CBaseChainParams::REGTEST);
+
+    CTxMemPool aMempool(::minRelayTxFee);
+
+    // Populate mempool with a tx and a cert
+    CTransaction scTx = txCreationUtils::createNewSidechainTxWith(CAmount(0), /*epochLength*/0);
+    CTxMemPoolEntry scTxPoolEntry(scTx, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(scTxPoolEntry.GetTx().GetHash(), scTxPoolEntry);
+    ASSERT_TRUE(aMempool.existsTx(scTx.GetHash()));
+
+    CScCertificate cert = txCreationUtils::createCertificate(uint256S("aaa"), /*epochNum*/0,
+            CFieldElement{}, /*changeTotalAmount*/0, /*numChangeOut*/0, /*bwtTotalAmount*/0,
+            /*numBwt*/4, /*ftScFee*/0, /*mbtrScFee*/0);
+
+    CCertificateMemPoolEntry certPoolEntry(cert, /*fee*/CAmount(1), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    aMempool.addUnchecked(certPoolEntry.GetCertificate().GetHash(), certPoolEntry);
+    ASSERT_TRUE(aMempool.existsCert(cert.GetHash()));
+
+    CNodeExt theNode;
+
+    //test
+    ProcessMempoolMsg(aMempool, &theNode);
+
+    //Checks
+    EXPECT_TRUE(theNode.pushedInvList.size() == 2) << theNode.pushedInvList.size();
+    EXPECT_TRUE(theNode.pushedInvList.count(CInv{MSG_TX, scTx.GetHash()}));
+    EXPECT_TRUE(theNode.pushedInvList.count(CInv{MSG_TX, cert.GetHash()}));
 }

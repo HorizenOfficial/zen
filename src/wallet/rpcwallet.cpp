@@ -844,7 +844,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     {
         const std::string& inputString = params[3].get_str();
         std::vector<unsigned char> wCertVkVec;
-        if (!Sidechain::AddScData(inputString, wCertVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::UPPER_LIMIT, errorStr))
+        if (!Sidechain::AddScData(inputString, wCertVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, errorStr))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + errorStr);
         }
@@ -862,7 +862,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         // it is optional
         if (!inputString.empty())
         {
-            if(!Sidechain::AddScData(inputString, sc.fixedParams.customData, MAX_SC_CUSTOM_DATA_LEN, Sidechain::CheckSizeMode::UPPER_LIMIT, errorStr))
+            if(!Sidechain::AddScData(inputString, sc.fixedParams.customData, MAX_SC_CUSTOM_DATA_LEN, Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, errorStr))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + errorStr);
             }
@@ -876,7 +876,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         if (!inputString.empty())
         {
             std::vector<unsigned char> scConstantByteArray {};
-            if (!Sidechain::AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::STRICT, errorStr))
+            if (!Sidechain::AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::CHECK_STRICT, errorStr))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + errorStr);
             }
@@ -896,7 +896,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         if (!inputString.empty())
         {
             std::vector<unsigned char> wCeasedVkVec;
-            if (!Sidechain::AddScData(inputString, wCeasedVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::UPPER_LIMIT, errorStr))
+            if (!Sidechain::AddScData(inputString, wCeasedVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, errorStr))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, string("wCeasedVk: ") + errorStr);
             }
@@ -1158,7 +1158,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     {
         string inputString = find_value(inputObject, "wCertVk").get_str();
         std::vector<unsigned char> wCertVkVec;
-        if (!Sidechain::AddScData(inputString, wCertVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::UPPER_LIMIT, error))
+        if (!Sidechain::AddScData(inputString, wCertVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("wCertVk: ") + error);
         }
@@ -1178,7 +1178,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("customData"))
     {
         string inputString = find_value(inputObject, "customData").get_str();
-        if (!Sidechain::AddScData(inputString, fixedParams.customData, MAX_SC_CUSTOM_DATA_LEN, Sidechain::CheckSizeMode::UPPER_LIMIT, error))
+        if (!Sidechain::AddScData(inputString, fixedParams.customData, MAX_SC_CUSTOM_DATA_LEN, Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("customData: ") + error);
         }
@@ -1189,7 +1189,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     {
         string inputString = find_value(inputObject, "constant").get_str();
         std::vector<unsigned char> scConstantByteArray {};
-        if (!Sidechain::AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::STRICT, error))
+        if (!Sidechain::AddScData(inputString, scConstantByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::CHECK_STRICT, error))
         {
             throw JSONRPCError(RPC_TYPE_ERROR, string("constant: ") + error);
         }
@@ -1209,7 +1209,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
         if (!inputString.empty())
         {
             std::vector<unsigned char> wCeasedVkVec;
-            if (!Sidechain::AddScData(inputString, wCeasedVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::UPPER_LIMIT, error))
+            if (!Sidechain::AddScData(inputString, wCeasedVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error))
             {
                 throw JSONRPCError(RPC_TYPE_ERROR, string("wCeasedVk: ") + error);
             }
@@ -1692,7 +1692,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
                 const string& vScRequestDataString = fe.get_str();
                 std::string error;
 
-                if (!Sidechain::AddScData(vScRequestDataString, vScRequestDataByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::STRICT ,error))
+                if (!Sidechain::AddScData(vScRequestDataString, vScRequestDataByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::CHECK_STRICT ,error))
                 {
                     throw JSONRPCError(RPC_TYPE_ERROR, string("vScRequestData element: ") + error);
                 }
@@ -5368,7 +5368,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
 
     std::vector<unsigned char> aByteArray {};
     // check only size upper limit
-    if (!Sidechain::AddScData(endCumCommTreeStr, aByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::UPPER_LIMIT, errorStr))
+    if (!Sidechain::AddScData(endCumCommTreeStr, aByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, errorStr))
     {
         throw JSONRPCError(RPC_TYPE_ERROR, string("end cum commitment tree root: ") + errorStr);
     }
@@ -5397,7 +5397,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     string inputString = params[4].get_str();
     {
         std::vector<unsigned char> scProofVec;
-        if (!Sidechain::AddScData(inputString, scProofVec, CScProof::MaxByteSize(), Sidechain::CheckSizeMode::UPPER_LIMIT, errorStr))
+        if (!Sidechain::AddScData(inputString, scProofVec, CScProof::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, errorStr))
             throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + errorStr);
 
         cert.scProof.SetByteArray(scProofVec);
@@ -5513,6 +5513,14 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (params.size() > 9)
     {
         feArray = params[9].get_array();
+        
+        if (vFieldElementCertificateFieldConfig.size() != feArray.size())
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+                "Invalid parameter, fe array has size %d, but the expected size is %d",
+                feArray.size(), vFieldElementCertificateFieldConfig.size()));
+        }
+
         int count = 0;
         for (const UniValue& o : feArray.getValues())
         {
@@ -5533,12 +5541,15 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             count++;
         }
     }
-    // check here because we must check also if custom field vec is empty and sc creation has a non-empty cfg 
-    if (feArray.size() != vFieldElementCertificateField.size() )
+    else
     {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
-            "Invalid parameter, fe array has size %d, but the expected size is %d",
-            feArray.size(), vFieldElementCertificateFieldConfig.size()));
+        // we must check also if custom field vec is empty and sc creation has a non-empty cfg 
+        if (!vFieldElementCertificateFieldConfig.empty() )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+                "Invalid parameter, fe array has size %d, but the expected size is %d",
+                feArray.size(), vFieldElementCertificateFieldConfig.size()));
+        }
     }
 
     //--------------------------------------------------------------------------
@@ -5548,6 +5559,13 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
     if (params.size() > 10)
     {
         cmtArray = params[10].get_array();
+
+        if (cmtArray.size() != vBitVectorCertificateFieldConfig.size() )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+                "Invalid parameter, compr mkl tree array has size %d, but the expected size is %d",
+                cmtArray.size(), vBitVectorCertificateFieldConfig.size()));
+        }
         int count = 0;
         for (const UniValue& o : cmtArray.getValues())
         {
@@ -5559,18 +5577,22 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             int cmt_size = vBitVectorCertificateFieldConfig.at(count).getMaxCompressedSizeBytes();
 
             // check upper limit only since data are compressed
-            if (!Sidechain::AddScData(o.get_str(), cmt, cmt_size, Sidechain::CheckSizeMode::UPPER_LIMIT, errorStr))
+            if (!Sidechain::AddScData(o.get_str(), cmt, cmt_size, Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, errorStr))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("vBitVectorCertificateField [" + std::to_string(count) + "]: ") + errorStr);
  
             vBitVectorCertificateField.push_back(cmt);
             count++;
         }
     }
-    if (cmtArray.size() != vBitVectorCertificateFieldConfig.size() )
+    else
     {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
-            "Invalid parameter, compr mkl tree array has size %d, but the expected size is %d",
-            cmtArray.size(), vBitVectorCertificateFieldConfig.size()));
+        // we must check also if vec is empty and sc creation has a non-empty cfg 
+        if (!vBitVectorCertificateFieldConfig.empty() )
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+                "Invalid parameter, compr mkl tree array has size %d, but the expected size is %d",
+                cmtArray.size(), vBitVectorCertificateFieldConfig.size()));
+        }
     }
 
     EnsureWalletIsUnlocked();

@@ -219,12 +219,12 @@ private:
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
         
-        rspPayload.push_back(Pair("headers", headers));
+        rspPayload.pushKV("headers", headers);
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
-            rv->push_back(Pair("requestId", clientRequestId));
-        rv->push_back(Pair("responsePayload", rspPayload));
+            rv->pushKV("requestId", clientRequestId);
+        rv->pushKV("responsePayload", rspPayload);
         wsq.push(wse);
     }
 

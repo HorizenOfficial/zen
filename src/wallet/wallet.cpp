@@ -3166,16 +3166,12 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
     for (const CTxIn& txin: tx.vin)
         coinControl.Select(txin.prevout);
 
-    // if we have ceased sc withdrawl inputs, they must be taken into account when doing computations for funding input amount
-    CAmount cswInTotAmount = 0;
-    for(const CTxCeasedSidechainWithdrawalInput& cswIn: tx.vcsw_ccin)
-    {
-        cswInTotAmount += cswIn.nValue;
-    }
+    // if we have ceased sc withdrawl inputs, they must be taken into account when doing computations for
+    // funding input amount. Such contribution is handled in the CreateTransaction() function
 
     CReserveKey reservekey(this);
     CWalletTx wtx;
-    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false, cswInTotAmount))
+    if (!CreateTransaction(vecSend, vecScSend, vecFtSend, vecBwtRequest, wtx, reservekey, nFeeRet, nChangePosRet, strFailReason, &coinControl, false, tx.vcsw_ccin))
         return false;
 
     if (nChangePosRet != -1)
@@ -3196,6 +3192,8 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount &nFeeRet, int& nC
         if (!found)
             tx.vin.push_back(txin);
     }
+
+    // csw inputs vector (if any) remains the same
 
     return true;
 }
@@ -3223,7 +3221,8 @@ bool CWallet::CreateTransaction(
     const std::vector<CRecipientForwardTransfer>& vecFtSend,
     const std::vector<CRecipientBwtRequest>& vecBwtRequest,
     CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
-    int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign, CAmount cswInTotAmount)
+    int& nChangePosRet, std::string& strFailReason, const CCoinControl* coinControl, bool sign,
+    const std::vector<CTxCeasedSidechainWithdrawalInput>& vcsw_input)
 {
     CAmount totalOutputValue = 0;
     unsigned int nSubtractFeeFromAmount = 0;
@@ -3253,6 +3252,12 @@ bool CWallet::CreateTransaction(
         return false;
     }
 
+    CAmount cswInTotAmount = 0;
+    for(const CTxCeasedSidechainWithdrawalInput& cswIn: vcsw_input)
+    {
+        cswInTotAmount += cswIn.nValue;
+    }
+
     // remove ceased sidechain withdrawal input value if any, since must not be fund by wallet coins
     totalOutputValue -= cswInTotAmount;
 
@@ -3260,7 +3265,7 @@ bool CWallet::CreateTransaction(
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
 
-    if (!vecScSend.empty() || !vecFtSend.empty() || !vecBwtRequest.empty() )
+    if (!vecScSend.empty() || !vecFtSend.empty() || !vecBwtRequest.empty() || !vcsw_input.empty())
     {
         // set proper version
         txNew.nVersion = SC_TX_VERSION;
@@ -3295,11 +3300,13 @@ bool CWallet::CreateTransaction(
             while (true)
             {
                 txNew.vin.clear();
-                // do not modify vcsw_ccin
+                txNew.vcsw_ccin.clear();
+
                 txNew.resizeOut(0);
                 txNew.vsc_ccout.clear();
                 txNew.vft_ccout.clear();
                 txNew.vmbtr_out.clear();
+
                 wtxNew.fFromMe = true;
                 nChangePosRet = -1;
                 bool fFirst = true;
@@ -3356,7 +3363,6 @@ bool CWallet::CreateTransaction(
                 for (const auto& entry : vecBwtRequest)
                 {
                     CBwtRequestOut txccout(entry.scId, entry.mcDestinationAddress, entry.bwtRequestData);
-                    // we allow even 0 scFee, therefore no check for dust
                     txNew.add(txccout);
                 }
 
@@ -3366,28 +3372,31 @@ bool CWallet::CreateTransaction(
                 CAmount nValueIn = 0;
                 bool fOnlyCoinbaseCoins = false;
                 bool fNeedCoinbaseCoins = false;
-                if (!SelectCoins(nTotalValue, setCoins, nValueIn, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coinControl))
+                if (nTotalValue > 0)
                 {
-                    if (fOnlyCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
-                        strFailReason = _("Coinbase funds can only be sent to a zaddr");
-                    } else if (fNeedCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
-                        strFailReason = _("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr");
-                    } else {
-                        strFailReason = _("Insufficient funds");
+                    if ( !SelectCoins(nTotalValue, setCoins, nValueIn, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coinControl))
+                    {
+                        if (fOnlyCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
+                            strFailReason = _("Coinbase funds can only be sent to a zaddr");
+                        } else if (fNeedCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
+                            strFailReason = _("Insufficient funds, coinbase funds can only be spent after they have been sent to a zaddr");
+                        } else {
+                            strFailReason = _("Insufficient funds");
+                        }
+                        return false;
                     }
-                    return false;
-                }
-                for (auto& pcoin : setCoins)
-                {
-                    CAmount nCredit = pcoin.first->getTxBase()->GetVout()[pcoin.second].nValue;
-                    //The coin age after the next block (depth+1) is used instead of the current,
-                    //reflecting an assumption the user would accept a bit more delay for
-                    //a chance at a free transaction.
-                    //But mempool inputs might still be in the mempool, so their age stays 0
-                    int age = pcoin.first->GetDepthInMainChain();
-                    if (age != 0)
-                        age += 1;
-                    dPriority += (double)nCredit * age;
+                    for (auto& pcoin : setCoins)
+                    {
+                        CAmount nCredit = pcoin.first->getTxBase()->GetVout()[pcoin.second].nValue;
+                        //The coin age after the next block (depth+1) is used instead of the current,
+                        //reflecting an assumption the user would accept a bit more delay for
+                        //a chance at a free transaction.
+                        //But mempool inputs might still be in the mempool, so their age stays 0
+                        int age = pcoin.first->GetDepthInMainChain();
+                        if (age != 0)
+                            age += 1;
+                        dPriority += (double)nCredit * age;
+                    }
                 }
 
                 CAmount nChange = nValueIn - totalOutputValue;
@@ -3473,10 +3482,13 @@ bool CWallet::CreateTransaction(
                     txNew.vin.push_back(CTxIn(coin.first->getTxBase()->GetHash(),coin.second,CScript(),
                                               std::numeric_limits<unsigned int>::max()-1));
 
+                // add csw input 
+                txNew.vcsw_ccin = vcsw_input;
+
                 // Check mempooltxinputlimit to avoid creating a transaction which the local mempool rejects
                 size_t limit = (size_t)GetArg("-mempooltxinputlimit", 0);
                 if (limit > 0) {
-                    size_t n = txNew.vin.size();
+                    size_t n = txNew.vin.size() + txNew.vcsw_ccin.size();
                     if (n > limit) {
                         strFailReason = _(strprintf("Too many transparent inputs %zu > limit %zu", n, limit).c_str());
                         return false;
@@ -3504,12 +3516,34 @@ bool CWallet::CreateTransaction(
                     nIn++;
                 }
 
+                for (auto& cswIn: txNewConst.GetVcswCcIn())
+                {
+                    bool signSuccess;
+                    const CScript& scriptPubKey = cswIn.scriptPubKey();
+ 
+                    CScript& scriptSigRes = txNew.vcsw_ccin.at(nIn - setCoins.size()).redeemScript;
+
+                    if (sign)
+                        signSuccess = ProduceSignature(TransactionSignatureCreator(*this, txNewConst, nIn, SIGHASH_ALL), scriptPubKey, scriptSigRes);
+                    else
+                        signSuccess = ProduceSignature(DummySignatureCreator(*this), scriptPubKey, scriptSigRes);
+
+                    if (!signSuccess)
+                    {
+                        strFailReason = _("Signing transaction failed");
+                        return false;
+                    }
+                    nIn++;
+                }
+
                 unsigned int nBytes = ::GetSerializeSize(txNew, SER_NETWORK, PROTOCOL_VERSION);
 
                 // Remove scriptSigs if we used dummy signatures for fee calculation
                 if (!sign) {
-                    BOOST_FOREACH (CTxIn& vin, txNew.vin)
+                    for (CTxIn& vin: txNew.vin)
                         vin.scriptSig = CScript();
+                    for (auto& cswIn: txNew.vcsw_ccin)
+                        cswIn.redeemScript = CScript();
                 }
 
                 // Embed the constructed transaction data in wtxNew.

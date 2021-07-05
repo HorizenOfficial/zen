@@ -482,6 +482,12 @@ public:
         }
     }
 
+    // virtual for UT
+    virtual void PushInvs(const char* pszCommand, const std::vector<CInv>& invVec)
+    {
+    	return PushMessage(pszCommand, invVec);
+    }
+
     template<typename T1>
     void PushMessage(const char* pszCommand, const T1& a1)
     {

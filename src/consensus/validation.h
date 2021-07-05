@@ -22,7 +22,7 @@ public:
         MALFORMED = 0x01,
         INVALID = 0x10,
         OBSOLETE = 0x11,
-        DUPLICATE = 0x12,
+        DUPLICATED = 0x12,
         NONSTANDARD = 0x40,
         DUST = 0x41,       //unused apparently
         INSUFFICIENT_FEE = 0x42,
@@ -50,7 +50,7 @@ public:
         chRejectCode = chRejectCodeIn;
         strRejectReason = strRejectReasonIn;
         corruptionPossible = corruptionIn;
-        if (mode == State::ERROR)
+        if (mode == State::RUNTIME_ERROR)
             return ret;
         nDoS += level;
         mode = State::INVALID;
@@ -66,13 +66,13 @@ public:
     {
         if (mode == State::VALID)
             strRejectReason = strRejectReasonIn;
-        mode = State::ERROR;
+        mode = State::RUNTIME_ERROR;
         return false;
     }
 
     bool IsValid()   const { return mode == State::VALID; }
     bool IsInvalid() const { return mode == State::INVALID; }
-    bool IsError()   const { return mode == State::ERROR; }
+    bool IsError()   const { return mode == State::RUNTIME_ERROR; }
 
     int GetDoS() const { return nDoS; }
 
@@ -85,7 +85,7 @@ private:
     {
         VALID,   //! everything ok
         INVALID, //! network rule violation (DoS value may be set)
-        ERROR,   //! run-time error
+        RUNTIME_ERROR,   //! run-time error
     } mode;
 
     int nDoS;

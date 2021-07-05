@@ -137,7 +137,6 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         in.pushKV("sequence", (int64_t)txin.nSequence);
         vin.push_back(in);
     }
-
     entry.pushKV("vin", vin);
 
     // add to entry obj the ceased sidechain withdrawal inputs
@@ -731,8 +730,8 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "         \"scId\": \"hex\",                   (string, required) The ceased sidechain id\n"
             "         \"nullifier\": \"hex\",              (string, required) Withdrawal nullifier\n"
             "         \"scProof\": \"hex\"                 (string, required) SNARK proof whose verification key was set upon sidechain registration. Its size must be " + strprintf("%d", Sidechain::MAX_SC_PROOF_SIZE_IN_BYTES) + "bytes \n"
-            "         \"activeCertData\": \"hex\",         (string, required) Active Certificate Data Hash\n"
-            "         \"ceasingCumScTxCommTree\": \"hex\", (string, required) Cumulative SC Committment tree hash of the ceasing block\n"
+            "         \"activeCertData\": \"hex\",         (string, optional) Active Certificate Data Hash\n"
+            "         \"ceasingCumScTxCommTree\": \"hex\", (string, required) Cumulative SC Commitment tree hash of the ceasing block\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"
@@ -1176,7 +1175,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         string inputString = find_value(cert_params, "endEpochCumScTxCommTreeRoot").get_str();
         std::vector<unsigned char> aByteArray {};
         std::string errorStr;
-        if (!Sidechain::AddScData(inputString, aByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::STRICT , errorStr))
+        if (!Sidechain::AddScData(inputString, aByteArray, CFieldElement::ByteSize(), Sidechain::CheckSizeMode::CHECK_STRICT , errorStr))
         {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("end cum commitment tree root: ") + errorStr);
         }
@@ -1192,7 +1191,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
         string inputString = find_value(cert_params, "scProof").get_str();
         std::string error;
         std::vector<unsigned char> scProofVec;
-        if (!Sidechain::AddScData(inputString, scProofVec, CScProof::MaxByteSize(), Sidechain::CheckSizeMode::UPPER_LIMIT, error))
+        if (!Sidechain::AddScData(inputString, scProofVec, CScProof::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error))
             throw JSONRPCError(RPC_TYPE_ERROR, string("scProof: ") + error);
 
         rawCert.scProof = CScProof{scProofVec};
@@ -1265,7 +1264,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 
             std::string error;
             std::vector<unsigned char> cmt;
-            if (!Sidechain::AddScData(o.get_str(), cmt, MAX_CMT_SIZE_BYTES, Sidechain::CheckSizeMode::UPPER_LIMIT, error))
+            if (!Sidechain::AddScData(o.get_str(), cmt, MAX_CMT_SIZE_BYTES, Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error))
                 throw JSONRPCError(RPC_TYPE_ERROR, string("vBitVectorCertificateField[" + std::to_string(count) + "]") + error);
 
             rawCert.vBitVectorCertificateField.push_back(cmt);

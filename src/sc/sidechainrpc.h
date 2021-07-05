@@ -24,7 +24,7 @@ namespace Sidechain
 void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& parentObj);
 void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj);
 
-enum class CheckSizeMode {OFF, STRICT, UPPER_LIMIT};
+enum class CheckSizeMode {CHECK_OFF, CHECK_STRICT, CHECK_UPPER_LIMIT};
 // Parses an hex inputString and writes it into a vector vBytes of required size vSize. 
 // If enforceStrictvSize is set to true, it will be checked that inputString.size()/2 == vSize,
 // otherwise the check is relaxed to inputString.size()/2 <= vSize

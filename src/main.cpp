@@ -1146,6 +1146,18 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
     return nMinFee;
 }
 
+void RejectMemoryPoolTxBase(const CValidationState& state, const CTransactionBase& txBase, CNode* pfrom)
+{
+    LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
+             pfrom->id, pfrom->cleanSubVer,
+             state.GetRejectReason());
+    std::string cmdString("tx");
+    pfrom->PushMessage("reject", cmdString, CValidationState::CodeToChar(state.GetRejectCode()),
+                        state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), txBase.GetHash());
+    if (state.GetDoS() > 0)
+        Misbehaving(pfrom->GetId(), state.GetDoS());
+}
+
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
     LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom)
 {
@@ -1157,7 +1169,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
     if (!cert.CheckInputsLimit())
     {
-        LogPrintf("%s(): CheckInputsLimit failed", __func__);
+        LogPrintf("%s(): CheckInputsLimit failed\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1170,7 +1182,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
     static const int DOS_LEVEL = 10;
     if(!cert.ContextualCheck(state, nextBlockHeight, DOS_LEVEL))
     {
-        LogPrintf("%s(): ContextualCheck failed", __func__);
+        LogPrintf("%s(): ContextualCheck failed\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1186,7 +1198,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
 
     if (!pool.checkIncomingCertConflicts(cert))
     {
-        LogPrintf("%s(): certificate has conflicts in mempool", __func__);
+        LogPrintf("%s(): certificate has conflicts in mempool\n", __func__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1245,7 +1257,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             {
                 state.Invalid(
                     error("%s():%d - ERROR: cert[%s] inputs already spent\n", __func__, __LINE__, certHash.ToString()),
-                    CValidationState::Code::DUPLICATE, "bad-sc-cert-inputs-spent");
+                    CValidationState::Code::DUPLICATED, "bad-sc-cert-inputs-spent");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -1380,6 +1392,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
             scVerifier.LoadDataForCertVerification(view, cert);
 
+            LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
             if (!scVerifier.BatchVerify())
             {
                 state.DoS(100, error("%s():%d - cert proof failed to verify",
@@ -1512,7 +1525,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             {
                 LogPrintf("%s():%d - ERROR: tx[%s]\n", __func__, __LINE__, hash.ToString());
                 state.Invalid(error("%s(): inputs already spent", __func__),
-                                     CValidationState::Code::DUPLICATE, "bad-txns-inputs-spent");
+                                     CValidationState::Code::DUPLICATED, "bad-txns-inputs-spent");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -1536,7 +1549,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             if (!view.HaveJoinSplitRequirements(tx))
             {
                 state.Invalid(error("%s():%d - joinsplit requirements not met", __func__, __LINE__),
-                              CValidationState::Code::DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
+                              CValidationState::Code::DUPLICATED, "bad-txns-joinsplit-requirements-not-met");
                 return MempoolReturnValue::INVALID;
             }
 
@@ -1574,7 +1587,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         }
 
         double dPriority = view.GetPriority(tx, chainActive.Height());
-        LogPrint("mempool", "%s():%d - Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, nFees, dPriority);
+        LogPrint("mempool", "%s():%d - tx[%s], Computed fee=%lld, prio[%22.8f]\n", __func__, __LINE__, hash.ToString(), nFees, dPriority);
 
         CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), mempool.HasNoInputsOf(tx));
         unsigned int nSize = entry.GetTxSize();
@@ -1674,6 +1687,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
                 CScProofVerifier scVerifier{CScProofVerifier::Verification::Strict};
                 scVerifier.LoadDataForCswVerification(view, tx);
 
+                LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
                 if (!scVerifier.BatchVerify())
                 {
                     state.DoS(100,
@@ -2881,6 +2895,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     const CChain& chain, flagBlockProcessingType processingType, flagScRelatedChecks fScRelatedChecks,
     flagScProofVerification fScProofVerification, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo)
 {
+    int64_t nTime0 = GetTimeMicros();
+
     const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
 
@@ -2953,6 +2969,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     CCheckQueueControl<CScriptCheck> control(fExpensiveChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
 
+    int64_t deltaPreProcTime = GetTimeMicros() - nTime0;
+    LogPrint("bench", "    - block preproc: %.2fms\n", 0.001 * deltaPreProcTime);
+
     int64_t nTimeStart = GetTimeMicros();
     CAmount nFees = 0;
     int nInputs = 0;
@@ -3011,7 +3030,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     ret_code, "bad-sc-tx-not-applicable");
             }
 
-            // Add the transaction proves (if any) to the sidechain proof verifier.
+            // Add the transaction proofs (if any) to the sidechain proof verifier.
             if (fScProofVerification == flagScProofVerification::ON)
             {
                 scVerifier.LoadDataForCswVerification(view, tx);
@@ -3083,6 +3102,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     for (unsigned int certIdx = 0; certIdx < block.vcert.size(); certIdx++) // Processing certificates loop
     {
         const CScCertificate &cert = block.vcert[certIdx];
+        nInputs += cert.GetVin().size();
         nSigOps += GetLegacySigOpCount(cert);
         if (nSigOps > MAX_BLOCK_SIGOPS)
             return state.DoS(100, error("%s():%d: too many sigops",__func__, __LINE__),
@@ -3174,15 +3194,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         LogPrint("cert", "%s():%d - nTxOffset=%d\n", __func__, __LINE__, pos.nTxOffset );
     } //end of Processing certificates loop
 
-    if (fScProofVerification == flagScProofVerification::ON)
-    {
-        if (!scVerifier.BatchVerify())
-        {
-            return state.DoS(100, error("%s():%d - ERROR: sc-related batch proof verification failed", __func__, __LINE__),
-                            CValidationState::Code::INVALID_PROOF, "bad-sc-proof");
-        }
-    } 
-
     if (!view.HandleSidechainEvents(pindex->nHeight, blockundo, pCertsStateInfo))
     {
         return state.DoS(100, error("%s():%d - SIDECHAIN-EVENT: could not handle scheduled event",__func__, __LINE__),
@@ -3198,11 +3209,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     blockundo.old_tree_root = old_tree_root;
 
-    int64_t nTime1 = GetTimeMicros(); nTimeConnect += nTime1 - nTimeStart;
-    LogPrint("bench", "      - Connect %u txes, %u certs: %.2fms (%.3fms/(tx+cert), %.3fms/txin) [%.2fs]\n",
+    int64_t nTime1 = GetTimeMicros();
+
+    int64_t deltaConnectTime = nTime1 - nTimeStart;
+    nTimeConnect += deltaConnectTime;
+
+    LogPrint("bench", "      - Connect %u txes, %u certs: %.2fms (%.3fms/(tx+cert), %.3fms/(tx+cert inputs)) [%.2fs]\n",
         (unsigned)block.vtx.size(), (unsigned)block.vcert.size(),
-         0.001 * (nTime1 - nTimeStart), 0.001 * (nTime1 - nTimeStart) / (block.vtx.size() + block.vcert.size()),
-         nInputs <= 1 ? 0 : 0.001 * (nTime1 - nTimeStart) / (nInputs-1), nTimeConnect * 0.000001);
+         0.001 * deltaConnectTime, 0.001 * deltaConnectTime / (block.vtx.size() + block.vcert.size()),
+         nInputs <= 1 ? 0 : 0.001 * deltaConnectTime / (nInputs-1), nTimeConnect * 0.000001);
 
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (block.vtx[0].GetValueOut() > blockReward)
@@ -3211,26 +3226,49 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                  __func__, __LINE__, block.vtx[0].GetValueOut(), blockReward),
                         CValidationState::Code::INVALID, "bad-cb-amount");
 
+    if (!control.Wait())
+        return state.DoS(100, false);
+
+    int64_t nTime2 = GetTimeMicros();
+    int64_t deltaVerifyTime = nTime2 - nTimeStart;
+
+    nTimeVerify += deltaVerifyTime;
+    LogPrint("bench", "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs] (nScriptCheckThreads=%d)\n", nInputs - 1, 0.001 * deltaVerifyTime, nInputs <= 1 ? 0 : 0.001 * deltaVerifyTime / (nInputs-1), nTimeVerify * 0.000001, nScriptCheckThreads);
+
     if (fScRelatedChecks == flagScRelatedChecks::ON)
     {
-        const uint256& scTxsCommittment = scCommitmentBuilder.getCommitment();
-        if (block.hashScTxsCommitment != scTxsCommittment)
+        int64_t nCommTreeStartTime = GetTimeMicros();
+        const uint256& scTxsCommitment = scCommitmentBuilder.getCommitment();
+        int64_t deltaCommTreeTime = GetTimeMicros() - nCommTreeStartTime;
+        LogPrint("bench", "    - txsCommTree: %.2fms\n", deltaCommTreeTime * 0.001);
+
+        if (block.hashScTxsCommitment != scTxsCommitment)
         {
             // If this check fails, we return validation state obj with a state.corruptionPossible=false attribute,
             // which will mark this header as failed. This is because the previous check on merkel root was successful,
-            // that means sc txes/cert are verified, and yet their contribution to scTxsCommittment is not
+            // that means sc txes/cert are verified, and yet their contribution to scTxsCommitment is not
             return state.DoS(100, error("%s():%d: SCTxsCommitment verification failed; block[%s] vs computed[%s]",__func__, __LINE__,
-                                        block.hashScTxsCommitment.ToString(), scTxsCommittment.ToString()),
-                               CValidationState::Code::INVALID, "bad-sc-txs-committment");
+                                        block.hashScTxsCommitment.ToString(), scTxsCommitment.ToString()),
+                               CValidationState::Code::INVALID, "bad-sc-txs-commitment");
         }
         LogPrint("cert", "%s():%d - Successfully verified SCTxsCommitment %s\n",
             __func__, __LINE__, block.hashScTxsCommitment.ToString());
     }
 
-    if (!control.Wait())
-        return state.DoS(100, false);
-    int64_t nTime2 = GetTimeMicros(); nTimeVerify += nTime2 - nTimeStart;
-    LogPrint("bench", "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs - 1, 0.001 * (nTime2 - nTimeStart), nInputs <= 1 ? 0 : 0.001 * (nTime2 - nTimeStart) / (nInputs-1), nTimeVerify * 0.000001);
+    if (fScProofVerification == flagScProofVerification::ON)
+    {
+        LogPrint("sc", "%s():%d - calling scVerifier.BatchVerify()\n", __func__, __LINE__);
+        int64_t nBatchVerifyStartTime = GetTimeMicros();
+        if (!scVerifier.BatchVerify())
+        {
+            return state.DoS(100, error("%s():%d - ERROR: sc-related batch proof verification failed", __func__, __LINE__),
+                            CValidationState::Code::INVALID_PROOF, "bad-sc-proof");
+        }
+        int64_t deltaBatchVerifyTime = GetTimeMicros() - nBatchVerifyStartTime;
+        LogPrint("bench", "    - scBatchVerify: %.2fms\n", deltaBatchVerifyTime * 0.001);
+    } 
+
+    int64_t nTime2b = GetTimeMicros();
 
     if (processingType == flagBlockProcessingType::CHECK_ONLY)
         return true;
@@ -3265,8 +3303,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    int64_t nTime3 = GetTimeMicros(); nTimeIndex += nTime3 - nTime2;
-    LogPrint("bench", "    - Index writing: %.2fms [%.2fs]\n", 0.001 * (nTime3 - nTime2), nTimeIndex * 0.000001);
+    int64_t nTime3 = GetTimeMicros(); nTimeIndex += nTime3 - nTime2b;
+    LogPrint("bench", "    - Index writing: %.2fms [%.2fs]\n", 0.001 * (nTime3 - nTime2b), nTimeIndex * 0.000001);
 
     // Watch for changes to the previous coinbase transaction.
     static uint256 hashPrevBestCoinBase;
@@ -4411,7 +4449,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
         CFieldElement fieldToValidate{block.hashScTxsCommitment};
         if (!fieldToValidate.IsValid())
             return state.DoS(100, error("%s: incorrect hashScTxsCommitment", __func__),
-                             CValidationState::Code::INVALID, "bad-hashScTxsCommitment");
+                             CValidationState::Code::INVALID, "invalid-sc-txs-commitment");
     }
 
     return true;
@@ -5860,12 +5898,60 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
+void ProcessMempoolMsg(const CTxMemPool& pool, CNode* pfrom)
+{
+    LOCK2(cs_main, pfrom->cs_filter);
+
+    std::vector<uint256> vtxid;
+    pool.queryHashes(vtxid);
+    vector<CInv> vInv;
+    for(uint256& hash: vtxid)
+    {
+        CInv inv(MSG_TX, hash);
+        std::unique_ptr<CTransactionBase> mempoolObjPtr{};
+        bool fInMemPool = false;
+
+        if (pool.existsTx(hash))
+        {
+            CTransaction* txPtr = new CTransaction{};
+            fInMemPool = pool.lookup(hash, *txPtr);
+            mempoolObjPtr.reset(txPtr);
+        } else if (pool.existsCert(hash))
+        {
+            CScCertificate* certPtr = new CScCertificate{};
+            fInMemPool = pool.lookup(hash, *certPtr);
+            mempoolObjPtr.reset(certPtr);
+        }
+
+        if (!fInMemPool) continue; // another thread removed since queryHashes, maybe...
+
+        if ((pfrom->pfilter && pfrom->pfilter->IsRelevantAndUpdate(*mempoolObjPtr)) || (!pfrom->pfilter))
+        {
+            vInv.push_back(inv);
+        }
+
+        if (vInv.size() == MAX_INV_SZ)
+        {
+            pfrom->PushInvs("inv", vInv);
+            vInv.clear();
+        }
+    }
+
+    if (vInv.size() > 0)
+        pfrom->PushInvs("inv", vInv);
+
+    return;
+}
+
 void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfrom, BatchVerificationStateFlag proofVerificationState, CValidationState& state)
 {
     if (proofVerificationState == BatchVerificationStateFlag::FAILED)
     {
         state.DoS(100, error("%s():%d - cert proof failed to verify", __func__, __LINE__),
                   CValidationState::Code::INVALID_PROOF, "bad-sc-cert-proof");
+
+        RejectMemoryPoolTxBase(state, txBase, pfrom);
+
         return;
     }
 
@@ -6017,14 +6103,7 @@ void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom)
    
     if (state.IsInvalid())
     {
-        LogPrint("mempool", "%s from peer=%d %s was not accepted into the memory pool: %s\n", txBase.GetHash().ToString(),
-            pfrom->id, pfrom->cleanSubVer,
-            state.GetRejectReason());
-        std::string cmdString("tx");
-        pfrom->PushMessage("reject", cmdString, CValidationState::CodeToChar(state.GetRejectCode()),
-                           state.GetRejectReason().substr(0, MAX_REJECT_MESSAGE_LENGTH), inv.hash);
-        if (state.GetDoS() > 0)
-            Misbehaving(pfrom->GetId(), state.GetDoS());
+        RejectMemoryPoolTxBase(state, txBase, pfrom);
     }
 }
 
@@ -6043,7 +6122,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         // Each connection can only send one version message
         if (pfrom->nVersion != 0)
         {
-            pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(CValidationState::Code::DUPLICATE), string("Duplicate version message"));
+            pfrom->PushMessage("reject", strCommand, CValidationState::CodeToChar(CValidationState::Code::DUPLICATED), string("Duplicate version message"));
             Misbehaving(pfrom->GetId(), 1);
             return false;
         }
@@ -6434,6 +6513,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 if (pindex)
                     pindex = chainActive.Next(pindex);
             }
+ 
             // we cannot use CBlockHeaders since it won't include the 0x00 nTx count at the end
             // we cannot use CBlock, since we added Certificates and its serialization is not backward compatible
             // We must use CBlockHeaderForNetwork, and ad-hoc class for this task
@@ -6746,26 +6826,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == "mempool")
     {
-        LOCK2(cs_main, pfrom->cs_filter);
-
-        std::vector<uint256> vtxid;
-        mempool.queryHashes(vtxid);
-        vector<CInv> vInv;
-        BOOST_FOREACH(uint256& hash, vtxid) {
-            CInv inv(MSG_TX, hash);
-            CTransaction tx;
-            bool fInMemPool = mempool.lookup(hash, tx);
-            if (!fInMemPool) continue; // another thread removed since queryHashes, maybe...
-            if ((pfrom->pfilter && pfrom->pfilter->IsRelevantAndUpdate(tx)) ||
-               (!pfrom->pfilter))
-                vInv.push_back(inv);
-            if (vInv.size() == MAX_INV_SZ) {
-                pfrom->PushMessage("inv", vInv);
-                vInv.clear();
-            }
-        }
-        if (vInv.size() > 0)
-            pfrom->PushMessage("inv", vInv);
+        ProcessMempoolMsg(mempool, pfrom);
     }
 
 
@@ -7179,7 +7240,16 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 LogPrintf("Warning: not punishing whitelisted peer %s!\n", pto->addr.ToString());
             else {
                 pto->fDisconnect = true;
-                if (pto->addr.IsLocal())
+
+                bool banLocal = false;
+
+                // Force the ban of local misbehaving nodes when running in "regtest" and the related flag has been set.
+                if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest" && GetBoolArg("-forcelocalban", false)))
+                {
+                    banLocal = true;
+                }
+
+                if (pto->addr.IsLocal() && !banLocal)
                     LogPrintf("Warning: not banning local peer %s!\n", pto->addr.ToString());
                 else
                 {

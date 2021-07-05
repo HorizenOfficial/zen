@@ -210,6 +210,8 @@ bool InitBlockIndex();
 bool LoadBlockIndex();
 /** Unload database information */
 void UnloadBlockIndex();
+// Utilities refactored out of ProcessMessages
+void ProcessMempoolMsg(const CTxMemPool& pool, CNode* pfrom);
 
 /**
  * @brief The enumeration of states of the sidechain batch proof verification.
@@ -323,6 +325,18 @@ enum class MempoolProofVerificationFlag
     SYNC,       /**< The proof verification is enabled and will be performed synchronously on the calling thread. */
     ASYNC       /**< The proof verification is enabled and will pe performed asynchronously on a separate thread. */
 };
+
+/**
+ * @brief Rejects a certificate or transaction submitted to memory pool.
+ * 
+ * It sends an error message to the node that has sent the invalid entry
+ * and eventually bans it.
+ * 
+ * @param state The state of the validation process (containing the error information)
+ * @param txBase The transaction or certificate that failed the verification
+ * @param pfrom The node that sent the offending transaction or certificate
+ */
+void RejectMemoryPoolTxBase(const CValidationState& state, const CTransactionBase& txBase, CNode* pfrom);
 
 /** (try to) add transaction to memory pool **/
 MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,

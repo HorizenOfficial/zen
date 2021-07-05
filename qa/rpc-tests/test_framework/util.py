@@ -572,7 +572,7 @@ def get_spendable(node, min_amount):
 
 def advance_epoch(mcTest, node, sync_call,
     scid, sc_tag, constant, epoch_length, cert_quality=1, cert_fee=Decimal("0.00001"),
-    ftScFee=Decimal("0"), mbtrScFee=Decimal("0"), generate=True):
+    ftScFee=Decimal("0"), mbtrScFee=Decimal("0"), vCfe=[], vCmt=[], proofCfeArray=[], generate=True):
 
     if (generate == True):
         node.generate(epoch_length)
@@ -580,11 +580,16 @@ def advance_epoch(mcTest, node, sync_call,
 
     epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, node, epoch_length)
 
-    proof = mcTest.create_test_proof(sc_tag, epoch_number, cert_quality, mbtrScFee, ftScFee, constant, epoch_cum_tree_hash, [], [])
+    proof = mcTest.create_test_proof(
+        sc_tag, epoch_number, cert_quality, mbtrScFee, ftScFee, constant, epoch_cum_tree_hash, [], [], proofCfeArray)
+
+    if proof == None:
+        print "could not create proof"
+        assert(False)
 
     try:
         cert = node.send_certificate(scid, epoch_number, cert_quality,
-            epoch_cum_tree_hash, proof, [], ftScFee, mbtrScFee, cert_fee)
+            epoch_cum_tree_hash, proof, [], ftScFee, mbtrScFee, cert_fee, vCfe, vCmt)
     except JSONRPCException, e:
         errorString = e.error['message']
         print "Send certificate failed with reason {}".format(errorString)

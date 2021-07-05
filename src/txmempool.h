@@ -225,7 +225,7 @@ public:
     // END OF UNCONFIRMED CERTIFICATES CLEANUP METHODS
 
     void clear();
-    void queryHashes(std::vector<uint256>& vtxid);
+    void queryHashes(std::vector<uint256>& vtxid) const;
     void pruneSpent(const uint256& hash, CCoins &coins);
     unsigned int GetTransactionsUpdated() const;
     void AddTransactionsUpdated(unsigned int n);

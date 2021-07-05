@@ -520,6 +520,12 @@ std::string HelpMessage(HelpMessageMode mode)
     );
     strUsage += HelpMessageOpt("-deprecatedgetblocktemplate", (_("Disable block complexity calculation and use the previous GetBlockTemplate implementation")));
 
+    strUsage += HelpMessageOpt("-scproofverificationdelay=<time>",
+        strprintf(_("The maximum delay in milliseconds between sc proof batch verification requests. (default: %d)"), CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_DELAY));
+
+    strUsage += HelpMessageOpt("-scproofqueuesize=<size>",
+        strprintf(_("The threshold size of the sc proof queue that triggers a call to the batch verification. (default: %d)"), CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_SIZE));
+
     strUsage += HelpMessageOpt("-cbhsafedepth=<n>",
         "regtest only - Set safe depth for skipping checkblockatheight in txout scripts (default depends on regtest/testnet params)");
         
@@ -539,6 +545,9 @@ std::string HelpMessage(HelpMessageMode mode)
 
     strUsage += HelpMessageOpt("-skipscproof",
     "regtest only - Skip the proof verification for sidechain certificates or CSW transactions (by default it is never skipped)");
+
+    strUsage += HelpMessageOpt("-forcelocalban",
+    "regtest only - Override the default behavior that prevents the ban of a misbehaving local node");
         
 #ifdef ENABLE_MINING
     strUsage += HelpMessageGroup(_("Mining options:"));
@@ -1548,6 +1557,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 if (fReindex || fReindexFast) {
                     if (fReindex) pblocktree->WriteReindexing(true);
                     if (fReindexFast) pblocktree->WriteFastReindexing(true);
+
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (fPruneMode)
                         CleanupBlockRevFiles();
