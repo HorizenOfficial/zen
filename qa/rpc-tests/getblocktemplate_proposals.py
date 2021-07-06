@@ -137,11 +137,13 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         self.sync_all()
 
         sc_fork_reached = False
-        mark_logs(("active chain height = %d: testing before sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
+        currentHeight = self.nodes[0].getblockcount()
+        mark_logs(("active chain height = %d: testing before sidechain fork" % currentHeight), self.nodes, DEBUG_MODE)
         self.doTest(sc_fork_reached)
 
         # reach the height where the next block is the last before the fork point where certificates are supported
-        self.nodes[0].generate((MINIMAL_SC_HEIGHT - 1) - 200 - 2) 
+        delta = MINIMAL_SC_HEIGHT - currentHeight - 2;
+        self.nodes[0].generate(delta) 
         self.sync_all()
 
         mark_logs(("active chain height = %d: testing last block before sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
