@@ -9,10 +9,10 @@
 /*
  *  Usage:
  *
- *  1) ./mcTest "generate" "cert/csw" "darlin/cob_marlin" "params_dir" "segment_size" "num_constraints"
+ *  1) ./mcTest "generate" "cert/cert_no_const/csw" "darlin/cob_marlin" "params_dir" "segment_size" "num_constraints"
  *  Generates SNARK pk and vk for a test cert/csw circuit using darlin/coboundary_marlin proving system;
  *
- *  2) ./mcTest "create" "cert" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
+ *  2) ./mcTest "create" "cert/cert_no_const" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
  *  "sc_id" "epoch_number" "quality" "constant_presence" ["constant"] "end_cum_comm_tree_root", "btr_fee", "ft_min_amount" "num_constraints"
  *  "bt_list_len", "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n",
  *  "custom_fields_list_len", "custom_field_0", ... , "custom_field_1"
