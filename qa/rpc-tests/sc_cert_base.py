@@ -628,9 +628,9 @@ class sc_cert_base(BitcoinTestFramework):
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
 
-        # Default proof constant test
-        # create new sidechain
-        vk2 = mcTest.generate_params("sc2")
+        mark_logs("Default proof constant test", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 creates new sidechain", self.nodes, DEBUG_MODE)
+        vk2 = mcTest.generate_params("sc2", "cert_no_const")
 
         ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dadb", creation_amount, vk2, "")
         creating_tx = ret['txid']
@@ -645,9 +645,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
-
         self.sync_all()
-
         self.nodes[0].generate(EPOCH_LENGTH)
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid2, self.nodes[0], EPOCH_LENGTH)
