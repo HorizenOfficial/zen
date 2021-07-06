@@ -3,17 +3,15 @@
 set -euo pipefail
 
 if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-  if [ ! -z "${DOCKER_UPDATE_PACKAGES}" ]; then
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-    sudo add-apt-repository "deb [arch=${TRAVIS_CPU_ARCH}] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-    UPDATE_PACKAGES="${UPDATE_PACKAGES}"
-  fi
   if [ ! -z "${PIP_UPDATE_PACKAGES}" ] && [ ! -z "${PIP_INSTALL}" ]; then
     UPDATE_PACKAGES="${UPDATE_PACKAGES} ${PIP_UPDATE_PACKAGES}"
   fi
   sudo apt-get update
   sudo apt-get -y --no-install-recommends install ${UPDATE_PACKAGES}
   if [ ! -z "${DOCKER_UPDATE_PACKAGES}" ]; then
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+    sudo add-apt-repository "deb [arch=${TRAVIS_CPU_ARCH}] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+    sudo apt-get update
     sudo systemctl stop containerd.service
     sudo systemctl stop docker.service
     sudo systemctl stop docker.socket
