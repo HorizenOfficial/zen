@@ -55,6 +55,8 @@ if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
     NEED_GH_CREDS="true"
     NEED_PGP_SIGN_CREDS="true"
   fi
+  # due to new ratelimiting on hub.docker.com always login, we use a service account that has no push permissions
+  echo "$DOCKER_READONLY_PASSWORD" | docker login -u "$DOCKER_READONLY_USERNAME" --password-stdin
 fi
 
 if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
@@ -138,5 +140,11 @@ if [ "${NEED_PGP_SIGN_CREDS}" = "false" ]; then
   export PGP_KEY_PASSWORD=""
   unset PGP_KEY_PASSWORD
 fi
+
+# clear credentials after use
+export DOCKER_READONLY_USERNAME=""
+export DOCKER_READONLY_PASSWORD=""
+unset DOCKER_READONLY_USERNAME
+unset DOCKER_READONLY_PASSWORD
 
 set +u
