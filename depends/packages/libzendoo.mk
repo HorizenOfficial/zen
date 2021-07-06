@@ -31,7 +31,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_build_cmds
-  RUSTFLAGS="$($(package)_target_feature) --emit=asm" cargo build $($(package)_build_opts)
+  RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts)
 endef
 
 
