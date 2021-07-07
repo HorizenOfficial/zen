@@ -419,7 +419,7 @@ bool InitHTTPServer()
     }
 
     evhttp_set_timeout(http, GetArg("-rpcservertimeout", DEFAULT_HTTP_SERVER_TIMEOUT));
-    evhttp_set_max_body_size(http, MAX_SIZE);
+    evhttp_set_max_body_size(http, MAX_SERIALIZED_COMPACT_SIZE);
     evhttp_set_gencb(http, http_request_cb, NULL);
 
     if (!HTTPBindAddresses(http)) {

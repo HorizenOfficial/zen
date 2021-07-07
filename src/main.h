@@ -47,8 +47,13 @@ class CTxInUndo;
 /** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE;
 static const unsigned int DEFAULT_BLOCK_MIN_SIZE = 0;
+
+/** Default for -blocktxpartitionmaxsize which control the partition in block reserved for tx*/
+static const unsigned int DEFAULT_BLOCK_TX_PART_MAX_SIZE = BLOCK_TX_PARTITION_SIZE;
+
 /** Default for -blockprioritysize, maximum space for zero/low-fee transactions **/
-static const unsigned int DEFAULT_BLOCK_PRIORITY_SIZE = DEFAULT_BLOCK_MAX_SIZE / 2;
+static const unsigned int DEFAULT_BLOCK_TX_PRIORITY_SIZE = BLOCK_TX_PARTITION_SIZE / 2;
+
 /** Default for -blockmaxcomplexity, which control the maximum comlexity of the block during template creation **/
 static const unsigned int DEFAULT_BLOCK_MAX_COMPLEXITY_SIZE = 0;
 /** Default for accepting alerts from the P2P network. */
@@ -96,7 +101,10 @@ static const int MAX_BLOCK_AGE_FOR_FINALITY = 2000;
 
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
-BOOST_STATIC_ASSERT(DEFAULT_BLOCK_PRIORITY_SIZE <= DEFAULT_BLOCK_MAX_SIZE);
+BOOST_STATIC_ASSERT(DEFAULT_BLOCK_TX_PRIORITY_SIZE <= BLOCK_TX_PARTITION_SIZE);
+BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE);
+BOOST_STATIC_ASSERT(BLOCK_TX_PARTITION_SIZE > MAX_TX_SIZE);
+
 
 #define equihash_parameters_acceptable(N, K) \
     ((CBlockHeader::HEADER_SIZE + equihash_solution_size(N, K))*MAX_HEADERS_RESULTS < \
@@ -108,7 +116,9 @@ extern CTxMemPool mempool;
 typedef boost::unordered_map<uint256, CBlockIndex*, ObjectHasher> BlockMap;
 extern BlockMap mapBlockIndex;
 extern uint64_t nLastBlockTx;
+extern uint64_t nLastBlockCert;
 extern uint64_t nLastBlockSize;
+extern uint64_t nLastBlockTxPartitionSize;
 extern const std::string strMessageMagic;
 extern CWaitableCriticalSection csBestBlock;
 extern CConditionVariable cvBlockChange;

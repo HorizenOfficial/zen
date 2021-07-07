@@ -1134,10 +1134,11 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
     if (fAllowFree)
     {
         // There is a free transaction area in blocks created by most miners,
-        // * If we are relaying we allow transactions up to DEFAULT_BLOCK_PRIORITY_SIZE - 1000
+        // * If we are relaying we allow transactions up to DEFAULT_BLOCK_TX_PRIORITY_SIZE - 1000
         //   to be considered to fall into this category. We don't want to encourage sending
         //   multiple transactions instead of one big transaction to avoid fees.
-        if (nBytes < (DEFAULT_BLOCK_PRIORITY_SIZE - 1000))
+        // If we have a certificate we allow it anyway
+        if (tx.IsCertificate() || (nBytes < (DEFAULT_BLOCK_TX_PRIORITY_SIZE - 1000)) )
             nMinFee = 0;
     }
 
@@ -4352,7 +4353,12 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
     // because we receive the wrong transactions for it.
 
     // Size limits
-    if (block.vtx.empty() || (block.vtx.size() + block.vcert.size()) > MAX_BLOCK_SIZE || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > MAX_BLOCK_SIZE)
+    // - From the sidechains fork point on, the block size has been increased 
+    unsigned int block_size_limit = MAX_BLOCK_SIZE;
+    if (block.nVersion != BLOCK_VERSION_SC_SUPPORT)
+        block_size_limit = MAX_BLOCK_SIZE_BEFORE_SC;
+
+    if (block.vtx.empty() || (block.vtx.size() + block.vcert.size()) > block_size_limit || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > block_size_limit)
         return state.DoS(100, error("CheckBlock(): size limits failed"),
                          CValidationState::Code::INVALID, "bad-blk-length");
 
@@ -4360,16 +4366,24 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
     if (block.vtx.empty() || !block.vtx[0].IsCoinBase())
         return state.DoS(100, error("CheckBlock(): first tx is not coinbase"),
                          CValidationState::Code::INVALID, "bad-cb-missing");
+
     for (unsigned int i = 1; i < block.vtx.size(); i++)
         if (block.vtx[i].IsCoinBase())
             return state.DoS(100, error("CheckBlock(): more than one coinbase"),
                              CValidationState::Code::INVALID, "bad-cb-multiple");
 
+    unsigned int nTxPartSize = 0;
     // Check transactions and certificates
     for(const CTransaction& tx: block.vtx) {
         if (!CheckTransaction(tx, state, verifier)) {
             return error("CheckBlock(): CheckTransaction failed");
         }
+        nTxPartSize += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    }
+
+    if (block.nVersion == BLOCK_VERSION_SC_SUPPORT && nTxPartSize > BLOCK_TX_PARTITION_SIZE)
+    {
+        return error("CheckBlock(): block tx partition size exceeded %d > %d", nTxPartSize, BLOCK_TX_PARTITION_SIZE);
     }
 
     if(!CheckCertificatesOrdering(block.vcert, state))
