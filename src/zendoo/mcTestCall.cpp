@@ -18,6 +18,9 @@
  *  "custom_fields_list_len", "custom_field_0", ... , "custom_field_1"
  *  Generates a TestCertificateProof;
  *
+ *  NOTE: "constant" param must be present if "cert" has been passed; If "cert_no_const" has been passed,
+ *         instead, "constant" param must not be present.
+ *
  *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size",
  *  "amount" "sc_id" "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">,
  *  Generates a TestCSWProof. cert_data_hash is optional
@@ -456,6 +459,7 @@ void create_verify(int argc, char** argv)
         assert(argc >= 16);
         create_verify_test_cert_proof(ps_type_raw, argc, argv);
     } else if (circ_type_raw == "csw") {
+        assert(argc >= 13 && argc <= 16);
         create_verify_test_csw_proof(ps_type_raw, argc, argv);
     } else {
         abort(); // Invalid TestCircuitType
