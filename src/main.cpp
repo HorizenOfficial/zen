@@ -1117,7 +1117,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     return true;
 }
 
-CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAllowFree)
+CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAllowFree, unsigned int block_priority_size)
 {
     {
         LOCK(mempool.cs);
@@ -1134,11 +1134,10 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
     if (fAllowFree)
     {
         // There is a free transaction area in blocks created by most miners,
-        // * If we are relaying we allow transactions up to DEFAULT_BLOCK_TX_PRIORITY_SIZE - 1000
+        // * If we are relaying we allow transactions up to DEFAULT_BLOCK_PRIORITY_SIZE - 1000
         //   to be considered to fall into this category. We don't want to encourage sending
         //   multiple transactions instead of one big transaction to avoid fees.
-        // If we have a certificate we allow it anyway
-        if (tx.IsCertificate() || (nBytes < (DEFAULT_BLOCK_TX_PRIORITY_SIZE - 1000)) )
+        if ((nBytes < (block_priority_size - 1000)) )
             nMinFee = 0;
     }
 
@@ -1304,8 +1303,12 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         CCertificateMemPoolEntry entry(cert, nFees, GetTime(), dPriority, chainActive.Height());
         unsigned int nSize = entry.GetCertificateSize();
 
+        unsigned int block_priority_size = DEFAULT_BLOCK_PRIORITY_SIZE;
+        if (!ForkManager::getInstance().areSidechainsSupported(nextBlockHeight))
+            block_priority_size = DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC;
+
         // Don't accept it if it can't get into a block
-        CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
+        CAmount txMinFee = GetMinRelayFee(cert, nSize, true, block_priority_size);
 
         LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
         if (fLimitFree == LimitFreeFlag::ON && nFees < txMinFee)
@@ -1597,8 +1600,13 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         if (tx.GetVjoinsplit().size() > 0 && nFees >= ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE) {
             // In future we will we have more accurate and dynamic computation of fees for tx with joinsplits.
         } else {
+            unsigned int block_priority_size = DEFAULT_BLOCK_PRIORITY_SIZE;
+            if (!ForkManager::getInstance().areSidechainsSupported(nextBlockHeight))
+                block_priority_size = DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC;
+    
             // Don't accept it if it can't get into a block
-            CAmount txMinFee = GetMinRelayFee(tx, nSize, true);
+            CAmount txMinFee = GetMinRelayFee(tx, nSize, true, block_priority_size);
+
             LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
             if (fLimitFree == LimitFreeFlag::ON && nFees < txMinFee)
             {

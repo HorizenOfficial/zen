@@ -513,7 +513,7 @@ std::string HelpMessage(HelpMessageMode mode)
     
     strUsage += HelpMessageOpt("-blocktxpartitionmaxsize=<n>", strprintf(_("Set maximum partition block size for transcations in bytes (default: %u)"), DEFAULT_BLOCK_TX_PART_MAX_SIZE));
 
-    strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions in bytes (default: %d)"), DEFAULT_BLOCK_TX_PRIORITY_SIZE));
+    strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions/certificates in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE));
     strUsage += HelpMessageOpt("-blockmaxcomplexity=<n>",
         strprintf(_("Limit transactions to be included into blocks based on block complexity. "
         " Block complexity is the sum of transaction complexity per block. Transaction complexity is the number of inputs of a transaction squared. "

@@ -551,9 +551,13 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
 
         // - From the sidechains fork point on, the block size has been increased 
-        unsigned int block_size_limit = MAX_BLOCK_SIZE;
+        unsigned int block_size_limit          = MAX_BLOCK_SIZE;
+        unsigned int block_priority_size_limit = DEFAULT_BLOCK_PRIORITY_SIZE;
         if (pblock->nVersion != BLOCK_VERSION_SC_SUPPORT)
-            block_size_limit = MAX_BLOCK_SIZE_BEFORE_SC;
+        {
+            block_size_limit          = MAX_BLOCK_SIZE_BEFORE_SC;
+            block_priority_size_limit = DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC;
+        }
  
         // Largest block you're willing to create:
         unsigned int nBlockMaxSize = GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
@@ -572,8 +576,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
  
         // How much of the tx block partition should be dedicated to high-priority transactions,
         // included regardless of the fees they pay
-        unsigned int nBlockTxPrioritySize = GetArg("-blockprioritysize", DEFAULT_BLOCK_TX_PRIORITY_SIZE);
-        nBlockTxPrioritySize = std::min(nBlockTxPartitionMaxSize, nBlockTxPrioritySize);
+        unsigned int nBlockPrioritySize = GetArg("-blockprioritysize", block_priority_size_limit);
+        nBlockPrioritySize = std::min(nBlockMaxSize, nBlockPrioritySize);
 
         CCoinsViewCache view(pcoinsTip);
 
@@ -605,7 +609,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         uint64_t nBlockTx = 0;
         uint64_t nBlockCert = 0;
         int nBlockSigOps = 100;
-        bool fSortedByFee = (nBlockTxPrioritySize <= 0);
+        bool fSortedByFee = (nBlockPrioritySize <= 0);
 
         TxPriorityCompare comparer(fSortedByFee);
         std::make_heap(vecPriority.begin(), vecPriority.end(), comparer);
@@ -664,7 +668,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             // Prioritise by fee once past the priority size or we run out of high-priority
             // transactions:
             if (!fSortedByFee &&
-                ((!tx.IsCertificate() && (nBlockTxPartitionSize + nTxBaseSize >= nBlockTxPrioritySize)) || !AllowFree(dPriority)))
+                ((nBlockSize + nTxBaseSize >= nBlockPrioritySize) || !AllowFree(dPriority)))
             {
                 fSortedByFee = true;
                 comparer = TxPriorityCompare(fSortedByFee);
