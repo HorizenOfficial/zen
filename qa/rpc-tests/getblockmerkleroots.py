@@ -45,11 +45,15 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
             errorString = e.error['message']
             assert_equal("TX decode failed" in errorString, True)
 
-        #Test getblockmerkleroots with only coinbase transaction
+        #Test getblockmerkleroots with only coinbase transaction before the sidechain fork
         print("######## Test getblockmerkleroots with only coinbase transaction ########")
 
         block = self.nodes[0].getblock('110')
         self.verify_roots(block)
+
+        #Reach the sidechain fork height
+        self.nodes[0].generate(311)
+        self.sync_all()
 
         #Test getblockmerkleroots with some t-transactions
         print("######## Test getblockmerkleroots with some transactions ########")

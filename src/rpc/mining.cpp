@@ -972,7 +972,11 @@ UniValue getblockmerkleroots(const UniValue& params, bool fHelp) {
     CCoinsViewCache view(pcoinsTip);
 
     uint256 merkleTree = pblock->BuildMerkleTree();
-    uint256 scTxsCommitment = pblock->BuildScTxsCommitment(view);
+    uint256 scTxsCommitment;
+    scTxsCommitment.SetNull();
+    if (pblock->nVersion == BLOCK_VERSION_SC_SUPPORT){
+        scTxsCommitment = pblock->BuildScTxsCommitment(view);
+    }
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("merkleTree", merkleTree.ToString());
