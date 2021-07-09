@@ -24,6 +24,7 @@
 #include <clientversion.h>
 #include <rpc/server.h>
 #include <chrono>
+#include <algorithm>
 
 using namespace std;
 
@@ -40,6 +41,7 @@ net::io_context ioc;
 
 static int MAX_BLOCKS_REQUEST = 100;
 static int MAX_HEADERS_REQUEST = 50;
+static int MAX_TXS_RESPONSE = 1;
 static int tot_connections = 0;
 
 class WsNotificationInterface;
@@ -196,6 +198,8 @@ private:
         if (!clientRequestId.empty())
             rv->push_back(Pair("requestId", clientRequestId));
         rv->push_back(Pair("responsePayload", rspPayload));
+        rv->push_back(Pair("messageNumber",1));
+        rv->push_back(Pair("messageTotal",1));
         wsq.push(wse);
     }
 
@@ -222,6 +226,8 @@ private:
         if (!clientRequestId.empty())
             rv->push_back(Pair("requestId", clientRequestId));
         rv->push_back(Pair("responsePayload", rspPayload));
+        rv->push_back(Pair("messageNumber",1));
+        rv->push_back(Pair("messageTotal",1));
         wsq.push(wse);
     }
 
@@ -248,20 +254,12 @@ private:
         wsq.push(wse);
     }
 
-    void sendMempoolEvent(int size, const std::list<uint256>& listHashes, WsEvent::WsEventType eventType)
+    void sendMempoolEvent(WsEvent::WsEventType eventType)
     {
         // Send a message to the client:  type = eventType
         WsEvent* wse = new WsEvent(WsEvent::MSG_EVENT);
         LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
         UniValue rspPayload(UniValue::VOBJ);
-        rspPayload.push_back(Pair("size", size));
-
-        UniValue txHashes(UniValue::VARR);
-
-        for(std::list<uint256>::const_iterator it = listHashes.begin(); it != listHashes.end(); ++it) {
-            txHashes.push_back(it->GetHex());
-        }
-        rspPayload.push_back(Pair("transactions", txHashes));
 
         UniValue* rv = wse->getPayload();
         rv->push_back(Pair("eventType", eventType));
@@ -287,10 +285,10 @@ private:
         rv->push_back(Pair("eventType", eventType));
         rv->push_back(Pair("eventPayload", rspPayload));
         wsq.push(wse);
-    }
 
-    void sendTxs(const std::list<std::string> listHex, const std::string& sessionId,
-    		WsEvent::WsMsgType msgType, const std::string clientRequestId = "")
+    }
+    void sendTxs(const std::list<std::string> listHex, const std::list<uint256> listHashes,
+    		WsEvent::WsMsgType msgType, const int msgNumber, const int msgTotal, const std::string clientRequestId = "")
     {
         // Send a message to the client:  type = responseType
         WsEvent* wse = new WsEvent(msgType);
@@ -302,12 +300,20 @@ private:
         for(std::list<std::string>::const_iterator it = listHex.begin(); it != listHex.end(); ++it) {
         	txHex.push_back(*it);
         }
-        rspPayload.push_back(Pair("hex", txHex));
-        rspPayload.push_back(Pair("sessionId", sessionId));
+
+        UniValue txHashes(UniValue::VARR);
+        for(std::list<uint256>::const_iterator it = listHashes.begin(); it != listHashes.end(); ++it) {
+        	txHashes.push_back(it->GetHex());
+        }
+
+        rspPayload.push_back(Pair("missingTxs", txHex));
+        rspPayload.push_back(Pair("deletingTxs", txHashes));
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
             rv->push_back(Pair("requestId", clientRequestId));
         rv->push_back(Pair("responsePayload", rspPayload));
+        rv->push_back(Pair("messageNumber", msgNumber));
+        rv->push_back(Pair("messageTotal", msgTotal));
         wsq.push(wse);
 
     }
@@ -344,6 +350,8 @@ private:
         if (!clientRequestId.empty())
             rv->push_back(Pair("requestId", clientRequestId));
         rv->push_back(Pair("responsePayload", rspPayload));
+        rv->push_back(Pair("messageNumber",1));
+        rv->push_back(Pair("messageTotal",1));
         wsq.push(wse);
     }
 
@@ -361,6 +369,8 @@ private:
         if (!clientRequestId.empty())
             rv->push_back(Pair("requestId", clientRequestId));
         rv->push_back(Pair("responsePayload", rspPayload));
+        rv->push_back(Pair("messageNumber",1));
+        rv->push_back(Pair("messageTotal",1));
         wsq.push(wse);
     }
 
@@ -377,6 +387,8 @@ private:
         if (!clientRequestId.empty())
             rv->push_back(Pair("requestId", clientRequestId));
         rv->push_back(Pair("responsePayload", rspPayload));
+        rv->push_back(Pair("messageNumber",1));
+        rv->push_back(Pair("messageTotal",1));
         wsq.push(wse);
     }
 
@@ -588,10 +600,19 @@ private:
 
     }
 
-    int sendMempoolTxs(const UniValue& hashes, const std::string& sessionId, const std::string& clientRequestId) {
+    int sendMempoolTxs(const UniValue& hashes, const std::string& clientRequestId) {
         LOCK(mempool.cs);
 
-        std::list<std::string> txs;
+        //Find mempool txs in order by dependency
+        std::list<uint256> zenHashes;
+        {
+            LOCK(mempool.cs);
+            zenHashes = mempool.TopologicalSort();
+
+        }
+
+        //Create the list of txs that are not more in the mempool
+        std::list<uint256> deletingTxs;
         for(const UniValue& hash : hashes.getValues()) {
             if (!hash.isStr())
             {
@@ -599,16 +620,69 @@ private:
                 return INVALID_PARAMETER;
             }
 			uint256 txid(uint256S(hash.get_str()));
-			auto entry = mempool.mapTx.find(txid);
-			if (entry != mempool.mapTx.end()) {
-				txs.push_back(EncodeHexTx(
-						static_cast<CTransaction>(entry->second.GetTx())));
-			} else {
-				LogPrint("ws", "%s():%d - mempool transaction not found!\n", txid.ToString(), __LINE__);
+			if(std::find(zenHashes.begin(), zenHashes.end(), txid) == zenHashes.end()){
+				deletingTxs.push_back(txid);
 			}
+        }
+
+        //Create the list of missing txs
+        std::list<string> missingTxs;
+        int nBatch = 0;
+        int nCount = 0;
+        for(uint256 zenHash : zenHashes) {
+        	bool found = false;
+            for(const UniValue& clientHash : hashes.getValues()) {
+                if (!clientHash.isStr())
+                {
+                    LogPrint("ws", "%s():%d - invalid string\n", __func__, __LINE__);
+                    return INVALID_PARAMETER;
+                }
+    			uint256 txid(uint256S(clientHash.get_str()));
+    			if (zenHash == txid) {
+    				found = true;
+    				break;
+    			}
+            }
+            if (!found) {
+    			auto entry = mempool.mapTx.find(zenHash);
+    			if (entry != mempool.mapTx.end()) {
+    				missingTxs.push_back(EncodeHexTx(
+    						static_cast<CTransaction>(entry->second.GetTx())));
+    				nCount++;
+    				if (nCount == MAX_TXS_RESPONSE) {
+    					nBatch++;
+    					nCount = 0;
+    				}
+    			} else {
+    				LogPrint("ws", "%s():%d - mempool transaction not found!\n", zenHash.ToString(), __LINE__);
+    			}
+            }
 
         }
-        sendTxs(txs, sessionId, WsEvent::MSG_RESPONSE, clientRequestId);
+
+        if (nCount != 0) {
+        	nBatch++;
+        }
+
+        std::list<string> batchTxs;
+        std::list<string>::iterator it = missingTxs.begin();
+
+        if (it != missingTxs.end()) {
+            int counter;
+            for (int i = 0; i<nBatch; i++) {
+            	counter = 0;
+                while (counter < MAX_TXS_RESPONSE && it != missingTxs.end()) {
+                  	batchTxs.push_back(*it);
+                  	counter ++;
+                  	++it;
+                }
+                sendTxs(batchTxs, deletingTxs, WsEvent::MSG_RESPONSE,  i+1, nBatch, clientRequestId);
+                batchTxs.clear();
+            }
+        } else {
+            sendTxs(missingTxs, deletingTxs, WsEvent::MSG_RESPONSE, 1, 1, clientRequestId);
+        }
+
         return OK;
     }
 
@@ -958,19 +1032,14 @@ private:
                     LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
                     return INVALID_JSON_FORMAT;
                 }
-                const UniValue&  hashArray = find_value(reqPayload, "hash");
+                const UniValue&  hashArray = find_value(reqPayload, "mempool");
                 if (hashArray.isNull()) {
                     LogPrint("ws", "%s():%d - transaction hashes empty: msg[%s]\n", __func__, __LINE__, msg);
                     return MISSING_PARAMETER;
                 }
                 const UniValue& hashes = hashArray.get_array();
-                if (hashes.size()==0) {
-                    LogPrint("ws", "%s():%d - hash array empty: msg[%s]\n", __func__, __LINE__, msg);
-                    return MISSING_PARAMETER;
-                }
-                std::string sessionId = findFieldValue("sessionId", reqPayload);
 
-                return sendMempoolTxs(hashes, sessionId, clientRequestId);
+                return sendMempoolTxs(hashes, clientRequestId);
             }
             if (requestType == std::to_string(WsEvent::GET_NODE_STATIC_CONFIG))
             {
@@ -1210,9 +1279,9 @@ public:
         sendBlockEvent(height, strHash, blockHex, WsEvent::UPDATE_TIP, chainwork);
     }
 
-    void send_mempool_update(std::list<uint256>& listHashes)
+    void send_mempool_update()
     {
-        sendMempoolEvent(listHashes.size(), listHashes, WsEvent::UPDATE_MEMPOOL);
+        sendMempoolEvent(WsEvent::UPDATE_MEMPOOL);
     }
 
     void send_peer_update(std::list<std::string>& peers)
@@ -1301,13 +1370,6 @@ static void ws_updatetip(const CBlockIndex *pindex)
 
 static void ws_updatemempool()
 {
-	std::list<uint256> hashes;
-
-	{
-        LOCK(mempool.cs);
-        hashes = mempool.TopologicalSort();
-	}
-
 	std::unique_lock<std::mutex> lck(wsmtx);
 	if (listWsHandler.size() )
 	{
@@ -1316,7 +1378,7 @@ static void ws_updatemempool()
 		while (it != listWsHandler.end())
 		{
 			LogPrint("ws", "%s():%d - call wshandler_send_mempool_update to connection[%u]\n", __func__, __LINE__, (*it)->t_id);
-			(*it)->send_mempool_update(hashes);
+			(*it)->send_mempool_update();
 			++it;
 		}
 	}
