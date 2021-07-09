@@ -4366,7 +4366,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
     if (block.nVersion != BLOCK_VERSION_SC_SUPPORT)
         block_size_limit = MAX_BLOCK_SIZE_BEFORE_SC;
 
-    if (block.vtx.empty() || (block.vtx.size() + block.vcert.size()) > block_size_limit || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > block_size_limit)
+    if (block.vtx.empty() || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > block_size_limit)
         return state.DoS(100, error("CheckBlock(): size limits failed"),
                          CValidationState::Code::INVALID, "bad-blk-length");
 
@@ -4374,24 +4374,29 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
     if (block.vtx.empty() || !block.vtx[0].IsCoinBase())
         return state.DoS(100, error("CheckBlock(): first tx is not coinbase"),
                          CValidationState::Code::INVALID, "bad-cb-missing");
-
     for (unsigned int i = 1; i < block.vtx.size(); i++)
         if (block.vtx[i].IsCoinBase())
             return state.DoS(100, error("CheckBlock(): more than one coinbase"),
                              CValidationState::Code::INVALID, "bad-cb-multiple");
 
-    unsigned int nTxPartSize = 0;
+    if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
+    {
+        unsigned int nTxPartSize = 0;
+        for(const CTransaction& tx: block.vtx)
+        {
+            nTxPartSize += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+            if (nTxPartSize > BLOCK_TX_PARTITION_SIZE)
+            {
+                return error("CheckBlock(): block tx partition size exceeded %d > %d", nTxPartSize, BLOCK_TX_PARTITION_SIZE);
+            }
+        }
+    }
+
     // Check transactions and certificates
     for(const CTransaction& tx: block.vtx) {
         if (!CheckTransaction(tx, state, verifier)) {
             return error("CheckBlock(): CheckTransaction failed");
         }
-        nTxPartSize += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
-    }
-
-    if (block.nVersion == BLOCK_VERSION_SC_SUPPORT && nTxPartSize > BLOCK_TX_PARTITION_SIZE)
-    {
-        return error("CheckBlock(): block tx partition size exceeded %d > %d", nTxPartSize, BLOCK_TX_PARTITION_SIZE);
     }
 
     if(!CheckCertificatesOrdering(block.vcert, state))

@@ -53,7 +53,7 @@ static const unsigned int DEFAULT_BLOCK_MIN_SIZE = 0;
 static const unsigned int DEFAULT_BLOCK_TX_PART_MAX_SIZE = BLOCK_TX_PARTITION_SIZE;
 
 /** Default for -blockprioritysize, maximum space for zero/low-fee transactions **/
-static const unsigned int DEFAULT_BLOCK_PRIORITY_SIZE = MAX_BLOCK_SIZE / 2;
+static const unsigned int DEFAULT_BLOCK_PRIORITY_SIZE = BLOCK_TX_PARTITION_SIZE / 2;
 static const unsigned int DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC = MAX_BLOCK_SIZE_BEFORE_SC / 2;
 
 /** Default for -blockmaxcomplexity, which control the maximum comlexity of the block during template creation **/

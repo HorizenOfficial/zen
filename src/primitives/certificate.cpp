@@ -119,7 +119,7 @@ bool CScCertificate::CheckSerializedSize(CValidationState &state) const
         LogPrintf("%s():%d - Cert id = %s, size = %d, limit = %d, cert = %s\n",
             __func__, __LINE__, GetHash().ToString(), size, MAX_TX_SIZE, ToString());
         return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
-                         CValidationState::Code::INVALID, "bad-txns-oversize");
+                         CValidationState::Code::INVALID, "bad-cert-oversize");
     }
 
     return true;
