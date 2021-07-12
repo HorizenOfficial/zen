@@ -18,8 +18,6 @@
  *  "custom_fields_list_len", "custom_field_0", ... , "custom_field_1"
  *  Generates a TestCertificateProof;
  *
- *  NOTE: "constant" param must be present if "cert" has been passed; If "cert_no_const" has been passed,
- *         instead, "constant" param must not be present.
  *
  *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size",
  *  "amount" "sc_id" "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">,
