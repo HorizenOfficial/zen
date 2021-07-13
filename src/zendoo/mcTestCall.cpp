@@ -13,11 +13,13 @@
  *  Generates SNARK pk and vk for a test cert/csw circuit using darlin/coboundary_marlin proving system;
  *
  *  2) ./mcTest "create" "cert/cert_no_const" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
- *  "sc_id" "epoch_number" "quality" "constant_presence" ["constant"] "end_cum_comm_tree_root", "btr_fee", "ft_min_amount" "num_constraints"
+ *  "sc_id" "epoch_number" "quality" ["constant"] "end_cum_comm_tree_root", "btr_fee", "ft_min_amount" "num_constraints"
  *  "bt_list_len", "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n",
  *  "custom_fields_list_len", "custom_field_0", ... , "custom_field_1"
  *  Generates a TestCertificateProof;
  *
+ *  NOTE: "constant" param must be present if "cert" has been passed; If "cert_no_const" has been passed,
+ *         instead, "constant" param must not be present.
  *
  *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size",
  *  "amount" "sc_id" "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">,
