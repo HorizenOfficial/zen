@@ -910,32 +910,39 @@ TEST(CctpLibrary, BitVectorCertificateFieldBadSize)
     zendoo_free_bws(bws_ret1);
 }
 
-TEST(CctpLibrary, BitVectorCertificateFieldFull)
+TEST(CctpLibrary, BitVectorCertificateFieldFullGzip)
 {
     CctpErrorCode ret_code = CctpErrorCode::OK;
+    srand(time(NULL));
 
     // uncompressed buffer size, use the max size
-    // TODO currently if a value not consistent with field element splitting is used, cctp does an assert(false)
-    static const int SC_BV_SIZE_IN_BYTES = BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES;
+    // currently if a value not consistent with field element splitting is used, cctp does an assert(false)
+    static const int SC_BV_SIZE_IN_BYTES = BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS/8;
 
-    unsigned char buffer[SC_BV_SIZE_IN_BYTES] = {};
-    buffer[0] = 0xff;
-    buffer[SC_BV_SIZE_IN_BYTES-1] = 0xff;
+    unsigned char* buffer = new unsigned char[SC_BV_SIZE_IN_BYTES];
+    for(size_t i = 0; i < SC_BV_SIZE_IN_BYTES; i++)
+        buffer[i] = rand() % 256;
+
+    printf("Uncompressed buffer size %d ...\n", SC_BV_SIZE_IN_BYTES);
 
     CompressionAlgorithm e = CompressionAlgorithm::Gzip;
 
     BufferWithSize bws_in(buffer, SC_BV_SIZE_IN_BYTES);
 
-    printf("Compressing using gzip...\n");
+    printf("Compressing using gzip...");
     BufferWithSize* bws_ret1 = nullptr;
     bws_ret1 = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
     ASSERT_TRUE(bws_ret1 != nullptr);
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
+    printf(" ===> Compressed size %lu\n", bws_ret1->len);
 
     const std::vector<unsigned char> bvVec(bws_ret1->data, bws_ret1->data + bws_ret1->len);
 
     int bitVectorSizeBits = SC_BV_SIZE_IN_BYTES*8; // the original size of the buffer
     int maxCompressedSizeBytes = bvVec.size(); // take the compressed data buf as max value 
+
+    // check that we are below the defined limit, which include a small overhed for very sparse bit vectors
+    ASSERT_TRUE(maxCompressedSizeBytes < BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES);
 
     const BitVectorCertificateFieldConfig cfg(bitVectorSizeBits, maxCompressedSizeBytes);
     BitVectorCertificateField bvField(bvVec);
@@ -943,8 +950,51 @@ TEST(CctpLibrary, BitVectorCertificateFieldFull)
     const CFieldElement& fe = bvField.GetFieldElement(cfg);
     EXPECT_TRUE(fe.IsValid());
     zendoo_free_bws(bws_ret1);
+    delete [] buffer;
 }
 
+TEST(CctpLibrary, BitVectorCertificateFieldFullBzip2)
+{
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+    srand(time(NULL));
+
+    // uncompressed buffer size, use the max size
+    // currently if a value not consistent with field element splitting is used, cctp does an assert(false)
+    static const int SC_BV_SIZE_IN_BYTES = BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS/8;
+
+    unsigned char* buffer = new unsigned char[SC_BV_SIZE_IN_BYTES];
+    for(size_t i = 0; i < SC_BV_SIZE_IN_BYTES; i++)
+        buffer[i] = rand() % 256;
+
+    printf("Uncompressed buffer size %d ...\n", SC_BV_SIZE_IN_BYTES);
+
+    CompressionAlgorithm e = CompressionAlgorithm::Bzip2;
+
+    BufferWithSize bws_in(buffer, SC_BV_SIZE_IN_BYTES);
+
+    printf("Compressing using bzip2...");
+    BufferWithSize* bws_ret1 = nullptr;
+    bws_ret1 = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
+    ASSERT_TRUE(bws_ret1 != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
+    printf(" ===> Compressed size %lu\n", bws_ret1->len);
+
+    const std::vector<unsigned char> bvVec(bws_ret1->data, bws_ret1->data + bws_ret1->len);
+
+    int bitVectorSizeBits = SC_BV_SIZE_IN_BYTES*8; // the original size of the buffer
+    int maxCompressedSizeBytes = bvVec.size(); // take the compressed data buf as max value 
+
+    // check that we are below the defined limit, which include a small overhed for very sparse bit vectors
+    ASSERT_TRUE(maxCompressedSizeBytes < BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES);
+
+    const BitVectorCertificateFieldConfig cfg(bitVectorSizeBits, maxCompressedSizeBytes);
+    BitVectorCertificateField bvField(bvVec);
+
+    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    EXPECT_TRUE(fe.IsValid());
+    zendoo_free_bws(bws_ret1);
+    delete [] buffer;
+}
 
 TEST(CctpLibrary, CommitmentTreeBuilding)
 {

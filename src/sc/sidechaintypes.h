@@ -312,6 +312,7 @@ public:
 
     static const int32_t MAX_BIT_VECTOR_SIZE_BITS;
     static const int32_t MAX_COMPRESSED_SIZE_BYTES;
+    static const int32_t SPARSE_VECTOR_COMPRESSION_OVERHEAD;
 
     bool IsValid() const override final;
 

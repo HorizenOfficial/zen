@@ -433,10 +433,12 @@ uint8_t FieldElementCertificateFieldConfig::getBitSize() const
 //----------------------------------------------------------------------------------
 // 2^12 * 254
 const int32_t BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS = 1040384;
+const int32_t BitVectorCertificateFieldConfig::SPARSE_VECTOR_COMPRESSION_OVERHEAD = 2*1024;
 
 // No rounding here, since 2^12 is divisible by 8.
-// A small 128 bytes overhead is added for taking into account the case when compressed data are larger than original data. 
-const int32_t BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES = (MAX_BIT_VECTOR_SIZE_BITS / 8) + 128;
+// An overhead is added for taking into account the case when compressed data are larger than original data. 
+const int32_t BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES =
+    MAX_BIT_VECTOR_SIZE_BITS/8 + SPARSE_VECTOR_COMPRESSION_OVERHEAD;
 
 bool BitVectorCertificateFieldConfig::IsValid() const
 {
