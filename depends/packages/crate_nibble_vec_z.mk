@@ -1,9 +1,9 @@
 package=crate_nibble_vec_z
 $(package)_crate_name=nibble_vec
-$(package)_version=0.0.4
+$(package)_version=0.1.0
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=c8d77f3db4bce033f4d04db08079b2ef1c3d02b44e86f25d08886fafa7756ffa
+$(package)_sha256_hash=77a5d83df9f36fe23f0c3648c6bbb8b0298bb5f1939c8f2704431371f4b84d43
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

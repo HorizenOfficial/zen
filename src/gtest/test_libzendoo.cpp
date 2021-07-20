@@ -554,7 +554,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("0e4f7fd4e934bc206ecf5eb01848deb24a218f39af1d97a12594742d6609269d"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("36bf235d3c2b3e7d7eb2e8e68f67acb1ebad500bb763bbcbef6e97f2eb61530c"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -1746,4 +1746,32 @@ TEST(CctpLibrary, ReadWriteCmtObj)
     printf("cmt = [%s]\n", cmt.ToString().c_str());
 }
 
+TEST(CctpLibrary, TestVectorsValidity)
+{
+    auto fe = CFieldElement{SAMPLE_FIELD};
+    auto ct = CFieldElement{EMPTY_COMMITMENT_TREE_FIELD};
+
+    auto vk1 = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    auto vk2 = CScVKey{SAMPLE_CERT_COBMARLIN_VK};
+    auto vk3 = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    auto vk4 = CScVKey{SAMPLE_CSW_COBMARLIN_VK};
+
+    auto p1 = CScProof{SAMPLE_CERT_DARLIN_PROOF};
+    auto p2 = CScProof{SAMPLE_CERT_COBMARLIN_PROOF};
+    auto p3 = CScProof{SAMPLE_CSW_DARLIN_PROOF};
+    auto p4 = CScProof{SAMPLE_CSW_COBMARLIN_PROOF};
+
+    EXPECT_TRUE(fe.IsValid());
+    EXPECT_TRUE(ct.IsValid());
+
+    EXPECT_TRUE(vk1.IsValid());
+    EXPECT_TRUE(vk2.IsValid());
+    EXPECT_TRUE(vk3.IsValid());
+    EXPECT_TRUE(vk4.IsValid());
+
+    EXPECT_TRUE(p1.IsValid());
+    EXPECT_TRUE(p2.IsValid());
+    EXPECT_TRUE(p3.IsValid());
+    EXPECT_TRUE(p4.IsValid());
+}
 

@@ -35,6 +35,7 @@ struct CBaseProofVerifierInput
     uint32_t proofId;                               /**< A unique number identifying the proof. */
     CScProof proof;                                 /**< The proof to be verified. */
     CScVKey verificationKey;                        /**< The key to be used for the verification. */
+    uint256 scId;                                   /**< The ID of the sidechain referred by the certificate or CSW. */
 };
 
 /**
@@ -47,7 +48,6 @@ struct CCswProofVerifierInput : CBaseProofVerifierInput
     CAmount nValue;
     CFieldElement nullifier;
     uint160 pubKeyHash;
-    uint256 scId;
 };
 
 /**

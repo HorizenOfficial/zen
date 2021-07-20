@@ -339,14 +339,13 @@ CFieldElement CScCertificate::GetDataHash(const Sidechain::ScFixedParameters& sc
     if (bt_list_len == 0)
         bt_list_ptr = nullptr;
 
-    wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
-    wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
-    wrappedScProofPtr sptrProof  = input.proof.GetProofPtr();
-    wrappedScVkeyPtr  sptrCertVk = input.verificationKey.GetVKeyPtr();
+    wrappedFieldPtr sptrScId = CFieldElement(input. scId).GetFieldElement();
+    field_t* scidFe = sptrScId.get();
 
     CctpErrorCode errorCode;
 
-    field_t* certDataHash = zendoo_get_cert_data_hash(input.epochNumber,
+    field_t* certDataHash = zendoo_get_cert_data_hash(scidFe,
+                                                      input.epochNumber,
                                                       input.quality,
                                                       bt_list_ptr,
                                                       bt_list_len,
@@ -357,6 +356,11 @@ CFieldElement CScCertificate::GetDataHash(const Sidechain::ScFixedParameters& sc
                                                       input.forwardTransferScFee,
                                                       &errorCode
                                                       );
+    if (errorCode != CctpErrorCode::OK)
+    {
+        LogPrintf("%s():%d - could not get cert data hash: error code[0x%x]\n", __func__, __LINE__, errorCode);
+        assert(certDataHash == nullptr);
+    }
 
     return CFieldElement{wrappedFieldPtr{certDataHash, CFieldPtrDeleter{}}};
 }

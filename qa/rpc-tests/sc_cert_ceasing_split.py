@@ -13,7 +13,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
     wait_bitcoinds, stop_nodes, get_epoch_data, sync_mempools, sync_blocks, \
-    disconnect_nodes, advance_epoch
+    disconnect_nodes, advance_epoch, swap_bytes
 
 from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
@@ -187,8 +187,9 @@ class CeasingSplitTest(BitcoinTestFramework):
         bt_amount = Decimal("5.0")
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         quality = 10
+        scid_swapped = str(swap_bytes(scid))
  
-        proof = certMcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bt_amount])
+        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bt_amount])
  
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:

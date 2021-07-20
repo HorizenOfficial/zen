@@ -9,7 +9,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
-    assert_false, assert_true
+    assert_false, assert_true, swap_bytes
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
@@ -275,8 +275,10 @@ class sc_getscinfo(BitcoinTestFramework):
         # Create Cert1 with quality 100 and place it in mempool
         mark_logs("Create Cert1 with quality 100 and place it in mempool", self.nodes, DEBUG_MODE)
         quality = 100
+        scid0_swapped = str(swap_bytes(scid_0))
+
         proof = mcTest.create_test_proof(
-            tag_0, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
+            tag_0, scid0_swapped, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant, [pkh_node1], [bwt_amount])
 
         try:
             cert_1_epoch_0 = self.nodes[0].send_certificate(scid_0, epoch_number_1, quality,

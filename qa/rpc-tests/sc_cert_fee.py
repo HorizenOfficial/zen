@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, get_epoch_data, \
-    start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs
+    start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, swap_bytes
 from test_framework.mc_test.mc_test import *
 import os
 from decimal import Decimal
@@ -77,6 +77,7 @@ class sc_cert_base(BitcoinTestFramework):
         ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
+        scid_swapped = str(swap_bytes(scid))
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -108,7 +109,7 @@ class sc_cert_base(BitcoinTestFramework):
         
         #Create proof for WCert
         quality = 1
-        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bwt_amount])
         
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
@@ -169,7 +170,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 2
-        proof = mcTest.create_test_proof("sc1", epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node2], [bwt_amount_2])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bwt_amount_2])
         
         mark_logs("Node 3 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount_2, pkh_node2), self.nodes, DEBUG_MODE)
         try:

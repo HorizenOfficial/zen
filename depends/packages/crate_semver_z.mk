@@ -1,9 +1,9 @@
 package=crate_semver_z
 $(package)_crate_name=semver
-$(package)_version=0.9.0
+$(package)_version=1.0.3
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403
+$(package)_sha256_hash=5f3aac57ee7f3272d8395c6e4f502f434f0e289fcd62876f70daa008c20dcabe
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

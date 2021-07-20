@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
-    get_epoch_data, \
+    get_epoch_data, swap_bytes, \
     assert_false, assert_true
 
 from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
@@ -83,6 +83,7 @@ class sc_cert_getraw(BitcoinTestFramework):
         ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
+        scid_swapped = str(swap_bytes(scid))
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -134,7 +135,7 @@ class sc_cert_getraw(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         proof = mcTest.create_test_proof(
-            vk_tag, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
@@ -181,7 +182,7 @@ class sc_cert_getraw(BitcoinTestFramework):
 
         # Create new proof for WCert
         quality = 1
-        proof = mcTest.create_test_proof(vk_tag, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
+        proof = mcTest.create_test_proof(vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
 
         nullFee = Decimal("0.0")
         try:

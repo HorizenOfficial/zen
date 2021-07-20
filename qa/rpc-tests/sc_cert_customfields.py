@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
-    dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable
+    dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes
 from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
@@ -151,6 +151,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             res = self.nodes[1].create_sidechain(cmdInput)
             tx =   res['txid']
             scid1 = res['scid']
+            scid1_swapped = str(swap_bytes(scid1))
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -189,6 +190,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         mark_logs("Verify vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig are correctly set in creation tx", self.nodes,DEBUG_MODE)
         creating_tx = ret['txid']
         scid2 = ret['scid']
+        scid2_swapped = str(swap_bytes(scid2))
 
         decoded_tx = self.nodes[1].getrawtransaction(creating_tx, 1)
         dec_sc_id = decoded_tx['vsc_ccout'][0]['scid']
@@ -276,7 +278,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         # this proof would be invalid but we expect an early failure
         scProof2 = mcTest.create_test_proof(
-            'sc2', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant2, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
+            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [pkh_node1], [bwt_amount])
 
         params = {
             'scid': scid2,
@@ -308,7 +310,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe1 = "000000000000000000000000000000000000000000000000000000000000" + "0100"
 
         scProof3 = mcTest.create_test_proof(
-            'sc2', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant2, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [pkh_node1], [bwt_amount],
             [fe1])
 
         print "cum =", epoch_cum_tree_hash_1
@@ -350,7 +352,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         vCmt = ["1111"]
 
         # this proof would not be valid, but we expect an early failure
-        scProof1 = mcTest.create_test_proof('sc1', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
+        scProof1 = mcTest.create_test_proof('sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [pkh_node1], [bwt_amount])
 
         params = {
             'scid': scid1,
@@ -386,7 +388,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe4 = BIT_VECTOR_FE
 
         scProof3 = mcTest.create_test_proof(
-            'sc1', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [pkh_node1], [bwt_amount],
             [fe1, fe2, fe3, fe4])
 
         params = {

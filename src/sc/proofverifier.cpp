@@ -39,6 +39,7 @@ CCertProofVerifierInput CScProofVerifier::CertificateToVerifierItem(const CScCer
 
     certData.proofId = proofIdCounter++;
     certData.certHash = certificate.GetHash();
+    certData.scId = certificate.GetScId();
 
     if (scFixedParams.constant.is_initialized())
         certData.constant = scFixedParams.constant.get();
@@ -315,6 +316,9 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
             if (bt_list_len == 0)
                 bt_list_ptr = nullptr;
 
+            wrappedFieldPtr sptrScId = CFieldElement(certInput.scId).GetFieldElement();
+            field_t* scidFe = sptrScId.get();
+
             wrappedFieldPtr   sptrConst  = certInput.constant.GetFieldElement();
             wrappedFieldPtr   sptrCum    = certInput.endEpochCumScTxCommTreeRoot.GetFieldElement();
             wrappedScProofPtr sptrProof  = certInput.proof.GetProofPtr();
@@ -323,6 +327,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
             bool ret = batchVerifier.add_certificate_proof(
                 certInput.proofId,
                 sptrConst.get(),
+                scidFe,
                 certInput.epochNumber,
                 certInput.quality,
                 bt_list_ptr,
@@ -461,6 +466,9 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCertificate(CCertProofVeri
     if (bt_list_len == 0)
         bt_list_ptr = nullptr;
 
+    wrappedFieldPtr sptrScId = CFieldElement(input.scId).GetFieldElement();
+    field_t* scidFe = sptrScId.get();
+
     wrappedFieldPtr   sptrConst  = input.constant.GetFieldElement();
     wrappedFieldPtr   sptrCum    = input.endEpochCumScTxCommTreeRoot.GetFieldElement();
     wrappedScProofPtr sptrProof  = input.proof.GetProofPtr();
@@ -468,6 +476,7 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCertificate(CCertProofVeri
 
     bool ret = zendoo_verify_certificate_proof(
         sptrConst.get(),
+        scidFe,
         input.epochNumber,
         input.quality,
         bt_list_ptr,
