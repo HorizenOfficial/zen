@@ -1104,21 +1104,4 @@ struct CMutableTransaction : public CMutableTransactionBase
     bool add(const CFieldElement& acd);
 };
 
-/**
- * @brief A structure that includes all the arguments needed for verifying the proof of a CSW input.
- */
-struct CCswProofVerifierInput
-{
-    CScVKey ceasedVk;
-    CFieldElement ceasingCumScTxCommTree;
-    CFieldElement certDataHash;
-    CScProof cswProof;
-    CNode* node;    /**< The node that sent the transaction. */
-    CAmount nValue;
-    CFieldElement nullifier;
-    uint160 pubKeyHash;
-    uint256 scId;
-    std::shared_ptr<CTransaction> transactionPtr;
-};
-
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

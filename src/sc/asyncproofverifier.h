@@ -7,8 +7,10 @@
 
 #include "amount.h"
 #include "chainparams.h"
+#include "main.h"
 #include "primitives/certificate.h"
 #include "primitives/transaction.h"
+#include "sc/proofverifier.h"
 #include "sc/sidechaintypes.h"
 
 class CSidechain;
@@ -17,17 +19,7 @@ class uint256;
 class CCoinsViewCache;
 
 /**
- * @brief A structure containing the output data of a proof verification.
- */
-struct AsyncProofVerifierOutput
-{
-    std::shared_ptr<CTransactionBase> tx;    /**< The transaction which the proof verification refers to. */
-    CNode* node;                             /**< The node that sent the transaction. */
-    bool proofVerified;                      /**< True if the proof has been correctly verified, false otherwise. */
-};
-
-/**
- * @brief A structure storing statistics about the async batch verifier process.
+ * @brief A structure that stores statistics about the async batch verifier process.
  * 
  */
 struct AsyncProofVerifierStatistics
@@ -42,7 +34,7 @@ struct AsyncProofVerifierStatistics
  * @brief An asynchronous version of the sidechain Proof Verifier.
  * 
  */
-class CScAsyncProofVerifier
+class CScAsyncProofVerifier : public CScProofVerifier
 {
 public:
 
@@ -53,14 +45,11 @@ public:
         return instance;
     }
 
-    static CCertProofVerifierInput CertificateToVerifierInput(const CScCertificate& certificate, const CCoinsViewCache& view, CNode* pfrom);
-    static CCswProofVerifierInput CswInputToVerifierInput(const CTxCeasedSidechainWithdrawalInput& cswInput, const CTransaction* cswTransaction, const CCoinsViewCache& view, CNode* pfrom);
-
     CScAsyncProofVerifier(const CScAsyncProofVerifier&) = delete;
     CScAsyncProofVerifier& operator=(const CScAsyncProofVerifier&) = delete;
 
-    void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom);
-    void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom);
+    void LoadDataForCertVerification(const CCoinsViewCache& view, const CScCertificate& scCert, CNode* pfrom = nullptr) override;
+    void LoadDataForCswVerification(const CCoinsViewCache& view, const CTransaction& scTx, CNode* pfrom = nullptr) override;
     void RunPeriodicVerification();
 
     static const uint32_t BATCH_VERIFICATION_MAX_DELAY;   /**< The maximum delay in milliseconds between batch verification requests */
@@ -71,40 +60,36 @@ public:
 
 private:
 
-    friend class TEST_FRIEND_CScAsyncProofVerifier;
+    friend class TEST_FRIEND_CScAsyncProofVerifier;         /**< A friend class used as a proxy for private members in unit tests (Regtest mode only). */
 
     static const uint32_t THREAD_WAKE_UP_PERIOD = 100;           /**< The period of time in milliseconds after which the thread wakes up. */
 
-    CCriticalSection cs_asyncQueue;
-    std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>> cswEnqueuedData; /**< The queue of CSW proofs to be verified. */
-    std::map</*certHash*/uint256, CCertProofVerifierInput> certEnqueuedData;    /**< The queue of certificate proofs to be verified. */
+    CCriticalSection cs_asyncQueue;         /**< The lock to be used for entering the critical section in async mode only. */
 
     // Members used for REGTEST mode only. [Start]
     AsyncProofVerifierStatistics stats;     /**< Async proof verifier statistics. */
-    bool skipAcceptToMemoryPool;            /**< True to skip the call to AcceptToMemoryPool at the end of the proof verification, false otherwise (default false), */
     // Members used for REGTEST mode only. [End]
 
-    CScAsyncProofVerifier(): skipAcceptToMemoryPool(false) {}
+    /**
+     * @brief The function to be called to make the mempool process a certificate/transaction after the verification of the proof.
+     */
+    std::function<void(const CTransactionBase&, CNode*, BatchVerificationStateFlag, CValidationState&)> mempoolCallback;
 
-    std::pair<bool, std::vector<AsyncProofVerifierOutput>> BatchVerify(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int,
-                                                                        CCswProofVerifierInput>>& cswInputs,
-                                                                        const std::map</*certHash*/uint256, CCertProofVerifierInput>& certInputs) const;
-    std::vector<AsyncProofVerifierOutput> NormalVerify(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int,
-                                                       CCswProofVerifierInput>>& cswInputs,
-                                                       const std::map</*certHash*/uint256, CCertProofVerifierInput>& certInputs) const;
-    bool NormalVerifyCertificate(CCertProofVerifierInput input) const;
-    bool NormalVerifyCsw(uint256 txHash, std::map</*outputPos*/unsigned int, CCswProofVerifierInput> inputMap) const;
+    CScAsyncProofVerifier() :
+        CScProofVerifier(Verification::Strict),
+        mempoolCallback(ProcessTxBaseAcceptToMemoryPool)
+    {
+    }
 
-    void UpdateStatistics(const AsyncProofVerifierOutput& output);
-
-    std::pair<bool, std::vector<AsyncProofVerifierOutput>> _batchVerifyInternal(const std::map</*scTxHash*/uint256, std::map</*outputPos*/unsigned int, CCswProofVerifierInput>>& cswInputs,
-                                                                                 const std::map</*certHash*/uint256, CCertProofVerifierInput>& certInputs) const;
-
+    void ProcessVerificationOutputs(std::map</* Tx hash */ uint256, CProofVerifierItem>& proofs);
+    void UpdateStatistics(const CProofVerifierItem& item);
 };
 
 /**
  * @brief Friend class of the CScAsyncProofVerifier to be used in unit tests
  * to access private fields.
+ * 
+ * It is a singleton and can be instanciated in REGTEST mode only.
  */
 class TEST_FRIEND_CScAsyncProofVerifier
 {
@@ -139,7 +124,19 @@ public:
      */
     size_t PendingAsyncCertProofs()
     {
-        return CScAsyncProofVerifier::GetInstance().certEnqueuedData.size();
+        LOCK(CScAsyncProofVerifier::GetInstance().cs_asyncQueue);
+
+        int counter = 0;
+
+        for (auto item : CScAsyncProofVerifier::GetInstance().proofQueue)
+        {
+            if (item.second.proofInput.type() == typeid(CCertProofVerifierInput))
+            {
+                counter++;
+            }
+        }
+
+        return counter;
     }
 
     /**
@@ -150,7 +147,19 @@ public:
      */
     size_t PendingAsyncCswProofs()
     {
-        return CScAsyncProofVerifier::GetInstance().cswEnqueuedData.size();
+        LOCK(CScAsyncProofVerifier::GetInstance().cs_asyncQueue);
+
+        int counter = 0;
+
+        for (auto item : CScAsyncProofVerifier::GetInstance().proofQueue)
+        {
+            if (item.second.proofInput.type() == typeid(std::vector<CCswProofVerifierInput>))
+            {
+                counter++;
+            }
+        }
+
+        return counter;
     }
 
     /**
@@ -164,14 +173,12 @@ public:
     }
 
     /**
-     * @brief Resets the async proof verifier statistics and queues.
+     * @brief Resets the async proof verifier statistics and queue.
      */
     void Reset()
     {
         CScAsyncProofVerifier& verifier = CScAsyncProofVerifier::GetInstance();
 
-        verifier.certEnqueuedData.clear();
-        verifier.cswEnqueuedData.clear();
         verifier.stats = AsyncProofVerifierStatistics();
     }
 
@@ -179,7 +186,7 @@ private:
     TEST_FRIEND_CScAsyncProofVerifier()
     {
         // Disables the call to AcceptToMemory pool from the async proof verifier when performing unit tests (not python ones).
-        CScAsyncProofVerifier::GetInstance().skipAcceptToMemoryPool = true;
+        CScAsyncProofVerifier::GetInstance().mempoolCallback = [](const CTransactionBase&, CNode*, BatchVerificationStateFlag, CValidationState&){};
     }
 };
 

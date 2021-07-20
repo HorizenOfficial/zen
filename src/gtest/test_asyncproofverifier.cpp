@@ -502,16 +502,15 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
 
     for (int i = 0; i < cswMutTransaction.vcsw_ccin.size(); i++)
     {
-        CCswProofVerifierInput input = { .ceasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK},
-                                         .ceasingCumScTxCommTree = cswInput1.ceasingCumScTxCommTree,
-                                         .certDataHash = cswInput1.actCertDataHash,
-                                         .cswProof = cswInput1.scProof,
-                                         .node = &dummyNode,
-                                         .nValue = cswInput1.nValue,
-                                         .nullifier = cswInput1.nullifier,
-                                         .pubKeyHash = cswInput1.pubKeyHash,
-                                         .scId = cswInput1.scId,
-                                         .transactionPtr = std::make_shared<CTransaction>(cswTransaction)};
+        CCswProofVerifierInput input;
+        input.verificationKey = CScVKey{SAMPLE_CSW_DARLIN_VK},
+        input.ceasingCumScTxCommTree = cswInput1.ceasingCumScTxCommTree,
+        input.certDataHash = cswInput1.actCertDataHash,
+        input.proof = cswInput1.scProof,
+        input.nValue = cswInput1.nValue,
+        input.nullifier = cswInput1.nullifier,
+        input.pubKeyHash = cswInput1.pubKeyHash,
+        input.scId = cswInput1.scId,
 
         inputs.push_back(input);
         element.insert(std::make_pair(i, input));
@@ -538,14 +537,12 @@ TEST_F(AsyncProofVerifierTestSuite, Csw_Queue_Move)
     
     for (int i = 0; i < tempElement.size(); i++)
     {
-        ASSERT_EQ(tempElement.at(i).ceasedVk, inputs.at(i).ceasedVk);
+        ASSERT_EQ(tempElement.at(i).verificationKey, inputs.at(i).verificationKey);
         ASSERT_EQ(tempElement.at(i).ceasingCumScTxCommTree, inputs.at(i).ceasingCumScTxCommTree);
         ASSERT_EQ(tempElement.at(i).certDataHash, inputs.at(i).certDataHash);
-        ASSERT_EQ(tempElement.at(i).cswProof, inputs.at(i).cswProof);
-        ASSERT_EQ(tempElement.at(i).node, inputs.at(i).node);
+        ASSERT_EQ(tempElement.at(i).proof, inputs.at(i).proof);
         ASSERT_EQ(tempElement.at(i).nValue, inputs.at(i).nValue);
         ASSERT_EQ(tempElement.at(i).pubKeyHash, inputs.at(i).pubKeyHash);
         ASSERT_EQ(tempElement.at(i).scId, inputs.at(i).scId);
-        ASSERT_EQ(tempElement.at(i).transactionPtr, inputs.at(i).transactionPtr);
     }
 }

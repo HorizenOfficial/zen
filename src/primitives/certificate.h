@@ -398,24 +398,4 @@ struct CScCertificateView
     }
 };
 
-/**
- * @brief A structure that includes all the arguments needed for verifying the proof of a certificate.
- */
-struct CCertProofVerifierInput
-{
-    std::shared_ptr<CScCertificate> certificatePtr;
-    uint256 certHash;
-    CFieldElement constant;
-    uint32_t epochNumber;
-    uint64_t quality;
-    std::vector<backward_transfer_t> bt_list;
-    std::vector<CFieldElement> vCustomFields;
-    CFieldElement endEpochCumScTxCommTreeRoot;
-    uint64_t mainchainBackwardTransferRequestScFee;
-    uint64_t forwardTransferScFee;
-    CScProof certProof;
-    CScVKey CertVk;
-    CNode* node;    /**< The node that sent the transaction. It can be null. */
-};
-
 #endif // _CERTIFICATE_H

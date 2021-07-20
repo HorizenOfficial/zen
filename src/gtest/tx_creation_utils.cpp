@@ -505,7 +505,7 @@ CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 
     CSidechain sidechain;
     assert(viewCache->GetSidechain(scId, sidechain));
 
-    CCswProofVerifierInput verifierInput = SidechainProofVerifier::CswInputToVerifierInput(input, nullptr, sidechain.fixedParams, nullptr);
+    CCswProofVerifierInput verifierInput = CScProofVerifier::CswInputToVerifierItem(input, nullptr, sidechain.fixedParams, nullptr);
     input.scProof = GenerateTestCswProof(verifierInput, provingSystem);
 
     return input;
@@ -586,7 +586,7 @@ CScCertificate BlockchainTestManager::GenerateCertificate(uint256 scId, int epoc
     CSidechain sidechain;
     assert(viewCache->GetSidechain(scId, sidechain));
 
-    CCertProofVerifierInput input = SidechainProofVerifier::CertificateToVerifierInput(res, sidechain.fixedParams, nullptr);
+    CCertProofVerifierInput input = CScProofVerifier::CertificateToVerifierItem(res, sidechain.fixedParams, nullptr);
     res.scProof = GenerateTestCertificateProof(input, provingSystem);
 
     return res;
@@ -754,8 +754,8 @@ bool BlockchainTestManager::VerifyCertificateProof(CCertProofVerifierInput certi
 {
     wrappedFieldPtr   sptrConst  = certificate.constant.GetFieldElement();
     wrappedFieldPtr   sptrCum    = certificate.endEpochCumScTxCommTreeRoot.GetFieldElement();
-    wrappedScProofPtr sptrProof  = certificate.certProof.GetProofPtr();
-    wrappedScVkeyPtr  sptrCertVk = certificate.CertVk.GetVKeyPtr();
+    wrappedScProofPtr sptrProof  = certificate.proof.GetProofPtr();
+    wrappedScVkeyPtr  sptrCertVk = certificate.verificationKey.GetVKeyPtr();
 
     int customFieldsLen = certificate.vCustomFields.size(); 
 
@@ -821,8 +821,8 @@ bool BlockchainTestManager::VerifyCswProof(CCswProofVerifierInput csw) const
     wrappedFieldPtr   sptrCdh        = csw.certDataHash.GetFieldElement();
     wrappedFieldPtr   sptrCum        = csw.ceasingCumScTxCommTree.GetFieldElement();
     wrappedFieldPtr   sptrNullifier  = csw.nullifier.GetFieldElement();
-    wrappedScProofPtr sptrProof      = csw.cswProof.GetProofPtr();
-    wrappedScVkeyPtr  sptrCeasedVk   = csw.ceasedVk.GetVKeyPtr();
+    wrappedScProofPtr sptrProof      = csw.proof.GetProofPtr();
+    wrappedScVkeyPtr  sptrCeasedVk   = csw.verificationKey.GetVKeyPtr();
 
     CctpErrorCode code;
 
