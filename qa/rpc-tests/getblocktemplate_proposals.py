@@ -137,14 +137,23 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         self.sync_all()
 
         sc_fork_reached = False
-        mark_logs(("active chain height = %d: testing before sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
+        currentHeight = self.nodes[0].getblockcount()
+        mark_logs(("active chain height = %d: testing before sidechain fork" % currentHeight), self.nodes, DEBUG_MODE)
         self.doTest(sc_fork_reached)
 
-        # reach the fork where certificates are supported
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT-200) 
+        # reach the height where the next block is the last before the fork point where certificates are supported
+        delta = MINIMAL_SC_HEIGHT - currentHeight - 2;
+        self.nodes[0].generate(delta) 
         self.sync_all()
 
-        mark_logs(("active chain height = %d: testing after sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
+        mark_logs(("active chain height = %d: testing last block before sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
+        self.doTestJustBeforeScFork()
+
+        # reach the fork where certificates are supported
+        self.nodes[0].generate(1) 
+        self.sync_all()
+
+        mark_logs(("active chain height = %d: testing block which will be at sidechain fork" %  self.nodes[0].getblockcount()), self.nodes, DEBUG_MODE)
         sc_fork_reached = True
 
         # create a sidechain and a certificate for it in the mempool
@@ -191,6 +200,43 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
 
         self.nodes[0].generate(1) 
         self.sync_all()
+
+
+    def doTestJustBeforeScFork(self):
+
+        node = self.nodes[0]
+
+        tmpl = node.getblocktemplate()
+        if 'coinbasetxn' not in tmpl:
+            rawcoinbase = encodeUNum(tmpl['height'])
+            rawcoinbase += b'\x01-'
+            hexcoinbase = b2x(rawcoinbase)
+            hexoutval = b2x(pack('<Q', tmpl['coinbasevalue']))
+            tmpl['coinbasetxn'] = {'data': '01000000' + '01' + '0000000000000000000000000000000000000000000000000000000000000000ffffffff' + ('%02x' % (len(rawcoinbase),)) + hexcoinbase + 'fffffffe' + '01' + hexoutval + '00' + '00000000'}
+        txlist = list(bytearray(a2b_hex(a['data'])) for a in (tmpl['coinbasetxn'],) + tuple(tmpl['transactions']))
+        certlist = []
+
+        # Test: set a non-zero 'hashReserved' field (32 bytes after mkl tree field); this is used from the sc fork on, renamed as 'scTxsCommitment'
+        rawtmpl = template_to_bytes(tmpl, txlist, certlist)
+
+        # a 32 null byte array string
+        nb1 = b2x(bytearray(32))
+
+        nb2 = b2x(rawtmpl[4+32+32:4+32+32+32])
+        # check hashReserved field is currently null 
+        assert_true(nb1 == nb2)
+
+        for j in range(0,32):
+            rawtmpl[4+32+32+j] = j
+
+        # hashReserved is not null now
+        nb3 = b2x(rawtmpl[4+32+32:4+32+32+32])
+        assert_false(nb3 == nb2)
+
+        rsp = node.getblocktemplate({'data':b2x(rawtmpl),'mode':'proposal'})
+        # assert block validity
+        assert_equal(rsp, None)
+
 
 
     def doTest(self, sc_fork_reached):

@@ -755,7 +755,12 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
-        pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment(view);
+
+        if (pblock->nVersion == BLOCK_VERSION_SC_SUPPORT )
+        {
+            pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment(view);
+        }
+
         UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
         pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, Params().GetConsensus());
         pblock->nSolution.clear();
