@@ -440,6 +440,12 @@ bool BitVectorCertificateFieldConfig::IsValid() const
     if ((bitVectorSizeBits % 254 != 0) || (bitVectorSizeBits % 8 != 0))
         return false;
 
+    int32_t merkleTreeLeaves = bitVectorSizeBits / 254;
+
+    // Check that the number of leaves of the Merkle tree built on top of the BitVector is a power of two
+    if (merkleTreeLeaves & (merkleTreeLeaves - 1))
+        return false;
+
     bool isMaxCompressedSizeValid = (maxCompressedSizeBytes > 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES);
     if(!isMaxCompressedSizeValid)
         return false;
