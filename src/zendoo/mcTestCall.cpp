@@ -9,14 +9,17 @@
 /*
  *  Usage:
  *
- *  1) ./mcTest "generate" "cert/csw" "darlin/cob_marlin" "params_dir" "segment_size" "num_constraints"
+ *  1) ./mcTest "generate" "cert/cert_no_const/csw" "darlin/cob_marlin" "params_dir" "segment_size" "num_constraints"
  *  Generates SNARK pk and vk for a test cert/csw circuit using darlin/coboundary_marlin proving system;
  *
- *  2) ./mcTest "create" "cert" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
- *  "sc_id" "epoch_number" "quality" "constant" "end_cum_comm_tree_root", "btr_fee", "ft_min_amount" "num_constraints"
+ *  2) ./mcTest "create" "cert/cert_no_const" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
+ *  "sc_id" "epoch_number" "quality" ["constant"] "end_cum_comm_tree_root", "btr_fee", "ft_min_amount" "num_constraints"
  *  "bt_list_len", "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n",
  *  "custom_fields_list_len", "custom_field_0", ... , "custom_field_1"
  *  Generates a TestCertificateProof;
+ *
+ *  NOTE: "constant" param must be present if "cert" has been passed; If "cert_no_const" has been passed,
+ *         instead, "constant" param must not be present.
  *
  *  3) ./mcTest "create" "csw" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size",
  *  "amount" "sc_id" "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">,
@@ -24,6 +27,8 @@
  */
 
 void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** argv) {
+    auto circ_type_raw = std::string(argv[2]);
+
     int arg = 4;
     bool verify = false;
     if (std::string(argv[arg]) == "-v"){
@@ -56,7 +61,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
 
     CctpErrorCode ret_code = CctpErrorCode::OK;
     // Deserialize pk
-    auto pk_path = params_path + ps_type_raw + std::string("_cert_test_pk");
+    auto pk_path = params_path + ps_type_raw + std::string("_") + circ_type_raw + std::string("_test_pk");
     size_t pk_path_len = pk_path.size();
 
     sc_pk_t* pk = zendoo_deserialize_sc_pk_from_file(
@@ -86,13 +91,15 @@ void create_verify_test_cert_proof(std::string ps_type_raw, int argc, char** arg
     uint32_t epoch_number = strtoull(argv[arg++], NULL, 0);
     uint64_t quality = strtoull(argv[arg++], NULL, 0);
 
-    // Parse constant
-    assert(IsHex(argv[arg]));
-    auto constant = ParseHex(argv[arg++]);
-    assert(constant.size() == 32);
-    field_t* constant_f = zendoo_deserialize_field(constant.data(), &ret_code);
-    assert(constant_f != NULL);
-    assert(ret_code == CctpErrorCode::OK);
+    field_t* constant_f = NULL;
+    if (circ_type_raw == "cert") {
+        assert(IsHex(argv[arg]));
+        auto constant = ParseHex(argv[arg++]);
+        assert(constant.size() == 32);
+        constant_f = zendoo_deserialize_field(constant.data(), &ret_code);
+        assert(constant_f != NULL);
+        assert(ret_code == CctpErrorCode::OK);
+    } 
 
     // Parse end_cum_comm_tree_root
     assert(IsHex(argv[arg]));
@@ -448,7 +455,11 @@ void create_verify(int argc, char** argv)
     if (circ_type_raw == "cert") {
         assert(argc >= 17);
         create_verify_test_cert_proof(ps_type_raw, argc, argv);
+    } else if (circ_type_raw == "cert_no_const") {
+        assert(argc >= 16);
+        create_verify_test_cert_proof(ps_type_raw, argc, argv);
     } else if (circ_type_raw == "csw") {
+        assert(argc >= 13 && argc <= 16);
         create_verify_test_csw_proof(ps_type_raw, argc, argv);
     } else {
         abort(); // Invalid TestCircuitType
@@ -462,6 +473,8 @@ void generate(char** argv)
     TestCircuitType circ_type;
     if (circ_type_raw == "cert") {
         circ_type = TestCircuitType::Certificate;
+    } else if (circ_type_raw == "cert_no_const") {
+        circ_type = TestCircuitType::CertificateNoConstant;
     } else if (circ_type_raw == "csw") {
         circ_type = TestCircuitType::CSW;
     } else {

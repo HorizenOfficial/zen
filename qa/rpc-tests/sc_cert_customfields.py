@@ -278,7 +278,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         # this proof would be invalid but we expect an early failure
         scProof2 = mcTest.create_test_proof(
-            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant2, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
+            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [pkh_node1], [bwt_amount])
 
         params = {
             'scid': scid2,
@@ -310,7 +310,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe1 = "000000000000000000000000000000000000000000000000000000000000" + "0100"
 
         scProof3 = mcTest.create_test_proof(
-            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant2, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [pkh_node1], [bwt_amount],
             [fe1])
 
         print "cum =", epoch_cum_tree_hash_1
@@ -352,7 +352,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         vCmt = ["1111"]
 
         # this proof would not be valid, but we expect an early failure
-        scProof1 = mcTest.create_test_proof('sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount])
+        scProof1 = mcTest.create_test_proof('sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [pkh_node1], [bwt_amount])
 
         params = {
             'scid': scid1,
@@ -388,7 +388,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe4 = BIT_VECTOR_FE
 
         scProof3 = mcTest.create_test_proof(
-            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [pkh_node1], [bwt_amount],
             [fe1, fe2, fe3, fe4])
 
         params = {

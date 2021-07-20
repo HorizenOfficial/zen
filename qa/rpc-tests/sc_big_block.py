@@ -107,7 +107,7 @@ class sc_big_block(BitcoinTestFramework):
                 scid_swapped = str(swap_bytes(scids[i]))
 
                 proof = certMcTest.create_test_proof(
-                    "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [], proofCfeArray,
+                    "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [], proofCfeArray,
                     CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
                 assert_true(proof != None)
                 t1 = time.time()

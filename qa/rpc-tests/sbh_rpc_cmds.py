@@ -206,7 +206,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
             scid_swapped = str(swap_bytes(scid))
             
             proof = certMcTest.create_test_proof(
-                "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount1])
+                "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount1])
 
             #----------------------------------------------------------------------------------------------
             cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality,

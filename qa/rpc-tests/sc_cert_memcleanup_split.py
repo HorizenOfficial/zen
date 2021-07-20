@@ -180,7 +180,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         quality = 10
 
-        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bt_amount])
+        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bt_amount])
 
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:
@@ -205,7 +205,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         pkh_node1 = self.nodes[1].getnewaddress("", True)
         quality = 5
 
-        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bt_amount_2])
+        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bt_amount_2])
 
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount_2}]
         try:

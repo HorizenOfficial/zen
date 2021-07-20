@@ -121,7 +121,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         scid1_swapped = str(swap_bytes(scid_1))
-        proof = mcTest.create_test_proof("sc1", scid1_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant_1, epoch_cum_tree_hash, [pkh_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", scid1_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant_1, [pkh_node2], [bwt_amount])
 
         mark_logs("Node1 sends a certificate for SC {} using unconfirmed UTXO from tx1".format(scid_1), self.nodes, DEBUG_MODE)
         try:
@@ -177,7 +177,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         #Create proof for WCert
         quality = 0
         scid2_swapped = str(swap_bytes(scid_2))
-        proof = mcTest.create_test_proof("sc2", scid2_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant_2, epoch_cum_tree_hash, [], [])
+        proof = mcTest.create_test_proof("sc2", scid2_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant_2, [], [])
 
         mark_logs("Node1 tries to sends a certificate for SC {} using unconfirmed change from cert1".format(scid_2), self.nodes, DEBUG_MODE)
         try:

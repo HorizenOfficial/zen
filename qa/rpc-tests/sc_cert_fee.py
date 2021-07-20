@@ -109,7 +109,7 @@ class sc_cert_base(BitcoinTestFramework):
         
         #Create proof for WCert
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bwt_amount])
         
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
@@ -170,7 +170,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 2
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node2], [bwt_amount_2])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bwt_amount_2])
         
         mark_logs("Node 3 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount_2, pkh_node2), self.nodes, DEBUG_MODE)
         try:

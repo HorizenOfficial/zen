@@ -69,20 +69,34 @@ class MCTestUtils(object):
 class CertTestUtils(MCTestUtils):
     def __init__(self, datadir, srcdir, ps_type = "cob_marlin"):
         MCTestUtils.__init__(self, datadir, srcdir, ps_type)
-        self.file_prefix = str(ps_type) + "_cert_"
 
-    def generate_params(self, id, num_constraints = 1 << 10, segment_size = 1 << 9):
-        return self._generate_params(id, "cert", self.ps_type, self.file_prefix, num_constraints, segment_size)
+    def _get_file_prefix(self, circ_type):
+        return str(self.ps_type) + "_" + circ_type + "_"
 
-    def create_test_proof(self, id, scid, epoch_number, quality, btr_fee, ft_min_amount, constant, end_cum_comm_tree_root, pks = [], amounts = [], custom_fields = [], num_constraints = 1 << 10, segment_size = 1 << 9):
+    def generate_params(self, id, circ_type = "cert", num_constraints = 1 << 10, segment_size = 1 << 9):
+        file_prefix = self._get_file_prefix(circ_type)
+
+        return self._generate_params(id, circ_type, self.ps_type, file_prefix, num_constraints, segment_size)
+
+    def create_test_proof(self, id, scid, epoch_number, quality, btr_fee, ft_min_amount, end_cum_comm_tree_root, constant = None, pks = [], amounts = [], custom_fields = [], num_constraints = 1 << 10, segment_size = 1 << 9):
+        if constant is not None:
+            circ_type = "cert"
+        else:
+            circ_type = "cert_no_const"
+
+        file_prefix = self._get_file_prefix(circ_type)
         params_dir = self._get_params_dir(id)
-        if not os.path.isfile(params_dir + self.file_prefix + "test_pk") or not os.path.isfile(params_dir + self.file_prefix + "test_vk"):
+        if not os.path.isfile(params_dir + file_prefix + "test_pk") or not os.path.isfile(params_dir + file_prefix + "test_vk"):
             return
-        proof_path = "{}_epoch_{}_{}_proof".format(self._get_proofs_dir(id), epoch_number, self.file_prefix)
+        proof_path = "{}_epoch_{}_{}_proof".format(self._get_proofs_dir(id), epoch_number, file_prefix)
         args = []
         args.append(os.getenv("ZENDOOMC", os.path.join(self.srcdir, "zendoo/mcTest")))
-        args += ["create", "cert", str(self.ps_type), str(proof_path), str(params_dir), str(segment_size)]
-        args += [str(scid), str(epoch_number), str(quality), str(constant), str(end_cum_comm_tree_root), str(int(btr_fee * COIN)), str(int(ft_min_amount * COIN))]
+        args += ["create", str(circ_type), str(self.ps_type), str(proof_path), str(params_dir), str(segment_size)]
+        args += [str(scid), str(epoch_number), str(quality)]
+        if constant is not None:
+             args.append(str(constant))
+
+        args += [str(end_cum_comm_tree_root), str(int(btr_fee * COIN)), str(int(ft_min_amount * COIN))]
         args.append(str(num_constraints))
         args.append(str(len(pks)))
         for (pk, amount) in zip(pks, amounts):

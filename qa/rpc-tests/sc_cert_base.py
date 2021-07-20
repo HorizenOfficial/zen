@@ -146,7 +146,7 @@ class sc_cert_base(BitcoinTestFramework):
         #Create proof for WCert
         quality = 10
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
 
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
@@ -247,7 +247,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 tries to send a certificate with a scProof including a bwt with wrong amount...", self.nodes, DEBUG_MODE)
 
         #Create wrong proof for WCert
-        proof_wrong = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount_bad])
+        proof_wrong = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount_bad])
         
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, 
@@ -267,7 +267,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create wrong proof for WCert
         pkh_node1_bad = self.nodes[1].getnewaddress("", True)
-        proof_wrong = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1_bad], [bwt_amount])
+        proof_wrong = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1_bad], [bwt_amount])
         
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, 
@@ -305,7 +305,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 tries to send a certificate with a scProof containing wrong quality...", self.nodes, DEBUG_MODE)
 
         #Create wrong proof for WCert
-        proof_wrong = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality + 1, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
+        proof_wrong = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality + 1, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, 
@@ -324,7 +324,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 tries to send a certificate with a scProof containing wrong MBTR_SC_FEE...", self.nodes, DEBUG_MODE)
 
         #Create wrong proof for WCert
-        proof_wrong = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE + 1, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
+        proof_wrong = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE + 1, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, 
@@ -343,7 +343,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 tries to send a certificate with a scProof containing wrong FT_SC_FEE...", self.nodes, DEBUG_MODE)
 
         #Create wrong proof for WCert
-        proof_wrong = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE + 1, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
+        proof_wrong = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE + 1, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, 
@@ -452,7 +452,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         mark_logs("Node 0 try to generate a certificate for the same epoch number out of the submission window", self.nodes, DEBUG_MODE)
         quality = 11
-        proof2 = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bwt_amount])
+        proof2 = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
 
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, 
@@ -522,7 +522,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         # Create new proof for WCert
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [], [])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
 
         nullFee = Decimal("0.0")
         try:
@@ -627,6 +627,51 @@ class sc_cert_base(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
+
+        mark_logs("Default proof constant test", self.nodes, DEBUG_MODE)
+        mark_logs("Node0 creates new sidechain", self.nodes, DEBUG_MODE)
+        vk2 = mcTest.generate_params("sc2", "cert_no_const")
+
+        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dadb", creation_amount, vk2, "")
+        creating_tx = ret['txid']
+        scid2 = ret['scid']
+        scid2_swapped = str(swap_bytes(scid2))
+        mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
+        self.sync_all()
+
+        decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
+        assert_equal(scid2, decoded_tx['vsc_ccout'][0]['scid'])
+        mark_logs("created SC id: {}".format(scid2), self.nodes, DEBUG_MODE)
+
+        mark_logs("Node0 confirms Sc creation generating 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(1)
+        self.sync_all()
+        self.nodes[0].generate(EPOCH_LENGTH)
+
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid2, self.nodes[0], EPOCH_LENGTH)
+        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
+
+        pkh_node1 = self.nodes[1].getnewaddress("", True)
+
+        #Create proof for WCert
+        quality = 10
+        proof = mcTest.create_test_proof(
+            "sc2", scid2_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash)
+
+        mark_logs("Node 0 tries to send a cert with insufficient Sc balance...", self.nodes, DEBUG_MODE)
+        amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_bad}]
+
+        try:
+            self.nodes[0].send_certificate(scid, epoch_number, quality,
+                epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            assert(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+
+        self.nodes[0].generate(1)
+
+
 
 
 if __name__ == '__main__':
