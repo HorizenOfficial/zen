@@ -492,7 +492,8 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             auto verifier = libzcash::ProofVerifier::Strict();
             if (!(CheckTransaction(wtx.getWrappedTx(), state, verifier) && (wtx.getWrappedTx().GetHash() == hash) && state.IsValid()))
             {
-                LogPrintf("%s: failure: tx id = %s, rejext code = %d", __func__, wtx.getWrappedTx().GetHash().ToString(), CValidationState::CodeToChar(state.GetRejectCode()));
+                LogPrintf("%s():%d - failure: tx id = %s, reject code = %d\n",
+                    __func__, __LINE__, wtx.getWrappedTx().GetHash().ToString(), CValidationState::CodeToChar(state.GetRejectCode()));
                 // Don't consider CValidationState::Code::REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND error code as a failure. It can appear because a tx
                 // is a pre-chainsplit tx, so it is perfectly fine in this case.
                 if (state.GetRejectCode() != CValidationState::Code::CHECKBLOCKATHEIGHT_NOT_FOUND)

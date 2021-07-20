@@ -46,13 +46,14 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-                                 extra_args=[["-forcelocalban", "-sccoinsmaturity=0", '-scproofqueuesize=10', '-logtimemicros=1', '-debug=sc',
-                                              '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench'],
-                                             ["-forcelocalban", "-sccoinsmaturity=0", '-scproofqueuesize=10', '-logtimemicros=1', '-debug=sc',
-                                              '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench'],
+                                 extra_args=[["-forcelocalban", "-sccoinsmaturity=0", '-logtimemicros=1', '-debug=sc',
+                                              '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench', '-debug=cert'],
+                                             ["-forcelocalban", "-sccoinsmaturity=0", '-logtimemicros=1', '-debug=sc',
+                                              '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench', '-debug=cert'],
                                              # Skip proof verification for the last node
-                                             ["-forcelocalban", "-skipscproof", "-sccoinsmaturity=0", '-scproofqueuesize=10', '-logtimemicros=1',
-                                              '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench']])
+                                             ["-forcelocalban", "-skipscproof", "-sccoinsmaturity=0", '-logtimemicros=1',
+                                              '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench',
+                                              '-debug=cert']])
 
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)

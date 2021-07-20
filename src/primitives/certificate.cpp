@@ -117,7 +117,8 @@ bool CScCertificate::CheckSerializedSize(CValidationState &state) const
     BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity
     uint32_t size = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     if (size > MAX_CERT_SIZE) {
-        LogPrintf("CheckSerializedSize: Cert id = %s, size = %d, limit = %d, tx = %s", GetHash().ToString(), size, MAX_CERT_SIZE, ToString());
+        LogPrintf("%s():%d - Cert id = %s, size = %d, limit = %d, cert = %s\n",
+            __func__, __LINE__, GetHash().ToString(), size, MAX_TX_SIZE, ToString());
         return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
                          CValidationState::Code::INVALID, "bad-txns-oversize");
     }
@@ -315,7 +316,7 @@ CScCertificate::MakeShared() const {
 
 CFieldElement CScCertificate::GetDataHash(const Sidechain::ScFixedParameters& scFixedParams) const
 {
-    CCertProofVerifierInput input = SidechainProofVerifier::CertificateToVerifierInput(*this, scFixedParams, nullptr);
+    CCertProofVerifierInput input = CScProofVerifier::CertificateToVerifierItem(*this, scFixedParams, nullptr);
 
     int custom_fields_len = input.vCustomFields.size(); 
     std::unique_ptr<const field_t*[]> custom_fields(new const field_t*[custom_fields_len]);
@@ -338,7 +339,7 @@ CFieldElement CScCertificate::GetDataHash(const Sidechain::ScFixedParameters& sc
     if (bt_list_len == 0)
         bt_list_ptr = nullptr;
 
-    wrappedFieldPtr sptrScId = CFieldElement(input.scId).GetFieldElement();
+    wrappedFieldPtr sptrScId = CFieldElement(input. scId).GetFieldElement();
     field_t* scidFe = sptrScId.get();
 
     CctpErrorCode errorCode;

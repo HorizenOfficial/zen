@@ -629,7 +629,7 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
             remove(cert, dummyTxs, outdatedCerts, true);
         }
     }
-    LogPrint("mempool", "%s():%d - removed %d certs and %d txes", __func__, __LINE__, outdatedCerts.size(), dummyTxs.size());
+    LogPrint("mempool", "%s():%d - removed %d certs and %d txes\n", __func__, __LINE__, outdatedCerts.size(), dummyTxs.size());
 }
 
 
@@ -810,7 +810,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
         }
     }
     
-    LogPrint("mempool", "%s():%d - removed %d certs and %d txes", __func__, __LINE__, outdatedCerts.size(), outdatedTxs.size());
+    LogPrint("mempool", "%s():%d - removed %d certs and %d txes\n", __func__, __LINE__, outdatedCerts.size(), outdatedTxs.size());
 }
 
 /**

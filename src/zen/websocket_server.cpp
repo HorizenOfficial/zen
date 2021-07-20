@@ -20,6 +20,7 @@
 #include "consensus/validation.h"
 #include <univalue.h>
 #include "uint256.h"
+#include "utilmoneystr.h"
 
 extern UniValue send_certificate(const UniValue& params, bool fHelp);
 extern CAmount AmountFromValue(const UniValue& value);
@@ -101,6 +102,7 @@ public:
         GET_NEW_BLOCK_HASHES = 2,
         SEND_CERTIFICATE = 3,
         GET_MULTIPLE_BLOCK_HEADERS = 4,
+        GET_TOP_QUALITY_CERTIFICATES = 5,
         REQ_UNDEFINED = 0xff
     };
     
@@ -225,6 +227,24 @@ private:
         if (!clientRequestId.empty())
             rv->pushKV("requestId", clientRequestId);
         rv->pushKV("responsePayload", rspPayload);
+        wsq.push(wse);
+    }
+    
+    void sendTopQualityCertificates(const UniValue& mempoolCert, const UniValue& chainCert,
+                                    WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+    {
+        // Send a message to the client:  type = eventType
+        WsEvent* wse = new WsEvent(msgType);
+        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
+        UniValue rspPayload(UniValue::VOBJ);
+        
+        rspPayload.push_back(Pair("mempoolTopQualityCert", mempoolCert));
+        rspPayload.push_back(Pair("chainTopQualityCert", chainCert));
+
+        UniValue* rv = wse->getPayload();
+        if (!clientRequestId.empty())
+            rv->push_back(Pair("requestId", clientRequestId));
+        rv->push_back(Pair("responsePayload", rspPayload));
         wsq.push(wse);
     }
 
@@ -484,6 +504,67 @@ private:
         }
 
         sendBlockHeaders(headers, WsEvent::MSG_RESPONSE, clientRequestId);
+
+        return OK;
+    }
+
+    int sendTopQualityCertificatesForScid(const std::string& scIdString, const std::string& clientRequestId)
+    {
+        uint256 scId;
+        scId.SetHex(scIdString);
+        
+        const CCoinsViewCache &view = *pcoinsTip;
+        
+        UniValue mempoolTopQualityCert(UniValue::VOBJ);
+        UniValue chainTopQualityCert(UniValue::VOBJ);
+
+        {
+            LOCK(cs_main);
+            if (!view.HaveSidechain(scId)) {
+                LogPrint("ws", "%s():%d - sidechain id not found[%s]\n", __func__, __LINE__, scIdString);
+                return INVALID_PARAMETER;
+            }
+        
+            if (mempool.hasSidechainCertificate(scId))
+            {
+                const uint256& topQualCertHash = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
+                const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
+                const CAmount certFee = mempool.mapCertificate.at(topQualCertHash).GetFee();
+                CDataStream ssCert(SER_NETWORK, PROTOCOL_VERSION);
+                ssCert << topQualCert;
+                std::string certHex = HexStr(ssCert.begin(), ssCert.end());
+     
+                mempoolTopQualityCert.push_back(Pair("quality", topQualCert.quality));
+                mempoolTopQualityCert.push_back(Pair("epoch", topQualCert.epochNumber));
+                mempoolTopQualityCert.push_back(Pair("certHash", topQualCertHash.GetHex()));
+                mempoolTopQualityCert.push_back(Pair("rawCertificateHex", certHex));
+                mempoolTopQualityCert.push_back(Pair("fee", FormatMoney(certFee)));
+            }
+
+            CSidechain sidechainInfo;
+
+            if (view.GetSidechain(scId, sidechainInfo) && !sidechainInfo.lastTopQualityCertHash.IsNull()) {
+                const int topQualityCertQuality = sidechainInfo.lastTopQualityCertQuality;
+                CScCertificate topQualCert;
+                uint256 blockHash;
+
+                if (GetCertificate(sidechainInfo.lastTopQualityCertHash, topQualCert, blockHash, true)) {
+                    CDataStream ssCert(SER_NETWORK, PROTOCOL_VERSION);
+                    ssCert << topQualCert;
+                    std::string certHex = HexStr(ssCert.begin(), ssCert.end());
+
+                    chainTopQualityCert.push_back(Pair("quality", topQualityCertQuality));
+                    chainTopQualityCert.push_back(Pair("epoch", topQualCert.epochNumber));
+                    chainTopQualityCert.push_back(Pair("certHash", sidechainInfo.lastTopQualityCertHash.GetHex()));
+                    chainTopQualityCert.push_back(Pair("rawCertificateHex", certHex));
+                } else {
+                    LogPrint("ws", "%s():%d - unable to retrieve last top quality certificate[%s]\n", __func__, __LINE__, sidechainInfo.lastTopQualityCertHash.GetHex());
+                    return INVALID_PARAMETER;
+                }
+            }
+        }
+
+        sendTopQualityCertificates(mempoolTopQualityCert, chainTopQualityCert, WsEvent::MSG_RESPONSE, clientRequestId);
 
         return OK;
     }
@@ -874,6 +955,30 @@ private:
                 }
 
                 return sendHeadersFromHashes(hashArray, clientRequestId);
+            }
+            
+            if (requestType == std::to_string(WsEvent::GET_TOP_QUALITY_CERTIFICATES))
+            {
+                reqType = WsEvent::GET_TOP_QUALITY_CERTIFICATES;
+                if (clientRequestId.empty()) {
+                    LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_REQID;
+                }
+                const UniValue& reqPayload = find_value(request, "requestPayload");
+                if (reqPayload.isNull())
+                {
+                    LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
+                    return INVALID_JSON_FORMAT;
+                }
+
+                std::string scId = findFieldValue("scid", reqPayload);
+                if (scId.empty())
+                {
+                    LogPrint("ws", "%s():%d - scid empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_PARAMETER;
+                }
+
+                return sendTopQualityCertificatesForScid(scId, clientRequestId);
             }
 
             // if we are here that means it is no valid request type, and reqType is an enum defaulting to 255
