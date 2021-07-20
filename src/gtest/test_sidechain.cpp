@@ -1058,7 +1058,7 @@ TEST_F(SidechainsTestSuite, RestoreSidechainRestoresLastCertHash) {
     CSidechain sidechainAtCreation;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainAtCreation));
 
-    CBlockUndo dummyBlockUndo;
+    CBlockUndo dummyBlockUndo(IncludeScAttributes::ON);
     std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(scCreationHeight + sidechainsView->getScCoinsMaturity(), dummyBlockUndo, &dummy));
 
@@ -1067,7 +1067,7 @@ TEST_F(SidechainsTestSuite, RestoreSidechainRestoresLastCertHash) {
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch, dummyCumTree,
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
-    CBlockUndo blockUndo;
+    CBlockUndo blockUndo(IncludeScAttributes::ON);
     ASSERT_TRUE(sidechainsView->UpdateSidechain(cert, blockUndo));
     CSidechain sidechainPostCert;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainPostCert));
@@ -1149,11 +1149,11 @@ TEST_F(SidechainsTestSuite, CertificateUpdatesTopCommittedCertHash) {
 
     //Fully mature initial Sc balance
     int coinMaturityHeight = scCreationHeight + sidechainsView->getScCoinsMaturity();
-    CBlockUndo dummyBlockUndo;
+    CBlockUndo dummyBlockUndo(IncludeScAttributes::ON);
     std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
 
-    CBlockUndo blockUndo;
+    CBlockUndo blockUndo(IncludeScAttributes::ON);
     CFieldElement dummyCumTree{SAMPLE_FIELD};
     CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
@@ -1584,7 +1584,7 @@ TEST_F(SidechainsTestSuite, GetSidechainForFwdTransfersInMempool) {
 
     //Fully mature initial Sc balance
     int coinMaturityHeight = scCreationHeight + sidechainsView->getScCoinsMaturity();
-    CBlockUndo dummyBlockUndo;
+    CBlockUndo dummyBlockUndo(IncludeScAttributes::ON);
     std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
 
@@ -1680,7 +1680,7 @@ TEST_F(SidechainsTestSuite, CSidechainBlockUndoVersioning) {
 
     // write a new version undo block to the same file
     //-----------------------------------------------
-    CBlockUndo buon;
+    CBlockUndo buon(IncludeScAttributes::ON);
     buon.vtxundo.reserve(1);
     buon.vtxundo.push_back(CTxUndo());
 
@@ -1710,7 +1710,7 @@ TEST_F(SidechainsTestSuite, CSidechainBlockUndoVersioning) {
     EXPECT_TRUE(filein.Get() != NULL);
 
     bool good_read = true;
-    CBlockUndo b1, b2;
+    CBlockUndo b1(IncludeScAttributes::ON), b2(IncludeScAttributes::ON);
     uint256 h1, h2;
     try {
         filein >> b1;
@@ -1740,7 +1740,7 @@ TEST_F(SidechainsTestSuite, CSidechainBlockUndoVersioning) {
 ///////////////////////////////////////////////////////////////////////////////
 CBlockUndo SidechainsTestSuite::createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash)
 {
-    CBlockUndo retVal;
+    CBlockUndo retVal(IncludeScAttributes::ON);
     CAmount AmountPerHeight = amount;
     CSidechainUndoData data;
     data.appliedMaturedAmount = AmountPerHeight;
@@ -1927,7 +1927,7 @@ TEST_F(SidechainsTestSuite, NewCertificateUpdatesFeesAndDataLength)
 
     //Fully mature initial Sc balance
     int coinMaturityHeight = scCreationHeight + sidechainsView->getScCoinsMaturity();
-    CBlockUndo dummyBlockUndo;
+    CBlockUndo dummyBlockUndo(IncludeScAttributes::ON);
     std::vector<CScCertificateStatusUpdateInfo> dummyInfo;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummyInfo));
 

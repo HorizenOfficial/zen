@@ -293,6 +293,8 @@ struct CSidechainUndoData
     }
 };
 
+enum class IncludeScAttributes { ON, OFF };
+
 /** Undo information for a CBlock */
 class CBlockUndo
 {
@@ -315,7 +317,8 @@ public:
     std::map<uint256, CSidechainUndoData> scUndoDatabyScId;
 
     /** create as new */
-    CBlockUndo() : includesSidechainAttributes(true) {}
+    CBlockUndo() = delete;
+    CBlockUndo(IncludeScAttributes includeSC) : includesSidechainAttributes(includeSC==IncludeScAttributes::ON) {}
 
     size_t GetSerializeSize(int nType, int nVersion) const
     {

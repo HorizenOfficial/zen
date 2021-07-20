@@ -867,7 +867,7 @@ TEST_F(SidechainsInMempoolTestSuite, CSWsToCeasedSidechainWithoutVK) {
 //    sidechainsView.Flush();
 
     // Make coins mature
-    CBlockUndo dummyBlockUndo;
+    CBlockUndo dummyBlockUndo(IncludeScAttributes::ON);
     std::vector<CScCertificateStatusUpdateInfo> dummy;
     int coinsMatureHeight = creationHeight + Params().ScCoinsMaturity();
     ASSERT_TRUE(sidechainsView.HandleSidechainEvents(coinsMatureHeight, dummyBlockUndo, &dummy));
@@ -1493,7 +1493,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/ftScFee + 1, /*mbtrScFee*/CAmount(0), /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
-    CBlockUndo aBlock;
+    CBlockUndo aBlock(IncludeScAttributes::ON);
     sidechainsView.UpdateSidechain(certificate, aBlock);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
@@ -1527,7 +1527,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempool)
         /*inputAmount*/dummyInputAmount, /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount,
         /*numBwt*/2, /*ftScFee*/ftScFee - 1, /*mbtrScFee*/CAmount(0), /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
-    CBlockUndo aBlock;
+    CBlockUndo aBlock(IncludeScAttributes::ON);
     sidechainsView.UpdateSidechain(certificate, aBlock);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
@@ -1561,7 +1561,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/CAmount(0), /*mbtrScFee*/mbtrScFee + 1, /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
-    CBlockUndo aBlock;
+    CBlockUndo aBlock(IncludeScAttributes::ON);
     sidechainsView.UpdateSidechain(certificate, aBlock);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
@@ -1595,7 +1595,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempool)
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/CAmount(0), /*mbtrScFee*/mbtrScFee - 1, /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
-    CBlockUndo aBlock;
+    CBlockUndo aBlock(IncludeScAttributes::ON);
     sidechainsView.UpdateSidechain(certificate, aBlock);
     moveSidechainToNextEpoch(scId, sidechainsView);
 

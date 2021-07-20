@@ -63,8 +63,8 @@ private:
 
 class SidechainsMultipleCertsTestSuite : public ::testing::Test {
 public:
-    SidechainsMultipleCertsTestSuite(): fakeChainStateDb(nullptr), sidechainsView(nullptr),
-                                       dummyBlock(), dummyUndo(), dummyBlockUndo(),
+    SidechainsMultipleCertsTestSuite(): fakeChainStateDb(nullptr), sidechainsView(nullptr), dummyBlock(),
+                                       dummyUndo(IncludeScAttributes::ON), dummyBlockUndo(IncludeScAttributes::ON),
                                        dummyScriptPubKey() {
         dummyScriptPubKey = GetScriptForDestination(CKeyID(uint160(ParseHex("816115944e077fe7c803cfa57f29b36bf87c1d35"))),/*withCheckBlockAtHeight*/false);
     }
@@ -266,7 +266,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataCh
     highQualityCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
     CAmount highQualityCert_TotalBwtAmount = CScCertificate(highQualityCert).GetValueOfBackwardTransfers();
 
-    CBlockUndo blockUndo;
+    CBlockUndo blockUndo(IncludeScAttributes::ON);
     ASSERT_TRUE(sidechainsView->UpdateSidechain(highQualityCert, blockUndo));
 
     //test
@@ -306,7 +306,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDa
     nextEpochCert.quality     = initialScState.lastTopQualityCertQuality / 2;
     nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
 
-    CBlockUndo blockUndo;
+    CBlockUndo blockUndo(IncludeScAttributes::ON);
     ASSERT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, blockUndo));
 
     //test
