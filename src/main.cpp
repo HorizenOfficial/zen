@@ -1362,7 +1362,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         if (!ContextualCheckCertInputs(cert, state, view, true, chainActive, STANDARD_CONTEXTUAL_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
-            LogPrintf("%s(): ConnectInputs failed %s", __func__, certHash.ToString());
+            LogPrintf("%s():%d - ERROR: ConnectInputs failed, cert[%s]\n", __func__, __LINE__, certHash.ToString());
             return MempoolReturnValue::INVALID;
         }
 
@@ -1377,8 +1377,8 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         // can be exploited as a DoS attack.
         if (!ContextualCheckCertInputs(cert, state, view, true, chainActive, MANDATORY_SCRIPT_VERIFY_FLAGS, true, Params().GetConsensus()))
         {
-            LogPrintf("%s(): BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s",
-                                __func__, certHash.ToString());
+            LogPrintf("%s():%d - BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags, cert[%s]\n",
+                                __func__, __LINE__, certHash.ToString());
             return MempoolReturnValue::INVALID;
         }
 
@@ -1428,7 +1428,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
 
     if (!tx.CheckInputsLimit())
     {
-        LogPrintf("%s(): CheckInputsLimit failed", __func__);
+        LogPrintf("%s():%d - CheckInputsLimit failed\n", __func__, __LINE__);
         return MempoolReturnValue::INVALID;
     }
 
@@ -1484,7 +1484,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
 
     if (!pool.checkIncomingTxConflicts(tx))
     {
-        LogPrintf("%s():%d: tx[%s] has conflicts in mempool", __func__, __LINE__, tx.GetHash().ToString());
+        LogPrintf("%s():%d: tx[%s] has conflicts in mempool\n", __func__, __LINE__, tx.GetHash().ToString());
         return MempoolReturnValue::INVALID;
     }
 
@@ -5499,7 +5499,7 @@ void static CheckBlockIndex()
                 // setBlockIndexCandidates.  chainActive.Tip() must also be there
                 // even if some data has been pruned.
                 if (pindexFirstMissing == NULL || pindex == chainActive.Tip()) {
-                    // LogPrintf("net","ASSERT============>%x  but  %x", pindex->phashBlock, chainActive.Tip()->phashBlock);
+                    // LogPrintf("net","ASSERT============>%x  but  %x\n", pindex->phashBlock, chainActive.Tip()->phashBlock);
                     assert(setBlockIndexCandidates.count(pindex));
                 }
                 // If some parent is missing, then it could be that this block was in
