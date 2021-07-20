@@ -1,9 +1,9 @@
 package=crate_crossbeam-epoch_z
 $(package)_crate_name=crossbeam-epoch
-$(package)_version=0.9.4
+$(package)_version=0.9.5
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=52fb27eab85b17fbb9f6fd667089e07d6a2eb8743d02639ee7f6a7a7729c9c94
+$(package)_sha256_hash=4ec02e091aa634e2c3ada4a392989e7c3116673ef0ac5b72232439094d73b7fd
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds
