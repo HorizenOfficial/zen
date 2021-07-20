@@ -27,7 +27,7 @@ CERT_FEE = Decimal("0.000123")
 
 BIT_VECTOR_BUF = "021f8b08000000000002ff017f0080ff44c7e21ba1c7c0a29de006cb8074e2ba39f15abfef2525a4cbb3f235734410bda21cdab6624de769ceec818ac6c2d3a01e382e357dce1f6e9a0ff281f0fedae0efe274351db37599af457984dcf8e3ae4479e0561341adfff4746fbe274d90f6f76b8a2552a6ebb98aee918c7ceac058f4c1ae0131249546ef5e22f4187a07da02ca5b7f000000"
 BIT_VECTOR_BUF_NOT_POW2 = "01425a68393141592653591dadce4d0000fe8180900000100008200030cc09aa69901b5403c5dc914e1424076b739340"
-BIT_VECTOR_BUF_HUGE = "" # This buffer should be filled with data read from file
+BIT_VECTOR_BUF_HUGE = "" # This buffer will be filled with data read from file
 BIT_VECTOR_FE  = "8a7d5229f440d4700d8b0343de4e14400d1cb87428abf83bd67153bf58871721"
 
 class sc_cert_customfields(BitcoinTestFramework):
@@ -420,7 +420,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe4 = BIT_VECTOR_FE
 
         scProof3 = mcTest.create_test_proof(
-            'sc1', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
             [fe1, fe2, fe3, fe4])
 
         params = {
@@ -460,7 +460,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe4 = BIT_VECTOR_FE
 
         scProof3 = mcTest.create_test_proof(
-            'sc1', epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
             [fe1, fe2, fe3, fe4])
 
         params = {
