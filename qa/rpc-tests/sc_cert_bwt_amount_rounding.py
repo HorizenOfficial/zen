@@ -120,9 +120,10 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
         print "Generating cert proof..."
         t0 = time.time()
         q = 10
+        scid_swapped = str(swap_bytes(scid))
         print "---------------------"
         proof = certMcTest.create_test_proof(
-            "scs", epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, pkh_array, bwt_amount_array)
+            "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, pkh_array, bwt_amount_array)
         assert_true(proof != None)
         t1 = time.time()
         print "...proof with sz={} generated: {} secs".format(len(proof)//2, t1-t0)
