@@ -139,7 +139,7 @@ class sc_big_block(BitcoinTestFramework):
         certMcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir, CERT_PROVING_SYSTEM)
         cswMcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir, CSW_PROVING_SYSTEM)
 
-        certVk = certMcTest.generate_params('scs', CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
+        certVk = certMcTest.generate_params('scs', 'cert', CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
         cswVk  = cswMcTest.generate_params('scs', CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
 
         constant = generate_random_field_element_hex()
