@@ -67,7 +67,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         # network topology: (0)--(1)
 
         # Read the huge bit vector from file
-        with open("16_GB_bitvector.bz2", "rb") as f:
+        with open(os.path.dirname(os.path.abspath(__file__)) + "/../zen/test_data/16_GB_bitvector.bz2", "rb") as f:
             BIT_VECTOR_BUF_HUGE = binascii.hexlify(f.read())
 
         mark_logs("Node 1 generates 2 block",self.nodes,DEBUG_MODE)
