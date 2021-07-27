@@ -120,6 +120,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
 
     // setup sidechain initial state...
     CSidechain initialScState;
+    initialScState.fixedParams.withdrawalEpochLength = 10;
     initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -161,6 +162,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
 
     // setup sidechain initial state...
     CSidechain initialScState;
+    initialScState.fixedParams.withdrawalEpochLength = 10;
     initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -201,6 +203,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_Sidech
 
     // setup sidechain initial state...
     CSidechain initialScState;
+    initialScState.fixedParams.withdrawalEpochLength = 10;
     initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -242,6 +245,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataCh
 
     // setup sidechain initial state...
     CSidechain initialScState;
+    initialScState.fixedParams.withdrawalEpochLength = 10;
     initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -283,18 +287,20 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDa
 
     // setup sidechain initial state...
     CSidechain initialScState;
+    initialScState.fixedParams.withdrawalEpochLength = 10;
     initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 1987;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.lastTopQualityCertView.forwardTransferScFee = CAmount(10);
+    initialScState.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = CAmount(20);
+    
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
-    CSidechain sidechainBeforeCert;
-    ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainBeforeCert));
-    int initialScheduledHeight = sidechainBeforeCert.GetScheduledCeasingHeight();
+    int initialScheduledHeight = initialScState.GetScheduledCeasingHeight();
     CSidechainEvents scEvent;
     scEvent.ceasingScs.insert(scId);
     txCreationUtils::storeSidechainEvent(sidechainsView->getScEventsMap(), initialScheduledHeight, scEvent);

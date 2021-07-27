@@ -134,6 +134,7 @@ public:
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 52596;
         nScCoinsMaturity = 10;
+        nScNumBlocksForScFeeCheck = 200;
         nScMinWithdrawalEpochLength = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
@@ -234,6 +235,7 @@ public:
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 52596;
         nScCoinsMaturity = 10;
+        nScNumBlocksForScFeeCheck = 200;
         nScMinWithdrawalEpochLength = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
@@ -324,6 +326,7 @@ public:
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 320;
         nScCoinsMaturity = 3;
+        nScNumBlocksForScFeeCheck = 10;
         nScMinWithdrawalEpochLength = 2;
 
         checkpointData = (Checkpoints::CCheckpointData){

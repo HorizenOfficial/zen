@@ -150,7 +150,7 @@ std::string CSidechain::ToString() const
 }
 
 size_t CSidechain::DynamicMemoryUsage() const {
-    return memusage::DynamicUsage(mImmatureAmounts);
+    return memusage::DynamicUsage(mImmatureAmounts) +  memusage::DynamicUsage(forwardTxScFees);
 }
 
 size_t CSidechainEvents::DynamicMemoryUsage() const {
@@ -161,6 +161,8 @@ size_t CSidechainEvents::DynamicMemoryUsage() const {
 bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state) { return true; }
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state) { return true; }
 bool CSidechain::GetCeasingCumTreeHash(CFieldElement& ceasedBlockCum) const { return true; }
+void CSidechain::InitFtScFees() {}
+bool CSidechain::UpdateFtScFees(const CScCertificateView& certView) { return true; }
 #else
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
@@ -501,6 +503,103 @@ bool CSidechain::GetCeasingCumTreeHash(CFieldElement& ceasedBlockCum) const
 
     ceasedBlockCum = ceasedBlockIndex->scCumTreeHash;
     return true;
+}
+
+#if 0
+static int getInitNumBlocksForScFeeCheck()
+#else
+int CSidechain::getNumBlocksForScFeeCheck()
+{
+    if ( (Params().NetworkIDString() == "regtest") )
+    {
+        int val = (int)(GetArg("-blocksforscfeecheck", Params().ScNumBlocksForScFeeCheck() ));
+        if (val >= 0)
+        {
+            LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+            return val;
+        }
+        LogPrint("sc", "%s():%d - %s: val %d is negative, using default %d\n",
+            __func__, __LINE__, Params().NetworkIDString(), val, Params().ScNumBlocksForScFeeCheck());
+    }
+    return Params().ScNumBlocksForScFeeCheck();
+}
+#endif
+
+#if 0
+int CSidechain::getNumBlocksForScFeeCheck()
+{
+    // gets constructed just one time
+    static int retVal( getInitNumBlocksForScFeeCheck() );
+    return retVal;
+}
+#endif
+
+void CSidechain::InitFtScFees()
+{
+    // only in the very first time, calculate the size of the buffer
+    if (sizeOfScFeesContainers == -1)
+    {
+        int epochLength = fixedParams.withdrawalEpochLength;
+
+        assert(epochLength > 0);
+       
+        int numBlocks = getNumBlocksForScFeeCheck();
+        sizeOfScFeesContainers = numBlocks / epochLength;
+        if (sizeOfScFeesContainers == 0 || (numBlocks % epochLength != 0) )
+        {
+            sizeOfScFeesContainers++;
+        }
+        LogPrint("sc", "%s():%d - sizeOfScFeesContainers set to %d\n", __func__, __LINE__, sizeOfScFeesContainers);
+
+        assert(sizeOfScFeesContainers > 0);
+        assert(forwardTxScFees.empty());
+        forwardTxScFees.resize(sizeOfScFeesContainers);
+    }
+}
+
+bool CSidechain::UpdateFtScFees(const CScCertificateView& certView)
+{
+    InitFtScFees();
+
+    CAmount scFee = certView.forwardTransferScFee;
+
+    // check if we are past the buffer size
+    if (forwardTxScFees.size() >= sizeOfScFeesContainers)
+    {
+        // remove the head
+        LogPrint("sc", "%s():%d - popping %d from list\n", __func__, __LINE__, forwardTxScFees.front());
+        forwardTxScFees.pop_front();
+    }
+
+    LogPrint("sc", "%s():%d - pushing %d into list with size %d\n", __func__, __LINE__, scFee, forwardTxScFees.size());
+    forwardTxScFees.push_back(scFee);
+    return true;
+}
+
+void CSidechain::DumpFtScFees() const
+{
+    std::cout << __func__ << "(): ";
+    for (auto val : forwardTxScFees)
+        std::cout << std::setw(2) << val << "-";
+    std::cout << std::endl;
+}
+
+CAmount CSidechain::GetMinFtScFee() const
+{
+    CAmount minScFee = MAX_MONEY;
+    if (forwardTxScFees.empty())
+    {
+        LogPrint("sc", "%s():%d - list empty, returning creation value: %lld\n", __func__, __LINE__, minScFee);
+        minScFee = pastEpochTopQualityCertView.forwardTransferScFee;
+    }
+    else
+    {
+        minScFee = *std::min_element(forwardTxScFees.begin(), forwardTxScFees.end(),
+                [] (CAmount a, CAmount b) { return a < b; } // check if this is needed or the dafault operator is ok
+        );
+        LogPrint("sc", "%s():%d - returning min=%lld\n", __func__, __LINE__, minScFee);
+    }
+    return minScFee;
 }
 
 #endif

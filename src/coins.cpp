@@ -1252,10 +1252,22 @@ bool CCoinsViewCache::CheckScTxTiming(const uint256& scId) const
  * @param ftOutput The Forward Transfer output to be checked.
  * @return true if ftOutput is still valid, false otherwise.
  */
-bool CCoinsViewCache::CheckScFtFee(const CTxForwardTransferOut& ftOutput) const
+bool CCoinsViewCache::IsFtScFeeApplicable(const CTxForwardTransferOut& ftOutput) const
 {
     CScCertificateView certView = GetActiveCertView(ftOutput.scId);
     return ftOutput.nValue > certView.forwardTransferScFee;
+}
+
+bool CCoinsViewCache::CheckMinimumFtScFee(const CTxForwardTransferOut& ftOutput) const
+{
+    const CSidechain* const pSidechain = this->AccessSidechain(ftOutput.scId);
+
+    if (pSidechain == nullptr)
+        return false;
+    if (this->GetSidechainState(ftOutput.scId) != CSidechain::State::ALIVE)
+        return false;
+
+    return (ftOutput.nValue > pSidechain->GetMinFtScFee());
 }
 
 /**
@@ -1314,7 +1326,7 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
          * Check that the Forward Transfer amount is strictly greater than the
          * Sidechain Forward Transfer Fee.
          */
-        if (!CheckScFtFee(ft))
+        if (!IsFtScFeeApplicable(ft))
         {
             LogPrintf("%s():%d - ERROR: Invalid tx[%s] to scId[%s]: FT amount [%s] must be greater than SC FT fee [%s]\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(ft.nValue), FormatMoney(GetActiveCertView(scId).forwardTransferScFee));
@@ -1493,9 +1505,11 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     {
         //Lazy update of pastEpochTopQualityCertView
         scUndoData.pastEpochTopQualityCertView = currentSc.pastEpochTopQualityCertView;
+        scUndoData.forwardTxScFees             = currentSc.forwardTxScFees;
         scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA;
 
         currentSc.pastEpochTopQualityCertView = currentSc.lastTopQualityCertView;
+        currentSc.UpdateFtScFees(currentSc.pastEpochTopQualityCertView);
     } else if (cert.epochNumber == currentSc.lastTopQualityCertReferencedEpoch)
     {
         if (cert.quality <= currentSc.lastTopQualityCertQuality) // should never happen
@@ -1677,6 +1691,7 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     if (certToRevert.epochNumber == (sidechainUndo.prevTopCommittedCertReferencedEpoch + 1))
     {
         assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA);
+        currentSc.forwardTxScFees             = sidechainUndo.forwardTxScFees;
         currentSc.pastEpochTopQualityCertView = sidechainUndo.pastEpochTopQualityCertView;
     }
     else if (certToRevert.epochNumber == sidechainUndo.prevTopCommittedCertReferencedEpoch)

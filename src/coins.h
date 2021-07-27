@@ -676,7 +676,8 @@ public:
 
     CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode = nullptr) const;
     bool CheckScTxTiming(const uint256& scId) const;
-    bool CheckScFtFee(const CTxForwardTransferOut& ftOutput) const;
+    bool IsFtScFeeApplicable(const CTxForwardTransferOut& ftOutput) const;
+    bool CheckMinimumFtScFee(const CTxForwardTransferOut& ftOutput) const;
     bool CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const;
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);

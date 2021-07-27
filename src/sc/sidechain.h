@@ -56,22 +56,23 @@ public:
         pastEpochTopQualityCertView(), lastTopQualityCertView(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
-        balance(0) {}
+        balance(0), sizeOfScFeesContainers(-1) {}
 
     bool IsNull() const
     {
         return (
              creationBlockHeight == -1                                        &&
              creationTxHash.IsNull()                                          &&
-             pastEpochTopQualityCertView.IsNull()                                  &&
+             pastEpochTopQualityCertView.IsNull()                             &&
              lastTopQualityCertView.IsNull()                                  &&
              lastTopQualityCertHash.IsNull()                                  &&
              lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL  &&
              lastTopQualityCertQuality == CScCertificate::QUALITY_NULL        &&
              lastTopQualityCertBwtAmount == 0                                 &&
              balance == 0                                                     &&
-             fixedParams.IsNull()                                            &&
-             mImmatureAmounts.empty());
+             fixedParams.IsNull()                                             &&
+             mImmatureAmounts.empty())                                        &&
+             forwardTxScFees.empty();
     }
 
     int32_t sidechainVersion;
@@ -103,6 +104,14 @@ public:
     // value = the immature amount
     std::map<int, CAmount> mImmatureAmounts;
 
+    // the last ftScFee values, as set by the active certificates
+    std::list<CAmount> forwardTxScFees;
+
+    // memory only
+    int sizeOfScFeesContainers;
+
+    int getNumBlocksForScFeeCheck();
+
     enum class State : uint8_t {
         NOT_APPLICABLE = 0,
         UNCONFIRMED,
@@ -131,22 +140,24 @@ public:
         READWRITE(balance);
         READWRITE(fixedParams);
         READWRITE(mImmatureAmounts);
+        READWRITE(forwardTxScFees);
     }
 
     inline bool operator==(const CSidechain& rhs) const
     {
-        return (this->sidechainVersion                           == rhs.sidechainVersion)                           &&
-               (this->creationBlockHeight                        == rhs.creationBlockHeight)                        &&
-               (this->creationTxHash                             == rhs.creationTxHash)                             &&
-               (this->pastEpochTopQualityCertView                == rhs.pastEpochTopQualityCertView)                &&
-               (this->lastTopQualityCertView                     == rhs.lastTopQualityCertView)                     &&
-               (this->lastTopQualityCertHash                     == rhs.lastTopQualityCertHash)                     &&
-               (this->lastTopQualityCertReferencedEpoch          == rhs.lastTopQualityCertReferencedEpoch)          &&
-               (this->lastTopQualityCertQuality                  == rhs.lastTopQualityCertQuality)                  &&
-               (this->lastTopQualityCertBwtAmount                == rhs.lastTopQualityCertBwtAmount)                &&
-               (this->balance                                    == rhs.balance)                                    &&
-               (this->fixedParams                               == rhs.fixedParams)                               &&
-               (this->mImmatureAmounts                           == rhs.mImmatureAmounts);
+        return (this->sidechainVersion                           == rhs.sidechainVersion)                  &&
+               (this->creationBlockHeight                        == rhs.creationBlockHeight)               &&
+               (this->creationTxHash                             == rhs.creationTxHash)                    &&
+               (this->pastEpochTopQualityCertView                == rhs.pastEpochTopQualityCertView)       &&
+               (this->lastTopQualityCertView                     == rhs.lastTopQualityCertView)            &&
+               (this->lastTopQualityCertHash                     == rhs.lastTopQualityCertHash)            &&
+               (this->lastTopQualityCertReferencedEpoch          == rhs.lastTopQualityCertReferencedEpoch) &&
+               (this->lastTopQualityCertQuality                  == rhs.lastTopQualityCertQuality)         &&
+               (this->lastTopQualityCertBwtAmount                == rhs.lastTopQualityCertBwtAmount)       &&
+               (this->balance                                    == rhs.balance)                           &&
+               (this->fixedParams                                == rhs.fixedParams)                       &&
+               (this->mImmatureAmounts                           == rhs.mImmatureAmounts)                  &&
+               (this->forwardTxScFees                            == rhs.forwardTxScFees);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
@@ -163,6 +174,11 @@ public:
     bool isCreationConfirmed() const {
         return this->creationBlockHeight != -1;
     }
+
+    void InitFtScFees();
+    bool UpdateFtScFees(const CScCertificateView& certView);
+    CAmount GetMinFtScFee() const;
+    void DumpFtScFees() const;
 
     // Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;

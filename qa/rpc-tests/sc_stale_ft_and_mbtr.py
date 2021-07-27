@@ -15,11 +15,9 @@ from decimal import Decimal
 import pprint
 import time
 
-NUMB_OF_NODES = 3
+NUMB_OF_NODES = 4
 DEBUG_MODE = 1
-SC_COINS_MAT = 2
 EPOCH_LENGTH = 10
-MAX_MONEY = 21000000
 CERT_FEE = Decimal('0.015') # high fee rate
 BLK_MAX_SZ = 5000
 NUM_BLOCK_FOR_SC_FEE_CHECK = EPOCH_LENGTH+1
@@ -38,26 +36,31 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-                                 extra_args=[["-sccoinsmaturity=%d" % SC_COINS_MAT, '-scproofqueuesize=0', '-logtimemicros=1', '-debug=sc',
+                                 extra_args=[['-scproofqueuesize=0', '-logtimemicros=1', '-debug=sc',
                                               '-debug=py', '-debug=mempool', '-debug=net',
                                               '-blockprioritysize=100',
                                               '-blockmaxsize=%d'%BLK_MAX_SZ,
-                                              '-sc_num_blocks_for_scfee_check=%d'%NUM_BLOCK_FOR_SC_FEE_CHECK,
+                                              '-blocksforscfeecheck=%d'%NUM_BLOCK_FOR_SC_FEE_CHECK,
                                               '-debug=bench']] * NUMB_OF_NODES)
 
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
+        connect_nodes_bi(self.nodes, 2, 3)
         self.is_network_split = split
         self.sync_all()
 
     def run_test(self):
 
         '''
-        This test checks that sidechain Forward Transfer fee, Mainchain Backward Transfer Request fee,
-        and Mainchain Backward Transfer Request data length are set and handled correctly.
+        This test checks that FT and McBTR txes are not evicted from mempool until the numbers of blocks 
+        set by the constant defined in the base code (and overriden here by the -blocksforscfeecheck zend option)
+        are connected to the active chain.
+        In order to verify it, two null-fee and low-prio txes are sent to the mempool with a FT and a Mbtr, a large number
+        of high-fee/high prio txes are  added too, and the miners have a small block capacity, so that the former pair is never 
+        mined, while SC epochs increase evolving active certificates. 
         '''
 
-        # network topology: (0)--(1)--(2)
+        # network topology: (0)--(1)--(2)--(3)
 
         mark_logs("Node 0 generates 310 blocks", self.nodes, DEBUG_MODE)
         blocks = self.nodes[0].generate(310)
@@ -105,13 +108,20 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         self.sync_all()
         #pprint.pprint(self.nodes[0].getrawmempool(True))
 
-        # send a very small amount to node 2, which will use it as input
-        # for the FT, which will have then very low priority
-        mark_logs("Node 1 send a small coin to Node2", self.nodes, DEBUG_MODE)
+        # send a very small amount to node 2 and 3, which will use it as input
+        # for the FT and McBTR, which will have then very low priority
+        mark_logs("Node 1 send a small coins to Node2", self.nodes, DEBUG_MODE)
         taddr2 = self.nodes[2].getnewaddress()
-        tx_for_input = self.nodes[1].sendtoaddress(taddr2, 0.001)
-        mark_logs("tx={}".format(tx_for_input), self.nodes, DEBUG_MODE)
+        tx_for_input_2 = self.nodes[1].sendtoaddress(taddr2, 0.001)
+        mark_logs("tx={}".format(tx_for_input_2), self.nodes, DEBUG_MODE)
         self.sync_all()
+
+        mark_logs("Node 1 send a small coins to Node3", self.nodes, DEBUG_MODE)
+        taddr3 = self.nodes[3].getnewaddress()
+        tx_for_input_3 = self.nodes[1].sendtoaddress(taddr3, 0.001)
+        mark_logs("tx={}".format(tx_for_input_3), self.nodes, DEBUG_MODE)
+        self.sync_all()
+
 
         # ---------------------------------------------------------------------------------------
         mark_logs("Node 1 generates " + str(EPOCH_LENGTH) + " blocks", self.nodes, DEBUG_MODE)
@@ -120,26 +130,47 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         errorString = ""
         ftScFee = 0.00023
+        mbtrScFee = 0.00034
+
+        # beside having a low priority (see above) these txes also are free: very low probability to get mined 
+        # if the block size is small and there are other txes
         # ---------------------------------------------------------------------------------------
         mark_logs("\nNode 2 creates a tx with a FT output", self.nodes, DEBUG_MODE)
 
         forwardTransferOuts = [{'toaddress': address, 'amount': ftScFee, "scid":scid}]
 
-        # beside having a low priority (see above) it also is free: very low probability to get mined 
-        # if the block size is small and there are other txes
         try:
             txFT = self.nodes[2].send_to_sidechain(forwardTransferOuts, { "fee": 0.0})
         except JSONRPCException, e:
             errorString = e.error['message']
-            print(errorString)
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
 
         self.sync_all()
         mark_logs("txFT={}, scFee={}".format(txFT, ftScFee), self.nodes, DEBUG_MODE)
-        #pprint.pprint(self.nodes[1].getrawmempool(True)[txFT])
+        assert_true(txFT in self.nodes[0].getrawmempool())
 
-        mark_logs("\nNode 0 creates a new certificate updating FT fees", self.nodes, DEBUG_MODE)
+        # ---------------------------------------------------------------------------------------
+        mark_logs("\nNode 3 creates a MBTR output", self.nodes, DEBUG_MODE)
+
+        errorString = ""
+        fe1 = generate_random_field_element_hex()
+        pkh1 = self.nodes[3].getnewaddress("", True)
+        mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        
+        try:
+            txMbtr = self.nodes[3].request_transfer_from_sidechain(mbtrOuts, { "fee": 0.0})
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true(False)
+
+        self.sync_all()
+        mark_logs("txMbtr={}, scFee={}".format(txMbtr, mbtrScFee), self.nodes, DEBUG_MODE)
+        assert_true(txMbtr in self.nodes[0].getrawmempool())
+
+        # ---------------------------------------------------------------------------------------
+        mark_logs("\nNode 0 creates a new certificate updating FT and McBTR fees", self.nodes, DEBUG_MODE)
 
         quality = 1
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[1], EPOCH_LENGTH)
@@ -148,6 +179,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": cert_amount}]
 
         ftScFee = 0.00024
+        mbtrScFee = 0.00034
         scid_swapped = str(swap_bytes(scid))
 
         proof = mcTest.create_test_proof(
