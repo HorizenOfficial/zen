@@ -72,7 +72,7 @@ public:
              balance == 0                                                     &&
              fixedParams.IsNull()                                             &&
              mImmatureAmounts.empty())                                        &&
-             forwardTxScFees.empty();
+             scFees.empty();
     }
 
     int32_t sidechainVersion;
@@ -104,8 +104,8 @@ public:
     // value = the immature amount
     std::map<int, CAmount> mImmatureAmounts;
 
-    // the last ftScFee values, as set by the active certificates
-    std::list<CAmount> forwardTxScFees;
+    // the last ftScFee and mbtrScFee values, as set by the active certificates
+    std::list<Sidechain::ScFeeData> scFees;
 
     // memory only
     int sizeOfScFeesContainers;
@@ -140,7 +140,12 @@ public:
         READWRITE(balance);
         READWRITE(fixedParams);
         READWRITE(mImmatureAmounts);
-        READWRITE(forwardTxScFees);
+        READWRITE(scFees);
+        if (ser_action.ForRead())
+        {
+            if (!scFees.empty())
+                sizeOfScFeesContainers = scFees.size();
+        }
     }
 
     inline bool operator==(const CSidechain& rhs) const
@@ -157,7 +162,7 @@ public:
                (this->balance                                    == rhs.balance)                           &&
                (this->fixedParams                                == rhs.fixedParams)                       &&
                (this->mImmatureAmounts                           == rhs.mImmatureAmounts)                  &&
-               (this->forwardTxScFees                            == rhs.forwardTxScFees);
+               (this->scFees                                     == rhs.scFees);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
@@ -175,10 +180,12 @@ public:
         return this->creationBlockHeight != -1;
     }
 
-    void InitFtScFees();
-    bool UpdateFtScFees(const CScCertificateView& certView);
+    void InitScFees();
+    void UpdateScFees(const CScCertificateView& certView);
+    void DumpScFees() const;
+
     CAmount GetMinFtScFee() const;
-    void DumpFtScFees() const;
+    CAmount GetMinMbtrScFee() const;
 
     // Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;

@@ -20,7 +20,7 @@ DEBUG_MODE = 1
 EPOCH_LENGTH = 10
 CERT_FEE = Decimal('0.015') # high fee rate
 BLK_MAX_SZ = 5000
-NUM_BLOCK_FOR_SC_FEE_CHECK = EPOCH_LENGTH+1
+NUM_BLOCK_FOR_SC_FEE_CHECK = 2*EPOCH_LENGTH+1
 
 class SCStaleFtAndMbtrTest(BitcoinTestFramework):
     alert_filename = None
@@ -151,7 +151,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         assert_true(txFT in self.nodes[0].getrawmempool())
 
         # ---------------------------------------------------------------------------------------
-        mark_logs("\nNode 3 creates a MBTR output", self.nodes, DEBUG_MODE)
+        mark_logs("\nNode 3 creates a tx with an MBTR output", self.nodes, DEBUG_MODE)
 
         errorString = ""
         fe1 = generate_random_field_element_hex()
@@ -186,25 +186,24 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
             vk_tag, scid_swapped, epoch_number, quality, mbtrScFee, ftScFee, epoch_cum_tree_hash,
             constant, [pkh_node1], [cert_amount])
 
-        #raw_input("__________")
         cert = self.nodes[0].send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, ftScFee, mbtrScFee, CERT_FEE)
 
         self.sync_all()
 
-        #pprint.pprint(self.nodes[1].getrawmempool(True))
         mark_logs("cert={}, epoch={}, ftScFee={}, q={}".format(cert, epoch_number, ftScFee, quality), self.nodes, DEBUG_MODE)
 
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
         bl = self.nodes[1].generate(1)[-1]
         self.sync_all()
         
-        #pprint.pprint(self.nodes[1].getrawmempool(True))
         mark_logs("Check cert is in block just mined...", self.nodes, DEBUG_MODE)
         assert_true(cert in self.nodes[0].getblock(bl, True)['cert'])
-        mark_logs("Check tx is not in block just mined...", self.nodes, DEBUG_MODE)
+        mark_logs("Check tx are not in block just mined...", self.nodes, DEBUG_MODE)
         assert_false(txFT in self.nodes[0].getblock(bl, True)['tx'])
         assert_true(txFT in self.nodes[0].getrawmempool(True))
+        assert_false(txMbtr in self.nodes[0].getblock(bl, True)['tx'])
+        assert_true(txMbtr in self.nodes[0].getrawmempool(True))
 
         mark_logs("\nNode 0 creates a second certificate of higher quality updating FT fees", self.nodes, DEBUG_MODE)
 
@@ -219,8 +218,6 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         self.sync_all()
 
-        #pprint.pprint(self.nodes[1].getrawmempool(True))
-        #pprint.pprint(self.nodes[0].getscinfo(scid))
         mark_logs("cert={}, epoch={}, ftScFee={}, q={}".format(cert, epoch_number, ftScFee, quality), self.nodes, DEBUG_MODE)
 
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
@@ -229,9 +226,11 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         
         mark_logs("Check cert is in block just mined...", self.nodes, DEBUG_MODE)
         assert_true(cert in self.nodes[0].getblock(bl, True)['cert'])
-        mark_logs("Check tx is not in block just mined...", self.nodes, DEBUG_MODE)
+        mark_logs("Check tx are not in block just mined...", self.nodes, DEBUG_MODE)
         assert_false(txFT in self.nodes[0].getblock(bl, True)['tx'])
         assert_true(txFT in self.nodes[0].getrawmempool(True))
+        assert_false(txMbtr in self.nodes[0].getblock(bl, True)['tx'])
+        assert_true(txMbtr in self.nodes[0].getrawmempool(True))
 
         #------------------------------------------------------------------------------------------------        
         # flood the mempool with non-free and hi-prio txes so that next blocks (with small max size) will
@@ -322,8 +321,13 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         bl = self.nodes[1].generate(1)[-1]
         self.sync_all()
 
-        assert_false(txFT in self.nodes[1].getrawmempool(True))
         assert_false(txFT in self.nodes[0].getblock(bl, True)['tx'])
+        #assert_false(txFT in self.nodes[1].getrawmempool(True))
+
+        mark_logs("Node 1 generates " + str(EPOCH_LENGTH) + " blocks", self.nodes, DEBUG_MODE)
+        self.nodes[1].generate(EPOCH_LENGTH)
+
+
 
 
 if __name__ == '__main__':

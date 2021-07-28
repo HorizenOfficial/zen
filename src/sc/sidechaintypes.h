@@ -426,6 +426,29 @@ typedef struct sPowRelatedData_tag
     }
 } ScPowRelatedData;
 
+// useful in checking SC fees
+typedef struct sScFeeData_tag
+{
+    CAmount forwardTxScFee;
+    CAmount mbtrTxScFee;
+    sScFeeData_tag(): forwardTxScFee(0), mbtrTxScFee(0) {}
+    sScFeeData_tag(CAmount f, CAmount m): forwardTxScFee(f), mbtrTxScFee(m) {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(forwardTxScFee);
+        READWRITE(mbtrTxScFee);
+    }
+
+    inline bool operator==(const sScFeeData_tag& rhs) const
+    {
+        return (forwardTxScFee == rhs.forwardTxScFee && mbtrTxScFee == rhs.mbtrTxScFee);
+    }
+
+} ScFeeData;
+
 static const std::string PROVING_SYS_TYPE_COBOUNDARY_MARLIN = "CoboundaryMarlin";
 static const std::string PROVING_SYS_TYPE_DARLIN            = "Darlin";
 static const std::string PROVING_SYS_TYPE_UNDEFINED         = "Undefined";

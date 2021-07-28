@@ -1258,8 +1258,11 @@ bool CCoinsViewCache::IsFtScFeeApplicable(const CTxForwardTransferOut& ftOutput)
     return ftOutput.nValue > certView.forwardTransferScFee;
 }
 
-bool CCoinsViewCache::CheckMinimumFtScFee(const CTxForwardTransferOut& ftOutput) const
+bool CCoinsViewCache::CheckMinimumFtScFee(const CTxForwardTransferOut& ftOutput, CAmount* minValPtr) const
 {
+    if (minValPtr)
+        *minValPtr = MAX_MONEY;
+
     const CSidechain* const pSidechain = this->AccessSidechain(ftOutput.scId);
 
     if (pSidechain == nullptr)
@@ -1267,7 +1270,12 @@ bool CCoinsViewCache::CheckMinimumFtScFee(const CTxForwardTransferOut& ftOutput)
     if (this->GetSidechainState(ftOutput.scId) != CSidechain::State::ALIVE)
         return false;
 
-    return (ftOutput.nValue > pSidechain->GetMinFtScFee());
+    CAmount minVal = pSidechain->GetMinFtScFee();
+
+    if (minValPtr)
+        *minValPtr = minVal;
+
+    return (ftOutput.nValue > minVal);
 }
 
 /**
@@ -1276,10 +1284,30 @@ bool CCoinsViewCache::CheckMinimumFtScFee(const CTxForwardTransferOut& ftOutput)
  * @param mbtrOutput The Mainchain Backward Transfer Request output to be checked.
  * @return true if mbtrOutput is still valid, false otherwise.
  */
-bool CCoinsViewCache::CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const
+bool CCoinsViewCache::IsMbtrScFeeApplicable(const CBwtRequestOut& mbtrOutput) const
 {
     CScCertificateView certView = GetActiveCertView(mbtrOutput.scId);
     return mbtrOutput.scFee >= certView.mainchainBackwardTransferRequestScFee;
+}
+
+bool CCoinsViewCache::CheckMinimumMbtrScFee(const CBwtRequestOut& mbtrOutput, CAmount* minValPtr) const
+{
+    if (minValPtr)
+        *minValPtr = MAX_MONEY;
+
+    const CSidechain* const pSidechain = this->AccessSidechain(mbtrOutput.scId);
+
+    if (pSidechain == nullptr)
+        return false;
+    if (this->GetSidechainState(mbtrOutput.scId) != CSidechain::State::ALIVE)
+        return false;
+
+    CAmount minVal = pSidechain->GetMinMbtrScFee();
+
+    if (minValPtr)
+        *minValPtr = minVal;
+
+    return (mbtrOutput.scFee >= minVal);
 }
 
 CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode) const
@@ -1328,9 +1356,26 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
          */
         if (!IsFtScFeeApplicable(ft))
         {
-            LogPrintf("%s():%d - ERROR: Invalid tx[%s] to scId[%s]: FT amount [%s] must be greater than SC FT fee [%s]\n",
+            if (!banSenderNode)
+            {
+                // we are connecting a block
+                // TODO we might use a struct with an appropriate name, containing a bool
+                CAmount minScFee;
+                if (!CheckMinimumFtScFee(ft, &minScFee))
+                {
+                    LogPrintf("%s():%d - ERROR: Invalid tx[%s] to scId[%s]: FT amount [%s] must be greater than minimum SC FT fee [%s]\n",
+                        __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(ft.nValue), FormatMoney(minScFee));
+                    return CValidationState::Code::INVALID;
+                }
+                LogPrintf("%s():%d - Warning: tx[%s] to scId[%s]: FT amount [%s] is not greater than act cert fee [%s], but is greater than minimum SC FT fee [%s]\n",
+                    __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(ft.nValue),
+                    FormatMoney(GetActiveCertView(scId).forwardTransferScFee), FormatMoney(minScFee));
+            } else
+            {
+                LogPrintf("%s():%d - ERROR: Invalid tx[%s] to scId[%s]: FT amount [%s] must be greater than SC FT fee [%s]\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(ft.nValue), FormatMoney(GetActiveCertView(scId).forwardTransferScFee));
-            return CValidationState::Code::INVALID;
+                return CValidationState::Code::INVALID;
+            }
         }
 
         LogPrint("sc", "%s():%d - OK: tx[%s] is sending [%s] to scId[%s]\n",
@@ -1394,12 +1439,29 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
          * Check that the Mainchain Backward Transfer Request amount is greater than or equal to the
          * Sidechain Mainchain Backward Transfer Request fee.
          */
-        if (!CheckScMbtrFee(mbtr))
+        if (!IsMbtrScFeeApplicable(mbtr))
         {
-            LogPrintf("%s():%d - ERROR: Invalid tx[%s] : MBTR fee [%s] cannot be less than SC MBTR fee [%s] for scId[%s]\n",
-                    __func__, __LINE__, txHash.ToString(), FormatMoney(mbtr.scFee),
-                    FormatMoney(GetActiveCertView(scId).mainchainBackwardTransferRequestScFee), scId.ToString());
-            return CValidationState::Code::INVALID;
+            if (!banSenderNode)
+            {
+                // we are connecting a block
+                // TODO we might use a struct with an appropriate name, containing a bool
+                CAmount minScFee;
+                if (!CheckMinimumMbtrScFee(mbtr, &minScFee))
+                {
+                    LogPrintf("%s():%d - ERROR: Invalid tx[%s] to scId[%s]: MBTR fee [%s] can not be less than minimum SC MBTR fee [%s]\n",
+                        __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(mbtr.scFee), FormatMoney(minScFee));
+                    return CValidationState::Code::INVALID;
+                }
+                LogPrintf("%s():%d - Warning: tx[%s] to scId[%s]: MBTR fee [%s] is lesser than act cert fee [%s], but is not lesser than minimum SC MBTR fee [%s]\n",
+                    __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(mbtr.scFee),
+                    FormatMoney(GetActiveCertView(scId).forwardTransferScFee), FormatMoney(minScFee));
+            } else
+            {
+                LogPrintf("%s():%d - ERROR: Invalid tx[%s] : MBTR fee [%s] cannot be less than SC MBTR fee [%s] for scId[%s]\n",
+                        __func__, __LINE__, txHash.ToString(), FormatMoney(mbtr.scFee),
+                        FormatMoney(GetActiveCertView(scId).mainchainBackwardTransferRequestScFee), scId.ToString());
+                return CValidationState::Code::INVALID;
+            }
         }
 
         LogPrint("sc", "%s():%d - OK: tx[%s] contains bwt transfer request for scId[%s]\n",
@@ -1505,11 +1567,11 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     {
         //Lazy update of pastEpochTopQualityCertView
         scUndoData.pastEpochTopQualityCertView = currentSc.pastEpochTopQualityCertView;
-        scUndoData.forwardTxScFees             = currentSc.forwardTxScFees;
+        scUndoData.scFees                      = currentSc.scFees;
         scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA;
 
         currentSc.pastEpochTopQualityCertView = currentSc.lastTopQualityCertView;
-        currentSc.UpdateFtScFees(currentSc.pastEpochTopQualityCertView);
+        currentSc.UpdateScFees(currentSc.pastEpochTopQualityCertView);
     } else if (cert.epochNumber == currentSc.lastTopQualityCertReferencedEpoch)
     {
         if (cert.quality <= currentSc.lastTopQualityCertQuality) // should never happen
@@ -1691,7 +1753,7 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     if (certToRevert.epochNumber == (sidechainUndo.prevTopCommittedCertReferencedEpoch + 1))
     {
         assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA);
-        currentSc.forwardTxScFees             = sidechainUndo.forwardTxScFees;
+        currentSc.scFees                      = sidechainUndo.scFees;
         currentSc.pastEpochTopQualityCertView = sidechainUndo.pastEpochTopQualityCertView;
     }
     else if (certToRevert.epochNumber == sidechainUndo.prevTopCommittedCertReferencedEpoch)

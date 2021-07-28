@@ -1493,7 +1493,6 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempoolOnFirstCe
     CAmount dummyNonZeroChange = dummyInputAmount - dummyNonZeroFee;
     CAmount dummyBwtAmount {0};
 
-    CAmount ftScFeeCert = ftScFeeForwardTx + 1;
     CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/0, dummyCumTree, /*inputAmount*/dummyInputAmount,
         /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
         /*ftScFee*/ftScFee + 1, /*mbtrScFee*/CAmount(0), /*quality*/certQuality);
@@ -1585,7 +1584,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
             mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
             EXPECT_EQ(removedTxs.size(), (epNum == targetEpoch) ? 1:0);
             sidechainsView.GetSidechain(scId, sidechain);
-            sidechain.DumpFtScFees();
+            sidechain.DumpScFees();
  
             epNum++;
         }
@@ -1626,8 +1625,11 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempool)
     EXPECT_EQ(removedTxs.size(), 0);
 }
 
-TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
+TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempoolOnFirstCert)
 {
+    SelectParams(CBaseChainParams::REGTEST);
+    mapArgs["-blocksforscfeecheck"] = "0";
+
     CAmount mbtrScFee(7);
     uint256 scId = createAndStoreSidechain(/*FT fee*/0, /*MBTR fee*/mbtrScFee, /*MBTR data length*/1);
 
@@ -1653,11 +1655,94 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
     sidechainsView.UpdateSidechain(certificate, aBlock);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
-    // One transaction must be removed.
+    // No transactions should be be removed.
+    CSidechain sidechain;
+    sidechainsView.GetSidechain(scId, sidechain);
+
+    ASSERT_TRUE(sidechain.GetMinMbtrScFee() <= mbtrScFee);
     std::list<CTransaction> removedTxs;
     std::list<CScCertificate> removedCerts;
     mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
-    EXPECT_EQ(removedTxs.size(), 1);
+    EXPECT_EQ(removedTxs.size(), 0);
+}
+
+TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
+{
+    seed_insecure_rand(false);
+
+    SelectParams(CBaseChainParams::REGTEST);
+    static const int blocksForScFeeCheck = 100;
+    mapArgs["-blocksforscfeecheck"] = std::to_string(blocksForScFeeCheck);
+ 
+    static int loops = 30;
+    while (loops-- > 0)
+    {
+        int epLen = insecure_rand()%100 + 5;
+ 
+        int targetEpoch = blocksForScFeeCheck / epLen;
+ 
+        if (targetEpoch == 0 || blocksForScFeeCheck % epLen)
+            targetEpoch++;
+ 
+        std::cout << "blocksforscfeecheck = " << blocksForScFeeCheck << std::endl;
+        std::cout << "epochLength=" << epLen << ", targetEpoch=" << targetEpoch << std::endl;
+ 
+        CAmount mbtrScFee(10);
+        uint256 scId = createAndStoreSidechain(/*FT fee*/0, /*MBTR fee*/mbtrScFee, /*MBTR data length*/1, /*epochLength*/ epLen);
+ 
+        CTransaction mbtrTx = GenerateBtrTx(scId, mbtrScFee);
+        CValidationState mbtrTxState;
+ 
+        // Check that a FT with an amount greater than the Forward Transfer sidechain fee is accepted
+        ASSERT_TRUE(AcceptTxToMemoryPool(mempool, mbtrTxState, mbtrTx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF,
+                                         MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
+ 
+        int64_t certQuality = 10;
+        CFieldElement dummyCumTree {SAMPLE_FIELD};
+        CAmount dummyInputAmount{20};
+        CAmount dummyNonZeroFee {10};
+        CAmount dummyNonZeroChange = dummyInputAmount - dummyNonZeroFee;
+        CAmount dummyBwtAmount {0};
+ 
+        CCoinsViewCache sidechainsView(pcoinsTip);
+        CSidechain sidechain;
+        sidechainsView.GetSidechain(scId, sidechain);
+
+        // force init
+        sidechain.sizeOfScFeesContainers = -1;
+
+        std::cout << "view height = " << sidechainsView.GetHeight() << std::endl;
+ 
+        int epNum = 0;
+ 
+        moveSidechainToNextEpoch(scId, sidechainsView);
+ 
+        CAmount mbtrScFeeCert = mbtrScFee+1;
+        while (true)
+        {
+            if ( epNum > targetEpoch)
+                break;
+ 
+            CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/epNum, dummyCumTree, /*inputAmount*/dummyInputAmount,
+                /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
+                /*ftScFee*/CAmount(0), /*mbtrScFee*/mbtrScFeeCert++, /*quality*/certQuality++);
+ 
+            CBlockUndo aBlock(IncludeScAttributes::ON);
+ 
+            sidechainsView.UpdateSidechain(certificate, aBlock);
+            moveSidechainToNextEpoch(scId, sidechainsView);
+ 
+            // the FT transaction must be removed as soon as the cert for target epoch arrives
+            std::list<CTransaction> removedTxs;
+            std::list<CScCertificate> removedCerts;
+            mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
+            EXPECT_EQ(removedTxs.size(), (epNum == targetEpoch) ? 1:0);
+            sidechainsView.GetSidechain(scId, sidechain);
+            sidechain.DumpScFees();
+ 
+            epNum++;
+        }
+    }
 }
 
 TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempool)

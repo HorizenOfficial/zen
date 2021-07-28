@@ -2006,15 +2006,16 @@ TEST_F(SidechainsTestSuite, CheckFtFeeValidations)
     CValidationState::Code ret_code = CValidationState::Code::OK;
 
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee - 1));
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    bool callingFromMempool = true;
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, &callingFromMempool);
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee));
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, &callingFromMempool);
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee + 1));
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, &callingFromMempool);
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
 }
 
@@ -2025,15 +2026,16 @@ TEST_F(SidechainsTestSuite, CheckMbtrFeeValidations)
     CValidationState::Code ret_code = CValidationState::Code::OK;
 
     CMutableTransaction mutTx = createMtbtrTx(scId, scMbtrFee - 1);
-    ret_code = sidechainsView->IsScTxApplicableToState(mutTx);
+    bool callingFromMempool = true;
+    ret_code = sidechainsView->IsScTxApplicableToState(mutTx, &callingFromMempool);
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
 
     mutTx.vmbtr_out[0].scFee = scMbtrFee;
-    ret_code = sidechainsView->IsScTxApplicableToState(mutTx);
+    ret_code = sidechainsView->IsScTxApplicableToState(mutTx, &callingFromMempool);
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
 
     mutTx.vmbtr_out[0].scFee = scMbtrFee + 1;
-    ret_code = sidechainsView->IsScTxApplicableToState(mutTx);
+    ret_code = sidechainsView->IsScTxApplicableToState(mutTx, &callingFromMempool);
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
 }
 
