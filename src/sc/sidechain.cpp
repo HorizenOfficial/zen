@@ -586,7 +586,8 @@ void CSidechain::DumpScFees() const
     std::cout << __func__ << "(): ";
     for (const auto& entry : scFees)
     {
-        std::cout << "[" << std::setw(2) << entry.forwardTxScFee << "/" << entry.mbtrTxScFee << "]";
+        std::cout << "[" << std::setw(2) << entry.forwardTxScFee
+                  << "/" << std::setw(2) << entry.mbtrTxScFee << "]";
     }
     std::cout << std::endl;
 }

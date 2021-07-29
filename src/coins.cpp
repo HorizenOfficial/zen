@@ -1093,7 +1093,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 #ifdef BITCOIN_TX
 int CCoinsViewCache::GetHeight() const {return -1;}
 CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode) const {return CValidationState::Code::OK;}
-CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode) const { return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scFeeCheckType, bool* banSenderNode) const { return CValidationState::Code::OK;}
 #else
 
 int CCoinsViewCache::GetHeight() const
@@ -1310,7 +1310,7 @@ bool CCoinsViewCache::CheckMinimumMbtrScFee(const CBwtRequestOut& mbtrOutput, CA
     return (mbtrOutput.scFee >= minVal);
 }
 
-CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode) const
+CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scFeeCheckType, bool* banSenderNode) const
 {
     if (tx.IsCoinBase())
     {
@@ -1356,10 +1356,9 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
          */
         if (!IsFtScFeeApplicable(ft))
         {
-            if (!banSenderNode)
+            if (scFeeCheckType == Sidechain::ScFeeCheckFlag::MINIMUM_IN_A_RANGE)
             {
-                // we are connecting a block
-                // TODO we might use a struct with an appropriate name, containing a bool
+                // connecting a block
                 CAmount minScFee;
                 if (!CheckMinimumFtScFee(ft, &minScFee))
                 {
@@ -1370,7 +1369,8 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
                 LogPrintf("%s():%d - Warning: tx[%s] to scId[%s]: FT amount [%s] is not greater than act cert fee [%s], but is greater than minimum SC FT fee [%s]\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(ft.nValue),
                     FormatMoney(GetActiveCertView(scId).forwardTransferScFee), FormatMoney(minScFee));
-            } else
+            }
+            else
             {
                 LogPrintf("%s():%d - ERROR: Invalid tx[%s] to scId[%s]: FT amount [%s] must be greater than SC FT fee [%s]\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(ft.nValue), FormatMoney(GetActiveCertView(scId).forwardTransferScFee));
@@ -1441,10 +1441,9 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
          */
         if (!IsMbtrScFeeApplicable(mbtr))
         {
-            if (!banSenderNode)
+            if (scFeeCheckType == Sidechain::ScFeeCheckFlag::MINIMUM_IN_A_RANGE)
             {
-                // we are connecting a block
-                // TODO we might use a struct with an appropriate name, containing a bool
+                // connecting a block
                 CAmount minScFee;
                 if (!CheckMinimumMbtrScFee(mbtr, &minScFee))
                 {

@@ -427,6 +427,11 @@ typedef struct sPowRelatedData_tag
 } ScPowRelatedData;
 
 // useful in checking SC fees
+enum class ScFeeCheckFlag {
+    LATEST_VALUE,
+    MINIMUM_IN_A_RANGE
+};
+
 typedef struct sScFeeData_tag
 {
     CAmount forwardTxScFee;

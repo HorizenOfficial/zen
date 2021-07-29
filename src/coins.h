@@ -674,7 +674,7 @@ public:
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
-    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode = nullptr) const;
+    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scCheckType, bool* banSenderNode = nullptr) const;
     bool CheckScTxTiming(const uint256& scId) const;
 
     bool IsFtScFeeApplicable(const CTxForwardTransferOut& ftOutput) const;
