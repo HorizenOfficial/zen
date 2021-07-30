@@ -823,6 +823,7 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.fixedParams.mainchainBackwardTransferRequestDataLength = cr.mainchainBackwardTransferRequestDataLength;
 
         scIt->second.sidechain.mImmatureAmounts[maturityHeight] = cr.nValue;
+        scIt->second.sidechain.InitScFees();
 
         scIt->second.flag = CSidechainsCacheEntry::Flags::FRESH;
 

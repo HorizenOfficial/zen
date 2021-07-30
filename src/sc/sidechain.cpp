@@ -554,7 +554,9 @@ void CSidechain::InitScFees()
 
         assert(sizeOfScFeesContainers > 0);
         assert(scFees.empty());
-        scFees.resize(sizeOfScFeesContainers);
+        Sidechain::ScFeeData defaultData(
+            lastTopQualityCertView.forwardTransferScFee, lastTopQualityCertView.mainchainBackwardTransferRequestScFee);
+        scFees.resize(sizeOfScFeesContainers, defaultData);
     }
 }
 

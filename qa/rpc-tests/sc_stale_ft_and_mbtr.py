@@ -300,8 +300,8 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         scFeesList = self.nodes[0].getscinfo(scid)['items'][0]['sc fees']
         f_min, m_min, f_max, m_max = get_sc_fee_min_max_value(scFeesList)
-        assert_equal(f_min, Decimal('0.0'))
-        assert_equal(m_min, Decimal('0.0'))
+        assert_equal(f_min, FT_SC_FEES[0])
+        assert_equal(m_min, MBTR_SC_FEES[0])
         assert_equal(f_max, FT_SC_FEES[0])
         assert_equal(m_max, MBTR_SC_FEES[0])
 
