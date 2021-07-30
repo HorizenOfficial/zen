@@ -1454,7 +1454,8 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
                 LogPrintf("%s():%d - Warning: tx[%s] to scId[%s]: MBTR fee [%s] is lesser than act cert fee [%s], but is not lesser than minimum SC MBTR fee [%s]\n",
                     __func__, __LINE__, txHash.ToString(), scId.ToString(), FormatMoney(mbtr.scFee),
                     FormatMoney(GetActiveCertView(scId).forwardTransferScFee), FormatMoney(minScFee));
-            } else
+            }
+            else
             {
                 LogPrintf("%s():%d - ERROR: Invalid tx[%s] : MBTR fee [%s] cannot be less than SC MBTR fee [%s] for scId[%s]\n",
                         __func__, __LINE__, txHash.ToString(), FormatMoney(mbtr.scFee),

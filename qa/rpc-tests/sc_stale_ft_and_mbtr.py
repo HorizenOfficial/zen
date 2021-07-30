@@ -20,7 +20,8 @@ DEBUG_MODE = 1
 EPOCH_LENGTH = 10
 CERT_FEE = Decimal('0.015') # high fee rate
 BLK_MAX_SZ = 5000
-NUM_BLOCK_FOR_SC_FEE_CHECK = 2*EPOCH_LENGTH+1
+BLK_MIN_SZ = 2000000
+NUM_BLOCK_FOR_SC_FEE_CHECK = EPOCH_LENGTH+1
 
 class SCStaleFtAndMbtrTest(BitcoinTestFramework):
     alert_filename = None
@@ -35,13 +36,22 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
     def setup_network(self, split=False):
         self.nodes = []
 
-        self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
-                                 extra_args=[['-scproofqueuesize=0', '-logtimemicros=1', '-debug=sc',
-                                              '-debug=py', '-debug=mempool', '-debug=net',
-                                              '-blockprioritysize=100',
-                                              '-blockmaxsize=%d'%BLK_MAX_SZ,
-                                              '-blocksforscfeecheck=%d'%NUM_BLOCK_FOR_SC_FEE_CHECK,
-                                              '-debug=bench']] * NUMB_OF_NODES)
+        extra_args=[
+            ['-scproofqueuesize=0', '-logtimemicros=1',
+             '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench',
+             '-blockprioritysize=100',
+             '-blockmaxsize=%d'%BLK_MAX_SZ,
+             '-blocksforscfeecheck=%d'%NUM_BLOCK_FOR_SC_FEE_CHECK]
+        ] * NUMB_OF_NODES
+
+        # override options for 4th miner node, no limits on sizes so it can mine all tx that are in mempool, no matter
+        # what fee or prios they have
+        extra_args[NUMB_OF_NODES-1]=['-scproofqueuesize=0', '-logtimemicros=1',
+             '-debug=sc', '-debug=py', '-debug=mempool', '-debug=net', '-debug=bench',
+             '-blockminsize=%d'%BLK_MIN_SZ,
+             '-blocksforscfeecheck=%d'%NUM_BLOCK_FOR_SC_FEE_CHECK]
+
+        self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args)
 
         connect_nodes_bi(self.nodes, 0, 1)
         connect_nodes_bi(self.nodes, 1, 2)
@@ -51,6 +61,60 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
     def run_test(self):
 
+        def flood_mempool():
+            mark_logs("Creating many txes...", self.nodes, DEBUG_MODE)
+            tot_num_tx = 0
+            tot_tx_sz = 0
+            taddr_node1 = self.nodes[0].getnewaddress()
+ 
+            fee = Decimal('0.001')
+ 
+            # there are a few coinbase utxo now matured
+            listunspent = self.nodes[0].listunspent()
+            print "num of utxo: ", len(listunspent)
+
+            while True:
+                if len(listunspent) <= tot_num_tx:
+                    # all utxo have been spent
+                    self.sync_all()
+                    break
+ 
+                utxo = listunspent[tot_num_tx]
+                change = utxo['amount'] - Decimal(fee) 
+                raw_inputs  = [ {'txid' : utxo['txid'], 'vout' : utxo['vout']}]
+                raw_outs    = { taddr_node1: change }
+                try:
+                    raw_tx = self.nodes[0].createrawtransaction(raw_inputs, raw_outs)
+                    signed_tx = self.nodes[0].signrawtransaction(raw_tx)
+                    tx = self.nodes[0].sendrawtransaction(signed_tx['hex'])
+                except JSONRPCException, e:
+                    errorString = e.error['message']
+                    print "Send raw tx failed with reason {}".format(errorString)
+                    assert(False)
+ 
+                tot_num_tx += 1
+                hexTx = self.nodes[0].getrawtransaction(tx)
+                sz = len(hexTx)//2
+                tot_tx_sz += sz
+ 
+                if tot_tx_sz > 5*EPOCH_LENGTH*BLK_MAX_SZ:
+                    self.sync_all()
+                    break
+ 
+            print "tot tx   = {}, tot sz = {} ".format(tot_num_tx, tot_tx_sz)
+
+        def get_sc_fee_min_max_value(scFeesList):
+            m_min = Decimal('1000000000.0')
+            f_min = Decimal('1000000000.0')
+            m_max = Decimal('0.0')
+            f_max = Decimal('0.0')
+            for i in scFeesList:
+                f_min = min(f_min, i['forwardTxScFee'])
+                m_min = min(m_min, i['   mbtrTxScFee'])
+                f_max = max(f_max, i['forwardTxScFee'])
+                m_max = max(m_max, i['   mbtrTxScFee'])
+            return f_min, m_min, f_max, m_max
+        
         '''
         This test checks that FT and McBTR txes are not evicted from mempool until the numbers of blocks 
         set by the constant defined in the base code (and overriden here by the -blocksforscfeecheck zend option)
@@ -58,7 +122,26 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         In order to verify it, two null-fee and low-prio txes are sent to the mempool with a FT and a Mbtr, a large number
         of high-fee/high prio txes are  added too, and the miners have a small block capacity, so that the former pair is never 
         mined, while SC epochs increase evolving active certificates. 
+        After a node restart, this pattern is repeated but this time the txes are mined before they are evicted from the mempool.
         '''
+
+        FT_SC_FEES=[Decimal('0.001'),   # creation of the SC
+                    Decimal('0.002'),   # fwd tx amount
+                    Decimal('0.003'),   # cert ep=0, q=1
+                    Decimal('0.004'),   # cert ep=0, q=2
+                    Decimal('0.005'),   # cert ep=1
+                    Decimal('0.006'),   # cert ep=2         
+                    Decimal('0.007'),   # cert ep=3         
+                    Decimal('0.008')]   # cert ep=4         
+
+        MBTR_SC_FEES=[Decimal('0.011'),  # creation of the SC
+                      Decimal('0.011'),  # mbtr tx sc fee, we can also have the same value of creation
+                      Decimal('0.033'),  # cert ep=0, q=1
+                      Decimal('0.044'),  # cert ep=0, q=2
+                      Decimal('0.055'),  # cert ep=1
+                      Decimal('0.066'),  # cert ep=2         
+                      Decimal('0.077'),  # cert ep=3         
+                      Decimal('0.088')]  # cert ep=4         
 
         # network topology: (0)--(1)--(2)--(3)
 
@@ -91,8 +174,8 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         mark_logs("\nNode 1 creates a new sidechain", self.nodes, DEBUG_MODE)
 
         errorString = ""
-        ftScFee = 0.00022
-        mbtrScFee = 0.00033
+        ftScFee   = FT_SC_FEES[0]
+        mbtrScFee = MBTR_SC_FEES[0]
 
         try:
             ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk,
@@ -104,24 +187,34 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         creating_tx = ret['txid']
         scid = ret['scid']
-        mark_logs("tx={}, scFee={}, scid={}".format(creating_tx, ftScFee, scid), self.nodes, DEBUG_MODE)
+        mark_logs("tx={}, ftScFee={}, mbtrScFee={}, scid={}".format(creating_tx, ftScFee, mbtrScFee, scid), self.nodes, DEBUG_MODE)
         self.sync_all()
-        #pprint.pprint(self.nodes[0].getrawmempool(True))
 
         # send a very small amount to node 2 and 3, which will use it as input
         # for the FT and McBTR, which will have then very low priority
+        mark_logs("Node 0 send a small coins to Node2", self.nodes, DEBUG_MODE)
+        taddr2 = self.nodes[2].getnewaddress()
+        tx_for_input_2 = self.nodes[0].sendtoaddress(taddr2, 0.05)
+        mark_logs("tx={}".format(tx_for_input_2), self.nodes, DEBUG_MODE)
+        self.sync_all()
+
+        mark_logs("Node 0 send a small coins to Node3", self.nodes, DEBUG_MODE)
+        taddr3 = self.nodes[3].getnewaddress()
+        tx_for_input_3 = self.nodes[0].sendtoaddress(taddr3, 0.05)
+        mark_logs("tx={}".format(tx_for_input_3), self.nodes, DEBUG_MODE)
+        self.sync_all()
+
         mark_logs("Node 1 send a small coins to Node2", self.nodes, DEBUG_MODE)
         taddr2 = self.nodes[2].getnewaddress()
-        tx_for_input_2 = self.nodes[1].sendtoaddress(taddr2, 0.001)
+        tx_for_input_2 = self.nodes[1].sendtoaddress(taddr2, 0.05)
         mark_logs("tx={}".format(tx_for_input_2), self.nodes, DEBUG_MODE)
         self.sync_all()
 
         mark_logs("Node 1 send a small coins to Node3", self.nodes, DEBUG_MODE)
         taddr3 = self.nodes[3].getnewaddress()
-        tx_for_input_3 = self.nodes[1].sendtoaddress(taddr3, 0.001)
+        tx_for_input_3 = self.nodes[1].sendtoaddress(taddr3, 0.05)
         mark_logs("tx={}".format(tx_for_input_3), self.nodes, DEBUG_MODE)
         self.sync_all()
-
 
         # ---------------------------------------------------------------------------------------
         mark_logs("Node 1 generates " + str(EPOCH_LENGTH) + " blocks", self.nodes, DEBUG_MODE)
@@ -129,8 +222,8 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         self.sync_all()
 
         errorString = ""
-        ftScFee = 0.00023
-        mbtrScFee = 0.00034
+        ftScFee   = FT_SC_FEES[1]
+        mbtrScFee = MBTR_SC_FEES[1]
 
         # beside having a low priority (see above) these txes also are free: very low probability to get mined 
         # if the block size is small and there are other txes
@@ -178,8 +271,8 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         cert_amount = Decimal("1.0")
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": cert_amount}]
 
-        ftScFee = 0.00024
-        mbtrScFee = 0.00034
+        ftScFee   = FT_SC_FEES[2]
+        mbtrScFee = MBTR_SC_FEES[2]
         scid_swapped = str(swap_bytes(scid))
 
         proof = mcTest.create_test_proof(
@@ -191,7 +284,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         self.sync_all()
 
-        mark_logs("cert={}, epoch={}, ftScFee={}, q={}".format(cert, epoch_number, ftScFee, quality), self.nodes, DEBUG_MODE)
+        mark_logs("cert={}, epoch={}, ftScFee={}, mbtrScFee={}".format(cert, epoch_number, ftScFee, mbtrScFee), self.nodes, DEBUG_MODE)
 
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
         bl = self.nodes[1].generate(1)[-1]
@@ -199,16 +292,26 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         
         mark_logs("Check cert is in block just mined...", self.nodes, DEBUG_MODE)
         assert_true(cert in self.nodes[0].getblock(bl, True)['cert'])
-        mark_logs("Check tx are not in block just mined...", self.nodes, DEBUG_MODE)
+        mark_logs("Check txes are not in block just mined...", self.nodes, DEBUG_MODE)
         assert_false(txFT in self.nodes[0].getblock(bl, True)['tx'])
-        assert_true(txFT in self.nodes[0].getrawmempool(True))
         assert_false(txMbtr in self.nodes[0].getblock(bl, True)['tx'])
+        assert_true(txFT in self.nodes[0].getrawmempool(True))
         assert_true(txMbtr in self.nodes[0].getrawmempool(True))
 
-        mark_logs("\nNode 0 creates a second certificate of higher quality updating FT fees", self.nodes, DEBUG_MODE)
+        scFeesList = self.nodes[0].getscinfo(scid)['items'][0]['sc fees']
+        f_min, m_min, f_max, m_max = get_sc_fee_min_max_value(scFeesList)
+        assert_equal(f_min, Decimal('0.0'))
+        assert_equal(m_min, Decimal('0.0'))
+        assert_equal(f_max, FT_SC_FEES[0])
+        assert_equal(m_max, MBTR_SC_FEES[0])
+
+
+        mark_logs("\nNode 0 creates a second certificate of higher quality updating SC fees", self.nodes, DEBUG_MODE)
 
         quality += 1
-        ftScFee = 0.0004
+        ftScFee   = FT_SC_FEES[3]
+        mbtrScFee = MBTR_SC_FEES[3]
+
         proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality, mbtrScFee, ftScFee, epoch_cum_tree_hash,
             constant, [pkh_node1], [cert_amount])
@@ -218,7 +321,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         self.sync_all()
 
-        mark_logs("cert={}, epoch={}, ftScFee={}, q={}".format(cert, epoch_number, ftScFee, quality), self.nodes, DEBUG_MODE)
+        mark_logs("cert={}, epoch={}, ftScFee={}, mbtrScFee={}".format(cert, epoch_number, ftScFee, mbtrScFee), self.nodes, DEBUG_MODE)
 
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
         bl = self.nodes[1].generate(1)[-1]
@@ -226,106 +329,201 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         
         mark_logs("Check cert is in block just mined...", self.nodes, DEBUG_MODE)
         assert_true(cert in self.nodes[0].getblock(bl, True)['cert'])
-        mark_logs("Check tx are not in block just mined...", self.nodes, DEBUG_MODE)
+        mark_logs("Check txes are not in block just mined...", self.nodes, DEBUG_MODE)
         assert_false(txFT in self.nodes[0].getblock(bl, True)['tx'])
-        assert_true(txFT in self.nodes[0].getrawmempool(True))
         assert_false(txMbtr in self.nodes[0].getblock(bl, True)['tx'])
+        assert_true(txFT in self.nodes[0].getrawmempool(True))
         assert_true(txMbtr in self.nodes[0].getrawmempool(True))
+
+        assert_equal(scFeesList, self.nodes[0].getscinfo(scid)['items'][0]['sc fees'])
 
         #------------------------------------------------------------------------------------------------        
         # flood the mempool with non-free and hi-prio txes so that next blocks (with small max size) will
-        # not include FT, which is free and with a low priority
-        mark_logs("Creating many txes...", self.nodes, DEBUG_MODE)
-        tot_num_tx = 0
-        tot_tx_sz = 0
-        taddr_node1 = self.nodes[0].getnewaddress()
-
-        fee = Decimal('0.001')
-
-        # there are a few coinbase utxo now matured
-        listunspent = self.nodes[0].listunspent()
-        print "num of utxo: ", len(listunspent)
-
-        while True:
-            if len(listunspent) <= tot_num_tx:
-                # all utxo have been spent
-                self.sync_all()
-                break
-
-            utxo = listunspent[tot_num_tx]
-            change = utxo['amount'] - Decimal(fee) 
-            raw_inputs  = [ {'txid' : utxo['txid'], 'vout' : utxo['vout']}]
-            raw_outs    = { taddr_node1: change }
-            try:
-                raw_tx = self.nodes[0].createrawtransaction(raw_inputs, raw_outs)
-                signed_tx = self.nodes[0].signrawtransaction(raw_tx)
-                tx = self.nodes[0].sendrawtransaction(signed_tx['hex'])
-            except JSONRPCException, e:
-                errorString = e.error['message']
-                print "Send raw tx failed with reason {}".format(errorString)
-                assert(False)
-
-            tot_num_tx += 1
-            hexTx = self.nodes[0].getrawtransaction(tx)
-            sz = len(hexTx)//2
-            tot_tx_sz += sz
-            #print("tx={}, sz={}, zatPerK={}".format(tx, sz, round((fee*COIN*1000))/sz))
-
-            if tot_tx_sz > 5*EPOCH_LENGTH*BLK_MAX_SZ:
-                self.sync_all()
-                break
-
-        print "tot tx   = {}, tot sz = {} ".format(tot_num_tx, tot_tx_sz)
-
-        mpr = self.nodes[1].getrawmempool()
-        print "num of tx in mempool: ", len(mpr)
+        # not include FT and McBTR, which are free and with a low priority
+        flood_mempool()
+        self.sync_all()
 
         # advance two epochs
         mark_logs("\nLet 2 epochs pass by...", self.nodes, DEBUG_MODE)
 
         mark_logs("Node 1 generates " + str(EPOCH_LENGTH-2) + " blocks", self.nodes, DEBUG_MODE)
         self.nodes[1].generate(EPOCH_LENGTH-2)
-
-        mpr = self.nodes[1].getrawmempool()
-        print "num of tx in mempool: ", len(mpr)
-
-        ftScFee = 0.0008
-        cert, epoch_number = advance_epoch(
-            mcTest, self.nodes[1], self.sync_all, scid, "sc1", constant, EPOCH_LENGTH,
-            quality, CERT_FEE, ftScFee, mbtrScFee, generate=False)
-
-        mpr = self.nodes[1].getrawmempool()
-        print "num of tx in mempool: ", len(mpr)
-        #raw_input("__________")
-
-        mark_logs("cert={}, epoch={}, ftScFee={}, q={}".format(cert, epoch_number, ftScFee, quality), self.nodes, DEBUG_MODE)
-        assert_true(txFT in self.nodes[1].getrawmempool(True))
-
-        ftScFee = 0.0010
-        cert, epoch_number = advance_epoch(
-            mcTest, self.nodes[1], self.sync_all, scid, "sc1", constant, EPOCH_LENGTH,
-            quality, CERT_FEE, ftScFee, mbtrScFee)
-
-        mpr = self.nodes[1].getrawmempool()
-        print "num of tx in mempool: ", len(mpr)
-
-        mark_logs("cert={}, epoch={}, ftScFee={}, q={}".format(cert, epoch_number, ftScFee, quality), self.nodes, DEBUG_MODE)
-        assert_true(txFT in self.nodes[1].getrawmempool(True))
-
-        mpr = self.nodes[1].getrawmempool()
-        print "num of tx in mempool: ", len(mpr)
-
-        #pprint.pprint(self.nodes[1].getrawmempool(True))
-
-        mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
-        bl = self.nodes[1].generate(1)[-1]
         self.sync_all()
 
-        assert_false(txFT in self.nodes[0].getblock(bl, True)['tx'])
-        #assert_false(txFT in self.nodes[1].getrawmempool(True))
+        ftScFee   = FT_SC_FEES[4]
+        mbtrScFee = MBTR_SC_FEES[4]
 
-        mark_logs("Node 1 generates " + str(EPOCH_LENGTH) + " blocks", self.nodes, DEBUG_MODE)
-        self.nodes[1].generate(EPOCH_LENGTH)
+        cert, epoch_number = advance_epoch(
+            mcTest, self.nodes[1], self.sync_all, scid, "sc1", constant, EPOCH_LENGTH,
+            quality, CERT_FEE, ftScFee, mbtrScFee, generateNumBlocks=0)
+
+        self.sync_all()
+
+        mark_logs("cert={}, epoch={}, ftScFee={}, mbtrScFee={}".format(cert, epoch_number, ftScFee, mbtrScFee), self.nodes, DEBUG_MODE)
+        assert_true(cert in self.nodes[1].getrawmempool(True))
+
+        mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[1].generate(1)
+        self.sync_all()
+
+        scFeesList = self.nodes[0].getscinfo(scid)['items'][0]['sc fees']
+        f_min, m_min, f_max, m_max = get_sc_fee_min_max_value(scFeesList)
+        assert_equal(f_min, FT_SC_FEES[0])
+        assert_equal(m_min, MBTR_SC_FEES[0])
+        assert_equal(f_max, FT_SC_FEES[3])
+        assert_equal(m_max, MBTR_SC_FEES[3])
+
+        mark_logs("Check txes are still in mempool...", self.nodes, DEBUG_MODE)
+        assert_true(txFT in self.nodes[0].getrawmempool(True))
+        assert_true(txMbtr in self.nodes[0].getrawmempool(True))
+
+
+        ftScFee   = FT_SC_FEES[5]
+        mbtrScFee = MBTR_SC_FEES[5]
+        cert, epoch_number = advance_epoch(
+            mcTest, self.nodes[1], self.sync_all, scid, "sc1", constant, EPOCH_LENGTH,
+            quality, CERT_FEE, ftScFee, mbtrScFee, generateNumBlocks=(EPOCH_LENGTH-1))
+
+        mark_logs("cert={}, epoch={}, ftScFee={}, mbtrScFee={}".format(cert, epoch_number, ftScFee, mbtrScFee), self.nodes, DEBUG_MODE)
+        assert_true(txFT in self.nodes[1].getrawmempool(True))
+
+        mark_logs("Check txes are still in mempool...", self.nodes, DEBUG_MODE)
+        assert_true(txFT in self.nodes[0].getrawmempool(True))
+        assert_true(txMbtr in self.nodes[0].getrawmempool(True))
+
+        mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
+        bl = self.nodes[0].generate(1)[-1]
+        self.sync_all()
+
+        scFeesList = self.nodes[0].getscinfo(scid)['items'][0]['sc fees']
+        f_min, m_min, f_max, m_max = get_sc_fee_min_max_value(scFeesList)
+        assert_equal(f_min, FT_SC_FEES[3])
+        assert_equal(m_min, MBTR_SC_FEES[3])
+        assert_equal(f_max, FT_SC_FEES[4])
+        assert_equal(m_max, MBTR_SC_FEES[4])
+
+        mark_logs("Check txes are no more in mempool...", self.nodes, DEBUG_MODE)
+        assert_false(txFT in self.nodes[0].getrawmempool(True))
+        assert_false(txMbtr in self.nodes[0].getrawmempool(True))
+
+        mark_logs("Check txes have neither been mined...", self.nodes, DEBUG_MODE)
+        assert_false(txFT in self.nodes[0].getblock(bl, True)['tx'])
+        assert_false(txMbtr in self.nodes[0].getblock(bl, True)['tx'])
+
+        # this is for clearing mempool, otherwise the restart is blocked because txes are not rebroadcasted
+        mark_logs("Node 3 generates 1 block", self.nodes, DEBUG_MODE)
+        bl = self.nodes[3].generate(1)[-1]
+        self.sync_all()
+
+        mark_logs("Checking persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.setup_network(False)
+
+        bbh = self.nodes[0].getbestblockhash()
+        assert_equal(bl, bbh)
+
+        scFeesList2 = self.nodes[0].getscinfo(scid)['items'][0]['sc fees']
+        assert_equal(scFeesList, scFeesList2)
+
+        ftScFee   = FT_SC_FEES[6]
+        mbtrScFee = MBTR_SC_FEES[5]
+        # ---------------------------------------------------------------------------------------
+        mark_logs("\nNode 2 creates a second tx with a FT output scFee={}".format(ftScFee), self.nodes, DEBUG_MODE)
+
+        forwardTransferOuts = [{'toaddress': address, 'amount': ftScFee, "scid":scid}]
+
+        try:
+            txFT = self.nodes[2].send_to_sidechain(forwardTransferOuts, { "fee": 0.0})
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true(False)
+
+        self.sync_all()
+        mark_logs("txFT={}, scFee={}".format(txFT, ftScFee), self.nodes, DEBUG_MODE)
+        assert_true(txFT in self.nodes[0].getrawmempool())
+
+        # ---------------------------------------------------------------------------------------
+        mark_logs("\nNode 3 creates a second tx with an MBTR output, scFee={}".format(mbtrScFee), self.nodes, DEBUG_MODE)
+
+        errorString = ""
+        fe1 = generate_random_field_element_hex()
+        pkh1 = self.nodes[3].getnewaddress("", True)
+        mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        
+        try:
+            txMbtr = self.nodes[3].request_transfer_from_sidechain(mbtrOuts, { "fee": 0.0})
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true(False)
+
+        self.sync_all()
+        mark_logs("txMbtr={}, scFee={}".format(txMbtr, mbtrScFee), self.nodes, DEBUG_MODE)
+        assert_true(txMbtr in self.nodes[0].getrawmempool())
+
+
+        #------------------------------------------------------------------------------------------------        
+        # flood the mempool with non-free and hi-prio txes so that next blocks (with small max size) will
+        # not include FT and McBTR, which are free and with a low priority
+        flood_mempool()
+        self.sync_all()
+
+        ftScFee   = FT_SC_FEES[6]
+        mbtrScFee = MBTR_SC_FEES[6]
+
+        cert, epoch_number = advance_epoch(
+            mcTest, self.nodes[1], self.sync_all, scid, "sc1", constant, EPOCH_LENGTH,
+            quality, CERT_FEE, ftScFee, mbtrScFee, generateNumBlocks=(EPOCH_LENGTH-1))
+
+        self.sync_all()
+
+        mark_logs("cert={}, epoch={}, ftScFee={}, mbtrScFee={}".format(cert, epoch_number, ftScFee, mbtrScFee), self.nodes, DEBUG_MODE)
+        assert_true(cert in self.nodes[1].getrawmempool(True))
+
+        mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
+        self.nodes[1].generate(1)
+        self.sync_all()
+
+        scFeesList = self.nodes[0].getscinfo(scid)['items'][0]['sc fees']
+        f_min, m_min, f_max, m_max = get_sc_fee_min_max_value(scFeesList)
+        assert_equal(f_min, FT_SC_FEES[4])
+        assert_equal(m_min, MBTR_SC_FEES[4])
+        assert_equal(f_max, FT_SC_FEES[5])
+        assert_equal(m_max, MBTR_SC_FEES[5])
+
+        mark_logs("Check txes are still in mempool...", self.nodes, DEBUG_MODE)
+        assert_true(txFT in self.nodes[0].getrawmempool(True))
+        assert_true(txMbtr in self.nodes[0].getrawmempool(True))
+
+        ftScFee   = FT_SC_FEES[7]
+        mbtrScFee = MBTR_SC_FEES[7]
+        cert, epoch_number = advance_epoch(
+            mcTest, self.nodes[1], self.sync_all, scid, "sc1", constant, EPOCH_LENGTH,
+            quality, CERT_FEE, ftScFee, mbtrScFee, generateNumBlocks=(EPOCH_LENGTH-1))
+
+        mark_logs("cert={}, epoch={}, ftScFee={}, mbtrScFee={}".format(cert, epoch_number, ftScFee, mbtrScFee), self.nodes, DEBUG_MODE)
+        assert_true(txFT in self.nodes[1].getrawmempool(True))
+
+        mark_logs("Check txes are still in mempool...", self.nodes, DEBUG_MODE)
+        assert_true(txFT in self.nodes[0].getrawmempool(True))
+        assert_true(txMbtr in self.nodes[0].getrawmempool(True))
+
+        mark_logs("Node 3 generates 1 block", self.nodes, DEBUG_MODE)
+        bl = self.nodes[3].generate(1)[-1]
+        self.sync_all()
+
+        scFeesList = self.nodes[0].getscinfo(scid)['items'][0]['sc fees']
+        f_min, m_min, f_max, m_max = get_sc_fee_min_max_value(scFeesList)
+        assert_equal(f_min, FT_SC_FEES[5])
+        assert_equal(m_min, MBTR_SC_FEES[5])
+        assert_equal(f_max, FT_SC_FEES[6])
+        assert_equal(m_max, MBTR_SC_FEES[6])
+
+        mark_logs("Check txes have been mined...", self.nodes, DEBUG_MODE)
+        assert_true(txFT in self.nodes[0].getblock(bl, True)['tx'])
+        assert_true(txMbtr in self.nodes[0].getblock(bl, True)['tx'])
 
 
 

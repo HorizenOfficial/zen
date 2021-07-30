@@ -1190,6 +1190,16 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         }
         sc.pushKV("immature amounts", ia);
 
+        UniValue sf(UniValue::VARR);
+        for(const auto& entry: info.scFees)
+        {
+            UniValue o(UniValue::VOBJ);
+            o.pushKV("forwardTxScFee", ValueFromAmount(entry.forwardTxScFee));
+            o.pushKV("   mbtrTxScFee", ValueFromAmount(entry.mbtrTxScFee));
+            sf.push_back(o);
+        }
+        sc.pushKV("sc fees", sf);
+
         // get unconfirmed data if any
         if (mempool.hasSidechainCertificate(scId))
         {
