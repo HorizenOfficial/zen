@@ -71,6 +71,7 @@ public:
     int CbhSafeDepth() const { return nCbhSafeDepth; }
     int ScCoinsMaturity() const { return nScCoinsMaturity; }
     int ScMinWithdrawalEpochLength() const { return nScMinWithdrawalEpochLength; }
+    int ScMaxNumberOfCswInputsInMempool() const { return nScMaxNumberOfCswInputsInMempool; }
     int64_t MaxTipAge() const { return nMaxTipAge; }
     int64_t PruneAfterHeight() const { return nPruneAfterHeight; }
     unsigned int EquihashN() const { return nEquihashN; }
@@ -120,6 +121,7 @@ protected:
     int  nCbhSafeDepth = 0;
     int  nScCoinsMaturity = 0;
     int  nScMinWithdrawalEpochLength = 0;
+    int  nScMaxNumberOfCswInputsInMempool = 0;
     Checkpoints::CCheckpointData checkpointData;
 };
 

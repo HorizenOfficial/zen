@@ -1030,4 +1030,15 @@ bool BlockchainTestManager::StoreCoins(std::pair<uint256, CCoinsCacheEntry> entr
     return viewCache->HaveCoins(entryToStore.first) == true;
 }
 
+void RandomSidechainField(CFieldElement &fe) {
+    std::vector<unsigned char> vec;
+    for (unsigned int i = 0; i < sizeof(CFieldElement)-1; i++)
+    {
+        vec.push_back((unsigned char)(insecure_rand() % 0xff));
+    }
+    vec.resize(CFieldElement::ByteSize());
+    fe.SetByteArray(vec);
+}
+
+
 } // namespace blockchain_test_utils

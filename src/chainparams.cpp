@@ -135,6 +135,7 @@ public:
         nCbhSafeDepth = 52596;
         nScCoinsMaturity = 10;
         nScMinWithdrawalEpochLength = 100;
+        nScMaxNumberOfCswInputsInMempool = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
@@ -235,6 +236,7 @@ public:
         nCbhSafeDepth = 52596;
         nScCoinsMaturity = 10;
         nScMinWithdrawalEpochLength = 100;
+        nScMaxNumberOfCswInputsInMempool = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
@@ -325,6 +327,7 @@ public:
         nCbhSafeDepth = 320;
         nScCoinsMaturity = 3;
         nScMinWithdrawalEpochLength = 2;
+        nScMaxNumberOfCswInputsInMempool = 5;
 
         checkpointData = (Checkpoints::CCheckpointData){
             boost::assign::map_list_of
