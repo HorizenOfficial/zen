@@ -1035,10 +1035,12 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         {
             // this is the number of nullifiers
             int numMempool = getNumOfCswInputs(entry.first);
-            // this is the number of all txes
+            assert(numMempool <= SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
+
+            // this is the number of csw inputs in tx
             int numTx      = entry.second;
-            assert(numTx <= SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
-            assert(numMempool == numTx);
+            assert(numTx      <= SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
+            assert(numTx      <= numMempool);
         }
 
         for(const auto& btr: tx.GetVBwtRequestOut()) {
@@ -1300,7 +1302,7 @@ bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
     for(const CTxCeasedSidechainWithdrawalInput& csw: incomingTx.GetVcswCcIn())
     {
         if (HaveCswNullifier(csw.scId, csw.nullifier)) {
-            LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another CSW input nullifier in mempool\n",
+            LogPrint("sc", "%s():%d - Dropping txid [%s]: CSW input nullifier is already in mempool\n",
                     __func__, __LINE__, hash.ToString());
             return false;
         }

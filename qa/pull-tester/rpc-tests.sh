@@ -116,6 +116,7 @@ testScripts=(
   'cbh_rpcheck.py'
   'tlsprotocols.py'
   'getblockmerkleroots.py'
+  'sc_csw_eviction_from_mempool.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
