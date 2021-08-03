@@ -683,6 +683,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedFwtTxToCeasedSidechainsAreRemove
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
     initialScState.balance = CAmount{1000};
+    initialScState.InitScFees();
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight() -1;
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereAlive);
@@ -725,6 +726,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCsw_LargerThanSidechainBalanceAr
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
     initialScState.balance = CAmount{1000};
+    initialScState.InitScFees();
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
@@ -773,6 +775,7 @@ TEST_F(SidechainsInMempoolTestSuite, UnconfirmedCswForAliveSidechainsAreRemovedF
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
     initialScState.balance = CAmount{1000};
+    initialScState.InitScFees();
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
@@ -1041,6 +1044,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedFwdsTowardAliveSidechainsAreNotDr
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
+    initialScState.InitScFees();
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight() -1;
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereAlive);
@@ -1077,6 +1081,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedFwdsTowardCeasedSidechainsAreDrop
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
+    initialScState.InitScFees();
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
@@ -1113,6 +1118,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedMbtrTowardCeasedSidechainIsDroppe
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
+    initialScState.InitScFees();
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
@@ -1154,6 +1160,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardAliveSidechainIsNotDrop
     initialScState.creationBlockHeight = 201;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereAlive);
     ASSERT_TRUE(sidechainsView.GetSidechainState(scId) == CSidechain::State::ALIVE);
@@ -1194,6 +1201,7 @@ TEST_F(SidechainsInMempoolTestSuite,UnconfirmedCertTowardCeasedSidechainIsDroppe
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
+    initialScState.InitScFees();
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(sidechainsView, scId, initialScState, heightWhereCeased);
@@ -1520,7 +1528,8 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
     static const int blocksForScFeeCheck = 100;
     mapArgs["-blocksforscfeecheck"] = std::to_string(blocksForScFeeCheck);
  
-    static int loops = 30;
+    static const int NUM_OF_LOOPS = 30;
+    int loops = NUM_OF_LOOPS;
     while (loops-- > 0)
     {
         int epLen = insecure_rand()%100 + 5;
@@ -1530,13 +1539,14 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
         if (targetEpoch == 0 || blocksForScFeeCheck % epLen)
             targetEpoch++;
  
-        std::cout << "blocksforscfeecheck = " << blocksForScFeeCheck << std::endl;
-        std::cout << "epochLength=" << epLen << ", targetEpoch=" << targetEpoch << std::endl;
+#ifdef DEBUG_TRACE
+        std::cout << std::setw(2) << (NUM_OF_LOOPS - loops) << ") " << "blocksforscfeecheck = " << blocksForScFeeCheck << ", epochLength=" << epLen << ", targetEpoch=" << targetEpoch << std::endl;
+#endif
  
         CAmount ftScFee(7);
         uint256 scId = createAndStoreSidechain(/*FT fee*/ftScFee, /*MBTR fee*/0, /*MBTR data length*/0, /*epochLength*/ epLen);
  
-        CTransaction fwdTx = GenerateFwdTransferTx(scId, ftScFee + 1);
+        CTransaction fwdTx = GenerateFwdTransferTx(scId, ++ftScFee);
         CValidationState fwdTxState;
  
         // Check that a FT with an amount greater than the Forward Transfer sidechain fee is accepted
@@ -1544,26 +1554,23 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
                                          MempoolProofVerificationFlag::SYNC) == MempoolReturnValue::VALID);
  
         int64_t certQuality = 10;
-        CFieldElement dummyCumTree {SAMPLE_FIELD};
+        CFieldElement dummyCumTree{SAMPLE_FIELD};
         CAmount dummyInputAmount{20};
         CAmount dummyNonZeroFee {10};
         CAmount dummyNonZeroChange = dummyInputAmount - dummyNonZeroFee;
         CAmount dummyBwtAmount {0};
  
         CCoinsViewCache sidechainsView(pcoinsTip);
+#ifdef DEBUG_TRACE
         CSidechain sidechain;
         sidechainsView.GetSidechain(scId, sidechain);
+        sidechain.DumpScFees();
+#endif
 
-        // force init
-        sidechain.sizeOfScFeesContainers = -1;
-
-        std::cout << "view height = " << sidechainsView.GetHeight() << std::endl;
- 
         int epNum = 0;
  
         moveSidechainToNextEpoch(scId, sidechainsView);
  
-        CAmount ftScFeeCert = ftScFee+1;
         while (true)
         {
             if ( epNum > targetEpoch)
@@ -1571,7 +1578,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
  
             CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/epNum, dummyCumTree, /*inputAmount*/dummyInputAmount,
                 /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
-                /*ftScFee*/ftScFeeCert++, /*mbtrScFee*/CAmount(0), /*quality*/certQuality++);
+                /*ftScFee*/++ftScFee, /*mbtrScFee*/CAmount(0), /*quality*/certQuality++);
  
             CBlockUndo aBlock(IncludeScAttributes::ON);
  
@@ -1583,8 +1590,11 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
             std::list<CScCertificate> removedCerts;
             mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
             EXPECT_EQ(removedTxs.size(), (epNum == targetEpoch) ? 1:0);
+#ifdef DEBUG_TRACE
+            CSidechain sidechain;
             sidechainsView.GetSidechain(scId, sidechain);
             sidechain.DumpScFees();
+#endif
  
             epNum++;
         }
@@ -1674,7 +1684,8 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
     static const int blocksForScFeeCheck = 100;
     mapArgs["-blocksforscfeecheck"] = std::to_string(blocksForScFeeCheck);
  
-    static int loops = 30;
+    static const int NUM_OF_LOOPS = 30;
+    int loops = NUM_OF_LOOPS;
     while (loops-- > 0)
     {
         int epLen = insecure_rand()%100 + 5;
@@ -1684,8 +1695,9 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
         if (targetEpoch == 0 || blocksForScFeeCheck % epLen)
             targetEpoch++;
  
-        std::cout << "blocksforscfeecheck = " << blocksForScFeeCheck << std::endl;
-        std::cout << "epochLength=" << epLen << ", targetEpoch=" << targetEpoch << std::endl;
+#ifdef DEBUG_TRACE
+        std::cout << std::setw(2) << (NUM_OF_LOOPS - loops) << ") " << "blocksforscfeecheck = " << blocksForScFeeCheck << ", epochLength=" << epLen << ", targetEpoch=" << targetEpoch << std::endl;
+#endif
  
         CAmount mbtrScFee(10);
         uint256 scId = createAndStoreSidechain(/*FT fee*/0, /*MBTR fee*/mbtrScFee, /*MBTR data length*/1, /*epochLength*/ epLen);
@@ -1705,19 +1717,16 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
         CAmount dummyBwtAmount {0};
  
         CCoinsViewCache sidechainsView(pcoinsTip);
+#ifdef DEBUG_TRACE
         CSidechain sidechain;
         sidechainsView.GetSidechain(scId, sidechain);
+        sidechain.DumpScFees();
+#endif
 
-        // force init
-        sidechain.sizeOfScFeesContainers = -1;
-
-        std::cout << "view height = " << sidechainsView.GetHeight() << std::endl;
- 
         int epNum = 0;
  
         moveSidechainToNextEpoch(scId, sidechainsView);
  
-        CAmount mbtrScFeeCert = mbtrScFee+1;
         while (true)
         {
             if ( epNum > targetEpoch)
@@ -1725,7 +1734,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
  
             CScCertificate certificate = GenerateCertificate(scId, /*epochNum*/epNum, dummyCumTree, /*inputAmount*/dummyInputAmount,
                 /*changeTotalAmount*/dummyNonZeroChange,/*numChangeOut*/1, /*bwtAmount*/dummyBwtAmount, /*numBwt*/2,
-                /*ftScFee*/CAmount(0), /*mbtrScFee*/mbtrScFeeCert++, /*quality*/certQuality++);
+                /*ftScFee*/CAmount(0), /*mbtrScFee*/++mbtrScFee, /*quality*/certQuality++);
  
             CBlockUndo aBlock(IncludeScAttributes::ON);
  
@@ -1737,8 +1746,11 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
             std::list<CScCertificate> removedCerts;
             mempool.removeStaleTransactions(&sidechainsView, removedTxs, removedCerts);
             EXPECT_EQ(removedTxs.size(), (epNum == targetEpoch) ? 1:0);
+#ifdef DEBUG_TRACE
+            CSidechain sidechain;
             sidechainsView.GetSidechain(scId, sidechain);
             sidechain.DumpScFees();
+#endif
  
             epNum++;
         }

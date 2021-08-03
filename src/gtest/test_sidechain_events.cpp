@@ -58,6 +58,7 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithoutCert
 
     initialScState.pastEpochTopQualityCertView.certDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'a')};
     initialScState.lastTopQualityCertView.certDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'b')};
+    initialScState.InitScFees();
 
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.GetCertSubmissionWindowStart(initialEpochReferencedByCert));
     ASSERT_TRUE(view->GetSidechainState(scId) == CSidechain::State::ALIVE);
@@ -89,6 +90,7 @@ TEST_F(SidechainsEventsTestSuite, CertDataHash_EndWindowToEndWindows_WithCert) {
     sidechain.creationBlockHeight = 1;
     sidechain.fixedParams.withdrawalEpochLength = 100;
     sidechain.lastTopQualityCertReferencedEpoch = initialEpochReferencedByCert;
+    sidechain.InitScFees();
 
     sidechain.pastEpochTopQualityCertView.certDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'a')};
     sidechain.lastTopQualityCertView.certDataHash = CFieldElement{std::vector<unsigned char>(CFieldElement::ByteSize(), 'b')};
@@ -166,6 +168,7 @@ TEST_F(SidechainsEventsTestSuite, SidechainInItsFirstEpochIsNotCeased) {
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = CScCertificate::EPOCH_NULL;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     CSidechain sidechain;
@@ -191,6 +194,7 @@ TEST_F(SidechainsEventsTestSuite, SidechainIsNotCeasedBeforeNextEpochSafeguard) 
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     CSidechain sidechain;
@@ -216,6 +220,7 @@ TEST_F(SidechainsEventsTestSuite, SidechainIsCeasedAtNextEpochSafeguard) {
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     CSidechain sidechain;
@@ -242,6 +247,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertMovesSidechainTerminationToNextEpochSa
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -283,6 +289,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCertificateMovesSidechainTerminationToN
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{100};
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -323,6 +330,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificateMovesSidechainTerminationToNex
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -363,6 +371,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificateMovesSidechainTerminationToNex
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -424,6 +433,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForFullCert) {
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -459,6 +469,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForPureBwtCert) {
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount(19);
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -493,6 +504,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForNoBwtCert) {
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -527,6 +539,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForEmptyCertificate) {
     initialScState.creationBlockHeight = 1912;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -564,6 +577,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{20};
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -620,6 +634,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{20};
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -685,6 +700,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     initialScState.creationBlockHeight = 201;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -740,6 +756,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     initialScState.creationBlockHeight = 201;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -795,6 +812,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{20};
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -857,6 +875,7 @@ TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{20};
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -918,6 +937,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -979,6 +999,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -1056,6 +1077,7 @@ TEST_F(SidechainsEventsTestSuite, UndoFullCertUpdatesToCeasingScs) {
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{20};
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -1106,6 +1128,7 @@ TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
     initialScState.balance = CAmount{5};
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -1155,6 +1178,7 @@ TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -1204,6 +1228,7 @@ TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
     initialScState.creationBlockHeight = 1987;
     initialScState.fixedParams.withdrawalEpochLength = 9;
     initialScState.lastTopQualityCertReferencedEpoch = 19;
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*view, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too

@@ -127,6 +127,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
     initialScState.lastTopQualityCertReferencedEpoch = 1987;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -169,6 +170,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
     initialScState.lastTopQualityCertReferencedEpoch = 1987;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -210,6 +212,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_Sidech
     initialScState.lastTopQualityCertReferencedEpoch = 1987;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -252,6 +255,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataCh
     initialScState.lastTopQualityCertReferencedEpoch = 1987;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
     //... and initial ceasing event too
@@ -296,6 +300,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDa
     initialScState.balance = CAmount(100);
     initialScState.lastTopQualityCertView.forwardTransferScFee = CAmount(10);
     initialScState.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = CAmount(20);
+    initialScState.InitScFees();
     
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 

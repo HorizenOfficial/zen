@@ -56,7 +56,7 @@ public:
         pastEpochTopQualityCertView(), lastTopQualityCertView(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
-        balance(0), sizeOfScFeesContainers(-1) {}
+        balance(0), maxSizeOfScFeesContainers(-1) {}
 
     bool IsNull() const
     {
@@ -104,12 +104,16 @@ public:
     // value = the immature amount
     std::map<int, CAmount> mImmatureAmounts;
 
+    // memory only
+    int maxSizeOfScFeesContainers;
     // the last ftScFee and mbtrScFee values, as set by the active certificates
+    // it behaves like a circular buffer once the max size is reached
     std::list<Sidechain::ScFeeData> scFees;
 
-    // memory only
-    int sizeOfScFeesContainers;
+    // compute the max size of the sc fee list
+    int getMaxSizeOfScFeesContainers();
 
+    // returns the chain param value with the number of blocks to consider for sc fee check logic
     int getNumBlocksForScFeeCheck();
 
     enum class State : uint8_t {
@@ -144,7 +148,9 @@ public:
         if (ser_action.ForRead())
         {
             if (!scFees.empty())
-                sizeOfScFeesContainers = scFees.size();
+            {
+                maxSizeOfScFeesContainers = getMaxSizeOfScFeesContainers();
+            }
         }
     }
 

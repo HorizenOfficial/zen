@@ -9,7 +9,7 @@ from test_framework.util import assert_equal, assert_true, assert_false, initial
     stop_nodes, wait_bitcoinds, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, disconnect_nodes, mark_logs, \
     dump_sc_info_record, get_epoch_data, swap_bytes, advance_epoch
-from test_framework.mc_test.mc_test import *
+from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 import os
 from decimal import Decimal
 import pprint

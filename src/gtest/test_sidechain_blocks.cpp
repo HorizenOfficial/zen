@@ -148,6 +148,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     initialScState.lastTopQualityCertReferencedEpoch = 7;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
     storeSidechain(scId, initialScState);
 
     //... and initial ceasing event too
@@ -222,6 +223,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     initialScState.lastTopQualityCertReferencedEpoch = 7;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
     storeSidechain(scId, initialScState);
 
     //... and initial ceasing event too
@@ -296,6 +298,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     initialScState.lastTopQualityCertReferencedEpoch = 7;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
     storeSidechain(scId, initialScState);
 
     //... and initial ceasing event too
@@ -386,6 +389,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     initialScState.lastTopQualityCertReferencedEpoch = 7;
     initialScState.lastTopQualityCertBwtAmount = 50;
     initialScState.balance = CAmount(100);
+    initialScState.InitScFees();
     storeSidechain(scId, initialScState);
 
     //... and initial ceasing event too
