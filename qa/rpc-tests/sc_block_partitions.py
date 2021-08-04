@@ -71,7 +71,7 @@ class sc_block_partitions(BitcoinTestFramework):
             except JSONRPCException, e:
                 errorString = e.error['message']
                 mark_logs(errorString,self.nodes,DEBUG_MODE)
-                assert_true(False);
+                assert_true(False)
 
             return tx, scid
 
@@ -102,7 +102,7 @@ class sc_block_partitions(BitcoinTestFramework):
             'constant':constant , 'wCertVk': certVk, 'toaddress':"cdcd",
         }
       
-        tx, scid = create_sc(cmdInput, self.nodes[0]);
+        tx, scid = create_sc(cmdInput, self.nodes[0])
         mark_logs("Created SC with scid={} via tx={}".format(scid, tx), self.nodes,DEBUG_MODE)
         self.sync_all()
 
@@ -150,7 +150,6 @@ class sc_block_partitions(BitcoinTestFramework):
         mark_logs("Creating txes...", self.nodes, DEBUG_MODE)
         tot_num_tx = 0
         tot_tx_sz = 0
-        taddr_node0 = self.nodes[0].getnewaddress()
         taddr_node1 = self.nodes[1].getnewaddress()
 
         # fee lower than the one used for certs
@@ -185,7 +184,7 @@ class sc_block_partitions(BitcoinTestFramework):
 
         print "tot tx   = {}, tot sz = {} ".format(tot_num_tx, tot_tx_sz)
 
-        mark_logs("Generating 1 block and checking blocks partitions...".format(2), self.nodes, DEBUG_MODE)
+        mark_logs("Generating 1 block and checking blocks partitions...", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
         ret = self.nodes[0].getmininginfo()
@@ -202,7 +201,7 @@ class sc_block_partitions(BitcoinTestFramework):
         # block space used for txes is lower than tx partition
         assert_true(ret['currenttxpartitionused'] < TEST_BLOCK_TX_PARTITION_MAX_SIZE)
 
-        mark_logs("Generating 1 block and checking blocks partitions...".format(2), self.nodes, DEBUG_MODE)
+        mark_logs("Generating 1 block and checking blocks partitions...", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
         ret = self.nodes[0].getmininginfo()
@@ -220,7 +219,7 @@ class sc_block_partitions(BitcoinTestFramework):
         assert_true(ret['currentblocktx'] > 0)
         assert_true(ret['currenttxpartitionused'] < TEST_BLOCK_TX_PARTITION_MAX_SIZE)
 
-        mark_logs("Generating 1 block and checking blocks partitions...".format(2), self.nodes, DEBUG_MODE)
+        mark_logs("Generating 1 block and checking blocks partitions...", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
         ret = self.nodes[0].getmininginfo()

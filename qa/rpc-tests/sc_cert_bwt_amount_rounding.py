@@ -9,7 +9,7 @@ from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes, advance_epoch
-from test_framework.mc_test.mc_test import *
+from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 import os
 import pprint
 from decimal import Decimal
@@ -54,10 +54,15 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
             except JSONRPCException, e:
                 errorString = e.error['message']
                 mark_logs(errorString,self.nodes,DEBUG_MODE)
-                assert_true(False);
+                assert_true(False)
 
             return tx, scid
 
+        '''
+        Purpose of this test is to verify that a decimal amount with many decimal digits is correctly handled, expecially
+        with reference to the compatibility between creation and verification of the proof, which are performed by the test
+        framework and the zend_oo core implementations.
+        '''
         # network topology: (0)--(1)
 
         mark_logs("Node 1 generates {} block".format(2), self.nodes, DEBUG_MODE)
@@ -83,7 +88,7 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
             'constant':constant , 'wCertVk': certVk, 'toaddress':"cdcd"
         }
       
-        tx, scid = create_sc(cmdInput, self.nodes[0]);
+        tx, scid = create_sc(cmdInput, self.nodes[0])
         mark_logs("Created SC with scid={} via tx={}".format(scid, tx), self.nodes,DEBUG_MODE)
         self.sync_all()
         hexTx = self.nodes[0].getrawtransaction(tx)
@@ -108,7 +113,7 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
         proof = None
         pkh_node1 = self.nodes[1].getnewaddress("", True)
 
-        for i in range(0, NUM_OF_BWT):
+        for _ in range(0, NUM_OF_BWT):
 
             pkh_array.append(pkh_node1)
             bwt_amount_array.append(bwt_amount)
