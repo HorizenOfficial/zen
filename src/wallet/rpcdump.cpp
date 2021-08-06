@@ -82,11 +82,16 @@ UniValue importprivkey(const UniValue& params, bool fHelp)
         throw runtime_error(
             "importprivkey \"horizenprivkey\" ( \"label\" rescan )\n"
             "\nAdds a private key (as returned by dumpprivkey) to your wallet.\n"
+            
             "\nArguments:\n"
-            "1. \"horizenprivkey\"   (string, required) The private key (see dumpprivkey)\n"
-            "2. \"label\"            (string, optional, default=\"\") An optional label\n"
-            "3. rescan               (boolean, optional, default=true) Rescan the wallet for transactions\n"
+            "1. \"horizenprivkey\"   (string, required) the private key (see dumpprivkey)\n"
+            "2. \"label\"            (string, optional, default=\"\") an optional label\n"
+            "3. rescan               (boolean, optional, default=true) rescan the wallet for transactions\n"
             "\nNote: This call can take minutes to complete if rescan is true.\n"
+
+            "\nResult:\n"
+            "\"zenaddress\n          (string) the zen address corresponding to the given private key\n"
+            
             "\nExamples:\n"
             "\nDump a private key\n"
             + HelpExampleCli("dumpprivkey", "\"myaddress\"") +
@@ -157,11 +162,16 @@ UniValue importaddress(const UniValue& params, bool fHelp)
         throw runtime_error(
             "importaddress \"address\" ( \"label\" rescan )\n"
             "\nAdds an address or script (in hex) that can be watched as if it were in your wallet but cannot be used to spend.\n"
+            
             "\nArguments:\n"
-            "1. \"address\"          (string, required) The address\n"
-            "2. \"label\"            (string, optional, default=\"\") An optional label\n"
-            "3. rescan               (boolean, optional, default=true) Rescan the wallet for transactions\n"
+            "1. \"address\"          (string, required) the address\n"
+            "2. \"label\"            (string, optional, default=\"\") an optional label\n"
+            "3. rescan               (boolean, optional, default=true) rescan the wallet for transactions\n"
             "\nNote: This call can take minutes to complete if rescan is true.\n"
+
+            "\nResult:\n"
+            "Nothing\n"
+            
             "\nExamples:\n"
             "\nImport an address with rescan\n"
             + HelpExampleCli("importaddress", "\"myaddress\"") +
@@ -230,15 +240,20 @@ UniValue z_importwallet(const UniValue& params, bool fHelp)
         throw runtime_error(
             "z_importwallet \"filename\"\n"
             "\nImports taddr and zaddr keys from a wallet export file (see z_exportwallet).\n"
+            
             "\nArguments:\n"
-            "1. \"filename\"    (string, required) The wallet file\n"
+            "1. \"filename\"    (string, required) the wallet file\n"
+
+            "\nResult:\n"
+            "Nothing\n"
+            
             "\nExamples:\n"
             "\nDump the wallet\n"
-            + HelpExampleCli("z_exportwallet", "\"test\"") +
+            + HelpExampleCli("z_exportwallet", "\"filename\"") +
             "\nImport the wallet\n"
-            + HelpExampleCli("z_importwallet", "\"test\"") +
+            + HelpExampleCli("z_importwallet", "\"filename\"") +
             "\nImport using the json rpc call\n"
-            + HelpExampleRpc("z_importwallet", "\"test\"")
+            + HelpExampleRpc("z_importwallet", "\"filename\"")
         );
 
 	return importwallet_impl(params, fHelp, true);
@@ -253,15 +268,20 @@ UniValue importwallet(const UniValue& params, bool fHelp)
         throw runtime_error(
             "importwallet \"filename\"\n"
             "\nImports taddr keys from a wallet dump file (see dumpwallet).\n"
+            
             "\nArguments:\n"
-            "1. \"filename\"    (string, required) The wallet file\n"
+            "1. \"filename\"    (string, required) the wallet file\n"
+
+            "\nResult:\n"
+            "Nothing\n"
+            
             "\nExamples:\n"
             "\nDump the wallet\n"
-            + HelpExampleCli("dumpwallet", "\"test\"") +
+            + HelpExampleCli("dumpwallet", "\"filename\"") +
             "\nImport the wallet\n"
-            + HelpExampleCli("importwallet", "\"test\"") +
+            + HelpExampleCli("importwallet", "\"filename\"") +
             "\nImport using the json rpc call\n"
-            + HelpExampleRpc("importwallet", "\"test\"")
+            + HelpExampleRpc("importwallet", "\"filename\"")
         );
 
 	return importwallet_impl(params, fHelp, false);
@@ -391,10 +411,13 @@ UniValue dumpprivkey(const UniValue& params, bool fHelp)
             "dumpprivkey \"horizenaddress\"\n"
             "\nReveals the private key corresponding to 'horizenaddress'.\n"
             "Then the importprivkey can be used with this output\n"
+
             "\nArguments:\n"
-            "1. \"horizenaddress\"   (string, required) The Horizen address for the private key\n"
+            "1. \"horizenaddress\"   (string, required) the Horizen address for the private key\n"
+
             "\nResult:\n"
-            "\"key\"                (string) The private key\n"
+            "\"key\"                 (string) the private key\n"
+
             "\nExamples:\n"
             + HelpExampleCli("dumpprivkey", "\"myaddress\"")
             + HelpExampleCli("importprivkey", "\"mykey\"")
@@ -430,12 +453,15 @@ UniValue z_exportwallet(const UniValue& params, bool fHelp)
             "z_exportwallet \"filename\"\n"
             "\nExports all wallet keys, for taddr and zaddr, in a human-readable format.  Overwriting an existing file is not permitted.\n"
             "\nArguments:\n"
+            
             "1. \"filename\"    (string, required) The filename, saved in folder set by zend -exportdir option\n"
+            
             "\nResult:\n"
-            "\"path\"           (string) The full path of the destination file\n"
+            "\"path\"           (string) the full path of the destination file\n"
+            
             "\nExamples:\n"
-            + HelpExampleCli("z_exportwallet", "\"test\"")
-            + HelpExampleRpc("z_exportwallet", "\"test\"")
+            + HelpExampleCli("z_exportwallet", "\"filename\"")
+            + HelpExampleRpc("z_exportwallet", "\"filename\"")
         );
 
 	return dumpwallet_impl(params, fHelp, true);
@@ -450,13 +476,16 @@ UniValue dumpwallet(const UniValue& params, bool fHelp)
         throw runtime_error(
             "dumpwallet \"filename\"\n"
             "\nDumps taddr wallet keys in a human-readable format.  Overwriting an existing file is not permitted.\n"
+
             "\nArguments:\n"
-            "1. \"filename\"    (string, required) The filename, saved in folder set by zend -exportdir option\n"
+            "1. \"filename\"    (string, required) the filename, saved in folder set by zend -exportdir option\n"
+
             "\nResult:\n"
-            "\"path\"           (string) The full path of the destination file\n"
+            "\"path\"           (string) the full path of the destination file\n"
+
             "\nExamples:\n"
-            + HelpExampleCli("dumpwallet", "\"test\"")
-            + HelpExampleRpc("dumpwallet", "\"test\"")
+            + HelpExampleCli("dumpwallet", "\"filename\"")
+            + HelpExampleRpc("dumpwallet", "\"filename\"")
         );
 
 	return dumpwallet_impl(params, fHelp, false);
@@ -561,22 +590,27 @@ UniValue z_importkey(const UniValue& params, bool fHelp)
         throw runtime_error(
             "z_importkey \"zkey\" ( rescan startHeight )\n"
             "\nAdds a zkey (as returned by z_exportkey) to your wallet.\n"
+            
             "\nArguments:\n"
-            "1. \"zkey\"             (string, required) The zkey (see z_exportkey)\n"
-            "2. rescan             (string, optional, default=\"whenkeyisnew\") Rescan the wallet for transactions - can be \"yes\", \"no\" or \"whenkeyisnew\"\n"
-            "3. startHeight        (numeric, optional, default=0) Block height to start rescan from\n"
+            "1. \"zkey\"           (string, required) the zkey (see z_exportkey)\n"
+            "2. rescan             (string, optional, default=\"whenkeyisnew\") rescan the wallet for transactions - can be \"yes\", \"no\" or \"whenkeyisnew\"\n"
+            "3. startHeight        (numeric, optional, default=0) block height to start rescan from\n"
             "\nNote: This call can take minutes to complete if rescan is true.\n"
+
+            "\nResult:\n"
+            "Nothing\n"
+            
             "\nExamples:\n"
             "\nExport a zkey\n"
             + HelpExampleCli("z_exportkey", "\"myaddress\"") +
             "\nImport the zkey with rescan\n"
-            + HelpExampleCli("z_importkey", "\"mykey\"") +
+            + HelpExampleCli("z_importkey", "\"zkey\"") +
             "\nImport the zkey with partial rescan\n"
-            + HelpExampleCli("z_importkey", "\"mykey\" whenkeyisnew 30000") +
+            + HelpExampleCli("z_importkey", "\"zkey\" whenkeyisnew 30000") +
             "\nRe-import the zkey with longer partial rescan\n"
-            + HelpExampleCli("z_importkey", "\"mykey\" yes 20000") +
+            + HelpExampleCli("z_importkey", "\"zkey\" yes 20000") +
             "\nAs a JSON-RPC call\n"
-            + HelpExampleRpc("z_importkey", "\"mykey\", \"no\"")
+            + HelpExampleRpc("z_importkey", "\"zkey\", \"no\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -657,11 +691,13 @@ UniValue z_importviewingkey(const UniValue& params, bool fHelp)
         throw runtime_error(
             "z_importviewingkey \"vkey\" ( rescan startHeight )\n"
             "\nAdds a viewing key (as returned by z_exportviewingkey) to your wallet.\n"
+            
             "\nArguments:\n"
-            "1. \"vkey\"             (string, required) The viewing key (see z_exportviewingkey)\n"
-            "2. rescan             (string, optional, default=\"whenkeyisnew\") Rescan the wallet for transactions - can be \"yes\", \"no\" or \"whenkeyisnew\"\n"
-            "3. startHeight        (numeric, optional, default=0) Block height to start rescan from\n"
+            "1. \"vkey\"           (string, required) the viewing key (see z_exportviewingkey)\n"
+            "2. rescan             (string, optional, default=\"whenkeyisnew\") rescan the wallet for transactions - can be \"yes\", \"no\" or \"whenkeyisnew\"\n"
+            "3. startHeight        (numeric, optional, default=0) block height to start rescan from\n"
             "\nNote: This call can take minutes to complete if rescan is true.\n"
+            
             "\nExamples:\n"
             "\nImport a viewing key\n"
             + HelpExampleCli("z_importviewingkey", "\"vkey\"") +
@@ -746,15 +782,18 @@ UniValue z_exportkey(const UniValue& params, bool fHelp)
         throw runtime_error(
             "z_exportkey \"zaddr\"\n"
             "\nReveals the zkey corresponding to 'zaddr'.\n"
-            "Then the z_importkey can be used with this output\n"
+            "Then the z_importkey can be used with this output.\n"
+            
             "\nArguments:\n"
-            "1. \"zaddr\"   (string, required) The zaddr for the private key\n"
+            "1. \"zaddr\"   (string, required) the zaddr for the private key\n"
+            
             "\nResult:\n"
-            "\"key\"                  (string) The private key\n"
+            "\"key\"        (string) the private key\n"
+            
             "\nExamples:\n"
             + HelpExampleCli("z_exportkey", "\"myaddress\"")
-            + HelpExampleCli("z_importkey", "\"mykey\"")
-            + HelpExampleRpc("z_exportkey", "\"myaddress\"")
+            + HelpExampleCli("z_importkey", "\"zkey\"")
+            + HelpExampleRpc("z_exportkey", "\"zaddr\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -784,13 +823,15 @@ UniValue z_exportviewingkey(const UniValue& params, bool fHelp)
             "z_exportviewingkey \"zaddr\"\n"
             "\nReveals the viewing key corresponding to 'zaddr'.\n"
             "Then the z_importviewingkey can be used with this output\n"
+            
             "\nArguments:\n"
-            "1. \"zaddr\"   (string, required) The zaddr for the viewing key\n"
+            "1. \"zaddr\"   (string, required) the zaddr for the viewing key\n"
             "\nResult:\n"
-            "\"vkey\"                  (string) The viewing key\n"
+            "\"vkey\"       (string) the viewing key\n"
+            
             "\nExamples:\n"
-            + HelpExampleCli("z_exportviewingkey", "\"myaddress\"")
-            + HelpExampleRpc("z_exportviewingkey", "\"myaddress\"")
+            + HelpExampleCli("z_exportviewingkey", "\"zaddr\"")
+            + HelpExampleRpc("z_exportviewingkey", "\"zaddr\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
