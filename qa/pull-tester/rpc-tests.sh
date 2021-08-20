@@ -116,6 +116,7 @@ testScripts=(
   'cbh_rpcheck.py'
   'tlsprotocols.py'
   'getblockmerkleroots.py'
+  'unconfirmed_balance.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
