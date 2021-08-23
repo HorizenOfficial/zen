@@ -9,7 +9,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
-    assert_false, assert_true, swap_bytes
+    assert_false, assert_true, swap_bytes, bytes_to_hex_str
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
@@ -29,6 +29,8 @@ from collections import namedtuple
 #  - listreceivedbyaddress - Show immature txs
 #  - listreceivedbyaccount - Shows immature balance
 #  - listtransactions - Show immature txs
+#  - listsinceblock - Show immature txs
+#  - listtxesbyaddress - Show immature txs
 
 
 DEBUG_MODE = 1
@@ -150,7 +152,8 @@ class unconfirmed_balance(BitcoinTestFramework):
 
         # node0 create a cert_1 for funding node1
         pkh_node1 = self.nodes[1].getnewaddress("", True)
-        account = self.nodes[1].getaccountaddress("")
+        #pkh_node1 = self.nodes[1].getnewaddress()
+        # account = self.nodes[1].getaccount(pkh_node1)
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount1}, {"pubkeyhash": pkh_node1, "amount": bwt_amount2}]
         mark_logs("Node 0 sends a cert for scid {} with 2 bwd transfers of {} coins to Node1 pkh".format(scid,
                                                                                                          bwt_amount1 + bwt_amount2,
@@ -185,7 +188,7 @@ class unconfirmed_balance(BitcoinTestFramework):
             assert_false(utxo["txid"] == cert_1)
 
         # Check unconfirmed balance
-        assert_equal(0, self.nodes[0].getunconfirmedbalance())
+        assert_equal(0, self.nodes[1].getunconfirmedbalance())
 
         mark_logs("Check cert is in mempool", self.nodes, DEBUG_MODE)
         assert_equal(True, cert_1 in self.nodes[1].getrawmempool())
@@ -212,8 +215,12 @@ class unconfirmed_balance(BitcoinTestFramework):
         # assert_equal(bal_without_bwt, balance)
 
         mark_logs("Node0 mines cert and cert immature outputs appear the unconfirmed tx data", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
+        block_id = self.nodes[0].generate(1)
         self.sync_all()
+
+        # Check unconfirmed balance
+        assert_equal(0, self.nodes[1].getunconfirmedbalance())
+
         ud = self.nodes[0].getunconfirmedtxdata(bwt_address)
         assert_equal(ud['bwtImmatureOutput'], Decimal("0.0"))
         assert_equal(ud['unconfirmedOutput'], Decimal("0.0"))
@@ -247,7 +254,16 @@ class unconfirmed_balance(BitcoinTestFramework):
         # Check unspent transactions
         unspent_utxos = self.nodes[0].listunspent()
         # for utxo in unspent_utxos:
-            # assert_false(utxo["txid"] == cert_1) # Can see unspent transaction
+            # assert_false(utxo["txid"] == cert_1) # Can see immature transaction
+
+        res = self.nodes[1].listtxesbyaddress(bwt_address)
+        for entry in res:
+            assert_equal(entry['scid'], scid)
+            assert_equal(entry['txid'], cert_1)
+
+        list_sinceblock = self.nodes[1].listsinceblock(bytes_to_hex_str(block_id[0]))
+        assert_equal(2, len(list_sinceblock))
+        check_array_result(list_sinceblock['transactions'], {"address": bwt_address}, {"txid": cert_1})
 
         mark_logs("Node0 generates 4 more blocks to achieve end of withdrawal epochs", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(4)
