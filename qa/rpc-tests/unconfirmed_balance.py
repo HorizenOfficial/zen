@@ -30,6 +30,7 @@ from collections import namedtuple
 #  - listreceivedbyaccount - Shows immature balance
 #  - listtransactions - Show immature txs
 #  - listsinceblock - Show immature txs
+#  - listtxesbyaddress - Show immature txs
 
 
 DEBUG_MODE = 1
@@ -250,7 +251,12 @@ class unconfirmed_balance(BitcoinTestFramework):
         # Check unspent transactions
         unspent_utxos = self.nodes[0].listunspent()
         # for utxo in unspent_utxos:
-            # assert_false(utxo["txid"] == cert_1) # Can see unspent transaction
+            # assert_false(utxo["txid"] == cert_1) # Can see immature transaction
+
+        res = self.nodes[1].listtxesbyaddress(bwt_address)
+        for entry in res:
+            assert_equal(entry['scid'], scid)
+            assert_equal(entry['txid'], cert_1)
 
         list_sinceblock = self.nodes[1].listsinceblock(bytes_to_hex_str(block_id[0]))
         assert_equal(2, len(list_sinceblock))
