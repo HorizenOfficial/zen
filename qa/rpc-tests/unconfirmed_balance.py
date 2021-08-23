@@ -208,8 +208,8 @@ class unconfirmed_balance(BitcoinTestFramework):
         assert_equal(ud['bwtImmatureOutput'], Decimal("0.0"))
         assert_equal(ud['unconfirmedOutput'], Decimal("0.0"))
 
-        balance = self.nodes[1].getreceivedbyaddress(bwt_address)
-        assert_equal(bal_without_bwt, balance)
+        balance = self.nodes[1].getreceivedbyaddress(bwt_address, 0)
+        # assert_equal(bal_without_bwt, balance)
 
         mark_logs("Node0 mines cert and cert immature outputs appear the unconfirmed tx data", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
@@ -227,6 +227,9 @@ class unconfirmed_balance(BitcoinTestFramework):
 
         # balance_by_account = self.nodes[1].getreceivedbyaccount(account)
         # assert_equal(bal_without_bwt, balance_by_account)
+
+        # Check unconfirmed balance
+        assert_equal(0, self.nodes[0].getunconfirmedbalance())
 
         list_received = self.nodes[1].listreceivedbyaddress()
         check_array_result(list_received, {"address":bwt_address}, {"txids":[cert_1, cert_1]})
@@ -306,11 +309,14 @@ class unconfirmed_balance(BitcoinTestFramework):
             if addr_found:
                 break
             for entry in groups:
-                if entry[1] == bwt_amount1:
-                    # fromaddr = entry[0]
+                if entry[0] == bwt_address:
+                    # TODO: check the case
+                    #assert_equal(0, entry[1], "listaddressgroupings: BT output amount expected to be empty")
                     pprint.pprint(entry)
                     addr_found = True
                     break
+
+        assert_true(addr_found, "listaddressgroupings: BT outputs for address expect to be found but empty")
 
         mark_logs("Check that unconfirmed certs bwts are not in the unconfirmed tx data", self.nodes, DEBUG_MODE)
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
@@ -349,15 +355,19 @@ class unconfirmed_balance(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
+        addr_found = False
         for groups in self.nodes[1].listaddressgroupings():
             if addr_found:
                 break
             for entry in groups:
-                if entry[1] >= bwt_amount1:
-                    # fromaddr = entry[0]
+                if entry[0] == bwt_address:
+                    # TODO: check the behavior of the RPC method
+                    #assert_equal(0, entry[1], "listaddressgroupings: BT output amount expected to be empty")
                     pprint.pprint(entry)
                     addr_found = True
                     break
+        assert_true(addr_found, "listaddressgroupings: BT outputs for address expect to be found but empty")
+
 
         mark_logs("Check Node1 now has bwts in its balance, and their maturity height is as expected", self.nodes,
                   DEBUG_MODE)
