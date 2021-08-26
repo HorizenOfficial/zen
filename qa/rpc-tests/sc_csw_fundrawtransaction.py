@@ -164,7 +164,8 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
         null1 = generate_random_field_element_hex()
 
         sc_proof = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null1, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, str(scid_swapped), null1, pkh_mc_address, ceasingCumScTxCommTree,
+            actCertData, constant) 
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -205,7 +206,8 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
         null2 = generate_random_field_element_hex()
 
         sc_proof = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null2, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, str(scid_swapped), null2, pkh_mc_address, ceasingCumScTxCommTree,
+            actCertData, constant) 
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -248,7 +250,8 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
         null3 = generate_random_field_element_hex()
 
         sc_proof = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null3, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, str(scid_swapped), null3, pkh_mc_address, ceasingCumScTxCommTree,
+            actCertData, constant) 
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -298,7 +301,8 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
         null4 = generate_random_field_element_hex()
 
         sc_proof = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null4, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, str(scid_swapped), null4, pkh_mc_address, ceasingCumScTxCommTree,
+            actCertData, constant) 
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -357,10 +361,12 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
         null6 = generate_random_field_element_hex()
 
         sc_proof_a = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null5, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, str(scid_swapped), null5, pkh_mc_address, ceasingCumScTxCommTree,
+            actCertData, constant) 
 
         sc_proof_b = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null6, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, str(scid_swapped), null6, pkh_mc_address, ceasingCumScTxCommTree,
+            actCertData, constant) 
 
         sc_csws = [ {
             "amount": sc_csw_amount,
@@ -424,10 +430,12 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
         null8 = generate_random_field_element_hex()
 
         sc_proof_a = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null7, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, str(scid_swapped), null7, pkh_mc_address, ceasingCumScTxCommTree,
+            actCertData, constant) 
 
         sc_proof_b = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null8, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, str(scid_swapped), null8, pkh_mc_address, ceasingCumScTxCommTree,
+            actCertData, constant) 
 
         sc_csws = [
         {

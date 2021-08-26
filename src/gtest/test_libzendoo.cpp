@@ -77,11 +77,22 @@ static CMutableScCertificate CreateDefaultCert()
     return mcert;
 }
 
-static CCertProofVerifierInput CreateDefaultCertInput()
+static CCertProofVerifierInput CreateDefaultCertInput(TestCircuitType circuitType = TestCircuitType::Certificate)
 {
     CCertProofVerifierInput certInput;
 
-    certInput.constant = CFieldElement(SAMPLE_FIELD);
+    switch(circuitType)
+    {
+        // set constant only if required 
+        case TestCircuitType::Certificate:
+            certInput.constant = CFieldElement(SAMPLE_FIELD);
+            break;
+
+        case TestCircuitType::CertificateNoConstant:
+        default:
+            break;
+    }
+
     certInput.epochNumber = 7;
     certInput.quality = 10;
     certInput.endEpochCumScTxCommTreeRoot = CFieldElement(SAMPLE_FIELD);
@@ -91,9 +102,21 @@ static CCertProofVerifierInput CreateDefaultCertInput()
     return certInput;
 }
 
-static CCswProofVerifierInput CreateDefaultCswInput()
+static CCswProofVerifierInput CreateDefaultCswInput(TestCircuitType circuitType = TestCircuitType::CSW)
 {
     CCswProofVerifierInput cswInput;
+
+    switch(circuitType)
+    {
+        // set constant only if required 
+        case TestCircuitType::CSW:
+            cswInput.constant = CFieldElement(SAMPLE_FIELD);
+            break;
+
+        case TestCircuitType::CSWNoConstant:
+        default:
+            break;
+    }
 
     cswInput.ceasingCumScTxCommTree = CFieldElement(SAMPLE_FIELD);
     cswInput.certDataHash = CFieldElement(SAMPLE_FIELD);
@@ -1647,7 +1670,25 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
 
     CCertProofVerifierInput certInput = CreateDefaultCertInput();
     certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem);
+    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
+
+    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+}
+
+TEST(CctpLibrary, CreateAndVerifyMarlinCertificateNoConstantProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
+    const TestCircuitType circuitType = TestCircuitType::CertificateNoConstant;
+
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCertProofVerifierInput certInput = CreateDefaultCertInput(circuitType);
+    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
 
     ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
 }
@@ -1674,6 +1715,24 @@ TEST(CctpLibrary, CreateAndVerifyDarlinCertificateProof)
     ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
 }
 
+TEST(CctpLibrary, CreateAndVerifyDarlinCertificateNoConstantProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::Darlin;
+    const TestCircuitType circuitType = TestCircuitType::CertificateNoConstant;
+
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCertProofVerifierInput certInput = CreateDefaultCertInput(circuitType);
+    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
+
+    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+}
+
 /**
  * @brief This test is intended to generate verification parameters,
  * generate a valid CSW proof (Marlin) and verify it through the batch verifier.
@@ -1696,6 +1755,24 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCswProof)
     ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
 }
 
+TEST(CctpLibrary, CreateAndVerifyMarlinCswNoConstantProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
+    const TestCircuitType circuitType = TestCircuitType::CSWNoConstant;
+
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput(circuitType);
+    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem, circuitType);
+
+    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+}
+
 /**
  * @brief This test is intended to generate verification parameters,
  * generate a valid CSW proof (Marlin) and verify it through the batch verifier.
@@ -1714,6 +1791,24 @@ TEST(CctpLibrary, CreateAndVerifyDarlinCswProof)
     CCswProofVerifierInput cswInput = CreateDefaultCswInput();
     cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
     cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem);
+
+    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+}
+
+TEST(CctpLibrary, CreateAndVerifyDarlinCswNoConstantProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::Darlin;
+    const TestCircuitType circuitType = TestCircuitType::CSWNoConstant;
+
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput(circuitType);
+    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem, circuitType);
 
     ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
 }

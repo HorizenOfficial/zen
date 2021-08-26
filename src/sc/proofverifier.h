@@ -36,6 +36,7 @@ struct CBaseProofVerifierInput
     CScProof proof;                                 /**< The proof to be verified. */
     CScVKey verificationKey;                        /**< The key to be used for the verification. */
     uint256 scId;                                   /**< The ID of the sidechain referred by the certificate or CSW. */
+    CFieldElement constant;
 };
 
 /**
@@ -56,7 +57,6 @@ struct CCswProofVerifierInput : CBaseProofVerifierInput
 struct CCertProofVerifierInput : CBaseProofVerifierInput
 {
     uint256 certHash;
-    CFieldElement constant;
     uint32_t epochNumber;
     uint64_t quality;
     std::vector<backward_transfer_t> bt_list;

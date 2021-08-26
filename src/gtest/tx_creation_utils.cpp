@@ -615,7 +615,8 @@ void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provin
  * @param provingSystem The proving system to use for the proof generation
  * @return CScProof The generated proof.
  */
-CScProof BlockchainTestManager::GenerateTestCertificateProof(CCertProofVerifierInput certificate, ProvingSystem provingSystem) const
+CScProof BlockchainTestManager::GenerateTestCertificateProof(
+    CCertProofVerifierInput certificate, ProvingSystem provingSystem, TestCircuitType circuitType) const
 {
     wrappedFieldPtr sptrScId = CFieldElement(certificate.scId).GetFieldElement();
     field_t* scidFe = sptrScId.get();
@@ -623,8 +624,8 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(CCertProofVerifierI
     wrappedFieldPtr sptrConst = certificate.constant.GetFieldElement();
     wrappedFieldPtr sptrCum   = certificate.endEpochCumScTxCommTreeRoot.GetFieldElement();
 
-    std::string certProofPath = GetTestFilePath(provingSystem, TestCircuitType::Certificate) + "proof";
-    sc_pk_t* provingKey = GetTestProvingKey(provingSystem, TestCircuitType::Certificate);
+    std::string certProofPath = GetTestFilePath(provingSystem, circuitType) + "proof";
+    sc_pk_t* provingKey = GetTestProvingKey(provingSystem, circuitType);
 
     backward_transfer_t* btList = certificate.bt_list.data();
 
@@ -686,10 +687,12 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(CCertProofVerifierI
  * @param provingSystem The proving system to use for the proof generation
  * @return CScProof The generated proof.
  */
-CScProof BlockchainTestManager::GenerateTestCswProof(CCswProofVerifierInput csw, ProvingSystem provingSystem) const
+CScProof BlockchainTestManager::GenerateTestCswProof(CCswProofVerifierInput csw, ProvingSystem provingSystem, TestCircuitType circuitType) const
 {
+    wrappedFieldPtr sptrConst = csw.constant.GetFieldElement();
     wrappedFieldPtr sptrScId = CFieldElement(csw.scId).GetFieldElement();
     field_t* scidFe = sptrScId.get();
+    field_t* constantFe = sptrConst.get();
      
     const uint160& cswPkHash = csw.pubKeyHash;
     BufferWithSize bwsCswPkHash(cswPkHash.begin(), cswPkHash.size());
@@ -698,13 +701,14 @@ CScProof BlockchainTestManager::GenerateTestCswProof(CCswProofVerifierInput csw,
     wrappedFieldPtr sptrCum = csw.ceasingCumScTxCommTree.GetFieldElement();
     wrappedFieldPtr sptrNullifier = csw.nullifier.GetFieldElement();
 
-    std::string cswProofPath = GetTestFilePath(provingSystem, TestCircuitType::CSW) + "proof";
-    sc_pk_t* provingKey = GetTestProvingKey(provingSystem, TestCircuitType::CSW);
+    std::string cswProofPath = GetTestFilePath(provingSystem, circuitType) + "proof";
+    sc_pk_t* provingKey = GetTestProvingKey(provingSystem, circuitType);
 
     CctpErrorCode code;
 
     bool ret = zendoo_create_csw_test_proof(false, /*zk*/
                                             csw.nValue,
+                                            constantFe,
                                             scidFe,
                                             sptrNullifier.get(), 
                                             &bwsCswPkHash,
@@ -715,6 +719,15 @@ CScProof BlockchainTestManager::GenerateTestCswProof(CCswProofVerifierInput csw,
                                             strlen(cswProofPath.c_str()),
                                             1 << 10,
                                             &code);
+
+#if 0
+    dumpFe(constantFe, "constantFe");
+    dumpFe(scidFe, "scidFe");
+    dumpFe(sptrNullifier.get(), "nullifierFe");
+    dumpBuffer(&bwsCswPkHash, "bws_pk");
+    dumpFe(sptrCdh.get(), "cdhFe");
+    dumpFe(sptrCum.get(), "cumFe");
+#endif
 
     zendoo_sc_pk_free(provingKey);
 
@@ -820,6 +833,7 @@ bool BlockchainTestManager::VerifyCertificateProof(CCertProofVerifierInput certi
  */
 bool BlockchainTestManager::VerifyCswProof(CCswProofVerifierInput csw) const
 {
+    wrappedFieldPtr sptrConst = csw.constant.GetFieldElement();
     wrappedFieldPtr sptrScId = CFieldElement(csw.scId).GetFieldElement();
     field_t* scidFe = sptrScId.get();
      
@@ -835,6 +849,7 @@ bool BlockchainTestManager::VerifyCswProof(CCswProofVerifierInput csw) const
     CctpErrorCode code;
 
     return zendoo_verify_csw_proof(csw.nValue,
+                                   sptrConst.get(),
                                    scidFe,
                                    sptrNullifier.get(),
                                    &bwsCswPkHash,
@@ -936,6 +951,12 @@ std::string BlockchainTestManager::GetTestFilePath(ProvingSystem provingSystem, 
             break;
         case TestCircuitType::CSW:
             filename += "csw_test_";
+            break;
+        case TestCircuitType::CertificateNoConstant:
+            filename += "cert_no_const_test_";
+            break;
+        case TestCircuitType::CSWNoConstant:
+            filename += "csw_no_const_test_";
             break;
     }
 

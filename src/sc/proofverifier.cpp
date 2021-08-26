@@ -107,6 +107,11 @@ CCswProofVerifierInput CScProofVerifier::CswInputToVerifierItem(const CTxCeasedS
     cswData.nullifier = cswInput.nullifier;
     cswData.proof = cswInput.scProof;
 
+    if (scFixedParams.constant.is_initialized())
+        cswData.constant = scFixedParams.constant.get();
+    else
+        cswData.constant = CFieldElement{};
+
     // The ceased verification key must be initialized to allow CSW. This check is already performed inside IsScTxApplicableToState().
     assert(scFixedParams.wCeasedVk.is_initialized());
     
@@ -258,6 +263,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
                 const uint160& csw_pk_hash = cswInput.pubKeyHash;
                 BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
     
+                wrappedFieldPtr   sptrConst     = cswInput.constant.GetFieldElement();
                 wrappedFieldPtr   sptrCdh       = cswInput.certDataHash.GetFieldElement();
                 wrappedFieldPtr   sptrCum       = cswInput.ceasingCumScTxCommTree.GetFieldElement();
                 wrappedFieldPtr   sptrNullifier = cswInput.nullifier.GetFieldElement();
@@ -267,6 +273,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
                 bool ret = batchVerifier.add_csw_proof(
                     cswInput.proofId,
                     cswInput.nValue,
+                    sptrConst.get(),
                     scid_fe, 
                     sptrNullifier.get(),
                     &bws_csw_pk_hash,
@@ -518,6 +525,7 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCsw(std::vector<CCswProofV
         const uint160& csw_pk_hash = input.pubKeyHash;
         BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
      
+        wrappedFieldPtr   sptrConst     = input.constant.GetFieldElement();
         wrappedFieldPtr   sptrCdh       = input.certDataHash.GetFieldElement();
         wrappedFieldPtr   sptrCum       = input.ceasingCumScTxCommTree.GetFieldElement();
         wrappedFieldPtr   sptrNullifier = input.nullifier.GetFieldElement();
@@ -527,6 +535,7 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCsw(std::vector<CCswProofV
         CctpErrorCode code;
         bool ret = zendoo_verify_csw_proof(
                     input.nValue,
+                    sptrConst.get(),
                     scid_fe, 
                     sptrNullifier.get(),
                     &bws_csw_pk_hash,

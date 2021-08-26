@@ -53,7 +53,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         print("Nodo: ",index, " Wallet-immature_balance: ",walletinfo['immature_balance'])
         print("Nodo: ",index, " z_total_balance: ",self.nodes[index].z_gettotalbalance())
 
-    def generate_sc_csw_and_csw_tx_out(self, sc_csw_amount, tag, scid):
+    def generate_sc_csw_and_csw_tx_out(self, sc_csw_amount, tag, scid, constant):
         csw_mc_address = self.nodes[0].getnewaddress()
 
         actCertData            = self.nodes[0].getactivecertdatahash(scid)['certDataHash']
@@ -62,7 +62,9 @@ class RawTransactionsTest(BitcoinTestFramework):
         scid_swapped           = swap_bytes(scid)
         nullifier              = generate_random_field_element_hex()
 
-        sc_proof = self.cswMcTest.create_test_proof(tag, sc_csw_amount, scid_swapped, nullifier, pkh_mc_address, ceasingCumScTxCommTree, actCertData)
+        sc_proof = self.cswMcTest.create_test_proof(
+            tag, sc_csw_amount, scid_swapped, nullifier, pkh_mc_address, ceasingCumScTxCommTree, actCertData, constant)
+        assert_true(sc_proof is not None)
         
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -346,8 +348,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[0].generate(int(sc_epoch_len * 1.25))
         self.sync_all()
 
-        sc_csw_amount            = sc_ft_amount/5
-        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid)
+        sc_csw_amount           = sc_ft_amount/5
+        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid, constant)
 
         # Create Tx with a single CSW input
         print("Create Tx with a single CSW input")
@@ -368,7 +370,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
 
         # Create a Tx with cc outputs and CSW input, and fund it via cmd
-        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid)
+        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid, constant)
 
         # a fw transfer to scid2 (non ceased)
         sc_ft_amount = Decimal('16.0')
@@ -435,7 +437,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         
         # Create Tx with single CSW input and single output. CSW input signed as "SINGLE"
         print("Create Tx with a single CSW input and single output. CSW input signed as 'SINGLE'.")
-        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid)
+        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid, constant)
 
         rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
         sigRawtx = self.nodes[0].signrawtransaction(rawtx, None, None, "SINGLE")
@@ -455,8 +457,8 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # Try to create Tx with 2 CSW inputs and single output. CSW input signed as "SINGLE".
         # Should fail, because the second CSW input has no corresponding output.
-        sc_csws_1, sc_csw_tx_outs_1 = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid)
-        sc_csws_2, sc_csw_tx_outs_2 = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid)
+        sc_csws_1, sc_csw_tx_outs_1 = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid, constant)
+        sc_csws_2, sc_csw_tx_outs_2 = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid, constant)
         
         multiple_sc_csws = [sc_csws_1[0], sc_csws_2[0]]
 
@@ -472,7 +474,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # Create Tx with single CSW input and single output. CSW input signed as "NONE"
         print("Create Tx with a single CSW input and single output. CSW input signed as 'NONE'.")
-        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid)
+        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(sc_csw_amount, "csw1", scid, constant)
 
         rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
         sigRawtx = self.nodes[0].signrawtransaction(rawtx, None, None, "NONE")
@@ -505,7 +507,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_true(error_occurred)
 
         mark_logs("\nTry to create CSW that spends more coins that available for the given SC balance", self.nodes, DEBUG_MODE)
-        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(self.nodes[0].getscinfo(scid)['items'][0]['balance'] + Decimal('0.00000001'), "csw1", scid)
+        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(self.nodes[0].getscinfo(scid)['items'][0]['balance'] + Decimal('0.00000001'), "csw1", scid, constant)
         sc_csw_tx_outs = {self.nodes[0].getnewaddress(): sc_csws[0]['amount'] - Decimal('0.00001000')}
 
         rawtx = self.nodes[0].createrawtransaction([], sc_csw_tx_outs, sc_csws, [], [])
@@ -524,7 +526,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
 
         mark_logs("\nTry to create CSW that spends more coins that available for the given SC balance (considering mempool)", self.nodes, DEBUG_MODE)
-        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(self.nodes[0].getscinfo(scid)['items'][0]['balance'] - sc_csw_amount + Decimal('0.00000001'), "csw1", scid)
+        sc_csws, sc_csw_tx_outs = self.generate_sc_csw_and_csw_tx_out(self.nodes[0].getscinfo(scid)['items'][0]['balance'] - sc_csw_amount + Decimal('0.00000001'), "csw1", scid, constant)
 
         # SC balance equal to sc_cr_amount + sc_csw_amount * 5
         # Mempool contains 3 Txs with `sc_csw_amount` coins each.
