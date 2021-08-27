@@ -108,7 +108,8 @@ class sc_cert_getraw(BitcoinTestFramework):
 
         # Fwd Transfer to Sc
         mark_logs("Node0 sends fwd transfer", self.nodes, DEBUG_MODE)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid, mc_return_address)
         self.sync_all()
 
         decoded_tx_mempool = self.nodes[1].getrawtransaction(fwd_tx, 1)

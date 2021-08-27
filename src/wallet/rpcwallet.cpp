@@ -691,7 +691,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() != 3)
+    if (fHelp || params.size() != 4)
         throw runtime_error(
             "sc_send \"address\" amount \"scid\"\n"
             "\nSend a ZEN amount to an address of the given SC\n"
@@ -700,10 +700,12 @@ UniValue sc_send(const UniValue& params, bool fHelp)
             "1. \"address\"        (string, required) The uint256 hex representation of the PublicKey25519Proposition in the SC to send to.\n"
             "2. \"amount\"         (numeric, required) The amount in zen to send. eg 0.1\n"
             "3. \"side chain ID\"  (string, required) The uint256 side chain ID\n"
+            "4. \"mcReturnAddress\"(string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
+
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_send", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\"")
+            + HelpExampleCli("sc_send", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" \"e7ccbfd40c4e2304c4215f76d204e4de63c578ad\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -731,6 +733,14 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     uint256 scId;
     scId.SetHex(inputString);
 
+    // MC return address as PubKeyHash
+    inputString = params[3].get_str();
+    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
+
+    uint160 mcReturnAddress;
+    mcReturnAddress.SetHex(inputString);
+
     {
         LOCK(mempool.cs);
         CCoinsViewMemPool scView(pcoinsTip, mempool);
@@ -754,6 +764,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     entry.pushKV("address", sc_address.GetHex());
     entry.pushKV("amount", ValueFromAmount(nAmount));
     entry.pushKV("scid", scId.GetHex());
+    entry.pushKV("mcReturnAddress", mcReturnAddress.GetHex());
     array.push_back(entry);
 
     input.push_back(array);
@@ -1342,6 +1353,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
             "   \"scid\": id                      (string, required) The uint256 side chain ID\n"
             "   \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "   \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
+            "   \"mcReturnAddress\":pkh          (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
             "},...,]\n"
             "2. \"params\"                        (string, optional) A json object with the command parameters\n"
             "{\n"                     
@@ -1367,7 +1379,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
 
     // valid keywords in output array
     static const std::set<std::string> validKeyOutputArray =
-        {"scid", "toaddress", "amount"};
+        {"scid", "toaddress", "amount", "mcReturnAddress"};
 
     UniValue outputsArr = params[0].get_array();
 
@@ -1451,7 +1463,22 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
             }
         }
  
-        vOutputs.push_back(ScRpcSendCmdTx::sFtOutParams(scId, toaddress, nAmount));
+        // ---------------------------------------------------------
+        uint160 mcReturnAddress;
+        if (setKeyOutputArray.count("mcReturnAddress"))
+        {
+            string inputString = find_value(o, "mcReturnAddress").get_str();
+            if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
+
+            mcReturnAddress.SetHex(inputString);
+        }
+        else
+        {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"mcReturnAddress\"" );
+        }
+
+        vOutputs.push_back(ScRpcSendCmdTx::sFtOutParams(scId, toaddress, nAmount, mcReturnAddress));
         totalAmount += nAmount;
     }
 
@@ -5174,6 +5201,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
             "      \"address\":address     (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "      \"amount\":amount       (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
             "      \"scid\":side chain ID  (string, required) The uint256 side chain ID\n"
+            "      \"mcReturnAddress\":pkh (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
             "    }, ... ]\n"
             "\nResult:\n"
             "\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
@@ -5201,7 +5229,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         // sanity check, report error if unknown key-value pairs
         for (const string& s : o.getKeys())
         {
-            if (s != "address" && s != "amount" && s != "scid")
+            if (s != "address" && s != "amount" && s != "scid" && s != "mcReturnAddress")
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
         }
 
@@ -5220,6 +5248,13 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         uint256 scId;
         scId.SetHex(inputString);
 
+        inputString = find_value(o, "mcReturnAddress").get_str();
+        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+                    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
+
+        uint160 mcReturnAddress;
+        mcReturnAddress.SetHex(inputString);
+
         {
             LOCK(mempool.cs);
             CCoinsViewMemPool scView(pcoinsTip, mempool);
@@ -5234,6 +5269,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         ft.address = address;
         ft.nValue = nAmount;
         ft.scId = scId;
+        ft.mcReturnAddress;
 
         vecFtSend.push_back(ft);
 

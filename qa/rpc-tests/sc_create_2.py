@@ -527,14 +527,15 @@ class SCCreateTest(BitcoinTestFramework):
         assert_equal(scinfo0['constant'], constant)
         assert_equal(scinfo0['customData'], "bb" * 1024)
 
-        # test sending funds to sicechain with sbh command
+        # test sending funds to sidechain with sbh command
         #--------------------------------------------------------------------------------------
         outputs = []
         tot_many = 0
         bal_t0 = self.nodes[1].getbalance()
         fee = Decimal('0.000123')
+        mc_return_address = self.nodes[1].getnewaddress("", True)
         for i in range(0, 10):
-            outputs.append({'toaddress': toaddress, 'amount': Decimal("0.01")*(i+1), "scid":scid})
+            outputs.append({'toaddress': toaddress, 'amount': Decimal("0.01")*(i+1), "scid": scid, "mcReturnAddress": mc_return_address})
             tot_many += outputs[-1]['amount']
         cmdParms = {'minconf': MIN_CONF, 'fee':fee}
 

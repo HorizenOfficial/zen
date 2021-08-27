@@ -285,8 +285,8 @@ uint256 CTxForwardTransferOut::GetHash() const
 
 std::string CTxForwardTransferOut::ToString() const
 {
-    return strprintf("CTxForwardTransferOut(nValue=%d.%08d, address=%s, scId=%s)",
-        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), scId.ToString() );
+    return strprintf("CTxForwardTransferOut(nValue=%d.%08d, address=%s, scId=%s, mcReturnAddress=%s)",
+        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), scId.ToString(), mcReturnAddress.ToString());
 }
 
 //----------------------------------------------------------------------------

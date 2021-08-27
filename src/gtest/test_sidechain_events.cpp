@@ -1642,7 +1642,7 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdSchedulingIsDoneCorrectly) {
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount1);
     CMutableTransaction mutFwdTx(fwdTx);
     CAmount fwdAmount2 = 300;
-    mutFwdTx.vft_ccout.push_back(CTxForwardTransferOut(scId, fwdAmount2, uint256S("add")));
+    mutFwdTx.vft_ccout.push_back(CTxForwardTransferOut(scId, fwdAmount2, uint256S("add"), uint160S("abcd")));
     fwdTx = mutFwdTx;
 
     int fwdHeight = 20;
@@ -1724,7 +1724,7 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsMatureAtHeight) {
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount1);
     CMutableTransaction mutFwdTx(fwdTx);
     CAmount fwdAmount2 = 300;
-    mutFwdTx.vft_ccout.push_back(CTxForwardTransferOut(scId, fwdAmount2, uint256S("add")));
+    mutFwdTx.vft_ccout.push_back(CTxForwardTransferOut(scId, fwdAmount2, uint256S("add"), uint160S("abcd")));
     fwdTx = mutFwdTx;
 
     int fwdHeight = 20;
@@ -1817,7 +1817,7 @@ TEST_F(SidechainsEventsTestSuite, DoubleFwdsDoNotMatureUponRevertSidechainEvents
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, fwdAmount1);
     CMutableTransaction mutFwdTx(fwdTx);
     CAmount fwdAmount2 = 300;
-    mutFwdTx.vft_ccout.push_back(CTxForwardTransferOut(scId, fwdAmount2, uint256S("add")));
+    mutFwdTx.vft_ccout.push_back(CTxForwardTransferOut(scId, fwdAmount2, uint256S("add"), uint160S("abcd")));
     fwdTx = mutFwdTx;
 
     int fwdHeight = 20;

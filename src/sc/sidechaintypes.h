@@ -563,6 +563,7 @@ struct CRecipientScCreation : public CRecipientCrossChainBase
 struct CRecipientForwardTransfer : public CRecipientCrossChainBase
 {
     uint256 scId;
+    uint160 mcReturnAddress;
 };
 
 struct CRecipientBwtRequest

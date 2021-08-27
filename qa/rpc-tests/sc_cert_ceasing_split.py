@@ -159,8 +159,9 @@ class CeasingSplitTest(BitcoinTestFramework):
         print "------------------"
         # use different nodes for sending txes and cert in order to be sure there are no dependancies from each other
         fwt_amount = Decimal("2.0")
+        mc_return_address = self.nodes[0].getnewaddress("", True)
         mark_logs("\nNTW part 1) Node0 sends {} coins to SC".format(fwt_amount), self.nodes, DEBUG_MODE)
-        tx_fwd = self.nodes[0].sc_send("abcd", fwt_amount, scid)
+        tx_fwd = self.nodes[0].sc_send("abcd", fwt_amount, scid, mc_return_address)
         sync_mempools(self.nodes[0:3])
 
         mark_logs("              Check fwd tx {} is in mempool".format(tx_fwd), self.nodes, DEBUG_MODE)

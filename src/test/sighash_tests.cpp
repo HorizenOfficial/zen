@@ -387,6 +387,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle, bool emptyI
             ft_out.nValue = insecure_rand() % 100000000;
             ft_out.address = libzcash::random_uint256();
             ft_out.scId = libzcash::random_uint256();
+            ft_out.mcReturnAddress = libzcash::random_uint160();
         }
         for (int mbtr = 0; mbtr < mbtrs; mbtr++) {
             tx.vmbtr_out.push_back(CBwtRequestOut());

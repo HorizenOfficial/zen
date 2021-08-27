@@ -349,16 +349,19 @@ class SCCreateTest(BitcoinTestFramework):
         # Node 1 sends 1 amount to SC
         mark_logs("\nNode 1 sends " + str(fwt_amount_1) + " coins to SC", self.nodes, DEBUG_MODE)
 
-        self.nodes[1].sc_send("abcd", fwt_amount_1, scid)
+        mc_return_address = self.nodes[1].getnewaddress("", True)
+        self.nodes[1].sc_send("abcd", fwt_amount_1, scid, mc_return_address)
         self.sync_all()
 
         # Node 1 sends 3 amounts to SC
         mark_logs("\nNode 1 sends 3 amounts to SC (tot: " + str(fwt_amount_many) + ")", self.nodes, DEBUG_MODE)
 
+        mc_return_address = self.nodes[1].getnewaddress("", True)
+
         amounts = []
-        amounts.append({"address": "add1", "amount": fwt_amount_1, "scid": scid})
-        amounts.append({"address": "add2", "amount": fwt_amount_2, "scid": scid})
-        amounts.append({"address": "add3", "amount": fwt_amount_3, "scid": scid})
+        amounts.append({"address": "add1", "amount": fwt_amount_1, "scid": scid, "mcReturnAddress": mc_return_address})
+        amounts.append({"address": "add2", "amount": fwt_amount_2, "scid": scid, "mcReturnAddress": mc_return_address})
+        amounts.append({"address": "add3", "amount": fwt_amount_3, "scid": scid, "mcReturnAddress": mc_return_address})
         self.nodes[1].sc_sendmany(amounts)
         self.sync_all()
 
