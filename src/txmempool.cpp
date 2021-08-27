@@ -145,7 +145,7 @@ void CTxMemPool::pruneSpent(const uint256 &hashTx, CCoins &coins)
 unsigned int CTxMemPool::GetTransactionsUpdated() const
 {
     LOCK(cs);
-    return nTransactionsUpdated;
+    return nTransactionsUpdated + nCertificatesUpdated;
 }
 
 void CTxMemPool::AddTransactionsUpdated(unsigned int n)
