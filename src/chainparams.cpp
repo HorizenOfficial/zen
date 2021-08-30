@@ -134,6 +134,7 @@ public:
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 52596;
         nScCoinsMaturity = 10;
+        nScNumBlocksForScFeeCheck = 200;
         nScMinWithdrawalEpochLength = 100;
         nScMaxNumberOfCswInputsInMempool = 100;
 
@@ -235,6 +236,7 @@ public:
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 52596;
         nScCoinsMaturity = 10;
+        nScNumBlocksForScFeeCheck = 200;
         nScMinWithdrawalEpochLength = 100;
         nScMaxNumberOfCswInputsInMempool = 100;
 
@@ -326,6 +328,7 @@ public:
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 320;
         nScCoinsMaturity = 3;
+        nScNumBlocksForScFeeCheck = 10;
         nScMinWithdrawalEpochLength = 2;
         nScMaxNumberOfCswInputsInMempool = 5;
 

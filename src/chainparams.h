@@ -70,6 +70,7 @@ public:
     int CbhMinimumAge() const { return nCbhMinimumAge; }
     int CbhSafeDepth() const { return nCbhSafeDepth; }
     int ScCoinsMaturity() const { return nScCoinsMaturity; }
+    int ScNumBlocksForScFeeCheck() const { return nScNumBlocksForScFeeCheck; }
     int ScMinWithdrawalEpochLength() const { return nScMinWithdrawalEpochLength; }
     int ScMaxNumberOfCswInputsInMempool() const { return nScMaxNumberOfCswInputsInMempool; }
     int64_t MaxTipAge() const { return nMaxTipAge; }
@@ -120,6 +121,7 @@ protected:
     int  nCbhMinimumAge = 0;
     int  nCbhSafeDepth = 0;
     int  nScCoinsMaturity = 0;
+    int  nScNumBlocksForScFeeCheck = 0;
     int  nScMinWithdrawalEpochLength = 0;
     int  nScMaxNumberOfCswInputsInMempool = 0;
     Checkpoints::CCheckpointData checkpointData;

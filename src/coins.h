@@ -674,10 +674,15 @@ public:
     bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
     void GetScIds(std::set<uint256>& scIdsList)                       const override;
 
-    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, bool* banSenderNode = nullptr) const;
+    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scCheckType, bool* banSenderNode = nullptr) const;
     bool CheckScTxTiming(const uint256& scId) const;
-    bool CheckScFtFee(const CTxForwardTransferOut& ftOutput) const;
-    bool CheckScMbtrFee(const CBwtRequestOut& mbtrOutput) const;
+
+    bool IsFtScFeeApplicable(const CTxForwardTransferOut& ftOutput) const;
+    bool IsMbtrScFeeApplicable(const CBwtRequestOut& mbtrOutput) const;
+
+    bool CheckMinimumFtScFee(const CTxForwardTransferOut& ftOutput, CAmount* minVal = nullptr) const;
+    bool CheckMinimumMbtrScFee(const CBwtRequestOut& mbtrOutput, CAmount* minVal = nullptr) const;
+
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
     int getScCoinsMaturity();

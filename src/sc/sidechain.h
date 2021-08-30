@@ -56,22 +56,23 @@ public:
         pastEpochTopQualityCertView(), lastTopQualityCertView(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
-        balance(0) {}
+        balance(0), maxSizeOfScFeesContainers(-1) {}
 
     bool IsNull() const
     {
         return (
              creationBlockHeight == -1                                        &&
              creationTxHash.IsNull()                                          &&
-             pastEpochTopQualityCertView.IsNull()                                  &&
+             pastEpochTopQualityCertView.IsNull()                             &&
              lastTopQualityCertView.IsNull()                                  &&
              lastTopQualityCertHash.IsNull()                                  &&
              lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL  &&
              lastTopQualityCertQuality == CScCertificate::QUALITY_NULL        &&
              lastTopQualityCertBwtAmount == 0                                 &&
              balance == 0                                                     &&
-             fixedParams.IsNull()                                            &&
-             mImmatureAmounts.empty());
+             fixedParams.IsNull()                                             &&
+             mImmatureAmounts.empty())                                        &&
+             scFees.empty();
     }
 
     int32_t sidechainVersion;
@@ -103,6 +104,18 @@ public:
     // value = the immature amount
     std::map<int, CAmount> mImmatureAmounts;
 
+    // memory only
+    int maxSizeOfScFeesContainers;
+    // the last ftScFee and mbtrScFee values, as set by the active certificates
+    // it behaves like a circular buffer once the max size is reached
+    std::list<Sidechain::ScFeeData> scFees;
+
+    // compute the max size of the sc fee list
+    int getMaxSizeOfScFeesContainers();
+
+    // returns the chain param value with the number of blocks to consider for sc fee check logic
+    int getNumBlocksForScFeeCheck();
+
     enum class State : uint8_t {
         NOT_APPLICABLE = 0,
         UNCONFIRMED,
@@ -131,22 +144,31 @@ public:
         READWRITE(balance);
         READWRITE(fixedParams);
         READWRITE(mImmatureAmounts);
+        READWRITE(scFees);
+        if (ser_action.ForRead())
+        {
+            if (!scFees.empty())
+            {
+                maxSizeOfScFeesContainers = getMaxSizeOfScFeesContainers();
+            }
+        }
     }
 
     inline bool operator==(const CSidechain& rhs) const
     {
-        return (this->sidechainVersion                           == rhs.sidechainVersion)                           &&
-               (this->creationBlockHeight                        == rhs.creationBlockHeight)                        &&
-               (this->creationTxHash                             == rhs.creationTxHash)                             &&
-               (this->pastEpochTopQualityCertView                == rhs.pastEpochTopQualityCertView)                &&
-               (this->lastTopQualityCertView                     == rhs.lastTopQualityCertView)                     &&
-               (this->lastTopQualityCertHash                     == rhs.lastTopQualityCertHash)                     &&
-               (this->lastTopQualityCertReferencedEpoch          == rhs.lastTopQualityCertReferencedEpoch)          &&
-               (this->lastTopQualityCertQuality                  == rhs.lastTopQualityCertQuality)                  &&
-               (this->lastTopQualityCertBwtAmount                == rhs.lastTopQualityCertBwtAmount)                &&
-               (this->balance                                    == rhs.balance)                                    &&
-               (this->fixedParams                               == rhs.fixedParams)                               &&
-               (this->mImmatureAmounts                           == rhs.mImmatureAmounts);
+        return (this->sidechainVersion                           == rhs.sidechainVersion)                  &&
+               (this->creationBlockHeight                        == rhs.creationBlockHeight)               &&
+               (this->creationTxHash                             == rhs.creationTxHash)                    &&
+               (this->pastEpochTopQualityCertView                == rhs.pastEpochTopQualityCertView)       &&
+               (this->lastTopQualityCertView                     == rhs.lastTopQualityCertView)            &&
+               (this->lastTopQualityCertHash                     == rhs.lastTopQualityCertHash)            &&
+               (this->lastTopQualityCertReferencedEpoch          == rhs.lastTopQualityCertReferencedEpoch) &&
+               (this->lastTopQualityCertQuality                  == rhs.lastTopQualityCertQuality)         &&
+               (this->lastTopQualityCertBwtAmount                == rhs.lastTopQualityCertBwtAmount)       &&
+               (this->balance                                    == rhs.balance)                           &&
+               (this->fixedParams                                == rhs.fixedParams)                       &&
+               (this->mImmatureAmounts                           == rhs.mImmatureAmounts)                  &&
+               (this->scFees                                     == rhs.scFees);
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
@@ -163,6 +185,13 @@ public:
     bool isCreationConfirmed() const {
         return this->creationBlockHeight != -1;
     }
+
+    void InitScFees();
+    void UpdateScFees(const CScCertificateView& certView);
+    void DumpScFees() const;
+
+    CAmount GetMinFtScFee() const;
+    CAmount GetMinMbtrScFee() const;
 
     // Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;
