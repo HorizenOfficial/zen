@@ -192,7 +192,6 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("difficulty", GetDifficulty(blockindex));
     result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     result.pushKV("anchor", blockindex->hashAnchorEnd.GetHex());
-    result.pushKV("scTxsCommitment", blockindex->hashScTxsCommitment.GetHex());
     result.pushKV("scCumTreeHash", blockindex->scCumTreeHash.GetHexRepr());
 
     UniValue valuePools(UniValue::VARR);

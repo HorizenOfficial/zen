@@ -41,7 +41,7 @@ namespace Sidechain
     static const int MAX_SC_PROOF_SIZE_IN_BYTES = 7*1024;  
     static const int MAX_SC_VK_SIZE_IN_BYTES    = 4*1024;
 
-    static const int SEGMENT_SIZE = 1 << 17;
+    static const int SEGMENT_SIZE = 1 << 18;
 }
 
 ///////////////////////////////// CZendooBatchProofVerifierResult ////////////////////////////////
