@@ -35,7 +35,8 @@ public:
         NO_COINS_FOR_INPUT = 0x49,
         INVALID_PROOF = 0x4a,
         SC_CUM_COMM_TREE = 0x4b,
-        ACTIVE_CERT_DATA_HASH = 0x4c
+        ACTIVE_CERT_DATA_HASH = 0x4c,
+        TOO_MANY_CSW_INPUTS_FOR_SC = 0x4d
     };
 
     // The following makes CValidationState::Code serializable

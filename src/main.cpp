@@ -1482,6 +1482,14 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         return MempoolReturnValue::INVALID;
     }
 
+    if (!pool.checkCswInputsPerScLimit(tx))
+    {
+        state.Invalid(error("%s():%d: tx[%s] would exceed limit of csw inputs for sc in mempool\n",
+            __func__, __LINE__, tx.GetHash().ToString()),
+            CValidationState::Code::TOO_MANY_CSW_INPUTS_FOR_SC, "bad-txns-too-many-csw-inputs-for-sc");
+        return MempoolReturnValue::INVALID;
+    }
+
     if (!pool.checkIncomingTxConflicts(tx))
     {
         LogPrintf("%s():%d: tx[%s] has conflicts in mempool\n", __func__, __LINE__, tx.GetHash().ToString());

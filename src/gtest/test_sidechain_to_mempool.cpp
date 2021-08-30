@@ -96,7 +96,7 @@ protected:
     CTransaction GenerateBtrTx(const uint256 & scId, const CAmount & mbtrFee = CAmount(1));
     CTxCeasedSidechainWithdrawalInput GenerateCSWInput(const uint256& scId,
         const std::string& nullifierHex, const std::string& actCertDataHex, const std::string& ceasingCumScTxCommTreeHex,
-        CAmount amount);
+        CAmount amount, CFieldElement* nullifierPtrIn = nullptr);
     CTransaction GenerateCSWTx(const std::vector<CTxCeasedSidechainWithdrawalInput>& csws);
     CTransaction GenerateCSWTx(const CTxCeasedSidechainWithdrawalInput& csw);
 
@@ -655,6 +655,96 @@ TEST_F(SidechainsInMempoolTestSuite, CertCannotSpendHigherQualityCertOutput)
 
     //test
     EXPECT_FALSE(mempool.checkIncomingCertConflicts(lowerQualityChildCert));
+}
+
+TEST_F(SidechainsInMempoolTestSuite, CswInputsPerScLimit) {
+    static const int SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL = Params().ScMaxNumberOfCswInputsInMempool(); 
+
+    uint256 scId1 = uint256S("aaa");
+
+    uint256 lastTxHash;
+    for (int i = 0; i < SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL; i++)
+    {
+        // get a random nullifier fe
+        CFieldElement nullifier{};
+        blockchain_test_utils::RandomSidechainField(nullifier);
+
+        CAmount cswTxCoins = 10 + i;
+        CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId1, "aabb", "ccdd", "eeff", cswTxCoins, &nullifier);
+        CTransaction cswTx1 = GenerateCSWTx(cswInput);
+ 
+        CValidationState dummyState;
+        EXPECT_TRUE(mempool.checkCswInputsPerScLimit(cswTx1));
+
+        CTxMemPoolEntry cswEntry(cswTx1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+        EXPECT_TRUE(mempool.addUnchecked(cswTx1.GetHash(), cswEntry));
+
+        lastTxHash = cswTx1.GetHash();
+    }
+
+    EXPECT_TRUE(mempool.getNumOfCswInputs(scId1) == SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
+
+    CFieldElement nullifier{};
+    blockchain_test_utils::RandomSidechainField(nullifier);
+
+    CAmount cswTxCoins = 10;
+    CTxCeasedSidechainWithdrawalInput cswInput = GenerateCSWInput(scId1, "aabb", "ccdd", "eeff", cswTxCoins, &nullifier);
+    CTransaction cswTx1 = GenerateCSWTx(cswInput);
+ 
+    CValidationState dummyState;
+    EXPECT_FALSE(mempool.checkCswInputsPerScLimit(cswTx1));
+
+
+    // check that a csw for a different scid would be accepted instead
+    uint256 scId2 = uint256S("bbb");
+    CTxCeasedSidechainWithdrawalInput cswInput2 = GenerateCSWInput(scId2, "aabb", "ccdd", "eeff", cswTxCoins, &nullifier);
+    CTransaction cswTx2 = GenerateCSWTx(cswInput2);
+    EXPECT_TRUE(mempool.checkCswInputsPerScLimit(cswTx2));
+    CTxMemPoolEntry cswEntry2(cswTx2, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    EXPECT_TRUE(mempool.addUnchecked(cswTx2.GetHash(), cswEntry2));
+    EXPECT_TRUE(mempool.getNumOfCswInputs(scId2) == 1);
+
+    //Remove one csw tx related to scid1 from mempool
+
+    CTransaction lastTxSc1;
+    EXPECT_TRUE(mempool.lookup(lastTxHash, lastTxSc1));
+
+    std::list<CTransaction> removedTxs;
+    std::list<CScCertificate> removedCerts;
+    mempool.remove(lastTxSc1, removedTxs, removedCerts, /*fRecursive*/false);
+
+    EXPECT_FALSE(mempool.existsTx(lastTxHash));
+
+    // check that the counter for scid1 is back in the allowd range
+    EXPECT_TRUE(mempool.getNumOfCswInputs(scId1) == (SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL - 1));
+
+    // check that now the tx would be ok
+    EXPECT_TRUE(mempool.checkCswInputsPerScLimit(cswTx1));
+
+    CTxMemPoolEntry cswEntry(cswTx1, /*fee*/CAmount(5), /*time*/ 1000, /*priority*/1.0, /*height*/1987);
+    EXPECT_TRUE(mempool.addUnchecked(cswTx1.GetHash(), cswEntry));
+
+    EXPECT_TRUE(mempool.getNumOfCswInputs(scId1)  == SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
+
+    // now use a tx with multiple csw input for scid2 and check that the tx exceed the limit
+    CMutableTransaction mutTx;
+
+    for (int i = 0; i < SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL; i++)
+    {
+        // get a random nullifier fe
+        CFieldElement nullifier{};
+        blockchain_test_utils::RandomSidechainField(nullifier);
+
+        CAmount cswTxCoins = 10 + i;
+        CTxCeasedSidechainWithdrawalInput cswInput2 = GenerateCSWInput(scId2, "aabb", "ccdd", "eeff", cswTxCoins, &nullifier);
+
+        mutTx.vcsw_ccin.push_back(cswInput2);
+    }
+    CTransaction cswTx(mutTx);
+
+    EXPECT_FALSE(mempool.checkCswInputsPerScLimit(cswTx));
+
+    EXPECT_TRUE(mempool.getNumOfCswInputs(scId2) == 1);
 }
 
 TEST_F(SidechainsInMempoolTestSuite, DuplicatedCSWsToCeasedSidechainAreRejected) {
@@ -1900,12 +1990,19 @@ CTransaction SidechainsInMempoolTestSuite::GenerateBtrTx(const uint256 & scId, c
 
 CTxCeasedSidechainWithdrawalInput SidechainsInMempoolTestSuite::GenerateCSWInput(
     const uint256& scId, const std::string& nullifierHex,
-    const std::string& actCertDataHex, const std::string& ceasingCumScTxCommTreeHex, CAmount amount)
+    const std::string& actCertDataHex, const std::string& ceasingCumScTxCommTreeHex, CAmount amount, CFieldElement* nullifierPtrIn)
 {
     CFieldElement nullifier{};
-    std::vector<unsigned char> tmp1 = ParseHex(nullifierHex);
-    tmp1.resize(CFieldElement::ByteSize(), 0x0);
-    nullifier.SetByteArray(tmp1);
+    if (nullifierPtrIn != nullptr)
+    {
+        nullifier = *nullifierPtrIn;
+    }
+    else
+    {
+        std::vector<unsigned char> tmp1 = ParseHex(nullifierHex);
+        tmp1.resize(CFieldElement::ByteSize(), 0x0);
+        nullifier.SetByteArray(tmp1);
+    }
 
     std::vector<unsigned char> tmp2 = ParseHex(actCertDataHex);
     tmp2.resize(CFieldElement::ByteSize());

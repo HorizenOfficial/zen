@@ -136,6 +136,7 @@ public:
         nScCoinsMaturity = 10;
         nScNumBlocksForScFeeCheck = 200;
         nScMinWithdrawalEpochLength = 100;
+        nScMaxNumberOfCswInputsInMempool = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
@@ -237,6 +238,7 @@ public:
         nScCoinsMaturity = 10;
         nScNumBlocksForScFeeCheck = 200;
         nScMinWithdrawalEpochLength = 100;
+        nScMaxNumberOfCswInputsInMempool = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
@@ -328,6 +330,7 @@ public:
         nScCoinsMaturity = 3;
         nScNumBlocksForScFeeCheck = 10;
         nScMinWithdrawalEpochLength = 2;
+        nScMaxNumberOfCswInputsInMempool = 5;
 
         checkpointData = (Checkpoints::CCheckpointData){
             boost::assign::map_list_of

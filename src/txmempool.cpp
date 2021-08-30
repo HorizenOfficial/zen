@@ -1002,6 +1002,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
                 assert(pcoins->GetSidechainState(fwd.scId) == CSidechain::State::ALIVE);
         }
 
+        std::map<uint256, int> totNumCswInputs;
         std::map<uint256, CAmount> cswBalances;
         for(const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn()) {
             //CSW must be duly recorded in mapSidechain
@@ -1015,6 +1016,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
             // add a new balance entry in the map or increment it if already there
             cswBalances[csw.scId] += csw.nValue;
+            totNumCswInputs[csw.scId] += 1;
         }
 
         // Check that CSW balances don't exceed the SC balance
@@ -1025,6 +1027,20 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             assert(balanceInfo.second <= scInfo.balance);
             // Update global CSW balances counter
             cswsTotalBalances[balanceInfo.first] += balanceInfo.second;
+        }
+
+        // Check that CSW num of inputs don't exceed the SC limit
+        static const int SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL = Params().ScMaxNumberOfCswInputsInMempool(); 
+        for (auto const& entry: totNumCswInputs)
+        {
+            // this is the number of nullifiers
+            int numMempool = getNumOfCswInputs(entry.first);
+            assert(numMempool <= SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
+
+            // this is the number of csw inputs in tx
+            int numTx      = entry.second;
+            assert(numTx      <= SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
+            assert(numTx      <= numMempool);
         }
 
         for(const auto& btr: tx.GetVBwtRequestOut()) {
@@ -1208,6 +1224,40 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     assert(innerUsage == cachedInnerUsage);
 }
 
+bool CTxMemPool::checkCswInputsPerScLimit(const CTransaction& incomingTx) const
+{
+    LOCK(cs);
+
+    static const int SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL = Params().ScMaxNumberOfCswInputsInMempool(); 
+    std::map<uint256, int>  totNumCswInputs;
+
+    for(const CTxCeasedSidechainWithdrawalInput& csw: incomingTx.GetVcswCcIn())
+    {
+        const uint256 scid = csw.scId;
+        totNumCswInputs[scid] += 1;
+    }
+
+    const uint256& hash = incomingTx.GetHash();
+    for (const auto& entry: totNumCswInputs)
+    {
+        int numMempool = getNumOfCswInputs(entry.first);
+        int numTx      = entry.second;
+        int totScNum = numTx + numMempool;
+
+        LogPrint("sc", "%s():%d - sc[%s]-> %d csw inputs (tot: %d)\n", __func__, __LINE__,
+            entry.first.ToString(), numTx, totScNum);
+
+        if (totScNum > SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL)
+        {
+            LogPrint("sc", "%s():%d - tx[%s] has %d csw inputs for sc[%s], already in mempool: %d, limit %d\n", __func__, __LINE__,
+                hash.ToString(), numTx, entry.first.ToString(), numMempool, SC_MAX_NUM_OF_CSW_INPUTS_IN_MEMPOOL);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
 {
     LOCK(cs);
@@ -1252,7 +1302,7 @@ bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
     for(const CTxCeasedSidechainWithdrawalInput& csw: incomingTx.GetVcswCcIn())
     {
         if (HaveCswNullifier(csw.scId, csw.nullifier)) {
-            LogPrint("sc", "%s():%d - Dropping txid [%s]: it tries to redeclare another CSW input nullifier in mempool\n",
+            LogPrint("sc", "%s():%d - Dropping txid [%s]: CSW input nullifier is already in mempool\n",
                     __func__, __LINE__, hash.ToString());
             return false;
         }
@@ -1322,6 +1372,15 @@ void CTxMemPool::queryHashes(std::vector<uint256>& vtxid) const
     for(const auto& mapCertEntry : mapCertificate)
         vtxid.push_back(mapCertEntry.first);
 }
+
+int CTxMemPool::getNumOfCswInputs(const uint256& scId) const
+{
+    LOCK(cs);
+    if (mapSidechains.count(scId) != 0)
+        return mapSidechains.at(scId).cswNullifiers.size();
+    return 0;
+}
+
 
 bool CTxMemPool::lookup(const uint256& hash, CTransaction& result) const
 {
