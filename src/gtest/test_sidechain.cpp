@@ -481,7 +481,7 @@ TEST_F(SidechainsTestSuite, ScCreationIsApplicableToStateIfScDoesntNotExistYet) 
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
@@ -502,7 +502,7 @@ TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyUnconfi
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(scCreationTx);
+    ret_code = sidechainsView->IsScTxApplicableToState(scCreationTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
@@ -523,7 +523,7 @@ TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyAlive) 
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
@@ -544,7 +544,7 @@ TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyCeased)
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
@@ -559,7 +559,7 @@ TEST_F(SidechainsTestSuite, ForwardTransferToUnknownSCsIsApplicableToState) {
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
@@ -581,7 +581,7 @@ TEST_F(SidechainsTestSuite, ForwardTransferToUnconfirmedSCsIsApplicableToState) 
     //test
     CTransaction fwdTx = txCreationUtils::createFwdTransferTxWith(scId, CAmount(5));
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(fwdTx);
+    ret_code = sidechainsView->IsScTxApplicableToState(fwdTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
@@ -602,7 +602,7 @@ TEST_F(SidechainsTestSuite, ForwardTransferToAliveSCsIsApplicableToState) {
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
@@ -623,7 +623,7 @@ TEST_F(SidechainsTestSuite, ForwardTransferToCeasedSCsIsNotApplicableToState) {
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
@@ -651,7 +651,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx));
+    ret_code = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
@@ -686,7 +686,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithKeyIsApplicabl
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx));
+    ret_code = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
@@ -704,7 +704,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnknownSidechainIsNotApplicableToState
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx));
+    ret_code = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), Sidechain::ScFeeCheckFlag::LATEST_VALUE);
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
 }
@@ -732,7 +732,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicabl
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx));
+    ret_code = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
@@ -767,7 +767,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToUnconfirmedSidechainWithoutKeyIsNotApp
 
     //test
     CValidationState::Code ret_code = CValidationState::Code::OK;
-    ret_code = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx));
+    ret_code = sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), Sidechain::ScFeeCheckFlag::LATEST_VALUE);
 
     //checks
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
@@ -794,7 +794,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState)
     //test
 
     //checks
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(CTransaction(mutTx)) == CValidationState::Code::INVALID);
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(CTransaction(mutTx), Sidechain::ScFeeCheckFlag::LATEST_VALUE) == CValidationState::Code::INVALID);
 }
 
 TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainIsAccepted) {
@@ -819,7 +819,7 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainIsAccepted) {
     CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", actCertDataHex, ceasingCumScTxCommTree, cswTxCoins);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx) == CValidationState::Code::OK);
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE) == CValidationState::Code::OK);
 }
 
 TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainWithWrongActiveCertDataIsRefused) {
@@ -844,7 +844,7 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainWithWrongActiveCertDataIsRefuse
     CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx) == CValidationState::Code::ACTIVE_CERT_DATA_HASH);
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE) == CValidationState::Code::ACTIVE_CERT_DATA_HASH);
 }
 
 TEST_F(SidechainsTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
@@ -864,7 +864,7 @@ TEST_F(SidechainsTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
     CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx) == CValidationState::Code::INSUFFICIENT_SCID_FUNDS);
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE) == CValidationState::Code::INSUFFICIENT_SCID_FUNDS);
 }
 
 TEST_F(SidechainsTestSuite, ValidCeasedCumTreeHashesForCeasedSidechain) {
@@ -927,7 +927,7 @@ TEST_F(SidechainsTestSuite, CSWsToUnknownSidechainIsRefused) {
     CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(unknownScId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx) == CValidationState::Code::SCID_NOT_FOUND);
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE) == CValidationState::Code::SCID_NOT_FOUND);
 }
 
 TEST_F(SidechainsTestSuite, CSWsToActiveSidechainIsRefused) {
@@ -947,7 +947,7 @@ TEST_F(SidechainsTestSuite, CSWsToActiveSidechainIsRefused) {
     CTxCeasedSidechainWithdrawalInput cswInput = txCreationUtils::CreateCSWInput(scId, "aabb", "ccdd", "eeff", cswTxCoins);
     CTransaction cswTx = txCreationUtils::createCSWTxWith(cswInput);
 
-    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx) == CValidationState::Code::INVALID);
+    EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE) == CValidationState::Code::INVALID);
 }
 /////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// RevertTxOutputs ///////////////////////////////
@@ -2006,15 +2006,15 @@ TEST_F(SidechainsTestSuite, CheckFtFeeValidations)
     CValidationState::Code ret_code = CValidationState::Code::OK;
 
     CTransaction aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee - 1));
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee));
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
 
     aTransaction = txCreationUtils::createFwdTransferTxWith(scId, CAmount(scFtFee + 1));
-    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction);
+    ret_code = sidechainsView->IsScTxApplicableToState(aTransaction, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
 }
 
@@ -2025,15 +2025,15 @@ TEST_F(SidechainsTestSuite, CheckMbtrFeeValidations)
     CValidationState::Code ret_code = CValidationState::Code::OK;
 
     CMutableTransaction mutTx = createMtbtrTx(scId, scMbtrFee - 1);
-    ret_code = sidechainsView->IsScTxApplicableToState(mutTx);
+    ret_code = sidechainsView->IsScTxApplicableToState(mutTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
 
     mutTx.vmbtr_out[0].scFee = scMbtrFee;
-    ret_code = sidechainsView->IsScTxApplicableToState(mutTx);
+    ret_code = sidechainsView->IsScTxApplicableToState(mutTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
 
     mutTx.vmbtr_out[0].scFee = scMbtrFee + 1;
-    ret_code = sidechainsView->IsScTxApplicableToState(mutTx);
+    ret_code = sidechainsView->IsScTxApplicableToState(mutTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
 }
 
@@ -2047,7 +2047,7 @@ TEST_F(SidechainsTestSuite, MbtrAllowed)
     CValidationState::Code ret_code = CValidationState::Code::OK;
 
     CMutableTransaction mutTx = createMtbtrTx(scId, 0);
-    ret_code = sidechainsView->IsScTxApplicableToState(mutTx);
+    ret_code = sidechainsView->IsScTxApplicableToState(mutTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
     EXPECT_TRUE(ret_code == CValidationState::Code::OK);
 }
 
@@ -2057,7 +2057,7 @@ TEST_F(SidechainsTestSuite, MbtrNotAllowed)
     CMutableTransaction mutTx = createMtbtrTx(scId, 0);
     CValidationState::Code ret_code = CValidationState::Code::OK;
 
-    ret_code = sidechainsView->IsScTxApplicableToState(mutTx);
+    ret_code = sidechainsView->IsScTxApplicableToState(mutTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE);
     EXPECT_TRUE(ret_code == CValidationState::Code::INVALID);
 }
 

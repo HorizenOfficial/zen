@@ -769,7 +769,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             if (hasSidechainCreationTx(ft.scId))
                 continue;
 
-            if (!pCoinsView->CheckScTxTiming(ft.scId) || !pCoinsView->CheckScFtFee(ft))
+            if (!pCoinsView->CheckScTxTiming(ft.scId) || !pCoinsView->CheckMinimumFtScFee(ft))
             {
                 txesToRemove.insert(tx.GetHash());
                 break;
@@ -783,7 +783,7 @@ void CTxMemPool::removeStaleTransactions(const CCoinsViewCache * const pCoinsVie
             if (hasSidechainCreationTx(mbtr.scId))
                 continue;
 
-            if (!pCoinsView->CheckScTxTiming(mbtr.scId) || !pCoinsView->CheckScMbtrFee(mbtr))
+            if (!pCoinsView->CheckScTxTiming(mbtr.scId) || !pCoinsView->CheckMinimumMbtrScFee(mbtr))
             {
                 txesToRemove.insert(tx.GetHash());
                 break;
