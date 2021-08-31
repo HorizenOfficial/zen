@@ -562,7 +562,7 @@ def get_spendable(node, min_amount):
         if aUtx['amount'] > min_amount:
             utx = aUtx
             change = aUtx['amount'] - min_amount
-            break;
+            break
 
     if utx == False:
         print(listunspent)
