@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, get_epoch_data, \
@@ -13,9 +13,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
-import time
 from decimal import Decimal
-from collections import namedtuple
 
 # Check RPC calls for immature balance:
 #  - listunspent  - Shows immature txs
@@ -68,7 +66,7 @@ def check_array_result(object_array, to_match, expected, should_not_find = False
         raise AssertionError("Objects was matched %s"%(str(to_match)))
 
 
-class unconfirmed_balance(BitcoinTestFramework):
+class sc_cert_bt_immature_balances(BitcoinTestFramework):
     alert_filename = None
 
     def setup_chain(self, split=False):
@@ -99,14 +97,7 @@ class unconfirmed_balance(BitcoinTestFramework):
         ( 1) Create a SC
         ( 2) Advance to next epoch
         ( 3) Send a cert to SC with 2 bwt to Node1 at the same address
-        ( 4) checks some rpc cmd with bwt maturity info while the cert is in mempool
-        ( 5) Advance to next epoch and check Node1 can not spend bwt yet, and checks the rpc cmds with bwt maturity info
-        ( 6) Send a second cert to SC with 1 bwt to Node1 at the same address
-        ( 7) checks some rpc cmd with bwt maturity info while the cert is in mempool
-        ( 8) Restart nodes
-        ( 9) check that Node1 still can not spend bwts also after reading persistent db
-        (10) Node0 mines 2 more blocks and Node1 reach maturity of some of the bwts and checks again
-             the rpc cmds with bwts maturity info
+        ( 4) checks behavior of some rpc cmd with bwt maturity info
         '''
 
         creation_amount = Decimal("10.0")
@@ -450,4 +441,4 @@ class unconfirmed_balance(BitcoinTestFramework):
 
 
 if __name__ == '__main__':
-    unconfirmed_balance().main()
+    sc_cert_bt_immature_balances().main()
