@@ -76,7 +76,7 @@ private:
     std::function<void(const CTransactionBase&, CNode*, BatchVerificationStateFlag, CValidationState&)> mempoolCallback;
 
     CScAsyncProofVerifier() :
-        CScProofVerifier(Verification::Strict),
+        CScProofVerifier(Verification::Strict, Priority::Low), // CScAsyncProofVerifier always executes verification with low priority
         mempoolCallback(ProcessTxBaseAcceptToMemoryPool)
     {
     }

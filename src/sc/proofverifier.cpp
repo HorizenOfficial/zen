@@ -233,7 +233,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
 
     // The paramenter in the ctor is a boolean telling mc-crypto lib if the rust verifier executing thread
     // will be a high-priority one (default is false)
-    ZendooBatchProofVerifier batchVerifier(true);
+    ZendooBatchProofVerifier batchVerifier(verificationPriority == Priority::High;);
     bool addFailure = false;
     std::map<uint32_t /* Proof ID */, uint256 /* Tx or Cert hash */> proofIdMap;
     CctpErrorCode code;
