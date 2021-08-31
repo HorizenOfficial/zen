@@ -106,6 +106,12 @@ public:
     TEST_FRIEND_CScAsyncProofVerifier(const TEST_FRIEND_CScAsyncProofVerifier&) = delete;
     TEST_FRIEND_CScAsyncProofVerifier& operator=(const TEST_FRIEND_CScAsyncProofVerifier&) = delete;
 
+    ~TEST_FRIEND_CScAsyncProofVerifier()
+    {
+        if(lowPrioThreadGuard != NULL)
+            delete lowPrioThreadGuard;
+    }
+
     /**
      * @brief Gets the async proof verifier statistics.
      * 
@@ -182,12 +188,27 @@ public:
         verifier.stats = AsyncProofVerifierStatistics();
     }
 
+    /**
+     * @brief Gets the async proof verifier statistics.
+     *
+     * @return The proof verifier statistics.
+     */
+    void setProofVerifierLowPriorityGuard(bool isEnabled)
+    {
+        if(lowPrioThreadGuard != NULL)
+            delete lowPrioThreadGuard;
+        lowPrioThreadGuard = new CZendooLowPrioThreadGuard(isEnabled);
+
+    }
+
 private:
     TEST_FRIEND_CScAsyncProofVerifier()
     {
         // Disables the call to AcceptToMemory pool from the async proof verifier when performing unit tests (not python ones).
         CScAsyncProofVerifier::GetInstance().mempoolCallback = [](const CTransactionBase&, CNode*, BatchVerificationStateFlag, CValidationState&){};
     }
+
+    CZendooLowPrioThreadGuard* lowPrioThreadGuard = NULL;
 };
 
 #endif // _SC_ASYNC_PROOF_VERIFIER_H
