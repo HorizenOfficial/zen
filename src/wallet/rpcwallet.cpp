@@ -2017,11 +2017,18 @@ UniValue getreceivedbyaccount(const UniValue& params, bool fHelp)
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
+        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()) || !wtx.HasMatureOutputs())
             continue;
 
-        BOOST_FOREACH(const CTxOut& txout, wtx.getTxBase()->GetVout())
+        for(unsigned int pos = 0; pos < wtx.getTxBase()->GetVout().size(); ++pos)
         {
+            const CTxOut& txout = wtx.getTxBase()->GetVout()[pos];
+
+            if (wtx.getTxBase()->IsCertificate()) {
+                if (wtx.IsOutputMature(pos) != CCoins::outputMaturity::MATURE)
+                    continue;
+            }
+
             CTxDestination address;
             if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*pwalletMain, address) && setAddress.count(address))
                 if (wtx.GetDepthInMainChain() >= nMinDepth)

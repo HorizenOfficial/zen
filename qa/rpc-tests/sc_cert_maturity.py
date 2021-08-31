@@ -282,7 +282,8 @@ class sc_cert_maturity(BitcoinTestFramework):
 
         lag_list = self.nodes[1].listaddressgroupings()
         assert_equal(get_total_amount_from_listaddressgroupings(lag_list), bwt_amount1+bwt_amount2)
-        
+        assert_equal(Decimal(self.nodes[1].getreceivedbyaccount("")), bwt_amount1+bwt_amount2)
+
         mark_logs("Node0 generates 1 more block attaining the maturity of the last bwt", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
@@ -293,9 +294,36 @@ class sc_cert_maturity(BitcoinTestFramework):
 
         lag_list = self.nodes[1].listaddressgroupings()
         assert_equal(get_total_amount_from_listaddressgroupings(lag_list), bwt_amount1+bwt_amount2+bwt_amount3)
-        
+        assert_equal(Decimal(self.nodes[1].getreceivedbyaccount("")), bwt_amount1+bwt_amount2+bwt_amount3)
+
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
         assert_equal(ud['bwtImmatureOutput'], Decimal("0.0") )
+
+        # lock the bwt utxo
+        arr = [{"txid": cert_2, "vout":1}] 
+        ret = self.nodes[1].lockunspent(False, arr)
+        assert_equal(ret, True)
+        self.sync_all()
+
+        try:
+            ret = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("3.5")) 
+            assert_true(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+
+        # unlock the bwt utxo
+        ret = self.nodes[1].lockunspent(True, arr)
+        assert_equal(ret, True)
+        self.sync_all()
+
+        try:
+            ret = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("3.5")) 
+            mark_logs("Send succeeded {}".format(ret), self.nodes, DEBUG_MODE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert_true(False)
 
 
 
