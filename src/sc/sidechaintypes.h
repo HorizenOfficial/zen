@@ -34,15 +34,27 @@ namespace Sidechain
 
     static const int MAX_SC_CUSTOM_DATA_LEN     = 1024;     /**< Maximum data length for custom data (optional attribute for sidechain creation) in bytes. */
     static const int MAX_SC_MBTR_DATA_LEN       = 16;       /**< Maximum number of field elements contained in a mainchain backward transfer request (optional attribute for sidechain creation). */
-    
+
     static_assert(MAX_SC_MBTR_DATA_LEN < UINT8_MAX, "MAX_SC_MBTR_DATA_LEN must be lower than max uint8_t size!");
-    
+
     static const int SC_FE_SIZE_IN_BYTES        = 32;
-    static const int MAX_SC_PROOF_SIZE_IN_BYTES = 7*1024;  
+    static const int MAX_SC_PROOF_SIZE_IN_BYTES = 7*1024;
     static const int MAX_SC_VK_SIZE_IN_BYTES    = 4*1024;
 
     static const int SEGMENT_SIZE = 1 << 17;
 }
+
+class CZendooLowPrioThreadGuard
+{
+private:
+    const bool _pause;
+public:
+    CZendooLowPrioThreadGuard(bool pauseThreads);
+    ~CZendooLowPrioThreadGuard();
+
+    CZendooLowPrioThreadGuard(const CZendooLowPrioThreadGuard&) = delete;
+    CZendooLowPrioThreadGuard& operator=(const CZendooLowPrioThreadGuard&) = delete;
+};
 
 ///////////////////////////////// CZendooBatchProofVerifierResult ////////////////////////////////
 struct CZendooBatchProofVerifierResultPtrDeleter
@@ -146,7 +158,7 @@ public:
         READWRITE(byteVector);
     }
 
-    mutable wrappedFieldPtr fieldData; 
+    mutable wrappedFieldPtr fieldData;
 
     // shared_ptr reference count, mainly for UT
     long getUseCount() const { return fieldData.use_count(); }
@@ -195,7 +207,7 @@ public:
         READWRITE(byteVector);
     }
 
-    mutable wrappedScProofPtr proofData; 
+    mutable wrappedScProofPtr proofData;
 
     // shared_ptr reference count, mainly for UT
     long getUseCount() const { return proofData.use_count(); }
@@ -242,7 +254,7 @@ public:
     bool operator==(const CScVKey& rhs) const { return isBaseEqual(rhs) && getProvingSystemType() == rhs.getProvingSystemType(); }
     bool operator!=(const CScVKey& rhs) const { return !(*this == rhs); }
 
-    mutable wrappedScVkeyPtr vkData; 
+    mutable wrappedScVkeyPtr vkData;
 
     // shared_ptr reference count, mainly for UT
     long getUseCount() const { return vkData.use_count(); }
@@ -460,7 +472,7 @@ struct ScFixedParameters
             wCeasedVk == boost::none                                  &&
             vFieldElementCertificateFieldConfig.empty()               &&
             vBitVectorCertificateFieldConfig.empty()                  &&
-            mainchainBackwardTransferRequestDataLength == 0 
+            mainchainBackwardTransferRequestDataLength == 0
             );
     }
 
@@ -476,7 +488,7 @@ struct ScFixedParameters
         READWRITE(vBitVectorCertificateFieldConfig);
         READWRITE(mainchainBackwardTransferRequestDataLength);
     }
-    
+
     ScFixedParameters(): withdrawalEpochLength(-1), mainchainBackwardTransferRequestDataLength(0)
     {}
 
@@ -527,7 +539,7 @@ struct ScBwtRequestParameters
     inline bool operator==(const ScBwtRequestParameters& rhs) const
     {
         return (scFee == rhs.scFee) &&
-               (vScRequestData == rhs.vScRequestData); 
+               (vScRequestData == rhs.vScRequestData);
     }
     inline bool operator!=(const ScBwtRequestParameters& rhs) const { return !(*this == rhs); }
     inline ScBwtRequestParameters& operator=(const ScBwtRequestParameters& cp)
