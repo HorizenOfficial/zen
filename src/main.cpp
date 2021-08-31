@@ -1482,6 +1482,14 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         return MempoolReturnValue::INVALID;
     }
 
+    if (!pool.checkCswInputsPerScLimit(tx))
+    {
+        state.Invalid(error("%s():%d: tx[%s] would exceed limit of csw inputs for sc in mempool\n",
+            __func__, __LINE__, tx.GetHash().ToString()),
+            CValidationState::Code::TOO_MANY_CSW_INPUTS_FOR_SC, "bad-txns-too-many-csw-inputs-for-sc");
+        return MempoolReturnValue::INVALID;
+    }
+
     if (!pool.checkIncomingTxConflicts(tx))
     {
         LogPrintf("%s():%d: tx[%s] has conflicts in mempool\n", __func__, __LINE__, tx.GetHash().ToString());
@@ -1532,7 +1540,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
             bool banSenderNode = false;
             int nDoS = 0;
 
-            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx, &banSenderNode);
+            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx, Sidechain::ScFeeCheckFlag::LATEST_VALUE, &banSenderNode);
             if (ret_code != CValidationState::Code::OK)
             {
                 if (banSenderNode)
@@ -3032,7 +3040,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("%s():%d: tx inputs missing/spent",__func__, __LINE__),
                                      CValidationState::Code::INVALID, "bad-txns-inputs-missingorspent");
 
-            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx);
+            CValidationState::Code ret_code = view.IsScTxApplicableToState(tx, Sidechain::ScFeeCheckFlag::MINIMUM_IN_A_RANGE);
             if (ret_code != CValidationState::Code::OK)
             {
                 return state.DoS(100,

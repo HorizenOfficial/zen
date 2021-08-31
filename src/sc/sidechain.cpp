@@ -1,4 +1,5 @@
 #include "sc/sidechain.h"
+#include "sc/sidechaintypes.h"
 #include "primitives/transaction.h"
 #include "utilmoneystr.h"
 #include "txmempool.h"
@@ -150,7 +151,7 @@ std::string CSidechain::ToString() const
 }
 
 size_t CSidechain::DynamicMemoryUsage() const {
-    return memusage::DynamicUsage(mImmatureAmounts);
+    return memusage::DynamicUsage(mImmatureAmounts) + memusage::DynamicUsage(scFees);
 }
 
 size_t CSidechainEvents::DynamicMemoryUsage() const {
@@ -161,6 +162,8 @@ size_t CSidechainEvents::DynamicMemoryUsage() const {
 bool Sidechain::checkCertSemanticValidity(const CScCertificate& cert, CValidationState& state) { return true; }
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state) { return true; }
 bool CSidechain::GetCeasingCumTreeHash(CFieldElement& ceasedBlockCum) const { return true; }
+void CSidechain::InitScFees() {}
+void CSidechain::UpdateScFees(const CScCertificateView& certView) {}
 #else
 bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState& state)
 {
@@ -501,6 +504,125 @@ bool CSidechain::GetCeasingCumTreeHash(CFieldElement& ceasedBlockCum) const
 
     ceasedBlockCum = ceasedBlockIndex->scCumTreeHash;
     return true;
+}
+
+int CSidechain::getNumBlocksForScFeeCheck()
+{
+    if ( (Params().NetworkIDString() == "regtest") )
+    {
+        int val = (int)(GetArg("-blocksforscfeecheck", Params().ScNumBlocksForScFeeCheck() ));
+        if (val >= 0)
+        {
+            LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+            return val;
+        }
+        LogPrint("sc", "%s():%d - %s: val %d is negative, using default %d\n",
+            __func__, __LINE__, Params().NetworkIDString(), val, Params().ScNumBlocksForScFeeCheck());
+    }
+    return Params().ScNumBlocksForScFeeCheck();
+}
+
+int CSidechain::getMaxSizeOfScFeesContainers()
+{
+    int epochLength = fixedParams.withdrawalEpochLength;
+
+    assert(epochLength > 0);
+    
+    int numBlocks = getNumBlocksForScFeeCheck();
+    maxSizeOfScFeesContainers = numBlocks / epochLength;
+    if (maxSizeOfScFeesContainers == 0 || (numBlocks % epochLength != 0) )
+    {
+        maxSizeOfScFeesContainers++;
+    }
+
+    return maxSizeOfScFeesContainers;
+}
+
+void CSidechain::InitScFees()
+{
+    // only in the very first time, calculate the size of the buffer
+    if (maxSizeOfScFeesContainers == -1)
+    {
+        maxSizeOfScFeesContainers = getMaxSizeOfScFeesContainers();
+        LogPrint("sc", "%s():%d - maxSizeOfScFeesContainers set to %d\n", __func__, __LINE__, maxSizeOfScFeesContainers);
+
+        assert(scFees.empty());
+
+        Sidechain::ScFeeData defaultData(
+            lastTopQualityCertView.forwardTransferScFee, lastTopQualityCertView.mainchainBackwardTransferRequestScFee);
+        scFees.push_back(defaultData);
+    }
+}
+
+void CSidechain::UpdateScFees(const CScCertificateView& certView)
+{
+    // this is mostly for new UTs which need to call InitScFees() beforehand, should never happen otherwise
+    assert(maxSizeOfScFeesContainers > 0);
+
+    CAmount ftScFee   = certView.forwardTransferScFee;
+    CAmount mbtrScFee = certView.mainchainBackwardTransferRequestScFee;
+
+    LogPrint("sc", "%s():%d - pushing f=%d/m=%d into list with size %d\n",
+        __func__, __LINE__, ftScFee, mbtrScFee, scFees.size());
+
+    scFees.push_back(Sidechain::ScFeeData(ftScFee, mbtrScFee));
+
+    // check if we are past the buffer size
+    int delta = scFees.size() - maxSizeOfScFeesContainers;
+    if (delta > 0)
+    {
+        // remove from the front as many elements are needed to be within the circular buffer size
+        // --
+        // usually this is just one element, but in regtest a node can set the max size via a startup option
+        // therefore such size might be lesser than scFee size after a node restart
+        while (delta > 0)
+        {
+            if (scFees.empty())
+                break;
+
+            const auto& entry = scFees.front();
+            LogPrint("sc", "%s():%d - popping f=%d, m=%d from list\n",
+                __func__, __LINE__, entry.forwardTxScFee, entry.mbtrTxScFee);
+            scFees.pop_front();
+            delta--;
+        }
+    }
+}
+
+void CSidechain::DumpScFees() const
+{
+    for (const auto& entry : scFees)
+    {
+        std::cout << "[" << std::setw(2) << entry.forwardTxScFee
+                  << "/" << std::setw(2) << entry.mbtrTxScFee << "]";
+    }
+    std::cout << std::endl;
+}
+
+CAmount CSidechain::GetMinFtScFee() const
+{
+    assert(!scFees.empty());
+
+    CAmount minScFee = std::min_element(
+        scFees.begin(), scFees.end(),
+        [] (const Sidechain::ScFeeData& a, const Sidechain::ScFeeData& b) { return a.forwardTxScFee < b.forwardTxScFee; }
+    )->forwardTxScFee;
+
+    LogPrint("sc", "%s():%d - returning min=%lld\n", __func__, __LINE__, minScFee);
+    return minScFee;
+}
+
+CAmount CSidechain::GetMinMbtrScFee() const
+{
+    assert(!scFees.empty());
+
+    CAmount minScFee = std::min_element(
+        scFees.begin(), scFees.end(),
+        [] (const Sidechain::ScFeeData& a, const Sidechain::ScFeeData& b) { return a.mbtrTxScFee < b.mbtrTxScFee; }
+    )->mbtrTxScFee;
+
+    LogPrint("sc", "%s():%d - returning min=%lld\n", __func__, __LINE__, minScFee);
+    return minScFee;
 }
 
 #endif
