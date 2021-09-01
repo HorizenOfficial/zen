@@ -165,8 +165,12 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
 
         # Generate 1 block with Certificate, CZendooLowPrioThreadGuard should not effect.
         mark_logs("Node generates a block when CZendooLowPrioThreadGuard is enabled...", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        assert_equal(False, cert_epoch_0 in self.nodes[0].getrawmempool())
+        block_hash = self.nodes[0].generate(1)[0]
+        assert_equal(0, self.nodes[0].getmempoolinfo()["size"], "Certificate expected to be removed from MC node mempool.")
+        assert_equal(1, len(self.nodes[0].getblock(block_hash)["cert"]),
+                     "MC block expected to contain 1 Certificate.")
+        assert_equal(cert_epoch_0, self.nodes[0].getblock(block_hash)["cert"][0],
+                     "MC block expected to contain certificate.")
 
 
 if __name__ == '__main__':

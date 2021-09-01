@@ -111,6 +111,7 @@ testScripts=(
   'sc_quality_nodes.py'
   'sc_cert_memcleanup_split.py'
   'sc_csw_fundrawtransaction.py'
+  'sc_proof_verifier_low_priority_threads.py'
   'subsidyhalving.py'
   'cbh_rpfix.py'
   'cbh_rpcheck.py'
