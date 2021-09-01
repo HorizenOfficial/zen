@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import initialize_chain_clean, assert_equal, assert_true, assert_false, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
-    swap_bytes
+    get_total_amount_from_listaddressgroupings, swap_bytes
 from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
@@ -135,7 +135,6 @@ class sc_bwt_request(BitcoinTestFramework):
         pkh2 = self.nodes[0].getnewaddress("", True)
         pkh3 = self.nodes[0].getnewaddress("", True)
         pkh4 = self.nodes[0].getnewaddress("", True)
-
 
         #--- negative tests for bwt transfer request ----------------------------------------
         mark_logs("...performing some negative test...", self.nodes, DEBUG_MODE)
@@ -472,6 +471,10 @@ class sc_bwt_request(BitcoinTestFramework):
         #totScFee = totScFee + SC_FEE
         n1_net_bal = n1_net_bal - SC_FEE 
         assert_equal(n1_net_bal, Decimal(self.nodes[1].z_gettotalbalance(0)['total']))
+        # check also other commands which are handling balance, just for non-regressions
+        assert_equal(n1_net_bal, Decimal(self.nodes[1].listaccounts()[""]))
+        lag_list = self.nodes[1].listaddressgroupings()
+        assert_equal(n1_net_bal, get_total_amount_from_listaddressgroupings(lag_list))
 
         mark_logs("Node0 generates 1 block, thus ceasing SC 1", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
@@ -509,6 +512,11 @@ class sc_bwt_request(BitcoinTestFramework):
         self.setup_network(False)
 
         assert_equal(n1_net_bal, Decimal(self.nodes[1].z_gettotalbalance(0)['total']))
+        # check also other commands handling balance, just for non-regressions
+        assert_equal(n1_net_bal, Decimal(self.nodes[1].listaccounts()[""]))
+        lag_list = self.nodes[1].listaddressgroupings()
+        assert_equal(n1_net_bal, get_total_amount_from_listaddressgroupings(lag_list))
+        
         sc_post_restart = self.nodes[0].getscinfo(scid1)['items'][0]
         assert_equal(sc_pre_restart, sc_post_restart)
 

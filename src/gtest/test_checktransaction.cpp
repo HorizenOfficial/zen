@@ -132,6 +132,16 @@ TEST(checktransaction_tests, valid_transparent_transaction) {
     EXPECT_TRUE(CheckTransactionWithoutProofVerification(tx, state));
 }
 
+TEST(checktransaction_tests, invalid_transparent_transaction_with_certificate_version) {
+    CMutableTransaction mtx = GetValidTransaction();
+    mtx.vjoinsplit.resize(0);
+    mtx.nVersion = SC_CERT_VERSION;
+    CTransaction tx(mtx);
+    CValidationState state;
+    EXPECT_FALSE(CheckTransactionWithoutProofVerification(tx, state));
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+}
+
 TEST(checktransaction_tests, valid_sprout_transaction) {
     CMutableTransaction mtx = GetValidTransaction();
     CTransaction tx(mtx);

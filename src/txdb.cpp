@@ -342,6 +342,18 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
                 ss << VARINT(coins.nVersion);
                 ss << (coins.fCoinBase ? 'c' : 'n');
                 ss << VARINT(coins.nHeight);
+
+                // add cert attribute to the hash writer obj, such values are meaningful only in this case 
+                // the size of the hash writer obj buffer is different anyway (larger) from the actual serialized size
+                // because the coin serialization is compressed 
+                if (coins.IsFromCert()) {
+                    ss << coins.nFirstBwtPos;
+                    ss << coins.nBwtMaturityHeight;
+                }
+
+                // - transactions and certificates are lumped together 
+                // - nTotalAmount includes certificate valid bwt amounts (not-null, as for low-quality certs)
+                //   even if not yet matured, as it is done currently with coinbase vouts
                 stats.nTransactions++;
                 for (unsigned int i=0; i<coins.vout.size(); i++) {
                     const CTxOut &out = coins.vout[i];
@@ -352,11 +364,7 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) const {
                         nTotalAmount += out.nValue;
                     }
                 }
-
-                if (coins.IsFromCert()) {
-                    ss << coins.nBwtMaturityHeight;
-                    ss << coins.nBwtMaturityHeight;;
-                }
+                
                 stats.nSerializedSize += 32 + slValue.size();
                 ss << VARINT(0);
             }

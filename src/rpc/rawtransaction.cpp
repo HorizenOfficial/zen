@@ -542,14 +542,14 @@ UniValue gettxoutproof(const UniValue& params, bool fHelp)
             "gettxoutproof [\"txid\",...] ( blockhash )\n"
             "\nReturns a hex-encoded proof that \"txid\" was included in a block.\n"
             "\nNOTE: By default this function only works sometimes. This is when there is an\n"
-            "unspent output in the utxo for this transaction. To make it always work,\n"
+            "unspent output in the utxo for this transaction/certificate. To make it always work,\n"
             "you need to maintain a transaction index, using the -txindex command line option or\n"
-            "specify the block in which the transaction is included in manually (by blockhash).\n"
+            "specify the block in which the transaction/certificate is included in manually (by blockhash).\n"
             "\nReturn the raw transaction data.\n"
             "\nArguments:\n"
             "1. \"txids\"       (string) A json array of txids to filter\n"
             "    [\n"
-            "      \"txid\"     (string) A transaction hash\n"
+            "      \"txid\"     (string) A transaction/certificate hash\n"
             "      ,...\n"
             "    ]\n"
             "2. \"block hash\"  (string, optional) If specified, looks for txid in the block with this hash\n"
@@ -590,11 +590,13 @@ UniValue gettxoutproof(const UniValue& params, bool fHelp)
 
     if (pblockindex == NULL)
     {
-        CTransaction tx;
-        if (!GetTransaction(oneTxid, tx, hashBlock, false) || hashBlock.IsNull())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not yet in block");
+        // allocated by the callee
+        std::unique_ptr<CTransactionBase> pTxBase;
+        static const bool ALLOW_SLOW = false;
+        if (!GetTxBaseObj(oneTxid, pTxBase, hashBlock, ALLOW_SLOW) || !pTxBase)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction/Certificate not yet in block");
         if (!mapBlockIndex.count(hashBlock))
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "Transaction index corrupt");
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Transaction/Certificate index corrupt");
         pblockindex = mapBlockIndex[hashBlock];
     }
 
@@ -603,11 +605,15 @@ UniValue gettxoutproof(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
 
     unsigned int ntxFound = 0;
-    BOOST_FOREACH(const CTransaction&tx, block.vtx)
+    for (const CTransaction& tx: block.vtx)
         if (setTxids.count(tx.GetHash()))
             ntxFound++;
+    for (const CScCertificate& cert: block.vcert)
+        if (setTxids.count(cert.GetHash()))
+            ntxFound++;
+
     if (ntxFound != setTxids.size())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "(Not all) transactions not found in specified block");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "(Not all) transactions/Certificates not found in specified block");
 
     CDataStream ssMB(SER_NETWORK, PROTOCOL_VERSION);
     CMerkleBlock mb(block, setTxids);
