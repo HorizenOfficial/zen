@@ -735,7 +735,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
 
     // MC return address as PubKeyHash
     inputString = params[3].get_str();
-    if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+    if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
 
     uint160 mcReturnAddress;
@@ -5249,8 +5249,8 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         scId.SetHex(inputString);
 
         inputString = find_value(o, "mcReturnAddress").get_str();
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-                    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
+        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
 
         uint160 mcReturnAddress;
         mcReturnAddress.SetHex(inputString);
@@ -5269,7 +5269,7 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         ft.address = address;
         ft.nValue = nAmount;
         ft.scId = scId;
-        ft.mcReturnAddress;
+        ft.mcReturnAddress = mcReturnAddress;
 
         vecFtSend.push_back(ft);
 

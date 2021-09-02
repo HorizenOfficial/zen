@@ -362,7 +362,12 @@ class SCCreateTest(BitcoinTestFramework):
         amounts.append({"address": "add1", "amount": fwt_amount_1, "scid": scid, "mcReturnAddress": mc_return_address})
         amounts.append({"address": "add2", "amount": fwt_amount_2, "scid": scid, "mcReturnAddress": mc_return_address})
         amounts.append({"address": "add3", "amount": fwt_amount_3, "scid": scid, "mcReturnAddress": mc_return_address})
-        self.nodes[1].sc_sendmany(amounts)
+
+        # Check that mcReturnAddress was properly set.
+        tx_id = self.nodes[1].sc_sendmany(amounts)
+        tx_obj = self.nodes[1].getrawtransaction(tx_id, 1)
+        for out in tx_obj['vft_ccout']:
+            assert_equal(mc_return_address, out["mcReturnAddress"], "FT mc return address is different.")
         self.sync_all()
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
