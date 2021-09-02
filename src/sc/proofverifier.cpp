@@ -227,8 +227,8 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
         for (auto& proof : proofs)
         {
             proof.second.result = ProofVerificationResult::Passed;
-            return true;
         }
+        return true;
     }
 
     // The paramenter in the ctor is a boolean telling mc-crypto lib if the rust verifier executing thread
