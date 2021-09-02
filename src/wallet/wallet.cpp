@@ -4561,9 +4561,17 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
     for (unsigned int pos = 0; pos < wrappedCertificate.GetVout().size(); ++pos) {
         const CTxOut& txout = wrappedCertificate.GetVout()[pos];
 
-        // Only need to handle txouts if  the output is to us (received)
         isminetype fIsMine = pwallet->IsMine(txout);
-        if (!(fIsMine & filter))
+        // Only need to handle txouts if AT LEAST one of these is true:
+        //   1) they debit from us (sent)
+        //   2) the output is to us (received)
+        if (nDebit > 0)
+        {
+            // Don't report 'change' txouts
+            if (pwallet->IsChange(txout))
+                continue;
+        }
+        else if (!(fIsMine & filter))
             continue;
 
         // we need to get the destination address

@@ -116,13 +116,10 @@ testScripts=(
   'cbh_rpcheck.py'
   'tlsprotocols.py'
   'getblockmerkleroots.py'
-<<<<<<< HEAD
   'sc_csw_eviction_from_mempool.py'
   'sc_stale_ft_and_mbtr.py'
   'sc_cert_getblocktemplate.py'
-=======
-  'unconfirmed_balance.py'
->>>>>>> immature_balance_rpc
+  'sc_cert_bt_immature_balances.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'

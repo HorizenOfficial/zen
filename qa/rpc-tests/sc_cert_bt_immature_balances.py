@@ -108,7 +108,6 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
         self.nodes[0].generate(MINIMAL_SC_HEIGHT)
         self.sync_all()
-        prev_epoch_hash = self.nodes[0].getbestblockhash()
 
         # generate wCertVk and constant
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
@@ -143,8 +142,6 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
 
         # node0 create a cert_1 for funding node1
         pkh_node1 = self.nodes[1].getnewaddress("", True)
-        #pkh_node1 = self.nodes[1].getnewaddress()
-        # account = self.nodes[1].getaccount(pkh_node1)
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount1}, {"pubkeyhash": pkh_node1, "amount": bwt_amount2}]
         mark_logs("Node 0 sends a cert for scid {} with 2 bwd transfers of {} coins to Node1 pkh".format(scid,
                                                                                                          bwt_amount1 + bwt_amount2,
@@ -173,8 +170,15 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         # get the taddr of Node1 where the bwt is send to
         bwt_address = self.nodes[0].getrawtransaction(cert_1, 1)['vout'][1]['scriptPubKey']['addresses'][0]
 
+        # get account for bwt_address
+        bwt_account = self.nodes[1].getaccount(bwt_address)
+
+        # ------------------------------------------------------------------
+        # IN MEMPOOL CERTIFICATE
+        # ------------------------------------------------------------------
+
         # Check unspent transactions
-        unspent_utxos = self.nodes[0].listunspent()
+        unspent_utxos = self.nodes[1].listunspent()
         for utxo in unspent_utxos:
             assert_false(utxo["txid"] == cert_1)
 
@@ -198,12 +202,40 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         # unconf bwt do not contribute to unconfOutput
         assert_equal(ud['unconfirmedOutput'], Decimal("0.0"))
 
-        ud = self.nodes[0].getunconfirmedtxdata(bwt_address)
+        ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
         assert_equal(ud['bwtImmatureOutput'], Decimal("0.0"))
         assert_equal(ud['unconfirmedOutput'], Decimal("0.0"))
 
         balance = self.nodes[1].getreceivedbyaddress(bwt_address, 0)
-        # assert_equal(bal_without_bwt, balance)
+        assert_equal(bal_without_bwt, balance)
+
+        balance_by_account = self.nodes[1].getreceivedbyaccount(bwt_account)
+        assert_equal(bal_without_bwt, balance_by_account)
+
+        addr_found = False
+        # select an address with an UTXO value large enough
+        listaddressgroupings = self.nodes[1].listaddressgroupings()
+        for groups in listaddressgroupings:
+            for entry in groups:
+                if entry[0] == bwt_address:
+                    assert_equal(0, entry[1], "listaddressgroupings: BT output amount expected to be empty")
+                    pprint.pprint(entry)
+                    addr_found = True
+                    break
+
+        assert_true(addr_found, "listaddressgroupings: BT outputs for address expect to be found but empty")
+
+        mark_logs("Check that there are no immature outputs in the mempool cert gettransaction details.", self.nodes, DEBUG_MODE)
+        include_immature_bts = False
+        details = self.nodes[1].gettransaction(cert_1, False, include_immature_bts)['details']
+        assert_equal(0, len(details), "gettransaction: mempool cert BT outputs expected to be skipped in any case (not applicable).")
+        include_immature_bts = True
+        details = self.nodes[1].gettransaction(cert_1, False, include_immature_bts)['details']
+        assert_equal(0, len(details), "gettransaction: mempool cert BT outputs expected to be skipped in any case (not applicable).")
+
+        # ------------------------------------------------------------------
+        # IN CHAIN CERTIFICATE
+        # ------------------------------------------------------------------
 
         mark_logs("Node0 mines cert and cert immature outputs appear the unconfirmed tx data", self.nodes, DEBUG_MODE)
         block_id = self.nodes[0].generate(1)
@@ -221,10 +253,10 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         assert_equal(ud['unconfirmedOutput'], Decimal("0.0"))
 
         balance = self.nodes[1].getreceivedbyaddress(bwt_address)
-        #assert_equal(bal_without_bwt, balance)
+        assert_equal(bal_without_bwt, balance)
 
-        # balance_by_account = self.nodes[1].getreceivedbyaccount(account)
-        # assert_equal(bal_without_bwt, balance_by_account)
+        balance_by_account = self.nodes[1].getreceivedbyaccount(bwt_account)
+        assert_equal(bal_without_bwt, balance_by_account)
 
         # Check unconfirmed balance
         assert_equal(0, self.nodes[0].getunconfirmedbalance())
@@ -232,38 +264,72 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         list_received = self.nodes[1].listreceivedbyaddress()
         check_array_result(list_received, {"address":bwt_address}, {"txids":[cert_1, cert_1]})
         assert_equal(len(list_received), 1)
-        #pprint.pprint(list_received)
 
         list_received = self.nodes[1].listreceivedbyaccount()
         assert_equal(len(list_received), 1)
-        #pprint.pprint(list_received)
 
-        list_transactions = self.nodes[1].listtransactions()
-        check_array_result(list_transactions, {"txid":cert_1}, {"txid":cert_1})
-        #pprint.pprint(list_transactions)
+        include_immature_bts = False
+        list_transactions = self.nodes[1].listtransactions("*", 100, 0, False, "*", include_immature_bts)
+        assert_equal(0, len(list_transactions), "listtransactions: no cert immature BTs expected to be accounted.")
+
+        include_immature_bts = True
+        list_transactions = self.nodes[1].listtransactions("*", 100, 0, False, "*", include_immature_bts)
+        check_array_result(list_transactions, {"txid": cert_1}, {"txid": cert_1})
+
+        include_immature_bts = False
+        list_sinceblock = self.nodes[1].listsinceblock(bytes_to_hex_str(block_id[0]), 1, False, include_immature_bts)
+        assert_equal(2, len(list_sinceblock))
+        assert_equal(0, len(list_sinceblock['transactions']),
+                     "listsinceblock: no cert immature BTs expected to be accounted.")
+
+        include_immature_bts = True
+        list_sinceblock = self.nodes[1].listsinceblock(bytes_to_hex_str(block_id[0]), 1, False, include_immature_bts)
+        assert_equal(2, len(list_sinceblock))
+        check_array_result(list_sinceblock['transactions'], {"txid": cert_1}, {"txid": cert_1})
 
         # Check unspent transactions
-        unspent_utxos = self.nodes[0].listunspent()
-        # for utxo in unspent_utxos:
-            # assert_false(utxo["txid"] == cert_1) # Can see immature transaction
+        unspent_utxos = self.nodes[1].listunspent()
+        for utxo in unspent_utxos:
+            assert_false(utxo["txid"] == cert_1)
 
         res = self.nodes[1].listtxesbyaddress(bwt_address)
         for entry in res:
             assert_equal(entry['scid'], scid)
             assert_equal(entry['txid'], cert_1)
 
-        list_sinceblock = self.nodes[1].listsinceblock(bytes_to_hex_str(block_id[0]))
-        assert_equal(2, len(list_sinceblock))
-        check_array_result(list_sinceblock['transactions'], {"address": bwt_address}, {"txid": cert_1})
+        addr_found = False
+        # select an address with an UTXO value large enough
+        listaddressgroupings = self.nodes[1].listaddressgroupings()
+        for groups in listaddressgroupings:
+            for entry in groups:
+                if entry[0] == bwt_address:
+                    assert_equal(0, entry[1], "listaddressgroupings: BT output amount expected to be empty")
+                    pprint.pprint(entry)
+                    addr_found = True
+                    break
+
+        assert_true(addr_found, "listaddressgroupings: BT outputs for address expect to be found but empty")
+
+        mark_logs("Check that there are no immature outputs in the inchain cert gettransaction details by default.", self.nodes, DEBUG_MODE)
+        include_immature_bts = False
+        details = self.nodes[1].gettransaction(cert_1, False, include_immature_bts)['details']
+        assert_equal(0, len(details), "gettransaction: inchain cert BT immature outputs expected to be skipped because of flag = False.")
+
+        mark_logs("Check that there are 2 immature outputs in the inchain cert gettransaction with includeImmatureBTs=True.",
+                  self.nodes, DEBUG_MODE)
+        include_immature_bts = True
+        details = self.nodes[1].gettransaction(cert_1, False, include_immature_bts)['details']
+        assert_equal(2, len(details), "gettransaction: inchain cert BT immature outputs expected to be include because of flag = True.")
+        for detail in details:
+            assert_equal("immature", detail["category"], "gettransaction: different category for immature Bt expected.")
+
+        # ------------------------------------------------------------------
+        # MATURE CERTIFICATE BT OUTPUTS
+        # ------------------------------------------------------------------
 
         mark_logs("Node0 generates 4 more blocks to achieve end of withdrawal epochs", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(4)
         self.sync_all()
-
-        # Check unspent transactions
-        unspent_utxos = self.nodes[0].listunspent()
-        #for utxo in unspent_utxos:
-            #assert_false(utxo["txid"] == cert_1) # Can see unspent transaction
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes,
@@ -310,19 +376,6 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
             if entry['txid'] == cert_2:
                 assert_equal(entry['vout'][1]['maturityHeight'], bwtMaturityHeight + EPOCH_LENGTH)
 
-        addr_found = False
-        # select an address with an UTXO value large enough
-        for groups in self.nodes[1].listaddressgroupings():
-            if addr_found:
-                break
-            for entry in groups:
-                if entry[0] == bwt_address:
-                    # TODO: check the case
-                    #assert_equal(0, entry[1], "listaddressgroupings: BT output amount expected to be empty")
-                    pprint.pprint(entry)
-                    addr_found = True
-                    break
-
         assert_true(addr_found, "listaddressgroupings: BT outputs for address expect to be found but empty")
 
         mark_logs("Check that unconfirmed certs bwts are not in the unconfirmed tx data", self.nodes, DEBUG_MODE)
@@ -333,20 +386,6 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         assert_equal(self.nodes[1].getbalance(), bal_without_bwt)
         assert_equal(self.nodes[1].z_getbalance(bwt_address), bal_without_bwt)
         assert_equal(Decimal(self.nodes[1].z_gettotalbalance()['total']), bal_without_bwt)
-
-        mark_logs("Stopping and restarting nodes", self.nodes, DEBUG_MODE)
-        stop_nodes(self.nodes)
-        wait_bitcoinds()
-        self.setup_network(False)
-        self.sync_all()
-
-        mark_logs("Check Node1 still has not bwt in its balance", self.nodes, DEBUG_MODE)
-        assert_equal(self.nodes[1].getbalance(), bal_without_bwt)
-        assert_equal(self.nodes[1].z_getbalance(bwt_address), bal_without_bwt)
-        assert_equal(Decimal(self.nodes[1].z_gettotalbalance()['total']), bal_without_bwt)
-
-        ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
-        assert_equal(ud['bwtImmatureOutput'], bwt_amount1 + bwt_amount2)
 
         mark_logs("Node0 generates 1 more block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
@@ -362,25 +401,35 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        addr_found = False
-        for groups in self.nodes[1].listaddressgroupings():
-            if addr_found:
-                break
-            for entry in groups:
-                if entry[0] == bwt_address:
-                    # TODO: check the behavior of the RPC method
-                    #assert_equal(0, entry[1], "listaddressgroupings: BT output amount expected to be empty")
-                    pprint.pprint(entry)
-                    addr_found = True
-                    break
-        assert_true(addr_found, "listaddressgroupings: BT outputs for address expect to be found but empty")
-
+        # ------------------------------------------------------------------
+        # CERTIFICATE 1 BT OUTPUTS ARE MATURE
+        # ------------------------------------------------------------------
 
         mark_logs("Check Node1 now has bwts in its balance, and their maturity height is as expected", self.nodes,
                   DEBUG_MODE)
         assert_equal(self.nodes[1].getblockcount(), bwtMaturityHeight)
         assert_equal(self.nodes[1].getbalance(), bwt_amount1 + bwt_amount2)
         assert_equal(self.nodes[1].z_getbalance(bwt_address), bwt_amount1 + bwt_amount2)
+
+        addr_found = False
+        listaddressgroupings = self.nodes[1].listaddressgroupings()
+        for groups in listaddressgroupings:
+            if addr_found:
+                break
+            for entry in groups:
+                if entry[0] == bwt_address:
+                    assert_equal(bwt_amount1 + bwt_amount2, entry[1],
+                                 "listaddressgroupings: Cert 1 BT outputs amount expected to be accounted")
+                    pprint.pprint(entry)
+                    addr_found = True
+                    break
+        assert_true(addr_found, "listaddressgroupings: BT outputs for address expect to be found but empty")
+
+        balance = self.nodes[1].getreceivedbyaddress(bwt_address, 0)
+        assert_equal(bal_without_bwt + bwt_amount1 + bwt_amount2, balance)
+
+        balance_by_account = self.nodes[1].getreceivedbyaccount(bwt_account)
+        assert_equal(bal_without_bwt + bwt_amount1 + bwt_amount2, balance_by_account)
 
         mark_logs("Check the output of the listtxesbyaddress cmd is not changed",
                   self.nodes, DEBUG_MODE)
@@ -398,46 +447,35 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
         assert_equal(ud['bwtImmatureOutput'], bwt_amount3)
 
-        mark_logs("Node0 generates 4 more blocks approaching the ceasing limit height", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(4)
-        self.sync_all()
-        print
-        "Height=", self.nodes[0].getblockcount()
-        print
-        "Ceasing at h =", self.nodes[0].getscinfo("*")['items'][0]['ceasing height']
-        print
-        "State =", self.nodes[0].getscinfo("*")['items'][0]['state']
-        assert_equal(self.nodes[0].getscinfo("*")['items'][0]['state'], "ALIVE")
+        mark_logs("Check that there are Mature BT outputs in the inchain cert gettransaction details by default.",
+                  self.nodes, DEBUG_MODE)
+        include_immature_bts = False
+        details = self.nodes[1].gettransaction(cert_1, False, include_immature_bts)['details']
+        assert_equal(2, len(details),
+                     "gettransaction: inchain cert BT Mature outputs expected to be added.")
+        for detail in details:
+            assert_equal("receive", detail["category"], "gettransaction: different category for Mature BT expected.")
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes,
-                  DEBUG_MODE)
+        mark_logs("Check that there are Mature BT outputs in the inchain cert for the listtransactions command.",
+                  self.nodes, DEBUG_MODE)
+        include_immature_bts = False
+        list_transactions = self.nodes[1].listtransactions("*", 100, 0, False, "*", include_immature_bts)
+        check_array_result(list_transactions, {"txid": cert_1}, {"txid": cert_1})
 
-        mark_logs("Node 0 sends an empty cert for scid {} just for keeping the sc alive".format(scid), self.nodes,
-                  DEBUG_MODE)
-        try:
-            # Create proof for WCert
-            quality = 22
-            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE,
-                                             epoch_cum_tree_hash, constant, [], [])
+        mark_logs("Check that there are Mature BT outputs in the inchain cert for the listsinceblock command.",
+                  self.nodes, DEBUG_MODE)
+        include_immature_bts = False
+        list_sinceblock = self.nodes[1].listsinceblock(bytes_to_hex_str(block_id[0]), 1, False, include_immature_bts)
+        assert_equal(2, len(list_sinceblock))
+        check_array_result(list_sinceblock['transactions'], {"txid": cert_1}, {"txid": cert_1})
 
-            cert_3 = self.nodes[0].send_certificate(scid, epoch_number, quality,
-                                                    epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
-            mark_logs("==> certificate is {}".format(cert_3), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
-            errorString = e.error['message']
-            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
-
-        self.sync_all()
-
-        mark_logs("Node0 generates 1 more block attaining the maturity of the last bwt", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(1)
-        self.sync_all()
-
-        assert_equal(self.nodes[1].z_getbalance(bwt_address), bwt_amount1 + bwt_amount2 + bwt_amount3)
-        assert_equal(self.nodes[1].getbalance(), bwt_amount1 + bwt_amount2 + bwt_amount3)
-        ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
-        assert_equal(ud['bwtImmatureOutput'], Decimal("0.0"))
+        # Check unspent transactions
+        # Must see Mature BTs
+        unspent_utxos = self.nodes[1].listunspent()
+        assert_equal(2, len(unspent_utxos), "Only Mature BTs expected to be present.")
+        for utxo in unspent_utxos:
+            assert_true(utxo["txid"] == cert_1)
+            assert_true(utxo["isCert"])
 
 
 if __name__ == '__main__':
