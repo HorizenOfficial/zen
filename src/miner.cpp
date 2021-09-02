@@ -570,7 +570,14 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
 
         // Largest block tx partition allowed:
-        unsigned int nBlockTxPartitionMaxSize = GetArg("-blocktxpartitionmaxsize", DEFAULT_BLOCK_TX_PART_MAX_SIZE);
+        unsigned int nBlockTxPartitionMaxSize = DEFAULT_BLOCK_TX_PART_MAX_SIZE;
+
+        // -regtest only: allow overriding 
+        if (chainparams.MineBlocksOnDemand())
+        {
+            nBlockTxPartitionMaxSize = GetArg("-blocktxpartitionmaxsize", DEFAULT_BLOCK_TX_PART_MAX_SIZE);
+        }
+
         // Limit to betweeen 1K and MAX-1K for sanity:
         nBlockTxPartitionMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(DEFAULT_BLOCK_TX_PART_MAX_SIZE-1000), nBlockTxPartitionMaxSize));
  

@@ -511,7 +511,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-blockminsize=<n>", strprintf(_("Set minimum block size in bytes (default: %u)"), 0));
     strUsage += HelpMessageOpt("-blockmaxsize=<n>", strprintf(_("Set maximum block size in bytes (default: %d)"), DEFAULT_BLOCK_MAX_SIZE));
     
-    strUsage += HelpMessageOpt("-blocktxpartitionmaxsize=<n>", strprintf(_("Set maximum partition block size for transcations in bytes (default: %u)"), DEFAULT_BLOCK_TX_PART_MAX_SIZE));
+    strUsage += HelpMessageOpt("-blocktxpartitionmaxsize=<n> (regtest only)", strprintf(_("Set maximum partition block size for transcations in bytes (default: %u)"), DEFAULT_BLOCK_TX_PART_MAX_SIZE));
 
     strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions/certificates in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE));
     strUsage += HelpMessageOpt("-blockmaxcomplexity=<n>",

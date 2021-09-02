@@ -1303,12 +1303,8 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         CCertificateMemPoolEntry entry(cert, nFees, GetTime(), dPriority, chainActive.Height());
         unsigned int nSize = entry.GetCertificateSize();
 
-        unsigned int block_priority_size = DEFAULT_BLOCK_PRIORITY_SIZE;
-        if (!ForkManager::getInstance().areSidechainsSupported(nextBlockHeight))
-            block_priority_size = DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC;
-
         // Don't accept it if it can't get into a block
-        CAmount txMinFee = GetMinRelayFee(cert, nSize, true, block_priority_size);
+        CAmount txMinFee = GetMinRelayFee(cert, nSize, true, DEFAULT_BLOCK_PRIORITY_SIZE);
 
         LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
         if (fLimitFree == LimitFreeFlag::ON && nFees < txMinFee)
@@ -4374,9 +4370,22 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
     if (block.nVersion != BLOCK_VERSION_SC_SUPPORT)
         block_size_limit = MAX_BLOCK_SIZE_BEFORE_SC;
 
-    if (block.vtx.empty() || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > block_size_limit)
+    size_t headerSize = 0;
+    size_t totTxSize = 0;
+    size_t totCertSize = 0;
+    size_t blockSize = block.GetSerializeComponentsSize(headerSize, totTxSize, totCertSize);
+ 
+    if (block.vtx.empty() || blockSize > block_size_limit)
         return state.DoS(100, error("CheckBlock(): size limits failed"),
                          CValidationState::Code::INVALID, "bad-blk-length");
+
+    if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
+    {
+        if (totTxSize > BLOCK_TX_PARTITION_SIZE)
+        {
+            return error("CheckBlock(): block tx partition size exceeded %d > %d", totTxSize, BLOCK_TX_PARTITION_SIZE);
+        }
+    }
 
     // First transaction must be coinbase, the rest must not be
     if (block.vtx.empty() || !block.vtx[0].IsCoinBase())
@@ -4386,19 +4395,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
         if (block.vtx[i].IsCoinBase())
             return state.DoS(100, error("CheckBlock(): more than one coinbase"),
                              CValidationState::Code::INVALID, "bad-cb-multiple");
-
-    if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
-    {
-        unsigned int nTxPartSize = 0;
-        for(const CTransaction& tx: block.vtx)
-        {
-            nTxPartSize += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
-            if (nTxPartSize > BLOCK_TX_PARTITION_SIZE)
-            {
-                return error("CheckBlock(): block tx partition size exceeded %d > %d", nTxPartSize, BLOCK_TX_PARTITION_SIZE);
-            }
-        }
-    }
 
     // Check transactions and certificates
     for(const CTransaction& tx: block.vtx) {
