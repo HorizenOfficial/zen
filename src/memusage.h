@@ -75,6 +75,14 @@ static inline size_t DynamicUsage(const std::vector<X>& v)
 }
 
 template<typename X>
+static inline size_t DynamicUsage(const std::list<X>& l)
+{
+    // capacity is equal to list size
+    return MallocUsage(l.size() * sizeof(X));
+}
+
+
+template<typename X>
 static inline size_t DynamicUsage(const std::set<X>& s)
 {
     return MallocUsage(sizeof(stl_tree_node<X>)) * s.size();

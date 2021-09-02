@@ -192,7 +192,6 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("difficulty", GetDifficulty(blockindex));
     result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     result.pushKV("anchor", blockindex->hashAnchorEnd.GetHex());
-    result.pushKV("scTxsCommitment", blockindex->hashScTxsCommitment.GetHex());
     result.pushKV("scCumTreeHash", blockindex->scCumTreeHash.GetHexRepr());
 
     UniValue valuePools(UniValue::VARR);
@@ -1189,6 +1188,16 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             ia.push_back(o);
         }
         sc.pushKV("immature amounts", ia);
+
+        UniValue sf(UniValue::VARR);
+        for(const auto& entry: info.scFees)
+        {
+            UniValue o(UniValue::VOBJ);
+            o.pushKV("forwardTxScFee", ValueFromAmount(entry.forwardTxScFee));
+            o.pushKV("   mbtrTxScFee", ValueFromAmount(entry.mbtrTxScFee));
+            sf.push_back(o);
+        }
+        sc.pushKV("sc fees", sf);
 
         // get unconfirmed data if any
         if (mempool.hasSidechainCertificate(scId))

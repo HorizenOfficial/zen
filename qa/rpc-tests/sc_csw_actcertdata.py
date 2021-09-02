@@ -131,7 +131,7 @@ class CswActCertDataTest(BitcoinTestFramework):
 
         cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-            scid2, "sc2", constant2, sc_epoch_len, generate=False) # do not generate
+            scid2, "sc2", constant2, sc_epoch_len, generateNumBlocks=0) # do not generate
 
         mark_logs("\n==> certificate for SC2 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
@@ -143,7 +143,7 @@ class CswActCertDataTest(BitcoinTestFramework):
 
         cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid2, "sc2", constant2, sc_epoch_len, generate=False) # do not generate
+             scid2, "sc2", constant2, sc_epoch_len, generateNumBlocks=0) # do not generate
 
         mark_logs("\n==> certificate for SC2 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 

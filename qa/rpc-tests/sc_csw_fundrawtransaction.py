@@ -334,6 +334,19 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
         
         assert_true(finalRawtx in self.nodes[2].getrawmempool())
 
+        # mine a block for clearing the mempool, we must not cross the limit for csw inputs to a SC
+        mark_logs("\nNode0 generates 1 block", self.nodes, DEBUG_MODE)
+        bl = self.nodes[0].generate(1)[-1]
+        self.sync_all()
+
+        mark_logs("Check all the txes have been included in the block...", self.nodes, DEBUG_MODE)
+        blockTxList = self.nodes[0].getblock(bl, True)['tx']
+        for entry in vtxCsw:
+            assert_true(entry in blockTxList)
+
+        assert_true(len(self.nodes[2].getrawmempool())==0)
+        vtxCsw = []
+
         # --------------------------------------------------------------------------------------------------------- 
         # 5)  Two csw inputs and a sc creation, csws covering only part of the ccoutput 
         mark_logs("Two csw inputs and a sc creation, csws covering only part of the ccoutput...", self.nodes, DEBUG_MODE)
@@ -478,7 +491,6 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
         mark_logs("\nNode0 generates 1 block confirming txes with csw", self.nodes, DEBUG_MODE)
         bl = self.nodes[0].generate(1)[-1]
         self.sync_all()
-
         
         mark_logs("Check all the txes have been included in the block...", self.nodes, DEBUG_MODE)
         blockTxList = self.nodes[0].getblock(bl, True)['tx']

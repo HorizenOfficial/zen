@@ -546,6 +546,9 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-sccoinsmaturity=<n>",
         "regtest only - Set the maturity of sc funds as number of blocks to be mined before they are computed in the sc balance (default depends on regtest/testnet params)");
 
+    strUsage += HelpMessageOpt("-blocksforscfeecheck=<n>",
+        "regtest only - Set the number of blocks used for computing the number of epoch to go back for getting the active data cert sc fee value and check on it for removing a FT or mbtr tx from mempool (default depends on regtest params)");
+
     strUsage += HelpMessageOpt("-skipscproof",
     "regtest only - Skip the proof verification for sidechain certificates or CSW transactions (by default it is never skipped)");
 

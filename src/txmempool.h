@@ -186,6 +186,8 @@ public:
      * check does nothing.
      */
     void check(const CCoinsViewCache *pcoins) const;
+
+    bool checkCswInputsPerScLimit(const CTransaction& incomingTx) const;
     bool checkIncomingTxConflicts(const CTransaction& incomingTx) const;
     bool checkIncomingCertConflicts(const CScCertificate& incomingCert) const;
 
@@ -328,6 +330,8 @@ public:
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).fwdTxHashes.empty());
     }
+
+    int getNumOfCswInputs(const uint256& scId) const;
 
     bool lookup(const uint256& hash, CTransaction& result) const;
     bool lookup(const uint256& hash, CScCertificate& result) const;
