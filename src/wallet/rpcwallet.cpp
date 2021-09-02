@@ -2807,7 +2807,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() > 6)
         throw runtime_error(
-            "v   ( \"account\" count from includeWatchonly includeImmatureBTs )n"
+            "listtransactions   ( \"account\" count from includeWatchonly includeImmatureBTs )n"
             "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for address 'address'.\n"
             "\nArguments:\n"
             "1. \"account\"    (string, optional) DEPRECATED. The account name. Should be \"*\".\n"
@@ -3306,7 +3306,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
-            "gettransaction \"txid\" ( includeWatchonly ) ( includeImmatureBTs )\n"
+            "gettransaction \"txid\" ( includeWatchonly includeImmatureBTs )\n"
             "\nGet detailed information about in-wallet transaction <txid>\n"
             "\nArguments:\n"
             "1. \"txid\"    (string, required) The transaction id\n"
