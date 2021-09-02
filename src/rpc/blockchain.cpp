@@ -192,7 +192,6 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("difficulty", GetDifficulty(blockindex));
     result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     result.pushKV("anchor", blockindex->hashAnchorEnd.GetHex());
-    result.pushKV("scTxsCommitment", blockindex->hashScTxsCommitment.GetHex());
     result.pushKV("scCumTreeHash", blockindex->scCumTreeHash.GetHexRepr());
 
     UniValue valuePools(UniValue::VARR);
@@ -1190,6 +1189,16 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         }
         sc.pushKV("immature amounts", ia);
 
+        UniValue sf(UniValue::VARR);
+        for(const auto& entry: info.scFees)
+        {
+            UniValue o(UniValue::VOBJ);
+            o.pushKV("forwardTxScFee", ValueFromAmount(entry.forwardTxScFee));
+            o.pushKV("   mbtrTxScFee", ValueFromAmount(entry.mbtrTxScFee));
+            sf.push_back(o);
+        }
+        sc.pushKV("sc fees", sf);
+
         // get unconfirmed data if any
         if (mempool.hasSidechainCertificate(scId))
         {
@@ -1969,6 +1978,38 @@ UniValue getproofverifierstats(const UniValue& params, bool fHelp)
     obj.pushKV("failedCSWs",    static_cast<uint64_t>(stats.failedCswCounter));
     obj.pushKV("okCerts",       static_cast<uint64_t>(stats.okCertCounter));
     obj.pushKV("okCSWs",        static_cast<uint64_t>(stats.okCswCounter));
+
+    return obj;
+}
+
+
+/**
+ * @brief Sets the ProofVerifier guard to pause/resume low priority verification threads.
+ */
+UniValue setproofverifierlowpriorityguard(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+    {
+        throw runtime_error(
+            "setproofverifierlowprioityguard: enable or disable the low priority threads guard to pause/resume the mempool related sc proof verifications.\n"
+            "Regtest only."
+            "\nExamples:\n"
+            + HelpExampleCli("setproofverifierlowpriorityguard", "true")
+            + HelpExampleRpc("setproofverifierlowpriorityguard", "false")
+        );
+    }
+
+    if (Params().NetworkIDString() != "regtest")
+    {
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method can only be used in regtest");
+    }
+
+    bool isEnabled = params[0].getBool();
+
+    TEST_FRIEND_CScAsyncProofVerifier::GetInstance().setProofVerifierLowPriorityGuard(isEnabled);
+
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("enabled",  isEnabled);
 
     return obj;
 }

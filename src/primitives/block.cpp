@@ -10,6 +10,7 @@
 #include "utilstrencodings.h"
 #include "crypto/common.h"
 #include <sc/sidechainTxsCommitmentBuilder.h>
+#include <serialize.h>
 // uncomment for debugging mkl root hash calculations
 //#define DEBUG_MKLTREE_HASH 1
 
@@ -19,6 +20,55 @@
 uint256 CBlockHeader::GetHash() const
 {
     return SerializeHash(*this);
+}
+
+size_t CBlock::GetSerializeComponentsSize(size_t& headerSize, size_t& totalTxSize, size_t& totalCertSize) const
+{
+    headerSize = 0;
+    totalTxSize = 0;
+    totalCertSize = 0;
+
+    size_t totalBlockSize = 0;
+
+    // compute the block size by summing up its contributions:
+    // 1. header
+    // 2. number of transactions (compact size of vtx)
+    // 3. transactions
+    // and if block supports SC:
+    // 4. number of certificates (compact size of vcert, 1 byte if no certs)
+    // 5. certificates, if any
+    headerSize = ::GetSerializeSize((*(CBlockHeader*)this), SER_NETWORK, PROTOCOL_VERSION);                                            \
+    totalBlockSize += headerSize;
+
+    size_t num_tx = vtx.size();
+
+    size_t sz_num_tx = GetSizeOfCompactSize(num_tx); 
+    totalBlockSize += sz_num_tx;
+
+    for (int i = 0; i < num_tx; i++)
+    {
+        const CTransaction& tx = vtx[i];
+        totalTxSize += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+    }
+    totalBlockSize += totalTxSize;
+
+    size_t sz_num_cert = 0;
+    if (this->nVersion == BLOCK_VERSION_SC_SUPPORT)
+    {
+        size_t num_cert = vcert.size();
+
+        sz_num_cert = GetSizeOfCompactSize(num_cert); 
+        totalBlockSize += sz_num_cert;
+
+        for (int i = 0; i < num_cert; i++)
+        {
+            const CScCertificate& cert = vcert[i];
+            totalCertSize += cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+        }
+        totalBlockSize += totalCertSize;
+    }
+
+    return totalBlockSize;
 }
 
 uint256 CBlock::BuildMerkleTree(bool* fMutated) const

@@ -251,6 +251,7 @@ case $host in
      use_pkgconfig=no
 
      TARGET_OS=windows
+     AC_CHECK_LIB([bcrypt],      [main],, AC_MSG_ERROR(lib missing))
      AC_CHECK_LIB([mingwthrd],      [main],, AC_MSG_ERROR(lib missing))
      AC_CHECK_LIB([kernel32],      [main],, AC_MSG_ERROR(lib missing))
      AC_CHECK_LIB([user32],      [main],, AC_MSG_ERROR(lib missing))

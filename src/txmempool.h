@@ -18,6 +18,9 @@ class CAutoFile;
 
 inline double AllowFreeThreshold()
 {
+    // the threshold represents a one day old, 1 ZEN coin (144*4 is the expected number of blocks per day) and a transaction size of 250 bytes.
+    // TODO, check this: should be:
+    // return COIN * 144 * 4 / 250;
     return COIN * 144 / 250;
 }
 
@@ -183,6 +186,8 @@ public:
      * check does nothing.
      */
     void check(const CCoinsViewCache *pcoins) const;
+
+    bool checkCswInputsPerScLimit(const CTransaction& incomingTx) const;
     bool checkIncomingTxConflicts(const CTransaction& incomingTx) const;
     bool checkIncomingCertConflicts(const CScCertificate& incomingCert) const;
 
@@ -325,6 +330,8 @@ public:
         LOCK(cs);
         return (mapSidechains.count(scId) != 0) && (!mapSidechains.at(scId).fwdTxHashes.empty());
     }
+
+    int getNumOfCswInputs(const uint256& scId) const;
 
     bool lookup(const uint256& hash, CTransaction& result) const;
     bool lookup(const uint256& hash, CScCertificate& result) const;

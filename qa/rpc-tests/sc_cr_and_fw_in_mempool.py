@@ -92,6 +92,7 @@ class sc_cr_fw(BitcoinTestFramework):
         totScAmount += creation_amount
 
         mark_logs("Node 0 sends to sidechain ", self.nodes, DEBUG_MODE)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
         txes = []
         for i in range(1, BUNCH_SIZE+1):
             amounts = []
@@ -100,7 +101,7 @@ class sc_cr_fw(BitcoinTestFramework):
                 scaddr = str(hex(j*i)) 
                 amount = j*i*Decimal('0.01')
                 interm_amount += amount
-                amounts.append({"address": scaddr, "amount": amount, "scid": scid})
+                amounts.append({"address": scaddr, "amount": amount, "scid": scid, "mcReturnAddress": mc_return_address})
             txes.append(self.nodes[0].sc_sendmany(amounts))
             mark_logs("Node 0 send many amounts (tot={}) to sidechain via {}".format(interm_amount, txes[-1]), self.nodes, DEBUG_MODE)
             self.sync_all()

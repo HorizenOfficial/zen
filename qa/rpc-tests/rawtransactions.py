@@ -301,7 +301,9 @@ class RawTransactionsTest(BitcoinTestFramework):
         inputs = []
         # Note: sc_ft_amount must be a multiple of 4
         sc_ft_amount = Decimal('10.00000000')
-        sc_ft = [{"address": sc_address, "amount":sc_ft_amount, "scid": scid}]
+
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        sc_ft = [{"address": sc_address, "amount": sc_ft_amount, "scid": scid, "mcReturnAddress": mc_return_address}]
         rawtx=self.nodes[0].createrawtransaction(inputs,{},[],[],sc_ft)
         funded_tx = self.nodes[0].fundrawtransaction(rawtx)
         sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
@@ -374,7 +376,8 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # a fw transfer to scid2 (non ceased)
         sc_ft_amount = Decimal('16.0')
-        sc_ft2 = [{"address": "ffff", "amount":sc_ft_amount, "scid": scid2}]
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        sc_ft2 = [{"address": "ffff", "amount": sc_ft_amount, "scid": scid2, "mcReturnAddress": mc_return_address}]
 
         # another sc creation, just to have a different cc output
         vk2 = certMcTest.generate_params("sc2")

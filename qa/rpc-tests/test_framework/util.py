@@ -572,10 +572,15 @@ def get_spendable(node, min_amount):
 
 def advance_epoch(mcTest, node, sync_call,
     scid, sc_tag, constant, epoch_length, cert_quality=1, cert_fee=Decimal("0.00001"),
-    ftScFee=Decimal("0"), mbtrScFee=Decimal("0"), vCfe=[], vCmt=[], proofCfeArray=[], generate=True):
+    ftScFee=Decimal("0"), mbtrScFee=Decimal("0"), vCfe=[], vCmt=[], proofCfeArray=[], generateNumBlocks=-1):
 
-    if (generate == True):
-        node.generate(epoch_length)
+    if (generateNumBlocks != 0):
+        # if a nagative number is set, use epoch_length as a default, otherwise mine the number passed as a parameter
+        if (generateNumBlocks > 0):
+            node.generate(generateNumBlocks)
+        else:
+            node.generate(epoch_length)
+
     sync_call()
 
     epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, node, epoch_length)

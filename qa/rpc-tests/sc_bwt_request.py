@@ -339,7 +339,11 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Node0 creates a tx with a few bwt request and mixed outputs using raw version of cmd", self.nodes, DEBUG_MODE)
         outputs = { self.nodes[0].getnewaddress() :4.998 }
         sc_cr = [ {"epoch_length":10, "amount":1.0, "address":"effe", "wCertVk":vk3, "constant":c3} ]
-        sc_ft = [ {"address":"abc", "amount":1.0, "scid":scid2}, {"address":"cde", "amount":2.0, "scid":scid2} ]
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        sc_ft = [
+            {"address": "abc", "amount": 1.0, "scid": scid2, "mcReturnAddress": mc_return_address},
+            {"address": "cde", "amount": 2.0, "scid": scid2, "mcReturnAddress": mc_return_address}
+        ]
         sc_bwt3 = [
             {'vScRequestData':fe2, 'scFee':Decimal("0.13"), 'scid':scid1, 'pubkeyhash':pkh2 },
             {'vScRequestData':fe3, 'scFee':Decimal("0.23"), 'scid':scid2, 'pubkeyhash':pkh3 },

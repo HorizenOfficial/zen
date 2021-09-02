@@ -510,7 +510,10 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageGroup(_("Block creation options:"));
     strUsage += HelpMessageOpt("-blockminsize=<n>", strprintf(_("Set minimum block size in bytes (default: %u)"), 0));
     strUsage += HelpMessageOpt("-blockmaxsize=<n>", strprintf(_("Set maximum block size in bytes (default: %d)"), DEFAULT_BLOCK_MAX_SIZE));
-    strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE));
+    
+    strUsage += HelpMessageOpt("-blocktxpartitionmaxsize=<n> (regtest only)", strprintf(_("Set maximum partition block size for transcations in bytes (default: %u)"), DEFAULT_BLOCK_TX_PART_MAX_SIZE));
+
+    strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions/certificates in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE));
     strUsage += HelpMessageOpt("-blockmaxcomplexity=<n>",
         strprintf(_("Limit transactions to be included into blocks based on block complexity. "
         " Block complexity is the sum of transaction complexity per block. Transaction complexity is the number of inputs of a transaction squared. "
@@ -542,6 +545,9 @@ std::string HelpMessage(HelpMessageMode mode)
 
     strUsage += HelpMessageOpt("-sccoinsmaturity=<n>",
         "regtest only - Set the maturity of sc funds as number of blocks to be mined before they are computed in the sc balance (default depends on regtest/testnet params)");
+
+    strUsage += HelpMessageOpt("-blocksforscfeecheck=<n>",
+        "regtest only - Set the number of blocks used for computing the number of epoch to go back for getting the active data cert sc fee value and check on it for removing a FT or mbtr tx from mempool (default depends on regtest params)");
 
     strUsage += HelpMessageOpt("-skipscproof",
     "regtest only - Skip the proof verification for sidechain certificates or CSW transactions (by default it is never skipped)");

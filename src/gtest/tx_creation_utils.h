@@ -217,6 +217,8 @@ private:
 
 };
 
+void RandomSidechainField(CFieldElement &fe);
+
 } // namespace blockchain_test_utils
 
 #endif

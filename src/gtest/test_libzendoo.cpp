@@ -35,6 +35,8 @@ static CMutableTransaction CreateDefaultTx()
     mtx.vft_ccout.resize(1);
     mtx.vft_ccout[0].scId = uint256S("abababcdcdcd");
     mtx.vft_ccout[0].nValue = CAmount(30000);
+    mtx.vft_ccout[0].address = uint256S("abcdef");
+    mtx.vft_ccout[0].mcReturnAddress = uint160S("abcdef");
     //---
     mtx.vmbtr_out.resize(1);
     mtx.vmbtr_out[0].scId = uint256S("abababcdcdcd"); // same as above
@@ -556,7 +558,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
     ccout.customData.push_back(0x77);
 
     mutTx.vsc_ccout.push_back(ccout);
-    mutTx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("bbb"), CAmount(1985), uint256S("badcafe")));
+    mutTx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("bbb"), CAmount(1985), uint256S("badcafe"), uint160S("badcafe")));
     scCreationTx = mutTx;
 
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
@@ -577,7 +579,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("36bf235d3c2b3e7d7eb2e8e68f67acb1ebad500bb763bbcbef6e97f2eb61530c"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("27363f1d4073deecf57dd951362912d5b1d49eb3271026be092a165f29f1975e"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -591,6 +593,7 @@ TEST(SidechainsField, NakedZendooFeatures_EmptyTreeCommitmentCalculation)
     //Nothing to add
 
     uint256 scTxCommitmentHash = builder.getCommitment();
+    EXPECT_TRUE(SidechainTxsCommitmentBuilder::getEmptyCommitment() == emptySha);
     EXPECT_TRUE(scTxCommitmentHash == emptySha) <<scTxCommitmentHash.ToString() << "\n" << emptySha.ToString();
 }
 
@@ -933,32 +936,39 @@ TEST(CctpLibrary, BitVectorCertificateFieldBadSize)
     zendoo_free_bws(bws_ret1);
 }
 
-TEST(CctpLibrary, BitVectorCertificateFieldFull)
+TEST(CctpLibrary, BitVectorCertificateFieldFullGzip)
 {
     CctpErrorCode ret_code = CctpErrorCode::OK;
+    srand(time(NULL));
 
     // uncompressed buffer size, use the max size
-    // TODO currently if a value not consistent with field element splitting is used, cctp does an assert(false)
-    static const int SC_BV_SIZE_IN_BYTES = BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES;
+    // currently if a value not consistent with field element splitting is used, cctp does an assert(false)
+    static const int SC_BV_SIZE_IN_BYTES = BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS/8;
 
-    unsigned char buffer[SC_BV_SIZE_IN_BYTES] = {};
-    buffer[0] = 0xff;
-    buffer[SC_BV_SIZE_IN_BYTES-1] = 0xff;
+    unsigned char* buffer = new unsigned char[SC_BV_SIZE_IN_BYTES];
+    for(size_t i = 0; i < SC_BV_SIZE_IN_BYTES; i++)
+        buffer[i] = rand() % 256;
+
+    printf("Uncompressed buffer size %d ...\n", SC_BV_SIZE_IN_BYTES);
 
     CompressionAlgorithm e = CompressionAlgorithm::Gzip;
 
     BufferWithSize bws_in(buffer, SC_BV_SIZE_IN_BYTES);
 
-    printf("Compressing using gzip...\n");
+    printf("Compressing using gzip...");
     BufferWithSize* bws_ret1 = nullptr;
     bws_ret1 = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
     ASSERT_TRUE(bws_ret1 != nullptr);
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
+    printf(" ===> Compressed size %lu\n", bws_ret1->len);
 
     const std::vector<unsigned char> bvVec(bws_ret1->data, bws_ret1->data + bws_ret1->len);
 
     int bitVectorSizeBits = SC_BV_SIZE_IN_BYTES*8; // the original size of the buffer
     int maxCompressedSizeBytes = bvVec.size(); // take the compressed data buf as max value 
+
+    // check that we are below the defined limit, which include a small overhed for very sparse bit vectors
+    ASSERT_TRUE(maxCompressedSizeBytes < BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES);
 
     const BitVectorCertificateFieldConfig cfg(bitVectorSizeBits, maxCompressedSizeBytes);
     BitVectorCertificateField bvField(bvVec);
@@ -966,8 +976,51 @@ TEST(CctpLibrary, BitVectorCertificateFieldFull)
     const CFieldElement& fe = bvField.GetFieldElement(cfg);
     EXPECT_TRUE(fe.IsValid());
     zendoo_free_bws(bws_ret1);
+    delete [] buffer;
 }
 
+TEST(CctpLibrary, BitVectorCertificateFieldFullBzip2)
+{
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+    srand(time(NULL));
+
+    // uncompressed buffer size, use the max size
+    // currently if a value not consistent with field element splitting is used, cctp does an assert(false)
+    static const int SC_BV_SIZE_IN_BYTES = BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS/8;
+
+    unsigned char* buffer = new unsigned char[SC_BV_SIZE_IN_BYTES];
+    for(size_t i = 0; i < SC_BV_SIZE_IN_BYTES; i++)
+        buffer[i] = rand() % 256;
+
+    printf("Uncompressed buffer size %d ...\n", SC_BV_SIZE_IN_BYTES);
+
+    CompressionAlgorithm e = CompressionAlgorithm::Bzip2;
+
+    BufferWithSize bws_in(buffer, SC_BV_SIZE_IN_BYTES);
+
+    printf("Compressing using bzip2...");
+    BufferWithSize* bws_ret1 = nullptr;
+    bws_ret1 = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
+    ASSERT_TRUE(bws_ret1 != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
+    printf(" ===> Compressed size %lu\n", bws_ret1->len);
+
+    const std::vector<unsigned char> bvVec(bws_ret1->data, bws_ret1->data + bws_ret1->len);
+
+    int bitVectorSizeBits = SC_BV_SIZE_IN_BYTES*8; // the original size of the buffer
+    int maxCompressedSizeBytes = bvVec.size(); // take the compressed data buf as max value 
+
+    // check that we are below the defined limit, which include a small overhed for very sparse bit vectors
+    ASSERT_TRUE(maxCompressedSizeBytes < BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES);
+
+    const BitVectorCertificateFieldConfig cfg(bitVectorSizeBits, maxCompressedSizeBytes);
+    BitVectorCertificateField bvField(bvVec);
+
+    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    EXPECT_TRUE(fe.IsValid());
+    zendoo_free_bws(bws_ret1);
+    delete [] buffer;
+}
 
 TEST(CctpLibrary, CommitmentTreeBuilding)
 {
@@ -1112,11 +1165,15 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
         const uint256& fwt_pub_key = ccout.address;
         BufferWithSize bws_fwt_pk((unsigned char*)fwt_pub_key.begin(), fwt_pub_key.size());
 
+        const uint160& fwt_mc_return_address = ccout.mcReturnAddress;
+        BufferWithSize bws_fwt_return_address((unsigned char*)fwt_mc_return_address.begin(), fwt_mc_return_address.size());
+
         printf("Adding a fwt to the commitment tree ...\n");
         bool ret = zendoo_commitment_tree_add_fwt(ct,
              scid_fe,
              ccout.nValue,
              &bws_fwt_pk,
+             &bws_fwt_return_address,
              &bws_tx_hash,
              out_idx,
              &ret_code

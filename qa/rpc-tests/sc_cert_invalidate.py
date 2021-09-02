@@ -124,7 +124,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
         sc_creating_height = self.nodes[0].getblockcount()
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_1), self.nodes, DEBUG_MODE)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_1, scid)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_1, scid, mc_return_address)
         print "fwd_tx=" + fwd_tx
         sc_txes.append(fwd_tx)
         self.sync_all()
@@ -160,7 +161,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
         self.refresh_sidechain(sc_info, scid)
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_2), self.nodes, DEBUG_MODE)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_2, scid)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_2, scid, mc_return_address)
         mark_logs("fwd_tx = {}".format(fwd_tx), self.nodes, DEBUG_MODE)
         sc_txes.append(fwd_tx)
         self.sync_all()
@@ -168,7 +170,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
         self.refresh_sidechain(sc_info, scid)
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_3), self.nodes, DEBUG_MODE)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_3, scid)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_3, scid, mc_return_address)
         mark_logs("fwd_tx = {}".format(fwd_tx), self.nodes, DEBUG_MODE)
         sc_txes.append(fwd_tx)
         self.sync_all()
@@ -176,7 +179,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
         self.refresh_sidechain(sc_info, scid)
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_4), self.nodes, DEBUG_MODE)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_4, scid)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_4, scid, mc_return_address)
         mark_logs("fwd_tx = {}".format(fwd_tx), self.nodes, DEBUG_MODE)
         sc_txes.append(fwd_tx)
         self.sync_all()
