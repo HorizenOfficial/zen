@@ -173,7 +173,8 @@ class CswNullifierTest(BitcoinTestFramework):
 
         scid_swapped = str(swap_bytes(scid))
         sc_proof1 = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, scid_swapped, null1, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, scid_swapped, null1, pkh_mc_address,
+            ceasingCumScTxCommTree, actCertData, constant) 
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -283,7 +284,8 @@ class CswNullifierTest(BitcoinTestFramework):
 
         scid_swapped = swap_bytes(scid)
         sc_proof2 = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null2, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, str(scid_swapped), null2, pkh_mc_address,
+            ceasingCumScTxCommTree, actCertData, constant) 
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -332,7 +334,8 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_csw_tx_outs_1 = {taddr_1: sc_csw_amount}
 
         sc_proof_n0 = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null_n0, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, str(scid_swapped), null_n0, pkh_mc_address,
+            ceasingCumScTxCommTree, actCertData, constant) 
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -397,7 +400,8 @@ class CswNullifierTest(BitcoinTestFramework):
         pkh_mc_address = self.nodes[2].validateaddress(csw_mc_address)['pubkeyhash']
 
         sc_proof_n2 = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null_n2, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+            "sc1", sc_csw_amount, str(scid_swapped), null_n2, pkh_mc_address,
+            ceasingCumScTxCommTree, actCertData, constant) 
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -509,8 +513,9 @@ class CswNullifierTest(BitcoinTestFramework):
         prev_epoch_hash = self.nodes[0].getbestblockhash()
         vk2 = certMcTest.generate_params("sc2")
         cswVk2 = cswMcTest.generate_params("sc2")
+        constant2 = generate_random_field_element_hex()
 
-        ret = self.nodes[0].sc_create(sc_epoch_len, "dada", sc_cr_amount, vk2, "abcdef", constant, cswVk2)
+        ret = self.nodes[0].sc_create(sc_epoch_len, "dada", sc_cr_amount, vk2, "abcdef", constant2, cswVk2)
         creating_tx = ret['txid']
         mark_logs("Node 0 created SC spending {} coins via tx1 {}.".format(sc_cr_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
@@ -522,14 +527,14 @@ class CswNullifierTest(BitcoinTestFramework):
 
         cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid2, "sc2", constant, sc_epoch_len)
+            scid2, "sc2", constant2, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
         
 
         cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid2, "sc2", constant, sc_epoch_len)
+            scid2, "sc2", constant2, sc_epoch_len)
 
         mark_logs("\n==> certificate for epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
@@ -558,7 +563,8 @@ class CswNullifierTest(BitcoinTestFramework):
 
         scid2_swapped = swap_bytes(scid2)
         sc_proof2 = cswMcTest.create_test_proof(
-                "sc2", sc_csw_amount, str(scid2_swapped), null3, pkh_mc_address, ceasingCumScTxCommTree2, actCertData3) 
+            "sc2", sc_csw_amount, str(scid2_swapped), null3, pkh_mc_address,
+            ceasingCumScTxCommTree2, actCertData3, constant2) 
 
         sc_csws = [{
             "amount": sc_csw_amount,
