@@ -391,4 +391,15 @@ uint256 SidechainTxsCommitmentBuilder::getCommitment()
 
     return finalTreeRoot.GetLegacyHash();
 }
+
+const uint256& SidechainTxsCommitmentBuilder::getEmptyCommitment()
+{
+    static uint256 value;
+    if (value.IsNull())
+    {
+        SidechainTxsCommitmentBuilder nullBuilder;
+        value = nullBuilder.getCommitment();
+    }
+    return value;
+}
 #endif

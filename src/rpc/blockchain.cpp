@@ -1981,3 +1981,35 @@ UniValue getproofverifierstats(const UniValue& params, bool fHelp)
 
     return obj;
 }
+
+
+/**
+ * @brief Sets the ProofVerifier guard to pause/resume low priority verification threads.
+ */
+UniValue setproofverifierlowpriorityguard(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+    {
+        throw runtime_error(
+            "setproofverifierlowprioityguard: enable or disable the low priority threads guard to pause/resume the mempool related sc proof verifications.\n"
+            "Regtest only."
+            "\nExamples:\n"
+            + HelpExampleCli("setproofverifierlowpriorityguard", "true")
+            + HelpExampleRpc("setproofverifierlowpriorityguard", "false")
+        );
+    }
+
+    if (Params().NetworkIDString() != "regtest")
+    {
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method can only be used in regtest");
+    }
+
+    bool isEnabled = params[0].getBool();
+
+    TEST_FRIEND_CScAsyncProofVerifier::GetInstance().setProofVerifierLowPriorityGuard(isEnabled);
+
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("enabled",  isEnabled);
+
+    return obj;
+}

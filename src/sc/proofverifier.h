@@ -92,11 +92,20 @@ public:
         Loose       /**< Skip verification. */
     };
 
+    /**
+     * @brief Proof verification priority.
+     */
+    enum class Priority
+    {
+        Low,       /**< Low priority. Verification may be paused by a high priority verification task. */
+        High       /**< High priority. Verification will pause low priority verification threads if running. */
+    };
+
     static CCertProofVerifierInput CertificateToVerifierItem(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom);
     static CCswProofVerifierInput CswInputToVerifierItem(const CTxCeasedSidechainWithdrawalInput& cswInput, const CTransaction* cswTransaction, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom);
 
-    CScProofVerifier(Verification mode) :
-    verificationMode(mode)
+    CScProofVerifier(Verification mode, Priority priority) :
+    verificationMode(mode), verificationPriority(priority)
     {
     }
     virtual ~CScProofVerifier() = default;
@@ -124,6 +133,10 @@ private:
     static std::atomic<uint32_t> proofIdCounter;   /**< The counter used to get a unique ID for proofs. */
 
     const Verification verificationMode;    /**< The type of verification to be performed by this instance of proof verifier. */
+
+    const Priority verificationPriority;    /**< Proof verification priority.
+                                              If True => during BatchVerify() will pause low priority verification threads if exist.
+                                              If False => BatchVerify() will run with low priority and may be paused by high priority operations.*/
 };
 
 #endif // _SC_PROOF_VERIFIER_H

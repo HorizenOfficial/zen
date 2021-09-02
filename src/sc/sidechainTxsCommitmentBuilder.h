@@ -27,6 +27,8 @@ public:
     bool add(const CScCertificate& cert, const CCoinsViewCache& view);
     uint256 getCommitment();
 
+    static const uint256& getEmptyCommitment();
+
 private:
     const commitment_tree_t* const _cmt;
 
@@ -39,6 +41,7 @@ private:
 
     bool add_csw(const CTxCeasedSidechainWithdrawalInput& ccin, CctpErrorCode& ret_code);
     bool add_cert(const CScCertificate& cert, Sidechain::ScFixedParameters scFixedParams, CctpErrorCode& ret_code);
+
 };
 
 #endif

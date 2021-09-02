@@ -227,19 +227,19 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
         for (auto& proof : proofs)
         {
             proof.second.result = ProofVerificationResult::Passed;
-            return true;
         }
+        return true;
     }
 
-    CctpErrorCode code;
-    ZendooBatchProofVerifier batchVerifier;
+    // The paramenter in the ctor is a boolean telling mc-crypto lib if the rust verifier executing thread
+    // will be a high-priority one (default is false)
+    ZendooBatchProofVerifier batchVerifier(verificationPriority == Priority::High);
     bool addFailure = false;
-
     std::map<uint32_t /* Proof ID */, uint256 /* Tx or Cert hash */> proofIdMap;
+    CctpErrorCode code;
 
-    int64_t nTime1 = GetTimeMicros();
     LogPrint("bench", "%s():%d - starting verification\n", __func__, __LINE__);
-
+    int64_t nTime1 = GetTimeMicros();
     for (auto& proofEntry : proofs)
     {
         CProofVerifierItem& item = proofEntry.second;
