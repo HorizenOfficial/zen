@@ -431,7 +431,8 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
         sc_cr = []
 
         sc_ft_amount = Decimal('1.0')
-        sc_ft = [{"address": sc_address, "amount":sc_ft_amount, "scid": scid2}]
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        sc_ft = [{"address": sc_address, "amount": sc_ft_amount, "scid": scid2, "mcReturnAddress": mc_return_address}]
 
         null7 = generate_random_field_element_hex()
         null8 = generate_random_field_element_hex()

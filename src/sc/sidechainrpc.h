@@ -203,11 +203,12 @@ class ScRpcSendCmdTx : public ScRpcCmdTx
         uint256 _scid;
         uint256 _toScAddress;
         CAmount _nAmount;
-        sFtOutParams(): _scid(), _toScAddress(), _nAmount(0) {}
+        uint160 _mcReturnAddress;
+        sFtOutParams(): _scid(), _toScAddress(), _nAmount(0), _mcReturnAddress() {}
 
         sFtOutParams(
-            const uint256& scId, const uint256& toaddress, const CAmount nAmount):
-            _scid(scId), _toScAddress(toaddress), _nAmount(nAmount) {}
+            const uint256& scId, const uint256& toaddress, const CAmount nAmount, const uint160& mcReturnAddress):
+            _scid(scId), _toScAddress(toaddress), _nAmount(nAmount), _mcReturnAddress(mcReturnAddress) {}
     };
 
     // cmd params

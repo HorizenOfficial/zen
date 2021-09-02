@@ -109,6 +109,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.pushKV("n", (int64_t)nIdx);
         o.pushKV("value", ValueFromAmount(out.nValue));
         o.pushKV("address", out.address.GetHex());
+        o.pushKV("mcReturnAddress", out.mcReturnAddress.GetHex());
         vfts.push_back(o);
         nIdx++;
     }
@@ -656,7 +657,24 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
         uint256 address;
         address.SetHex(inputString);
 
-        CTxForwardTransferOut txccout(scId, nAmount, address);
+        const UniValue& mcReturnAddressVal = find_value(o, "mcReturnAddress");
+        if (mcReturnAddressVal.isNull())
+        {
+            error = "Missing mandatory parameter mcReturnAddress";
+            return false;
+        }
+
+        inputString = mcReturnAddressVal.get_str();
+        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        {
+            error = "Invalid mcReturnAddress format: not an hex";
+            return false;
+        }
+
+        uint160 mcReturnAddress;
+        mcReturnAddress.SetHex(inputString);
+
+        CTxForwardTransferOut txccout(scId, nAmount, address, mcReturnAddress);
         rawTx.vft_ccout.push_back(txccout);
     }
 
@@ -773,6 +791,7 @@ void fundCcRecipients(const CTransaction& tx,
         ft.scId = entry.scId;
         ft.address = entry.address;
         ft.nValue = entry.nValue;
+        ft.mcReturnAddress = entry.mcReturnAddress;
 
         vecFtSend.push_back(ft);
     }
@@ -1206,7 +1225,7 @@ void ScRpcSendCmdTx::addCcOutputs()
 
     for (const auto& entry : _outParams)
     {
-        CTxForwardTransferOut txccout(entry._scid, entry._nAmount, entry._toScAddress);
+        CTxForwardTransferOut txccout(entry._scid, entry._nAmount, entry._toScAddress, entry._mcReturnAddress);
         _tx.add(txccout);
     }
 }

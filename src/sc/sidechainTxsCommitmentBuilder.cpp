@@ -148,10 +148,14 @@ bool SidechainTxsCommitmentBuilder::add_fwt(const CTxForwardTransferOut& ccout, 
     const uint256& fwt_pub_key = ccout.address;
     BufferWithSize bws_fwt_pk((unsigned char*)fwt_pub_key.begin(), fwt_pub_key.size());
 
+    const uint160& fwt_mc_return_address = ccout.mcReturnAddress;
+    BufferWithSize bws_fwt_return_address((unsigned char*)fwt_mc_return_address.begin(), fwt_mc_return_address.size());
+
     bool ret = zendoo_commitment_tree_add_fwt(const_cast<commitment_tree_t*>(_cmt),
          scid_fe,
          ccout.nValue,
          &bws_fwt_pk,
+         &bws_fwt_return_address,
          &bws_tx_hash,
          out_idx,
          &ret_code

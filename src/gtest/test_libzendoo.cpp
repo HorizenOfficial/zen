@@ -35,6 +35,8 @@ static CMutableTransaction CreateDefaultTx()
     mtx.vft_ccout.resize(1);
     mtx.vft_ccout[0].scId = uint256S("abababcdcdcd");
     mtx.vft_ccout[0].nValue = CAmount(30000);
+    mtx.vft_ccout[0].address = uint256S("abcdef");
+    mtx.vft_ccout[0].mcReturnAddress = uint160S("abcdef");
     //---
     mtx.vmbtr_out.resize(1);
     mtx.vmbtr_out[0].scId = uint256S("abababcdcdcd"); // same as above
@@ -533,7 +535,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
     ccout.customData.push_back(0x77);
 
     mutTx.vsc_ccout.push_back(ccout);
-    mutTx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("bbb"), CAmount(1985), uint256S("badcafe")));
+    mutTx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("bbb"), CAmount(1985), uint256S("badcafe"), uint160S("badcafe")));
     scCreationTx = mutTx;
 
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
@@ -554,7 +556,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("36bf235d3c2b3e7d7eb2e8e68f67acb1ebad500bb763bbcbef6e97f2eb61530c"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("27363f1d4073deecf57dd951362912d5b1d49eb3271026be092a165f29f1975e"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -1140,11 +1142,15 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
         const uint256& fwt_pub_key = ccout.address;
         BufferWithSize bws_fwt_pk((unsigned char*)fwt_pub_key.begin(), fwt_pub_key.size());
 
+        const uint160& fwt_mc_return_address = ccout.mcReturnAddress;
+        BufferWithSize bws_fwt_return_address((unsigned char*)fwt_mc_return_address.begin(), fwt_mc_return_address.size());
+
         printf("Adding a fwt to the commitment tree ...\n");
         bool ret = zendoo_commitment_tree_add_fwt(ct,
              scid_fe,
              ccout.nValue,
              &bws_fwt_pk,
+             &bws_fwt_return_address,
              &bws_tx_hash,
              out_idx,
              &ret_code

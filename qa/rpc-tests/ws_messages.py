@@ -159,7 +159,8 @@ class ws_messages(BitcoinTestFramework):
         self.sync_all()
 
         # Fwd Transfer to Sc
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -410,7 +411,8 @@ class ws_messages(BitcoinTestFramework):
         self.sync_all()
 
         # Fwd Transfer to Sc
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid2)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid2, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
