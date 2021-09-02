@@ -1117,7 +1117,7 @@ bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidatio
     return true;
 }
 
-CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAllowFree)
+CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAllowFree, unsigned int block_priority_size)
 {
     {
         LOCK(mempool.cs);
@@ -1137,7 +1137,7 @@ CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAl
         // * If we are relaying we allow transactions up to DEFAULT_BLOCK_PRIORITY_SIZE - 1000
         //   to be considered to fall into this category. We don't want to encourage sending
         //   multiple transactions instead of one big transaction to avoid fees.
-        if (nBytes < (DEFAULT_BLOCK_PRIORITY_SIZE - 1000))
+        if ((nBytes < (block_priority_size - 1000)) )
             nMinFee = 0;
     }
 
@@ -1304,7 +1304,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         unsigned int nSize = entry.GetCertificateSize();
 
         // Don't accept it if it can't get into a block
-        CAmount txMinFee = GetMinRelayFee(cert, nSize, true);
+        CAmount txMinFee = GetMinRelayFee(cert, nSize, true, DEFAULT_BLOCK_PRIORITY_SIZE);
 
         LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
         if (fLimitFree == LimitFreeFlag::ON && nFees < txMinFee)
@@ -1604,8 +1604,13 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
         if (tx.GetVjoinsplit().size() > 0 && nFees >= ASYNC_RPC_OPERATION_DEFAULT_MINERS_FEE) {
             // In future we will we have more accurate and dynamic computation of fees for tx with joinsplits.
         } else {
+            unsigned int block_priority_size = DEFAULT_BLOCK_PRIORITY_SIZE;
+            if (!ForkManager::getInstance().areSidechainsSupported(nextBlockHeight))
+                block_priority_size = DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC;
+    
             // Don't accept it if it can't get into a block
-            CAmount txMinFee = GetMinRelayFee(tx, nSize, true);
+            CAmount txMinFee = GetMinRelayFee(tx, nSize, true, block_priority_size);
+
             LogPrintf("nFees=%d, txMinFee=%d\n", nFees, txMinFee);
             if (fLimitFree == LimitFreeFlag::ON && nFees < txMinFee)
             {
@@ -4372,9 +4377,27 @@ bool CheckBlock(const CBlock& block, CValidationState& state,
     // because we receive the wrong transactions for it.
 
     // Size limits
-    if (block.vtx.empty() || (block.vtx.size() + block.vcert.size()) > MAX_BLOCK_SIZE || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > MAX_BLOCK_SIZE)
+    // - From the sidechains fork point on, the block size has been increased 
+    unsigned int block_size_limit = MAX_BLOCK_SIZE;
+    if (block.nVersion != BLOCK_VERSION_SC_SUPPORT)
+        block_size_limit = MAX_BLOCK_SIZE_BEFORE_SC;
+
+    size_t headerSize = 0;
+    size_t totTxSize = 0;
+    size_t totCertSize = 0;
+    size_t blockSize = block.GetSerializeComponentsSize(headerSize, totTxSize, totCertSize);
+ 
+    if (block.vtx.empty() || blockSize > block_size_limit)
         return state.DoS(100, error("CheckBlock(): size limits failed"),
                          CValidationState::Code::INVALID, "bad-blk-length");
+
+    if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
+    {
+        if (totTxSize > BLOCK_TX_PARTITION_SIZE)
+        {
+            return error("CheckBlock(): block tx partition size exceeded %d > %d", totTxSize, BLOCK_TX_PARTITION_SIZE);
+        }
+    }
 
     // First transaction must be coinbase, the rest must not be
     if (block.vtx.empty() || !block.vtx[0].IsCoinBase())

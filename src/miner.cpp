@@ -53,7 +53,9 @@ using namespace zen;
 //
 
 uint64_t nLastBlockTx = 0;
+uint64_t nLastBlockCert = 0;
 uint64_t nLastBlockSize = 0;
+uint64_t nLastBlockTxPartitionSize = 0;
 
 bool TxPriorityCompare::operator()(const TxPriority& a, const TxPriority& b)
 {
@@ -85,6 +87,7 @@ bool TxPriorityCompare::operator()(const TxPriority& a, const TxPriority& b)
     }
     else
     {
+        // note: as of now all certificates have MAXIMUM_PRIORITY, therefore are sorted always by fee
         if (a.get<0>() == b.get<0>())
             return a.get<1>() < b.get<1>();
         return a.get<0>() < b.get<0>();
@@ -524,30 +527,10 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         return NULL;
     CBlock *pblock = &pblocktemplate->block; // pointer for convenience
 
-    // -regtest only: allow overriding block.nVersion with
-    // -blockversion=N to test forking scenarios
-    if (Params().MineBlocksOnDemand())
-        pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
-
     // Add dummy coinbase tx as first transaction
     pblock->vtx.push_back(CTransaction());
     pblocktemplate->vTxFees.push_back(-1); // updated at end
     pblocktemplate->vTxSigOps.push_back(-1); // updated at end
-
-    // Largest block you're willing to create:
-    unsigned int nBlockMaxSize = GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
-    // Limit to betweeen 1K and MAX_BLOCK_SIZE-1K for sanity:
-    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(MAX_BLOCK_SIZE-1000), nBlockMaxSize));
-
-    // How much of the block should be dedicated to high-priority transactions,
-    // included regardless of the fees they pay
-    unsigned int nBlockPrioritySize = GetArg("-blockprioritysize", DEFAULT_BLOCK_PRIORITY_SIZE);
-    nBlockPrioritySize = std::min(nBlockMaxSize, nBlockPrioritySize);
-
-    // Minimum block size you want to create; block will be filled with free transactions
-    // until there are no more or the block reaches this size:
-    unsigned int nBlockMinSize = GetArg("-blockminsize", DEFAULT_BLOCK_MIN_SIZE);
-    nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
 
     int nBlockComplexity = 0;
 
@@ -566,6 +549,42 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         // -blockversion=N to test forking scenarios
         if (chainparams.MineBlocksOnDemand())
             pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
+
+        // - From the sidechains fork point on, the block size has been increased 
+        unsigned int block_size_limit          = MAX_BLOCK_SIZE;
+        unsigned int block_priority_size_limit = DEFAULT_BLOCK_PRIORITY_SIZE;
+        if (pblock->nVersion != BLOCK_VERSION_SC_SUPPORT)
+        {
+            block_size_limit          = MAX_BLOCK_SIZE_BEFORE_SC;
+            block_priority_size_limit = DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC;
+        }
+ 
+        // Largest block you're willing to create:
+        unsigned int nBlockMaxSize = GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
+        // Limit to betweeen 1K and MAX_BLOCK_SIZE-1K for sanity:
+        nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(block_size_limit-1000), nBlockMaxSize));
+  
+        // Minimum block size you want to create; block will be filled with free transactions
+        // until there are no more or the block reaches this size:
+        unsigned int nBlockMinSize = GetArg("-blockminsize", DEFAULT_BLOCK_MIN_SIZE);
+        nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
+
+        // Largest block tx partition allowed:
+        unsigned int nBlockTxPartitionMaxSize = DEFAULT_BLOCK_TX_PART_MAX_SIZE;
+
+        // -regtest only: allow overriding 
+        if (chainparams.MineBlocksOnDemand())
+        {
+            nBlockTxPartitionMaxSize = GetArg("-blocktxpartitionmaxsize", DEFAULT_BLOCK_TX_PART_MAX_SIZE);
+        }
+
+        // Limit to betweeen 1K and MAX-1K for sanity:
+        nBlockTxPartitionMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(DEFAULT_BLOCK_TX_PART_MAX_SIZE-1000), nBlockTxPartitionMaxSize));
+ 
+        // How much of the tx block partition should be dedicated to high-priority transactions,
+        // included regardless of the fees they pay
+        unsigned int nBlockPrioritySize = GetArg("-blockprioritysize", block_priority_size_limit);
+        nBlockPrioritySize = std::min(nBlockMaxSize, nBlockPrioritySize);
 
         CCoinsViewCache view(pcoinsTip);
 
@@ -592,7 +611,10 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
 
         // Collect transactions into block
         uint64_t nBlockSize = 1000;
+        uint64_t nBlockTxPartitionSize = 0;
+
         uint64_t nBlockTx = 0;
+        uint64_t nBlockCert = 0;
         int nBlockSigOps = 100;
         bool fSortedByFee = (nBlockPrioritySize <= 0);
 
@@ -612,9 +634,25 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             vecPriority.pop_back();
 
             // Size limits
-            unsigned int nTxSize = tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
-            if (nBlockSize + nTxSize >= nBlockMaxSize)
+            unsigned int nTxBaseSize = tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+
+            if (!tx.IsCertificate())
+            {
+                // only a portion of the block can have ordinary transactions, we can not exceed this size
+                if (nBlockTxPartitionSize + nTxBaseSize >= nBlockTxPartitionMaxSize)
+                {
+                    LogPrint("sc", "%s():%d - Skipping tx[%s] because nBlockTxPartitionMaxSize %d would be exceeded (partSize=%d / txSize=%d)\n",
+                        __func__, __LINE__, tx.GetHash().ToString(), nBlockTxPartitionMaxSize, nBlockTxPartitionSize, nTxBaseSize );
+                    continue;
+                }
+            }
+
+            if (nBlockSize + nTxBaseSize >= nBlockMaxSize)
+            {
+                LogPrint("sc", "%s():%d - Skipping %s[%s] because nBlockMaxSize %d would be exceeded (blSize=%d / txBaseSize=%d)\n",
+                    __func__, __LINE__, tx.IsCertificate()?"cert":"tx", tx.GetHash().ToString(), nBlockMaxSize, nBlockSize, nTxBaseSize );
                 continue;
+            }
 
             // Legacy limits on sigOps:
             unsigned int nTxSigOps = GetLegacySigOpCount(tx);
@@ -627,17 +665,17 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
             double dPriorityDelta = 0;
             CAmount nFeeDelta = 0;
             mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
-            if (fSortedByFee && (dPriorityDelta <= 0) && (nFeeDelta <= 0) && (feeRate < ::minRelayTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
+            if (fSortedByFee && (dPriorityDelta <= 0) && (nFeeDelta <= 0) && (feeRate < ::minRelayTxFee) && (nBlockSize + nTxBaseSize >= nBlockMinSize))
             {
                 LogPrint("sc", "%s():%d - Skipping [%s] because it is free (feeDelta=%lld/feeRate=%s, blsz=%u/txsz=%u/blminsz=%u)\n",
-                    __func__, __LINE__, tx.GetHash().ToString(), nFeeDelta, feeRate.ToString(), nBlockSize, nTxSize, nBlockMinSize );
+                    __func__, __LINE__, tx.GetHash().ToString(), nFeeDelta, feeRate.ToString(), nBlockSize, nTxBaseSize, nBlockMinSize );
                 continue;
             }
 
             // Prioritise by fee once past the priority size or we run out of high-priority
             // transactions:
             if (!fSortedByFee &&
-                ((nBlockSize + nTxSize >= nBlockPrioritySize) || !AllowFree(dPriority)))
+                ((nBlockSize + nTxBaseSize >= nBlockPrioritySize) || !AllowFree(dPriority)))
             {
                 fSortedByFee = true;
                 comparer = TxPriorityCompare(fSortedByFee);
@@ -682,6 +720,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                     pblock->vcert.push_back(castedCert);
                     pblocktemplate.get()->vCertFees.push_back(nTxFees);
                     pblocktemplate.get()->vCertSigOps.push_back(nTxSigOps);
+                    ++nBlockCert;
                 } else
                 {
                     const CTransaction& castedTx = dynamic_cast<const CTransaction&>(tx);
@@ -692,10 +731,14 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                     pblock->vtx.push_back(castedTx);
                     pblocktemplate.get()->vTxFees.push_back(nTxFees);
                     pblocktemplate.get()->vTxSigOps.push_back(nTxSigOps);
+                    ++nBlockTx;
+                    nBlockTxPartitionSize += nTxBaseSize;
                 }
 
-                nBlockSize += nTxSize;
-                ++nBlockTx;
+                nBlockSize += nTxBaseSize;
+                LogPrint("sc", "%s():%d ======> current block size                = %7d\n", __func__, __LINE__, nBlockSize);
+                LogPrint("sc", "%s():%d ======> current block tx partition size   = %7d\n", __func__, __LINE__, nBlockTxPartitionSize);
+
                 nBlockSigOps += nTxSigOps;
                 nFees += nTxFees;
                 nBlockComplexity += nTxComplexity;
@@ -722,11 +765,12 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
                     if (!porphan->setDependsOn.empty())
                     {
                         porphan->setDependsOn.erase(hash);
-                        LogPrint("sc", "%s():%d - erasing tx[%s] frim orphan %p\n", __func__, __LINE__, hash.ToString(), porphan);
+                        LogPrint("sc", "%s():%d - erasing tx[%s] from orphan %p\n", __func__, __LINE__, hash.ToString(), porphan);
                         if (porphan->setDependsOn.empty())
                         {
-                            LogPrint("sc", "%s():%d - tx[%s] resolved all dependencies, adding to prio vec\n",
-                                __func__, __LINE__, porphan->ptx->GetHash().ToString());
+                            LogPrint("sc", "%s():%d - tx[%s] resolved all dependencies, adding to prio vec, prio=%f, feeRate=%s\n",
+                                __func__, __LINE__, porphan->ptx->GetHash().ToString(), porphan->dPriority, porphan->feeRate.ToString());
+                            
                             vecPriority.push_back(TxPriority(porphan->dPriority, porphan->feeRate, porphan->ptx));
                             std::push_heap(vecPriority.begin(), vecPriority.end(), comparer);
                         }
@@ -740,8 +784,13 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         }
 
         nLastBlockTx = nBlockTx;
+        nLastBlockCert = nBlockCert;
+
         nLastBlockSize = nBlockSize;
-        LogPrintf("CreateNewBlock(): total size %u, tx/certs fee=%d\n", nBlockSize, nFees);
+        nLastBlockTxPartitionSize = nBlockTxPartitionSize;
+
+        LogPrintf("%s():%d - total size %u, tx part size %u, tx[%d]/certs[%d], fee=%d\n",
+            __func__, __LINE__, nBlockSize, nBlockTxPartitionSize, nBlockTx, nBlockCert, nFees);
 
         pblock->vtx[0] = createCoinbase(scriptPubKeyIn, nFees, nHeight);
         pblocktemplate->vTxFees[0] = -nFees;

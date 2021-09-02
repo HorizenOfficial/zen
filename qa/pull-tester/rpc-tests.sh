@@ -117,6 +117,8 @@ testScripts=(
   'cbh_rpcheck.py'
   'tlsprotocols.py'
   'getblockmerkleroots.py'
+  'sc_block_partitions.py'
+  'sc_cert_bwt_amount_rounding.py'
   'sc_csw_eviction_from_mempool.py'
   'sc_stale_ft_and_mbtr.py'
   'sc_cert_getblocktemplate.py'

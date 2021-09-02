@@ -341,6 +341,9 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
                 sptrCertVk.get(),
                 &code
             );
+            //dumpBtArr((backward_transfer_t*)bt_list_ptr, bt_list_len, "bwt list");
+            //dumpFeArr((field_t**)custom_fields.get(), custom_fields_len, "custom fields");
+            //dumpFe(sptrCum.get(), "cumTree");
 
             if (!ret || code != CctpErrorCode::OK)
             {

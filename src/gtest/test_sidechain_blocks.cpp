@@ -122,7 +122,7 @@ protected:
     void storeSidechain(const uint256& scId, const CSidechain& sidechain);
     void storeSidechainEvent(int eventHeight, const CSidechainEvents& scEvent);
 
-    void fillBlockHeader(CBlock& blockToFill, const uint256& prevBlockHash);
+    void fillBlockHeader(CBlock& blockToFill, const uint256& prevBlockHash, int bl_ver = MIN_BLOCK_VERSION);
 
     CAmount dummyFeeAmount;
     CScript dummyCoinbaseScript;
@@ -641,9 +641,9 @@ void SidechainsConnectCertsBlockTestSuite::storeSidechainEvent(int eventHeight, 
     return;
 }
 
-void SidechainsConnectCertsBlockTestSuite::fillBlockHeader(CBlock& blockToFill, const uint256& prevBlockHash)
+void SidechainsConnectCertsBlockTestSuite::fillBlockHeader(CBlock& blockToFill, const uint256& prevBlockHash, int bl_ver)
 {
-    blockToFill.nVersion = MIN_BLOCK_VERSION;
+    blockToFill.nVersion = bl_ver;
     blockToFill.hashPrevBlock = prevBlockHash;
     blockToFill.hashMerkleRoot = uint256();
     blockToFill.hashScTxsCommitment.SetNull();
@@ -895,3 +895,94 @@ TEST_F(SidechainsBlockFormationTestSuite, Unconfirmed_Mbtr_scCreation_DulyOrdere
     EXPECT_TRUE(orphanList.size() == 1);
     EXPECT_TRUE(orphanList.front().ptx->GetHash() == CTransaction(mbtrTx).GetHash());
 }
+
+TEST_F(SidechainsConnectCertsBlockTestSuite, SizeCheck)
+{
+    srand(time(NULL));
+    for (int k = 0; k < 20; k++)
+    {
+        static const int NUM_TXES  = rand() % 512;
+        static const int NUM_CERTS = rand() % 512;
+ 
+        size_t size_of_num_tx   = ::GetSizeOfCompactSize(NUM_TXES); 
+        size_t size_of_num_cert = ::GetSizeOfCompactSize(NUM_CERTS); 
+ 
+        CBlock certBlock;
+
+        bool sc_support = (k % 2 == 0);
+        //bool sc_support = false;
+        if (sc_support)
+        {
+            fillBlockHeader(certBlock, uint256S("aaa"), BLOCK_VERSION_SC_SUPPORT);
+        }
+        else
+        {
+            fillBlockHeader(certBlock, uint256S("aaa"), BLOCK_VERSION_BEFORE_SC);
+        }
+ 
+        size_t totTxSize1 = 0;
+        for (int i = 0; i < NUM_TXES; i++)
+        {
+            CTransaction tx;
+            certBlock.vtx.push_back(tx);
+            totTxSize1 += tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+        }
+ 
+        size_t totCertSize1 = 0;
+        if (sc_support)
+        {
+            for (int i = 0; i < NUM_CERTS; i++)
+            {
+                CScCertificate cert;
+                certBlock.vcert.push_back(cert);
+                totCertSize1 += cert.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
+            }
+        }
+ 
+        // compute block size with legacy func
+        size_t sz1 = ::GetSerializeSize(certBlock, SER_NETWORK, PROTOCOL_VERSION);
+ 
+        size_t h_sz = 0;
+        size_t totTxSize2 = 0;
+        size_t totCertSize2 = 0;
+
+        // compute block size with new func
+        size_t sz2 = certBlock.GetSerializeComponentsSize(h_sz, totTxSize2, totCertSize2);
+ 
+#if 0
+        std::cout << "block sc support = " << (int)sc_support << std::endl;
+        std::cout << "-------------------------------------------" << std::endl;
+        std::cout << "block sz1     = " << sz1 << std::endl;
+        std::cout << "totTxSize1    = " << totTxSize1 << std::endl;
+        std::cout << "totCertSize1  = " << totCertSize1 << std::endl;
+        std::cout << "-------------------------------------------" << std::endl;
+        std::cout << "header sz    = " << h_sz << std::endl;
+        std::cout << "num txes     = " << NUM_TXES  << std::endl;
+        std::cout << "size_of_num_tx = " << size_of_num_tx << std::endl;
+        std::cout << "totTxSize2   = " << totTxSize2 << std::endl;
+        std::cout << "vtx ser sz = " << ::GetSerializeSize(certBlock.vtx,   SER_NETWORK, PROTOCOL_VERSION) << std::endl;
+        std::cout << "num certs    = " << NUM_CERTS << std::endl;
+        std::cout << "size_of_num_cert = " << size_of_num_cert << std::endl;
+        std::cout << "totCertSize2 = " << totCertSize2 << std::endl;
+        std::cout << "vcert ser sz = " << ::GetSerializeSize(certBlock.vcert,   SER_NETWORK, PROTOCOL_VERSION) << std::endl;
+        std::cout << "=============================================" << std::endl;
+#endif
+ 
+        EXPECT_TRUE(sz1 == sz2);
+
+        EXPECT_TRUE(size_of_num_tx   + totTxSize2   == ::GetSerializeSize(certBlock.vtx,   SER_NETWORK, PROTOCOL_VERSION));
+        if (sc_support)
+        {
+            EXPECT_TRUE(sz1 == (h_sz + size_of_num_tx + totTxSize2 + size_of_num_cert + totCertSize2 ));
+            EXPECT_TRUE(size_of_num_cert + totCertSize2 == ::GetSerializeSize(certBlock.vcert, SER_NETWORK, PROTOCOL_VERSION));
+        }
+        else
+        {
+            EXPECT_TRUE(sz1 == (h_sz + size_of_num_tx + totTxSize2));
+            // empty vector in any case
+            EXPECT_TRUE(1 == ::GetSerializeSize(certBlock.vcert, SER_NETWORK, PROTOCOL_VERSION));
+        }
+
+    }
+}
+

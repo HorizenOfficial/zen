@@ -70,15 +70,12 @@ CCertificateMemPoolEntry::CCertificateMemPoolEntry(const CScCertificate& _cert, 
 
 double CCertificateMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
-#if 1
-    // certificates have max priority
-    return dPriority;
-#else
     CAmount nValueIn = cert.GetValueOfChange()+nFee;
     double deltaPriority = ((double)(currentHeight-nHeight)*nValueIn)/nModSize;
     double dResult = dPriority + deltaPriority;
+    LogPrint("mempool", "%s():%d - prioIn[%22.8f] + delta[%22.8f] = prioOut[%22.8f]\n",
+        __func__, __LINE__, dPriority, deltaPriority, dResult);
     return dResult;
-#endif
 }
 
 const std::map<int64_t, uint256>::const_reverse_iterator CSidechainMemPoolEntry::GetTopQualityCert() const

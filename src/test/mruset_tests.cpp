@@ -12,9 +12,6 @@
 
 #include <boost/test/unit_test.hpp>
 
-#define NUM_TESTS 16
-#define MAX_SIZE 100
-
 using namespace std;
 
 BOOST_FIXTURE_TEST_SUITE(mruset_tests, BasicTestingSetup)
