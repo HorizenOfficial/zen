@@ -93,7 +93,8 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
         # Fwd Transfer to Sc
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
         mark_logs("Node balance before fwd tx: {}".format(bal_before_fwd_tx), self.nodes, DEBUG_MODE)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
 
         mark_logs("Node confirms fwd transfer generating 1 block", self.nodes, DEBUG_MODE)
