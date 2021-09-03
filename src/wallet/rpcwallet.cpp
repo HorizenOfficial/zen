@@ -2132,8 +2132,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             string strSentAccount;
             list<COutputEntry> listReceived;
             list<COutputEntry> listSent;
-            list<CScOutputEntry> listScSent;
-            wtx->GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
+            wtx->GetAmounts(listReceived, listSent, allFee, strSentAccount, filter);
             if (wtx->GetDepthInMainChain() >= nMinDepth) {
                 for(const COutputEntry& r: listReceived)
                     if (r.maturity == CCoins::outputMaturity::MATURE)
@@ -2141,8 +2140,6 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             }
 
             for(const COutputEntry& s: listSent)
-                nBalance -= s.amount;
-            for(const CScOutputEntry& s: listScSent)
                 nBalance -= s.amount;
 
             nBalance -= allFee;
@@ -2696,15 +2693,14 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
     string strSentAccount;
     list<COutputEntry> listReceived;
     list<COutputEntry> listSent;
-    list<CScOutputEntry> listScSent;
 
-    wtx.GetAmounts(listReceived, listSent, listScSent, nFee, strSentAccount, filter);
+    wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, filter);
 
     bool fAllAccounts = (strAccount == string("*"));
     bool involvesWatchonly = wtx.IsFromMe(ISMINE_WATCH_ONLY);
 
     // Sent
-    if (( (!listSent.empty() || !listScSent.empty() ) || nFee != 0) && (fAllAccounts || strAccount == strSentAccount))
+    if ((!listSent.empty() || nFee != 0) && (fAllAccounts || strAccount == strSentAccount))
     {
         BOOST_FOREACH(const COutputEntry& s, listSent)
         {
@@ -2722,19 +2718,6 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
                 WalletTxToJSON(wtx, entry, filter);
 
             entry.pushKV("size", (int)(wtx.getTxBase()->GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)) );
-            ret.push_back(entry);
-        }
-        BOOST_FOREACH(const CScOutputEntry& s, listScSent)
-        {
-            UniValue entry(UniValue::VOBJ);
-            entry.pushKV("sc address", s.address.GetHex());
-            entry.pushKV("category", "crosschain");
-            entry.pushKV("amount", ValueFromAmount(-s.amount));
-            entry.pushKV("fee", ValueFromAmount(-nFee));
-            if (fLong)
-                WalletTxToJSON(wtx, entry, filter);
-
-            entry.pushKV("size", (int)(wtx.getTxBase()->GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
             ret.push_back(entry);
         }
     }
@@ -3158,19 +3141,15 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
         string strSentAccount;
         list<COutputEntry> listReceived;
         list<COutputEntry> listSent;
-        list<CScOutputEntry> listScSent;
 
         if (!wtx.HasMatureOutputs())
             continue;
 
-        wtx.GetAmounts(listReceived, listSent, listScSent, nFee, strSentAccount, includeWatchonly);
+        wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, includeWatchonly);
 
         mapAccountBalances[strSentAccount] -= nFee;
 
         for(const COutputEntry& s: listSent)
-            mapAccountBalances[strSentAccount] -= s.amount;
-
-        for(const CScOutputEntry& s: listScSent)
             mapAccountBalances[strSentAccount] -= s.amount;
 
         if (wtx.GetDepthInMainChain() >= nMinDepth) {

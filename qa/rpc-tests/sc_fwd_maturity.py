@@ -128,7 +128,14 @@ class sc_fwd_maturity(BitcoinTestFramework):
         amounts.append({"address": "add1", "amount": fwt_amount_1, "scid": scid_1})
         amounts.append({"address": "add2", "amount": fwt_amount_2, "scid": scid_1})
         amounts.append({"address": "add3", "amount": fwt_amount_3, "scid": scid_1})
-        self.nodes[1].sc_sendmany(amounts)
+        tx = self.nodes[1].sc_sendmany(amounts)
+
+        tx_details = self.nodes[1].gettransaction(tx)["details"]
+        assert_equal(1, len(tx_details))
+        assert_equal(tx_details[0]["category"], "send")
+        assert_equal(tx_details[0]["account"], "")
+        assert_equal(tx_details[0]["amount"], -fwt_amount_many)
+
         # print "tx=" + tx
         self.sync_all()
 

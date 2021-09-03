@@ -7,8 +7,8 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, stop_nodes, get_epoch_data, \
-    sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
+    start_nodes, get_epoch_data, \
+    sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     assert_false, assert_true, swap_bytes, bytes_to_hex_str
 from test_framework.mc_test.mc_test import *
 import os
@@ -16,19 +16,19 @@ import pprint
 from decimal import Decimal
 
 # Check RPC calls for immature balance:
-#  - listunspent  - Shows immature txs
+#  - listunspent
 #  - listaddressgroupings
 #  - getbalance
 #  - z_getbalanc
 #  - z_gettotalbalance
-#  - getunconfirmedtxdata - Shows immature balance only for owner node
+#  - getunconfirmedtxdata
 #  - getunconfirmedbalance
-#  - getreceivedbyaddress - Shows immature balance after adding cert to chain
-#  - listreceivedbyaddress - Show immature txs
-#  - listreceivedbyaccount - Shows immature balance
-#  - listtransactions - Show immature txs
-#  - listsinceblock - Show immature txs
-#  - listtxesbyaddress - Show immature txs
+#  - getreceivedbyaddress
+#  - listreceivedbyaddress
+#  - listreceivedbyaccount
+#  - listtransactions
+#  - listsinceblock
+#  - listtxesbyaddress
 
 
 DEBUG_MODE = 1

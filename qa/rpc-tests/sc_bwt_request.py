@@ -337,12 +337,18 @@ class sc_bwt_request(BitcoinTestFramework):
         # create a bwt request with the raw cmd version with some mixed output and cc output
         mark_logs("Node0 creates a tx with a few bwt request and mixed outputs using raw version of cmd", self.nodes, DEBUG_MODE)
         outputs = { self.nodes[0].getnewaddress() :4.998 }
-        sc_cr = [ {"epoch_length":10, "amount":1.0, "address":"effe", "wCertVk":vk3, "constant":c3} ]
-        sc_ft = [ {"address":"abc", "amount":1.0, "scid":scid2}, {"address":"cde", "amount":2.0, "scid":scid2} ]
+        sc_cr_amount = 1.0
+        sc_cr = [ {"epoch_length":10, "amount":sc_cr_amount, "address":"effe", "wCertVk":vk3, "constant":c3} ]
+        ft_amount_1 = 1.0
+        ft_amount_2 = 2.0
+        sc_ft = [ {"address":"abc", "amount":ft_amount_1, "scid":scid2}, {"address":"cde", "amount":ft_amount_2, "scid":scid2} ]
+        bt_sc_fee_1 = 0.13
+        bt_sc_fee_2 = 0.23
+        bt_sc_fee_3 = 0.12
         sc_bwt3 = [
-            {'vScRequestData':fe2, 'scFee':Decimal("0.13"), 'scid':scid1, 'pubkeyhash':pkh2 },
-            {'vScRequestData':fe3, 'scFee':Decimal("0.23"), 'scid':scid2, 'pubkeyhash':pkh3 },
-            {'vScRequestData':fe4, 'scFee':Decimal("0.12"), 'scid':scid2, 'pubkeyhash':pkh4 }
+            {'vScRequestData':fe2, 'scFee':bt_sc_fee_1, 'scid':scid1, 'pubkeyhash':pkh2 },
+            {'vScRequestData':fe3, 'scFee':bt_sc_fee_2, 'scid':scid2, 'pubkeyhash':pkh3 },
+            {'vScRequestData':fe4, 'scFee':bt_sc_fee_3, 'scid':scid2, 'pubkeyhash':pkh4 }
         ]
         try:
             raw_tx = self.nodes[0].createrawtransaction([], outputs, [], sc_cr, sc_ft, sc_bwt3)
@@ -355,6 +361,7 @@ class sc_bwt_request(BitcoinTestFramework):
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
 
+
         totScFee = totScFee + Decimal("0.13")
 
         self.sync_all()
@@ -365,6 +372,13 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_equal(decoded_tx['vmbtr_out'][0]['vScRequestData'], fe2)
         assert_equal(decoded_tx['vmbtr_out'][1]['vScRequestData'], fe3)
         assert_equal(decoded_tx['vmbtr_out'][2]['vScRequestData'], fe4)
+
+        # Check transaction details
+        tx_details = self.nodes[0].gettransaction(bwt6)["details"]
+        assert_equal(3, len(tx_details))
+        assert_equal(tx_details[1]["category"], "send")
+        assert_equal(tx_details[1]["account"], "")
+        assert_equal(float(tx_details[1]["amount"]), -(sc_cr_amount + ft_amount_1 + ft_amount_2 + bt_sc_fee_1 + bt_sc_fee_2 + bt_sc_fee_3))
 
         # verify all bwts are in mempool
         assert_true(bwt3 in self.nodes[0].getrawmempool())

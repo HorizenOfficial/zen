@@ -157,12 +157,6 @@ static void WriteOrderPos(const int64_t& nOrderPos, mapValue_t& mapValue)
     mapValue["n"] = i64tostr(nOrderPos);
 }
 
-struct CScOutputEntry
-{
-    uint256 address;
-    CAmount amount;
-};
-
 struct COutputEntry
 {
     CTxDestination destination;
@@ -415,7 +409,7 @@ public:
     // virtuals
     virtual void SetNoteData(mapNoteData_t &noteData) {}; // default is null
 
-    virtual void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
+    virtual void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const = 0;
 
     virtual bool RelayWalletTransaction() = 0;
@@ -513,22 +507,10 @@ public:
 
     void SetNoteData(mapNoteData_t &noteData) override;
 
-    void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
+    void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
 
     bool RelayWalletTransaction() override;
-
-    // fill the crosschain output
-    template <typename T>
-    inline void fillScSent(const T& vOuts, std::list<CScOutputEntry>& listScSent) const
-    {
-        for(const auto& txccout : vOuts)
-        {
-            CScOutputEntry output = {txccout.address, txccout.nValue};
-            listScSent.push_back(output);
-        }
-    }
-    void fillScFees(const std::vector<CBwtRequestOut>& vOuts, std::list<CScOutputEntry>& listScSent) const;
 
     std::shared_ptr<CWalletTransactionBase> MakeWalletMapObject() const override;
 };
@@ -605,7 +587,7 @@ public:
         mapValue.erase("timesmart");
     }
 
-    void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
+    void GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent,
         CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const override;
 
     bool RelayWalletTransaction() override;
