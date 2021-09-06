@@ -968,8 +968,6 @@ public:
     typedef std::map<uint256, std::shared_ptr<CWalletTransactionBase> >::const_iterator MAP_WALLET_CONST_IT;
     std::list<CAccountingEntry> laccentries;
 
-    const std::map<uint256, CScCertificateStatusUpdateInfo>& getMapSidechains() const { return mapSidechains; }
-
     TxItems wtxOrdered;
 
     int64_t nOrderPosNext;
@@ -1080,7 +1078,6 @@ public:
     void SyncTransaction(const CTransaction& tx, const CBlock* pblock) override;
     void SyncCertificate(const CScCertificate& cert, const CBlock* pblock, int bwtMaturityDepth = -1) override;
     void SyncCertStatusInfo(const CScCertificateStatusUpdateInfo& certStatusInfo) override;
-    bool AddToWallet(const CScCertificateStatusUpdateInfo& certStatusInfo);
     bool ReadSidechain(const uint256& scId, CScCertificateStatusUpdateInfo& sidechain);
     bool AddToWalletIfInvolvingMe(const CTransactionBase& obj, const CBlock* pblock, int bwtMaturityDepth, bool fUpdate);
     void EraseFromWallet(const uint256 &hash) override;

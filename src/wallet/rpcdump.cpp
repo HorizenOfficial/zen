@@ -26,8 +26,8 @@ using namespace std;
 void EnsureWalletIsUnlocked();
 bool EnsureWalletIsAvailable(bool avoidException);
 
-UniValue dumpwallet_impl(const UniValue& params, bool fHelp, bool fDumpZKeys, bool fDumpSc);
-UniValue importwallet_impl(const UniValue& params, bool fHelp, bool fImportZKeys, bool fImportSc);
+UniValue dumpwallet_impl(const UniValue& params, bool fHelp, bool fDumpZKeys);
+UniValue importwallet_impl(const UniValue& params, bool fHelp, bool fImportZKeys);
 
 
 std::string static EncodeDumpTime(int64_t nTime) {
@@ -72,94 +72,6 @@ std::string DecodeDumpString(const std::string &str) {
     }
     return ret.str();
 }
-
-static bool importScData(const std::vector<std::string>& vstr, CScCertificateStatusUpdateInfo& csuInfo)
-{
-    // the consistency check on data are not performed since we read what we wrote
-    // and a wallet dump-file is not meant for being modified/overwritten
-    // ---
-    // the format of the record to be parsed is:
-    //    "scid=%s certHash=%s epoch=%d quality=%d bwtState=%d",
-    // and is checked mostly for testing purposes
-    try
-    {
-        std::string inputString;
-
-        if (boost::algorithm::starts_with(vstr[0], "scid="))
-        {
-            inputString = vstr[0].substr(5);
-            csuInfo.scId.SetHex(inputString);
-        }
-        else
-        {
-            LogPrintf("%s():%d - Error: illegal format [%s] (expected \"scid=<val>\")\n",
-                __func__, __LINE__, vstr[0]);
-            return false;
-        }
-
-        if (boost::algorithm::starts_with(vstr[1], "certHash="))
-        {
-            inputString = vstr[1].substr(9);
-            csuInfo.certHash.SetHex(inputString);
-        }
-        else
-        {
-            LogPrintf("%s():%d - Error: illegal format [%s] (expected \"certHash=<val>\")\n",
-                __func__, __LINE__, vstr[1]);
-            return false;
-        }
-
-        if (boost::algorithm::starts_with(vstr[2], "epoch="))
-        {
-            inputString = vstr[2].substr(6);
-            csuInfo.certEpoch = std::stoi(inputString);
-        }
-        else
-        {
-            LogPrintf("%s():%d - Error: illegal format [%s] (expected \"epoch=<val>\")\n",
-                __func__, __LINE__, vstr[2]);
-            return false;
-        }
-
-        if (boost::algorithm::starts_with(vstr[3], "quality="))
-        {
-            inputString = vstr[3].substr(8);
-            csuInfo.certQuality = std::stoi(inputString);
-        }
-        else
-        {
-            LogPrintf("%s():%d - Error: illegal format [%s] (expected \"quality=<val>\")\n",
-                __func__, __LINE__, vstr[3]);
-            return false;
-        }
-
-        if (boost::algorithm::starts_with(vstr[4], "bwtState="))
-        {
-            inputString = vstr[4].substr(9);
-            csuInfo.bwtState = std::stoi(inputString);
-        }
-        else
-        {
-            LogPrintf("%s():%d - Error: illegal format [%s] (expected \"bwtState=<val>\")\n",
-                __func__, __LINE__, vstr[4]);
-            return false;
-        }
-    }
-    catch(std::exception& e)
-    {
-        LogPrintf("%s():%d - exception thrown: %s\n",
-            __func__, __LINE__, e.what());
-        return false;
-    }
-    catch(...)
-    {
-        LogPrintf("%s():%d - unexpected exception thrown\n",
-            __func__, __LINE__);
-        return false;
-    }
-    return true;
-}
-
 
 UniValue importprivkey(const UniValue& params, bool fHelp)
 {
@@ -317,7 +229,7 @@ UniValue z_importwallet(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "z_importwallet \"filename\"\n"
-            "\nImports taddr and zaddr keys and sidechains data from a wallet export file (see z_exportwallet).\n"
+            "\nImports taddr and zaddr keys from a wallet export file (see z_exportwallet).\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The wallet file\n"
             "\nExamples:\n"
@@ -329,7 +241,7 @@ UniValue z_importwallet(const UniValue& params, bool fHelp)
             + HelpExampleRpc("z_importwallet", "\"test\"")
         );
 
-	return importwallet_impl(params, fHelp, true, true);
+	return importwallet_impl(params, fHelp, true);
 }
 
 UniValue importwallet(const UniValue& params, bool fHelp)
@@ -352,10 +264,10 @@ UniValue importwallet(const UniValue& params, bool fHelp)
             + HelpExampleRpc("importwallet", "\"test\"")
         );
 
-	return importwallet_impl(params, fHelp, false, true);
+	return importwallet_impl(params, fHelp, false);
 }
 
-UniValue importwallet_impl(const UniValue& params, bool fHelp, bool fImportZKeys, bool fImportSc)
+UniValue importwallet_impl(const UniValue& params, bool fHelp, bool fImportZKeys)
 {
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -386,35 +298,6 @@ UniValue importwallet_impl(const UniValue& params, bool fHelp, bool fImportZKeys
         boost::split(vstr, line, boost::is_any_of(" "));
         if (vstr.size() < 2)
             continue;
-
-        // import any SC data
-        if (fImportSc)
-        {
-            if (boost::algorithm::starts_with(line, "scid="))
-            {
-                CScCertificateStatusUpdateInfo csuInfo;
-
-                // read data on tokenized string
-                if (!importScData(vstr, csuInfo))
-                {
-                    LogPrintf("%s():%d - skipping invalid SC data [%s]\n",
-                            __func__, __LINE__, line);
-                    continue;
-                }
-
-                LogPrint("zrpc", "Importing certificate status [%s]...\n", csuInfo.ToString());
-                if (!pwalletMain->AddToWallet(csuInfo))
-                {
-                    LogPrintf("%s():%d - ERROR: failed adding SC data to WalletDB; invalid data[%s]\n",
-                        __func__, __LINE__, csuInfo.ToString());
-                    // Something went wrong
-                    fGood = false;
-                }
-
-                // go on reading other lines
-                continue;
-            }
-        }
 
         // Let's see if the address is a valid Zcash spending key
         if (fImportZKeys) {
@@ -548,7 +431,7 @@ UniValue z_exportwallet(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "z_exportwallet \"filename\"\n"
-            "\nExports all wallet keys, for taddr and zaddr, and sidechains data, in a human-readable format.  Overwriting an existing file is not permitted.\n"
+            "\nExports all wallet keys, for taddr and zaddr, in a human-readable format.  Overwriting an existing file is not permitted.\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The filename, saved in folder set by zend -exportdir option\n"
             "\nResult:\n"
@@ -558,7 +441,7 @@ UniValue z_exportwallet(const UniValue& params, bool fHelp)
             + HelpExampleRpc("z_exportwallet", "\"test\"")
         );
 
-	return dumpwallet_impl(params, fHelp, true, true);
+	return dumpwallet_impl(params, fHelp, true);
 }
 
 UniValue dumpwallet(const UniValue& params, bool fHelp)
@@ -579,10 +462,10 @@ UniValue dumpwallet(const UniValue& params, bool fHelp)
             + HelpExampleRpc("dumpwallet", "\"test\"")
         );
 
-	return dumpwallet_impl(params, fHelp, false, true);
+	return dumpwallet_impl(params, fHelp, false);
 }
 
-UniValue dumpwallet_impl(const UniValue& params, bool fHelp, bool fDumpZKeys, bool fDumpSc)
+UniValue dumpwallet_impl(const UniValue& params, bool fHelp, bool fDumpZKeys)
 {
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -661,20 +544,6 @@ UniValue dumpwallet_impl(const UniValue& params, bool fHelp, bool fDumpZKeys, bo
                 std::string strTime = EncodeDumpTime(pwalletMain->mapZKeyMetadata[addr].nCreateTime);
                 file << strprintf("%s %s # zaddr=%s\n", CZCSpendingKey(key).ToString(), strTime, CZCPaymentAddress(addr).ToString());
             }
-        }
-        file << "\n";
-    }
-
-    if (fDumpSc) {
-        file << "\n";
-        file << "# Sidechains data\n";
-        file << "\n";
-        for (const auto& entry : pwalletMain->getMapSidechains())
-        {
-            const CScCertificateStatusUpdateInfo& csuInfo = entry.second;
-
-            file << strprintf("scid=%s certHash=%s epoch=%d quality=%d bwtState=%d\n",
-                entry.first.ToString(), csuInfo.certHash.ToString(), csuInfo.certEpoch, csuInfo.certQuality, (int)csuInfo.bwtState);
         }
         file << "\n";
     }
