@@ -1839,43 +1839,93 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
 
     // parse hex string from parameter
     CTransaction tx;
-    if (!DecodeHexTx(tx, params[0].get_str()))
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
-    uint256 hashTx = tx.GetHash();
+    // parse hex string from parameter
+    CScCertificate cert;
+    bool isTransaction = true;
+
+    if (!DecodeHexTx(tx, params[0].get_str())) {
+        if (DecodeHexCert(cert, params[0].get_str()))
+            isTransaction = false;
+        else
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Transaction(Certificate) decode failed");
+    }
 
     bool fOverrideFees = false;
     if (params.size() > 1)
-        fOverrideFees = params[1].get_bool();
-
-    RejectAbsurdFeeFlag fRejectAbsurdFee = fOverrideFees? RejectAbsurdFeeFlag::OFF : RejectAbsurdFeeFlag::ON;
-
-    CCoinsViewCache &view = *pcoinsTip;
-    const CCoins* existingCoins = view.AccessCoins(hashTx);
-    bool fHaveMempool = mempool.exists(hashTx);
-    bool fHaveChain = existingCoins && existingCoins->nHeight < 1000000000;
-    if (!fHaveMempool && !fHaveChain)
     {
-        // push to local node and sync with wallets
-        CValidationState state;
-        MempoolReturnValue res = AcceptTxToMemoryPool(mempool, state, tx, LimitFreeFlag::OFF, fRejectAbsurdFee,
-                                                      MempoolProofVerificationFlag::SYNC);
+        fOverrideFees = params[1].get_bool();
+    }
+    RejectAbsurdFeeFlag fRejectAbsurdFee = fOverrideFees? RejectAbsurdFeeFlag::OFF : RejectAbsurdFeeFlag::ON;
+    CCoinsViewCache &view = *pcoinsTip;
 
-        if (res == MempoolReturnValue::MISSING_INPUT)
-            throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
-
-        if (res == MempoolReturnValue::INVALID)
+    if (isTransaction) {
+        uint256 hashTx = tx.GetHash();
+        const CCoins* existingCoins = view.AccessCoins(hashTx);
+        bool fHaveMempool = mempool.exists(hashTx);
+        bool fHaveChain = existingCoins && existingCoins->nHeight < 1000000000;
+        if (!fHaveMempool && !fHaveChain)
         {
-            if (state.IsInvalid())
-                throw JSONRPCError(RPC_TRANSACTION_REJECTED,
-                        strprintf("%i: %s", CValidationState::CodeToChar(state.GetRejectCode()), state.GetRejectReason()));
+            // push to local node and sync with wallets
+            CValidationState state;
+            MempoolReturnValue res = AcceptTxToMemoryPool(mempool, state, tx, LimitFreeFlag::OFF, fRejectAbsurdFee,
+                                                          MempoolProofVerificationFlag::SYNC);
 
-            throw JSONRPCError(RPC_TRANSACTION_ERROR, state.GetRejectReason());
+            if (res == MempoolReturnValue::MISSING_INPUT)
+                throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
+
+            if (res == MempoolReturnValue::INVALID)
+            {
+                if (state.IsInvalid())
+                    throw JSONRPCError(RPC_TRANSACTION_REJECTED,
+                            strprintf("%i: %s", CValidationState::CodeToChar(state.GetRejectCode()), state.GetRejectReason()));
+
+                throw JSONRPCError(RPC_TRANSACTION_ERROR, state.GetRejectReason());
+            }
+        } else if (fHaveChain)
+            throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "transaction already in block chain");
+
+        tx.Relay();
+        return hashTx.GetHex();
+    } else {
+        const uint256& hashCertificate = cert.GetHash();
+        const CCoins* existingCoins = view.AccessCoins(hashCertificate);
+        // check that we do not have it already somewhere
+        bool fHaveChain = existingCoins;
+        bool fHaveMempool = mempool.existsCert(hashCertificate);
+
+        if (!fHaveMempool && !fHaveChain)
+        {
+            // push to local node and sync with wallets
+            CValidationState state;
+            MempoolProofVerificationFlag flag = MempoolProofVerificationFlag::SYNC;
+
+            if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest" && GetBoolArg("-skipscproof", false)))
+            {
+                flag = MempoolProofVerificationFlag::DISABLED;
+            }
+
+            MempoolReturnValue res = AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee, flag);
+
+            if (res == MempoolReturnValue::MISSING_INPUT)
+                throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
+
+            if (res == MempoolReturnValue::INVALID)
+            {
+                if (state.IsInvalid())
+                    throw JSONRPCError(RPC_TRANSACTION_REJECTED,
+                            strprintf("%i: %s", CValidationState::CodeToChar(state.GetRejectCode()), state.GetRejectReason()));
+
+                throw JSONRPCError(RPC_TRANSACTION_ERROR, "certificate not accepted to mempool");
+            }
         }
-    } else if (fHaveChain)
-        throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "transaction already in block chain");
+        else if (fHaveChain)
+            throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "certificate already in block chain");
 
-    tx.Relay();
-    return hashTx.GetHex();
+        LogPrint("cert", "%s():%d - relaying certificate [%s]\n", __func__, __LINE__, hashCertificate.ToString());
+        cert.Relay();
+
+        return hashCertificate.GetHex();
+    }
 }
 
 UniValue sendrawcertificate(const UniValue& params, bool fHelp)
