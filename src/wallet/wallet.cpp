@@ -2044,8 +2044,12 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             // since at this stage no transaction creation is allowed
             for(auto itCert = block.vcert.rbegin(); itCert != block.vcert.rend(); ++itCert)
             {
+                bool prevScDataAvailable = false;
                 CScCertificateStatusUpdateInfo prevScData;
-                assert(ReadSidechain(itCert->GetScId(), prevScData));
+                if (ReadSidechain(itCert->GetScId(), prevScData))
+                {
+                     prevScDataAvailable = true;
+                }
 
                 bool bTopQualityCert = visitedScIds.count(itCert->GetScId()) == 0;
                 visitedScIds.insert(itCert->GetScId());
@@ -2064,10 +2068,15 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                                                                           bTopQualityCert? CScCertificateStatusUpdateInfo::BwtState::BWT_ON:
                                                                                            CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
 
-                        if (bTopQualityCert && (prevScData.certEpoch == itCert->epochNumber) && (prevScData.certQuality < itCert->quality))
-                            SyncCertStatusInfo(CScCertificateStatusUpdateInfo(prevScData.scId, prevScData.certHash,
+                        if (prevScDataAvailable)
+                        {
+                            if (bTopQualityCert && (prevScData.certEpoch == itCert->epochNumber) && (prevScData.certQuality < itCert->quality))
+                            {
+                                SyncCertStatusInfo(CScCertificateStatusUpdateInfo(prevScData.scId, prevScData.certHash,
                                                                               prevScData.certEpoch, prevScData.certQuality,
                                                                               CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
+                            }
+                        }
                     }
                 }
             }
