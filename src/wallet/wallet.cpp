@@ -131,6 +131,15 @@ bool CWallet::AddZKey(const libzcash::SpendingKey &key)
     return true;
 }
 
+bool CWallet::AddToWallet(const CScCertificateStatusUpdateInfo& csuInfo)
+{
+    AssertLockHeld(cs_wallet);
+
+    mapSidechains[csuInfo.scId] = csuInfo;
+
+    return CWalletDB(strWalletFile).WriteSidechain(csuInfo);
+}
+
 CPubKey CWallet::GenerateNewKey()
 {
     AssertLockHeld(cs_wallet); // mapKeyMetadata
