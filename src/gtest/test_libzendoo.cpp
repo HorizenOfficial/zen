@@ -499,8 +499,9 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
     }
 
     // Initialize tree
-    auto tree = ZendooGingerMerkleTree(height, leaves_len);
     CctpErrorCode code;
+    auto tree = ZendooGingerMerkleTree(height, leaves_len, &code);
+    ASSERT_TRUE(code == CctpErrorCode::OK);
 
     // Add leaves to tree
     std::vector<wrappedFieldPtr> vSptr;
