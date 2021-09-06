@@ -201,7 +201,7 @@ class sc_cert_orphans(BitcoinTestFramework):
             rawcert    = self.nodes[1].createrawcertificate(inputs, outputs, {}, params)
             signed_cert = self.nodes[1].signrawcertificate(rawcert)
             #pprint.pprint(self.nodes[1].decoderawcertificate(signed_cert['hex']))
-            rawcert = self.nodes[1].sendrawcertificate(signed_cert['hex'])
+            rawcert = self.nodes[1].sendrawtransaction(signed_cert['hex'])
             assert_true(False)
         except JSONRPCException, e:
             mark_logs("Send certificate failed as expected", self.nodes, DEBUG_MODE)

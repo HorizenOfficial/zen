@@ -1071,7 +1071,7 @@ void ScRpcCmdCert::send()
     UniValue val = UniValue(UniValue::VARR);
     val.push_back(_signedObjHex);
 
-    UniValue sendResultValue = sendrawcertificate(val, false);
+    UniValue sendResultValue = sendrawtransaction(val, false);
     if (sendResultValue.isNull())
     {
         throw JSONRPCError(RPC_WALLET_ERROR, "Send raw transaction did not return an error or a txid.");

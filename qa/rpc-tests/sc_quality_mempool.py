@@ -224,7 +224,7 @@ class quality_mempool(BitcoinTestFramework):
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert2 = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            cert2 = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -320,7 +320,7 @@ class quality_mempool(BitcoinTestFramework):
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert_3_epoch_0 = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            cert_3_epoch_0 = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -512,7 +512,7 @@ class quality_mempool(BitcoinTestFramework):
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert_6_epoch_0 = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            cert_6_epoch_0 = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             mark_logs("Certificate is {}".format(cert_6_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']

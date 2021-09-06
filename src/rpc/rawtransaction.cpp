@@ -1816,13 +1816,13 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "sendrawtransaction \"hexstring\" ( allowhighfees )\n"
-            "\nSubmits raw transaction (serialized, hex-encoded) to local node and network.\n"
+            "\nSubmits raw transaction or certificate(serialized, hex-encoded) to local node and network.\n"
             "\nAlso see createrawtransaction and signrawtransaction calls.\n"
             "\nArguments:\n"
-            "1. \"hexstring\"    (string, required) The hex string of the raw transaction)\n"
+            "1. \"hexstring\"    (string, required) The hex string of the raw transaction(certificate)\n"
             "2. allowhighfees    (boolean, optional, default=false) Allow high fees\n"
             "\nResult:\n"
-            "\"hex\"             (string) The transaction hash in hex\n"
+            "\"hex\"             (string) The transaction(certificate) hash in hex\n"
             "\nExamples:\n"
             "\nCreate a transaction\n"
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\" : \\\"mytxid\\\",\\\"vout\\\":0}]\" \"{\\\"myaddress\\\":0.01}\"") +
@@ -1926,78 +1926,4 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
 
         return hashCertificate.GetHex();
     }
-}
-
-UniValue sendrawcertificate(const UniValue& params, bool fHelp)
-{
-    if (fHelp || params.size() < 1 || params.size() > 2)
-        throw runtime_error(
-            "sendrawcertificate \"hexstring\" ( allowhighfees )\n"
-            "\nSubmits raw certificate (serialized, hex-encoded) to local node and network.\n"
-            "\nArguments:\n"
-            "1. \"hexstring\"    (string, required) The hex string of the raw transaction)\n"
-            "2. allowhighfees    (boolean, optional, default=false) Allow high fees\n"
-            "\nResult:\n"
-            "\"hex\"             (string) The transaction hash in hex\n"
-            "\nExamples:\n"
-            + HelpExampleCli("sendrawcertificate", "\"hex\"") +
-            "\nAs a json rpc call\n"
-            + HelpExampleRpc("sendrawcertificate", "\"hex\"")
-        );
-
-    LOCK(cs_main);
-    RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR)(UniValue::VBOOL));
-
-    // parse hex string from parameter
-    CScCertificate cert;
-    if (!DecodeHexCert(cert, params[0].get_str()))
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Certificate decode failed");
-    const uint256& hashCertificate = cert.GetHash();
-
-    bool fOverrideFees = false;
-    if (params.size() > 1)
-    {
-        fOverrideFees = params[1].get_bool();
-    }
-    RejectAbsurdFeeFlag fRejectAbsurdFee = fOverrideFees? RejectAbsurdFeeFlag::OFF : RejectAbsurdFeeFlag::ON;
-
-    // check that we do not have it already somewhere
-    CCoinsViewCache &view = *pcoinsTip;
-    const CCoins* existingCoins = view.AccessCoins(hashCertificate);
-
-    bool fHaveChain = existingCoins;
-    bool fHaveMempool = mempool.existsCert(hashCertificate);
-
-    if (!fHaveMempool && !fHaveChain)
-    {
-        // push to local node and sync with wallets
-        CValidationState state;
-        MempoolProofVerificationFlag flag = MempoolProofVerificationFlag::SYNC;
-
-        if (BOOST_UNLIKELY(Params().NetworkIDString() == "regtest" && GetBoolArg("-skipscproof", false)))
-        {
-            flag = MempoolProofVerificationFlag::DISABLED;
-        }
-
-        MempoolReturnValue res = AcceptCertificateToMemoryPool(mempool, state, cert, LimitFreeFlag::OFF, fRejectAbsurdFee, flag);
-
-        if (res == MempoolReturnValue::MISSING_INPUT)
-            throw JSONRPCError(RPC_TRANSACTION_ERROR, "Missing inputs");
-
-        if (res == MempoolReturnValue::INVALID)
-        {
-            if (state.IsInvalid())
-                throw JSONRPCError(RPC_TRANSACTION_REJECTED,
-                        strprintf("%i: %s", CValidationState::CodeToChar(state.GetRejectCode()), state.GetRejectReason()));
-
-            throw JSONRPCError(RPC_TRANSACTION_ERROR, "certificate not accepted to mempool");
-        }
-    }
-    else if (fHaveChain)
-        throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "certificate already in block chain");
-
-    LogPrint("cert", "%s():%d - relaying certificate [%s]\n", __func__, __LINE__, hashCertificate.ToString());
-    cert.Relay();
-
-    return hashCertificate.GetHex();
 }

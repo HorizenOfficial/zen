@@ -319,7 +319,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -354,7 +354,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
@@ -394,7 +394,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -436,7 +436,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -477,7 +477,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
             # TODO: uncomment the following lines as soon the CCTP Lib and Mc Crypto Lib get updated.
-            # cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            # cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             # assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -516,7 +516,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
