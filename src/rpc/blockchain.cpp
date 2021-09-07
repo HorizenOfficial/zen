@@ -2001,7 +2001,8 @@ UniValue dbg_do(const UniValue& params, bool fHelp)
     if (fHelp || params.size() == 0)
     {
         throw runtime_error(
-            "dbg_do: does some hard coded helper task\n"
+            "dbg_do\n"
+            "\nDoes some hard coded helper task.\n"
             "\nExamples:\n"
             + HelpExampleCli("dbg_do", "\"todo\"")
         );
@@ -2021,10 +2022,11 @@ UniValue getproofverifierstats(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 0)
     {
         throw runtime_error(
-            "getproofverifierstatistics: collects statistics about the sidechain proof verification system\n"
+            "getproofverifierstats\n"
+            "\nCollects statistics about the sidechain proof verification system.\n"
             "\nExamples:\n"
-            + HelpExampleCli("getproofverifierstatistics", "")
-            + HelpExampleRpc("getproofverifierstatistics", "")
+            + HelpExampleCli("getproofverifierstats", "")
+            + HelpExampleRpc("getproofverifierstats", "")
         );
     }
 
