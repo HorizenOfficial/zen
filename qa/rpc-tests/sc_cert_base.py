@@ -439,6 +439,9 @@ class sc_cert_base(BitcoinTestFramework):
 
         mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
         assert_equal(True, cert_epoch_0 in self.nodes[0].getrawmempool())
+        mempool_cert_0 = self.nodes[0].getrawmempool(True)[cert_epoch_0]
+        assert_equal(True, mempool_cert_0["isCert"])
+        assert_equal(-5, mempool_cert_0["version"])
 
         bal_before_bwt = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before bwt is received: {}".format(bal_before_bwt), self.nodes, DEBUG_MODE)
@@ -476,8 +479,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Checking that amount transferred by epoch 0 certificate is not mature", self.nodes, DEBUG_MODE)
         retrieved_cert = self.nodes[1].gettransaction(cert_epoch_0)
         assert_equal(retrieved_cert['amount'], 0)  # Certificate amount is not mature yet
-        assert_equal(retrieved_cert['details'][0]['category'], "immature")
-        assert_equal(retrieved_cert['details'][0]['amount'], amount_cert_1[0]["amount"])
+        assert_equal(len(retrieved_cert['details']), 0)  # Certificate immature outputs should not present
 
         assert_equal(self.nodes[1].getwalletinfo()['immature_balance'], amount_cert_1[0]["amount"])
         utxos_Node1 = self.nodes[1].listunspent()
@@ -585,7 +587,7 @@ class sc_cert_base(BitcoinTestFramework):
         utxos_Node1 = self.nodes[1].listunspent()
         cert_epoch_0_availalble = False
         for utxo in utxos_Node1:
-            if ("certified" in utxo.keys()):
+            if utxo["isCert"]:
                 cert_epoch_0_availalble = True
                 assert_true(utxo["txid"] == cert_epoch_0 )
         assert_true(cert_epoch_0_availalble)

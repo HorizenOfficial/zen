@@ -286,7 +286,9 @@ UniValue mempoolToJSON(bool fVerbose = false)
             info.pushKV("height", (int)e.GetHeight());
             info.pushKV("startingpriority", e.GetPriority(e.GetHeight()));
             info.pushKV("currentpriority", e.GetPriority(chainActive.Height()));
+            info.pushKV("isCert", false);
             const CTransaction& tx = e.GetTx();
+            info.pushKV("version", tx.nVersion);
             AddDependancy(tx, info);
             o.pushKV(hash.ToString(), info);
         }
@@ -301,7 +303,9 @@ UniValue mempoolToJSON(bool fVerbose = false)
             info.pushKV("height", (int)e.GetHeight());
             info.pushKV("startingpriority", e.GetPriority(e.GetHeight()));
             info.pushKV("currentpriority", e.GetPriority(chainActive.Height()));
+            info.pushKV("isCert", true);
             const CScCertificate& cert = e.GetCertificate();
+            info.pushKV("version", cert.nVersion);
             AddDependancy(cert, info);
             o.pushKV(hash.ToString(), info);
         }
