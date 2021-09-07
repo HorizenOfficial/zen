@@ -38,8 +38,9 @@ namespace Sidechain
     static_assert(MAX_SC_MBTR_DATA_LEN < UINT8_MAX, "MAX_SC_MBTR_DATA_LEN must be lower than max uint8_t size!");
 
     static const int SC_FE_SIZE_IN_BYTES        = 32;
-    static const int MAX_SC_PROOF_SIZE_IN_BYTES = 7*1024;
-    static const int MAX_SC_VK_SIZE_IN_BYTES    = 4*1024;
+    static const int MAX_PROOF_PLUS_VK_SIZE     = 9*1024;
+    static const int MAX_SC_PROOF_SIZE_IN_BYTES = MAX_PROOF_PLUS_VK_SIZE;
+    static const int MAX_SC_VK_SIZE_IN_BYTES    = MAX_PROOF_PLUS_VK_SIZE;
 
     static const int SEGMENT_SIZE = 1 << 18;
 }
