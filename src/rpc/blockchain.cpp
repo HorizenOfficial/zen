@@ -2068,8 +2068,9 @@ UniValue setproofverifierlowpriorityguard(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
     {
         throw runtime_error(
-            "setproofverifierlowprioityguard: enable or disable the low priority threads guard to pause/resume the mempool related sc proof verifications.\n"
-            "Regtest only."
+            "setproofverifierlowprioityguard\n"
+            "\nEnable or disable the low priority threads guard to pause/resume the mempool related sc proof verifications.\n"
+            "Regtest only.\n"
             "\nExamples:\n"
             + HelpExampleCli("setproofverifierlowpriorityguard", "true")
             + HelpExampleRpc("setproofverifierlowpriorityguard", "false")
