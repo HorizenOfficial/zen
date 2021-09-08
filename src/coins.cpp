@@ -1205,6 +1205,16 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         return CValidationState::Code::INSUFFICIENT_SCID_FUNDS;
     }
 
+    size_t proof_plus_vk_size = sidechain.fixedParams.wCertVk.GetByteArray().size() + cert.scProof.GetByteArray().size();
+    if(proof_plus_vk_size > Sidechain::MAX_PROOF_PLUS_VK_SIZE)
+    {
+        LogPrintf("%s():%d - ERROR: Cert [%s]\n proof plus vk size (%d) exceeded the limit %d\n",
+            __func__, __LINE__, certHash.ToString(), proof_plus_vk_size, Sidechain::MAX_PROOF_PLUS_VK_SIZE);
+        if (banSenderNode)
+            *banSenderNode = true;
+        return CValidationState::Code::INVALID;
+    }
+
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
@@ -1494,6 +1504,16 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
         {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n refers to SC without CSW support\n",
                 __func__, __LINE__, tx.GetHash().ToString(), csw.ToString());
+            if (banSenderNode)
+                *banSenderNode = true;
+            return CValidationState::Code::INVALID;
+        }
+
+        size_t proof_plus_vk_size = sidechain.fixedParams.wCeasedVk.get().GetByteArray().size() + csw.scProof.GetByteArray().size();
+        if(proof_plus_vk_size > Sidechain::MAX_PROOF_PLUS_VK_SIZE)
+        {
+            LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n proof plus vk size (%d) exceeded the limit %d\n",
+                __func__, __LINE__, tx.GetHash().ToString(), csw.ToString(), proof_plus_vk_size, Sidechain::MAX_PROOF_PLUS_VK_SIZE);
             if (banSenderNode)
                 *banSenderNode = true;
             return CValidationState::Code::INVALID;
