@@ -143,6 +143,16 @@ public:
         }
     }
 
+    // compute the block size by summing up contributions:
+    // 1. header
+    // 2. number of transactions (compact size of vtx)
+    // 3. transactions
+    // and if block supports SC:
+    // 4. number of certificates (compact size of vcert, 1 byte if no certs)
+    // 5. certificates, if any
+    // rturns as out params the size of header, total tx size and total cert size
+    size_t GetSerializeComponentsSize(size_t& headerSize, size_t& totTxSize, size_t& totCertSize) const;
+
     void SetNull()
     {
         CBlockHeader::SetNull();

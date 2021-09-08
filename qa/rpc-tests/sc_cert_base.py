@@ -112,7 +112,8 @@ class sc_cert_base(BitcoinTestFramework):
         # Fwd Transfer to Sc
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
         mark_logs("Node0 balance before fwd tx: {}".format(bal_before_fwd_tx), self.nodes, DEBUG_MODE)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -394,8 +395,10 @@ class sc_cert_base(BitcoinTestFramework):
         mc_pk_hash = binascii.b2a_hex(os.urandom(20))
         end_cum_comm_tree_root = generate_random_field_element_hex()
         cert_data_hash = generate_random_field_element_hex()
+        const = generate_random_field_element_hex()
 
-        wrong_proof = tempCswMcTest.create_test_proof("sc_temp", amount, sc_id, nullifier, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash)
+        wrong_proof = tempCswMcTest.create_test_proof(
+            "sc_temp", amount, sc_id, nullifier, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash, const)
 
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, 

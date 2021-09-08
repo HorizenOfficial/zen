@@ -18,6 +18,9 @@ class CAutoFile;
 
 inline double AllowFreeThreshold()
 {
+    // the threshold represents a one day old, 1 ZEN coin (144*4 is the expected number of blocks per day) and a transaction size of 250 bytes.
+    // TODO, check this: should be:
+    // return COIN * 144 * 4 / 250;
     return COIN * 144 / 250;
 }
 

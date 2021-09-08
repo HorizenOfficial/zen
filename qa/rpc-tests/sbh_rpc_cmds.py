@@ -156,7 +156,8 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         assert_equal(ud['unconfirmedTxApperances'], 1) 
 
         #--------------------------------------------------------------------------------------
-        outputs = [{'toaddress': sc_toaddress, 'amount': sc_fwd_amount, "scid":scid}]
+        mc_return_address = self.nodes[1].getnewaddress("", True)
+        outputs = [{'toaddress': sc_toaddress, 'amount': sc_fwd_amount, "scid": scid, "mcReturnAddress": mc_return_address}]
         # if changeaddress is not specified but fromtaddress is, they are the same
         # with minconf == 0 we can use also change from the previous tx, which is still in mempool 
         cmdParms = { 'fromaddress': taddr_1, "minconf": 0, "fee": fee}

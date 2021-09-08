@@ -34,6 +34,9 @@
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 
+// for max block size
+#include <consensus/consensus.h>
+
 
 
 class CAddrMan;
@@ -52,8 +55,11 @@ static const int TIMEOUT_INTERVAL = 20 * 60;
 static const unsigned int MAX_INV_SZ = 50000;
 /** The maximum number of new addresses to accumulate before announcing. */
 static const unsigned int MAX_ADDR_TO_SEND = 1000;
-/** Maximum length of incoming protocol messages (no message over 2 MiB is currently acceptable). */
-static const unsigned int MAX_PROTOCOL_MESSAGE_LENGTH = 2 * 1024 * 1024;
+/** Maximum length of incoming protocol messages (no message over 4 MiB is currently acceptable). */
+static const unsigned int MAX_PROTOCOL_MESSAGE_LENGTH = 4 * 1024 * 1024;
+static_assert((MAX_PROTOCOL_MESSAGE_LENGTH >= MAX_BLOCK_SIZE),
+    "net.h MAX_PROTOCOL_MESSAGE_LENGTH must be greater or equal than max block size!");
+
 /** -listen default */
 static const bool DEFAULT_LISTEN = true;
 /** The maximum number of entries in mapAskFor */

@@ -235,12 +235,12 @@ BOOST_AUTO_TEST_CASE(compactsize)
     CDataStream ss(SER_DISK, 0);
     vector<char>::size_type i, j;
 
-    for (i = 1; i <= MAX_SIZE; i *= 2)
+    for (i = 1; i <= MAX_SERIALIZED_COMPACT_SIZE; i *= 2)
     {
         WriteCompactSize(ss, i-1);
         WriteCompactSize(ss, i);
     }
-    for (i = 1; i <= MAX_SIZE; i *= 2)
+    for (i = 1; i <= MAX_SERIALIZED_COMPACT_SIZE; i *= 2)
     {
         j = ReadCompactSize(ss);
         BOOST_CHECK_MESSAGE((i-1) == j, "decoded:" << j << " expected:" << (i-1));

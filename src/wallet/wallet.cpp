@@ -3370,7 +3370,7 @@ bool CWallet::CreateTransaction(
 
                 for (const auto& entry : vecFtSend)
                 {
-                    CTxForwardTransferOut txccout(entry.scId, entry.nValue, entry.address);
+                    CTxForwardTransferOut txccout(entry.scId, entry.nValue, entry.address, entry.mcReturnAddress);
                     txNew.add(txccout);
                 }
 

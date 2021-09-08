@@ -325,6 +325,7 @@ extern UniValue dbg_log(const UniValue &params, bool fHelp); // print a line in 
 extern UniValue dbg_do(const UniValue &params, bool fHelp); // does a dbg hard coded task
 
 extern UniValue getproofverifierstats(const UniValue& params, bool fHelp); // in blockchain.cpp
+extern UniValue setproofverifierlowpriorityguard(const UniValue& params, bool fHelp); // in blockchain.cpp
 
 bool StartRPC();
 void InterruptRPC();

@@ -135,10 +135,18 @@ private:
 class WsHandler
 {
 private:
+    std::condition_variable writeCV;
+    std::mutex writeMutex;
+
     boost::shared_ptr< websocket::stream<tcp::socket>> localWs;
     boost::lockfree::queue<WsEvent*, boost::lockfree::capacity<1024>> wsq;
     std::atomic<bool> exit_rwhandler_thread_flag { false };
 
+    void write(WsEvent* wse)
+    {
+        wsq.push(wse);
+        writeCV.notify_one();
+    }
     void sendBlockEvent(int height, const std::string& strHash, const std::string& blockHex, WsEvent::WsEventType eventType)
     {
         // Send a message to the client:  type = eventType
@@ -152,7 +160,7 @@ private:
         UniValue* rv = wse->getPayload();
         rv->pushKV("eventType", eventType);
         rv->pushKV("eventPayload", rspPayload);
-        wsq.push(wse);
+        write(wse);
     }
 
     void sendBlock(int height, const std::string& strHash, const std::string& blockHex,
@@ -170,7 +178,7 @@ private:
         if (!clientRequestId.empty())
             rv->pushKV("requestId", clientRequestId);
         rv->pushKV("responsePayload", rspPayload);
-        wsq.push(wse);
+        write(wse);
     }
 
     void sendHashes(int height, std::list<CBlockIndex*>& listBlock,
@@ -195,7 +203,7 @@ private:
         if (!clientRequestId.empty())
             rv->pushKV("requestId", clientRequestId);
         rv->pushKV("responsePayload", rspPayload);
-        wsq.push(wse);
+        write(wse);
     }
 
     void sendCertificateHash(const UniValue& retCert, WsEvent::WsMsgType msgType, std::string clientRequestId = "")
@@ -211,7 +219,7 @@ private:
         if (!clientRequestId.empty())
             rv->pushKV("requestId", clientRequestId);
         rv->pushKV("responsePayload", rspPayload);
-        wsq.push(wse);
+        write(wse);
     }
 
     void sendBlockHeaders(const UniValue& headers, WsEvent::WsMsgType msgType, std::string clientRequestId = "")
@@ -227,7 +235,7 @@ private:
         if (!clientRequestId.empty())
             rv->pushKV("requestId", clientRequestId);
         rv->pushKV("responsePayload", rspPayload);
-        wsq.push(wse);
+        write(wse);
     }
     
     void sendTopQualityCertificates(const UniValue& mempoolCert, const UniValue& chainCert,
@@ -245,7 +253,7 @@ private:
         if (!clientRequestId.empty())
             rv->push_back(Pair("requestId", clientRequestId));
         rv->push_back(Pair("responsePayload", rspPayload));
-        wsq.push(wse);
+        write(wse);
     }
 
     int getHashByHeight(std::string height, std::string& strHash)
@@ -585,47 +593,39 @@ private:
 
         while (!exit_rwhandler_thread_flag)
         {
-            if (!wsq.empty())
-            {
-                WsEvent* wse;
-                if (wsq.pop(wse) && wse != NULL)
-                {
-                    std::string msg = wse->getPayload()->write();
-                    LogPrint("ws", "%s():%d - deleting %p\n", __func__, __LINE__, wse);
-                    delete wse;
-                    if (localWs->is_open())
-                    {
-                        boost::beast::error_code ec;
-                        localWs->write(boost::asio::buffer(msg), ec);
+            std::unique_lock<std::mutex> lk(writeMutex);
+            // Wait upto 1 sec and check the queue in any case
+            writeCV.wait_for(lk, std::chrono::seconds(1));
 
-                        if (ec == websocket::error::closed)
-                        {
-                            LogPrint("ws", "%s():%d - err[%d]: %s\n", __func__, __LINE__,ec.value(), ec.message());
-                            break;
-                        }
-                        else
-                        if (ec.value() != boost::system::errc::success)
-                        {
-                            LogPrint("ws", "%s():%d - err[%d]: %s\n", __func__, __LINE__, ec.value(), ec.message());
-                            break;
-                        }
-                        LogPrint("ws", "%s():%d - msg[%s] written on client socket\n", __func__, __LINE__, msg);
-                    }
-                    else
+            WsEvent* wse;
+            while (wsq.pop(wse) && wse != NULL)
+            {
+                std::string msg = wse->getPayload()->write();
+                LogPrint("ws", "%s():%d - deleting %p\n", __func__, __LINE__, wse);
+                delete wse;
+                if (localWs->is_open())
+                {
+                    boost::beast::error_code ec;
+                    localWs->write(boost::asio::buffer(msg), ec);
+
+                    if (ec == websocket::error::closed)
                     {
-                        LogPrint("ws", "%s():%d - ws is closed\n", __func__, __LINE__);
+                        LogPrint("ws", "%s():%d - err[%d]: %s\n", __func__, __LINE__,ec.value(), ec.message());
                         break;
                     }
+                    else
+                    if (ec.value() != boost::system::errc::success)
+                    {
+                        LogPrint("ws", "%s():%d - err[%d]: %s\n", __func__, __LINE__, ec.value(), ec.message());
+                        break;
+                    }
+                    LogPrint("ws", "%s():%d - msg[%s] written on client socket\n", __func__, __LINE__, msg);
                 }
                 else
                 {
-                    // should never happen because pop is false only when queue is empty
-                    LogPrint("ws", "%s():%d - could not pop!\n", __func__, __LINE__);
+                    LogPrint("ws", "%s():%d - ws is closed\n", __func__, __LINE__);
+                    break;
                 }
-            }
-            else
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
         }
         LogPrint("ws", "%s():%d - write thread exit (this=%p)\n", __func__, __LINE__, this);
@@ -1052,7 +1052,7 @@ private:
                     rv->pushKV("requestId", clientRequestId);
                 rv->pushKV("errorCode", res);
                 rv->pushKV("message", msgError);
-                wsq.push(wse);
+                write(wse);
             }
         }
         LogPrint("ws", "%s():%d - exit reading loop\n", __func__, __LINE__);

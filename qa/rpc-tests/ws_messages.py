@@ -3,6 +3,8 @@
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
+import time
+
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs,\
@@ -157,7 +159,8 @@ class ws_messages(BitcoinTestFramework):
         self.sync_all()
 
         # Fwd Transfer to Sc
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -236,6 +239,21 @@ class ws_messages(BitcoinTestFramework):
         assert_equal(height, height_)
         assert_equal(block_hash, hash_)
         assert_equal(exp_block, block_)
+
+        # ----------------------------------------------------------------"
+        # Test websocket requests processing performance
+        # Should be able to process 100 Requests with less than 1 second
+        mark_logs("Testing websocket request processing performance", self.nodes, DEBUG_MODE)
+        start = time.time()
+        num_requests = 100
+        max_time_spend_sec = 1
+        for _ in range(num_requests):
+            self.nodes[0].ws_get_single_block(height)
+        time_duration = time.time() - start
+        assert_true(time_duration < max_time_spend_sec, "Websocket performs too slow: " + str(time_duration) +
+                    " sec. Expect to take less than " + str(max_time_spend_sec) + " sec.")
+        mark_logs("Actual websocket processing time per " + str(num_requests) + " requests = " +
+                  str(time_duration) + " sec.", self.nodes, DEBUG_MODE)
 
         # ----------------------------------------------------------------"
         # Test get multiple block hashes
@@ -393,7 +411,8 @@ class ws_messages(BitcoinTestFramework):
         self.sync_all()
 
         # Fwd Transfer to Sc
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid2)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid2, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
