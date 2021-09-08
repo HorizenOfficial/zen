@@ -730,7 +730,7 @@ UniValue gettxout(const UniValue& params, bool fHelp)
     ret.pushKV("coinbase", coins.IsCoinBase());
 
     bool isBackwardTransfer = coins.IsFromCert() && n >= coins.nFirstBwtPos;
-    ret.pushKV("backwardTransfer", isBackwardTransfer);
+    ret.pushKV("backwardtransfer", isBackwardTransfer);
     if(isBackwardTransfer) {
         ret.pushKV("mature", isOutputMature);
         bool isCoinFromMempool = coins.nBwtMaturityHeight == MEMPOOL_HEIGHT;
