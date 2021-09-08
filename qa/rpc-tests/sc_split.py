@@ -132,7 +132,8 @@ class ScSplitTest(BitcoinTestFramework):
 
         # Node 1 creates a FT of 4.0 coins and Node 0 generates 1 block
         mark_logs("\nNode 1 performs a fwd transfer of " + str(fwt_amount_1) + " coins ...", self.nodes, DEBUG_MODE)
-        txes.append(self.nodes[1].sc_send("abcd", fwt_amount_1, scid))
+        mc_return_address = self.nodes[1].getnewaddress("", True)
+        txes.append(self.nodes[1].sc_send("abcd", fwt_amount_1, scid, mc_return_address))
         mark_logs("tx: {}".format(txes[-1]), self.nodes, DEBUG_MODE)
 
         mark_logs("\nNode0 generating 1 honest block", self.nodes, DEBUG_MODE)
@@ -141,7 +142,8 @@ class ScSplitTest(BitcoinTestFramework):
 
         # Node 1 creates a FT of 1.0 coin and Node 0 generates 1 block
         mark_logs("\nNode 1 performs a fwd transfer of " + str(fwt_amount_2) + " coins ...", self.nodes, DEBUG_MODE)
-        txes.append(self.nodes[1].sc_send("abcd", fwt_amount_2, scid))
+        mc_return_address = self.nodes[1].getnewaddress("", True)
+        txes.append(self.nodes[1].sc_send("abcd", fwt_amount_2, scid, mc_return_address))
         mark_logs("tx: {}".format(txes[-1]), self.nodes, DEBUG_MODE)
         self.sync_all()
 

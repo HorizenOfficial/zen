@@ -187,3 +187,6 @@ class AuthServiceProxy(object):
             return None
         return self.__ws_proxy.get_wsurl()
 
+    def get_service_url(self):
+        return self.__service_url
+

@@ -107,6 +107,11 @@ CCswProofVerifierInput CScProofVerifier::CswInputToVerifierItem(const CTxCeasedS
     cswData.nullifier = cswInput.nullifier;
     cswData.proof = cswInput.scProof;
 
+    if (scFixedParams.constant.is_initialized())
+        cswData.constant = scFixedParams.constant.get();
+    else
+        cswData.constant = CFieldElement{};
+
     // The ceased verification key must be initialized to allow CSW. This check is already performed inside IsScTxApplicableToState().
     assert(scFixedParams.wCeasedVk.is_initialized());
     
@@ -227,19 +232,19 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
         for (auto& proof : proofs)
         {
             proof.second.result = ProofVerificationResult::Passed;
-            return true;
         }
+        return true;
     }
 
-    CctpErrorCode code;
-    ZendooBatchProofVerifier batchVerifier;
+    // The paramenter in the ctor is a boolean telling mc-crypto lib if the rust verifier executing thread
+    // will be a high-priority one (default is false)
+    ZendooBatchProofVerifier batchVerifier(verificationPriority == Priority::High);
     bool addFailure = false;
-
     std::map<uint32_t /* Proof ID */, uint256 /* Tx or Cert hash */> proofIdMap;
+    CctpErrorCode code;
 
-    int64_t nTime1 = GetTimeMicros();
     LogPrint("bench", "%s():%d - starting verification\n", __func__, __LINE__);
-
+    int64_t nTime1 = GetTimeMicros();
     for (auto& proofEntry : proofs)
     {
         CProofVerifierItem& item = proofEntry.second;
@@ -258,6 +263,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
                 const uint160& csw_pk_hash = cswInput.pubKeyHash;
                 BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
     
+                wrappedFieldPtr   sptrConst     = cswInput.constant.GetFieldElement();
                 wrappedFieldPtr   sptrCdh       = cswInput.certDataHash.GetFieldElement();
                 wrappedFieldPtr   sptrCum       = cswInput.ceasingCumScTxCommTree.GetFieldElement();
                 wrappedFieldPtr   sptrNullifier = cswInput.nullifier.GetFieldElement();
@@ -267,6 +273,7 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
                 bool ret = batchVerifier.add_csw_proof(
                     cswInput.proofId,
                     cswInput.nValue,
+                    sptrConst.get(),
                     scid_fe, 
                     sptrNullifier.get(),
                     &bws_csw_pk_hash,
@@ -341,6 +348,9 @@ bool CScProofVerifier::BatchVerifyInternal(std::map</* Cert or Tx hash */ uint25
                 sptrCertVk.get(),
                 &code
             );
+            //dumpBtArr((backward_transfer_t*)bt_list_ptr, bt_list_len, "bwt list");
+            //dumpFeArr((field_t**)custom_fields.get(), custom_fields_len, "custom fields");
+            //dumpFe(sptrCum.get(), "cumTree");
 
             if (!ret || code != CctpErrorCode::OK)
             {
@@ -518,6 +528,7 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCsw(std::vector<CCswProofV
         const uint160& csw_pk_hash = input.pubKeyHash;
         BufferWithSize bws_csw_pk_hash(csw_pk_hash.begin(), csw_pk_hash.size());
      
+        wrappedFieldPtr   sptrConst     = input.constant.GetFieldElement();
         wrappedFieldPtr   sptrCdh       = input.certDataHash.GetFieldElement();
         wrappedFieldPtr   sptrCum       = input.ceasingCumScTxCommTree.GetFieldElement();
         wrappedFieldPtr   sptrNullifier = input.nullifier.GetFieldElement();
@@ -527,6 +538,7 @@ ProofVerificationResult CScProofVerifier::NormalVerifyCsw(std::vector<CCswProofV
         CctpErrorCode code;
         bool ret = zendoo_verify_csw_proof(
                     input.nValue,
+                    sptrConst.get(),
                     scid_fe, 
                     sptrNullifier.get(),
                     &bws_csw_pk_hash,

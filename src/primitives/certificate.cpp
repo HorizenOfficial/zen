@@ -114,13 +114,12 @@ bool CScCertificate::CheckInputsOutputsNonEmpty(CValidationState &state) const
 
 bool CScCertificate::CheckSerializedSize(CValidationState &state) const
 {
-    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE); // sanity
     uint32_t size = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     if (size > MAX_CERT_SIZE) {
         LogPrintf("%s():%d - Cert id = %s, size = %d, limit = %d, cert = %s\n",
-            __func__, __LINE__, GetHash().ToString(), size, MAX_TX_SIZE, ToString());
+            __func__, __LINE__, GetHash().ToString(), size, MAX_CERT_SIZE, ToString());
         return state.DoS(100, error("checkSerializedSizeLimits(): size limits failed"),
-                         CValidationState::Code::INVALID, "bad-txns-oversize");
+                         CValidationState::Code::INVALID, "bad-cert-oversize");
     }
 
     return true;

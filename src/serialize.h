@@ -26,7 +26,7 @@
 
 class CScript;
 
-static const unsigned int MAX_SIZE = 0x02000000;
+static const unsigned int MAX_SERIALIZED_COMPACT_SIZE = 0x02000000;
 
 /**
  * Dummy data type to identify deserializing constructors.
@@ -315,7 +315,7 @@ uint64_t ReadCompactSize(Stream& is)
         if (nSizeRet < 0x100000000ULL)
             throw std::ios_base::failure("non-canonical ReadCompactSize()");
     }
-    if (nSizeRet > (uint64_t)MAX_SIZE)
+    if (nSizeRet > (uint64_t)MAX_SERIALIZED_COMPACT_SIZE)
         throw std::ios_base::failure("ReadCompactSize(): size too large");
     return nSizeRet;
 }

@@ -1,9 +1,9 @@
 package=crate_serde_z
 $(package)_crate_name=serde
-$(package)_version=1.0.126
+$(package)_version=1.0.130
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=ec7505abeacaec74ae4778d9d9328fe5a5d04253220a85c4ee022239fc996d03
+$(package)_sha256_hash=f12d06de37cf59146fbdecab66aa99f9fe4f78722e3607577a5375d66bd0c913
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds

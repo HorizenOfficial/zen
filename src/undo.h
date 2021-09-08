@@ -310,13 +310,17 @@ class CBlockUndo
 {
     /** Magic number read from the value expressing the size of vtxundo vector.
      *  It is used for distinguish new version of CBlockUndo instance from old ones.
-     *  The maximum number of tx in a block is roughly MAX_BLOCK_SIZE / MIN_TX_SIZE, which is:
-     *   2M / 61bytes =~ 33K = 0x8012
+     *  The maximum number of tx+cert in a block is roughly:
+     *      BLOCK_TX_PARTITION_SIZE / MIN_TX_SIZE + (MAX_BLOCK_SIZE - BLOCK_TX_PARTITION_SIZE) / MIN_CERT_SIZE =
+     *      2M / 61bytes + 2M / 1186bytes =~ 35K = 0x8912  
      * Therefore the magic number must be a number greater than this limit. */
-    static const uint16_t _marker = 0xffff;
+    static const uint64_t _marker = 0xffff;
 
-    static_assert(_marker > (MAX_BLOCK_SIZE / MIN_TX_SIZE),
+    static_assert(_marker > (BLOCK_TX_PARTITION_SIZE / MIN_TX_SIZE + (MAX_BLOCK_SIZE - BLOCK_TX_PARTITION_SIZE) / MIN_CERT_SIZE),
         "CBlockUndo::_marker must be greater than max number of tx in a block!");
+
+    static_assert(_marker <= MAX_SERIALIZED_COMPACT_SIZE,
+        "CBlockUndo::_marker must not be greater than max value representable in a serialized compact size!");
 
     /** memory only */
     bool includesSidechainAttributes;
@@ -361,7 +365,7 @@ public:
         vtxundo.clear();
         includesSidechainAttributes = false;
 
-        unsigned int nSize = ReadCompactSize(s);
+        uint64_t nSize = ReadCompactSize(s);
         if (nSize == _marker)
         {
             // this is a new version of blockundo

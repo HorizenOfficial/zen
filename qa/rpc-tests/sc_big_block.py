@@ -140,7 +140,7 @@ class sc_big_block(BitcoinTestFramework):
         cswMcTest = CSWTestUtils(self.options.tmpdir, self.options.srcdir, CSW_PROVING_SYSTEM)
 
         certVk = certMcTest.generate_params('scs', 'cert', CERT_NUM_CONSTRAINTS, SEGMENT_SIZE)
-        cswVk  = cswMcTest.generate_params('scs', CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
+        cswVk  = cswMcTest.generate_params('scs', 'csw', CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
 
         constant = generate_random_field_element_hex()
 
@@ -217,8 +217,8 @@ class sc_big_block(BitcoinTestFramework):
             print "Generating csw proof..."
             t0 = time.time()
             sc_proof = cswMcTest.create_test_proof(
-                    "scs", sc_csw_amount, str(scid_swapped), nullifier, pkh_mc_address, ceasingCumScTxCommTree, actCertData,
-                    CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
+                "scs", sc_csw_amount, str(scid_swapped), nullifier, pkh_mc_address, ceasingCumScTxCommTree,
+                actCertData, constant, CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
             assert_true(sc_proof != None)
             t1 = time.time()
             print "...proof generated: {} secs".format(t1-t0)

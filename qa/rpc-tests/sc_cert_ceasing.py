@@ -209,8 +209,9 @@ class sc_cert_ceasing(BitcoinTestFramework):
 
         mark_logs("Node 0 tries to fwd coins to ceased sc {}...".format(scids[-1]), self.nodes, DEBUG_MODE)
         fwt_amount = Decimal("0.5")
+        mc_return_address = self.nodes[0].getnewaddress("", True)
         try:
-            fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scids[-1])
+            fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scids[-1], mc_return_address)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']

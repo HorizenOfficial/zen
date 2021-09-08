@@ -285,8 +285,8 @@ uint256 CTxForwardTransferOut::GetHash() const
 
 std::string CTxForwardTransferOut::ToString() const
 {
-    return strprintf("CTxForwardTransferOut(nValue=%d.%08d, address=%s, scId=%s)",
-        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), scId.ToString() );
+    return strprintf("CTxForwardTransferOut(nValue=%d.%08d, address=%s, scId=%s, mcReturnAddress=%s)",
+        nValue / COIN, nValue % COIN, HexStr(address).substr(0, 30), scId.ToString(), mcReturnAddress.ToString());
 }
 
 //----------------------------------------------------------------------------
@@ -518,7 +518,6 @@ CAmount CTransactionBase::GetJoinSplitValueIn() const
 
 bool CTransaction::CheckSerializedSize(CValidationState &state) const
 {
-    BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_TX_SIZE); // sanity
     uint32_t size = GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION);
     if (size > MAX_TX_SIZE) {
         LogPrintf("%s():%d - Tx id = %s, size = %d, limit = %d, tx = %s\n",

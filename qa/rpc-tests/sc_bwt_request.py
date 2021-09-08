@@ -341,7 +341,11 @@ class sc_bwt_request(BitcoinTestFramework):
         sc_cr = [ {"epoch_length":10, "amount":sc_cr_amount, "address":"effe", "wCertVk":vk3, "constant":c3} ]
         ft_amount_1 = 1.0
         ft_amount_2 = 2.0
-        sc_ft = [ {"address":"abc", "amount":ft_amount_1, "scid":scid2}, {"address":"cde", "amount":ft_amount_2, "scid":scid2} ]
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        sc_ft = [
+            {"address": "abc", "amount": ft_amount_1, "scid": scid2, "mcReturnAddress": mc_return_address},
+            {"address": "cde", "amount": ft_amount_2, "scid": scid2, "mcReturnAddress": mc_return_address}
+        ]
         bt_sc_fee_1 = 0.13
         bt_sc_fee_2 = 0.23
         bt_sc_fee_3 = 0.12

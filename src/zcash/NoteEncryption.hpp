@@ -87,6 +87,7 @@ public:
     }
 };
 
+uint160 random_uint160();
 uint256 random_uint256();
 uint252 random_uint252();
 

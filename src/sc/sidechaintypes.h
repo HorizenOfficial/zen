@@ -34,15 +34,28 @@ namespace Sidechain
 
     static const int MAX_SC_CUSTOM_DATA_LEN     = 1024;     /**< Maximum data length for custom data (optional attribute for sidechain creation) in bytes. */
     static const int MAX_SC_MBTR_DATA_LEN       = 16;       /**< Maximum number of field elements contained in a mainchain backward transfer request (optional attribute for sidechain creation). */
-    
+
     static_assert(MAX_SC_MBTR_DATA_LEN < UINT8_MAX, "MAX_SC_MBTR_DATA_LEN must be lower than max uint8_t size!");
-    
+
     static const int SC_FE_SIZE_IN_BYTES        = 32;
-    static const int MAX_SC_PROOF_SIZE_IN_BYTES = 7*1024;  
-    static const int MAX_SC_VK_SIZE_IN_BYTES    = 4*1024;
+    static const int MAX_PROOF_PLUS_VK_SIZE     = 9*1024;
+    static const int MAX_SC_PROOF_SIZE_IN_BYTES = MAX_PROOF_PLUS_VK_SIZE;
+    static const int MAX_SC_VK_SIZE_IN_BYTES    = MAX_PROOF_PLUS_VK_SIZE;
 
     static const int SEGMENT_SIZE = 1 << 18;
 }
+
+class CZendooLowPrioThreadGuard
+{
+private:
+    const bool _pause;
+public:
+    CZendooLowPrioThreadGuard(bool pauseThreads);
+    ~CZendooLowPrioThreadGuard();
+
+    CZendooLowPrioThreadGuard(const CZendooLowPrioThreadGuard&) = delete;
+    CZendooLowPrioThreadGuard& operator=(const CZendooLowPrioThreadGuard&) = delete;
+};
 
 ///////////////////////////////// CZendooBatchProofVerifierResult ////////////////////////////////
 struct CZendooBatchProofVerifierResultPtrDeleter
@@ -146,7 +159,7 @@ public:
         READWRITE(byteVector);
     }
 
-    mutable wrappedFieldPtr fieldData; 
+    mutable wrappedFieldPtr fieldData;
 
     // shared_ptr reference count, mainly for UT
     long getUseCount() const { return fieldData.use_count(); }
@@ -195,7 +208,7 @@ public:
         READWRITE(byteVector);
     }
 
-    mutable wrappedScProofPtr proofData; 
+    mutable wrappedScProofPtr proofData;
 
     // shared_ptr reference count, mainly for UT
     long getUseCount() const { return proofData.use_count(); }
@@ -242,7 +255,7 @@ public:
     bool operator==(const CScVKey& rhs) const { return isBaseEqual(rhs) && getProvingSystemType() == rhs.getProvingSystemType(); }
     bool operator!=(const CScVKey& rhs) const { return !(*this == rhs); }
 
-    mutable wrappedScVkeyPtr vkData; 
+    mutable wrappedScVkeyPtr vkData;
 
     // shared_ptr reference count, mainly for UT
     long getUseCount() const { return vkData.use_count(); }
@@ -310,8 +323,9 @@ public:
     //for serialization only, which requires the default ctor. No checkValid call here
     BitVectorCertificateFieldConfig(): CustomCertificateFieldConfig(), bitVectorSizeBits(-1), maxCompressedSizeBytes(-1) {}
 
-    static const int32_t MAX_BIT_VECTOR_SIZE_BITS = 1040384; // 2^12 * 254
-    static const int32_t MAX_COMPRESSED_SIZE_BYTES = MAX_BIT_VECTOR_SIZE_BITS / 8; // no rounding here, since 2^12 is divisible by 8
+    static const int32_t MAX_BIT_VECTOR_SIZE_BITS;
+    static const int32_t MAX_COMPRESSED_SIZE_BYTES;
+    static const int32_t SPARSE_VECTOR_COMPRESSION_OVERHEAD;
 
     bool IsValid() const override final;
 
@@ -488,7 +502,7 @@ struct ScFixedParameters
             wCeasedVk == boost::none                                  &&
             vFieldElementCertificateFieldConfig.empty()               &&
             vBitVectorCertificateFieldConfig.empty()                  &&
-            mainchainBackwardTransferRequestDataLength == 0 
+            mainchainBackwardTransferRequestDataLength == 0
             );
     }
 
@@ -504,7 +518,7 @@ struct ScFixedParameters
         READWRITE(vBitVectorCertificateFieldConfig);
         READWRITE(mainchainBackwardTransferRequestDataLength);
     }
-    
+
     ScFixedParameters(): withdrawalEpochLength(-1), mainchainBackwardTransferRequestDataLength(0)
     {}
 
@@ -555,7 +569,7 @@ struct ScBwtRequestParameters
     inline bool operator==(const ScBwtRequestParameters& rhs) const
     {
         return (scFee == rhs.scFee) &&
-               (vScRequestData == rhs.vScRequestData); 
+               (vScRequestData == rhs.vScRequestData);
     }
     inline bool operator!=(const ScBwtRequestParameters& rhs) const { return !(*this == rhs); }
     inline ScBwtRequestParameters& operator=(const ScBwtRequestParameters& cp)
@@ -591,6 +605,7 @@ struct CRecipientScCreation : public CRecipientCrossChainBase
 struct CRecipientForwardTransfer : public CRecipientCrossChainBase
 {
     uint256 scId;
+    uint160 mcReturnAddress;
 };
 
 struct CRecipientBwtRequest

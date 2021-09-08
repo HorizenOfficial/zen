@@ -109,6 +109,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.pushKV("n", (int64_t)nIdx);
         o.pushKV("value", ValueFromAmount(out.nValue));
         o.pushKV("address", out.address.GetHex());
+        o.pushKV("mcReturnAddress", out.mcReturnAddress.GetHex());
         vfts.push_back(o);
         nIdx++;
     }
@@ -656,7 +657,24 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
         uint256 address;
         address.SetHex(inputString);
 
-        CTxForwardTransferOut txccout(scId, nAmount, address);
+        const UniValue& mcReturnAddressVal = find_value(o, "mcReturnAddress");
+        if (mcReturnAddressVal.isNull())
+        {
+            error = "Missing mandatory parameter mcReturnAddress";
+            return false;
+        }
+
+        inputString = mcReturnAddressVal.get_str();
+        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+        {
+            error = "Invalid mcReturnAddress format: not an hex";
+            return false;
+        }
+
+        uint160 mcReturnAddress;
+        mcReturnAddress.SetHex(inputString);
+
+        CTxForwardTransferOut txccout(scId, nAmount, address, mcReturnAddress);
         rawTx.vft_ccout.push_back(txccout);
     }
 
@@ -773,6 +791,7 @@ void fundCcRecipients(const CTransaction& tx,
         ft.scId = entry.scId;
         ft.address = entry.address;
         ft.nValue = entry.nValue;
+        ft.mcReturnAddress = entry.mcReturnAddress;
 
         vecFtSend.push_back(ft);
     }
@@ -1025,6 +1044,30 @@ void ScRpcCmdCert::sign()
 
 void ScRpcCmdCert::send()
 {
+    unsigned int nSize = getSignedObjSize();
+
+    // check we do not exceed max certificate size
+    if (nSize > MAX_CERT_SIZE)
+    {
+        LogPrintf("%s():%d - certificate size[%d] > max size(%d)\n", __func__, __LINE__, nSize, MAX_CERT_SIZE);
+        throw JSONRPCError(RPC_VERIFY_ERROR, strprintf(
+            "certificate size %d > max cert size(%d)", nSize, MAX_CERT_SIZE));
+    }
+
+    // If fee is null then the user has explicitly set this cert as free.
+    // Else if fee is not null, check that the obj size does not imply a feeRate too low, because
+    // we might risk not to have it mined and yet spend the fee
+
+    LogPrint("sc", "%s():%d - cert cmd obj size[%d], fee %d, minFee %d\n", __func__, __LINE__, nSize, _fee, ::minRelayTxFee.GetFee(nSize));
+
+    if (_fee != 0 && _fee < ::minRelayTxFee.GetFee(nSize))
+    {
+        LogPrintf("%s():%d - certificate size[%d], fee %d < minimum(%d)\n", __func__, __LINE__, nSize, _fee, ::minRelayTxFee.GetFee(nSize));
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+            "certificate with size %d has too low a fee: %d < minimum(%d), the miner might not include it in a block",
+            nSize, _fee, ::minRelayTxFee.GetFee(nSize)));
+    }
+
     UniValue val = UniValue(UniValue::VARR);
     val.push_back(_signedObjHex);
 
@@ -1182,7 +1225,7 @@ void ScRpcSendCmdTx::addCcOutputs()
 
     for (const auto& entry : _outParams)
     {
-        CTxForwardTransferOut txccout(entry._scid, entry._nAmount, entry._toScAddress);
+        CTxForwardTransferOut txccout(entry._scid, entry._nAmount, entry._toScAddress, entry._mcReturnAddress);
         _tx.add(txccout);
     }
 }

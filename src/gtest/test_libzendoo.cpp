@@ -35,6 +35,8 @@ static CMutableTransaction CreateDefaultTx()
     mtx.vft_ccout.resize(1);
     mtx.vft_ccout[0].scId = uint256S("abababcdcdcd");
     mtx.vft_ccout[0].nValue = CAmount(30000);
+    mtx.vft_ccout[0].address = uint256S("abcdef");
+    mtx.vft_ccout[0].mcReturnAddress = uint160S("abcdef");
     //---
     mtx.vmbtr_out.resize(1);
     mtx.vmbtr_out[0].scId = uint256S("abababcdcdcd"); // same as above
@@ -77,11 +79,22 @@ static CMutableScCertificate CreateDefaultCert()
     return mcert;
 }
 
-static CCertProofVerifierInput CreateDefaultCertInput()
+static CCertProofVerifierInput CreateDefaultCertInput(TestCircuitType circuitType = TestCircuitType::Certificate)
 {
     CCertProofVerifierInput certInput;
 
-    certInput.constant = CFieldElement(SAMPLE_FIELD);
+    switch(circuitType)
+    {
+        // set constant only if required 
+        case TestCircuitType::Certificate:
+            certInput.constant = CFieldElement(SAMPLE_FIELD);
+            break;
+
+        case TestCircuitType::CertificateNoConstant:
+        default:
+            break;
+    }
+
     certInput.epochNumber = 7;
     certInput.quality = 10;
     certInput.endEpochCumScTxCommTreeRoot = CFieldElement(SAMPLE_FIELD);
@@ -91,9 +104,21 @@ static CCertProofVerifierInput CreateDefaultCertInput()
     return certInput;
 }
 
-static CCswProofVerifierInput CreateDefaultCswInput()
+static CCswProofVerifierInput CreateDefaultCswInput(TestCircuitType circuitType = TestCircuitType::CSW)
 {
     CCswProofVerifierInput cswInput;
+
+    switch(circuitType)
+    {
+        // set constant only if required 
+        case TestCircuitType::CSW:
+            cswInput.constant = CFieldElement(SAMPLE_FIELD);
+            break;
+
+        case TestCircuitType::CSWNoConstant:
+        default:
+            break;
+    }
 
     cswInput.ceasingCumScTxCommTree = CFieldElement(SAMPLE_FIELD);
     cswInput.certDataHash = CFieldElement(SAMPLE_FIELD);
@@ -474,8 +499,9 @@ TEST(SidechainsField, NakedZendooFeatures_PoseidonMerkleTreeTest)
     }
 
     // Initialize tree
-    auto tree = ZendooGingerMerkleTree(height, leaves_len);
     CctpErrorCode code;
+    auto tree = ZendooGingerMerkleTree(height, leaves_len, &code);
+    ASSERT_TRUE(code == CctpErrorCode::OK);
 
     // Add leaves to tree
     std::vector<wrappedFieldPtr> vSptr;
@@ -533,7 +559,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
     ccout.customData.push_back(0x77);
 
     mutTx.vsc_ccout.push_back(ccout);
-    mutTx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("bbb"), CAmount(1985), uint256S("badcafe")));
+    mutTx.vft_ccout.push_back(CTxForwardTransferOut(uint256S("bbb"), CAmount(1985), uint256S("badcafe"), uint160S("badcafe")));
     scCreationTx = mutTx;
 
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
@@ -554,7 +580,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     uint256 scTxCommitmentHash = builder.getCommitment();
 
-    EXPECT_TRUE(scTxCommitmentHash == uint256S("36bf235d3c2b3e7d7eb2e8e68f67acb1ebad500bb763bbcbef6e97f2eb61530c"))
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("27363f1d4073deecf57dd951362912d5b1d49eb3271026be092a165f29f1975e"))
         <<scTxCommitmentHash.ToString();
 }
 
@@ -568,6 +594,7 @@ TEST(SidechainsField, NakedZendooFeatures_EmptyTreeCommitmentCalculation)
     //Nothing to add
 
     uint256 scTxCommitmentHash = builder.getCommitment();
+    EXPECT_TRUE(SidechainTxsCommitmentBuilder::getEmptyCommitment() == emptySha);
     EXPECT_TRUE(scTxCommitmentHash == emptySha) <<scTxCommitmentHash.ToString() << "\n" << emptySha.ToString();
 }
 
@@ -910,32 +937,39 @@ TEST(CctpLibrary, BitVectorCertificateFieldBadSize)
     zendoo_free_bws(bws_ret1);
 }
 
-TEST(CctpLibrary, BitVectorCertificateFieldFull)
+TEST(CctpLibrary, BitVectorCertificateFieldFullGzip)
 {
     CctpErrorCode ret_code = CctpErrorCode::OK;
+    srand(time(NULL));
 
     // uncompressed buffer size, use the max size
-    // TODO currently if a value not consistent with field element splitting is used, cctp does an assert(false)
-    static const int SC_BV_SIZE_IN_BYTES = BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES;
+    // currently if a value not consistent with field element splitting is used, cctp does an assert(false)
+    static const int SC_BV_SIZE_IN_BYTES = BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS/8;
 
-    unsigned char buffer[SC_BV_SIZE_IN_BYTES] = {};
-    buffer[0] = 0xff;
-    buffer[SC_BV_SIZE_IN_BYTES-1] = 0xff;
+    unsigned char* buffer = new unsigned char[SC_BV_SIZE_IN_BYTES];
+    for(size_t i = 0; i < SC_BV_SIZE_IN_BYTES; i++)
+        buffer[i] = rand() % 256;
+
+    printf("Uncompressed buffer size %d ...\n", SC_BV_SIZE_IN_BYTES);
 
     CompressionAlgorithm e = CompressionAlgorithm::Gzip;
 
     BufferWithSize bws_in(buffer, SC_BV_SIZE_IN_BYTES);
 
-    printf("Compressing using gzip...\n");
+    printf("Compressing using gzip...");
     BufferWithSize* bws_ret1 = nullptr;
     bws_ret1 = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
     ASSERT_TRUE(bws_ret1 != nullptr);
     ASSERT_TRUE(ret_code == CctpErrorCode::OK);
+    printf(" ===> Compressed size %lu\n", bws_ret1->len);
 
     const std::vector<unsigned char> bvVec(bws_ret1->data, bws_ret1->data + bws_ret1->len);
 
     int bitVectorSizeBits = SC_BV_SIZE_IN_BYTES*8; // the original size of the buffer
     int maxCompressedSizeBytes = bvVec.size(); // take the compressed data buf as max value 
+
+    // check that we are below the defined limit, which include a small overhed for very sparse bit vectors
+    ASSERT_TRUE(maxCompressedSizeBytes < BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES);
 
     const BitVectorCertificateFieldConfig cfg(bitVectorSizeBits, maxCompressedSizeBytes);
     BitVectorCertificateField bvField(bvVec);
@@ -943,8 +977,51 @@ TEST(CctpLibrary, BitVectorCertificateFieldFull)
     const CFieldElement& fe = bvField.GetFieldElement(cfg);
     EXPECT_TRUE(fe.IsValid());
     zendoo_free_bws(bws_ret1);
+    delete [] buffer;
 }
 
+TEST(CctpLibrary, BitVectorCertificateFieldFullBzip2)
+{
+    CctpErrorCode ret_code = CctpErrorCode::OK;
+    srand(time(NULL));
+
+    // uncompressed buffer size, use the max size
+    // currently if a value not consistent with field element splitting is used, cctp does an assert(false)
+    static const int SC_BV_SIZE_IN_BYTES = BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS/8;
+
+    unsigned char* buffer = new unsigned char[SC_BV_SIZE_IN_BYTES];
+    for(size_t i = 0; i < SC_BV_SIZE_IN_BYTES; i++)
+        buffer[i] = rand() % 256;
+
+    printf("Uncompressed buffer size %d ...\n", SC_BV_SIZE_IN_BYTES);
+
+    CompressionAlgorithm e = CompressionAlgorithm::Bzip2;
+
+    BufferWithSize bws_in(buffer, SC_BV_SIZE_IN_BYTES);
+
+    printf("Compressing using bzip2...");
+    BufferWithSize* bws_ret1 = nullptr;
+    bws_ret1 = zendoo_compress_bit_vector(&bws_in, e, &ret_code);
+    ASSERT_TRUE(bws_ret1 != nullptr);
+    ASSERT_TRUE(ret_code == CctpErrorCode::OK);
+    printf(" ===> Compressed size %lu\n", bws_ret1->len);
+
+    const std::vector<unsigned char> bvVec(bws_ret1->data, bws_ret1->data + bws_ret1->len);
+
+    int bitVectorSizeBits = SC_BV_SIZE_IN_BYTES*8; // the original size of the buffer
+    int maxCompressedSizeBytes = bvVec.size(); // take the compressed data buf as max value 
+
+    // check that we are below the defined limit, which include a small overhed for very sparse bit vectors
+    ASSERT_TRUE(maxCompressedSizeBytes < BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES);
+
+    const BitVectorCertificateFieldConfig cfg(bitVectorSizeBits, maxCompressedSizeBytes);
+    BitVectorCertificateField bvField(bvVec);
+
+    const CFieldElement& fe = bvField.GetFieldElement(cfg);
+    EXPECT_TRUE(fe.IsValid());
+    zendoo_free_bws(bws_ret1);
+    delete [] buffer;
+}
 
 TEST(CctpLibrary, CommitmentTreeBuilding)
 {
@@ -1089,11 +1166,15 @@ TEST(CctpLibrary, CommitmentTreeBuilding)
         const uint256& fwt_pub_key = ccout.address;
         BufferWithSize bws_fwt_pk((unsigned char*)fwt_pub_key.begin(), fwt_pub_key.size());
 
+        const uint160& fwt_mc_return_address = ccout.mcReturnAddress;
+        BufferWithSize bws_fwt_return_address((unsigned char*)fwt_mc_return_address.begin(), fwt_mc_return_address.size());
+
         printf("Adding a fwt to the commitment tree ...\n");
         bool ret = zendoo_commitment_tree_add_fwt(ct,
              scid_fe,
              ccout.nValue,
              &bws_fwt_pk,
+             &bws_fwt_return_address,
              &bws_tx_hash,
              out_idx,
              &ret_code
@@ -1647,7 +1728,25 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCertificateProof)
 
     CCertProofVerifierInput certInput = CreateDefaultCertInput();
     certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
-    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem);
+    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
+
+    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+}
+
+TEST(CctpLibrary, CreateAndVerifyMarlinCertificateNoConstantProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
+    const TestCircuitType circuitType = TestCircuitType::CertificateNoConstant;
+
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCertProofVerifierInput certInput = CreateDefaultCertInput(circuitType);
+    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
 
     ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
 }
@@ -1674,6 +1773,24 @@ TEST(CctpLibrary, CreateAndVerifyDarlinCertificateProof)
     ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
 }
 
+TEST(CctpLibrary, CreateAndVerifyDarlinCertificateNoConstantProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::Darlin;
+    const TestCircuitType circuitType = TestCircuitType::CertificateNoConstant;
+
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCertProofVerifierInput certInput = CreateDefaultCertInput(circuitType);
+    certInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    certInput.proof = testManager.GenerateTestCertificateProof(certInput, provingSystem, circuitType);
+
+    ASSERT_TRUE(testManager.VerifyCertificateProof(certInput));
+}
+
 /**
  * @brief This test is intended to generate verification parameters,
  * generate a valid CSW proof (Marlin) and verify it through the batch verifier.
@@ -1696,6 +1813,24 @@ TEST(CctpLibrary, CreateAndVerifyMarlinCswProof)
     ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
 }
 
+TEST(CctpLibrary, CreateAndVerifyMarlinCswNoConstantProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::CoboundaryMarlin;
+    const TestCircuitType circuitType = TestCircuitType::CSWNoConstant;
+
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput(circuitType);
+    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem, circuitType);
+
+    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+}
+
 /**
  * @brief This test is intended to generate verification parameters,
  * generate a valid CSW proof (Marlin) and verify it through the batch verifier.
@@ -1714,6 +1849,24 @@ TEST(CctpLibrary, CreateAndVerifyDarlinCswProof)
     CCswProofVerifierInput cswInput = CreateDefaultCswInput();
     cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
     cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem);
+
+    ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
+}
+
+TEST(CctpLibrary, CreateAndVerifyDarlinCswNoConstantProof)
+{
+    const ProvingSystem provingSystem = ProvingSystem::Darlin;
+    const TestCircuitType circuitType = TestCircuitType::CSWNoConstant;
+
+    SelectParams(CBaseChainParams::REGTEST);
+    BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+    testManager.GenerateSidechainTestParameters(provingSystem, circuitType);
+
+    std::cout << "Temp folder for proof verification test: " << testManager.TempFolderPath() << std::endl;
+
+    CCswProofVerifierInput cswInput = CreateDefaultCswInput(circuitType);
+    cswInput.verificationKey = testManager.GetTestVerificationKey(provingSystem, circuitType);
+    cswInput.proof = testManager.GenerateTestCswProof(cswInput, provingSystem, circuitType);
 
     ASSERT_TRUE(testManager.VerifyCswProof(cswInput));
 }
@@ -1775,3 +1928,49 @@ TEST(CctpLibrary, TestVectorsValidity)
     EXPECT_TRUE(p4.IsValid());
 }
 
+//TODO: Maybe it's not the correct place for this test
+TEST(CctpLibrary, TestInvalidProofVkWhenOversized)
+{
+    // Oversized Proof
+    std::vector<unsigned char> OVERSIZED_CERT_DARLIN_PROOF = SAMPLE_CERT_DARLIN_PROOF;
+    OVERSIZED_CERT_DARLIN_PROOF.resize(OVERSIZED_CERT_DARLIN_PROOF.size() + Sidechain::MAX_SC_PROOF_SIZE_IN_BYTES, 0xAB);
+    EXPECT_DEATH(CScProof{OVERSIZED_CERT_DARLIN_PROOF}, "");
+    
+    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    stream << OVERSIZED_CERT_DARLIN_PROOF;
+    CScProof pOversized;
+    stream >> pOversized;
+    EXPECT_FALSE(pOversized.IsValid());
+
+    // Not oversized proof but with random bytes appended to proof bytes
+    std::vector<unsigned char> INVALID_CERT_DARLIN_PROOF = SAMPLE_CERT_DARLIN_PROOF;
+    INVALID_CERT_DARLIN_PROOF.push_back(0xAB);
+    EXPECT_NO_FATAL_FAILURE(CScProof{INVALID_CERT_DARLIN_PROOF});
+
+    stream << INVALID_CERT_DARLIN_PROOF;
+    CScProof pInvalid;
+    stream >> pInvalid;
+    EXPECT_FALSE(pInvalid.IsValid());
+
+    // Oversized vk
+    std::vector<unsigned char> OVERSIZED_CERT_DARLIN_VK = SAMPLE_CERT_DARLIN_VK;
+    OVERSIZED_CERT_DARLIN_VK.resize(OVERSIZED_CERT_DARLIN_VK.size() + Sidechain::MAX_SC_VK_SIZE_IN_BYTES, 0xAB);
+    EXPECT_DEATH(CScVKey{OVERSIZED_CERT_DARLIN_VK}, "");
+
+    stream << OVERSIZED_CERT_DARLIN_VK;
+    CScVKey vkOversized;
+    stream >> vkOversized;
+    EXPECT_FALSE(vkOversized.IsValid());
+
+    // Not oversized vk but with random bytes appended to vk bytes
+    std::vector<unsigned char> INVALID_CERT_DARLIN_VK = SAMPLE_CERT_DARLIN_VK;
+    INVALID_CERT_DARLIN_VK.push_back(0xAB);
+    EXPECT_NO_FATAL_FAILURE(CScVKey{INVALID_CERT_DARLIN_VK});
+
+    stream << INVALID_CERT_DARLIN_VK;
+    CScVKey vkInvalid;
+    stream >> vkInvalid;
+    EXPECT_FALSE(vkInvalid.IsValid());
+
+    //TODO: Might be useful to test the same behaviour with bit vector
+}

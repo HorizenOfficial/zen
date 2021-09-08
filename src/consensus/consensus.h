@@ -29,15 +29,37 @@ static const int32_t MIN_BLOCK_VERSION = BLOCK_VERSION_SC_SUPPORT;
 /** The minimum allowed transaction version (network rule) */
 static const int32_t MIN_OLD_TX_VERSION = 1;
 /** The maximum allowed size for a serialized block, in bytes (network rule) */
-static const unsigned int MAX_BLOCK_SIZE = 2000000;
-/** The maximum allowed number of signature check operations in a block (network rule) */
+static const unsigned int MAX_BLOCK_SIZE = 4000000;
+static const unsigned int MAX_BLOCK_SIZE_BEFORE_SC = 2000000;
+static const unsigned int BLOCK_TX_PARTITION_SIZE = MAX_BLOCK_SIZE_BEFORE_SC;
+
+
+/** The maximum allowed number of signature check operations in a block (network rule) 
+ *  TODO Check: this limit is set to be sure that a block doesn't put too much workload
+ *  for EDCSA signature verification on nodes. For the time being it has not been modified
+ *  after the MAX_BLOCK_SIZE increase, even if originally in bitcoin it was defined 
+ *  MAX_BLOCK_SIGOPS = MAX_BLOCK_SIZE/50 */
 static const unsigned int MAX_BLOCK_SIGOPS = 20000;
+
 /** The maximum size of a transaction (network rule) */
 static const unsigned int MAX_TX_SIZE = 100000;
 /** The maximum size of a certificate (network rule) */
 static const unsigned int MAX_CERT_SIZE = 150000;
 /** The minimum theoretical possible size of a consistent tx*/
 static const unsigned int MIN_TX_SIZE = 61;
+static const unsigned int MIN_LOG_SEGMENT_SIZE = 0;
+/** Computed assuming:
+ * 1) SegmentSize = MIN_LOG_SEGMENT_SIZE;
+ * 2) One segment commitment for each polynomial;
+ * 3) ProvingSystemType = CoboundaryMarlin;
+ * 4) ZK = False
+*/
+static const unsigned int MIN_PROOF_SIZE = 1086 + (2 * MIN_LOG_SEGMENT_SIZE * 33);
+/** The minimum theoretical possible size of a consistent cert.
+ *  Large of its part is taken by the proof, which has a the minimum theoretical possible size of ~1086
+ *  (was 2850 assuming SegmentSize = 1 << 18) */
+static const unsigned int MIN_CERT_SIZE = MIN_PROOF_SIZE + 100;
+    
 /** Coinbase transaction outputs can only be spent after this number of new blocks (network rule) */
 static const int COINBASE_MATURITY = 100;
 

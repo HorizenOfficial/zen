@@ -112,7 +112,8 @@ class sc_cert_base(BitcoinTestFramework):
         # Fwd Transfer to Sc
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
         mark_logs("Node0 balance before fwd tx: {}".format(bal_before_fwd_tx), self.nodes, DEBUG_MODE)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid)
+        mc_return_address = self.nodes[0].getnewaddress("", True)
+        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -150,6 +151,8 @@ class sc_cert_base(BitcoinTestFramework):
 
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
+        #---------------------start negative tests-------------------------
+
         mark_logs("Node 0 tries to send a cert with insufficient Sc balance...", self.nodes, DEBUG_MODE)
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_bad}]
 
@@ -164,6 +167,7 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal("sidechain has insufficient funds" in errorString, True)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount)
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
+        #--------------------------------------------------------------------------------------
 
         mark_logs("Node 0 tries to send a certificate with an invalid epoch number ...", self.nodes, DEBUG_MODE)
 
@@ -180,6 +184,7 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal("invalid end cum commitment tree root" in errorString, True)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
+        #--------------------------------------------------------------------------------------
 
         mark_logs("Node 0 tries to send a certificate with an invalid epoch epoch_cum_tree_hash ...", self.nodes, DEBUG_MODE)
 
@@ -195,7 +200,7 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal("invalid end cum commitment tree root" in errorString, True)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
-
+        #--------------------------------------------------------------------------------------
 
         mark_logs("Node 0 tries to send a certificate with an invalid quality ...", self.nodes, DEBUG_MODE)
 
@@ -390,8 +395,10 @@ class sc_cert_base(BitcoinTestFramework):
         mc_pk_hash = binascii.b2a_hex(os.urandom(20))
         end_cum_comm_tree_root = generate_random_field_element_hex()
         cert_data_hash = generate_random_field_element_hex()
+        const = generate_random_field_element_hex()
 
-        wrong_proof = tempCswMcTest.create_test_proof("sc_temp", amount, sc_id, nullifier, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash)
+        wrong_proof = tempCswMcTest.create_test_proof(
+            "sc_temp", amount, sc_id, nullifier, mc_pk_hash, end_cum_comm_tree_root, cert_data_hash, const)
 
         try:
             self.nodes[0].send_certificate(scid, epoch_number, quality, 
@@ -442,6 +449,21 @@ class sc_cert_base(BitcoinTestFramework):
         mempool_cert_0 = self.nodes[0].getrawmempool(True)[cert_epoch_0]
         assert_equal(True, mempool_cert_0["isCert"])
         assert_equal(-5, mempool_cert_0["version"])
+
+        # change mining algo priority and fee, just for testing the api
+        prio_delta = Decimal(100000.0)
+        fee_delta  = 1000 # in zats
+        ret = self.nodes[0].prioritisetransaction(cert_epoch_0, prio_delta, fee_delta )
+        assert_equal(True, ret)
+
+        mp = self.nodes[0].getrawmempool(True)
+        #pprint.pprint(mp)
+        # the prioritisetransaction cmd overwrites old json contents (not only prio and certs) 
+        prio_cert_after = mp[cert_epoch_0]['priority']
+        fee_cert_after  = mp[cert_epoch_0]['fee']
+        mark_logs("cert prio={}, fee={}".format(prio_cert_after, fee_cert_after), self.nodes, DEBUG_MODE)
+        assert_equal(prio_delta, prio_cert_after)
+        assert_equal(float(fee_delta)/COIN, float(fee_cert_after))
 
         bal_before_bwt = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before bwt is received: {}".format(bal_before_bwt), self.nodes, DEBUG_MODE)

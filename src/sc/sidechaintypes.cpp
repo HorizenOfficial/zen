@@ -2,6 +2,24 @@
 #include "util.h"
 #include <consensus/consensus.h>
 
+CZendooLowPrioThreadGuard::CZendooLowPrioThreadGuard(bool pauseThreads): _pause(pauseThreads)
+{
+    if (_pause)
+    {
+        LogPrint("sc", "%s():%d - calling zendoo_pause_low_priority_threads()\n", __func__, __LINE__);
+        zendoo_pause_low_priority_threads();
+    }
+}
+
+CZendooLowPrioThreadGuard::~CZendooLowPrioThreadGuard()
+{
+    if (_pause)
+    {
+        LogPrint("sc", "%s():%d - calling zendoo_unpause_low_priority_threads()\n", __func__, __LINE__);
+        zendoo_unpause_low_priority_threads();
+    }
+}
+
 CZendooBatchProofVerifierResult::CZendooBatchProofVerifierResult(ZendooBatchProofVerifierResult* result) :
     resultPtr(result)
 {
@@ -286,6 +304,14 @@ wrappedScProofPtr CScProof::GetProofPtr() const
     std::lock_guard<std::mutex> lk(_mutex);
     if (proofData == nullptr)
     {
+        if (byteVector.size() > MaxByteSize())
+        {
+            LogPrint("sc", "%s():%d - exceeded max size: byteVector[%d] != %d\n",
+                __func__, __LINE__, byteVector.size(), MaxByteSize());
+            assert(proofData == nullptr);
+            return proofData;
+        }
+
         BufferWithSize result{(unsigned char*)&byteVector[0], byteVector.size()}; 
         CctpErrorCode code;
 
@@ -364,6 +390,15 @@ wrappedScVkeyPtr CScVKey::GetVKeyPtr() const
     std::lock_guard<std::mutex> lk(_mutex);
     if (vkData == nullptr)
     {
+
+        if (byteVector.size() > MaxByteSize())
+        {
+            LogPrint("sc", "%s():%d - exceeded max size: byteVector[%d] != %d\n",
+                __func__, __LINE__, byteVector.size(), MaxByteSize());
+            assert(vkData == nullptr);
+            return vkData;
+        }
+
         BufferWithSize result{(unsigned char*)&byteVector[0], byteVector.size()}; 
         CctpErrorCode code;
 
@@ -431,14 +466,31 @@ uint8_t FieldElementCertificateFieldConfig::getBitSize() const
 }
 
 //----------------------------------------------------------------------------------
+// 2^12 * 254
+const int32_t BitVectorCertificateFieldConfig::MAX_BIT_VECTOR_SIZE_BITS = 1040384;
+const int32_t BitVectorCertificateFieldConfig::SPARSE_VECTOR_COMPRESSION_OVERHEAD = 2*1024;
+
+// No rounding here, since 2^12 is divisible by 8.
+// An overhead is added for taking into account the case when compressed data are larger than original data. 
+const int32_t BitVectorCertificateFieldConfig::MAX_COMPRESSED_SIZE_BYTES =
+    MAX_BIT_VECTOR_SIZE_BITS/8 + SPARSE_VECTOR_COMPRESSION_OVERHEAD;
+
 bool BitVectorCertificateFieldConfig::IsValid() const
 {
     bool isBitVectorSizeValid = (bitVectorSizeBits > 0) && (bitVectorSizeBits <= MAX_BIT_VECTOR_SIZE_BITS);
     if(!isBitVectorSizeValid)
+    {
+        LogPrintf("%s():%d - Invalid or null bitVectorSizeBits=%d (MAX_BIT_VECTOR_SIZE_BITS=%d)\n",
+            __func__, __LINE__, bitVectorSizeBits, MAX_BIT_VECTOR_SIZE_BITS);
         return false;
+    }
 
     if ((bitVectorSizeBits % 254 != 0) || (bitVectorSizeBits % 8 != 0))
+    {
+        LogPrintf("%s():%d - Invalid bitVectorSizeBits=%d (not divisible by 254 and 8)\n",
+            __func__, __LINE__, bitVectorSizeBits);
         return false;
+    }
 
     int32_t merkleTreeLeaves = bitVectorSizeBits / 254;
 
@@ -448,7 +500,11 @@ bool BitVectorCertificateFieldConfig::IsValid() const
 
     bool isMaxCompressedSizeValid = (maxCompressedSizeBytes > 0) && (maxCompressedSizeBytes <= MAX_COMPRESSED_SIZE_BYTES);
     if(!isMaxCompressedSizeValid)
+    {
+        LogPrintf("%s():%d - Invalid or null maxCompressedSizeBytes=%d (MAX_COMPRESSED_SIZE_BYTES=%d)\n",
+            __func__, __LINE__, maxCompressedSizeBytes, MAX_COMPRESSED_SIZE_BYTES);
         return false;
+    }
 
     return true;
 }
@@ -614,11 +670,12 @@ const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorC
     field_t* fe = zendoo_merkle_root_from_compressed_bytes(&compressedData, nBitVectorSizeBytes, &ret_code);
     if (fe == nullptr)
     {
-        LogPrint("sc", "%s():%d - ERROR(%d): could not get merkle root field el from compr bit vector of size %d, exp uncompr size %d\n",
-            __func__, __LINE__, (int)ret_code, vRawData.size(), nBitVectorSizeBytes);
+        LogPrint("sc", "%s():%d - ERROR(%d): could not get merkle root field el from compr bit vector of size %d, exp uncompr size %d (rem=%d)\n",
+            __func__, __LINE__, (int)ret_code, vRawData.size(), nBitVectorSizeBytes, rem);
         this->fieldElement = CFieldElement{};
         return fieldElement;
     }
+    //dumpFe(fe, "bv fe");
     this->fieldElement = CFieldElement{wrappedFieldPtr{fe, CFieldPtrDeleter{}}};
     state = VALIDATION_STATE::VALID;
 

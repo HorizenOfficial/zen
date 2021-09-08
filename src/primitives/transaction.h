@@ -540,11 +540,12 @@ class CTxForwardTransferOut : public CTxCrosschainOut
 {
 public:
     uint256 scId;
+    uint160 mcReturnAddress;
 
     CTxForwardTransferOut() {}
 
-    CTxForwardTransferOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn):
-        CTxCrosschainOut(nValueIn, addressIn), scId(scIdIn) {}
+    CTxForwardTransferOut(const uint256& scIdIn, const CAmount& nValueIn, const uint256& addressIn, const uint160& mcReturnAddressIn):
+        CTxCrosschainOut(nValueIn, addressIn), scId(scIdIn), mcReturnAddress(mcReturnAddressIn) {}
 
     ADD_SERIALIZE_METHODS;
 
@@ -553,15 +554,16 @@ public:
         READWRITE(nValue);
         READWRITE(address);
         READWRITE(scId);
+        READWRITE(mcReturnAddress);
     }
 
-    const uint256& GetScId() const override final { return scId;}; 
+    const uint256& GetScId() const override final { return scId;};
     uint256 GetHash() const override final;
     std::string ToString() const override final;
 
     friend bool operator==(const CTxForwardTransferOut& a, const CTxForwardTransferOut& b)
     {
-        return (isBaseEqual(a, b) && a.scId == b.scId);
+        return (isBaseEqual(a, b) && a.scId == b.scId && a.mcReturnAddress == b.mcReturnAddress);
     }
 
     friend bool operator!=(const CTxForwardTransferOut& a, const CTxForwardTransferOut& b)
