@@ -1950,9 +1950,7 @@ TEST(CctpLibrary, TestInvalidProofVkWhenOversized)
     stream << INVALID_CERT_DARLIN_PROOF;
     CScProof pInvalid;
     stream >> pInvalid;
-    //TODO: Currently fails. We need to modify mc-cryptolib in order to return error even the proof
-    //      is deserialized correctly, but there are still bytes to read.
-    //EXPECT_FALSE(pInvalid.IsValid());
+    EXPECT_FALSE(pInvalid.IsValid());
 
     // Oversized vk
     std::vector<unsigned char> OVERSIZED_CERT_DARLIN_VK = SAMPLE_CERT_DARLIN_VK;
@@ -1972,7 +1970,7 @@ TEST(CctpLibrary, TestInvalidProofVkWhenOversized)
     stream << INVALID_CERT_DARLIN_VK;
     CScVKey vkInvalid;
     stream >> vkInvalid;
-    //TODO: Currently fails. We need to modify mc-cryptolib in order to return error even the proof
-    //      is deserialized correctly, but there are still bytes to read.
-    //EXPECT_FALSE(vkInvalid.IsValid());
+    EXPECT_FALSE(vkInvalid.IsValid());
+
+    //TODO: Might be useful to test the same behaviour with bit vector
 }
