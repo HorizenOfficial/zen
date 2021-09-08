@@ -176,7 +176,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         cmdParms = { "minconf":0, "fee":TX_FEE}
 
         try:
-            mbtrTx = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
+            mbtrTx = self.nodes[1].sc_request_transfer(outputs, cmdParms);
             mark_logs("  --> mbtrTx = {}.".format(mbtrTx), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']

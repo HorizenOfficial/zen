@@ -439,7 +439,7 @@ static const CRPCCommand vRPCCommands[] =
     // useful for sbh wallet
     { "wallet",             "sc_create",              &sc_create,              false },
     { "wallet",             "sc_send",                &sc_send,                false },
-    { "wallet",             "request_transfer_from_sidechain",&request_transfer_from_sidechain,false },
+    { "wallet",             "sc_request_transfer",    &sc_request_transfer,    false },
 
     // TODO: rearrange into another category 
     { "disclosure",         "z_getpaymentdisclosure", &z_getpaymentdisclosure, true  }, 

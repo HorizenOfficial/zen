@@ -222,7 +222,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
-            self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {})
+            self.nodes[1].sc_request_transfer(mbtrOuts, {})
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -262,7 +262,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
-            self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {})
+            self.nodes[1].sc_request_transfer(mbtrOuts, {})
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -301,7 +301,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
-            self.nodes[1].request_transfer_from_sidechain(mbtrOuts, {})
+            self.nodes[1].sc_request_transfer(mbtrOuts, {})
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -382,9 +382,9 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrOuts2 = [{'vScRequestData':[fe1], 'scFee':Decimal(newMbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
-            mbtr_tx_1 = self.nodes[0].request_transfer_from_sidechain(mbtrOuts1, {})
+            mbtr_tx_1 = self.nodes[0].sc_request_transfer(mbtrOuts1, {})
             time.sleep(2)
-            mbtr_tx_2 = self.nodes[0].request_transfer_from_sidechain(mbtrOuts2, {})
+            mbtr_tx_2 = self.nodes[0].sc_request_transfer(mbtrOuts2, {})
             time.sleep(2)
         except JSONRPCException, e:
             errorString = e.error['message']

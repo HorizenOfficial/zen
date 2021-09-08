@@ -258,7 +258,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
-            txMbtr = self.nodes[3].request_transfer_from_sidechain(mbtrOuts, { "fee": 0.0})
+            txMbtr = self.nodes[3].sc_request_transfer(mbtrOuts, { "fee": 0.0})
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -471,7 +471,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
         
         try:
-            txMbtr = self.nodes[3].request_transfer_from_sidechain(mbtrOuts, { "fee": 0.0})
+            txMbtr = self.nodes[3].sc_request_transfer(mbtrOuts, { "fee": 0.0})
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
