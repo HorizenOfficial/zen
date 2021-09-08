@@ -2044,6 +2044,9 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             // since at this stage no transaction creation is allowed
             for(auto itCert = block.vcert.rbegin(); itCert != block.vcert.rend(); ++itCert)
             {
+                // The ReadSidechain() call can fail if no certificates for that sc are currently in the wallet.
+                // This can happen for instance when we are called from an importwallet rpc cmd or when the
+                // node is started after a while.
                 bool prevScDataAvailable = false;
                 CScCertificateStatusUpdateInfo prevScData;
                 if (ReadSidechain(itCert->GetScId(), prevScData))
@@ -2062,7 +2065,9 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 if (AddToWalletIfInvolvingMe(*itCert, &block, bwtMaxDepth, fUpdate))
                 {
                     ret++;
-                    if (fUpdate) {
+                    if (fUpdate)
+                    {
+                        // this call will add sc data into the wallet
                         SyncCertStatusInfo(CScCertificateStatusUpdateInfo(itCert->GetScId(), itCert->GetHash(),
                                                                           itCert->epochNumber, itCert->quality,
                                                                           bTopQualityCert? CScCertificateStatusUpdateInfo::BwtState::BWT_ON:
