@@ -122,7 +122,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
 
         try:
             #----------------------------------------------------------------------------------------------
-            res = self.nodes[1].create_sidechain(cmdInput)
+            res = self.nodes[1].sc_create(cmdInput)
             tx =   res['txid']
             scid = res['scid']
             txs_node1.append(tx)

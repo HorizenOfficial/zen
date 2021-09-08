@@ -90,7 +90,7 @@ class sc_getscinfo(BitcoinTestFramework):
             vk = mcTest.generate_params(tag)
             # use two nodes for creating sc
             idx = i%2
-            ret = self.nodes[int(idx)].sc_create(EPOCH_LENGTH+i, "dada", creation_amount, vk, "abcdef", constant)
+            ret = self.nodes[int(idx)].dep_sc_create(EPOCH_LENGTH+i, "dada", creation_amount, vk, "abcdef", constant)
             creating_tx = ret['txid']
             scid = self.nodes[idx].getrawtransaction(creating_tx, 1)['vsc_ccout'][0]['scid']
             mark_logs("Node {} created SC {}".format(idx, scid), self.nodes, DEBUG_MODE)

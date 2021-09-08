@@ -111,7 +111,7 @@ class sc_bwt_request(BitcoinTestFramework):
         print "Node0 Chain h = ", self.nodes[0].getblockcount()
 
         try:
-            ret = self.nodes[1].create_sidechain(cmdInput)
+            ret = self.nodes[1].sc_create(cmdInput)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -306,7 +306,7 @@ class sc_bwt_request(BitcoinTestFramework):
         #  create one more sc
         prev_epoch_hash_2 = self.nodes[0].getbestblockhash()
         epoch_len_2 = 10
-        ret = self.nodes[0].sc_create(epoch_len_2, "dada", creation_amount2, vk2, "", c2, "", [], [], ftScFee, mbtrScFee, mbtrDataLength)
+        ret = self.nodes[0].dep_sc_create(epoch_len_2, "dada", creation_amount2, vk2, "", c2, "", [], [], ftScFee, mbtrScFee, mbtrDataLength)
         scid2  = ret['scid']
         cr_tx2 = ret['txid']
         mark_logs("Node0 created the SC2 spending {} coins via tx {}.".format(creation_amount1, cr_tx2), self.nodes, DEBUG_MODE)

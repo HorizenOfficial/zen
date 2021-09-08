@@ -83,7 +83,7 @@ class sc_cert_base(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -635,7 +635,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node0 creates new sidechain", self.nodes, DEBUG_MODE)
         vk2 = mcTest.generate_params("sc2", "cert_no_const")
 
-        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dadb", creation_amount, vk2, "")
+        ret = self.nodes[0].dep_sc_create(EPOCH_LENGTH, "dadb", creation_amount, vk2, "")
         creating_tx = ret['txid']
         scid2 = ret['scid']
         scid2_swapped = str(swap_bytes(scid2))

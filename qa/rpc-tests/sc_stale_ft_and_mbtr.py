@@ -183,7 +183,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         mbtrScFee = MBTR_SC_FEES[0]
 
         try:
-            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk,
+            ret = self.nodes[1].dep_sc_create(withdrawalEpochLength, address, creation_amount, vk,
                 custom_data, constant, cswVk, feCfg, bvCfg, ftScFee, mbtrScFee, mbtrRequestDataLength)
         except JSONRPCException, e:
             errorString = e.error['message']

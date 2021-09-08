@@ -117,7 +117,7 @@ class ScSplitTest(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[1].dep_sc_create(123, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
         mark_logs("created SC id: {} tx: {}".format(scid,creating_tx), self.nodes, DEBUG_MODE)

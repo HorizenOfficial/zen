@@ -95,7 +95,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with wrong vFieldElementCertificateFieldConfig obj in input (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].sc_create(cmdInput)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -108,7 +108,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with wrong vBitVectorCertificateFieldConfig array in input (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].sc_create(cmdInput)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -121,7 +121,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with a vBitVectorCertificateFieldConfig array with too large integers (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].sc_create(cmdInput)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -134,7 +134,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with a vFieldElementCertificateFieldConfig array with zeroes (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].sc_create(cmdInput)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -149,7 +149,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with a BitVector made of a number of FE leaves that is not a power of 2 (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].sc_create(cmdInput)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -176,7 +176,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC1 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
-            res = self.nodes[1].create_sidechain(cmdInput)
+            res = self.nodes[1].sc_create(cmdInput)
             tx =   res['txid']
             scid1 = res['scid']
             scid1_swapped = str(swap_bytes(scid1))
@@ -208,7 +208,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC2 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
-            ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", amount, vk, customData, constant2, cswVk, feCfg[1], cmtCfg[1])
+            ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", amount, vk, customData, constant2, cswVk, feCfg[1], cmtCfg[1])
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)

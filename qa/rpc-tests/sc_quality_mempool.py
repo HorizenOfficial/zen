@@ -87,14 +87,14 @@ class quality_mempool(BitcoinTestFramework):
         vk_2 = mcTest.generate_params(vk_tag_2)
         constant_2 = generate_random_field_element_hex()
 
-        ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk_1, "", constant_1)
+        ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk_1, "", constant_1)
         creating_tx_1 = ret['txid']
         scid_1 = ret['scid']
         scid1_swapped = str(swap_bytes(scid_1))
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx_1), self.nodes, DEBUG_MODE)
         self.sync_all()
 
-        ret = self.nodes[1].sc_create(EPOCH_LENGTH, "baba", creation_amount, vk_2, "", constant_2)
+        ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "baba", creation_amount, vk_2, "", constant_2)
         creating_tx_2 = ret['txid']
         scid_2 = ret['scid']
         scid2_swapped = str(swap_bytes(scid_2))

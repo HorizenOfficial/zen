@@ -65,7 +65,7 @@ class sc_block_partitions(BitcoinTestFramework):
 
         def create_sc(cmdInput, node):
             try:
-                res = node.create_sidechain(cmdInput)
+                res = node.sc_create(cmdInput)
                 tx =   res['txid']
                 scid = res['scid']
             except JSONRPCException, e:

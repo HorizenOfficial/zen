@@ -109,7 +109,7 @@ class CeasingSplitTest(BitcoinTestFramework):
             'mainchainBackwardTransferRequestDataLength': 1
         }
 
-        res = self.nodes[0].create_sidechain(cmdInput)
+        res = self.nodes[0].sc_create(cmdInput)
         tx =   res['txid']
         scid = res['scid']
         self.sync_all()

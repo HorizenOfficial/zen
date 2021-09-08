@@ -91,7 +91,7 @@ class quality_nodes(BitcoinTestFramework):
         vk_1 = mcTest.generate_params(vk_tag_1)
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk_1, "", constant)
+        ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk_1, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))

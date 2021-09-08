@@ -86,7 +86,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrFee = Decimal(mbtrScFee)
 
         try:
-            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            ret = self.nodes[1].dep_sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -104,7 +104,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrFee = Decimal(mbtrScFee)
 
         try:
-            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            ret = self.nodes[1].dep_sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -121,7 +121,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrFee = Decimal(-mbtrScFee)
 
         try:
-            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            ret = self.nodes[1].dep_sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -139,7 +139,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrFee = Decimal(MAX_MONEY + 1)
 
         try:
-            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            ret = self.nodes[1].dep_sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -157,7 +157,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mbtrFee = Decimal(mbtrScFee)
 
         try:
-            ret = self.nodes[1].sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
+            ret = self.nodes[1].dep_sc_create(withdrawalEpochLength, address, creation_amount, vk, custom_data, constant, cswVk, feCfg, bvCfg, ftFee, mbtrFee, mbtrRequestDataLength)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -454,15 +454,15 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
 
         # ---------------------------------------------------------------------------------------
-        # Check that create_sidechain() sets fees and MBTR data length correctly
-        mark_logs("\nNode 0 creates a new sidechain with create_sidechain()", self.nodes, DEBUG_MODE)
+        # Check that sc_create() sets fees and MBTR data length correctly
+        mark_logs("\nNode 0 creates a new sidechain with sc_create()", self.nodes, DEBUG_MODE)
 
         cmdInput = { "toaddress": address, "amount": creation_amount, 'wCertVk': vk,
                     "forwardTransferScFee": ftFee, "mainchainBackwardTransferScFee": newMbtrFee,
                     "mainchainBackwardTransferRequestDataLength": mbtrRequestDataLength }
         
         try:
-            creating_tx = self.nodes[0].create_sidechain(cmdInput)['txid']
+            creating_tx = self.nodes[0].sc_create(cmdInput)['txid']
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)

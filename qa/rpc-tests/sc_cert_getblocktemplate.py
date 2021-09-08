@@ -67,7 +67,7 @@ class sc_cert_base(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[0].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
         mark_logs("Node 0 created a SC", self.nodes, DEBUG_MODE)
