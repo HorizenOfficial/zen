@@ -423,7 +423,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         mark_logs("Node1 sends a cert withdrawing the contribution of the creation amount to the sc balance", self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_0 = self.nodes[1].send_certificate(scid1, epoch_number, 0,
+            cert_epoch_0 = self.nodes[1].sc_send_certificate(scid1, epoch_number, 0,
                 epoch_cum_tree_hash, proof, amounts, ftScFee, mbtrScFee, CERT_FEE)
             mark_logs("Node 1 sent a cert with bwd transfer of {} coins to Node1 pkh via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_0) > 0)
@@ -547,7 +547,7 @@ class sc_bwt_request(BitcoinTestFramework):
  
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:
-            cert_bad = self.nodes[0].send_certificate(scid2, epoch_number, quality,
+            cert_bad = self.nodes[0].sc_send_certificate(scid2, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert, ftScFee, mbtrScFee, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']

@@ -432,7 +432,7 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "z_importviewingkey",     &z_importviewingkey,     true  },
     { "wallet",             "z_exportwallet",         &z_exportwallet,         true  },
     { "wallet",             "z_importwallet",         &z_importwallet,         true  },
-    { "wallet",             "send_certificate",       &send_certificate,       false },
+    { "wallet",             "sc_send_certificate",    &sc_send_certificate,    false },
     { "wallet",             "dep_sc_send",            &dep_sc_send ,           false },
     { "wallet",             "sc_sendmany",            &sc_sendmany,            false },
     { "wallet",             "dep_sc_create",          &dep_sc_create,          false },

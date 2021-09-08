@@ -126,7 +126,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
             quality = 1
             proof = mcTest.create_test_proof("sc1", scids_swapped[0], epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount[0]])
 
-            cert_1 = self.nodes[0].send_certificate(scids[0], epoch_number, quality,
+            cert_1 = self.nodes[0].sc_send_certificate(scids[0], epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -143,7 +143,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
             quality = 1
             proof = mcTest.create_test_proof("sc2", scids_swapped[1], epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
 
-            cert_2 = self.nodes[0].send_certificate(scids[1], epoch_number, quality,
+            cert_2 = self.nodes[0].sc_send_certificate(scids[1], epoch_number, quality,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:

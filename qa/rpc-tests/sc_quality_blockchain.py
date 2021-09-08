@@ -152,7 +152,7 @@ class quality_blockchain(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         try:
-            cert_1_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_1_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
@@ -176,7 +176,7 @@ class quality_blockchain(BitcoinTestFramework):
         low_quality_proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality - 20, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bwt_amount])
         try:
-            cert_2_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality - 20,
+            cert_2_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality - 20,
                 epoch_cum_tree_hash, low_quality_proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, HIGH_CERT_FEE)
             assert_equal(True, cert_1_epoch_0 in self.nodes[0].getrawmempool())
             assert(len(cert_2_epoch_0) > 0)
@@ -211,7 +211,7 @@ class quality_blockchain(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         try:
-            cert_3_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_3_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert (False)
         except JSONRPCException, e:
@@ -223,7 +223,7 @@ class quality_blockchain(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         try:
-            cert_3_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_3_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert (False)
         except JSONRPCException, e:
@@ -235,7 +235,7 @@ class quality_blockchain(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         try:
-            cert_3_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_3_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, HIGH_CERT_FEE)
             assert(False)
         except JSONRPCException, e:
@@ -248,7 +248,7 @@ class quality_blockchain(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         try:
-            cert_3_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_3_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_3_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_3_epoch_0), self.nodes, DEBUG_MODE)
@@ -266,7 +266,7 @@ class quality_blockchain(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bwt_amount_2])
         try:
-            cert_4_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality,
+            cert_4_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_4, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert (len(cert_4_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_4_epoch_0), self.nodes, DEBUG_MODE)
@@ -286,7 +286,7 @@ class quality_blockchain(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         try:
-            cert_5_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_5_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_5, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
@@ -339,7 +339,7 @@ class quality_blockchain(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         try:
-            cert_1_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_1_epoch_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_1) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_1), self.nodes, DEBUG_MODE)
@@ -356,7 +356,7 @@ class quality_blockchain(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         try:
-            cert_1_epoch_2 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_1_epoch_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_2) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_2), self.nodes, DEBUG_MODE)
@@ -374,7 +374,7 @@ class quality_blockchain(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         try:
-            cert_2_epoch_2 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_2_epoch_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert (len(cert_2_epoch_2) > 0)
             mark_logs("Certificate is {}".format(cert_2_epoch_2), self.nodes, DEBUG_MODE)

@@ -145,7 +145,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         proof_bad = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bwt_amount + fwt_amount_immature_at_epoch])
 
         try:
-            self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof_bad, amounts_bad, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            self.nodes[0].sc_send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof_bad, amounts_bad, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -158,7 +158,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bwt_amount])
         
         try:
-            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException, e:
@@ -204,7 +204,7 @@ class sc_cert_epoch(BitcoinTestFramework):
             quality = 1
             proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
 
-            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+            cert_epoch_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("Node 0 send a certificate {} with no bwd transfers".format(cert_epoch_1), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_1) > 0)
         except JSONRPCException, e:

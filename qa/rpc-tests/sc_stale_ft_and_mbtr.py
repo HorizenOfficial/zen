@@ -285,7 +285,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
             vk_tag, scid_swapped, epoch_number, quality, mbtrScFee, ftScFee, epoch_cum_tree_hash,
             constant, [pkh_node1], [cert_amount])
 
-        cert = self.nodes[0].send_certificate(scid, epoch_number, quality,
+        cert = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, ftScFee, mbtrScFee, CERT_FEE)
 
         self.sync_all()
@@ -325,7 +325,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
             vk_tag, scid_swapped, epoch_number, quality, mbtrScFee, ftScFee, epoch_cum_tree_hash,
             constant, [pkh_node1], [cert_amount])
 
-        cert = self.nodes[0].send_certificate(scid, epoch_number, quality,
+        cert = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, ftScFee, mbtrScFee, CERT_FEE)
 
         self.sync_all()

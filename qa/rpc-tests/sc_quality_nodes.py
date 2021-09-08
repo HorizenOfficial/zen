@@ -173,7 +173,7 @@ class quality_nodes(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node0], [bwt_amount])
         try:
-            cert_1_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_1_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_0, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
@@ -197,7 +197,7 @@ class quality_nodes(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         try:
-            cert_2_epoch_0 = self.nodes[1].send_certificate(scid, epoch_number, quality,
+            cert_2_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_2_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_2_epoch_0), self.nodes, DEBUG_MODE)
@@ -244,7 +244,7 @@ class quality_nodes(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node0], [bwt_amount])
         try:
-            cert_1_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_1_epoch_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_0, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_1) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_1), self.nodes, DEBUG_MODE)
@@ -281,7 +281,7 @@ class quality_nodes(BitcoinTestFramework):
         proof = mcTest.create_test_proof(
             vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
         try:
-            cert_2_epoch_1 = self.nodes[1].send_certificate(scid, epoch_number, quality,
+            cert_2_epoch_1 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_2_epoch_1) > 0)
             mark_logs("Certificate is {}".format(cert_2_epoch_1), self.nodes, DEBUG_MODE)

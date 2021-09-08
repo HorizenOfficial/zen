@@ -595,7 +595,7 @@ def advance_epoch(mcTest, node, sync_call,
         assert(False)
 
     try:
-        cert = node.send_certificate(scid, epoch_number, cert_quality,
+        cert = node.sc_send_certificate(scid, epoch_number, cert_quality,
             epoch_cum_tree_hash, proof, [], ftScFee, mbtrScFee, cert_fee, vCfe, vCmt)
     except JSONRPCException, e:
         errorString = e.error['message']

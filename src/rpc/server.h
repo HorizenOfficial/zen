@@ -299,7 +299,7 @@ extern UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp); // 
 extern UniValue z_getbalance(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_gettotalbalance(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_sendmany(const UniValue& params, bool fHelp); // in rpcwallet.cpp
-extern UniValue send_certificate(const UniValue& params, bool fHelp);
+extern UniValue sc_send_certificate(const UniValue& params, bool fHelp);
 extern UniValue dep_sc_send(const UniValue& params, bool fHelp);
 extern UniValue sc_sendmany(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue dep_sc_create(const UniValue& params, bool fHelp); // in rpcwallet.cpp

@@ -5476,14 +5476,14 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
     return wtx.getWrappedTx().GetHash().GetHex();
 }
 
-UniValue send_certificate(const UniValue& params, bool fHelp)
+UniValue sc_send_certificate(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || params.size() < 8  )
         throw runtime_error(
-            "send_certificate scid epochNumber quality endEpochCumScTxCommTreeRoot scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
+            "sc_send_certificate scid epochNumber quality endEpochCumScTxCommTreeRoot scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
             "\nArguments:\n"
             " 1. \"scid\"                        (string, required) The uint256 side chain ID\n"
@@ -5510,8 +5510,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "  \"certificateId\"   (string) The resulting certificate id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 5 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"813551c928d41c0436ba7361850797d9b30ad4ed\" ,\"amount\": 5.0}]'")
-            + HelpExampleCli("send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 7 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"76fea046133b0acc74ebabbd17b80e99816228ab\", \"amount\":33.5}]' false 0.00001")
+            + HelpExampleCli("sc_send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 7 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"76fea046133b0acc74ebabbd17b80e99816228ab\", \"amount\":33.5}]' false 0.00001")
+            + HelpExampleCli("sc_send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 5 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"813551c928d41c0436ba7361850797d9b30ad4ed\" ,\"amount\": 5.0}]'")
 
         );
 
