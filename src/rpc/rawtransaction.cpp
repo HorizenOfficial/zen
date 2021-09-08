@@ -139,8 +139,11 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     }
     entry.pushKV("vin", vin);
 
-    // add to entry obj the ceased sidechain withdrawal inputs
-    Sidechain::AddCeasedSidechainWithdrawalInputsToJSON(tx, entry);
+    if(tx.IsScVersion())
+    {
+        // add to entry obj the ceased sidechain withdrawal inputs
+        Sidechain::AddCeasedSidechainWithdrawalInputsToJSON(tx, entry);
+    }
 
     UniValue vout(UniValue::VARR);
     for (unsigned int i = 0; i < tx.GetVout().size(); i++) {
@@ -156,8 +159,11 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     }
     entry.pushKV("vout", vout);
 
-    // add to entry obj the cross chain outputs
-    Sidechain::AddSidechainOutsToJSON(tx, entry);
+    if(tx.IsScVersion())
+    {
+        // add to entry obj the cross chain outputs
+        Sidechain::AddSidechainOutsToJSON(tx, entry);
+    }
 
     UniValue vjoinsplit = TxJoinSplitToJSON(tx);
     entry.pushKV("vjoinsplit", vjoinsplit);
@@ -180,7 +186,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 
 void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& entry)
 {
-    entry.pushKV("certid", cert.GetHash().GetHex());
+    entry.pushKV("txid", cert.GetHash().GetHex());
     entry.pushKV("version", cert.nVersion);
     UniValue vin(UniValue::VARR);
     BOOST_FOREACH(const CTxIn& txin, cert.GetVin()) {
@@ -219,8 +225,7 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
             {
                 pkhStr = "<<Decode error>>";
             }
-            out.pushKV("backward transfer", true);
-            out.pushKV("pubkeyhash", pkhStr);
+            out.pushKV("backwardtransfer", true);
         }
         vout.push_back(out);
     }
@@ -251,6 +256,10 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
 
     entry.pushKV("cert", x);
     entry.pushKV("vout", vout);
+
+    // add an empty array for compatibility with txes
+    UniValue vjoinsplit(UniValue::VARR);
+    entry.pushKV("vjoinsplit", vjoinsplit);
 
     if (!hashBlock.IsNull()) {
         entry.pushKV("blockhash", hashBlock.GetHex());
