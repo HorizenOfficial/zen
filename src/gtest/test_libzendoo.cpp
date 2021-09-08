@@ -1928,3 +1928,49 @@ TEST(CctpLibrary, TestVectorsValidity)
     EXPECT_TRUE(p4.IsValid());
 }
 
+//TODO: Maybe it's not the correct place for this test
+TEST(CctpLibrary, TestInvalidProofVkWhenOversized)
+{
+    // Oversized Proof
+    std::vector<unsigned char> OVERSIZED_CERT_DARLIN_PROOF = SAMPLE_CERT_DARLIN_PROOF;
+    OVERSIZED_CERT_DARLIN_PROOF.resize(OVERSIZED_CERT_DARLIN_PROOF.size() + Sidechain::MAX_SC_PROOF_SIZE_IN_BYTES, 0xAB);
+    EXPECT_DEATH(CScProof{OVERSIZED_CERT_DARLIN_PROOF}, "");
+    
+    CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
+    stream << OVERSIZED_CERT_DARLIN_PROOF;
+    CScProof pOversized;
+    stream >> pOversized;
+    EXPECT_FALSE(pOversized.IsValid());
+
+    // Not oversized proof but with random bytes appended to proof bytes
+    std::vector<unsigned char> INVALID_CERT_DARLIN_PROOF = SAMPLE_CERT_DARLIN_PROOF;
+    INVALID_CERT_DARLIN_PROOF.push_back(0xAB);
+    EXPECT_NO_FATAL_FAILURE(CScProof{INVALID_CERT_DARLIN_PROOF});
+
+    stream << INVALID_CERT_DARLIN_PROOF;
+    CScProof pInvalid;
+    stream >> pInvalid;
+    EXPECT_FALSE(pInvalid.IsValid());
+
+    // Oversized vk
+    std::vector<unsigned char> OVERSIZED_CERT_DARLIN_VK = SAMPLE_CERT_DARLIN_VK;
+    OVERSIZED_CERT_DARLIN_VK.resize(OVERSIZED_CERT_DARLIN_VK.size() + Sidechain::MAX_SC_VK_SIZE_IN_BYTES, 0xAB);
+    EXPECT_DEATH(CScVKey{OVERSIZED_CERT_DARLIN_VK}, "");
+
+    stream << OVERSIZED_CERT_DARLIN_VK;
+    CScVKey vkOversized;
+    stream >> vkOversized;
+    EXPECT_FALSE(vkOversized.IsValid());
+
+    // Not oversized vk but with random bytes appended to vk bytes
+    std::vector<unsigned char> INVALID_CERT_DARLIN_VK = SAMPLE_CERT_DARLIN_VK;
+    INVALID_CERT_DARLIN_VK.push_back(0xAB);
+    EXPECT_NO_FATAL_FAILURE(CScVKey{INVALID_CERT_DARLIN_VK});
+
+    stream << INVALID_CERT_DARLIN_VK;
+    CScVKey vkInvalid;
+    stream >> vkInvalid;
+    EXPECT_FALSE(vkInvalid.IsValid());
+
+    //TODO: Might be useful to test the same behaviour with bit vector
+}
