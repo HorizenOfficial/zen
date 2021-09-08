@@ -230,7 +230,8 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         mark_logs("\nNode 2 creates a tx with a FT output", self.nodes, DEBUG_MODE)
 
-        forwardTransferOuts = [{'toaddress': address, 'amount': ftScFee, "scid":scid}]
+        mc_return_address = self.nodes[2].getnewaddress("", True)
+        forwardTransferOuts = [{'toaddress': address, 'amount': ftScFee, "scid":scid, "mcReturnAddress": mc_return_address}]
 
         try:
             txFT = self.nodes[2].send_to_sidechain(forwardTransferOuts, { "fee": 0.0})
@@ -326,12 +327,12 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
         bl = self.nodes[1].generate(1)[-1]
         self.sync_all()
-        
+        bl_json = self.nodes[0].getblock(bl, True)
         mark_logs("Check cert is in block just mined...", self.nodes, DEBUG_MODE)
-        assert_true(cert in self.nodes[0].getblock(bl, True)['cert'])
+        assert_true(cert in bl_json['cert'])
         mark_logs("Check txes are not in block just mined...", self.nodes, DEBUG_MODE)
-        assert_false(txFT in self.nodes[0].getblock(bl, True)['tx'])
-        assert_false(txMbtr in self.nodes[0].getblock(bl, True)['tx'])
+        assert_false(txFT in bl_json['tx'])
+        assert_false(txMbtr in bl_json['tx'])
         assert_true(txFT in self.nodes[0].getrawmempool(True))
         assert_true(txMbtr in self.nodes[0].getrawmempool(True))
 
@@ -431,7 +432,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         mark_logs("\nNode 2 creates a second tx with a FT output scFee={}".format(ftScFee), self.nodes, DEBUG_MODE)
 
-        forwardTransferOuts = [{'toaddress': address, 'amount': ftScFee, "scid":scid}]
+        forwardTransferOuts = [{'toaddress': address, 'amount': ftScFee, "scid":scid, "mcReturnAddress": mc_return_address}]
 
         try:
             txFT = self.nodes[2].send_to_sidechain(forwardTransferOuts, { "fee": 0.0})
