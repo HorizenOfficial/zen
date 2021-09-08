@@ -193,14 +193,11 @@ class sc_block_partitions(BitcoinTestFramework):
         print "block num of cert = ", ret['currentblockcert']
         print "block size        = ", ret['currentblocksize']
         print "block num of tx   = ", ret['currentblocktx']
-        print "tx partition used = ", ret['currenttxpartitionused']
 
         # all certs but one are included in the block
         assert_equal(ret['currentblockcert'], tot_num_cert - 1)
         # block space used for certs and txes is lower than max block size 
         assert_true(ret['currentblocksize'] < TEST_BLOCK_MAX_SIZE)
-        # block space used for txes is lower than tx partition
-        assert_true(ret['currenttxpartitionused'] < TEST_BLOCK_TX_PARTITION_MAX_SIZE)
 
         mark_logs("Generating 1 block and checking blocks partitions...", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
@@ -210,7 +207,6 @@ class sc_block_partitions(BitcoinTestFramework):
         print "block num of cert = ", ret['currentblockcert']
         print "block size        = ", ret['currentblocksize']
         print "block num of tx   = ", ret['currentblocktx']
-        print "tx partition used = ", ret['currenttxpartitionused']
 
         # last cert has been included in the block
         assert_equal(ret['currentblockcert'], 1)
@@ -218,7 +214,6 @@ class sc_block_partitions(BitcoinTestFramework):
         assert_true(ret['currentblocksize'] < TEST_BLOCK_MAX_SIZE)
         # block space used for txes is lower than tx partition
         assert_true(ret['currentblocktx'] > 0)
-        assert_true(ret['currenttxpartitionused'] < TEST_BLOCK_TX_PARTITION_MAX_SIZE)
 
         mark_logs("Generating 1 block and checking blocks partitions...", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
@@ -228,7 +223,6 @@ class sc_block_partitions(BitcoinTestFramework):
         print "block num of cert = ", ret['currentblockcert']
         print "block size        = ", ret['currentblocksize']
         print "block num of tx   = ", ret['currentblocktx']
-        print "tx partition used = ", ret['currenttxpartitionused']
 
         # no more certs
         assert_equal(ret['currentblockcert'], 0)
@@ -236,7 +230,6 @@ class sc_block_partitions(BitcoinTestFramework):
         assert_true(ret['currentblocksize'] < TEST_BLOCK_MAX_SIZE)
         # block space used for txes is lower than tx partition
         assert_true(ret['currentblocktx'] > 0)
-        assert_true(ret['currenttxpartitionused'] < TEST_BLOCK_TX_PARTITION_MAX_SIZE)
 
         self.nodes[0].generate(1)
         self.sync_all()
