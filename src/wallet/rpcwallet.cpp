@@ -2881,7 +2881,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
 
     bool includeImmatureBTs = false;
     if(params.size() > 5)
-        if(params[5].getBool())
+        if(params[5].get_bool())
             includeImmatureBTs = true;
 
     UniValue ret(UniValue::VARR);
