@@ -211,7 +211,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         fwt_amount = Decimal("0.5")
         mc_return_address = self.nodes[0].getnewaddress("", True)
         try:
-            fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scids[-1], mc_return_address)
+            fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scids[-1], mc_return_address)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']

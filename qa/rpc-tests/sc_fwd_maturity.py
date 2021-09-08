@@ -121,7 +121,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         # raw_input("Press enter to send...")
         mark_logs("\nNode 1 sends " + str(fwt_amount_1) + " coins to SC", self.nodes, DEBUG_MODE)
         mc_return_address = self.nodes[1].getnewaddress("", True)
-        self.nodes[1].sc_send("abcd", fwt_amount_1, scid_1, mc_return_address)
+        self.nodes[1].dep_sc_send("abcd", fwt_amount_1, scid_1, mc_return_address)
         self.sync_all()
 
         mark_logs("\nNode 1 sends 3 amounts to SC 1 (tot: " + str(fwt_amount_many) + ")", self.nodes, DEBUG_MODE)

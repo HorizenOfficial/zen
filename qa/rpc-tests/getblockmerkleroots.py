@@ -112,7 +112,7 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
         #Test getblockmerkleroots with a FT
         print("######## Test getblockmerkleroots with a FT ########")
 
-        self.nodes[0].sc_send("abcd", 2.0, scid, mc_return_address)
+        self.nodes[0].dep_sc_send("abcd", 2.0, scid, mc_return_address)
         self.sync_all()
         self.nodes[0].sendtoaddress(tAddr, 1.0)
         self.sync_all()

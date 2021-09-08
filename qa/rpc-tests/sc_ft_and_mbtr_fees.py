@@ -201,7 +201,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         forwardTransferOuts = [{'toaddress': address, 'amount': ftFee, "scid": scid, "mcReturnAddress": mc_return_address}]
 
         try:
-            tx = self.nodes[1].send_to_sidechain(forwardTransferOuts)
+            tx = self.nodes[1].sc_send(forwardTransferOuts)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -241,7 +241,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         forwardTransferOuts = [{'toaddress': address, 'amount': ftFee, "scid": scid, "mcReturnAddress": mc_return_address}]
 
         try:
-            tx = self.nodes[1].send_to_sidechain(forwardTransferOuts)
+            tx = self.nodes[1].sc_send(forwardTransferOuts)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -280,7 +280,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         forwardTransferOuts = [{'toaddress': address, 'amount': ftFee, "scid": scid, "mcReturnAddress": mc_return_address}]
 
         try:
-            tx = self.nodes[1].send_to_sidechain(forwardTransferOuts)
+            tx = self.nodes[1].sc_send(forwardTransferOuts)
         except JSONRPCException, e:
             errorString = e.error['message']
             print(errorString)
@@ -368,9 +368,9 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         forwardTransferOuts2 = [{'toaddress': address, 'amount': newFtFee + 1, "scid": scid, "mcReturnAddress": mc_return_address}]
 
         try:
-            ft_tx_1 = self.nodes[0].send_to_sidechain(forwardTransferOuts1)
+            ft_tx_1 = self.nodes[0].sc_send(forwardTransferOuts1)
             time.sleep(2)
-            ft_tx_2 = self.nodes[0].send_to_sidechain(forwardTransferOuts2)
+            ft_tx_2 = self.nodes[0].sc_send(forwardTransferOuts2)
             time.sleep(2)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -485,7 +485,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         forwardTransferOuts = [{'toaddress': address, 'amount': ftFee, "scid": scid, "mcReturnAddress": mc_return_address}]
 
         try:
-            self.nodes[0].send_to_sidechain(forwardTransferOuts)
+            self.nodes[0].sc_send(forwardTransferOuts)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -496,7 +496,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         forwardTransferOuts = [{'toaddress': address, 'amount': newFtFee, "scid": scid, "mcReturnAddress": mc_return_address}]
 
         try:
-            self.nodes[0].send_to_sidechain(forwardTransferOuts)
+            self.nodes[0].sc_send(forwardTransferOuts)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)

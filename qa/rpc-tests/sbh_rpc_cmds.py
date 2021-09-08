@@ -163,7 +163,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         cmdParms = { 'fromaddress': taddr_1, "minconf": 0, "fee": fee}
 
         try:
-            tx = self.nodes[1].send_to_sidechain(outputs, cmdParms)
+            tx = self.nodes[1].sc_send(outputs, cmdParms)
             self.sync_all()
             txs_node1.append(tx)
             mark_logs("\n===> Node 1 sent {} coins to fund the sc".format(sc_fwd_amount), self.nodes, DEBUG_MODE)

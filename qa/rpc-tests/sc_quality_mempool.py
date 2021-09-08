@@ -127,7 +127,7 @@ class quality_mempool(BitcoinTestFramework):
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
         mc_return_address = self.nodes[0].getnewaddress("", True)
         mark_logs("Node0 balance before fwd tx: {}".format(bal_before_fwd_tx), self.nodes, DEBUG_MODE)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid_1, mc_return_address)
+        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid_1, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC 1 with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -139,7 +139,7 @@ class quality_mempool(BitcoinTestFramework):
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
         mc_return_address = self.nodes[0].getnewaddress("", True)
         mark_logs("Node0 balance before fwd tx: {}".format(bal_before_fwd_tx), self.nodes, DEBUG_MODE)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid_2, mc_return_address)
+        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid_2, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC 2 with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 

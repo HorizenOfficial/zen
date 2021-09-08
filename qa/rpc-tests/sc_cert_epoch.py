@@ -97,7 +97,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.sync_all()
 
         mc_return_address = self.nodes[0].getnewaddress("", True)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid, mc_return_address)
+        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node 0 performs a fwd transfer of {} coins to Sc via tx {}.".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         assert(len(fwd_tx) > 0)
         self.sync_all()
@@ -107,7 +107,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.sync_all()
 
         mc_return_address = self.nodes[0].getnewaddress("", True)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount_immature_at_epoch, scid, mc_return_address)
+        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount_immature_at_epoch, scid, mc_return_address)
         mark_logs("Node 0 performs a fwd transfer of {} coins to Sc via tx {}.".format(fwt_amount_immature_at_epoch, fwd_tx), self.nodes, DEBUG_MODE)
         assert(len(fwd_tx) > 0)
         self.sync_all()

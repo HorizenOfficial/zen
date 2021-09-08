@@ -239,7 +239,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         forwardTransferOuts = [{'toaddress': address, 'amount': ftScFee, "scid":scid, "mcReturnAddress": mc_return_address}]
 
         try:
-            txFT = self.nodes[2].send_to_sidechain(forwardTransferOuts, { "fee": 0.0})
+            txFT = self.nodes[2].sc_send(forwardTransferOuts, { "fee": 0.0})
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -452,7 +452,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         forwardTransferOuts = [{'toaddress': address, 'amount': ftScFee, "scid":scid, "mcReturnAddress": mc_return_address}]
 
         try:
-            txFT = self.nodes[2].send_to_sidechain(forwardTransferOuts, { "fee": 0.0})
+            txFT = self.nodes[2].sc_send(forwardTransferOuts, { "fee": 0.0})
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)

@@ -541,7 +541,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 sends funds in 10 transfers to sc", self.nodes, DEBUG_MODE)
         try:
-            tx = self.nodes[1].send_to_sidechain(outputs, cmdParms)
+            tx = self.nodes[1].sc_send(outputs, cmdParms)
             self.sync_all()
         except JSONRPCException, e:
             errorString = e.error['message']
