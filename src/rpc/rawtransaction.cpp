@@ -156,8 +156,9 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     }
     entry.pushKV("vout", vout);
 
-    // add to entry obj the cross chain outputs
-    Sidechain::AddSidechainOutsToJSON(tx, entry);
+    // add to entry obj the cross chain outputs if Tx has sidechain support version
+    if(tx.IsScVersion())
+        Sidechain::AddSidechainOutsToJSON(tx, entry);
 
     UniValue vjoinsplit = TxJoinSplitToJSON(tx);
     entry.pushKV("vjoinsplit", vjoinsplit);
@@ -180,7 +181,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 
 void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& entry)
 {
-    entry.pushKV("certid", cert.GetHash().GetHex());
+    entry.pushKV("txid", cert.GetHash().GetHex());
     entry.pushKV("version", cert.nVersion);
     UniValue vin(UniValue::VARR);
     BOOST_FOREACH(const CTxIn& txin, cert.GetVin()) {
@@ -219,8 +220,7 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
             {
                 pkhStr = "<<Decode error>>";
             }
-            out.pushKV("backward transfer", true);
-            out.pushKV("pubkeyhash", pkhStr);
+            out.pushKV("backwardTransfer", true);
         }
         vout.push_back(out);
     }
@@ -267,6 +267,10 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
             }
         }
     }
+
+    // add empty joinsplits array to be consistent with Txs.
+    UniValue vjoinsplit(UniValue::VARR);
+    entry.pushKV("vjoinsplit", vjoinsplit);
 }
 
 UniValue getrawtransaction(const UniValue& params, bool fHelp)

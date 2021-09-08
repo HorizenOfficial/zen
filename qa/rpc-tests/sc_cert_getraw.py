@@ -158,7 +158,7 @@ class sc_cert_getraw(BitcoinTestFramework):
         decoded_cert_mempool_hex2 = self.nodes[1].getrawcertificate(cert_epoch_0)
         assert_equal(decoded_cert_mempool_hex, decoded_cert_mempool_hex2)
         dec = self.nodes[2].decoderawtransaction(decoded_cert_mempool_hex)
-        assert_equal(cert_epoch_0, dec['certid'])
+        assert_equal(cert_epoch_0, dec['txid'])
         assert_equal(scid, dec['cert']['scid'])
         dec2 = self.nodes[2].decoderawcertificate(decoded_cert_mempool_hex)
         assert_equal(dec2, dec)
