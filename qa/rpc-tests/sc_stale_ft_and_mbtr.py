@@ -120,7 +120,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         set by the constant defined in the base code (and overriden here by the -blocksforscfeecheck zend option)
         are connected to the active chain.
         In order to verify it, two null-fee and low-prio txes are sent to the mempool with a FT and a Mbtr, a large number
-        of high-fee/high prio txes are  added too, and the miners have a small block capacity, so that the former pair is never 
+        of high-fee/high prio txes are added too, and the miners have a small block capacity, so that the former pair is never 
         mined, while SC epochs increase evolving active certificates. 
         After a node restart, this pattern is repeated but this time the txes are mined before they are evicted from the mempool.
         '''
@@ -142,6 +142,11 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
                       Decimal('0.066'),  # cert ep=2         
                       Decimal('0.077'),  # cert ep=3         
                       Decimal('0.088')]  # cert ep=4         
+
+        # This is a hack for having certs always selected first by miner
+        # via the rpc cmd prioritisetransaction
+        prio_delta = Decimal(1.0E16)
+        fee_delta  = 0 # in zats
 
         # network topology: (0)--(1)--(2)--(3)
 
@@ -287,6 +292,9 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         mark_logs("cert={}, epoch={}, ftScFee={}, mbtrScFee={}".format(cert, epoch_number, ftScFee, mbtrScFee), self.nodes, DEBUG_MODE)
 
+        ret = self.nodes[1].prioritisetransaction(cert, prio_delta, fee_delta )
+        self.sync_all()
+
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
         bl = self.nodes[1].generate(1)[-1]
         self.sync_all()
@@ -323,6 +331,9 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         self.sync_all()
 
         mark_logs("cert={}, epoch={}, ftScFee={}, mbtrScFee={}".format(cert, epoch_number, ftScFee, mbtrScFee), self.nodes, DEBUG_MODE)
+
+        ret = self.nodes[1].prioritisetransaction(cert, prio_delta, fee_delta )
+        self.sync_all()
 
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
         bl = self.nodes[1].generate(1)[-1]
@@ -363,6 +374,9 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         mark_logs("cert={}, epoch={}, ftScFee={}, mbtrScFee={}".format(cert, epoch_number, ftScFee, mbtrScFee), self.nodes, DEBUG_MODE)
         assert_true(cert in self.nodes[1].getrawmempool(True))
 
+        ret = self.nodes[1].prioritisetransaction(cert, prio_delta, fee_delta )
+        self.sync_all()
+
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[1].generate(1)
         self.sync_all()
@@ -391,6 +405,9 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         mark_logs("Check txes are still in mempool...", self.nodes, DEBUG_MODE)
         assert_true(txFT in self.nodes[0].getrawmempool(True))
         assert_true(txMbtr in self.nodes[0].getrawmempool(True))
+
+        ret = self.nodes[0].prioritisetransaction(cert, prio_delta, fee_delta )
+        self.sync_all()
 
         mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
         bl = self.nodes[0].generate(1)[-1]
@@ -483,6 +500,9 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         mark_logs("cert={}, epoch={}, ftScFee={}, mbtrScFee={}".format(cert, epoch_number, ftScFee, mbtrScFee), self.nodes, DEBUG_MODE)
         assert_true(cert in self.nodes[1].getrawmempool(True))
 
+        ret = self.nodes[1].prioritisetransaction(cert, prio_delta, fee_delta )
+        self.sync_all()
+
         mark_logs("Node 1 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[1].generate(1)
         self.sync_all()
@@ -510,6 +530,9 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         mark_logs("Check txes are still in mempool...", self.nodes, DEBUG_MODE)
         assert_true(txFT in self.nodes[0].getrawmempool(True))
         assert_true(txMbtr in self.nodes[0].getrawmempool(True))
+
+        ret = self.nodes[3].prioritisetransaction(cert, prio_delta, fee_delta )
+        self.sync_all()
 
         mark_logs("Node 3 generates 1 block", self.nodes, DEBUG_MODE)
         bl = self.nodes[3].generate(1)[-1]
