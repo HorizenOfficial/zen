@@ -978,7 +978,7 @@ UniValue getblockmerkleroots(const UniValue& params, bool fHelp) {
     if (fHelp || params.size() != 2)
         throw runtime_error(
                 "getblockmerkleroots transactions certificates\n"
-                "\nReturns Merkleroot and ScTxsCommitment.\n"
+                "\nReturns Merkleroot and ScTxsCommitment for the next block.\n"
                 "\nArguments:\n"
                 "1. transactions         (array) Array of raw transactions (HEX format).\n"
                 "2. certificates         (array) Array of raw certificates (HEX format).\n"
@@ -992,6 +992,9 @@ UniValue getblockmerkleroots(const UniValue& params, bool fHelp) {
                 + HelpExampleRpc("getblockmerkleroots", "'[\"0100000001000000...\", ...]', '[\"0100000001000000...\", ...]'")
         );
     LOCK(cs_main);
+
+    int nHeight = chainActive.Height() + 1;
+    bool certSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
 
     UniValue txsStr =  params[0].get_array();
     std::vector<CTransaction> txs;
@@ -1024,7 +1027,7 @@ UniValue getblockmerkleroots(const UniValue& params, bool fHelp) {
     uint256 merkleTree = pblock->BuildMerkleTree();
     uint256 scTxsCommitment;
     scTxsCommitment.SetNull();
-    if (pblock->nVersion == BLOCK_VERSION_SC_SUPPORT){
+    if (certSupported) {
         scTxsCommitment = pblock->BuildScTxsCommitment(view);
     }
 
