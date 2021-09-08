@@ -608,14 +608,15 @@ UniValue gettxoutsetinfo(const UniValue& params, bool fHelp)
 
 UniValue gettxout(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() > 3)
+    if (fHelp || params.size() < 2 || params.size() > 4)
         throw runtime_error(
-            "gettxout \"txid\" n ( includemempool )\n"
+            "gettxout \"txid\" n ( includemempool matureOnly)\n"
             "\nReturns details about an unspent transaction output.\n"
             "\nArguments:\n"
             "1. \"txid\"       (string, required) The transaction id\n"
             "2. n              (numeric, required) vout value\n"
-            "3. includemempool  (boolean, optional) Whether to included the mem pool\n"
+            "3. includemempool (boolean, optional, default=true) Whether to included the mem pool\n"
+            "4. matureOnly     (booleab, optional, default=true) Allow to include only mature outputs (and skip immature coinbase or cert BTs)."
             "\nResult:\n"
             "{\n"
             "  \"bestblock\" : \"hash\",    (string) the block hash\n"
@@ -655,6 +656,10 @@ UniValue gettxout(const UniValue& params, bool fHelp)
     if (params.size() > 2)
         fMempool = params[2].get_bool();
 
+    bool fMatureOnly = true;
+    if (params.size() > 3)
+        fMatureOnly = params[3].get_bool();
+
     CCoins coins;
     if (fMempool) {
         LOCK(mempool.cs);
@@ -667,6 +672,11 @@ UniValue gettxout(const UniValue& params, bool fHelp)
             return NullUniValue;
     }
     if (n<0 || (unsigned int)n>=coins.vout.size() || coins.vout[n].IsNull())
+        return NullUniValue;
+
+    // Note: we may discard either immature coinbases and certificate BTs
+    bool isOutputMature = coins.isOutputMature(n, pcoinsTip->GetHeight()+1);
+    if(fMatureOnly && !isOutputMature)
         return NullUniValue;
 
     BlockMap::iterator it = mapBlockIndex.find(pcoinsTip->GetBestBlock());
@@ -684,6 +694,17 @@ UniValue gettxout(const UniValue& params, bool fHelp)
     ret.pushKV("version", coins.nVersion);
     ret.pushKV("certificate", coins.IsFromCert());
     ret.pushKV("coinbase", coins.IsCoinBase());
+
+    bool isBackwardTransfer = coins.IsFromCert() && n >= coins.nFirstBwtPos;
+    ret.pushKV("backwardTransfer", isBackwardTransfer);
+    if(isBackwardTransfer) {
+        ret.pushKV("mature", isOutputMature);
+        bool isCoinFromMempool = coins.nBwtMaturityHeight == MEMPOOL_HEIGHT;
+        ret.pushKV("maturityHeight", isCoinFromMempool ? -1 : coins.nBwtMaturityHeight);
+        ret.pushKV("blocksToMaturity", isCoinFromMempool ? -1 :
+                       isOutputMature ? 0 :
+                           coins.nBwtMaturityHeight - (pcoinsTip->GetHeight() + 1));
+    }
 
     return ret;
 }

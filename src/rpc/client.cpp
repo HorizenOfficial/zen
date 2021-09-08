@@ -98,6 +98,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "signrawcertificate", 1 },
     { "gettxout", 1 },
     { "gettxout", 2 },
+    { "gettxout", 3 },
     { "gettxoutproof", 0 },
     { "lockunspent", 0 },
     { "lockunspent", 1 },

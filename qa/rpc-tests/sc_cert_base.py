@@ -446,9 +446,31 @@ class sc_cert_base(BitcoinTestFramework):
         bal_before_bwt = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before bwt is received: {}".format(bal_before_bwt), self.nodes, DEBUG_MODE)
 
+        # Get BT txout excluding immature outputs
+        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1)
+        assert_true(utx_out is None)
+
+        mature_only = False
+        # Get BT txout including immature outputs
+        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, True, mature_only)
+        assert_equal(utx_out["mature"], False)
+        assert_equal(utx_out["maturityHeight"], -1)
+        assert_equal(utx_out["blocksToMaturity"], -1)
+
         mark_logs("Node0 confirms certificate generating 1 block", self.nodes, DEBUG_MODE)
         mined = self.nodes[0].generate(1)[0]
         self.sync_all()
+
+        # Get BT txout excluding mempool
+        # Check that BT is immature
+        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, False, mature_only)
+        cur_h = self.nodes[0].getblockcount()
+        cert_epoch_0_maturity_h = self.nodes[0].getscinfo(scid, True, False)['items'][0]['ceasing height']
+        cert_epoch_0_maturity_delta = cert_epoch_0_maturity_h - cur_h - 1
+        assert_equal(utx_out["mature"], False)
+        assert_equal(utx_out["maturityHeight"], cert_epoch_0_maturity_h)
+        assert_equal(utx_out["blocksToMaturity"], cert_epoch_0_maturity_delta)
+
 
         mark_logs("Check cert is not in mempool anymore", self.nodes, DEBUG_MODE)
         assert_equal(False, cert_epoch_0 in self.nodes[0].getrawmempool())
@@ -594,6 +616,14 @@ class sc_cert_base(BitcoinTestFramework):
 
         mark_logs("Checking Node1 balance is duly updated,".format(epoch_number), self.nodes, DEBUG_MODE)
         assert_equal(bal_after_cert_2, bal_before_cert_2 + amount_cert_1[0]["amount"])
+
+        # Get BT txout excluding mempool
+        # Check that BT is mature
+        mature_only = True
+        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, False, mature_only)
+        assert_equal(utx_out["mature"], True)
+        assert_equal(utx_out["maturityHeight"], cert_epoch_0_maturity_h)
+        assert_equal(utx_out["blocksToMaturity"], 0)
 
         Node2_bal_before_cert_expenditure = self.nodes[2].getbalance("", 0)
         mark_logs("Checking that Node1 can spend coins received from bwd transfer in previous epoch", self.nodes, DEBUG_MODE)
