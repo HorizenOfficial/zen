@@ -246,7 +246,7 @@ class ws_messages(BitcoinTestFramework):
         mark_logs("Testing websocket request processing performance", self.nodes, DEBUG_MODE)
         start = time.time()
         num_requests = 100
-        max_time_spend_sec = 1
+        max_time_spend_sec = 3
         for _ in range(num_requests):
             self.nodes[0].ws_get_single_block(height)
         time_duration = time.time() - start

@@ -129,7 +129,7 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
 
         cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-            scid2, "sc2", constant2, EPOCH_LENGTH, generate=False) # do not generate
+            scid2, "sc2", constant2, EPOCH_LENGTH, generateNumBlocks=0) # do not generate
 
         mark_logs("\n==> certificate for SC2 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
@@ -141,7 +141,7 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
 
         cert, epoch_number = advance_epoch(
             certMcTest, self.nodes[0], self.sync_all,
-             scid2, "sc2", constant2, EPOCH_LENGTH, generate=False) # do not generate
+             scid2, "sc2", constant2, EPOCH_LENGTH, generateNumBlocks=0) # do not generate
 
         mark_logs("\n==> certificate for SC2 epoch {} {}".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
@@ -190,11 +190,11 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
 
             csw_proofs1.append(cswMcTest.create_test_proof(
                 "sc1", sc_csw_amount, str(scid1_swapped), nullifiers1[i], pkh_mc_address,
-                ceasingCumScTxCommTree1, actCertData1))
+                ceasingCumScTxCommTree1, actCertData1, constant1))
 
             csw_proofs2.append(cswMcTest.create_test_proof(
                 "sc2", sc_csw_amount, str(scid2_swapped), nullifiers2[i], pkh_mc_address,
-                ceasingCumScTxCommTree2, actCertData2))
+                ceasingCumScTxCommTree2, actCertData2, constant2))
         
         sc_csws = []
 
