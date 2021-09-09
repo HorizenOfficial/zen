@@ -304,6 +304,14 @@ wrappedScProofPtr CScProof::GetProofPtr() const
     std::lock_guard<std::mutex> lk(_mutex);
     if (proofData == nullptr)
     {
+        if (byteVector.size() > MaxByteSize())
+        {
+            LogPrint("sc", "%s():%d - exceeded max size: byteVector[%d] != %d\n",
+                __func__, __LINE__, byteVector.size(), MaxByteSize());
+            assert(proofData == nullptr);
+            return proofData;
+        }
+
         BufferWithSize result{(unsigned char*)&byteVector[0], byteVector.size()}; 
         CctpErrorCode code;
 
@@ -382,6 +390,15 @@ wrappedScVkeyPtr CScVKey::GetVKeyPtr() const
     std::lock_guard<std::mutex> lk(_mutex);
     if (vkData == nullptr)
     {
+
+        if (byteVector.size() > MaxByteSize())
+        {
+            LogPrint("sc", "%s():%d - exceeded max size: byteVector[%d] != %d\n",
+                __func__, __LINE__, byteVector.size(), MaxByteSize());
+            assert(vkData == nullptr);
+            return vkData;
+        }
+
         BufferWithSize result{(unsigned char*)&byteVector[0], byteVector.size()}; 
         CctpErrorCode code;
 

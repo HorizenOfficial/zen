@@ -152,6 +152,13 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
+        # Generate proof before the call of `getblocktemplate`.
+        # It is a time consuming operation, so may take more than GET_BLOCK_TEMPLATE_DELAY seconds.
+        quality = quality + 1
+        proof = mcTest.create_test_proof(
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant,
+            [pkh_node1], [bwt_amount])
+
         mark_logs("\nCall GetBlockTemplate on each node to create a new cached version", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):
             self.nodes[i].getblocktemplate()
@@ -159,10 +166,6 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node 0 sends a normal transaction and a certificate", self.nodes, DEBUG_MODE)
         
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 0.1)
-
-        quality = quality + 1
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
 
         try:
             cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, 

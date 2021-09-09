@@ -312,7 +312,7 @@ class CBlockUndo
      *  It is used for distinguish new version of CBlockUndo instance from old ones.
      *  The maximum number of tx+cert in a block is roughly:
      *      BLOCK_TX_PARTITION_SIZE / MIN_TX_SIZE + (MAX_BLOCK_SIZE - BLOCK_TX_PARTITION_SIZE) / MIN_CERT_SIZE =
-     *      2M / 61bytes + 2M / 2950bytes =~ 35K = 0x8912  
+     *      2M / 61bytes + 2M / 1186bytes =~ 35K = 0x8912  
      * Therefore the magic number must be a number greater than this limit. */
     static const uint64_t _marker = 0xffff;
 

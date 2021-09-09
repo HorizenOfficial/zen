@@ -155,7 +155,8 @@ class sc_block_partitions(BitcoinTestFramework):
         # fee lower than the one used for certs
         fee = Decimal("0.000025")
         am = 0.1
-        sc_ft = [ {"address":"abc", "amount":am, "scid":scid} ]
+        mc_return_address = self.nodes[1].getnewaddress("", True)
+        sc_ft = [ {"address":"abc", "amount":am, "scid":scid, "mcReturnAddress": mc_return_address} ]
 
 
         # there are 100 coinbase utxo now matured

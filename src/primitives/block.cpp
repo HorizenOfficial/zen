@@ -37,12 +37,12 @@ size_t CBlock::GetSerializeComponentsSize(size_t& headerSize, size_t& totalTxSiz
     // and if block supports SC:
     // 4. number of certificates (compact size of vcert, 1 byte if no certs)
     // 5. certificates, if any
-    headerSize = ::GetSerializeSize((*(CBlockHeader*)this), SER_NETWORK, PROTOCOL_VERSION);                                            \
+    headerSize = ::GetSerializeSize((*(CBlockHeader*)this), SER_NETWORK, PROTOCOL_VERSION);
     totalBlockSize += headerSize;
 
     size_t num_tx = vtx.size();
 
-    size_t sz_num_tx = GetSizeOfCompactSize(num_tx); 
+    size_t sz_num_tx = GetSizeOfCompactSize(num_tx);
     totalBlockSize += sz_num_tx;
 
     for (int i = 0; i < num_tx; i++)
@@ -57,7 +57,7 @@ size_t CBlock::GetSerializeComponentsSize(size_t& headerSize, size_t& totalTxSiz
     {
         size_t num_cert = vcert.size();
 
-        sz_num_cert = GetSizeOfCompactSize(num_cert); 
+        sz_num_cert = GetSizeOfCompactSize(num_cert);
         totalBlockSize += sz_num_cert;
 
         for (int i = 0; i < num_cert; i++)
@@ -238,7 +238,7 @@ std::string CBlock::ToString() const
 void CBlock::GetTxAndCertsVector(std::vector<const CTransactionBase*>& vBase) const
 {
     vBase.clear();
-    vBase.reserve(vtx.size() + vcert.size()); 
+    vBase.reserve(vtx.size() + vcert.size());
 
     for (unsigned int i = 0; i < vtx.size(); i++)
     {
