@@ -1407,9 +1407,9 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             + HelpRequiringPassphrase() + "\n"
 #endif
 
-            "\nArguments for signing transaction:\n"
+            "\nArguments:\n"
             "1. \"hexstring\"                      (string, required) The transaction or certificate hex string\n"
-            "2. \"prevtxs\"                        (string, optional, only for transaction) An json array of previous dependent transaction outputs\n"
+            "2. \"prevtxs\"                        (string, optional) An json array of previous dependent transaction outputs\n"
             "     [                                (json array of json objects, or 'null' if none provided)\n"
             "       {\n"
             "         \"txid\": \"id\",            (string, required) the transaction id\n"
@@ -1424,21 +1424,14 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             "      \"privatekey\"                  (string) private key in base58-encoding\n"
             "      ,...\n"
             "    ]\n"
-            "4. \"sighashtype\"                    (string, optional, default=ALL, only for transaction) The signature hash type. Must be one of\n"
+            "4. \"sighashtype\"                    (string, optional, default=ALL) The signature hash type. Must be one of\n"
             "       \"ALL\"\n"
             "       \"NONE\"\n"
             "       \"SINGLE\"\n"
             "       \"ALL|ANYONECANPAY\"\n"
             "       \"NONE|ANYONECANPAY\"\n"
             "       \"SINGLE|ANYONECANPAY\"\n"
-
-            "\nArguments for signing certificate:\n"
-            "1. \"hexstring\"     (string, required) The transaction hex string\n"
-            "2. \"privatekeys\"     (string, optional) A json array of base58-encoded private keys for signing\n"
-            "    [                  (json array of strings, or 'null' if none provided)\n"
-            "      \"privatekey\"   (string) private key in base58-encoding\n"
-            "      ,...\n"
-            "    ]\n"
+            "                                     Certificate support only ALL parameter.\n"
 
             "\nResult:\n"
             "{\n"
@@ -1473,15 +1466,14 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
     CDataStream ssVersion(txData, SER_NETWORK, PROTOCOL_VERSION);
     vector<CMutableTransaction> txVariants;
     CMutableScCertificate certificate;
-    bool isTransaction = true;
 
     if (ssData.empty())
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing input transaction(certificate)");
 
-    int version;
-    ssVersion >> version;
+    int txVersion;
+    ssVersion >> txVersion;
 
-    if(version != SC_CERT_VERSION) {
+    if(txVersion != SC_CERT_VERSION) {
         while (!ssData.empty()) {
             try {
                 CMutableTransaction tx;
@@ -1495,7 +1487,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
     } else {
         try {
             ssData >> certificate;
-            isTransaction = false;
 
             if (!ssData.empty()) {
                 // just one and only one certificate expected
@@ -1510,10 +1501,10 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
 
     bool fGivenKeys = false;
     CBasicKeyStore tempKeystore;
-    int keyPosition = isTransaction ? 2 : 1;
-    if (params.size() > keyPosition && !params[keyPosition].isNull()) {
+
+    if (params.size() > 2 && !params[2].isNull()) {
         fGivenKeys = true;
-        UniValue keys = params[keyPosition].get_array();
+        UniValue keys = params[2].get_array();
         for (size_t idx = 0; idx < keys.size(); idx++) {
             UniValue k = keys[idx];
             CBitcoinSecret vchSecret;
@@ -1526,12 +1517,35 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             tempKeystore.AddKey(key);
         }
     }
+
+    int nHashType = SIGHASH_ALL;
+    if (params.size() > 3 && !params[3].isNull()) {
+        static map<string, int> mapSigHashValues =
+            boost::assign::map_list_of
+            (string("ALL"), int(SIGHASH_ALL))
+            (string("ALL|ANYONECANPAY"), int(SIGHASH_ALL|SIGHASH_ANYONECANPAY))
+            (string("NONE"), int(SIGHASH_NONE))
+            (string("NONE|ANYONECANPAY"), int(SIGHASH_NONE|SIGHASH_ANYONECANPAY))
+            (string("SINGLE"), int(SIGHASH_SINGLE))
+            (string("SINGLE|ANYONECANPAY"), int(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY))
+            ;
+        string strHashType = params[3].get_str();
+        if (mapSigHashValues.count(strHashType))
+            nHashType = mapSigHashValues[strHashType];
+        else
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid sighash param");
+    }
+
+    if ((txVersion == SC_CERT_VERSION) && (nHashType != SIGHASH_ALL)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported sighash param for certificate");
+    }
+
 #ifdef ENABLE_WALLET
-    else if (isTransaction && pwalletMain)
+    else if ((txVersion != SC_CERT_VERSION) && pwalletMain)
         EnsureWalletIsUnlocked();
 #endif
 
-    if (isTransaction) {
+    if (txVersion != SC_CERT_VERSION) {
         // mergedTx will end up with all the signatures; it
         // starts as a clone of the rawtx:
         CMutableTransaction mergedTx(txVariants[0]);
@@ -1608,25 +1622,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
 #else
         const CKeyStore& keystore = tempKeystore;
 #endif
-
-        int nHashType = SIGHASH_ALL;
-        if (params.size() > 3 && !params[3].isNull()) {
-            static map<string, int> mapSigHashValues =
-                boost::assign::map_list_of
-                (string("ALL"), int(SIGHASH_ALL))
-                (string("ALL|ANYONECANPAY"), int(SIGHASH_ALL|SIGHASH_ANYONECANPAY))
-                (string("NONE"), int(SIGHASH_NONE))
-                (string("NONE|ANYONECANPAY"), int(SIGHASH_NONE|SIGHASH_ANYONECANPAY))
-                (string("SINGLE"), int(SIGHASH_SINGLE))
-                (string("SINGLE|ANYONECANPAY"), int(SIGHASH_SINGLE|SIGHASH_ANYONECANPAY))
-                ;
-            string strHashType = params[3].get_str();
-            if (mapSigHashValues.count(strHashType))
-                nHashType = mapSigHashValues[strHashType];
-            else
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid sighash param");
-        }
-
         bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
 
         // Script verification errors
@@ -1724,15 +1719,61 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
         }
 
+        // Add previous txouts given in the RPC call:
+        if (params.size() > 1 && !params[1].isNull()) {
+            UniValue prevTxs = params[1].get_array();
+            for (size_t idx = 0; idx < prevTxs.size(); idx++) {
+                const UniValue& p = prevTxs[idx];
+                if (!p.isObject())
+                    throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "expected object with {\"txid'\",\"vout\",\"scriptPubKey\"}");
+
+                UniValue prevOut = p.get_obj();
+
+                RPCTypeCheckObj(prevOut, boost::assign::map_list_of("txid", UniValue::VSTR)("vout", UniValue::VNUM)("scriptPubKey", UniValue::VSTR));
+
+                uint256 txid = ParseHashO(prevOut, "txid");
+
+                int nOut = find_value(prevOut, "vout").get_int();
+                if (nOut < 0)
+                    throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "vout must be positive");
+
+                vector<unsigned char> pkData(ParseHexO(prevOut, "scriptPubKey"));
+                CScript scriptPubKey(pkData.begin(), pkData.end());
+
+                {
+                    CCoinsModifier coins = view.ModifyCoins(txid);
+                    if (coins->IsAvailable(nOut) && coins->vout[nOut].scriptPubKey != scriptPubKey) {
+                        string err("Previous output scriptPubKey mismatch:\n");
+                        err = err + coins->vout[nOut].scriptPubKey.ToString() + "\nvs:\n"+
+                            scriptPubKey.ToString();
+                        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+                    }
+                    if ((unsigned int)nOut >= coins->vout.size())
+                        coins->vout.resize(nOut+1);
+                    coins->vout[nOut].scriptPubKey = scriptPubKey;
+                    coins->vout[nOut].nValue = 0; // we don't know the actual output value
+                }
+
+                // if redeemScript given and not using the local wallet (private keys
+                // given), add redeemScript to the tempKeystore so it can be signed:
+                if (fGivenKeys && scriptPubKey.IsPayToScriptHash()) {
+                    RPCTypeCheckObj(prevOut, boost::assign::map_list_of("txid", UniValue::VSTR)("vout", UniValue::VNUM)("scriptPubKey", UniValue::VSTR)("redeemScript",UniValue::VSTR));
+                    UniValue v = find_value(prevOut, "redeemScript");
+                    if (!v.isNull()) {
+                        vector<unsigned char> rsData(ParseHexV(v, "redeemScript"));
+                        CScript redeemScript(rsData.begin(), rsData.end());
+                        tempKeystore.AddCScript(redeemScript);
+                    }
+                }
+            }
+        }
+
 #ifdef ENABLE_WALLET
         EnsureWalletIsUnlocked();
         const CKeyStore& keystore = ((fGivenKeys || !pwalletMain) ? tempKeystore : *pwalletMain);
 #else
         const CKeyStore& keystore = tempKeystore;
 #endif
-
-        int nHashType = SIGHASH_ALL;
-
         // Script verification errors
         UniValue vErrors(UniValue::VARR);
 
@@ -1803,12 +1844,17 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     CTransaction tx;
     // parse hex string from parameter
     CScCertificate cert;
-    bool isTransaction = true;
 
-    if (!DecodeHexTx(tx, params[0].get_str())) {
-        if (DecodeHexCert(cert, params[0].get_str()))
-            isTransaction = false;
-        else
+    vector<unsigned char> txData(ParseHexV(params[0], "argument 1"));
+    CDataStream ssVersion(txData, SER_NETWORK, PROTOCOL_VERSION);
+    int txVersion;
+    ssVersion >> txVersion;
+
+    if(txVersion != SC_CERT_VERSION) {
+        if (!DecodeHexTx(tx, params[0].get_str()))
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Transaction decode failed");
+    } else {
+        if (!DecodeHexCert(cert, params[0].get_str()))
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Transaction(Certificate) decode failed");
     }
 
@@ -1820,7 +1866,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     RejectAbsurdFeeFlag fRejectAbsurdFee = fOverrideFees? RejectAbsurdFeeFlag::OFF : RejectAbsurdFeeFlag::ON;
     CCoinsViewCache &view = *pcoinsTip;
 
-    if (isTransaction) {
+    if (txVersion != SC_CERT_VERSION) {
         uint256 hashTx = tx.GetHash();
         const CCoins* existingCoins = view.AccessCoins(hashTx);
         bool fHaveMempool = mempool.exists(hashTx);

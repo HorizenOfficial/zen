@@ -461,7 +461,7 @@ class sc_rawcert(BitcoinTestFramework):
         try:
             mark_logs("Node0 creates and signs a raw certificate for epoch {}, expecting failure because the priv key is not his...".format(epoch_number), self.nodes, DEBUG_MODE)
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            signed_cert = self.nodes[0].signrawtransaction(raw_cert, pk_arr)
+            signed_cert = self.nodes[0].signrawtransaction(raw_cert, [], pk_arr)
             assert_equal(signed_cert['complete'], False)
             print "======> ", signed_cert['errors'][0]['error'], "\n"
         except JSONRPCException, e:
@@ -476,7 +476,7 @@ class sc_rawcert(BitcoinTestFramework):
         try:
             mark_logs("Node0 creates and signs a raw certificate for epoch {}, expecting success because the priv key is the right one...".format(epoch_number), self.nodes, DEBUG_MODE)
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            signed_cert = self.nodes[0].signrawtransaction(raw_cert, pk_arr)
+            signed_cert = self.nodes[0].signrawtransaction(raw_cert, [], pk_arr)
             assert_equal(signed_cert['complete'], True)
         except JSONRPCException, e:
             errorString = e.error['message']
