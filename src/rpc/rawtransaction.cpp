@@ -1401,7 +1401,8 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             "The third optional argument (may be null) is an array of base58-encoded private\n"
             "keys that, if given, will be the only keys used to sign the transaction.\n"
             "Optional arguments for certificate."
-            "The second optional argument (may be null) is an array of base58-encoded private\n"
+            "The second optional argument (may be null) is an array of previous transaction outputs that\n"
+            "The third optional argument (may be null) is an array of base58-encoded private\n"
             "keys that, if given, will be the only keys used to sign the transaction.\n"
 #ifdef ENABLE_WALLET
             + HelpRequiringPassphrase() + "\n"
@@ -1409,7 +1410,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
 
             "\nArguments:\n"
             "1. \"hexstring\"                      (string, required) The transaction or certificate hex string\n"
-            "2. \"prevtxs\"                        (string, optional) An json array of previous dependent transaction outputs\n"
+            "2. \"prevtxs\"                        (string, optional) A json array of previous dependent transaction outputs\n"
             "     [                                (json array of json objects, or 'null' if none provided)\n"
             "       {\n"
             "         \"txid\": \"id\",            (string, required) the transaction id\n"
@@ -1431,7 +1432,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             "       \"ALL|ANYONECANPAY\"\n"
             "       \"NONE|ANYONECANPAY\"\n"
             "       \"SINGLE|ANYONECANPAY\"\n"
-            "                                     Certificate support only ALL parameter.\n"
+            "                                       Certificate supports only ALL parameter.\n"
 
             "\nResult:\n"
             "{\n"
@@ -1468,7 +1469,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
     CMutableScCertificate certificate;
 
     if (ssData.empty())
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing input transaction(certificate)");
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing input transaction or certificate");
 
     int txVersion;
     ssVersion >> txVersion;
@@ -1822,10 +1823,10 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
             "\nAlso see createrawtransaction and signrawtransaction calls.\n"
 
             "\nArguments:\n"
-            "1. \"hexstring\"    (string, required) the hex string of the raw transaction(certificate)\n"
+            "1. \"hexstring\"    (string, required) the hex string of the raw transaction or certificate\n"
             "2. allowhighfees    (boolean, optional, default=false) allow high fees\n"
             "\nResult:\n"
-            "\"hex\"             (string) the transaction(certificate) hash in hex\n"
+            "\"hex\"             (string) the transaction or certificate hash in hex\n"
             "\nExamples:\n"
             "\nCreate a transaction\n"
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\" : \\\"mytxid\\\",\\\"vout\\\":0}]\" \"{\\\"myaddress\\\":0.01}\"") +
