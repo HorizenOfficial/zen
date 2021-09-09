@@ -223,7 +223,7 @@ class quality_mempool(BitcoinTestFramework):
 
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert2 = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
@@ -319,7 +319,7 @@ class quality_mempool(BitcoinTestFramework):
 
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert_3_epoch_0 = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
@@ -511,7 +511,7 @@ class quality_mempool(BitcoinTestFramework):
 
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert_6_epoch_0 = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             mark_logs("Certificate is {}".format(cert_6_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:

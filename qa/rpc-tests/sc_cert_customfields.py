@@ -318,7 +318,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         }
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
             self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
@@ -353,7 +353,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -393,7 +393,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
@@ -435,7 +435,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert(False)
         except JSONRPCException, e:
@@ -475,7 +475,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
             # TODO: uncomment the following lines as soon the CCTP Lib and Mc Crypto Lib get updated.
             # cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             # assert (False)
@@ -515,7 +515,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']

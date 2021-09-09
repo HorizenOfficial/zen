@@ -199,7 +199,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         params = {"scid": scid_2, "quality": quality, "endEpochCumScTxCommTreeRoot": epoch_cum_tree_hash, "scProof": proof, "withdrawalEpochNumber": epoch_number}
         try:
             rawcert    = self.nodes[1].createrawcertificate(inputs, outputs, {}, params)
-            signed_cert = self.nodes[1].signrawcertificate(rawcert)
+            signed_cert = self.nodes[1].signrawtransaction(rawcert)
             #pprint.pprint(self.nodes[1].decoderawcertificate(signed_cert['hex']))
             rawcert = self.nodes[1].sendrawtransaction(signed_cert['hex'])
             assert_true(False)

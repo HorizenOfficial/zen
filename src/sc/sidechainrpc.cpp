@@ -1011,7 +1011,7 @@ void ScRpcCmdCert::sign()
     UniValue val = UniValue(UniValue::VARR);
     val.push_back(rawcert);
 
-    UniValue signResultValue = signrawcertificate(val, false);
+    UniValue signResultValue = signrawtransaction(val, false);
 
     UniValue signResultObject = signResultValue.get_obj();
 

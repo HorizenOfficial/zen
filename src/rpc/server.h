@@ -261,7 +261,6 @@ extern UniValue decodescript(const UniValue& params, bool fHelp);
 extern UniValue fundrawtransaction(const UniValue& params, bool fHelp);
 extern UniValue signrawtransaction(const UniValue& params, bool fHelp);
 extern UniValue sendrawtransaction(const UniValue& params, bool fHelp);
-extern UniValue signrawcertificate(const UniValue& params, bool fHelp);
 extern UniValue gettxoutproof(const UniValue& params, bool fHelp);
 extern UniValue verifytxoutproof(const UniValue& params, bool fHelp);
 
