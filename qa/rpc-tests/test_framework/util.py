@@ -562,7 +562,7 @@ def get_spendable(node, min_amount):
         if aUtx['amount'] > min_amount:
             utx = aUtx
             change = aUtx['amount'] - min_amount
-            break;
+            break
 
     if utx == False:
         print(listunspent)
@@ -609,4 +609,17 @@ def advance_epoch(mcTest, node, sync_call,
 
 def swap_bytes(input_buf):
     return codecs.encode(codecs.decode(input_buf, 'hex')[::-1], 'hex').decode()
+
+def get_total_amount_from_listaddressgroupings(input_list):
+    '''
+    Assumes the list in input is obtained via the RPC cmd listaddressgroupings()
+    '''
+    tot_amount = Decimal("0.0")
+    for group in input_list:
+        for record in group:
+            addr = record[0]
+            val  = record[1]
+            #print "Adding addr={}, val={}".format(addr, val)
+            tot_amount += val
+    return tot_amount
 

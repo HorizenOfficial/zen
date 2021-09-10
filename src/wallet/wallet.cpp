@@ -1768,13 +1768,12 @@ int CWalletTransactionBase::GetRequestCount() const
 }
 
 // GetAmounts will determine the transparent debits and credits for a given wallet tx.
-void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>& listSent, list<CScOutputEntry>& listScSent,
+void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>& listSent,
     CAmount& nFee, string& strSentAccount, const isminefilter& filter) const
 {
     nFee = 0;
     listReceived.clear();
     listSent.clear();
-    listScSent.clear();
     strSentAccount = strFromAccount;
 
     // Is this tx sent/signed by me?
@@ -1894,11 +1893,19 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
     {
         if (nDebit > 0)
         {
-            // these has a valid sc address and an amount sent to that addr
-            fillScSent(wrappedTx.GetVscCcOut(), listScSent);
-            fillScSent(wrappedTx.GetVftCcOut(), listScSent);
-            // this has a null sc address and an amount which is a fee for a sc forger
-            fillScFees(wrappedTx.GetVBwtRequestOut(), listScSent);
+            // Create a single cummulative record for the sc related outputs.
+            CAmount totalScOut = 0;
+
+            for(const auto& out : wrappedTx.GetVscCcOut())
+                totalScOut += out.nValue;
+            for(const auto& out : wrappedTx.GetVftCcOut())
+                totalScOut += out.nValue;
+            for(const auto& out : wrappedTx.GetVBwtRequestOut())
+                totalScOut += out.scFee;
+
+            COutputEntry output = {CNoDestination(), totalScOut, CCoins::outputMaturity::MATURE, (int)wrappedTx.GetVout().size()};
+            listSent.push_back(output);
+
         }
     }
 }
@@ -1912,13 +1919,10 @@ void CWalletTransactionBase::GetMatureAmountsForAccount(const string& strAccount
     string strSentAccount;
     list<COutputEntry> listReceived;
     list<COutputEntry> listSent;
-    list<CScOutputEntry> listScSent;
-    GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
+    GetAmounts(listReceived, listSent, allFee, strSentAccount, filter);
 
     if (strAccount == strSentAccount) {
         for(const COutputEntry& s: listSent)
-            nSent += s.amount;
-        for(const CScOutputEntry& s: listScSent)
             nSent += s.amount;
         nFee = allFee;
     }
@@ -2044,8 +2048,15 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             // since at this stage no transaction creation is allowed
             for(auto itCert = block.vcert.rbegin(); itCert != block.vcert.rend(); ++itCert)
             {
+                // The ReadSidechain() call can fail if no certificates for that sc are currently in the wallet.
+                // This can happen for instance when we are called from an importwallet rpc cmd or when the
+                // node is started after a while.
+                bool prevScDataAvailable = false;
                 CScCertificateStatusUpdateInfo prevScData;
-                assert(ReadSidechain(itCert->GetScId(), prevScData));
+                if (ReadSidechain(itCert->GetScId(), prevScData))
+                {
+                     prevScDataAvailable = true;
+                }
 
                 bool bTopQualityCert = visitedScIds.count(itCert->GetScId()) == 0;
                 visitedScIds.insert(itCert->GetScId());
@@ -2058,16 +2069,23 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 if (AddToWalletIfInvolvingMe(*itCert, &block, bwtMaxDepth, fUpdate))
                 {
                     ret++;
-                    if (fUpdate) {
+                    if (fUpdate)
+                    {
+                        // this call will add sc data into the wallet
                         SyncCertStatusInfo(CScCertificateStatusUpdateInfo(itCert->GetScId(), itCert->GetHash(),
                                                                           itCert->epochNumber, itCert->quality,
                                                                           bTopQualityCert? CScCertificateStatusUpdateInfo::BwtState::BWT_ON:
                                                                                            CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
 
-                        if (bTopQualityCert && (prevScData.certEpoch == itCert->epochNumber) && (prevScData.certQuality < itCert->quality))
-                            SyncCertStatusInfo(CScCertificateStatusUpdateInfo(prevScData.scId, prevScData.certHash,
+                        if (prevScDataAvailable)
+                        {
+                            if (bTopQualityCert && (prevScData.certEpoch == itCert->epochNumber) && (prevScData.certQuality < itCert->quality))
+                            {
+                                SyncCertStatusInfo(CScCertificateStatusUpdateInfo(prevScData.scId, prevScData.certHash,
                                                                               prevScData.certEpoch, prevScData.certQuality,
                                                                               CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
+                            }
+                        }
                     }
                 }
             }
@@ -2154,16 +2172,6 @@ bool CWalletTx::RelayWalletTransaction()
     }
     return false;
 }
-
-void CWalletTx::fillScFees(const std::vector<CBwtRequestOut>& vOuts, std::list<CScOutputEntry>& listScSent) const
-{
-    for(const auto& txccout : vOuts)
-    {
-        CScOutputEntry output = {uint256(), txccout.scFee};
-        listScSent.push_back(output);
-    }
-}
-
 
 void CWalletTransactionBase::addOrderedInputTx(TxItems& txOrdered, const CScript& scriptPubKey) const
 {
@@ -4537,7 +4545,7 @@ CWalletCert& CWalletCert::operator=(const CWalletCert& rhs)
     return *this;
 }
 
-void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent, std::list<CScOutputEntry>& listScSent,
+void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<COutputEntry>& listSent,
     CAmount& nFee, std::string& strSentAccount, const isminefilter& filter) const
 {
     LogPrint("cert", "%s():%d - called for obj[%s]\n", __func__, __LINE__, wrappedCertificate.GetHash().ToString());
@@ -4545,7 +4553,6 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
     nFee = 0;
     listReceived.clear();
     listSent.clear();
-    listScSent.clear();
     strSentAccount = strFromAccount;
 
     // Is this tx sent/signed by me?
@@ -4561,9 +4568,17 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
     for (unsigned int pos = 0; pos < wrappedCertificate.GetVout().size(); ++pos) {
         const CTxOut& txout = wrappedCertificate.GetVout()[pos];
 
-        // Only need to handle txouts if  the output is to us (received)
         isminetype fIsMine = pwallet->IsMine(txout);
-        if (!(fIsMine & filter))
+        // Only need to handle txouts if AT LEAST one of these is true:
+        //   1) they debit from us (sent)
+        //   2) the output is to us (received)
+        if (nDebit > 0)
+        {
+            // Don't report 'change' txouts
+            if (pwallet->IsChange(txout))
+                continue;
+        }
+        else if (!(fIsMine & filter))
             continue;
 
         // we need to get the destination address

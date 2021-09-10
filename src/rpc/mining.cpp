@@ -320,18 +320,20 @@ UniValue getmininginfo(const UniValue& params, bool fHelp)
             
             "\nResult:\n"
             "{\n"
-            "  \"blocks\": nnn,             (numeric) the current block\n"
-            "  \"currentblocksize\": nnn,   (numeric) the last block size\n"
-            "  \"currentblocktx\": nnn,     (numeric) the last block transaction\n"
-            "  \"difficulty\": xxxxxxxx,    (numeric) the current difficulty\n"
-            "  \"errors\": \"...\",         (string) current errors\n"
-            "  \"generate\": true|false,    (boolean) if the generation is on or off (see getgenerate or setgenerate calls)\n"
-            "  \"genproclimit\": n,         (numeric) the processor limit for generation. -1 if no generation. (see getgenerate or setgenerate calls)\n"
-            "  \"localsolps\": xxxxxxxx,    (numeric) the average local solution rate in Sol/s since this node was started\n"
-            "  \"networksolps\": x,         (numeric) the estimated network solution rate in Sol/s\n"
-            "  \"pooledtx\": n,             (numeric) the size of the mem pool\n"
-            "  \"testnet\": true|false,     (boolean) if using testnet or not\n"
-            "  \"chain\": \"xxxx\"          (string) current network name as defined in BIP70 (main, test, regtest)\n"
+            "  \"blocks\": nnn,                  (numeric) the current block\n"
+            "  \"currentblocksize\": nnn,        (numeric) the last block size\n"
+            "  \"currentblocktx\": nnn,          (numeric) number of transactions in the last block\n"
+            "  \"currentblockcert\": nnn,        (numeric) number of certificates in the last block\n"
+            "  \"difficulty\": xxxxxxxx,         (numeric) the current difficulty\n"
+            "  \"errors\": \"...\",              (string) current errors\n"
+            "  \"generate\": true|false,         (boolean) if the generation is on or off (see getgenerate or setgenerate calls)\n"
+            "  \"genproclimit\": n,              (numeric) the processor limit for generation. -1 if no generation. (see getgenerate or setgenerate calls)\n"
+            "  \"localsolps\": xxxxxxxx,         (numeric) the average local solution rate in Sol/s since this node was started\n"
+            "  \"networksolps\": x,              (numeric) the estimated network solution rate in Sol/s\n"
+            "  \"pooledtx\": n,                  (numeric) the number of txes in the mem pool\n"
+            "  \"pooledcert\": n,                (numeric) the number of certs in the mem pool\n"
+            "  \"testnet\": true|false,          (boolean) if using testnet or not\n"
+            "  \"chain\": \"xxxx\"               (string) current network name as defined in BIP70 (main, test, regtest)\n"
             "}\n"
             
             "\nExamples:\n"
@@ -347,7 +349,6 @@ UniValue getmininginfo(const UniValue& params, bool fHelp)
     obj.pushKV("currentblocksize", (uint64_t)nLastBlockSize);
     obj.pushKV("currentblocktx",   (uint64_t)nLastBlockTx);
     obj.pushKV("currentblockcert", (uint64_t)nLastBlockCert);
-    obj.pushKV("currenttxpartitionused", (uint64_t)nLastBlockTxPartitionSize);
     obj.pushKV("difficulty",       (double)GetNetworkDifficulty());
     obj.pushKV("errors",           GetWarnings("statusbar"));
     obj.pushKV("genproclimit",     (int)GetArg("-genproclimit", -1));

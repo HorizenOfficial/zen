@@ -313,6 +313,7 @@ UniValue importwallet_impl(const UniValue& params, bool fHelp, bool fImportZKeys
         if (line.empty() || line[0] == '#')
             continue;
 
+        // tokenize line
         std::vector<std::string> vstr;
         boost::split(vstr, line, boost::is_any_of(" "));
         if (vstr.size() < 2)
@@ -340,7 +341,9 @@ UniValue importwallet_impl(const UniValue& params, bool fHelp, bool fImportZKeys
                 continue;
             }
             catch (const std::runtime_error &e) {
-                LogPrint("zrpc","Importing detected an error: %s\n", e.what());
+                // z_importwallet throws an exception for each transparent address entry, and lets do the job
+                // to the legacy code below
+                LogPrint("zrpc","Importing detected an error on line [%s]: %s\n", line, e.what());
                 // Not a valid spending key, so carry on and see if it's a Zcash style address.
             }
         }

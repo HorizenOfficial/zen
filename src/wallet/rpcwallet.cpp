@@ -2017,11 +2017,18 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
+        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()) || !wtx.HasMatureOutputs())
             continue;
 
-        BOOST_FOREACH(const CTxOut& txout, wtx.getTxBase()->GetVout())
+        for(unsigned int pos = 0; pos < wtx.getTxBase()->GetVout().size(); ++pos)
         {
+            const CTxOut& txout = wtx.getTxBase()->GetVout()[pos];
+
+            if (wtx.getTxBase()->IsCertificate()) {
+                if (wtx.IsOutputMature(pos) != CCoins::outputMaturity::MATURE)
+                    continue;
+            }
+
             /* Check that txout.scriptPubKey starts with scriptPubKey instead of full match,
              * cause we cant compare OP_CHECKBLOCKATHEIGHT arguments, they are different all the time */
             auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(),
@@ -2081,11 +2088,18 @@ UniValue getreceivedbyaccount(const UniValue& params, bool fHelp)
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
+        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()) || !wtx.HasMatureOutputs())
             continue;
 
-        BOOST_FOREACH(const CTxOut& txout, wtx.getTxBase()->GetVout())
+        for(unsigned int pos = 0; pos < wtx.getTxBase()->GetVout().size(); ++pos)
         {
+            const CTxOut& txout = wtx.getTxBase()->GetVout()[pos];
+
+            if (wtx.getTxBase()->IsCertificate()) {
+                if (wtx.IsOutputMature(pos) != CCoins::outputMaturity::MATURE)
+                    continue;
+            }
+
             CTxDestination address;
             if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*pwalletMain, address) && setAddress.count(address))
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
@@ -2185,8 +2199,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             string strSentAccount;
             list<COutputEntry> listReceived;
             list<COutputEntry> listSent;
-            list<CScOutputEntry> listScSent;
-            wtx->GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
+            wtx->GetAmounts(listReceived, listSent, allFee, strSentAccount, filter);
             if (wtx->GetDepthInMainChain() >= nMinDepth) {
                 for(const COutputEntry& r: listReceived)
                     if (r.maturity == CCoins::outputMaturity::MATURE)
@@ -2194,8 +2207,6 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             }
 
             for(const COutputEntry& s: listSent)
-                nBalance -= s.amount;
-            for(const CScOutputEntry& s: listScSent)
                 nBalance -= s.amount;
 
             nBalance -= allFee;
@@ -2762,21 +2773,20 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
         entry.pushKV("address", addr.ToString());
 }
 
-void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter)
+void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter, bool includeImmatureBTs)
 {
     CAmount nFee;
     string strSentAccount;
     list<COutputEntry> listReceived;
     list<COutputEntry> listSent;
-    list<CScOutputEntry> listScSent;
 
-    wtx.GetAmounts(listReceived, listSent, listScSent, nFee, strSentAccount, filter);
+    wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, filter);
 
     bool fAllAccounts = (strAccount == string("*"));
     bool involvesWatchonly = wtx.IsFromMe(ISMINE_WATCH_ONLY);
 
     // Sent
-    if (( (!listSent.empty() || !listScSent.empty() ) || nFee != 0) && (fAllAccounts || strAccount == strSentAccount))
+    if ((!listSent.empty() || nFee != 0) && (fAllAccounts || strAccount == strSentAccount))
     {
         BOOST_FOREACH(const COutputEntry& s, listSent)
         {
@@ -2794,19 +2804,6 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
                 WalletTxToJSON(wtx, entry, filter);
 
             entry.pushKV("size", (int)(wtx.getTxBase()->GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)) );
-            ret.push_back(entry);
-        }
-        BOOST_FOREACH(const CScOutputEntry& s, listScSent)
-        {
-            UniValue entry(UniValue::VOBJ);
-            entry.pushKV("sc address", s.address.GetHex());
-            entry.pushKV("category", "crosschain");
-            entry.pushKV("amount", ValueFromAmount(-s.amount));
-            entry.pushKV("fee", ValueFromAmount(-nFee));
-            if (fLong)
-                WalletTxToJSON(wtx, entry, filter);
-
-            entry.pushKV("size", (int)(wtx.getTxBase()->GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
             ret.push_back(entry);
         }
     }
@@ -2837,8 +2834,10 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
                 {
                     if (r.maturity == CCoins::outputMaturity::MATURE)
                         entry.pushKV("category", "receive");
-                    else
+                    else if(includeImmatureBTs)
                         entry.pushKV("category", "immature");
+                    else
+                        continue; // Don't add immature BT entry
                 }
                 entry.pushKV("amount", ValueFromAmount(r.amount));
                 if (r.vout != -1)
@@ -2875,9 +2874,9 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 5)
+    if (fHelp || params.size() > 6)
         throw runtime_error(
-            "listtransactions ( \"account\" count from includeWatchonly)\n"
+            "listtransactions   ( \"account\" count from includeWatchonly includeImmatureBTs )n"
             "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for address 'address'.\n"
             
             "\nArguments:\n"
@@ -2886,6 +2885,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
             "3. from                                 (numeric, optional, default=0) the number of transactions to skip\n"
             "4. includeWatchonly                     (bool, optional, default=false) include transactions to watchonly addresses (see 'importaddress')\n"
             "5. address                              (string, optional) include only transactions involving this address\n"
+            "6. includeImmatureBTs                   (bool, optional, default=false) Whether to include immature certificate Backward transfers\n"
             
             "\nResult:\n"
             "[\n"
@@ -2967,6 +2967,11 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
         }
     }
 
+    bool includeImmatureBTs = false;
+    if(params.size() > 5)
+        if(params[5].get_bool())
+            includeImmatureBTs = true;
+
     UniValue ret(UniValue::VARR);
     const TxItems & txOrdered = pwalletMain->wtxOrdered;
     // iterate backwards until we have nCount items to return:
@@ -2978,13 +2983,13 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
                 for(const CTxOut& txout : pwtx->getTxBase()->GetVout()) {
                     auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
                     if (res == txout.scriptPubKey.begin()) {
-                        ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+                        ListTransactions(*pwtx, strAccount, 0, true, ret, filter, includeImmatureBTs);
                         break;
                     }
                 }
             }
             else {
-                ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+                ListTransactions(*pwtx, strAccount, 0, true, ret, filter, includeImmatureBTs);
             }
         }
         CAccountingEntry *const pacentry = (*it).second.second;
@@ -3025,7 +3030,7 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
     if (fHelp || params.size() > 3)
         throw runtime_error(
             "getunconfirmedtxdata ( \"address\")\n"
-            "\nReturns the server's total unconfirmed data relevanto to the input address\n"
+            "\nReturns the server's total unconfirmed data relevant to the input address\n"
             "\nArguments:\n"
             "1. \"address\"            (string, mandatory) consider transactions involving this address\n"
             "2. spendzeroconfchange  (boolean, optional) If provided the command will force zero confirmation change\n"
@@ -3227,19 +3232,15 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
         string strSentAccount;
         list<COutputEntry> listReceived;
         list<COutputEntry> listSent;
-        list<CScOutputEntry> listScSent;
 
         if (!wtx.HasMatureOutputs())
             continue;
 
-        wtx.GetAmounts(listReceived, listSent, listScSent, nFee, strSentAccount, includeWatchonly);
+        wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, includeWatchonly);
 
         mapAccountBalances[strSentAccount] -= nFee;
 
         for(const COutputEntry& s: listSent)
-            mapAccountBalances[strSentAccount] -= s.amount;
-
-        for(const CScOutputEntry& s: listScSent)
             mapAccountBalances[strSentAccount] -= s.amount;
 
         if (wtx.GetDepthInMainChain() >= nMinDepth) {
@@ -3280,7 +3281,8 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
             "1. \"blockhash\"                       (string, optional) the block hash to list transactions since\n"
             "2. target-confirmations:               (numeric, optional) the confirmations required, must be 1 or more\n"
             "3. includeWatchonly:                   (bool, optional, default=false) include transactions to watchonly addresses (see 'importaddress')"
-            
+            "4. includeImmatureBTs:                 (bool, optional, default=false) Whether to include immature certificate Backward transfers\n"
+
             "\nResult:\n"
             "{\n"
             "  \"transactions\": [\n"
@@ -3338,6 +3340,11 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
         if(params[2].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
 
+    bool includeImmatureBTs = false;
+    if(params.size() > 3)
+        if(params[3].getBool())
+            includeImmatureBTs = true;
+
     int depth = pindex ? (1 + chainActive.Height() - pindex->nHeight) : -1;
 
     UniValue transactions(UniValue::VARR);
@@ -3352,7 +3359,7 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
         const CWalletTransactionBase& tx = *((*it).second);
 #endif
         if (depth == -1 || tx.GetDepthInMainChain() < depth)
-            ListTransactions(tx, "*", 0, true, transactions, filter);
+            ListTransactions(tx, "*", 0, true, transactions, filter, includeImmatureBTs);
     }
 
     CBlockIndex *pblockLast = chainActive[chainActive.Height() + 1 - target_confirms];
@@ -3370,14 +3377,15 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() < 1 || params.size() > 2)
+    if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
-            "gettransaction \"txid\" ( includeWatchonly )\n"
+            "gettransaction \"txid\" ( includeWatchonly includeImmatureBTs )\n"
             "\nGet detailed information about in-wallet transaction <txid>\n"
             
             "\nArguments:\n"
             "1. \"txid\"                                (string, required) the transaction id\n"
             "2. \"includeWatchonly\"                    (bool, optional, default=false) whether to include watchonly addresses in balance calculation and details[]\n"
+            "3. \"includeImmatureBTs\"                  (bool, optional, default=false) Whether to include immature certificate Backward transfersin balance calculation and details[]\n"
             
             "\nResult:\n"
             "{\n"
@@ -3429,6 +3437,11 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
         if(params[1].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
 
+    bool includeImmatureBTs = false;
+    if(params.size() > 2)
+        if(params[2].getBool())
+            includeImmatureBTs = true;
+
     UniValue entry(UniValue::VOBJ);
     if (!pwalletMain->getMapWallet().count(hash))
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid or non-wallet transaction id");
@@ -3454,7 +3467,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     WalletTxToJSON(wtx, entry, filter);
 
     UniValue details(UniValue::VARR);
-    ListTransactions(wtx, "*", 0, false, details, filter);
+    ListTransactions(wtx, "*", 0, false, details, filter, includeImmatureBTs);
     entry.pushKV("details", details);
 
     string strHex = wtx.getTxBase()->EncodeHex();
@@ -4038,14 +4051,15 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             "\nResult\n"
             "[                              (array of json object)\n"
             "  {\n"
-            "    \"txid\": \"txid\",        (string) the transaction id\n"
-            "    \"vout\": n,               (numeric) the vout value\n"
-            "    \"generated\": true|false  (boolean) true if txout is a coinbase transaction output\n"
-            "    \"address\": \"address\",  (string) the horizen address\n"
-            "    \"account\": \"account\",  (string) DEPRECATED. The associated account, or \"\" for the default account\n"
-            "    \"scriptPubKey\": \"key\", (string) the script key\n"
-            "    \"amount\": xxxx,          (numeric) the transaction amount in " + CURRENCY_UNIT + "\n"
-            "    \"confirmations\": n       (numeric) the number of confirmations\n"
+            "    \"txid\" : \"txid\",        (string) the transaction id \n"
+            "    \"vout\" : n,               (numeric) the vout value\n"
+            "    \"generated\" : true|false  (boolean) true if txout is a coinbase transaction output\n"
+            "    \"address\" : \"address\",  (string) the horizen address\n"
+            "    \"account\" : \"account\",  (string) DEPRECATED. The associated account, or \"\" for the default account\n"
+            "    \"scriptPubKey\" : \"key\", (string) the script key\n"
+            "    \"amount\" : x.xxx,         (numeric) the transaction amount in " + CURRENCY_UNIT + "\n"
+            "    \"confirmations\" : n       (numeric) The number of confirmations\n"
+            "    \"isCert\": true|false,     (boolean) true if a certificate\n"
             "  }\n"
             "  ,...\n"
             "]\n"
@@ -4103,14 +4117,9 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         UniValue entry(UniValue::VOBJ);
         entry.pushKV("txid", out.tx->getTxBase()->GetHash().GetHex());
         entry.pushKV("vout", out.pos);
-        if (out.tx->getTxBase()->IsCertificate() )
-        {
-            entry.pushKV("certified", true);
-        }
-        else
-        {
-            entry.pushKV("generated", out.tx->getTxBase()->IsCoinBase());
-        }
+        entry.pushKV("isCert", out.tx->getTxBase()->IsCertificate());
+        entry.pushKV("generated", out.tx->getTxBase()->IsCoinBase());
+
         CTxDestination address;
         if (ExtractDestination(out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey, address)) {
             entry.pushKV("address", CBitcoinAddress(address).ToString());

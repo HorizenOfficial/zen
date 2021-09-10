@@ -178,12 +178,16 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         assert_equal(ret['epoch'], 2)
         print "#### chain height=", self.nodes[0].getblockcount()
         print
+        mature_only = False
         utx_out1 = self.nodes[1].gettxout(cert_1, 1)
-        utx_out2 = self.nodes[1].gettxout(cert_2, 1)
+        assert_equal(utx_out1["mature"], True)
+        assert_equal(utx_out1["maturityHeight"], 0)
+        assert_equal(utx_out1["blocksToMaturity"], 0)
+        utx_out2 = self.nodes[1].gettxout(cert_2, 1, True, mature_only)
         print "BWT coins:     -------------------------"
         if utx_out1:
             print "cert 1 has coins: {}, confirmations={}".format(utx_out1['value'], utx_out1['confirmations'])
-        if utx_out1:
+        if utx_out2:
             print "cert 2 has coins: {}, confirmations={}".format(utx_out2['value'], utx_out2['confirmations'])
         winfo = self.nodes[1].getwalletinfo()
         assert_equal(bwt_amount_1, winfo['balance'])

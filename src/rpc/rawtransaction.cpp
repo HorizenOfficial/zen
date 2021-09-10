@@ -139,8 +139,11 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     }
     entry.pushKV("vin", vin);
 
-    // add to entry obj the ceased sidechain withdrawal inputs
-    Sidechain::AddCeasedSidechainWithdrawalInputsToJSON(tx, entry);
+    if(tx.IsScVersion())
+    {
+        // add to entry obj the ceased sidechain withdrawal inputs
+        Sidechain::AddCeasedSidechainWithdrawalInputsToJSON(tx, entry);
+    }
 
     UniValue vout(UniValue::VARR);
     for (unsigned int i = 0; i < tx.GetVout().size(); i++) {
@@ -156,8 +159,11 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     }
     entry.pushKV("vout", vout);
 
-    // add to entry obj the cross chain outputs
-    Sidechain::AddSidechainOutsToJSON(tx, entry);
+    if(tx.IsScVersion())
+    {
+        // add to entry obj the cross chain outputs if Tx has sidechain support version
+        Sidechain::AddSidechainOutsToJSON(tx, entry);
+    }
 
     UniValue vjoinsplit = TxJoinSplitToJSON(tx);
     entry.pushKV("vjoinsplit", vjoinsplit);
@@ -180,7 +186,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 
 void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& entry)
 {
-    entry.pushKV("certid", cert.GetHash().GetHex());
+    entry.pushKV("txid", cert.GetHash().GetHex());
     entry.pushKV("version", cert.nVersion);
     UniValue vin(UniValue::VARR);
     BOOST_FOREACH(const CTxIn& txin, cert.GetVin()) {
@@ -219,8 +225,7 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
             {
                 pkhStr = "<<Decode error>>";
             }
-            out.pushKV("backward transfer", true);
-            out.pushKV("pubkeyhash", pkhStr);
+            out.pushKV("backwardtransfer", true);
         }
         vout.push_back(out);
     }
@@ -251,6 +256,10 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
 
     entry.pushKV("cert", x);
     entry.pushKV("vout", vout);
+
+    // add an empty array for compatibility with txes
+    UniValue vjoinsplit(UniValue::VARR);
+    entry.pushKV("vjoinsplit", vjoinsplit);
 
     if (!hashBlock.IsNull()) {
         entry.pushKV("blockhash", hashBlock.GetHex());
@@ -542,15 +551,15 @@ UniValue gettxoutproof(const UniValue& params, bool fHelp)
             "gettxoutproof [\"txid\",...] ( blockhash )\n"
             "\nReturns a hex-encoded proof that \"txid\" was included in a block.\n"
             "\nNOTE: By default this function only works sometimes. This is when there is an\n"
-            "unspent output in the utxo for this transaction. To make it always work,\n"
+            "unspent output in the utxo for this transaction/certificate. To make it always work,\n"
             "you need to maintain a transaction index, using the -txindex command line option or\n"
-            "specify the block in which the transaction is included in manually (by blockhash).\n"
+            "specify the block in which the transaction/certificate is included in manually (by blockhash).\n"
             "\nReturn the raw transaction data.\n"
             
             "\nArguments:\n"
             "1. \"txids\"       (string) a json array of txids to filter\n"
             "    [\n"
-            "      \"txid\"     (string) a transaction hash\n"
+            "      \"txid\"     (string) A transaction/certificate hash\n"
             "      ,...\n"
             "    ]\n"
             "2. \"block hash\"  (string, optional) if specified, looks for txid in the block with this hash\n"
@@ -596,11 +605,13 @@ UniValue gettxoutproof(const UniValue& params, bool fHelp)
 
     if (pblockindex == NULL)
     {
-        CTransaction tx;
-        if (!GetTransaction(oneTxid, tx, hashBlock, false) || hashBlock.IsNull())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not yet in block");
+        // allocated by the callee
+        std::unique_ptr<CTransactionBase> pTxBase;
+        static const bool ALLOW_SLOW = false;
+        if (!GetTxBaseObj(oneTxid, pTxBase, hashBlock, ALLOW_SLOW) || !pTxBase)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction/Certificate not yet in block");
         if (!mapBlockIndex.count(hashBlock))
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "Transaction index corrupt");
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Transaction/Certificate index corrupt");
         pblockindex = mapBlockIndex[hashBlock];
     }
 
@@ -609,11 +620,15 @@ UniValue gettxoutproof(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
 
     unsigned int ntxFound = 0;
-    BOOST_FOREACH(const CTransaction&tx, block.vtx)
+    for (const CTransaction& tx: block.vtx)
         if (setTxids.count(tx.GetHash()))
             ntxFound++;
+    for (const CScCertificate& cert: block.vcert)
+        if (setTxids.count(cert.GetHash()))
+            ntxFound++;
+
     if (ntxFound != setTxids.size())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "(Not all) transactions not found in specified block");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "(Not all) transactions/Certificates not found in specified block");
 
     CDataStream ssMB(SER_NETWORK, PROTOCOL_VERSION);
     CMerkleBlock mb(block, setTxids);
