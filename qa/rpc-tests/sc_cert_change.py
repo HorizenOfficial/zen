@@ -187,13 +187,35 @@ class sc_cert_change(BitcoinTestFramework):
         # the only contribution to node3 balance is the transparent fund just received
         assert_equal(self.nodes[3].getbalance(), amount3)
 
-        res = self.nodes[3].gettransaction(cert_ep2)
-        # node3 has also immature amounts deriving from the latest certificate whose change has been used for the funds just received 
-        # pprint.pprint(res)
-        assert_equal(res['amount'], 0.0)
-        assert_equal(res['details'][0]['amount'], bwt_amount)
-        assert_equal(res['txid'], cert_ep2)
+        try:
+            res = self.nodes[3].gettransaction(cert_ep2)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Get transaction failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
 
+        # node3 has also immature amounts deriving from the latest certificate whose change has been used for the funds just received 
+        assert_equal(res['amount'], 0.0)
+        assert_equal(res['txid'], cert_ep2)
+        # immature BT amounts are not displayed by default
+        assert(not res['details'])
+
+        includeWatchonly = False
+        includeImmatureBTs = True
+
+        try:
+            # Specifically request also immature BT amounts
+            res = self.nodes[3].gettransaction(cert_ep2, includeWatchonly, includeImmatureBTs)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Get transaction failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
+
+        # node3 has also immature amounts deriving from the latest certificate whose change has been used for the funds just received 
+        assert_equal(res['amount'], 0.0)
+        assert_equal(res['txid'], cert_ep2)
+        # immature BT amounts must be displayed now
+        assert_equal(res['details'][0]['amount'], bwt_amount)
 
 if __name__ == '__main__':
     sc_cert_change().main()

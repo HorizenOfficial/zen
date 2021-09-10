@@ -144,7 +144,28 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal(miner_quota, (Decimal(MINER_REWARD_POST_H200) + CERT_FEE))
 
         mark_logs("Checking that amount transferred by certificate reaches Node2 wallet and it is immature", self.nodes, DEBUG_MODE)
-        res = self.nodes[2].gettransaction(cert_good)
+
+        try:
+            res = self.nodes[2].gettransaction(cert_good)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Get transaction failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
+
+        # Since the amount is immature, it should not be displayed by default by the GetTransaction command, the 'details' array must be empty
+        assert(not res['details'])
+
+        # Call GetTransaction once again by specifically requesting immature BT amounts
+        includeWatchonly = False
+        includeImmatureBTs = True
+
+        try:
+            res = self.nodes[2].gettransaction(cert_good, includeWatchonly, includeImmatureBTs)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Get transaction failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert(False)
+
         cert_net_amount = res['details'][0]['amount']
         assert_equal(cert_net_amount, bwt_amount)
 

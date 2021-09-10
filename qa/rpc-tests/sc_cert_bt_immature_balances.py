@@ -115,7 +115,7 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         # Create a SC with a budget of 10 coins
-        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[0].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -154,7 +154,7 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
                                              epoch_cum_tree_hash, constant, [pkh_node1, pkh_node1],
                                              [bwt_amount1, bwt_amount2])
 
-            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                                                     epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE,
                                                     CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
@@ -347,7 +347,7 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
             proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE,
                                              epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount3])
 
-            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                                                     epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE,
                                                     CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)

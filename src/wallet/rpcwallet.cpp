@@ -3385,7 +3385,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"txid\"                                (string, required) the transaction id\n"
             "2. \"includeWatchonly\"                    (bool, optional, default=false) whether to include watchonly addresses in balance calculation and details[]\n"
-            "3. \"includeImmatureBTs\"                  (bool, optional, default=false) Whether to include immature certificate Backward transfersin balance calculation and details[]\n"
+            "3. \"includeImmatureBTs\"                  (bool, optional, default=false) Whether to include immature certificate Backward transfers in balance calculation and details[]\n"
             
             "\nResult:\n"
             "{\n"
