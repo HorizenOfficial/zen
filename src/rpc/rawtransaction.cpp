@@ -1501,7 +1501,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
 
     if (params.size() > 2 && !params[2].isNull()) {
         fGivenKeys = true;
-        UniValue keys = params[keyPosition].get_array();
+        UniValue keys = params[2].get_array();
         for (size_t idx = 0; idx < keys.size(); idx++) {
             UniValue k = keys[idx];
             CBitcoinSecret vchSecret;
