@@ -1499,6 +1499,57 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
     bool fGivenKeys = false;
     CBasicKeyStore tempKeystore;
 
+    CCoinsView viewDummy;
+    CCoinsViewCache view(&viewDummy);
+    // Add previous txouts given in the RPC call:
+    if (params.size() > 1 && !params[1].isNull()) {
+        UniValue prevTxs = params[1].get_array();
+        for (size_t idx = 0; idx < prevTxs.size(); idx++) {
+            const UniValue& p = prevTxs[idx];
+            if (!p.isObject())
+                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "expected object with {\"txid'\",\"vout\",\"scriptPubKey\"}");
+
+            UniValue prevOut = p.get_obj();
+
+            RPCTypeCheckObj(prevOut, boost::assign::map_list_of("txid", UniValue::VSTR)("vout", UniValue::VNUM)("scriptPubKey", UniValue::VSTR));
+
+            uint256 txid = ParseHashO(prevOut, "txid");
+
+            int nOut = find_value(prevOut, "vout").get_int();
+            if (nOut < 0)
+                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "vout must be positive");
+
+            vector<unsigned char> pkData(ParseHexO(prevOut, "scriptPubKey"));
+            CScript scriptPubKey(pkData.begin(), pkData.end());
+
+            {
+                CCoinsModifier coins = view.ModifyCoins(txid);
+                if (coins->IsAvailable(nOut) && coins->vout[nOut].scriptPubKey != scriptPubKey) {
+                    string err("Previous output scriptPubKey mismatch:\n");
+                    err = err + coins->vout[nOut].scriptPubKey.ToString() + "\nvs:\n"+
+                        scriptPubKey.ToString();
+                    throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
+                }
+                if ((unsigned int)nOut >= coins->vout.size())
+                    coins->vout.resize(nOut+1);
+                coins->vout[nOut].scriptPubKey = scriptPubKey;
+                coins->vout[nOut].nValue = 0; // we don't know the actual output value
+            }
+
+            // if redeemScript given and not using the local wallet (private keys
+            // given), add redeemScript to the tempKeystore so it can be signed:
+            if (fGivenKeys && scriptPubKey.IsPayToScriptHash()) {
+                RPCTypeCheckObj(prevOut, boost::assign::map_list_of("txid", UniValue::VSTR)("vout", UniValue::VNUM)("scriptPubKey", UniValue::VSTR)("redeemScript",UniValue::VSTR));
+                UniValue v = find_value(prevOut, "redeemScript");
+                if (!v.isNull()) {
+                    vector<unsigned char> rsData(ParseHexV(v, "redeemScript"));
+                    CScript redeemScript(rsData.begin(), rsData.end());
+                    tempKeystore.AddCScript(redeemScript);
+                }
+            }
+        }
+    }
+
     if (params.size() > 2 && !params[2].isNull()) {
         fGivenKeys = true;
         UniValue keys = params[2].get_array();
@@ -1547,8 +1598,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
         CMutableTransaction mergedTx(txVariants[0]);
 
         // Fetch previous transactions (inputs):
-        CCoinsView viewDummy;
-        CCoinsViewCache view(&viewDummy);
         {
             LOCK(mempool.cs);
             CCoinsViewCache &viewChain = *pcoinsTip;
@@ -1562,55 +1611,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             }
 
             view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
-        }
-
-        // Add previous txouts given in the RPC call:
-        if (params.size() > 1 && !params[1].isNull()) {
-            UniValue prevTxs = params[1].get_array();
-            for (size_t idx = 0; idx < prevTxs.size(); idx++) {
-                const UniValue& p = prevTxs[idx];
-                if (!p.isObject())
-                    throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "expected object with {\"txid'\",\"vout\",\"scriptPubKey\"}");
-
-                UniValue prevOut = p.get_obj();
-
-                RPCTypeCheckObj(prevOut, boost::assign::map_list_of("txid", UniValue::VSTR)("vout", UniValue::VNUM)("scriptPubKey", UniValue::VSTR));
-
-                uint256 txid = ParseHashO(prevOut, "txid");
-
-                int nOut = find_value(prevOut, "vout").get_int();
-                if (nOut < 0)
-                    throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "vout must be positive");
-
-                vector<unsigned char> pkData(ParseHexO(prevOut, "scriptPubKey"));
-                CScript scriptPubKey(pkData.begin(), pkData.end());
-
-                {
-                    CCoinsModifier coins = view.ModifyCoins(txid);
-                    if (coins->IsAvailable(nOut) && coins->vout[nOut].scriptPubKey != scriptPubKey) {
-                        string err("Previous output scriptPubKey mismatch:\n");
-                        err = err + coins->vout[nOut].scriptPubKey.ToString() + "\nvs:\n"+
-                            scriptPubKey.ToString();
-                        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
-                    }
-                    if ((unsigned int)nOut >= coins->vout.size())
-                        coins->vout.resize(nOut+1);
-                    coins->vout[nOut].scriptPubKey = scriptPubKey;
-                    coins->vout[nOut].nValue = 0; // we don't know the actual output value
-                }
-
-                // if redeemScript given and not using the local wallet (private keys
-                // given), add redeemScript to the tempKeystore so it can be signed:
-                if (fGivenKeys && scriptPubKey.IsPayToScriptHash()) {
-                    RPCTypeCheckObj(prevOut, boost::assign::map_list_of("txid", UniValue::VSTR)("vout", UniValue::VNUM)("scriptPubKey", UniValue::VSTR)("redeemScript",UniValue::VSTR));
-                    UniValue v = find_value(prevOut, "redeemScript");
-                    if (!v.isNull()) {
-                        vector<unsigned char> rsData(ParseHexV(v, "redeemScript"));
-                        CScript redeemScript(rsData.begin(), rsData.end());
-                        tempKeystore.AddCScript(redeemScript);
-                    }
-                }
-            }
         }
 
 #ifdef ENABLE_WALLET
@@ -1698,8 +1698,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
         return result;
     } else {
         // Fetch previous transactions (inputs):
-        CCoinsView viewDummy;
-        CCoinsViewCache view(&viewDummy);
         {
             LOCK(mempool.cs);
             CCoinsViewCache &viewChain = *pcoinsTip;
@@ -1715,54 +1713,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
         }
 
-        // Add previous txouts given in the RPC call:
-        if (params.size() > 1 && !params[1].isNull()) {
-            UniValue prevTxs = params[1].get_array();
-            for (size_t idx = 0; idx < prevTxs.size(); idx++) {
-                const UniValue& p = prevTxs[idx];
-                if (!p.isObject())
-                    throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "expected object with {\"txid'\",\"vout\",\"scriptPubKey\"}");
-
-                UniValue prevOut = p.get_obj();
-
-                RPCTypeCheckObj(prevOut, boost::assign::map_list_of("txid", UniValue::VSTR)("vout", UniValue::VNUM)("scriptPubKey", UniValue::VSTR));
-
-                uint256 txid = ParseHashO(prevOut, "txid");
-
-                int nOut = find_value(prevOut, "vout").get_int();
-                if (nOut < 0)
-                    throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "vout must be positive");
-
-                vector<unsigned char> pkData(ParseHexO(prevOut, "scriptPubKey"));
-                CScript scriptPubKey(pkData.begin(), pkData.end());
-
-                {
-                    CCoinsModifier coins = view.ModifyCoins(txid);
-                    if (coins->IsAvailable(nOut) && coins->vout[nOut].scriptPubKey != scriptPubKey) {
-                        string err("Previous output scriptPubKey mismatch:\n");
-                        err = err + coins->vout[nOut].scriptPubKey.ToString() + "\nvs:\n"+
-                            scriptPubKey.ToString();
-                        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, err);
-                    }
-                    if ((unsigned int)nOut >= coins->vout.size())
-                        coins->vout.resize(nOut+1);
-                    coins->vout[nOut].scriptPubKey = scriptPubKey;
-                    coins->vout[nOut].nValue = 0; // we don't know the actual output value
-                }
-
-                // if redeemScript given and not using the local wallet (private keys
-                // given), add redeemScript to the tempKeystore so it can be signed:
-                if (fGivenKeys && scriptPubKey.IsPayToScriptHash()) {
-                    RPCTypeCheckObj(prevOut, boost::assign::map_list_of("txid", UniValue::VSTR)("vout", UniValue::VNUM)("scriptPubKey", UniValue::VSTR)("redeemScript",UniValue::VSTR));
-                    UniValue v = find_value(prevOut, "redeemScript");
-                    if (!v.isNull()) {
-                        vector<unsigned char> rsData(ParseHexV(v, "redeemScript"));
-                        CScript redeemScript(rsData.begin(), rsData.end());
-                        tempKeystore.AddCScript(redeemScript);
-                    }
-                }
-            }
-        }
 
 #ifdef ENABLE_WALLET
         EnsureWalletIsUnlocked();
