@@ -1500,6 +1500,43 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
 
     CCoinsView viewDummy;
     CCoinsViewCache view(&viewDummy);
+    std::vector<CTxIn> txInputs = (txVersion != SC_CERT_VERSION) ? txVariants[0].vin : certificate.vin;
+    // Fetch previous transactions (inputs):
+    {
+        LOCK(mempool.cs);
+        CCoinsViewCache &viewChain = *pcoinsTip;
+        CCoinsViewMemPool viewMempool(&viewChain, mempool);
+        view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
+
+        BOOST_FOREACH(const CTxIn& txin, txInputs) {
+            const uint256& prevHash = txin.prevout.hash;
+            CCoins coins;
+            view.AccessCoins(prevHash); // this is certainly allowed to fail
+        }
+
+        view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
+    }
+
+    if (params.size() > 2 && !params[2].isNull()) {
+        fGivenKeys = true;
+        UniValue keys = params[2].get_array();
+        for (size_t idx = 0; idx < keys.size(); idx++) {
+            UniValue k = keys[idx];
+            CBitcoinSecret vchSecret;
+            bool fGood = vchSecret.SetString(k.get_str());
+            if (!fGood)
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key");
+            CKey key = vchSecret.GetKey();
+            if (!key.IsValid())
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Private key outside allowed range");
+            tempKeystore.AddKey(key);
+        }
+    }
+#ifdef ENABLE_WALLET
+    else if (pwalletMain)
+        EnsureWalletIsUnlocked();
+#endif
+
     // Add previous txouts given in the RPC call:
     if (params.size() > 1 && !params[1].isNull()) {
         UniValue prevTxs = params[1].get_array();
@@ -1549,26 +1586,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
         }
     }
 
-    if (params.size() > 2 && !params[2].isNull()) {
-        fGivenKeys = true;
-        UniValue keys = params[2].get_array();
-        for (size_t idx = 0; idx < keys.size(); idx++) {
-            UniValue k = keys[idx];
-            CBitcoinSecret vchSecret;
-            bool fGood = vchSecret.SetString(k.get_str());
-            if (!fGood)
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key");
-            CKey key = vchSecret.GetKey();
-            if (!key.IsValid())
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Private key outside allowed range");
-            tempKeystore.AddKey(key);
-        }
-    }
-#ifdef ENABLE_WALLET
-    else if (pwalletMain)
-        EnsureWalletIsUnlocked();
-#endif
-
     int nHashType = SIGHASH_ALL;
     if (params.size() > 3 && !params[3].isNull()) {
         static map<string, int> mapSigHashValues =
@@ -1602,22 +1619,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
         // mergedTx will end up with all the signatures; it
         // starts as a clone of the rawtx:
         CMutableTransaction mergedTx(txVariants[0]);
-
-        // Fetch previous transactions (inputs):
-        {
-            LOCK(mempool.cs);
-            CCoinsViewCache &viewChain = *pcoinsTip;
-            CCoinsViewMemPool viewMempool(&viewChain, mempool);
-            view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
-
-            BOOST_FOREACH(const CTxIn& txin, mergedTx.vin) {
-                const uint256& prevHash = txin.prevout.hash;
-                CCoins coins;
-                view.AccessCoins(prevHash); // this is certainly allowed to fail
-            }
-
-            view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
-        }
 
         bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
 
@@ -1698,22 +1699,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
 
         return result;
     } else {
-        // Fetch previous transactions (inputs):
-        {
-            LOCK(mempool.cs);
-            CCoinsViewCache &viewChain = *pcoinsTip;
-            CCoinsViewMemPool viewMempool(&viewChain, mempool);
-            view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
-
-            BOOST_FOREACH(const CTxIn& txin, certificate.vin) {
-                const uint256& prevHash = txin.prevout.hash;
-                CCoins coins;
-                view.AccessCoins(prevHash); // this is certainly allowed to fail
-            }
-
-            view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
-        }
-
         // Script verification errors
         UniValue vErrors(UniValue::VARR);
 
