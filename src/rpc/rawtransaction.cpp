@@ -1495,9 +1495,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
         }
     }
 
-    bool fGivenKeys = false;
-    CBasicKeyStore tempKeystore;
-
     CCoinsView viewDummy;
     CCoinsViewCache view(&viewDummy);
     std::vector<CTxIn> txInputs = (txVersion != SC_CERT_VERSION) ? txVariants[0].vin : certificate.vin;
@@ -1517,6 +1514,8 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
         view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
     }
 
+    bool fGivenKeys = false;
+    CBasicKeyStore tempKeystore;
     if (params.size() > 2 && !params[2].isNull()) {
         fGivenKeys = true;
         UniValue keys = params[2].get_array();
@@ -1585,6 +1584,13 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             }
         }
     }
+    
+#ifdef ENABLE_WALLET
+    EnsureWalletIsUnlocked();
+    const CKeyStore& keystore = ((fGivenKeys || !pwalletMain) ? tempKeystore : *pwalletMain);
+#else
+    const CKeyStore& keystore = tempKeystore;
+#endif
 
     int nHashType = SIGHASH_ALL;
     if (params.size() > 3 && !params[3].isNull()) {
@@ -1608,13 +1614,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported sighash param for certificate");
     }
     
-#ifdef ENABLE_WALLET
-    EnsureWalletIsUnlocked();
-    const CKeyStore& keystore = ((fGivenKeys || !pwalletMain) ? tempKeystore : *pwalletMain);
-#else
-    const CKeyStore& keystore = tempKeystore;
-#endif
-
     if (txVersion != SC_CERT_VERSION) {
         // mergedTx will end up with all the signatures; it
         // starts as a clone of the rawtx:
