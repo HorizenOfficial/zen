@@ -1400,17 +1400,13 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             "this transaction depends on but may not yet be in the block chain.\n"
             "The third optional argument (may be null) is an array of base58-encoded private\n"
             "keys that, if given, will be the only keys used to sign the transaction.\n"
-            "Optional arguments for certificate."
-            "The second optional argument (may be null) is an array of previous transaction outputs that\n"
-            "The third optional argument (may be null) is an array of base58-encoded private\n"
-            "keys that, if given, will be the only keys used to sign the transaction.\n"
 #ifdef ENABLE_WALLET
             + HelpRequiringPassphrase() + "\n"
 #endif
 
             "\nArguments:\n"
             "1. \"hexstring\"                      (string, required) The transaction or certificate hex string\n"
-            "2. \"prevtxs\"                        (string, optional) A json array of previous dependent transaction outputs\n"
+            "2. \"prevtxs\"                        (string, optional) An json array of previous dependent transaction outputs\n"
             "     [                                (json array of json objects, or 'null' if none provided)\n"
             "       {\n"
             "         \"txid\": \"id\",            (string, required) the transaction id\n"
@@ -1432,7 +1428,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             "       \"ALL|ANYONECANPAY\"\n"
             "       \"NONE|ANYONECANPAY\"\n"
             "       \"SINGLE|ANYONECANPAY\"\n"
-            "                                       Certificate supports only ALL parameter.\n"
+            "                                     Certificate support only ALL parameter."
 
             "\nResult:\n"
             "{\n"
@@ -1469,7 +1465,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
     CMutableScCertificate certificate;
 
     if (ssData.empty())
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing input transaction or certificate");
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing input transaction(certificate)");
 
     int txVersion;
     ssVersion >> txVersion;
@@ -1496,7 +1492,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             }
         }
         catch (const std::exception& ex) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Transaction and certificate decode failed");
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Certificate decode failed");
         }
     }
 
@@ -1505,7 +1501,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
 
     if (params.size() > 2 && !params[2].isNull()) {
         fGivenKeys = true;
-        UniValue keys = params[2].get_array();
+        UniValue keys = params[keyPosition].get_array();
         for (size_t idx = 0; idx < keys.size(); idx++) {
             UniValue k = keys[idx];
             CBitcoinSecret vchSecret;
@@ -1518,6 +1514,10 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             tempKeystore.AddKey(key);
         }
     }
+#ifdef ENABLE_WALLET
+    else if (pwalletMain)
+        EnsureWalletIsUnlocked();
+#endif
 
     int nHashType = SIGHASH_ALL;
     if (params.size() > 3 && !params[3].isNull()) {
@@ -1540,11 +1540,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
     if ((txVersion == SC_CERT_VERSION) && (nHashType != SIGHASH_ALL)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported sighash param for certificate");
     }
-
-#ifdef ENABLE_WALLET
-    else if ((txVersion != SC_CERT_VERSION) && pwalletMain)
-        EnsureWalletIsUnlocked();
-#endif
 
     if (txVersion != SC_CERT_VERSION) {
         // mergedTx will end up with all the signatures; it
@@ -1823,10 +1818,10 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
             "\nAlso see createrawtransaction and signrawtransaction calls.\n"
 
             "\nArguments:\n"
-            "1. \"hexstring\"    (string, required) the hex string of the raw transaction or certificate\n"
+            "1. \"hexstring\"    (string, required) the hex string of the raw transaction(certificate)\n"
             "2. allowhighfees    (boolean, optional, default=false) allow high fees\n"
             "\nResult:\n"
-            "\"hex\"             (string) the transaction or certificate hash in hex\n"
+            "\"hex\"             (string) the transaction(certificate) hash in hex\n"
             "\nExamples:\n"
             "\nCreate a transaction\n"
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\" : \\\"mytxid\\\",\\\"vout\\\":0}]\" \"{\\\"myaddress\\\":0.01}\"") +
