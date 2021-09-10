@@ -1586,7 +1586,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
     }
     
 #ifdef ENABLE_WALLET
-    EnsureWalletIsUnlocked();
     const CKeyStore& keystore = ((fGivenKeys || !pwalletMain) ? tempKeystore : *pwalletMain);
 #else
     const CKeyStore& keystore = tempKeystore;
