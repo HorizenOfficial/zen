@@ -1395,7 +1395,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
         throw runtime_error(
             "signrawtransaction \"hexstring\" ( [{\"txid\":\"id\",\"vout\":n,\"scriptPubKey\":\"hex\",\"redeemScript\":\"hex\"},...] [\"privatekey1\",...] sighashtype )\n"
             "\nSign inputs for raw transaction or certificate (serialized, hex-encoded).\n"
-            "Optional arguments for transaction can be follows."
             "The second optional argument (may be null) is an array of previous transaction outputs that\n"
             "this transaction depends on but may not yet be in the block chain.\n"
             "The third optional argument (may be null) is an array of base58-encoded private\n"
