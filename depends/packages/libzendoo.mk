@@ -14,6 +14,12 @@ else
 $(package)_library_file=target/release/libzendoo_mc.a
 endif
 
+ifeq ($(LIBZENDOO_LEGACY_CPU),true)
+$(package)_target_feature=
+else
+$(package)_target_feature=-C target-feature=+bmi2,+adx
+endif
+
 define $(package)_set_vars
 $(package)_build_opts=  --release  --all-features
 $(package)_build_opts_mingw32=--target=x86_64-pc-windows-gnu
@@ -25,7 +31,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_build_cmds
-  RUSTFLAGS="-C target-feature=+bmi2,+adx --emit=asm" cargo build $($(package)_build_opts)
+  RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts)
 endef
 
 

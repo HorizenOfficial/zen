@@ -8,8 +8,8 @@ SC_FIELD_SIZE = 32
 SC_FIELD_SAFE_SIZE = 31
 
 # these should be aligned with the definitions in src/sc/sidechaintypes.h
-MAX_SC_PROOF_SIZE_IN_BYTES = 7*1024                                                                     
-MAX_SC_VK_SIZE_IN_BYTES    = 4*1024
+MAX_SC_PROOF_SIZE_IN_BYTES = 9*1024                                                                     
+MAX_SC_VK_SIZE_IN_BYTES    = 9*1024
 COIN = 100000000
 
 def generate_random_field_element_hex():

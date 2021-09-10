@@ -222,7 +222,7 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(sc_funds_post, sc_funds_pre - bt_amount)
 
         decoded_cert_post = self.nodes[2].getrawtransaction(cert, 1)
-        assert_equal(decoded_cert_post['certid'], cert)
+        assert_equal(decoded_cert_post['txid'], cert)
         assert_equal(decoded_cert_post['hex'], signed_cert['hex'])
         assert_equal(decoded_cert_post['blockhash'], mined)
         assert_equal(decoded_cert_post['confirmations'], 4)
@@ -294,7 +294,7 @@ class sc_rawcert(BitcoinTestFramework):
         mark_logs("check that cert contents are as expected", self.nodes, DEBUG_MODE)
         # vout contains just the change 
         assert_equal(len(decoded_cert_post['vout']), 1)
-        assert_equal(decoded_cert_post['certid'], cert)
+        assert_equal(decoded_cert_post['txid'], cert)
         assert_equal(decoded_cert_post['hex'], signed_cert['hex'])
         assert_equal(decoded_cert_post['blockhash'], mined)
         assert_equal(decoded_cert_post['confirmations'], 1)
@@ -406,7 +406,7 @@ class sc_rawcert(BitcoinTestFramework):
         decoded_cert_post = self.nodes[0].getrawtransaction(cert, 1)
 
         mark_logs("check that cert contents are as expected", self.nodes, DEBUG_MODE)
-        assert_equal(decoded_cert_post['certid'], cert)
+        assert_equal(decoded_cert_post['txid'], cert)
         # vin contains the expected numb of utxo
         assert_equal(len(decoded_cert_post['vin']), len(raw_inputs))
         # vout contains the change and the backward transfers 

@@ -151,6 +151,8 @@ class sc_cert_base(BitcoinTestFramework):
 
         amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
 
+        #---------------------start negative tests-------------------------
+
         mark_logs("Node 0 tries to send a cert with insufficient Sc balance...", self.nodes, DEBUG_MODE)
         amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_bad}]
 
@@ -165,6 +167,7 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal("sidechain has insufficient funds" in errorString, True)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount)
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
+        #--------------------------------------------------------------------------------------
 
         mark_logs("Node 0 tries to send a certificate with an invalid epoch number ...", self.nodes, DEBUG_MODE)
 
@@ -181,6 +184,7 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal("invalid end cum commitment tree root" in errorString, True)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
+        #--------------------------------------------------------------------------------------
 
         mark_logs("Node 0 tries to send a certificate with an invalid epoch epoch_cum_tree_hash ...", self.nodes, DEBUG_MODE)
 
@@ -196,7 +200,7 @@ class sc_cert_base(BitcoinTestFramework):
         assert_equal("invalid end cum commitment tree root" in errorString, True)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc has not been affected by faulty certificate
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
-
+        #--------------------------------------------------------------------------------------
 
         mark_logs("Node 0 tries to send a certificate with an invalid quality ...", self.nodes, DEBUG_MODE)
 
@@ -442,13 +446,53 @@ class sc_cert_base(BitcoinTestFramework):
 
         mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
         assert_equal(True, cert_epoch_0 in self.nodes[0].getrawmempool())
+        mempool_cert_0 = self.nodes[0].getrawmempool(True)[cert_epoch_0]
+        assert_equal(True, mempool_cert_0["isCert"])
+        assert_equal(-5, mempool_cert_0["version"])
+
+        # change mining algo priority and fee, just for testing the api
+        prio_delta = Decimal(100000.0)
+        fee_delta  = 1000 # in zats
+        ret = self.nodes[0].prioritisetransaction(cert_epoch_0, prio_delta, fee_delta )
+        assert_equal(True, ret)
+
+        mp = self.nodes[0].getrawmempool(True)
+        #pprint.pprint(mp)
+        # the prioritisetransaction cmd overwrites old json contents (not only prio and certs) 
+        prio_cert_after = mp[cert_epoch_0]['priority']
+        fee_cert_after  = mp[cert_epoch_0]['fee']
+        mark_logs("cert prio={}, fee={}".format(prio_cert_after, fee_cert_after), self.nodes, DEBUG_MODE)
+        assert_equal(prio_delta, prio_cert_after)
+        assert_equal(float(fee_delta)/COIN, float(fee_cert_after))
 
         bal_before_bwt = self.nodes[1].getbalance("", 0)
         mark_logs("Node1 balance before bwt is received: {}".format(bal_before_bwt), self.nodes, DEBUG_MODE)
 
+        # Get BT txout excluding immature outputs
+        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1)
+        assert_true(utx_out is None)
+
+        mature_only = False
+        # Get BT txout including immature outputs
+        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, True, mature_only)
+        assert_equal(utx_out["mature"], False)
+        assert_equal(utx_out["maturityHeight"], -1)
+        assert_equal(utx_out["blocksToMaturity"], -1)
+
         mark_logs("Node0 confirms certificate generating 1 block", self.nodes, DEBUG_MODE)
         mined = self.nodes[0].generate(1)[0]
         self.sync_all()
+
+        # Get BT txout excluding mempool
+        # Check that BT is immature
+        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, False, mature_only)
+        cur_h = self.nodes[0].getblockcount()
+        cert_epoch_0_maturity_h = self.nodes[0].getscinfo(scid, True, False)['items'][0]['ceasing height']
+        cert_epoch_0_maturity_delta = cert_epoch_0_maturity_h - cur_h - 1
+        assert_equal(utx_out["mature"], False)
+        assert_equal(utx_out["maturityHeight"], cert_epoch_0_maturity_h)
+        assert_equal(utx_out["blocksToMaturity"], cert_epoch_0_maturity_delta)
+
 
         mark_logs("Check cert is not in mempool anymore", self.nodes, DEBUG_MODE)
         assert_equal(False, cert_epoch_0 in self.nodes[0].getrawmempool())
@@ -479,8 +523,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Checking that amount transferred by epoch 0 certificate is not mature", self.nodes, DEBUG_MODE)
         retrieved_cert = self.nodes[1].gettransaction(cert_epoch_0)
         assert_equal(retrieved_cert['amount'], 0)  # Certificate amount is not mature yet
-        assert_equal(retrieved_cert['details'][0]['category'], "immature")
-        assert_equal(retrieved_cert['details'][0]['amount'], amount_cert_1[0]["amount"])
+        assert_equal(len(retrieved_cert['details']), 0)  # Certificate immature outputs should not present
 
         assert_equal(self.nodes[1].getwalletinfo()['immature_balance'], amount_cert_1[0]["amount"])
         utxos_Node1 = self.nodes[1].listunspent()
@@ -588,13 +631,21 @@ class sc_cert_base(BitcoinTestFramework):
         utxos_Node1 = self.nodes[1].listunspent()
         cert_epoch_0_availalble = False
         for utxo in utxos_Node1:
-            if ("certified" in utxo.keys()):
+            if utxo["isCert"]:
                 cert_epoch_0_availalble = True
                 assert_true(utxo["txid"] == cert_epoch_0 )
         assert_true(cert_epoch_0_availalble)
 
         mark_logs("Checking Node1 balance is duly updated,".format(epoch_number), self.nodes, DEBUG_MODE)
         assert_equal(bal_after_cert_2, bal_before_cert_2 + amount_cert_1[0]["amount"])
+
+        # Get BT txout excluding mempool
+        # Check that BT is mature
+        mature_only = True
+        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, False, mature_only)
+        assert_equal(utx_out["mature"], True)
+        assert_equal(utx_out["maturityHeight"], cert_epoch_0_maturity_h)
+        assert_equal(utx_out["blocksToMaturity"], 0)
 
         Node2_bal_before_cert_expenditure = self.nodes[2].getbalance("", 0)
         mark_logs("Checking that Node1 can spend coins received from bwd transfer in previous epoch", self.nodes, DEBUG_MODE)

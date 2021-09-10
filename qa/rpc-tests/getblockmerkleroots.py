@@ -12,7 +12,6 @@ from test_framework.util import assert_equal, wait_and_assert_operationid_status
 from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 
 
-
 class GetBlockMerkleRootsTest(BitcoinTestFramework):
 
     def verify_roots(self, block):
@@ -65,7 +64,7 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
             self.sync_all()
         self.nodes[0].generate(1)
 
-        block = self.nodes[0].getblock('111')
+        block = self.nodes[0].getblock('422')
         self.verify_roots(block)
 
         #Test getblockmerkleroots with some t/z-transactions
@@ -80,12 +79,12 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
         for _ in range (0,3):
             self.nodes[0].sendtoaddress(tAddr, 1.0)
             self.sync_all()
-        
+
         self.nodes[0].generate(1)
         self.sync_all()
 
-        block = self.nodes[0].getblock('112')
-        self.verify_roots(block)  
+        block = self.nodes[0].getblock('423')
+        self.verify_roots(block)
 
         #Test getblockmerkleroots with a sc-creation
         print("######## Test getblockmerkleroots with a sc-creation ########")
@@ -105,7 +104,7 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        block = self.nodes[0].getblock('221')
+        block = self.nodes[0].getblock('532')
         self.verify_roots(block)
 
         mc_return_address = self.nodes[0].getnewaddress("", True)
@@ -117,10 +116,10 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
         self.nodes[0].sendtoaddress(tAddr, 1.0)
         self.sync_all()
         self.nodes[0].generate(1)
-        self.sync_all() 
- 
-        block = self.nodes[0].getblock('222')
-        self.verify_roots(block)  
+        self.sync_all()
+
+        block = self.nodes[0].getblock('533')
+        self.verify_roots(block)
 
 
 

@@ -344,8 +344,8 @@ struct CScCertificateStatusUpdateInfo
     std::string ToString() const
     {
         std::string str;
-        str += strprintf("CScCertificateStatusUpdateInfo(scId=%s, certHash=%s, certEpoch=%d, bwtState=%d)",
-                         this->scId.ToString(), this->certHash.ToString(), this->certEpoch, this->bwtState);
+        str += strprintf("CScCertificateStatusUpdateInfo(scId=%s, certHash=%s, certEpoch=%d, certQuality=%d, bwtState=%d)",
+                         scId.ToString(), certHash.ToString(), certEpoch, certQuality, bwtState);
         return str;
     }
 };

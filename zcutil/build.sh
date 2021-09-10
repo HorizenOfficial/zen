@@ -45,7 +45,7 @@ Usage:
 $0 --help
   Show this help message and exit.
 
-$0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --disable-rust ] [ --enable-proton ] [ --disable-libs ] [ MAKEARGS... ]
+$0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --disable-rust ] [ --enable-proton ] [ --disable-libs ] [ --legacy-cpu ] [ MAKEARGS... ]
     Build Zen and most of its transitive dependencies from
     source. MAKEARGS are applied to both dependencies and Zen itself.
 
@@ -65,6 +65,9 @@ $0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --disable-rust ] 
 
   If --disable-libs is passed, Zen is configured to not build any libraries like
   'libzcashconsensus'.
+
+  If --legacy-cpu is passed, libzendoo is built without bmi2 and adx compiler flags.
+  These CPU flags were introduced in Intel Broadwell and AMD Excavator architectures.
 EOF
     exit 0
 fi
@@ -102,11 +105,36 @@ then
     shift
 fi
 
+# If --legacy-cpu is the next argument, build libzendoo without +bmi2,+adx:
+LIBZENDOO_LEGACY_CPU='false'
+if [ "x${1:-}" = 'x--legacy-cpu' ]; then
+    LIBZENDOO_LEGACY_CPU='true'
+    shift
+fi
+
+set +x
+# Check if CPU supports required flags, if not warn the user and exit.
+if [ "$LIBZENDOO_LEGACY_CPU" = "false" ]; then
+  CPU_FLAGS=''
+  if command -v lscpu > /dev/null 2>&1; then
+    CPU_FLAGS="$(lscpu)"
+  elif [ -f "/proc/cpuinfo" ]; then
+    CPU_FLAGS="$(</proc/cpuinfo)"
+  else
+    echo 'Warning: unable to detect CPU flags, please make sure bmi2 and adx are supported on this host.'
+  fi
+  if [ -n "$CPU_FLAGS" ] && ( ! grep -q 'bmi2' <<< "$CPU_FLAGS" || ! grep -q 'adx' <<< "$CPU_FLAGS" ); then
+    echo "Error: bmi2 and adx CPU flags are not supported on this host, please build with './zcutil/build.sh --legacy-cpu'."
+    exit 1
+  fi
+fi
+set -x
+
 eval "$MAKE" --version
 as --version
 ld -v
 
-HOST="$HOST" BUILD="$BUILD" NO_PROTON="$PROTON_ARG" "$MAKE" "$@" -C ./depends/ V=1
+HOST="$HOST" BUILD="$BUILD" NO_PROTON="$PROTON_ARG" LIBZENDOO_LEGACY_CPU="$LIBZENDOO_LEGACY_CPU" "$MAKE" "$@" -C ./depends/ V=1
 ./autogen.sh
 CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure  "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" $CONFIGURE_FLAGS CXXFLAGS='-g'
 "$MAKE" "$@" V=1

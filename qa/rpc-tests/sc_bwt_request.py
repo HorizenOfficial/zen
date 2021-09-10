@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import initialize_chain_clean, assert_equal, assert_true, assert_false, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
-    swap_bytes
+    get_total_amount_from_listaddressgroupings, swap_bytes
 from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
@@ -135,7 +135,6 @@ class sc_bwt_request(BitcoinTestFramework):
         pkh2 = self.nodes[0].getnewaddress("", True)
         pkh3 = self.nodes[0].getnewaddress("", True)
         pkh4 = self.nodes[0].getnewaddress("", True)
-
 
         #--- negative tests for bwt transfer request ----------------------------------------
         mark_logs("...performing some negative test...", self.nodes, DEBUG_MODE)
@@ -338,16 +337,22 @@ class sc_bwt_request(BitcoinTestFramework):
         # create a bwt request with the raw cmd version with some mixed output and cc output
         mark_logs("Node0 creates a tx with a few bwt request and mixed outputs using raw version of cmd", self.nodes, DEBUG_MODE)
         outputs = { self.nodes[0].getnewaddress() :4.998 }
-        sc_cr = [ {"epoch_length":10, "amount":1.0, "address":"effe", "wCertVk":vk3, "constant":c3} ]
+        sc_cr_amount = 1.0
+        sc_cr = [ {"epoch_length":10, "amount":sc_cr_amount, "address":"effe", "wCertVk":vk3, "constant":c3} ]
+        ft_amount_1 = 1.0
+        ft_amount_2 = 2.0
         mc_return_address = self.nodes[0].getnewaddress("", True)
         sc_ft = [
-            {"address": "abc", "amount": 1.0, "scid": scid2, "mcReturnAddress": mc_return_address},
-            {"address": "cde", "amount": 2.0, "scid": scid2, "mcReturnAddress": mc_return_address}
+            {"address": "abc", "amount": ft_amount_1, "scid": scid2, "mcReturnAddress": mc_return_address},
+            {"address": "cde", "amount": ft_amount_2, "scid": scid2, "mcReturnAddress": mc_return_address}
         ]
+        bt_sc_fee_1 = 0.13
+        bt_sc_fee_2 = 0.23
+        bt_sc_fee_3 = 0.12
         sc_bwt3 = [
-            {'vScRequestData':fe2, 'scFee':Decimal("0.13"), 'scid':scid1, 'pubkeyhash':pkh2 },
-            {'vScRequestData':fe3, 'scFee':Decimal("0.23"), 'scid':scid2, 'pubkeyhash':pkh3 },
-            {'vScRequestData':fe4, 'scFee':Decimal("0.12"), 'scid':scid2, 'pubkeyhash':pkh4 }
+            {'vScRequestData':fe2, 'scFee':bt_sc_fee_1, 'scid':scid1, 'pubkeyhash':pkh2 },
+            {'vScRequestData':fe3, 'scFee':bt_sc_fee_2, 'scid':scid2, 'pubkeyhash':pkh3 },
+            {'vScRequestData':fe4, 'scFee':bt_sc_fee_3, 'scid':scid2, 'pubkeyhash':pkh4 }
         ]
         try:
             raw_tx = self.nodes[0].createrawtransaction([], outputs, [], sc_cr, sc_ft, sc_bwt3)
@@ -360,6 +365,7 @@ class sc_bwt_request(BitcoinTestFramework):
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
 
+
         totScFee = totScFee + Decimal("0.13")
 
         self.sync_all()
@@ -370,6 +376,13 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_equal(decoded_tx['vmbtr_out'][0]['vScRequestData'], fe2)
         assert_equal(decoded_tx['vmbtr_out'][1]['vScRequestData'], fe3)
         assert_equal(decoded_tx['vmbtr_out'][2]['vScRequestData'], fe4)
+
+        # Check transaction details
+        tx_details = self.nodes[0].gettransaction(bwt6)["details"]
+        assert_equal(3, len(tx_details))
+        assert_equal(tx_details[1]["category"], "send")
+        assert_equal(tx_details[1]["account"], "")
+        assert_equal(float(tx_details[1]["amount"]), -(sc_cr_amount + ft_amount_1 + ft_amount_2 + bt_sc_fee_1 + bt_sc_fee_2 + bt_sc_fee_3))
 
         # verify all bwts are in mempool
         assert_true(bwt3 in self.nodes[0].getrawmempool())
@@ -476,6 +489,10 @@ class sc_bwt_request(BitcoinTestFramework):
         #totScFee = totScFee + SC_FEE
         n1_net_bal = n1_net_bal - SC_FEE 
         assert_equal(n1_net_bal, Decimal(self.nodes[1].z_gettotalbalance(0)['total']))
+        # check also other commands which are handling balance, just for non-regressions
+        assert_equal(n1_net_bal, Decimal(self.nodes[1].listaccounts()[""]))
+        lag_list = self.nodes[1].listaddressgroupings()
+        assert_equal(n1_net_bal, get_total_amount_from_listaddressgroupings(lag_list))
 
         mark_logs("Node0 generates 1 block, thus ceasing SC 1", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
@@ -513,6 +530,11 @@ class sc_bwt_request(BitcoinTestFramework):
         self.setup_network(False)
 
         assert_equal(n1_net_bal, Decimal(self.nodes[1].z_gettotalbalance(0)['total']))
+        # check also other commands handling balance, just for non-regressions
+        assert_equal(n1_net_bal, Decimal(self.nodes[1].listaccounts()[""]))
+        lag_list = self.nodes[1].listaddressgroupings()
+        assert_equal(n1_net_bal, get_total_amount_from_listaddressgroupings(lag_list))
+        
         sc_post_restart = self.nodes[0].getscinfo(scid1)['items'][0]
         assert_equal(sc_pre_restart, sc_post_restart)
 
