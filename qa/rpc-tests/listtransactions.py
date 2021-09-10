@@ -363,7 +363,7 @@ class ListTransactionsTest(BitcoinTestFramework):
 
         cmdInput = {'fromaddress': fromaddr, 'toaddress': sidechain_address, 'amount': sc_creation_amount, 'fee': fee, 'wCertVk': vk, "constant": constant}
         try:
-            res = self.nodes[1].create_sidechain(cmdInput)
+            res = self.nodes[1].sc_create(cmdInput)
             tx = res['txid']
             self.sync_all()
         except JSONRPCException, e:

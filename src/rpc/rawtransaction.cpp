@@ -225,7 +225,7 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
             {
                 pkhStr = "<<Decode error>>";
             }
-            out.pushKV("backwardtransfer", true);
+            out.pushKV("backwardTransfer", true);
         }
         vout.push_back(out);
     }
@@ -359,7 +359,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "     {\n"
             "       \"scid\" : \"hex\",                 (string) The sidechain id\n"
             "       \"n\" : n,                          (numeric) crosschain output index\n"
-            "       \"withdrawal epoch length\" : n,    (numeric) Sidechain withdrawal epoch length\n"
+            "       \"withdrawalEpochLength\" : n,      (numeric) Sidechain withdrawal epoch length\n"
             "       \"value\" : x.xxx,                  (numeric) The value in " + CURRENCY_UNIT + "\n"
             "       \"address\" : \"hex\",              (string) The sidechain receiver address\n"
             "       \"wCertVk\" : \"hex\",              (string) The sidechain certificate snark proof verification key\n"
@@ -505,7 +505,7 @@ UniValue getrawcertificate(const UniValue& params, bool fHelp)
             "         ]\n"
             "       }\n"
             "       --- optional fields present only if this vout is a backward transfer:\n" 
-            "       \"backward transfer\" : true  (bool)\n" 
+            "       \"backwardTransfer\" : true  (bool)\n" 
             "       \"pubkeyhash\" : \"pkh\"        (string) public key hash this backward transfer refers to, it corresponds to the horizen address specified above"
             "     }\n"
             "     ,...\n"
@@ -794,7 +794,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "       }\n"
             "       ,...\n"
             "     ]\n"
-            "6. \"backward transfer requests\"   (string, optional) A json array of json objects\n"
+            "6. \"backwardTransferRequests\"   (string, optional) A json array of json objects\n"
             "     [\n"
             "       {\n"
             "         \"scid\":side chain ID       (string, required) The uint256 side chain ID\n"
@@ -964,7 +964,7 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "     {\n"
             "       \"scid\" : \"hex\",                           (string) The sidechain id\n"
             "       \"n\" : n,                                    (numeric) crosschain output index\n"
-            "       \"withdrawal epoch length\" : n,              (numeric) Sidechain withdrawal epoch length\n"
+            "       \"withdrawalEpochLength\" : n,                (numeric) Sidechain withdrawal epoch length\n"
             "       \"value\" : x.xxx,                            (numeric) The value in " + CURRENCY_UNIT + "\n"
             "       \"address\" : \"hex\",                        (string) The sidechain receiver address\n"
             "       \"certProvingSystem\" : \"provingSystem\"     (string) The type of proving system to be used for certificate verification, allowed values:\n" + Sidechain::ProvingSystemTypeHelp() + "\n"

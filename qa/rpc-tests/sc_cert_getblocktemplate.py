@@ -67,7 +67,7 @@ class sc_cert_base(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[0].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
         mark_logs("Node 0 created a SC", self.nodes, DEBUG_MODE)
@@ -125,7 +125,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         mark_logs("Node 0 sends a certificate", self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, 
+            cert_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality, 
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException, e:
@@ -168,7 +168,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 0.1)
 
         try:
-            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality, 
+            cert_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality, 
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException, e:

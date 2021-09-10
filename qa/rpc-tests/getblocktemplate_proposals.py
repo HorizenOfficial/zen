@@ -161,7 +161,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[1].sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, vk, "bb" * 1024, constant)
+        ret = self.nodes[1].dep_sc_create(SC_EPOCH_LENGTH, "dada", SC_CREATION_AMOUNT, vk, "bb" * 1024, constant)
         creating_tx = ret['txid']
         scid = ret['scid']
         self.sync_all()
@@ -185,7 +185,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
 
         scid_swapped = str(swap_bytes(scid))
         proof = mcTest.create_test_proof("sc1", scid_swapped, 0, 0, mbtrScFee, ftScFee, epoch_cum_tree_hash, constant, [pkh], [SC_CERT_AMOUNT])
-        cert = self.nodes[0].send_certificate(scid, 0, 0, epoch_cum_tree_hash, proof, amounts, ftScFee, mbtrScFee, fee)
+        cert = self.nodes[0].sc_send_certificate(scid, 0, 0, epoch_cum_tree_hash, proof, amounts, ftScFee, mbtrScFee, fee)
         self.sync_all()
         assert_true(cert in self.nodes[0].getrawmempool() ) 
         mark_logs("cert issued : {}".format(cert), self.nodes, DEBUG_MODE)

@@ -117,7 +117,7 @@ class ScSplitTest(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[1].dep_sc_create(123, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
         mark_logs("created SC id: {} tx: {}".format(scid,creating_tx), self.nodes, DEBUG_MODE)
@@ -133,7 +133,7 @@ class ScSplitTest(BitcoinTestFramework):
         # Node 1 creates a FT of 4.0 coins and Node 0 generates 1 block
         mark_logs("\nNode 1 performs a fwd transfer of " + str(fwt_amount_1) + " coins ...", self.nodes, DEBUG_MODE)
         mc_return_address = self.nodes[1].getnewaddress("", True)
-        txes.append(self.nodes[1].sc_send("abcd", fwt_amount_1, scid, mc_return_address))
+        txes.append(self.nodes[1].dep_sc_send("abcd", fwt_amount_1, scid, mc_return_address))
         mark_logs("tx: {}".format(txes[-1]), self.nodes, DEBUG_MODE)
 
         mark_logs("\nNode0 generating 1 honest block", self.nodes, DEBUG_MODE)
@@ -143,7 +143,7 @@ class ScSplitTest(BitcoinTestFramework):
         # Node 1 creates a FT of 1.0 coin and Node 0 generates 1 block
         mark_logs("\nNode 1 performs a fwd transfer of " + str(fwt_amount_2) + " coins ...", self.nodes, DEBUG_MODE)
         mc_return_address = self.nodes[1].getnewaddress("", True)
-        txes.append(self.nodes[1].sc_send("abcd", fwt_amount_2, scid, mc_return_address))
+        txes.append(self.nodes[1].dep_sc_send("abcd", fwt_amount_2, scid, mc_return_address))
         mark_logs("tx: {}".format(txes[-1]), self.nodes, DEBUG_MODE)
         self.sync_all()
 

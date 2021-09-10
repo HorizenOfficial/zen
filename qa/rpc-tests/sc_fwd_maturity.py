@@ -97,7 +97,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[1].dep_sc_create(123, "dada", creation_amount, vk, "", constant)
         scid_1 = ret['scid']
         self.sync_all()
         mark_logs("created SC id: {}".format(scid_1), self.nodes, DEBUG_MODE)
@@ -121,7 +121,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         # raw_input("Press enter to send...")
         mark_logs("\nNode 1 sends " + str(fwt_amount_1) + " coins to SC", self.nodes, DEBUG_MODE)
         mc_return_address = self.nodes[1].getnewaddress("", True)
-        self.nodes[1].sc_send("abcd", fwt_amount_1, scid_1, mc_return_address)
+        self.nodes[1].dep_sc_send("abcd", fwt_amount_1, scid_1, mc_return_address)
         self.sync_all()
 
         mark_logs("\nNode 1 sends 3 amounts to SC 1 (tot: " + str(fwt_amount_many) + ")", self.nodes, DEBUG_MODE)
@@ -144,15 +144,15 @@ class sc_fwd_maturity(BitcoinTestFramework):
         amounts = []
         amounts.append({"address": "dada", "amount": creation_amount})
         
-        ret = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc2"), "", generate_random_field_element_hex())
+        ret = self.nodes[1].dep_sc_create(123, "dada", creation_amount, mcTest.generate_params("sc2"), "", generate_random_field_element_hex())
         scid_2 = ret['scid']
         mark_logs("created SC id: {}".format(scid_2), self.nodes, DEBUG_MODE)
 
-        ret = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc3"), "", generate_random_field_element_hex())
+        ret = self.nodes[1].dep_sc_create(123, "dada", creation_amount, mcTest.generate_params("sc3"), "", generate_random_field_element_hex())
         scid_3 = ret['scid']
         mark_logs("created SC id: {}".format(scid_3), self.nodes, DEBUG_MODE)
 
-        ret = self.nodes[1].sc_create(123, "dada", creation_amount, mcTest.generate_params("sc4"), "", generate_random_field_element_hex())
+        ret = self.nodes[1].dep_sc_create(123, "dada", creation_amount, mcTest.generate_params("sc4"), "", generate_random_field_element_hex())
         scid_4 = ret['scid']
         mark_logs("created SC id: {}".format(scid_4), self.nodes, DEBUG_MODE)
 

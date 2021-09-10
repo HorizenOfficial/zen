@@ -48,7 +48,7 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
 
         def create_sc(cmdInput, node):
             try:
-                res = node.create_sidechain(cmdInput)
+                res = node.sc_create(cmdInput)
                 tx =   res['txid']
                 scid = res['scid']
             except JSONRPCException, e:
@@ -134,7 +134,7 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
         print "...proof with sz={} generated: {} secs".format(len(proof)//2, t1-t0)
         
         try:
-            cert = self.nodes[0].send_certificate(scid, epoch_number, q,
+            cert = self.nodes[0].sc_send_certificate(scid, epoch_number, q,
                 epoch_cum_tree_hash, proof, bwt_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         except JSONRPCException, e:
             errorString = e.error['message']

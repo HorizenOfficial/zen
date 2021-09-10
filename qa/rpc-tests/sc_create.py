@@ -51,7 +51,7 @@ class SCCreateTest(BitcoinTestFramework):
 
     def run_test(self):
         '''
-        This test try creating a SC with sc_create using invalid parameters and valid parameters.
+        This test try creating a SC with dep_sc_create using invalid parameters and valid parameters.
         It also checks the coin mature time of the FT. For SC creation an amount of 1 ZAT is used.
         '''
         # network topology: (0)--(1)--(2)
@@ -78,7 +78,7 @@ class SCCreateTest(BitcoinTestFramework):
         amounts = [{"address": "dada", "amount": creation_amount}]
         errorString = ""
         try:
-            self.nodes[2].sc_create(123, "dada", creation_amount, vk, "", constant)
+            self.nodes[2].dep_sc_create(123, "dada", creation_amount, vk, "", constant)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -92,7 +92,7 @@ class SCCreateTest(BitcoinTestFramework):
         self.nodes[2].generate(1)
         self.sync_all()
         try:
-            self.nodes[2].sc_create(123, "dada", creation_amount, vk, "", constant)
+            self.nodes[2].dep_sc_create(123, "dada", creation_amount, vk, "", constant)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -104,7 +104,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with null address", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "", creation_amount, vk, "", constant)
+            self.nodes[1].dep_sc_create(123, "", creation_amount, vk, "", constant)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -115,7 +115,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with null amount", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", "", vk, "", constant)
+            self.nodes[1].dep_sc_create(123, "ada", "", vk, "", constant)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -127,7 +127,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with 0 amount", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", Decimal("0.0"), vk, "", constant)
+            self.nodes[1].dep_sc_create(123, "ada", Decimal("0.0"), vk, "", constant)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -139,7 +139,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with a non hex wCertVk", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, "zz" * SC_VK_SIZE, "", constant)
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, "zz" * SC_VK_SIZE, "", constant)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -151,7 +151,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with a odd number of char in wCertVk", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, "a" * (SC_VK_SIZE - 1))
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, "a" * (SC_VK_SIZE - 1))
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -163,7 +163,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with too short wCertVk byte string", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, "aa" * (SC_VK_SIZE - 1))
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, "aa" * (SC_VK_SIZE - 1))
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -175,7 +175,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with too long wCertVk byte string", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, "aa" * (SC_VK_SIZE + 1))
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, "aa" * (SC_VK_SIZE + 1))
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -187,7 +187,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with an invalid wCertVk", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, "aa" * SC_VK_SIZE)
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, "aa" * SC_VK_SIZE)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -200,7 +200,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with a bad customData", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, vk, "zz" * 1024)
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, vk, "zz" * 1024)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -212,7 +212,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with a odd number of char in customData", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, vk, "b" * 1023)
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, vk, "b" * 1023)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -224,7 +224,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with too long customData byte string", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, vk, "bb" * 1025)
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, vk, "bb" * 1025)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -236,7 +236,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with a non hex constant", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "zz" * SC_FIELD_SIZE)
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, vk, "", "zz" * SC_FIELD_SIZE)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -248,7 +248,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with a odd number of char in constant", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "b" * (SC_FIELD_SIZE - 1))
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, vk, "", "b" * (SC_FIELD_SIZE - 1))
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -260,7 +260,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with too short constant byte string", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "bb" * (SC_FIELD_SIZE - 1))
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, vk, "", "bb" * (SC_FIELD_SIZE - 1))
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -272,7 +272,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with too long constant byte string", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "bb" * (SC_FIELD_SIZE + 1))
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, vk, "", "bb" * (SC_FIELD_SIZE + 1))
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -284,7 +284,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with an invalid constant", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(123, "ada", 0.1, vk, "", "aa" * SC_FIELD_SIZE)
+            self.nodes[1].dep_sc_create(123, "ada", 0.1, vk, "", "aa" * SC_FIELD_SIZE)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -297,7 +297,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with 0 epochLength", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(0, "ada", Decimal("1.0"), vk, "aa" * SC_FIELD_SIZE)
+            self.nodes[1].dep_sc_create(0, "ada", Decimal("1.0"), vk, "aa" * SC_FIELD_SIZE)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -309,7 +309,7 @@ class SCCreateTest(BitcoinTestFramework):
         # Node 1 create the SC
         mark_logs("\nNode 1 creates SC", self.nodes, DEBUG_MODE)
 
-        ret = self.nodes[1].sc_create(123, "dada", creation_amount, vk, "bb" * 1024, constant)
+        ret = self.nodes[1].dep_sc_create(123, "dada", creation_amount, vk, "bb" * 1024, constant)
         creating_tx = ret['txid']
         scid = ret['scid']
         self.sync_all()
@@ -350,7 +350,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 sends " + str(fwt_amount_1) + " coins to SC", self.nodes, DEBUG_MODE)
 
         mc_return_address = self.nodes[1].getnewaddress("", True)
-        self.nodes[1].sc_send("abcd", fwt_amount_1, scid, mc_return_address)
+        self.nodes[1].dep_sc_send("abcd", fwt_amount_1, scid, mc_return_address)
         self.sync_all()
 
         # Node 1 sends 3 amounts to SC

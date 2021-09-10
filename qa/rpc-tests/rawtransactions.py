@@ -294,13 +294,13 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         assert(len(decoded_tx['vsc_ccout'])==2)
         assert_equal(decoded_tx['vsc_ccout'][0]['scid'],scid)
-        assert_equal(decoded_tx['vsc_ccout'][0]['withdrawal epoch length'],sc_epoch_len)
+        assert_equal(decoded_tx['vsc_ccout'][0]['withdrawalEpochLength'],sc_epoch_len)
         assert_equal(decoded_tx['vsc_ccout'][0]['wCertVk'],vk)
         assert_equal(decoded_tx['vsc_ccout'][0]['constant'],constant)
         assert_equal(decoded_tx['vsc_ccout'][0]['value'],sc_cr_amount)
         assert_equal(decoded_tx['vsc_ccout'][0]['address'],sc_address)
         assert_equal(decoded_tx['vsc_ccout'][1]['scid'],scid2)
-        assert_equal(decoded_tx['vsc_ccout'][1]['withdrawal epoch length'],sc_epoch2_len)
+        assert_equal(decoded_tx['vsc_ccout'][1]['withdrawalEpochLength'],sc_epoch2_len)
         assert_equal(decoded_tx['vsc_ccout'][1]['value'],sc_cr_amount2)
 
         #Try create a FT

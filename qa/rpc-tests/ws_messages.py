@@ -144,7 +144,7 @@ class ws_messages(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -160,7 +160,7 @@ class ws_messages(BitcoinTestFramework):
 
         # Fwd Transfer to Sc
         mc_return_address = self.nodes[0].getnewaddress("", True)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid, mc_return_address)
+        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -398,7 +398,7 @@ class ws_messages(BitcoinTestFramework):
         sc2_constant = generate_random_field_element_hex()
         SC2_EPOCH_LENGTH = 20
 
-        ret = self.nodes[1].sc_create(SC2_EPOCH_LENGTH, "dada", creation_amount, sc2_vk, "", sc2_constant)
+        ret = self.nodes[1].dep_sc_create(SC2_EPOCH_LENGTH, "dada", creation_amount, sc2_vk, "", sc2_constant)
         creating_tx_sc2 = ret['txid']
         scid2 = ret['scid']
         mark_logs("Node 1 created the SC spending {} coins via tx {}.".format(creation_amount, creating_tx_sc2), self.nodes, DEBUG_MODE)
@@ -412,7 +412,7 @@ class ws_messages(BitcoinTestFramework):
 
         # Fwd Transfer to Sc
         mc_return_address = self.nodes[0].getnewaddress("", True)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid2, mc_return_address)
+        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid2, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 

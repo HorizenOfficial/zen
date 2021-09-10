@@ -74,7 +74,7 @@ class sc_cert_change(BitcoinTestFramework):
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
-        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[0].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -102,7 +102,7 @@ class sc_cert_change(BitcoinTestFramework):
         
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)
         try:
-            cert_ep0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_ep0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_ep0) > 0)
             mark_logs("Certificate is {}".format(cert_ep0), self.nodes, DEBUG_MODE)
@@ -128,7 +128,7 @@ class sc_cert_change(BitcoinTestFramework):
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
         try:
-            cert_ep1 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_ep1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_ep1) > 0)
             mark_logs("Certificate is {}".format(cert_ep1), self.nodes, DEBUG_MODE)
@@ -154,7 +154,7 @@ class sc_cert_change(BitcoinTestFramework):
 
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 pkh".format(bwt_amount, pkh_node3), self.nodes, DEBUG_MODE)
         try:
-            cert_ep2 = self.nodes[1].send_certificate(scid, epoch_number, quality,
+            cert_ep2 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_ep2) > 0)
             mark_logs("Certificate is {}".format(cert_ep2), self.nodes, DEBUG_MODE)

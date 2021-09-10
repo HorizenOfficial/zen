@@ -80,7 +80,7 @@ class sc_cert_getraw(BitcoinTestFramework):
         vk = mcTest.generate_params(vk_tag)
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -109,7 +109,7 @@ class sc_cert_getraw(BitcoinTestFramework):
         # Fwd Transfer to Sc
         mark_logs("Node0 sends fwd transfer", self.nodes, DEBUG_MODE)
         mc_return_address = self.nodes[0].getnewaddress("", True)
-        fwd_tx = self.nodes[0].sc_send("abcd", fwt_amount, scid, mc_return_address)
+        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
         self.sync_all()
 
         decoded_tx_mempool = self.nodes[1].getrawtransaction(fwd_tx, 1)
@@ -140,7 +140,7 @@ class sc_cert_getraw(BitcoinTestFramework):
 
         mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_0 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("Certificate is {}".format(cert_epoch_0), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -187,7 +187,7 @@ class sc_cert_getraw(BitcoinTestFramework):
 
         nullFee = Decimal("0.0")
         try:
-            cert_epoch_1 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_epoch_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, nullFee)
             mark_logs("Certificate is {}".format(cert_epoch_1), self.nodes, DEBUG_MODE)
             self.sync_all()

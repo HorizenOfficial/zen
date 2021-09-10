@@ -62,7 +62,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         UniValue o(UniValue::VOBJ);
         o.pushKV("scid", out.GetScId().GetHex());
         o.pushKV("n", (int64_t)nIdx);
-        o.pushKV("withdrawal epoch length", (int)out.withdrawalEpochLength);
+        o.pushKV("withdrawalEpochLength", (int)out.withdrawalEpochLength);
         o.pushKV("value", ValueFromAmount(out.nValue));
         o.pushKV("address", out.address.GetHex());
         o.pushKV("certProvingSystem", Sidechain::ProvingSystemTypeToString(out.wCertVk.getProvingSystemType()));

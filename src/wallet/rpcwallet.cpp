@@ -711,14 +711,14 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
     return wtx.getWrappedTx().GetHash().GetHex();
 }
 
-UniValue sc_send(const UniValue& params, bool fHelp)
+UniValue dep_sc_send(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "sc_send \"address\" amount \"scid\"\n"
+            "dep_sc_send \"address\" amount \"scid\"\n"
             "\nSend a ZEN amount to an address of the given SC\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
@@ -730,7 +730,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_send", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" \"e7ccbfd40c4e2304c4215f76d204e4de63c578ad\"")
+            + HelpExampleCli("dep_sc_send", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" \"e7ccbfd40c4e2304c4215f76d204e4de63c578ad\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -817,14 +817,14 @@ static void ScHandleTransaction(CWalletTx& wtx, std::vector<CRecipientScCreation
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
 }
 
-UniValue sc_create(const UniValue& params, bool fHelp)
+UniValue dep_sc_create(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp ||  params.size() < 4 ) 
         throw runtime_error(
-            "sc_create withdrawalEpochLength [{\"address\":... ,\"amount\":...,\"wCertVk\":...,\"customData\":...,\"constant\":...,...},...]\n"
+            "dep_sc_create withdrawalEpochLength [{\"address\":... ,\"amount\":...,\"wCertVk\":...,\"customData\":...,\"constant\":...,...},...]\n"
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             " 1. withdrawalEpochLength:    (numeric, required) Length of the withdrawal epochs. The minimum valid value for " +
@@ -848,7 +848,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_create"," 123456 \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" 5.0 \"abcd..ef\" \"abcd..ef\" \"abcd..ef\" ")
+            + HelpExampleCli("dep_sc_create"," 123456 \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" 5.0 \"abcd..ef\" \"abcd..ef\" \"abcd..ef\" ")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1018,14 +1018,14 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     return ret;
 }
 
-UniValue create_sidechain(const UniValue& params, bool fHelp)
+UniValue sc_create(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp ||  params.size() != 1)
         throw runtime_error(
-            "create_sidechain {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":...}\n"
+            "sc_create {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":...}\n"
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             "{\n"                     
@@ -1060,7 +1060,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "  \"scid\": sidechainid       (string) The id of the sidechain created by this tx.\n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("create_sidechain", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0, \"wCertVk\": abcd..ef}'")
+            + HelpExampleCli("sc_create", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0, \"wCertVk\": abcd..ef}'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1364,14 +1364,14 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     return ret;
 }
 
-UniValue send_to_sidechain(const UniValue& params, bool fHelp)
+UniValue sc_send(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || (params.size() != 1 && params.size() != 2))
         throw runtime_error(
-            "send_to_sidechain {...}\n"
+            "sc_send {...}\n"
             "\nArguments:\n"
             "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
             "[{\n"
@@ -1392,7 +1392,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"    (string) The resulting transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("send_to_sidechain", "'{TODO}]'")
+            + HelpExampleCli("sc_send", "'{TODO}]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1595,14 +1595,14 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
 }
 
 // request a backward transfer (BWT)
-UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
+UniValue sc_request_transfer(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || (params.size() != 1 && params.size() != 2))
         throw runtime_error(
-            "request_transfer_from_sidechain {TODO}\n"
+            "sc_request_transfer {TODO}\n"
             "\nArguments:\n"
             "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
             "[{\n"
@@ -1626,7 +1626,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             "\"transactionid\"    (string) The resulting transaction id.\n"
 
             "\nExamples:\n"
-            + HelpExampleCli("request_transfer_from_sidechain", "'[{ \"pubkeyhash\": \"aa57c2e03eb533b361e748acb6f25ffc2f1e5e20\", \"vScRequestData\": [\"06f75b4e1c1f49e6f329aa23f57e42bf305644b5b85c4d4ac60d7ef3b50679e81ec06841065f425fe3f11f903672c73be5a70e3e254efca4ac01a5795d125c3ded49dedac58a48ee94070b24106126bc1ffd57653f0974a0e93ab5729e870000\"], \"scid\": \"13a3083bdcf42635c8ce5d46c2cae26cfed7dc889d9b4ac0b9939c6631a73bdc\", \"scFee\": 19.0 }]'")
+            + HelpExampleCli("sc_request_transfer", "'[{ \"pubkeyhash\": \"aa57c2e03eb533b361e748acb6f25ffc2f1e5e20\", \"vScRequestData\": [\"06f75b4e1c1f49e6f329aa23f57e42bf305644b5b85c4d4ac60d7ef3b50679e81ec06841065f425fe3f11f903672c73be5a70e3e254efca4ac01a5795d125c3ded49dedac58a48ee94070b24106126bc1ffd57653f0974a0e93ab5729e870000\"], \"scid\": \"13a3083bdcf42635c8ce5d46c2cae26cfed7dc889d9b4ac0b9939c6631a73bdc\", \"scFee\": 19.0 }]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -5485,14 +5485,14 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
     return wtx.getWrappedTx().GetHash().GetHex();
 }
 
-UniValue send_certificate(const UniValue& params, bool fHelp)
+UniValue sc_send_certificate(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || params.size() < 8  )
         throw runtime_error(
-            "send_certificate scid epochNumber quality endEpochCumScTxCommTreeRoot scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
+            "sc_send_certificate scid epochNumber quality endEpochCumScTxCommTreeRoot scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
             "\nArguments:\n"
             " 1. \"scid\"                        (string, required) The uint256 side chain ID\n"
@@ -5519,8 +5519,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "  \"certificateId\"   (string) The resulting certificate id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 5 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"813551c928d41c0436ba7361850797d9b30ad4ed\" ,\"amount\": 5.0}]'")
-            + HelpExampleCli("send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 7 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"76fea046133b0acc74ebabbd17b80e99816228ab\", \"amount\":33.5}]' false 0.00001")
+            + HelpExampleCli("sc_send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 7 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"76fea046133b0acc74ebabbd17b80e99816228ab\", \"amount\":33.5}]' false 0.00001")
+            + HelpExampleCli("sc_send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 5 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"813551c928d41c0436ba7361850797d9b30ad4ed\" ,\"amount\": 5.0}]'")
 
         );
 

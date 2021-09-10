@@ -65,7 +65,7 @@ class sc_block_partitions(BitcoinTestFramework):
 
         def create_sc(cmdInput, node):
             try:
-                res = node.create_sidechain(cmdInput)
+                res = node.sc_create(cmdInput)
                 tx =   res['txid']
                 scid = res['scid']
             except JSONRPCException, e:
@@ -129,7 +129,7 @@ class sc_block_partitions(BitcoinTestFramework):
             proofs.append(proof)
         
             try:
-                cert = self.nodes[0].send_certificate(scid, epoch_number, (q+tot_num_cert),
+                cert = self.nodes[0].sc_send_certificate(scid, epoch_number, (q+tot_num_cert),
                     epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, [], [])
             except JSONRPCException, e:
                 errorString = e.error['message']

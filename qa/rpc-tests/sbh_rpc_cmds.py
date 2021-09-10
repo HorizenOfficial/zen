@@ -122,7 +122,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
 
         try:
             #----------------------------------------------------------------------------------------------
-            res = self.nodes[1].create_sidechain(cmdInput)
+            res = self.nodes[1].sc_create(cmdInput)
             tx =   res['txid']
             scid = res['scid']
             txs_node1.append(tx)
@@ -163,7 +163,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         cmdParms = { 'fromaddress': taddr_1, "minconf": 0, "fee": fee}
 
         try:
-            tx = self.nodes[1].send_to_sidechain(outputs, cmdParms)
+            tx = self.nodes[1].sc_send(outputs, cmdParms)
             self.sync_all()
             txs_node1.append(tx)
             mark_logs("\n===> Node 1 sent {} coins to fund the sc".format(sc_fwd_amount), self.nodes, DEBUG_MODE)
@@ -210,7 +210,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
                 "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount1])
 
             #----------------------------------------------------------------------------------------------
-            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("\n===> Node 0 sent a cert for scid {} with bwd transfer of {} coins to Node1 pkh (addr {})".format(scid, bwt_amount1, bwt_address), self.nodes, DEBUG_MODE)
             #mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
