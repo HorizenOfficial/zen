@@ -1590,6 +1590,13 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
     if ((txVersion == SC_CERT_VERSION) && (nHashType != SIGHASH_ALL)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupported sighash param for certificate");
     }
+    
+#ifdef ENABLE_WALLET
+    EnsureWalletIsUnlocked();
+    const CKeyStore& keystore = ((fGivenKeys || !pwalletMain) ? tempKeystore : *pwalletMain);
+#else
+    const CKeyStore& keystore = tempKeystore;
+#endif
 
     if (txVersion != SC_CERT_VERSION) {
         // mergedTx will end up with all the signatures; it
@@ -1612,11 +1619,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
         }
 
-#ifdef ENABLE_WALLET
-        const CKeyStore& keystore = ((fGivenKeys || !pwalletMain) ? tempKeystore : *pwalletMain);
-#else
-        const CKeyStore& keystore = tempKeystore;
-#endif
         bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
 
         // Script verification errors
@@ -1712,13 +1714,6 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
         }
 
-
-#ifdef ENABLE_WALLET
-        EnsureWalletIsUnlocked();
-        const CKeyStore& keystore = ((fGivenKeys || !pwalletMain) ? tempKeystore : *pwalletMain);
-#else
-        const CKeyStore& keystore = tempKeystore;
-#endif
         // Script verification errors
         UniValue vErrors(UniValue::VARR);
 
