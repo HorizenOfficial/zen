@@ -132,7 +132,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         sc_funds_pre = self.nodes[3].getscinfo(scid)['items'][0]['balance']
 
-        pkh_node2 = self.nodes[2].getnewaddress("", True)
+        addr_node2 = self.nodes[2].getnewaddress()
 
         mark_logs("Node3 generating 2 block, overcoming safeguard", self.nodes, DEBUG_MODE)
         self.nodes[3].generate(2)
@@ -141,13 +141,13 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 0
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bt_amount])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node2], [bt_amount])
 
         utx, change = get_spendable(0, CERT_FEE)
         raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         raw_outs    = { self.nodes[0].getnewaddress() : change }
 
-        raw_bwt_outs = {pkh_node2: bt_amount}
+        raw_bwt_outs = {addr_node2: bt_amount}
         raw_params = {
             "scid": scid,
             "quality": quality,
@@ -356,10 +356,10 @@ class sc_rawcert(BitcoinTestFramework):
         chunkValueOut = Decimal(change/numbOfChunks)
 
         for k in range(0, numbOfChunks):
-            pkh_node1 = self.nodes[1].getnewaddress("", True)
-            raw_bwt_outs.update({pkh_node1:chunkValueBt})
+            addr_node1 = self.nodes[1].getnewaddress()
+            raw_bwt_outs.update({addr_node1: chunkValueBt})
             taddr = self.nodes[3].getnewaddress()
-            raw_outs.update({ taddr : chunkValueOut })
+            raw_outs.update({taddr: chunkValueOut})
 
         totBwtOuts = len(raw_bwt_outs)*chunkValueBt
         totOuts    = len(raw_outs)*chunkValueOut

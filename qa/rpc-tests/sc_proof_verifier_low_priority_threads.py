@@ -93,7 +93,7 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
         # Fwd Transfer to Sc
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
         mark_logs("Node balance before fwd tx: {}".format(bal_before_fwd_tx), self.nodes, DEBUG_MODE)
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
 
@@ -113,14 +113,14 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
-        pkh_node1 = self.nodes[0].getnewaddress("", True)
+        addr_node0 = self.nodes[0].getnewaddress()
 
         #Create proof for WCert
         quality = 10
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node0], [bwt_amount])
 
-        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        amount_cert_1 = [{"address": addr_node0, "amount": bwt_amount}]
 
         # Enable CZendooLowPrioThreadGuard
         mark_logs("Enable CZendooLowPrioThreadGuard...", self.nodes, DEBUG_MODE)

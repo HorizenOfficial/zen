@@ -119,7 +119,7 @@ class quality_nodes(BitcoinTestFramework):
 
         # Fwd Transfer to SC 1
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         mark_logs("Node0 balance before fwd tx: {}".format(bal_before_fwd_tx), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC 1 with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
@@ -156,10 +156,10 @@ class quality_nodes(BitcoinTestFramework):
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
-        pkh_node0 = self.nodes[0].getnewaddress("", True)
+        addr_node0 = self.nodes[0].getnewaddress()
         self.sync_all()
 
-        amount_cert_0 = [{"pubkeyhash": pkh_node0, "amount": bwt_amount}]
+        amount_cert_0 = [{"address": addr_node0, "amount": bwt_amount}]
 
         self.split_network()
 
@@ -171,7 +171,7 @@ class quality_nodes(BitcoinTestFramework):
         mark_logs("Create Cert1 with quality 100 and place it in node0", self.nodes, DEBUG_MODE)
         quality = 100
         proof = mcTest.create_test_proof(
-            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node0], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node0], [bwt_amount])
         try:
             cert_1_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_0, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -191,11 +191,11 @@ class quality_nodes(BitcoinTestFramework):
 
         # Create Cert2 with quality 100 and place it in node1
         mark_logs("Create Cert2 with quality 100 and place it in node1", self.nodes, DEBUG_MODE)
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
-        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        addr_node1 = self.nodes[1].getnewaddress()
+        amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
         quality = 100
         proof = mcTest.create_test_proof(
-            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_2_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -240,9 +240,9 @@ class quality_nodes(BitcoinTestFramework):
         mark_logs("Height: {}. Epoch {}".format(self.nodes[0].getblockcount(), epoch_number), self.nodes, DEBUG_MODE)
         mark_logs("Create Cert1 with quality 100 and place it in node0", self.nodes, DEBUG_MODE)
         quality = 100
-        amount_cert_0 = [{"pubkeyhash": pkh_node0, "amount": bwt_amount}]
+        amount_cert_0 = [{"address": addr_node0, "amount": bwt_amount}]
         proof = mcTest.create_test_proof(
-            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node0], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node0], [bwt_amount])
         try:
             cert_1_epoch_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_0, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -276,10 +276,10 @@ class quality_nodes(BitcoinTestFramework):
 
         # Create Cert2 with quality 100 and place it in node1
         mark_logs("Create Cert2 with quality 100 and place it in node1", self.nodes, DEBUG_MODE)
-        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
         quality = 110
         proof = mcTest.create_test_proof(
-            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_2_epoch_1 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

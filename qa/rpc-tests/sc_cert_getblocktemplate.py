@@ -78,14 +78,14 @@ class sc_cert_base(BitcoinTestFramework):
         self.sync_all()
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
 
         #Create proof for WCert
         quality = 10
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
 
-        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
 
         cur_h = self.nodes[0].getblockcount()
         ret = self.nodes[0].getscinfo(scid, True, False)['items'][0]
@@ -157,7 +157,7 @@ class sc_cert_base(BitcoinTestFramework):
         quality = quality + 1
         proof = mcTest.create_test_proof(
             "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant,
-            [pkh_node1], [bwt_amount])
+            [addr_node1], [bwt_amount])
 
         mark_logs("\nCall GetBlockTemplate on each node to create a new cached version", self.nodes, DEBUG_MODE)
         for i in range(0, NUMB_OF_NODES):

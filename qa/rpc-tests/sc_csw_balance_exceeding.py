@@ -151,7 +151,6 @@ class CswNullifierTest(BitcoinTestFramework):
 
         # CSW sender MC address
         csw_mc_address = self.nodes[0].getnewaddress()
-        pkh_mc_address = self.nodes[0].validateaddress(csw_mc_address)['pubkeyhash']
 
         sc_csw_amount = sc_bal * Decimal("0.9")
         null1 = generate_random_field_element_hex()
@@ -162,7 +161,7 @@ class CswNullifierTest(BitcoinTestFramework):
 
         scid_swapped = swap_bytes(scid)
         sc_proof1 = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null1, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+                "sc1", sc_csw_amount, str(scid_swapped), null1, csw_mc_address, ceasingCumScTxCommTree, actCertData, constant)
 
         sc_csws = [{
             "amount": sc_csw_amount,
@@ -193,13 +192,12 @@ class CswNullifierTest(BitcoinTestFramework):
 
         # CSW sender MC address
         csw_mc_address = self.nodes[0].getnewaddress()
-        pkh_mc_address = self.nodes[0].validateaddress(csw_mc_address)['pubkeyhash']
 
         sc_csw_amount = sc_bal * Decimal("0.9")
         null1 = generate_random_field_element_hex()
 
         sc_proof1 = cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid_swapped), null1, pkh_mc_address, ceasingCumScTxCommTree, actCertData) 
+                "sc1", sc_csw_amount, str(scid_swapped), null1, csw_mc_address, ceasingCumScTxCommTree, actCertData, constant)
 
         sc_csws = [{
             "amount": sc_csw_amount,

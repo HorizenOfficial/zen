@@ -159,7 +159,7 @@ class ws_messages(BitcoinTestFramework):
         self.sync_all()
 
         # Fwd Transfer to Sc
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
@@ -175,16 +175,16 @@ class ws_messages(BitcoinTestFramework):
         epoch_number, cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, cumulative_hash = {}".format(epoch_number, cum_tree_hash), self.nodes, DEBUG_MODE)
 
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
 
         #Create proof for WCert
         quality = 0
         proof = mcTest.create_test_proof(
             "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE,
-            cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            cum_tree_hash, constant, [addr_node1], [bwt_amount])
 
-        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
-        mark_logs("Node 0 performs a bwd transfer to Node1 pkh {} of {} coins via Websocket".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
+        amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
+        mark_logs("Node 0 performs a bwd transfer to Node1 address {} of {} coins via Websocket".format(amount_cert_1[0]["address"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         #----------------------------------------------------------------"
         cert_epoch_0 = self.nodes[1].ws_send_certificate(
             scid, epoch_number, quality, cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -411,7 +411,7 @@ class ws_messages(BitcoinTestFramework):
         self.sync_all()
 
         # Fwd Transfer to Sc
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid2, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
@@ -427,17 +427,17 @@ class ws_messages(BitcoinTestFramework):
         epoch_number, cum_tree_hash = get_epoch_data(scid2, self.nodes[0], SC2_EPOCH_LENGTH)
         mark_logs("epoch_number = {}, cum_tree_hash = {}".format(epoch_number, cum_tree_hash), self.nodes, DEBUG_MODE)
 
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
 
         #Create proof for WCert
         cert1_quality = 20
         scid_swapped = str(swap_bytes(scid2))
         proof = mcTest.create_test_proof(
             "sc2", scid_swapped, epoch_number, cert1_quality, MBTR_SC_FEE, FT_SC_FEE,
-            cum_tree_hash, sc2_constant, [pkh_node1], [bwt_amount])
+            cum_tree_hash, sc2_constant, [addr_node1], [bwt_amount])
 
-        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
-        mark_logs("Node 0 performs a bwd transfer to Node1 pkh {} of {} coins via Websocket".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
+        amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
+        mark_logs("Node 0 performs a bwd transfer to Node1 address {} of {} coins via Websocket".format(amount_cert_1[0]["address"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
 
         cert_1_epoch_0 = self.nodes[1].ws_send_certificate(
             scid2, epoch_number, cert1_quality, cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -469,10 +469,10 @@ class ws_messages(BitcoinTestFramework):
         cert_2_quality = 25
         proof2 = mcTest.create_test_proof(
             "sc2", scid_swapped, epoch_number, cert_2_quality, MBTR_SC_FEE, FT_SC_FEE,
-            cum_tree_hash, sc2_constant, [pkh_node1], [bwt_amount])
+            cum_tree_hash, sc2_constant, [addr_node1], [bwt_amount])
 
-        amount_cert_2 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
-        mark_logs("Node 0 performs a bwd transfer to Node1 pkh {} of {} coins via Websocket".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
+        amount_cert_2 = [{"address": addr_node1, "amount": bwt_amount}]
+        mark_logs("Node 0 performs a bwd transfer to Node1 address {} of {} coins via Websocket".format(amount_cert_1[0]["address"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
 
         cert_2_epoch_0 = self.nodes[1].ws_send_certificate(
             scid2, epoch_number, cert_2_quality, cum_tree_hash, proof2, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

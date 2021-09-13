@@ -108,17 +108,17 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
 
         print "bwt amount {}".format(bwt_amount)
         bwt_cert = []
-        pkh_array = []
+        addr_array = []
         bwt_amount_array = []
         proof = None
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
 
         for _ in range(0, NUM_OF_BWT):
 
-            pkh_array.append(pkh_node1)
+            addr_array.append(addr_node1)
             bwt_amount_array.append(bwt_amount)
 
-            entry = {"pubkeyhash": pkh_node1, "amount": bwt_amount}
+            entry = {"address": addr_node1, "amount": bwt_amount}
             bwt_cert.append(entry)
             pprint.pprint(entry)
 
@@ -128,7 +128,7 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
         scid_swapped = str(swap_bytes(scid))
         print "---------------------"
         proof = certMcTest.create_test_proof(
-            "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, pkh_array, bwt_amount_array)
+            "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, addr_array, bwt_amount_array)
         assert_true(proof != None)
         t1 = time.time()
         print "...proof with sz={} generated: {} secs".format(len(proof)//2, t1-t0)

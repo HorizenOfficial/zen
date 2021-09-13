@@ -121,7 +121,6 @@ public:
         obj.pushKV("isscript", false);
         if (pwalletMain && pwalletMain->GetPubKey(keyID, vchPubKey)) {
             obj.pushKV("pubkey", HexStr(vchPubKey));
-            obj.pushKV("pubkeyhash", keyID.ToString());
             obj.pushKV("iscompressed", vchPubKey.IsCompressed());
         }
         return obj;
@@ -169,7 +168,6 @@ UniValue validateaddress(const UniValue& params, bool fHelp)
             "  \"iswatchonly\": true|false,        (boolean) if the address is set to watch only mode or not\n"
             "  \"isscript\": true|false,           (boolean) if the key is a script\n"
             "  \"pubkey\": \"publickeyhex\",       (string, optional) the hex value of the raw public key, only when the address is yours\n"
-            "  \"pubkeyhash\" : \"publickeyhash\", (string, optional) the hex value of the corresponding public key hash, only when the address is yours\n"
             "  \"iscompressed\": true|false,       (boolean, optional) if the address is compressed, only when the address is yours\n"
             "  \"account\": \"account\"            (string, optional) DEPRECATED. the account associated with the address, \"\" is the default account, only when the address is yours\n"
             "}\n"

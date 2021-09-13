@@ -50,7 +50,6 @@ void AddCeasedSidechainWithdrawalInputsToJSON(const CTransaction& tx, UniValue& 
     parentObj.pushKV("vcsw_ccin", vcsws);
 }
 
-// TODO: naming style is different. Use CamelCase
 void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
 {
     UniValue vscs(UniValue::VARR);
@@ -109,7 +108,16 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.pushKV("n", (int64_t)nIdx);
         o.pushKV("value", ValueFromAmount(out.nValue));
         o.pushKV("address", out.address.GetHex());
-        o.pushKV("mcReturnAddress", out.mcReturnAddress.GetHex());
+
+        std::string taddrStr = "Invalid taddress";
+        uint160 pkeyValue = out.mcReturnAddress;
+        CKeyID keyID(pkeyValue);
+        CBitcoinAddress taddr(keyID);
+        if (taddr.IsValid()) {
+            taddrStr = taddr.ToString();
+        }
+        o.pushKV("mcReturnAddress", taddrStr);
+
         vfts.push_back(o);
         nIdx++;
     }
@@ -123,20 +131,14 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         o.pushKV("n", (int64_t)nIdx);
 
         std::string taddrStr = "Invalid taddress";
-        uint160 pkeyValue;
-        pkeyValue.SetHex(out.mcDestinationAddress.GetHex());
-
+        uint160 pkeyValue = out.mcDestinationAddress;
         CKeyID keyID(pkeyValue);
         CBitcoinAddress taddr(keyID);
         if (taddr.IsValid()) {
             taddrStr = taddr.ToString();
         }
+        o.pushKV("mcDestinationAddress", taddrStr);
 
-        UniValue mcAddr(UniValue::VOBJ);
-        mcAddr.pushKV("pubkeyhash", out.mcDestinationAddress.GetHex());
-        mcAddr.pushKV("taddr", taddrStr);
-        
-        o.pushKV("mcDestinationAddress", mcAddr);
         o.pushKV("scFee", ValueFromAmount(out.GetScValue()));
 
         UniValue arrRequestData(UniValue::VARR);
@@ -665,14 +667,21 @@ bool AddSidechainForwardOutputs(UniValue& fwdtr, CMutableTransaction& rawTx, std
         }
 
         inputString = mcReturnAddressVal.get_str();
-        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+
+        CBitcoinAddress mcReturnAddrSource(inputString);
+        if (!mcReturnAddrSource.IsValid() || !mcReturnAddrSource.IsPubKey())
         {
-            error = "Invalid mcReturnAddress format: not an hex";
+            error = "Invalid \"mcReturnAddress\" parameter: Horizen address expected";
             return false;
         }
 
-        uint160 mcReturnAddress;
-        mcReturnAddress.SetHex(inputString);
+        CKeyID keyId;
+        if(!mcReturnAddrSource.GetKeyID(keyId))
+        {
+            error = "Invalid \"mcReturnAddress\" parameter: can not extract pub key hash";
+            return false;
+        }
+        uint160 mcReturnAddress = keyId;
 
         CTxForwardTransferOut txccout(scId, nAmount, address, mcReturnAddress);
         rawTx.vft_ccout.push_back(txccout);
@@ -710,21 +719,29 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
         scId.SetHex(inputString);
 
         //---------------------------------------------------------------------
-        const UniValue& pkhVal = find_value(o, "pubkeyhash");
-        if (pkhVal.isNull())
+        const UniValue& mcDestinationAddressVal = find_value(o, "mcDestinationAddress");
+        if (mcDestinationAddressVal.isNull())
         {
-            error = "Missing mandatory parameter pubkeyhash";
-            return false;
-        }
-        inputString = pkhVal.get_str();
-        if (inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        {
-            error = "Invalid pubkeyhash format: not an hex";
+            error = "Missing mandatory parameter mcDestinationAddress";
             return false;
         }
 
-        uint160 pkh;
-        pkh.SetHex(inputString);
+        inputString = mcDestinationAddressVal.get_str();
+
+        CBitcoinAddress address(inputString);
+        if (!address.IsValid() || !address.IsPubKey())
+        {
+            error = "Invalid \"mcDestinationAddress\" parameter: Horizen address expected";
+            return false;
+        }
+
+        CKeyID keyId;
+        if(!address.GetKeyID(keyId))
+        {
+            error = "Invalid \"mcDestinationAddress\" parameter: can not extract pub key hash";
+            return false;
+        }
+        uint160 mcDestinationAddress = keyId;
 
         //---------------------------------------------------------------------
         const UniValue& scFeeVal = find_value(o, "scFee");
@@ -758,7 +775,7 @@ bool AddSidechainBwtRequestOutputs(UniValue& bwtreq, CMutableTransaction& rawTx,
         }
 
 
-        CBwtRequestOut txccout(scId, pkh, bwtData);
+        CBwtRequestOut txccout(scId, mcDestinationAddress, bwtData);
         rawTx.vmbtr_out.push_back(txccout);
     }
 
