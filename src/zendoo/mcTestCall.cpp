@@ -6,6 +6,54 @@
 #include <cassert>
 #include <string>
 
+// TODO: remove as soon we will be able to link base56.cpp
+static const char* pszBase58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+bool DecodeBase58(const char* psz, std::vector<unsigned char>& vch)
+{
+    // Skip leading spaces.
+    while (*psz && isspace(*psz))
+        psz++;
+    // Skip and count leading '1's.
+    int zeroes = 0;
+    while (*psz == '1') {
+        zeroes++;
+        psz++;
+    }
+    // Allocate enough space in big-endian base256 representation.
+    std::vector<unsigned char> b256(strlen(psz) * 733 / 1000 + 1); // log(58) / log(256), rounded up.
+    // Process the characters.
+    while (*psz && !isspace(*psz)) {
+        // Decode base58 character
+        const char* ch = strchr(pszBase58, *psz);
+        if (ch == NULL)
+            return false;
+        // Apply "b256 = b256 * 58 + ch".
+        int carry = ch - pszBase58;
+        for (std::vector<unsigned char>::reverse_iterator it = b256.rbegin(); it != b256.rend(); it++) {
+            carry += 58 * (*it);
+            *it = carry % 256;
+            carry /= 256;
+        }
+        assert(carry == 0);
+        psz++;
+    }
+    // Skip trailing spaces.
+    while (isspace(*psz))
+        psz++;
+    if (*psz != 0)
+        return false;
+    // Skip leading zeroes in b256.
+    std::vector<unsigned char>::iterator it = b256.begin();
+    while (it != b256.end() && *it == 0)
+        it++;
+    // Copy result into output vector.
+    vch.reserve(zeroes + (b256.end() - it));
+    vch.assign(zeroes, 0x00);
+    while (it != b256.end())
+        vch.push_back(*(it++));
+    return true;
+}
+
 /*
  *  Usage:
  *
@@ -15,14 +63,14 @@
  *  2) ./mcTest "create" "cert/cert_no_const" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size"
  *  "sc_id" "epoch_number" "quality" ["constant"] "end_cum_comm_tree_root", "btr_fee",
  *  "ft_min_amount" "num_constraints"
- *  "bt_list_len", "pk_dest_0" "amount_0" "pk_dest_1" "amount_1" ... "pk_dest_n" "amount_n",
+ *  "bt_list_len", "mc_dest_addr_0" "amount_0" "mc_dest_addr_1" "amount_1" ... "mc_dest_addr_n" "amount_n",
  *  "custom_fields_list_len", "custom_field_0", ... , "custom_field_1"
  *  Generates a TestCertificateProof.
  *  NOTE: "constant" param must be present if "cert" has been passed; If "cert_no_const" has been passed,
  *        instead, "constant" param must not be present.
  *
  *  3) ./mcTest "create" "csw/csw_no_const" "darlin/cob_marlin" <"-v"> <"-zk"> "proof_path" "params_dir" "segment_size",
- *  "amount" "sc_id" "nullifier" "mc_pk_hash" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">, [constant]
+ *  "amount" "sc_id" "nullifier" "mc_address" "end_cum_comm_tree_root" "num_constraints" <"cert_data_hash">, [constant]
  *  Generates a TestCSWProof. cert_data_hash is optional.
  *  NOTE: "constant" param must be present if "cert" has been passed; If "cert_no_const" has been passed,
  *        instead, "constant" param must not be present.
@@ -130,7 +178,7 @@ void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_typ
     uint32_t num_constraints = strtoull(argv[arg++], NULL, 0);
 
     // Create bt_list
-    // Inputs must be (pk_dest, amount) pairs from which construct backward_transfer_t objects
+    // Inputs must be (mc_dest_addr, amount) pairs from which construct backward_transfer_t objects
     uint32_t bt_list_length = strtoull(argv[arg++], NULL, 0);
 
     // Parse backward transfer list
@@ -141,10 +189,17 @@ void create_verify_test_cert_proof(std::string ps_type_raw, std::string cert_typ
         for(int i = 0; i < bt_list_length; i ++){
             backward_transfer_t bt;
 
-            assert(IsHex(argv[arg]));
+            std::vector<unsigned char> vchData;
+            assert(DecodeBase58(argv[arg++], vchData));
             uint160 pk_dest;
-            pk_dest.SetHex(argv[arg++]);
-            assert(pk_dest.size() == 20);
+            memcpy(&pk_dest, &vchData[2], 20);
+
+            /*uint160 pk_dest;
+            CBitcoinAddress address(argv[arg++]);
+            CKeyID keyId;
+            assert(!address.GetKeyID(keyId));
+            pk_dest = keyId;
+            assert(pk_dest.size() == 20);*/
             std::copy(pk_dest.begin(), pk_dest.end(), std::begin(bt.pk_dest));
 
             uint64_t amount = strtoull(argv[arg++], NULL, 0);
@@ -360,11 +415,20 @@ void create_verify_test_csw_proof(std::string ps_type_raw, std::string csw_type_
     assert(nullifier_f != NULL);
     assert(ret_code == CctpErrorCode::OK);
 
-    // Parse mc_pk_hash
-    assert(IsHex(argv[arg]));
+    // Parse mc_address
+    // Extract pubKeyHash from the address
+    std::vector<unsigned char> vchData;
+    assert(DecodeBase58(argv[arg++], vchData));
     uint160 mc_pk_hash_vec;
-    mc_pk_hash_vec.SetHex(argv[arg++]);
-    assert(mc_pk_hash_vec.size() == 20);
+    memcpy(&mc_pk_hash_vec, &vchData[2], 20);
+
+    /*uint160 pk_dest;
+    CBitcoinAddress address(argv[arg++]);
+    CKeyID keyId;
+    assert(!address.GetKeyID(keyId));
+    pk_dest = keyId;
+    assert(pk_dest.size() == 20);*/
+
     auto mc_pk_hash = BufferWithSize(mc_pk_hash_vec.begin(), mc_pk_hash_vec.size());
 
     // Parse end_cum_comm_tree_root

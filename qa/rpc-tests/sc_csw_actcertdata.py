@@ -177,9 +177,8 @@ class CswActCertDataTest(BitcoinTestFramework):
         # create a tx with 3 CSW for sc1 and 1 CSW for sc2
         mark_logs("\nCreate 3 CSWs in a tx withdrawing half the sc balance... ", self.nodes, DEBUG_MODE)
 
-        # CSW sender MC address, in taddress and pub key hash formats
+        # CSW sender MC address
         csw_mc_address = self.nodes[0].getnewaddress()
-        pkh_mc_address = self.nodes[0].validateaddress(csw_mc_address)['pubkeyhash']
 
         sc_csw_amount = (sc_bal1/2)/3
         null_1_1 = generate_random_field_element_hex()
@@ -195,20 +194,20 @@ class CswActCertDataTest(BitcoinTestFramework):
 
         scid1_swapped = swap_bytes(scid1)
         sc_proof1_1 = cswMcTest.create_test_proof(
-            "sc1", sc_csw_amount, str(scid1_swapped), null_1_1, pkh_mc_address, ceasingCumScTxCommTree1,
+            "sc1", sc_csw_amount, str(scid1_swapped), null_1_1, csw_mc_address, ceasingCumScTxCommTree1,
             actCertData1, constant1)
         
         sc_proof1_2 = cswMcTest.create_test_proof(
-            "sc1", sc_csw_amount, str(scid1_swapped), null_1_2, pkh_mc_address, ceasingCumScTxCommTree1,
+            "sc1", sc_csw_amount, str(scid1_swapped), null_1_2, csw_mc_address, ceasingCumScTxCommTree1,
             actCertData1, constant1)
 
         sc_proof1_3 = cswMcTest.create_test_proof(
-            "sc1", sc_csw_amount, str(scid1_swapped), null_1_3, pkh_mc_address, ceasingCumScTxCommTree1, 
+            "sc1", sc_csw_amount, str(scid1_swapped), null_1_3, csw_mc_address, ceasingCumScTxCommTree1,
             actCertData1, constant1)
 
         scid2_swapped = swap_bytes(scid2)
         sc_proof2 = cswMcTest.create_test_proof(
-            "sc2", sc_csw_amount, str(scid2_swapped), null_2_1, pkh_mc_address, ceasingCumScTxCommTree2,
+            "sc2", sc_csw_amount, str(scid2_swapped), null_2_1, csw_mc_address, ceasingCumScTxCommTree2,
             actCertData2, constant2) 
         #print "sc_proof1 =", sc_proof1
         #print "sc_proof2 =", sc_proof2
@@ -297,7 +296,7 @@ class CswActCertDataTest(BitcoinTestFramework):
         null_1_4 = generate_random_field_element_hex()
         wrong_act_cert_data = generate_random_field_element_hex()
         sc_proof1_4 = cswMcTest.create_test_proof(
-            "sc1", sc_csw_amount, str(scid1_swapped), null_1_4, pkh_mc_address, ceasingCumScTxCommTree1,
+            "sc1", sc_csw_amount, str(scid1_swapped), null_1_4, csw_mc_address, ceasingCumScTxCommTree1,
             wrong_act_cert_data, constant1) 
 
         sc_csws = [ {

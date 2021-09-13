@@ -107,7 +107,7 @@ class quality_voiding(BitcoinTestFramework):
 
         # Fwd Transfer to Sc
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         mark_logs("Node0 balance before fwd tx: {}".format(bal_before_fwd_tx), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
@@ -136,9 +136,9 @@ class quality_voiding(BitcoinTestFramework):
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
 
-        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
 
         mark_logs("Node balance: {}".format(self.nodes[0].getbalance()), self.nodes, DEBUG_MODE)
         mark_logs("Node balance: {}".format(self.nodes[1].getbalance()), self.nodes, DEBUG_MODE)
@@ -147,7 +147,7 @@ class quality_voiding(BitcoinTestFramework):
         quality = 80
         mark_logs("Create Cert1 with quality {}, bwt transfer {} and place it in mempool".format(quality, bwt_amount), self.nodes, DEBUG_MODE)
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_1_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -168,11 +168,11 @@ class quality_voiding(BitcoinTestFramework):
 
         # Create Cert2 with higher quality and place it in mempool
         quality = 90
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
-        amount_cert_2 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_2}]
+        addr_node1 = self.nodes[1].getnewaddress()
+        amount_cert_2 = [{"address": addr_node1, "amount": bwt_amount_2}]
         mark_logs("Create Cert2 with quality {}, bwt transfer {} and place it in mempool".format(quality, bwt_amount_2), self.nodes, DEBUG_MODE)
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount_2])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount_2])
         try:
             cert_2_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -212,10 +212,10 @@ class quality_voiding(BitcoinTestFramework):
         assert_true(cert_2_epoch_0 in self.nodes[0].getblock(mined, True)['cert'])
 
         quality = 110
-        amount_cert_3 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_3}]
+        amount_cert_3 = [{"address": addr_node1, "amount": bwt_amount_3}]
         mark_logs("Create Cert1 with quality {}, bwt transfer {} and place it in mempool".format(quality, bwt_amount_3), self.nodes, DEBUG_MODE)
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount_3])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount_3])
         try:
             cert_3_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

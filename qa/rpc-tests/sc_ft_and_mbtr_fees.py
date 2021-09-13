@@ -197,7 +197,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         errorString = ""
         ftFee = Decimal(ftScFee - 1)
-        mc_return_address = self.nodes[1].getnewaddress("", True)
+        mc_return_address = self.nodes[1].getnewaddress()
         forwardTransferOuts = [{'toaddress': address, 'amount': ftFee, "scid": scid, "mcReturnAddress": mc_return_address}]
 
         try:
@@ -218,8 +218,8 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         errorString = ""
         mbtrFee = Decimal(mbtrScFee - 1)
         fe1 = generate_random_field_element_hex()
-        pkh1 = self.nodes[1].getnewaddress("", True)
-        mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mc_dest_addr = self.nodes[1].getnewaddress()
+        mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'mcDestinationAddress':mc_dest_addr}]
         
         try:
             self.nodes[1].sc_request_transfer(mbtrOuts, {})
@@ -258,8 +258,8 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         errorString = ""
         mbtrFee = Decimal(mbtrScFee)
         fe1 = generate_random_field_element_hex()
-        pkh1 = self.nodes[1].getnewaddress("", True)
-        mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mc_dest_addr1 = self.nodes[1].getnewaddress()
+        mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'mcDestinationAddress':mc_dest_addr1 }]
         
         try:
             self.nodes[1].sc_request_transfer(mbtrOuts, {})
@@ -297,8 +297,8 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         errorString = ""
         mbtrFee = Decimal(mbtrScFee + 1)
         fe1 = generate_random_field_element_hex()
-        pkh1 = self.nodes[1].getnewaddress("", True)
-        mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mc_dest_addr1 = self.nodes[1].getnewaddress()
+        mbtrOuts = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrFee), 'scid':scid, 'mcDestinationAddress':mc_dest_addr1}]
         
         try:
             self.nodes[1].sc_request_transfer(mbtrOuts, {})
@@ -325,9 +325,9 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         quality = 1
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[1], EPOCH_LENGTH)
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
         cert_amount = Decimal("10.0")
-        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": cert_amount}]
+        amount_cert_1 = [{"address": addr_node1, "amount": cert_amount}]
 
         ftFee = ftScFee
         mbtrFee = mbtrScFee
@@ -336,7 +336,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         scid_swapped = str(swap_bytes(scid))
 
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, newMbtrFee, newFtFee, epoch_cum_tree_hash, constant, [pkh_node1], [cert_amount])
+            vk_tag, scid_swapped, epoch_number, quality, newMbtrFee, newFtFee, epoch_cum_tree_hash, constant, [addr_node1], [cert_amount])
         cert_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, newFtFee, newMbtrFee)
 
@@ -363,7 +363,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         mark_logs("Node 0 creates two FTs", self.nodes, DEBUG_MODE)
         errorString = ""
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         forwardTransferOuts1 = [{'toaddress': address, 'amount': newFtFee, "scid": scid, "mcReturnAddress": mc_return_address}]
         forwardTransferOuts2 = [{'toaddress': address, 'amount': newFtFee + 1, "scid": scid, "mcReturnAddress": mc_return_address}]
 
@@ -374,12 +374,12 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
             time.sleep(2)
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
             assert_true(False)
 
         mark_logs("Node 0 creates two MBTRs", self.nodes, DEBUG_MODE)
-        mbtrOuts1 = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'pubkeyhash':pkh1 }]
-        mbtrOuts2 = [{'vScRequestData':[fe1], 'scFee':Decimal(newMbtrFee), 'scid':scid, 'pubkeyhash':pkh1 }]
+        mbtrOuts1 = [{'vScRequestData':[fe1], 'scFee':Decimal(mbtrScFee), 'scid':scid, 'mcDestinationAddress':mc_dest_addr1}]
+        mbtrOuts2 = [{'vScRequestData':[fe1], 'scFee':Decimal(newMbtrFee), 'scid':scid, 'mcDestinationAddress':mc_dest_addr1}]
         
         try:
             mbtr_tx_1 = self.nodes[0].sc_request_transfer(mbtrOuts1, {})

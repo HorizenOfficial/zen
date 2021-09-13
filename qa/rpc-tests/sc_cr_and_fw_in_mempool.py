@@ -92,7 +92,7 @@ class sc_cr_fw(BitcoinTestFramework):
         totScAmount += creation_amount
 
         mark_logs("Node 0 sends to sidechain ", self.nodes, DEBUG_MODE)
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         txes = []
         for i in range(1, BUNCH_SIZE+1):
             amounts = []

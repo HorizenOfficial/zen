@@ -286,7 +286,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         # do some negative test for having a raw cert rejected by mempool
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
         bwt_amount = Decimal("0.1")
 
         # get a UTXO
@@ -294,7 +294,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         outputs = { self.nodes[0].getnewaddress() : change }
-        bwt_outs = {pkh_node1: bwt_amount}
+        bwt_outs = {addr_node1: bwt_amount}
 
         # cfgs for SC2: [16], []
         mark_logs("\nCreate raw cert with wrong field element for the referred SC2 (expecting failure)...", self.nodes, DEBUG_MODE)
@@ -305,7 +305,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         # this proof would be invalid but we expect an early failure
         scProof2 = mcTest.create_test_proof(
-            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [pkh_node1], [bwt_amount])
+            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [addr_node1], [bwt_amount])
 
         params = {
             'scid': scid2,
@@ -337,7 +337,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe1 = "000000000000000000000000000000000000000000000000000000000000" + "0100"
 
         scProof3 = mcTest.create_test_proof(
-            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [pkh_node1], [bwt_amount],
+            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [addr_node1], [bwt_amount],
             [fe1])
 
         print "cum =", epoch_cum_tree_hash_1
@@ -379,7 +379,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         vCmt = ["1111"]
 
         # this proof would not be valid, but we expect an early failure
-        scProof1 = mcTest.create_test_proof('sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [pkh_node1], [bwt_amount])
+        scProof1 = mcTest.create_test_proof('sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [addr_node1], [bwt_amount])
 
         params = {
             'scid': scid1,
@@ -420,7 +420,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe4 = BIT_VECTOR_FE
 
         scProof3 = mcTest.create_test_proof(
-            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [addr_node1], [bwt_amount],
             [fe1, fe2, fe3, fe4])
 
         params = {
@@ -460,7 +460,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe4 = BIT_VECTOR_FE
 
         scProof3 = mcTest.create_test_proof(
-            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [addr_node1], [bwt_amount],
             [fe1, fe2, fe3, fe4])
 
         params = {
@@ -499,7 +499,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe4 = BIT_VECTOR_FE
 
         scProof3 = mcTest.create_test_proof(
-            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [pkh_node1], [bwt_amount],
+            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [addr_node1], [bwt_amount],
             [fe1, fe2, fe3, fe4])
 
         params = {

@@ -174,8 +174,8 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         block_list = self.nodes[0].generate(SC_EPOCH_LENGTH) 
         self.sync_all()
 
-        pkh = self.nodes[0].getnewaddress("", True)
-        amounts = [{"pubkeyhash": pkh, "amount": SC_CERT_AMOUNT}]
+        addr_node0 = self.nodes[0].getnewaddress()
+        amounts = [{"address": addr_node0, "amount": SC_CERT_AMOUNT}]
 
         #create wCert proof
         epoch_cum_tree_hash = self.nodes[0].getblock(block_list[-1])['scCumTreeHash']
@@ -184,7 +184,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         fee = 0.000023
 
         scid_swapped = str(swap_bytes(scid))
-        proof = mcTest.create_test_proof("sc1", scid_swapped, 0, 0, mbtrScFee, ftScFee, epoch_cum_tree_hash, constant, [pkh], [SC_CERT_AMOUNT])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, 0, 0, mbtrScFee, ftScFee, epoch_cum_tree_hash, constant, [addr_node0], [SC_CERT_AMOUNT])
         cert = self.nodes[0].sc_send_certificate(scid, 0, 0, epoch_cum_tree_hash, proof, amounts, ftScFee, mbtrScFee, fee)
         self.sync_all()
         assert_true(cert in self.nodes[0].getrawmempool() ) 

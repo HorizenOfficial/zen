@@ -93,14 +93,14 @@ class sc_cert_change(BitcoinTestFramework):
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_cum_tree_hash, epoch_number), self.nodes, DEBUG_MODE)
 
         # (2) node0 create a cert_ep0 for funding node1 1.0 coins
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
         bwt_amount = Decimal("1.0")
-        amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        amounts = [{"address": addr_node1, "amount": bwt_amount}]
 
         quality = 0
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         
-        mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(bwt_amount, pkh_node1), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 address {}".format(bwt_amount, addr_node1), self.nodes, DEBUG_MODE)
         try:
             cert_ep0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -119,14 +119,14 @@ class sc_cert_change(BitcoinTestFramework):
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         # (3) node0 create a cert_ep1 for funding node1 1.0 coins
-        pkh_node2 = self.nodes[2].getnewaddress("", True)
+        addr_node2 = self.nodes[2].getnewaddress()
         bwt_amount = Decimal("2.0")
-        amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
+        amounts = [{"address": addr_node2, "amount": bwt_amount}]
 
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node2], [bwt_amount])
 
-        mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 pkh".format(bwt_amount, pkh_node2), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 performs a bwd transfer of {} coins to Node2 address {}".format(bwt_amount, addr_node2), self.nodes, DEBUG_MODE)
         try:
             cert_ep1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -145,14 +145,14 @@ class sc_cert_change(BitcoinTestFramework):
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         # (4) node1 create a cert_ep2 for funding node3 3.0 coins: he uses cert_ep0 as input, change will be obtained out of a fee=0.0001
-        pkh_node3 = self.nodes[3].getnewaddress("", True)
+        addr_node3 = self.nodes[3].getnewaddress()
         bwt_amount = Decimal("3.0")
-        amounts = [{"pubkeyhash": pkh_node3, "amount": bwt_amount}]
+        amounts = [{"address": addr_node3, "amount": bwt_amount}]
 
         quality = 2
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node3], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node3], [bwt_amount])
 
-        mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 pkh".format(bwt_amount, pkh_node3), self.nodes, DEBUG_MODE)
+        mark_logs("Node 1 performs a bwd transfer of {} coins to Node3 address {}".format(bwt_amount, addr_node3), self.nodes, DEBUG_MODE)
         try:
             cert_ep2 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

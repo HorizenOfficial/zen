@@ -68,13 +68,13 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
 
         creation_amount = Decimal("10.0")
 
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
 
         bwt_amount_1 = Decimal("5.0")
         bwt_amount_2 = Decimal("3.0")
 
-        amounts_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_1}]
-        amounts_2 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount_2}]
+        amounts_1 = [{"address": addr_node1, "amount": bwt_amount_1}]
+        amounts_2 = [{"address": addr_node1, "amount": bwt_amount_2}]
 
 
         mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
@@ -117,9 +117,9 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 0 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount_1])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount_1])
 
-        mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 pkh".format(scid, bwt_amount_1, pkh_node1), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 address {}".format(scid, bwt_amount_1, addr_node1), self.nodes, DEBUG_MODE)
         try:
             cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -150,9 +150,9 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # Certificate epoch 1 
         #----------------------------------------------------------------------
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount_2])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount_2])
 
-        mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 pkh".format(scid, bwt_amount_2, pkh_node1), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 sends a cert for scid {} with a bwd transfer of {} coins to Node1 address {}".format(scid, bwt_amount_2, addr_node1), self.nodes, DEBUG_MODE)
         try:
             cert_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

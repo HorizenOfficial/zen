@@ -114,14 +114,14 @@ class sc_cert_orphans(BitcoinTestFramework):
         self.sync_all()
 
         # (3) node1 create cert1 using the unconfirmed coins in mempool 
-        pkh_node2 = self.nodes[2].getnewaddress("", True)
+        addr_node2 = self.nodes[2].getnewaddress()
         bwt_amount = Decimal("1.0")
-        amounts = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
+        amounts = [{"address": addr_node2, "amount": bwt_amount}]
 
         #Create proof for WCert
         quality = 0
         scid1_swapped = str(swap_bytes(scid_1))
-        proof = mcTest.create_test_proof("sc1", scid1_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant_1, [pkh_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", scid1_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant_1, [addr_node2], [bwt_amount])
 
         mark_logs("Node1 sends a certificate for SC {} using unconfirmed UTXO from tx1".format(scid_1), self.nodes, DEBUG_MODE)
         try:

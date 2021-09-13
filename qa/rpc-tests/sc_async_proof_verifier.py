@@ -279,7 +279,6 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
 
         # CSW sender MC address, in taddress and pub key hash formats
         csw_mc_address = self.nodes[0].getnewaddress()
-        pkh_mc_address = self.nodes[0].validateaddress(csw_mc_address)['pubkeyhash']
 
         sc_csw_amount = (sc_bal / 2) / 3
         null_1 = generate_random_field_element_hex()
@@ -290,11 +289,11 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         ceasing_cum_cc_tx_comm_tree = self.nodes[0].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
         pprint.pprint(act_cert_data)
 
-        sc_proof_1 = csw_mc_test.create_test_proof("sc", sc_csw_amount, str(scid_swapped), null_1, pkh_mc_address,
+        sc_proof_1 = csw_mc_test.create_test_proof("sc", sc_csw_amount, str(scid_swapped), null_1, csw_mc_address,
                                                    ceasing_cum_cc_tx_comm_tree, act_cert_data, constant)
-        sc_proof_2 = csw_mc_test.create_test_proof("sc", sc_csw_amount, str(scid_swapped), null_2, pkh_mc_address,
+        sc_proof_2 = csw_mc_test.create_test_proof("sc", sc_csw_amount, str(scid_swapped), null_2, csw_mc_address,
                                                    ceasing_cum_cc_tx_comm_tree, act_cert_data, constant)
-        sc_proof_3 = csw_mc_test.create_test_proof("sc", sc_csw_amount, str(scid_swapped), null_3, pkh_mc_address,
+        sc_proof_3 = csw_mc_test.create_test_proof("sc", sc_csw_amount, str(scid_swapped), null_3, csw_mc_address,
                                                    ceasing_cum_cc_tx_comm_tree, act_cert_data, constant)
 
         sc_csws = [

@@ -303,13 +303,13 @@ class WalletBackupTest(BitcoinTestFramework):
         # skip default address, just to use a brand new one 
         self.nodes[1].getnewaddress()
 
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
-        amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount1}, {"pubkeyhash": pkh_node1, "amount": bwt_amount2}]
-        mark_logs("Node 0 sends a cert for scid {} with 2 bwd transfers of {} coins to Node1 pkh".format(scid, bwt_amount1+bwt_amount2, pkh_node1), self.nodes, DEBUG_MODE)
+        addr_node1 = self.nodes[1].getnewaddress()
+        amounts = [{"address": addr_node1, "amount": bwt_amount1}, {"address": addr_node1, "amount": bwt_amount2}]
+        mark_logs("Node 0 sends a cert for scid {} with 2 bwd transfers of {} coins to Node1 address".format(scid, bwt_amount1+bwt_amount2, addr_node1), self.nodes, DEBUG_MODE)
         try:
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1, pkh_node1], [bwt_amount1, bwt_amount2])
+            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1, addr_node1], [bwt_amount1, bwt_amount2])
 
             cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -334,12 +334,12 @@ class WalletBackupTest(BitcoinTestFramework):
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         # node0 create a cert_2 for funding node1 
-        amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount3}]
-        mark_logs("Node 0 sends a cert for scid {} with 1 bwd transfers of {} coins to Node1 pkh".format(scid, bwt_amount3, pkh_node1), self.nodes, DEBUG_MODE)
+        amounts = [{"address": addr_node1, "amount": bwt_amount3}]
+        mark_logs("Node 0 sends a cert for scid {} with 1 bwd transfers of {} coins to Node1 address".format(scid, bwt_amount3, addr_node1), self.nodes, DEBUG_MODE)
         try:
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount3])
+            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount3])
 
             cert_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
