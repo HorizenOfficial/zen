@@ -1481,7 +1481,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
     if (ssData.empty())
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Missing input transaction(certificate)");
 
-    int txVersion;
+    int32_t txVersion;
     ssVersion >> txVersion;
 
     if(txVersion != SC_CERT_VERSION) {
@@ -1785,7 +1785,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
 
     vector<unsigned char> txData(ParseHexV(params[0], "argument 1"));
     CDataStream ssVersion(txData, SER_NETWORK, PROTOCOL_VERSION);
-    int txVersion;
+    int32_t txVersion;
     ssVersion >> txVersion;
 
     if(txVersion != SC_CERT_VERSION) {
