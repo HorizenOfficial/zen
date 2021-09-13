@@ -180,9 +180,6 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         print
         mature_only = False
         utx_out1 = self.nodes[1].gettxout(cert_1, 1)
-        assert_equal(utx_out1["mature"], True)
-        assert_equal(utx_out1["maturityHeight"], 0)
-        assert_equal(utx_out1["blocksToMaturity"], 0)
         utx_out2 = self.nodes[1].gettxout(cert_2, 1, True, mature_only)
         print "BWT coins:     -------------------------"
         if utx_out1:
