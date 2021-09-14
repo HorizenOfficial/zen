@@ -419,8 +419,8 @@ void create_verify_test_csw_proof(std::string ps_type_raw, std::string csw_type_
     // Extract pubKeyHash from the address
     std::vector<unsigned char> vchData;
     assert(DecodeBase58(argv[arg++], vchData));
-    uint160 mc_pk_hash_vec;
-    memcpy(&mc_pk_hash_vec, &vchData[2], 20);
+    uint160 pk_dest;
+    memcpy(&pk_dest, &vchData[2], 20);
 
     /*uint160 pk_dest;
     CBitcoinAddress address(argv[arg++]);
@@ -429,7 +429,7 @@ void create_verify_test_csw_proof(std::string ps_type_raw, std::string csw_type_
     pk_dest = keyId;
     assert(pk_dest.size() == 20);*/
 
-    auto mc_pk_hash = BufferWithSize(mc_pk_hash_vec.begin(), mc_pk_hash_vec.size());
+    auto mc_pk_hash = BufferWithSize(pk_dest.begin(), pk_dest.size());
 
     // Parse end_cum_comm_tree_root
     assert(IsHex(argv[arg]));
