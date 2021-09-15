@@ -190,8 +190,12 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     }
     entry.pushKV("vout", vout);
 
-    tx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
-    tx.getTxBase()->AddSidechainOutsToJSON(entry);
+    // add the cross chain outputs if tx version is -4
+    if (tx.getTxBase()->nVersion == SC_TX_VERSION)
+    {
+        tx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
+        tx.getTxBase()->AddSidechainOutsToJSON(entry);
+    }
     tx.getTxBase()->AddJoinSplitToJSON(entry);
 
     if (!tx.hashBlock.IsNull()) {
@@ -242,9 +246,12 @@ void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefi
     BOOST_FOREACH(const PAIRTYPE(string, string)& item, wtx.mapValue)
         entry.pushKV(item.first, item.second);
 
-    // add the cross chain outputs if any
-    wtx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
-    wtx.getTxBase()->AddSidechainOutsToJSON(entry);
+    // add the cross chain outputs if tx version is -4
+    if (wtx.getTxBase()->nVersion == SC_TX_VERSION)
+    {
+        wtx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
+        wtx.getTxBase()->AddSidechainOutsToJSON(entry);
+    }
     wtx.getTxBase()->AddJoinSplitToJSON(entry);
 }
 
@@ -3460,6 +3467,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
         nFee = -(wtx.getTxBase()->GetFeeAmount(nDebit) + cswInTotAmount);
     }
 
+    entry.pushKV("version", wtx.getTxBase()->nVersion);
     entry.pushKV("amount", ValueFromAmount(nNet - nFee));
     if (wtx.IsFromMe(filter))
         entry.pushKV("fee", ValueFromAmount(nFee));
