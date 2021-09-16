@@ -15,6 +15,7 @@
 #include "script/sigcache.h"
 #include "main.h"
 #include "sc/proofverifier.h"
+#include <univalue.h>
 
 CBackwardTransferOut::CBackwardTransferOut(const CTxOut& txout): nValue(txout.nValue), pubKeyHash()
 {
@@ -298,6 +299,11 @@ bool CScCertificate::VerifyScript(
     }
 
     return true;
+}
+
+void CScCertificate::AddJoinSplitToJSON(UniValue& entry) const
+{
+    entry.pushKV("vjoinsplit", "[]");
 }
 
 void CScCertificate::Relay() const

@@ -217,6 +217,7 @@ public:
     bool VerifyScript(
             const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
             bool cacheStore, ScriptError* serror) const override;
+    void AddJoinSplitToJSON(UniValue& entry) const override;
 };
 
 /** A mutable version of CScCertificate. */
