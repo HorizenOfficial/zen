@@ -257,7 +257,7 @@ bool CScCertificate::ContextualCheck(CValidationState& state, int nHeight, int d
 bool CScCertificate::VerifyScript(
         const CScript& scriptPubKey, unsigned int nFlags, unsigned int nIn, const CChain* chain,
         bool cacheStore, ScriptError* serror) const { return true; }
-
+void CScCertificate::AddJoinSplitToJSON(UniValue& entry) const { return; }
 void CScCertificate::Relay() const {}
 std::shared_ptr<const CTransactionBase> CScCertificate::MakeShared() const
 {
