@@ -303,7 +303,7 @@ bool CScCertificate::VerifyScript(
 
 void CScCertificate::AddJoinSplitToJSON(UniValue& entry) const
 {
-    entry.pushKV("vjoinsplit", "[]");
+    entry.pushKV("vjoinsplit", UniValue{UniValue::VARR});
 }
 
 void CScCertificate::Relay() const
