@@ -298,8 +298,7 @@ bool SidechainTxsCommitmentBuilder::add(const CTransaction& tx)
     if (!tx.IsScVersion())
         return true;
 
-    LogPrint("sc", "%s():%d entering with comm[%s] for adding tx[%s]\n", __func__, __LINE__,
-        getCommitment().ToString(), tx.GetHash().ToString());
+    LogPrint("sc", "%s():%d adding tx[%s] to ScTxsCommitment\n", __func__, __LINE__, tx.GetHash().ToString());
 
     CctpErrorCode ret_code = CctpErrorCode::OK;
 
