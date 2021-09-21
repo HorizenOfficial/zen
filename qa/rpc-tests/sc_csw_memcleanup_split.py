@@ -16,6 +16,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     wait_bitcoinds, stop_nodes, get_epoch_data, sync_mempools, sync_blocks, \
     disconnect_nodes, advance_epoch, swap_bytes
 
+from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.mc_test.mc_test import CertTestUtils, CSWTestUtils, generate_random_field_element_hex
 
 from decimal import Decimal
@@ -82,7 +83,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         self.sync_all()
         self.nodes[1].generate(1)
         self.sync_all()
-        self.nodes[0].generate(217)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT-3)
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
@@ -157,7 +158,8 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         quality = 10
         scid_swapped = str(swap_bytes(scid))
 
-        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, constant, epoch_cum_tree_hash, [pkh_node1], [bt_amount])
+        proof = certMcTest.create_test_proof(
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bt_amount])
 
         amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
         try:
@@ -200,7 +202,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         ceasingCumScTxCommTree = self.nodes[3].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
 
         csw_proof = cswMcTest.create_test_proof(
-                "csw1", sc_csw_amount, str(scid_swapped), null, pkh_mc_address, ceasingCumScTxCommTree, actCertData)
+                "csw1", sc_csw_amount, str(scid_swapped), null, pkh_mc_address, ceasingCumScTxCommTree, actCertData, constant)
 
         sc_csws = [{
             "amount": sc_csw_amount,
