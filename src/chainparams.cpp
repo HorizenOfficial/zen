@@ -203,8 +203,8 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
 
-        vSeeds.push_back(CDNSSeedData("sidechains-testnet2.horizen.io", "dnsseed.sidechains-testnet2.horizen.io")); //dns seeder
-        vSeeds.push_back(CDNSSeedData("horizen.io", "sidechains-testnet2.horizen.io")); //fixed seeds, 4 nodes TODO hardcode IPs
+        vSeeds.push_back(CDNSSeedData("sidechains-testnet.horizen.global", "dnsseed.sidechains-testnet.horizen.global")); //dns seeder
+        vSeeds.push_back(CDNSSeedData("horizen.global", "sidechains-testnet.horizen.global")); //fixed seeds, 4 nodes
 
         // guarantees the first 2 characters, when base58 encoded, are "zt"
         // guarantees the first 2 characters, when base58 encoded, are "tm"
