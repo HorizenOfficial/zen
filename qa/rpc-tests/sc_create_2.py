@@ -138,11 +138,24 @@ class SCCreateTest(BitcoinTestFramework):
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("range" in errorString)
 
-        # create with a bad withdrawal epoch length 
+        # create with a null withdrawal epoch length 
         #------------------------------------------------
         cmdInput = {'withdrawalEpochLength': 0, 'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk}
 
-        mark_logs("\nNode 1 create SC with an invalid epoch length in input", self.nodes, DEBUG_MODE)
+        mark_logs("\nNode 1 create SC with a null epoch length in input", self.nodes, DEBUG_MODE)
+        try:
+            self.nodes[1].create_sidechain(cmdInput)
+            assert_true(False);
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            assert_true("withdrawal" in errorString)
+
+        # create with a withdrawal epoch length too big
+        #------------------------------------------------
+        cmdInput = {'withdrawalEpochLength': 4033, 'toaddress': toaddress, 'amount': 0.1, 'fee': fee, 'wCertVk': vk}
+
+        mark_logs("\nNode 1 create SC with an epoch length too big in input", self.nodes, DEBUG_MODE)
         try:
             self.nodes[1].create_sidechain(cmdInput)
             assert_true(False);

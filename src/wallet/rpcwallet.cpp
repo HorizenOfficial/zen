@@ -1102,12 +1102,21 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
+    char errBuf[256] = {};
     int withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
     if (setKeyArgs.count("withdrawalEpochLength"))
     {
         withdrawalEpochLength = find_value(inputObject, "withdrawalEpochLength").get_int();
-        if (withdrawalEpochLength < 1 )
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid withdrawalEpochLength: must be greater that 1");
+        if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
+        {
+            sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d\n", getScMinWithdrawalEpochLength());
+            throw JSONRPCError(RPC_TYPE_ERROR, errBuf);
+        }
+        if (withdrawalEpochLength > getScMaxWithdrawalEpochLength())
+        {
+            sprintf(errBuf, "Invalid withdrawalEpochLength: maximum value allowed=%d\n", getScMaxWithdrawalEpochLength());
+            throw JSONRPCError(RPC_TYPE_ERROR, errBuf);
+        }
     }
 
     ScFixedParameters fixedParams;
