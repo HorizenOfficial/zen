@@ -136,6 +136,7 @@ public:
         nScCoinsMaturity = 10;
         nScNumBlocksForScFeeCheck = 200;
         nScMinWithdrawalEpochLength = 100;
+        nScMaxWithdrawalEpochLength = 4032; // one week at 1 block/2.5 min rate
         nScMaxNumberOfCswInputsInMempool = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
@@ -238,6 +239,7 @@ public:
         nScCoinsMaturity = 10;
         nScNumBlocksForScFeeCheck = 200;
         nScMinWithdrawalEpochLength = 100;
+        nScMaxWithdrawalEpochLength = 4032;
         nScMaxNumberOfCswInputsInMempool = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
@@ -321,6 +323,7 @@ public:
         nScCoinsMaturity = 3;
         nScNumBlocksForScFeeCheck = 10;
         nScMinWithdrawalEpochLength = 2;
+        nScMaxWithdrawalEpochLength = 4032;
         nScMaxNumberOfCswInputsInMempool = 5;
 
         checkpointData = (Checkpoints::CCheckpointData){

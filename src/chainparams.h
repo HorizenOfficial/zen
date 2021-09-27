@@ -72,6 +72,7 @@ public:
     int ScCoinsMaturity() const { return nScCoinsMaturity; }
     int ScNumBlocksForScFeeCheck() const { return nScNumBlocksForScFeeCheck; }
     int ScMinWithdrawalEpochLength() const { return nScMinWithdrawalEpochLength; }
+    int ScMaxWithdrawalEpochLength() const { return nScMaxWithdrawalEpochLength; }
     int ScMaxNumberOfCswInputsInMempool() const { return nScMaxNumberOfCswInputsInMempool; }
     int64_t MaxTipAge() const { return nMaxTipAge; }
     int64_t PruneAfterHeight() const { return nPruneAfterHeight; }
@@ -123,6 +124,7 @@ protected:
     int  nScCoinsMaturity = 0;
     int  nScNumBlocksForScFeeCheck = 0;
     int  nScMinWithdrawalEpochLength = 0;
+    int  nScMaxWithdrawalEpochLength = 0;
     int  nScMaxNumberOfCswInputsInMempool = 0;
     Checkpoints::CCheckpointData checkpointData;
 };

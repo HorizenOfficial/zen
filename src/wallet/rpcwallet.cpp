@@ -829,6 +829,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             " 1. withdrawalEpochLength:    (numeric, required) Length of the withdrawal epochs. The minimum valid value for " +
                                             Params().NetworkIDString() + " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
+                                            ", the maximum (for any network type) is: " +  strprintf("%d", Params().ScMaxWithdrawalEpochLength()) + "\n"
             " 2. \"address\"                 (string, required) The receiver PublicKey25519Proposition in the SC\n"
             " 3. amount:                   (numeric, required) The numeric amount in ZEN is the value\n"
             " 4. \"wCertVk\"                 (string, required) It is an arbitrary byte string of even length expressed in\n"
@@ -855,9 +856,19 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     CRecipientScCreation sc;
 
+    char errBuf[256] = {};
     int withdrawalEpochLength = params[0].get_int(); 
+
     if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid withdrawalEpochLength, less that minimum value allowed\n");
+    {
+        sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d\n", getScMinWithdrawalEpochLength());
+        throw JSONRPCError(RPC_TYPE_ERROR, errBuf);
+    }
+    if (withdrawalEpochLength > getScMaxWithdrawalEpochLength())
+    {
+        sprintf(errBuf, "Invalid withdrawalEpochLength: maximum value allowed=%d\n", getScMaxWithdrawalEpochLength());
+        throw JSONRPCError(RPC_TYPE_ERROR, errBuf);
+    }
     sc.fixedParams.withdrawalEpochLength = withdrawalEpochLength;
 
     {
@@ -1032,6 +1043,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             " \"withdrawalEpochLength\": epoch  (numeric, optional, default=" + strprintf("%d", SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH) +
                                                ") length of the withdrawal epochs. The minimum valid value in " + Params().NetworkIDString() +
                                                " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
+                                               ", the maximum (for any network type) is: " +  strprintf("%d", Params().ScMaxWithdrawalEpochLength()) + "\n"
             " \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
             " \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
             " \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"

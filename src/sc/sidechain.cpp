@@ -198,15 +198,24 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
     CAmount cumulatedAmount = 0;
 
     static const int SC_MIN_WITHDRAWAL_EPOCH_LENGTH = getScMinWithdrawalEpochLength();
+    static const int SC_MAX_WITHDRAWAL_EPOCH_LENGTH = getScMaxWithdrawalEpochLength();
 
     for (const auto& sc : tx.GetVscCcOut())
     {
         if (sc.withdrawalEpochLength < SC_MIN_WITHDRAWAL_EPOCH_LENGTH)
         {
             return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], sc creation withdrawalEpochLength %d is non-positive\n",
-                    __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength),
-                    CValidationState::Code::INVALID, "sidechain-sc-creation-epoch-not-valid");
+                    error("%s():%d - ERROR: Invalid tx[%s], sc creation withdrawalEpochLength %d is less than min value %d\n",
+                    __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength, SC_MIN_WITHDRAWAL_EPOCH_LENGTH),
+                    CValidationState::Code::INVALID, "sidechain-sc-creation-epoch-too-short");
+        }
+
+        if (sc.withdrawalEpochLength > SC_MAX_WITHDRAWAL_EPOCH_LENGTH)
+        {
+            return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], sc creation withdrawalEpochLength %d is greater than max value %d\n",
+                    __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength, SC_MAX_WITHDRAWAL_EPOCH_LENGTH),
+                    CValidationState::Code::INVALID, "sidechain-sc-creation-epoch-too-long");
         }
 
         if (!sc.CheckAmountRange(cumulatedAmount) )
