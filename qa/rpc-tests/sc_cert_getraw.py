@@ -108,7 +108,7 @@ class sc_cert_getraw(BitcoinTestFramework):
 
         # Fwd Transfer to Sc
         mark_logs("Node0 sends fwd transfer", self.nodes, DEBUG_MODE)
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
         self.sync_all()
 
@@ -130,15 +130,15 @@ class sc_cert_getraw(BitcoinTestFramework):
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
-        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        addr_node1 = self.nodes[1].getnewaddress()
+        amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
 
         #Create proof for WCert
         quality = 0
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
 
-        mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 pkh".format(amount_cert_1[0]["pubkeyhash"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 performs a bwd transfer of {} coins to Node1 address {}".format(amount_cert_1[0]["address"], amount_cert_1[0]["amount"]), self.nodes, DEBUG_MODE)
         try:
             cert_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

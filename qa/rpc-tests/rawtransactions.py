@@ -58,12 +58,11 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         actCertData            = self.nodes[0].getactivecertdatahash(scid)['certDataHash']
         ceasingCumScTxCommTree = self.nodes[0].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
-        pkh_mc_address         = self.nodes[0].validateaddress(csw_mc_address)['pubkeyhash']
         scid_swapped           = swap_bytes(scid)
         nullifier              = generate_random_field_element_hex()
 
         sc_proof = self.cswMcTest.create_test_proof(
-            tag, sc_csw_amount, scid_swapped, nullifier, pkh_mc_address, ceasingCumScTxCommTree, actCertData, constant)
+            tag, sc_csw_amount, scid_swapped, nullifier, csw_mc_address, ceasingCumScTxCommTree, actCertData, constant)
         assert_true(sc_proof is not None)
         
         sc_csws = [{
@@ -309,7 +308,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         # Note: sc_ft_amount must be a multiple of 4
         sc_ft_amount = Decimal('10.00000000')
 
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         sc_ft = [{"address": sc_address, "amount": sc_ft_amount, "scid": scid, "mcReturnAddress": mc_return_address}]
         rawtx=self.nodes[0].createrawtransaction(inputs,{},[],[],sc_ft)
         funded_tx = self.nodes[0].fundrawtransaction(rawtx)
@@ -383,7 +382,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # a fw transfer to scid2 (non ceased)
         sc_ft_amount = Decimal('16.0')
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         sc_ft2 = [{"address": "ffff", "amount": sc_ft_amount, "scid": scid2, "mcReturnAddress": mc_return_address}]
 
         # another sc creation, just to have a different cc output

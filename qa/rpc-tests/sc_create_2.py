@@ -533,7 +533,7 @@ class SCCreateTest(BitcoinTestFramework):
         tot_many = 0
         bal_t0 = self.nodes[1].getbalance()
         fee = Decimal('0.000123')
-        mc_return_address = self.nodes[1].getnewaddress("", True)
+        mc_return_address = self.nodes[1].getnewaddress()
         for i in range(0, 10):
             outputs.append({'toaddress': toaddress, 'amount': Decimal("0.01")*(i+1), "scid": scid, "mcReturnAddress": mc_return_address})
             tot_many += outputs[-1]['amount']

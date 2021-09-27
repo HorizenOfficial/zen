@@ -111,7 +111,7 @@ class quality_blockchain(BitcoinTestFramework):
 
         # Fwd Transfer to Sc
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         mark_logs("Node0 balance before fwd tx: {}".format(bal_before_fwd_tx), self.nodes, DEBUG_MODE)
         fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
@@ -140,9 +140,9 @@ class quality_blockchain(BitcoinTestFramework):
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
 
-        amount_cert_1 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
 
         # Create Cert1 with quality 100 and place it in mempool
 
@@ -150,7 +150,7 @@ class quality_blockchain(BitcoinTestFramework):
         mark_logs("Create Cert1 with quality 100 and place it in mempool", self.nodes, DEBUG_MODE)
         quality = 100
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_1_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -170,11 +170,11 @@ class quality_blockchain(BitcoinTestFramework):
         assert_equal(True, cert_1_epoch_0 in self.nodes[0].getrawmempool())
 
         # Create Cert2 with lower quality and place it in mempool
-        pkh_node2 = self.nodes[1].getnewaddress("", True)
-        amount_cert_2 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount}]
+        addr_node2 = self.nodes[1].getnewaddress()
+        amount_cert_2 = [{"address": addr_node2, "amount": bwt_amount}]
         mark_logs("# Create Cert2 with quality 80 and place it in mempool", self.nodes, DEBUG_MODE)
         low_quality_proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality - 20, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality - 20, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node2], [bwt_amount])
         try:
             cert_2_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality - 20,
                 epoch_cum_tree_hash, low_quality_proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, HIGH_CERT_FEE)
@@ -209,7 +209,7 @@ class quality_blockchain(BitcoinTestFramework):
         mark_logs("Checking rejection certificate with quality lower than max quality in previous blocks with same (scId, epoch), normal fee", self.nodes, DEBUG_MODE)
         quality = 90
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_3_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -221,7 +221,7 @@ class quality_blockchain(BitcoinTestFramework):
         mark_logs("Checking rejection certificate with quality equal to max quality in previous blocks with same (scId, epoch), normal fee", self.nodes, DEBUG_MODE)
         quality = 100
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_3_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -233,7 +233,7 @@ class quality_blockchain(BitcoinTestFramework):
         mark_logs("Checking rejection certificate with quality equal to max quality in previous blocks with same(scId, epoch) and better fee", self.nodes, DEBUG_MODE)
         quality = 100
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_3_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, HIGH_CERT_FEE)
@@ -244,9 +244,9 @@ class quality_blockchain(BitcoinTestFramework):
 
         mark_logs("Accept block containing a certificate of quality larger than max quality of certs in previous blocks with same (scId, epoch).", self.nodes, DEBUG_MODE)
         quality = 120
-        amount_cert_3 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        amount_cert_3 = [{"address": addr_node1, "amount": bwt_amount}]
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_3_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -262,9 +262,9 @@ class quality_blockchain(BitcoinTestFramework):
 
         mark_logs("Accept block containing a certificate of quality larger than max quality of certs in previous blocks with same (scId, epoch).", self.nodes, DEBUG_MODE)
         quality = 110
-        amount_cert_4 = [{"pubkeyhash": pkh_node2, "amount": bwt_amount_2}]
+        amount_cert_4 = [{"address": addr_node2, "amount": bwt_amount_2}]
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bwt_amount_2])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node2], [bwt_amount_2])
         try:
             cert_4_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_4, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -282,9 +282,9 @@ class quality_blockchain(BitcoinTestFramework):
 
         mark_logs("Create Cert5 with quality 100 and try to place it in mempool", self.nodes, DEBUG_MODE)
         quality = 100
-        amount_cert_5 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        amount_cert_5 = [{"address": addr_node1, "amount": bwt_amount}]
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_5_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_5, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -337,7 +337,7 @@ class quality_blockchain(BitcoinTestFramework):
         quality = 100
         mark_logs("Create Cert1 with quality {} for {} epoch and place it in mempool".format(quality, epoch_number), self.nodes, DEBUG_MODE)
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_1_epoch_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -354,7 +354,7 @@ class quality_blockchain(BitcoinTestFramework):
         quality = 0
         mark_logs("Create Cert1 with quality {} for {} epoch and place it in mempool".format(quality, epoch_number), self.nodes, DEBUG_MODE)
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_1_epoch_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -370,9 +370,9 @@ class quality_blockchain(BitcoinTestFramework):
 
         mark_logs("Accept block containing a certificate of quality larger than max quality of certs in mempool (scId, epoch).", self.nodes, DEBUG_MODE)
         quality = 1
-        amount_cert_3 = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        amount_cert_3 = [{"address": addr_node1, "amount": bwt_amount}]
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount])
+            vk_tag, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
         try:
             cert_2_epoch_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

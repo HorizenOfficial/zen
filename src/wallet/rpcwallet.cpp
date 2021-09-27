@@ -277,37 +277,28 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 2)
+    if (fHelp || params.size() > 1)
         throw runtime_error(
-            "getnewaddress ( \"account\" , (retpubkeyhash))\n"
+            "getnewaddress ( \"account\" )\n"
             "\nReturns a new Horizen address for receiving payments.\n"
 
             "\nArguments:\n"
             "1. \"account\"        (string, optional) DEPRECATED. If provided, it MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
-            "2. retpubkeyhash    (boolean, optional) If provided the command will output the public key hash corresponding to the address.\n"
-            "\nResult, one of these:\n"
-            "\"horizenaddress\"    (string) The new Horizen address (default)\n"
-            "\"public key hash\"   (string) If retpubkeyhash==true, the public key hash (20 Bytes) corresponding to a new Horizen address (not shown)\n"
-            
+
             "\nResult:\n"
             "\"horizenaddress\"    (string) the new Horizen address or equivalent public key\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("getnewaddress", "")
-            + HelpExampleCli("getnewaddress \"\"", "true")
             + HelpExampleRpc("getnewaddress", "")
         );
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     // Parse the account first so we don't generate a key if there's an error
     string strAccount;
-    bool retPkh = false;
 
     if (params.size() > 0)
         strAccount = AccountFromValue(params[0]);
-
-    if (params.size() == 2 )
-        retPkh = params[1].get_bool();
 
     if (!pwalletMain->IsLocked())
         pwalletMain->TopUpKeyPool();
@@ -320,20 +311,9 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
 
     pwalletMain->SetAddressBook(keyID, strAccount, "receive");
 
-    std::string ret;
-    if (retPkh)
-    {
-        // return the public key hash string
-        ret = keyID.ToString();
-    }
-    else
-    {
-        // return the taddr string
-        ret = CBitcoinAddress(keyID).ToString();
-    }
-    return ret;
+    // return the taddr string
+    return CBitcoinAddress(keyID).ToString();
 }
-
 
 CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
 {
@@ -725,7 +705,7 @@ UniValue dep_sc_send(const UniValue& params, bool fHelp)
             "1. \"address\"        (string, required) The uint256 hex representation of the PublicKey25519Proposition in the SC to send to.\n"
             "2. \"amount\"         (numeric, required) The amount in zen to send. eg 0.1\n"
             "3. \"side chain ID\"  (string, required) The uint256 side chain ID\n"
-            "4. \"mcReturnAddress\"(string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
+            "4. \"mcReturnAddress\":\"address\"   (string, required) The Horizen address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
 
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
@@ -758,13 +738,14 @@ UniValue dep_sc_send(const UniValue& params, bool fHelp)
     uint256 scId;
     scId.SetHex(inputString);
 
-    // MC return address as PubKeyHash
-    inputString = params[3].get_str();
-    if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
-
-    uint160 mcReturnAddress;
-    mcReturnAddress.SetHex(inputString);
+    // MC return address as taddr
+    std::string mcReturnAddressStr = params[3].get_str();
+    CBitcoinAddress address(mcReturnAddressStr);
+    if (!address.IsValid() || !address.IsPubKey())
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress: not a valid Horizen transparent address.");
+    CKeyID keyId;
+    if(!address.GetKeyID(keyId))
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress: can not extract pub key hash.");
 
     {
         LOCK(mempool.cs);
@@ -789,7 +770,7 @@ UniValue dep_sc_send(const UniValue& params, bool fHelp)
     entry.pushKV("address", sc_address.GetHex());
     entry.pushKV("amount", ValueFromAmount(nAmount));
     entry.pushKV("scid", scId.GetHex());
-    entry.pushKV("mcReturnAddress", mcReturnAddress.GetHex());
+    entry.pushKV("mcReturnAddress", mcReturnAddressStr);
     array.push_back(entry);
 
     input.push_back(array);
@@ -1378,7 +1359,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
             "   \"scid\": id                      (string, required) The uint256 side chain ID\n"
             "   \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "   \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
-            "   \"mcReturnAddress\":pkh          (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
+            "   \"mcReturnAddress\":\"address\"   (string, required) The Horizen address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
             "},...,]\n"
             "2. \"params\"                        (string, optional) A json object with the command parameters\n"
             "{\n"                     
@@ -1492,11 +1473,14 @@ UniValue sc_send(const UniValue& params, bool fHelp)
         uint160 mcReturnAddress;
         if (setKeyOutputArray.count("mcReturnAddress"))
         {
-            string inputString = find_value(o, "mcReturnAddress").get_str();
-            if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
-
-            mcReturnAddress.SetHex(inputString);
+            const string& addr = find_value(o, "mcReturnAddress").get_str();
+            CBitcoinAddress address(addr);
+            if (!address.IsValid() || !address.IsPubKey())
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress: not a valid Horizen transparent address.");
+            CKeyID keyId;
+            if(!address.GetKeyID(keyId))
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress: can not extract pub key hash.");
+            mcReturnAddress = keyId;
         }
         else
         {
@@ -1606,12 +1590,12 @@ UniValue sc_request_transfer(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
             "[{\n"
-            "   \"scid\":side chain ID             (string, required) The uint256 side chain ID\n"
-            "   \"vScRequestData\":                 (array, required) It is an arbitrary array of byte strings of even length expressed in\n"
-            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. The size of each string must be \n" +
+            "   \"scid\":side chain ID               (string, required) The uint256 side chain ID\n"
+            "   \"vScRequestData\":                  (array, required) It is an arbitrary array of byte strings of even length expressed in\n"
+            "                                           hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. The size of each string must be \n" +
                                                       strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
-            "   \"pubkeyhash\":pkh                 (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
-            "   \"scFee\":amount,                  (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
+            "   \"mcDestinationAddress\":\"address\" (string, required) The Horizen address where to send the backward transferred amount\n"
+            "   \"scFee\":amount,                    (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
             "},...,]\n"
             "2. \"params\"                        (string, optional) A json object with the command parameters\n"
             "{\n"                     
@@ -1626,7 +1610,7 @@ UniValue sc_request_transfer(const UniValue& params, bool fHelp)
             "\"transactionid\"    (string) The resulting transaction id.\n"
 
             "\nExamples:\n"
-            + HelpExampleCli("sc_request_transfer", "'[{ \"pubkeyhash\": \"aa57c2e03eb533b361e748acb6f25ffc2f1e5e20\", \"vScRequestData\": [\"06f75b4e1c1f49e6f329aa23f57e42bf305644b5b85c4d4ac60d7ef3b50679e81ec06841065f425fe3f11f903672c73be5a70e3e254efca4ac01a5795d125c3ded49dedac58a48ee94070b24106126bc1ffd57653f0974a0e93ab5729e870000\"], \"scid\": \"13a3083bdcf42635c8ce5d46c2cae26cfed7dc889d9b4ac0b9939c6631a73bdc\", \"scFee\": 19.0 }]'")
+            + HelpExampleCli("sc_request_transfer", "'[{ \"mcDestinationAddress\": \"taddr\", \"vScRequestData\": [\"06f75b4e1c1f49e6f329aa23f57e42bf305644b5b85c4d4ac60d7ef3b50679e81ec06841065f425fe3f11f903672c73be5a70e3e254efca4ac01a5795d125c3ded49dedac58a48ee94070b24106126bc1ffd57653f0974a0e93ab5729e870000\"], \"scid\": \"13a3083bdcf42635c8ce5d46c2cae26cfed7dc889d9b4ac0b9939c6631a73bdc\", \"scFee\": 19.0 }]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1634,7 +1618,7 @@ UniValue sc_request_transfer(const UniValue& params, bool fHelp)
 
     // valid keywords in cmd arguments
     static const std::set<std::string> validKeyOutputArray =
-        {"scid", "vScRequestData", "pubkeyhash", "scFee"};
+        {"scid", "vScRequestData", "mcDestinationAddress", "scFee"};
 
     // valid keywords in optional params
     static const std::set<std::string> validKeyArgs =
@@ -1691,18 +1675,20 @@ UniValue sc_request_transfer(const UniValue& params, bool fHelp)
  
         // ---------------------------------------------------------
         uint160 pkeyValue;
-        if (setKeyOutputArray.count("pubkeyhash"))
+        if (setKeyOutputArray.count("mcDestinationAddress"))
         {
-            const string& pkeyStr = find_value(o, "pubkeyhash").get_str();
-            if (pkeyStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: not an hex");
-            if (pkeyStr.length() != 40)
-                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: len is not 20 bytes ");
-            pkeyValue.SetHex(pkeyStr);
+            const string& addr = find_value(o, "mcDestinationAddress").get_str();
+            CBitcoinAddress address(addr);
+            if (!address.IsValid() || !address.IsPubKey())
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcDestinationAddress: not a valid Horizen transparent address.");
+            CKeyID keyId;
+            if(!address.GetKeyID(keyId))
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcDestinationAddress: can not extract pub key hash.");
+            pkeyValue = keyId;
         }
         else
         {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"pubkeyhash\"" );
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"mcDestinationAddress\"" );
         }
 
         CKeyID keyID(pkeyValue);
@@ -5378,12 +5364,12 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
             "sc_sendmany [{\"address\":... ,\"amount\":...,\"scid\":,...},...]\n"
             "\nSend cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
             "\nArguments:\n"
-            "\"amounts\"                (array, required) An array of json objects representing the amounts to send.\n"
+            "\"amounts\"                            (array, required) An array of json objects representing the amounts to send.\n"
             "    [{\n"                     
-            "      \"address\":address     (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "      \"amount\":amount       (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
-            "      \"scid\":side chain ID  (string, required) The uint256 side chain ID\n"
-            "      \"mcReturnAddress\":pkh (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
+            "      \"address\":address              (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "      \"amount\":amount                (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "      \"scid\":side chain ID           (string, required) The uint256 side chain ID\n"
+            "      \"mcReturnAddress\":\"address\"  (string, required) The Horizen address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
             "    }, ... ]\n"
             "\nResult:\n"
             "\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
@@ -5431,11 +5417,14 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         scId.SetHex(inputString);
 
         inputString = find_value(o, "mcReturnAddress").get_str();
-        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
+        CBitcoinAddress mcReturnAddrSource(inputString);
+        if (!mcReturnAddrSource.IsValid() || !mcReturnAddrSource.IsPubKey())
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcDestinationAddress: not a valid Horizen transparent address.");
+        CKeyID keyId;
+        if(!mcReturnAddrSource.GetKeyID(keyId))
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcDestinationAddress: can not extract pub key hash.");
 
-        uint160 mcReturnAddress;
-        mcReturnAddress.SetHex(inputString);
+        uint160 mcReturnAddress = keyId;
 
         {
             LOCK(mempool.cs);
@@ -5502,7 +5491,7 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
             " 5. \"scProof\"                     (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", CScProof::MaxByteSize()) + " bytes max\n"
             " 6. transfers:                      (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
             "     [{\n"                     
-            "       \"pubkeyhash\":\"pkh\"       (string, required) The public key hash of the receiver\n"
+            "       \"address\":\"address\"      (string, required) The Horizen address of the receiver\n"
             "       \"amount\":amount            (numeric, required) The numeric amount in ZEN\n"
             "     }, ... ]\n"
             " 7. forwardTransferScFee            (numeric, required) The amount of fee due to sidechain actors when creating a FT\n"
@@ -5519,8 +5508,8 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "  \"certificateId\"   (string) The resulting certificate id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 7 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"76fea046133b0acc74ebabbd17b80e99816228ab\", \"amount\":33.5}]' false 0.00001")
-            + HelpExampleCli("sc_send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 5 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"813551c928d41c0436ba7361850797d9b30ad4ed\" ,\"amount\": 5.0}]'")
+            + HelpExampleCli("sc_send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 7 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" \"abcd..ef\" \"abcd..ef\" '[{\"address\":\"taddr\", \"amount\":33.5}]' false 0.00001")
+            + HelpExampleCli("sc_send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 5 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" \"abcd..ef\" \"abcd..ef\" '[{\"address\":\"taddr\" ,\"amount\": 5.0}]'")
 
         );
 
@@ -5640,24 +5629,15 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
         // sanity check, report error if unknown key-value pairs
         for (const string& s : o.getKeys())
         {
-            if (s != "amount" && s != "pubkeyhash")
+            if (s != "amount" && s != "address")
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
         }
 
-        const string& pkeyStr = find_value(o, "pubkeyhash").get_str();
-        if (pkeyStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: not an hex");
-        if (pkeyStr.length() != 40)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: len is not 20 bytes ");
+        const string& addrStr = find_value(o, "address").get_str();
+        CBitcoinAddress taddr(addrStr);
 
-        uint160 pkeyValue;
-        pkeyValue.SetHex(pkeyStr);
-
-        CKeyID keyID(pkeyValue);
-        CBitcoinAddress taddr(keyID);
-
-        if (!taddr.IsValid()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, pubkeyhash does not give a valid address");
+        if (!taddr.IsValid() || !taddr.IsPubKey()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, invalid Horizen transparent address");
         }
 
         const UniValue& av = find_value(o, "amount");

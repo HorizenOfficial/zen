@@ -56,7 +56,7 @@ class TxnMallTest(BitcoinTestFramework):
 
     def run_test(self):
 
-        node0_address = self.nodes[0].getnewaddress("")
+        node0_address = self.nodes[0].getnewaddress()
         iterations = 100
 
         mark_logs("Node 0 mines 1 block", self.nodes, DEBUG_MODE)
@@ -99,7 +99,7 @@ class TxnMallTest(BitcoinTestFramework):
         vout = current_utxo["vout"]
 
         # Create a special Tx that moves all the 10.1 coins of the utxo
-        recipient = self.nodes[DOUBLE_SPEND_NODE_INDEX].getnewaddress("")
+        recipient = self.nodes[DOUBLE_SPEND_NODE_INDEX].getnewaddress()
         inputs = [{"txid": current_utxo["txid"], "vout": current_utxo["vout"]}]
         outputs = {}
         outputs[recipient] = total_amount - fee_amount
@@ -108,7 +108,7 @@ class TxnMallTest(BitcoinTestFramework):
 
         mark_logs("Node 0 adds to mempool several transactions recursively spending the starting utxo", self.nodes, DEBUG_MODE)
         for _ in range(iterations):
-            recipient = self.nodes[DOUBLE_SPEND_NODE_INDEX].getnewaddress("")
+            recipient = self.nodes[DOUBLE_SPEND_NODE_INDEX].getnewaddress()
             sent_amount = spendable_amount / iterations
             change_amount = change_amount - sent_amount - fee_amount
             inputs = []

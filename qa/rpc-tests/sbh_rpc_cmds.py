@@ -156,7 +156,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         assert_equal(ud['unconfirmedTxApperances'], 1) 
 
         #--------------------------------------------------------------------------------------
-        mc_return_address = self.nodes[1].getnewaddress("", True)
+        mc_return_address = self.nodes[1].getnewaddress()
         outputs = [{'toaddress': sc_toaddress, 'amount': sc_fwd_amount, "scid": scid, "mcReturnAddress": mc_return_address}]
         # if changeaddress is not specified but fromtaddress is, they are the same
         # with minconf == 0 we can use also change from the previous tx, which is still in mempool 
@@ -198,21 +198,20 @@ class sbh_rpc_cmds(BitcoinTestFramework):
 
         # node0 create a cert_1 for funding node1 
         bwt_address = self.nodes[1].getnewaddress()
-        pkh_node1 = self.nodes[1].validateaddress(bwt_address)['pubkeyhash']
 
-        amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount1}]
+        amounts = [{"address": bwt_address, "amount": bwt_amount1}]
         try:
             #Create proof for WCert
             quality = 1
             scid_swapped = str(swap_bytes(scid))
             
             proof = certMcTest.create_test_proof(
-                "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount1])
+                "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [bwt_address], [bwt_amount1])
 
             #----------------------------------------------------------------------------------------------
             cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
-            mark_logs("\n===> Node 0 sent a cert for scid {} with bwd transfer of {} coins to Node1 pkh (addr {})".format(scid, bwt_amount1, bwt_address), self.nodes, DEBUG_MODE)
+            mark_logs("\n===> Node 0 sent a cert for scid {} with bwd transfer of {} coins to Node1 address {})".format(scid, bwt_amount1, bwt_address), self.nodes, DEBUG_MODE)
             #mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
             self.sync_all()
         except JSONRPCException, e:

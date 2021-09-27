@@ -349,14 +349,14 @@ class SCCreateTest(BitcoinTestFramework):
         # Node 1 sends 1 amount to SC
         mark_logs("\nNode 1 sends " + str(fwt_amount_1) + " coins to SC", self.nodes, DEBUG_MODE)
 
-        mc_return_address = self.nodes[1].getnewaddress("", True)
+        mc_return_address = self.nodes[1].getnewaddress()
         self.nodes[1].dep_sc_send("abcd", fwt_amount_1, scid, mc_return_address)
         self.sync_all()
 
         # Node 1 sends 3 amounts to SC
         mark_logs("\nNode 1 sends 3 amounts to SC (tot: " + str(fwt_amount_many) + ")", self.nodes, DEBUG_MODE)
 
-        mc_return_address = self.nodes[1].getnewaddress("", True)
+        mc_return_address = self.nodes[1].getnewaddress()
 
         amounts = []
         amounts.append({"address": "add1", "amount": fwt_amount_1, "scid": scid, "mcReturnAddress": mc_return_address})

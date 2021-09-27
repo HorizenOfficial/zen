@@ -107,7 +107,7 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
         block = self.nodes[0].getblock('532')
         self.verify_roots(block)
 
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         #Test getblockmerkleroots with a FT
         print("######## Test getblockmerkleroots with a FT ########")
 

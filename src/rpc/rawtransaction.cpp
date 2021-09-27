@@ -213,18 +213,6 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
         out.pushKV("scriptPubKey", o);
         if (cert.IsBackwardTransfer(i))
         {
-            std::string pkhStr;
-            auto it = std::find(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), OP_HASH160);
-            if (it != txout.scriptPubKey.end())
-            {
-                it += 2;
-                std::vector<unsigned char> pkh(it, it + sizeof(uint160));
-                pkhStr = HexStr(pkh.rbegin(), pkh.rend());
-            }
-            else
-            {
-                pkhStr = "<<Decode error>>";
-            }
             out.pushKV("backwardTransfer", true);
         }
         vout.push_back(out);
@@ -506,7 +494,6 @@ UniValue getrawcertificate(const UniValue& params, bool fHelp)
             "       }\n"
             "       --- optional fields present only if this vout is a backward transfer:\n" 
             "       \"backwardTransfer\" : true  (bool)\n" 
-            "       \"pubkeyhash\" : \"pkh\"        (string) public key hash this backward transfer refers to, it corresponds to the horizen address specified above"
             "     }\n"
             "     ,...\n"
             "  ],\n"
@@ -726,8 +713,8 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "    [{\"epoch_length\":h, \"address\":\"address\", \"amount\":amount, \"wCertVk\":hexstr, \"customData\":hexstr, \"constant\":hexstr,\n"
             "      \"wCeasedVk\":hexstr, \"vFieldElementCertificateFieldConfig\":[i1,...], \"vBitVectorCertificateFieldConfig\":[[n1, m1],...],\n"
             "      \"forwardTransferScFee\":fee, \"mainchainBackwardTransferScFee\":fee, \"mainchainBackwardTransferRequestDataLength\":len},...]\n"
-            "    ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id, \"mcReturnAddress\": \"pubkeyhash\"},...]\n"
-            "    ( [{\"scid\":\"scid\", \"vScRequestData\":\"vScRequestData\", \"pubkeyhash\":\"pubkeyhash\", \"scFee\":\"scFee\", \"scProof\":\"scProof\"},...]\n"
+            "    ( [{\"address\":\"address\", \"amount\":amount, \"scid\":id, \"mcReturnAddress\": \"address\"},...]\n"
+            "    ( [{\"scid\":\"scid\", \"vScRequestData\":\"vScRequestData\", \"mcDestinationAddress\":\"address\", \"scFee\":\"scFee\", \"scProof\":\"scProof\"},...]\n"
             ") ) )\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
             "Returns hex-encoded raw transaction.\n"
@@ -787,21 +774,21 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "5. \"forward transfers\"   (string, optional) A json array of json objects\n"
             "     [\n"
             "       {\n"
-            "         \"address\":\"address\",  (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "         \"amount\":amount         (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value to transfer to SC\n"
-            "         \"scid\":side chain ID    (string, required) The uint256 side chain ID\n"
-            "         \"mcReturnAddress\":pkh   The uint160 public key hash corresponding to a main chain address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
+            "         \"address\":\"address\",          (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "         \"amount\":amount                 (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value to transfer to SC\n"
+            "         \"scid\":side chain ID            (string, required) The uint256 side chain ID\n"
+            "         \"mcReturnAddress\":\"address\"   (string, required) The Horizen address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"
             "6. \"backwardTransferRequests\"   (string, optional) A json array of json objects\n"
             "     [\n"
             "       {\n"
-            "         \"scid\":side chain ID       (string, required) The uint256 side chain ID\n"
-            "         \"vScRequestData\":           (array, required) It is an arbitrary array of byte strings of even length expressed in\n"
-            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
-            "         \"pubkeyhash\":pkh           (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
-            "         \"scFee\":amount,            (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
+            "         \"scid\":side chain ID                (string, required) The uint256 side chain ID\n"
+            "         \"vScRequestData\":                   (array, required) It is an arbitrary array of byte strings of even length expressed in\n"
+            "                                                 hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
+            "         \"mcDestinationAddress\":\"address\"  (string, required) The Horizen address where to send the backward transferred amount\n"
+            "         \"scFee\":amount,                     (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"
@@ -814,7 +801,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             + HelpExampleCli("createrawtransaction", "\"[]\" \"{}\" \"[]\" \"[{\\\"forwardTransferScFee\\\": 10.0, \\\"epoch_length\\\": 10, \\\"wCertVk\\\": \\\"4157d96790cc632ef7c1b89d17bb54c687ad90527f4f650022b0f499b734d1e66e46dbe1bc834488d80c6d4e495270f51db75edc65ad77becb4f535f5678ee27adefcd903a1fb93f33c98d51a3e1959f4f02c85b3384c7e5c658e758e8a00100620e7540fd80b9df71a72fe7a1fc0e12e1b6d1503b052757f40383628cd14c0f9777240e882f55aba752312767022c02adaf7a1758be03e2eb51cfdb0ee7cb3490c58082225e52229961c8f3ba31e182e1c216473c7ba163471ce341efa7000053b3d397ac75f93c27a3660584b5378e9386bb9d6b8a5ba60a4f0d66512a323b77a4ae29746c00a96e2fdd7b31f10b0a4b13becd0323eeed07904f4c3e31cf3c08df04086216b9826fc3baac6eb64ed3cf9598001311d081fdeb2c0232d80000b5f2f0874f5d8ec899c5b5299ca829c1ea7f1a4838d6f5fb41dd7b866237e786cc38311f5e148db69881fd066bfb626d400ac6abb43f30fcfe159afc52a269027028cbc5cb160e273ba1be9d7bd493dcd9b5911d14008f42ec9b39af2c8d0000b749ca5a4a21a6a49ec2c4e7dfa13d694fb08d9419220919989ca578e072305104483251543dcb4266161d90f3d3705065eed9352c581d5138380ad88eaf28cefa2a76b263208ad6357a544b66f96e82d348d34fc726e6bcc6bb127dd4330100a0347993307c563c5ac0e2188dc9a0e3205fcd709db15539e3d885b615f68d475a7cde28b35448851bca51875364c696bfdeb91ae1aad14238b397bb7d66c5c4a14703b3d93fa36ada62f92149ccd055c8b4801cb2be3869fd6cc79a188b000052d447cddcfdf23b64f4f557ac5323b09cba9b99028d051e97aa4f520fd94b2714a50aba22a53c1d7eebe8c80288bedccf05ebb4a615420d87b227904126117418d031608a92b92c59a40949c496680924acf61d18570dc83dbf00b87a6b010022a39355eb55b963221190e140d39362796cf3a2a906ef4d76288c406a90a31e0cf6010c3ca36d2b38139e800cf4e5094ab119290e64456b620b8d01b384ebca3cb04d168704b82af61a7b67fd6cc78f280d24a685571b55b1d994948a3801000070ddb8512cad5aadc7acceae7735f6de32efc2576263b48feeeeaaa430bce6df377bf73a0354eab5b098f103cfe3dcf17c904ab9d31d62bb541fa10cad6a9551c628c3bcda726bba05d53696cadf2ea49a158d0e20a5272ea2c6cd72b6cc0000fe8e46678a8aff3c3652bac7f4cb63e85e5871259da4d025ba7f7f565e00c8a6044b840cc5b5d01980484caa4738e80529d19c57ff5a52187083539e335d2db8642cdf4080ae31d60eea4171431962046261adccc67e58a279a29e733a5500000eb15b45f67a258f8e535667fb267d59102df8822d5307458543f14f7d0ac2cbfa065811d4391457d3bff5c08d38a506bcacfb8684538a5c80514e6734c5c235c208a4cd9596dd6bb354c30fe298a5af7e0a766fd8a8c2a1394b6be2a1470100b17623e1781dcf8221a773b2cf80402306b9ec7e5b67e0e4fe35445e9a8f287108a133e7f9d99b5552886a524ebc104855dc2d9ed5e9deb48c1daf27be4fdd5b6515d6147eb618f2d2ff1c15bf2e6b6bafe76ae82535d721eae3bd6fb2b400000000000002280eebcc8685997d6f3fc30e8199fb8a0d80948427d2030dad55aba0f04f821c9d6e59436f83b9d89c3b38a701a65b11f764655482cdc4506df9f5156dd31d23adcdbb70de819a70958e8c4ad9372934451e6587dd3fae6e63ea4bffffa801009115852ce3a295b22c054fbd779f387f89dee0f498b43d272db7b3ebcd0eb070b791aa771a14e3830784bcc1bc6df7b82d9c0fbc4c93ebe187445b4687464ada2ff7db60f9e8783b800974b54bbae4305344f48eb8c370c9d96790e000960000007ccc374fffbfb4bc5d7385e695d6462e2a94a125977fabc4c6d2d2071bde65a249f7b7191e53e8a96a6f758d6395652eeaef56b6cea6845f7e6eef492b6fe87b7aef7c084f549744349ce3a05e8bb21791d765fd91359d8a703c49d2331901008898e992dc633488016a1576ca471eabbfac0f8fd2589d3be087f9cae89dc842a270edd2cb7e787690ee542b3cb8cc17e69aa769afaa8e8d830e7a0b4277354299506ec49ef4a2ebf2c15011be320acf2e19dabbf50268c47441c0406ab4010000\\\", \\\"constant\\\": \\\"07c71a9b7880be136ad0871715b51bfecd953f498c5b5b115a5e9983f2e22b0398aedf38cdbbee9e1fa4a54c16a40ac87dd7bd337d15ffb06307d0f6f0e6352cd11621e967f17b25c1a61834598c7914f1e11a3237617179c92ee31e78ee0000\\\", \\\"address\\\": \\\"dada\\\", \\\"vFieldElementCertificateFieldConfig\\\": [], \\\"mainchainBackwardTransferRequestDataLength\\\": 1, \\\"vBitVectorCertificateFieldConfig\\\": [], \\\"mainchainBackwardTransferScFee\\\": 20.0, \\\"amount\\\": 50.0}]\"")
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":0.01}\"")
             + HelpExampleRpc("createrawtransaction", "\"[]\", \"{\\\"address\\\":0.01}\" \"[{\\\"amount\\\": 0.02, \\\"scId\\\": \\\"myscid\\\", \\\"nullifier\\\": \\\"mynullifier\\\", \\\"scProof\\\": \\\"proof\\\"}]\"")
-            + HelpExampleRpc("createrawtransaction", "\"[]\" \"{}\" \"[{\\\"epoch_length\\\" :300}]\" \"{\\\"address\\\": \\\"myaddress\\\", \\\"amount\\\": 4.0, \\\"scid\\\": \\\"myscid\\\"}]\"")
+            + HelpExampleRpc("createrawtransaction", "\"[]\" \"{}\" \"[{\\\"epoch_length\\\" :300}]\" \"{\\\"address\\\": \\\"myaddress\\\", \\\"amount\\\": 4.0, \\\"scid\\\": \\\"scid\\\", \\\"mcReturnAddress\\\": \\\"taddr\\\"}]\"")
         );
 
     LOCK(cs_main);
@@ -1072,7 +1059,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "    }\n"                      
             "3. \"backward addresses\"     (string, required) A json object with pubkeyhash as keys and amounts as values. Can be an empty obj if no amounts are trasferred (empty certificate)\n"
             "    {\n"                               
-            "      \"pubkeyhash\": x.xxx             (numeric, required) The public key hash corresponding to a Horizen address and the " + CURRENCY_UNIT + " amount to send to\n"
+            "      \"address\": x.xxx             (numeric, required) The key is the Horizen transaparent address, the value is the " + CURRENCY_UNIT + " amount to send to\n"
             "      ,...\n"                                  
             "    }\n"                               
             "4. \"certificate parameters\" (string, required) A json object with a list of key/values\n"
@@ -1093,7 +1080,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "\nExamples\n"
             + HelpExampleCli("createrawcertificate",
                 "\'[{\"txid\":\"7e3caf89f5f56fa7466f41d869d48c17ed8148a5fc6cc4c5923664dd2e667afe\", \"vout\": 0}]\' "
-                "\'{\"ztmDWqXc2ZaMDGMhsgnVEmPKGLhi5GhsQok\":10.0}\' \'{\"fde10bda830e1d8590ca8bb8da8444cad953a852\":0.1}\' "
+                "\'{\"ztmDWqXc2ZaMDGMhsgnVEmPKGLhi5GhsQok\":10.0}\' \'{\"tmaDWqXc2ZaMDGMhsgnVEmPKGLhi5GhsQab\":0.1}\' "
                 "\'{\"scid\":\"02c5e79e8090c32e01e2a8636bfee933fd63c0cc15a78f0888cdf2c25b4a5e5f\", \"withdrawalEpochNumber\":3, \"quality\":10, \"endEpochCumScTxCommTreeRoot\":\"abcd..ef\", \"scProof\": \"abcd..ef\"}\'"
                 )
         );
@@ -1121,13 +1108,9 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     vector<string> addrList = backwardOutputs.getKeys();
     BOOST_FOREACH(const string& name_, addrList)
     {
-        uint160 pkeyValue;
-        pkeyValue.SetHex(name_);
-
-        CKeyID keyID(pkeyValue);
-        CBitcoinAddress address(keyID);
-        if (!address.IsValid())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Horizen address: ")+name_);
+        CBitcoinAddress address(name_);
+        if (!address.IsValid() || !address.IsPubKey())
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Horizen transparent address: ")+name_);
 
         if (setAddress.count(address))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
