@@ -190,8 +190,12 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     }
     entry.pushKV("vout", vout);
 
-    tx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
-    tx.getTxBase()->AddSidechainOutsToJSON(entry);
+    // add the cross chain outputs if tx version is -4
+    if (tx.getTxBase()->nVersion == SC_TX_VERSION)
+    {
+        tx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
+        tx.getTxBase()->AddSidechainOutsToJSON(entry);
+    }
     tx.getTxBase()->AddJoinSplitToJSON(entry);
 
     if (!tx.hashBlock.IsNull()) {
@@ -242,9 +246,12 @@ void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefi
     BOOST_FOREACH(const PAIRTYPE(string, string)& item, wtx.mapValue)
         entry.pushKV(item.first, item.second);
 
-    // add the cross chain outputs if any
-    wtx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
-    wtx.getTxBase()->AddSidechainOutsToJSON(entry);
+    // add the cross chain outputs if tx version is -4
+    if (wtx.getTxBase()->nVersion == SC_TX_VERSION)
+    {
+        wtx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
+        wtx.getTxBase()->AddSidechainOutsToJSON(entry);
+    }
     wtx.getTxBase()->AddJoinSplitToJSON(entry);
 }
 
@@ -3369,42 +3376,107 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
             "\nGet detailed information about in-wallet transaction <txid>\n"
             
             "\nArguments:\n"
-            "1. \"txid\"                                (string, required) the transaction id\n"
-            "2. \"includeWatchonly\"                    (bool, optional, default=false) whether to include watchonly addresses in balance calculation and details[]\n"
-            "3. \"includeImmatureBTs\"                  (bool, optional, default=false) Whether to include immature certificate Backward transfers in balance calculation and details[]\n"
+            "1. \"txid\"                                         (string, required) the transaction id\n"
+            "2. \"includeWatchonly\"                             (bool, optional, default=false) whether to include watchonly addresses in balance calculation and details[]\n"
+            "3. \"includeImmatureBTs\"                           (bool, optional, default=false) Whether to include immature certificate Backward transfersin balance calculation and details[]\n"
             
             "\nResult:\n"
             "{\n"
-            "  \"amount\": xxxx,                        (numeric) the transaction amount in " + CURRENCY_UNIT + "\n"
-            "  \"confirmations\": n,                    (numeric) the number of confirmations\n"
-            "  \"blockhash\": \"hash\",                 (string) the block hash\n"
-            "  \"blockindex\": xx,                      (numeric) the block index\n"
-            "  \"blocktime\": ttt,                      (numeric) the time in seconds since epoch (1 Jan 1970 GMT)\n"
-            "  \"txid\": \"transactionid\",             (string) the transaction id.\n"
-            "  \"time\": ttt,                           (numeric) the transaction time in seconds since epoch (1 Jan 1970 GMT)\n"
-            "  \"timereceived\": ttt,                   (numeric) the time received in seconds since epoch (1 Jan 1970 GMT)\n"
-            "  \"details\": [                           (array) details about in-wallet transaction\n"                        
+            "  \"version\": n,                                   (numeric) the transaction version \n"
+            "  \"amount\": xxxx,                                 (numeric) the transaction amount in " + CURRENCY_UNIT + "\n"
+            "  \"confirmations\": n,                             (numeric) the number of confirmations\n"
+            "  \"blockhash\": \"hash\",                          (string) the block hash\n"
+            "  \"blockindex\": xx,                               (numeric) the block index\n"
+            "  \"blocktime\": ttt,                               (numeric) the time in seconds since epoch (1 Jan 1970 GMT)\n"
+            "  \"txid\": \"transactionid\",                      (string) the transaction id.\n"
+            "  \"time\": ttt,                                    (numeric) the transaction time in seconds since epoch (1 Jan 1970 GMT)\n"
+            "  \"timereceived\": ttt,                            (numeric) the time received in seconds since epoch (1 Jan 1970 GMT)\n"
+            "  \"vcsw_ccin\" : [                                 (array of json objects) Ceased sidechain withdrawal inputs (only if version = -4)\n"
+            "     {\n"
+            "       \"value\": x.xxx,                            (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"scId\": \"hex\",                           (string) The sidechain id\n"
+            "       \"nullifier\": \"hex\",                      (string) Withdrawal nullifier\n"
+            "       \"scriptPubKey\" : {                         (json object)\n"
+            "         \"asm\" : \"asm\",                         (string) the asm\n"
+            "         \"hex\" : \"hex\",                         (string) the hex\n"
+            "         \"reqSigs\" : n,                           (numeric) The required sigs\n"
+            "         \"type\" : \"pubkeyhash\",                 (string) The type, eg 'pubkeyhash'\n"
+            "         \"addresses\" : [                          (json array of string)\n"
+            "           \"horizenaddress\"                       (string) Horizen address\n"
+            "           ,...\n"
+            "         ]\n"
+            "       },\n"
+            "       \"scProof\": \"hex\",                         (string) the zero-knowledge proof\n"
+            "       \"redeemScript\": {                           (json object) The script\n"
+            "         \"asm\": \"asm\",                           (string) asm\n"
+            "         \"hex\": \"hex\"                            (string) hex\n"
+            "       }\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vsc_ccout\" : [                                  (array of json objects) Sidechain creation crosschain outputs (only if version = -4)\n"
+            "     {\n"
+            "       \"scid\" : \"hex\",                           (string) The sidechain id\n"
+            "       \"n\" : n,                                    (numeric) crosschain output index\n"
+            "       \"withdrawalEpochLength\" : n,                (numeric) Sidechain withdrawal epoch length\n"
+            "       \"value\" : x.xxx,                            (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"address\" : \"hex\",                        (string) The sidechain receiver address\n"
+            "       \"certProvingSystem\" : \"provingSystem\"     (string) The type of proving system to be used for certificate verification, allowed values:\n" + Sidechain::ProvingSystemTypeHelp() + "\n"
+            "       \"wCertVk\" : \"hex\",                        (string) The sidechain certificate snark proof verification key\n"
+            "       \"customData\" : \"hex\",                     (string) The sidechain declaration custom data\n"
+            "       \"constant\" : \"hex\",                       (string) The sidechain certificate snark proof constant data\n"
+            "       \"cswProvingSystem\" : \"provingSystem\"      (string) The type of proving system to be used for CSW verification, allowed values:\n" + Sidechain::ProvingSystemTypeHelp() + "\n"
+            "       \"wCeasedVk\" : \"hex\"                       (string) The ceased sidechain withdrawal input snark proof verification key\n"
+            "       \"ftScFee\" :                                 (numeric) The fee in " + CURRENCY_UNIT + " required to create a Forward Transfer to sidechain\n"
+            "       \"mbtrScFee\"                                 (numeric) The fee in " + CURRENCY_UNIT + " required to create a Mainchain Backward Transfer Request to sidechain\n"
+            "       \"mbtrRequestDataLength\"                     (numeric) The size of the MBTR request data length\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vft_ccout\" : [                                  (array of json objects) Sidechain forward transfer crosschain outputs (only if version = -4)\n"
+            "     {\n"
+            "       \"scid\" : \"hex\",                           (string) The sidechain id\n"
+            "       \"value\" : x.xxx,                            (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"n\" : n,                                    (numeric) crosschain output index\n"
+            "       \"address\" : \"hex\"                         (string) The sidechain receiver address\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vmbtr_out\" : [                                  (array of json objects) Sidechain backward transfer request outputs (only if version = -4)\n"
+            "     {\n"
+            "       \"scid\" : \"hex\",                           (string) The sidechain id\n"
+            "       \"n\" : n,                                    (numeric) crosschain output index\n"
+            "       \"mcDestinationAddress\": {                   (json object) The Mainchain destination address\n"
+            "         \"pubkeyhash\": \"asm\",                    (string) the pubkeyhash of the mainchain address\n"
+            "         \"taddr\": \"hex\"                          (string) the mainchain address\n"
+            "       }\n"
+            "       \"scFee\" :                                   (numeric) The fee in " + CURRENCY_UNIT + " required to create a Backward Transfer Request to sidechain\n"
+            "       \"vScRequestData\": []                        (array of string) \n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"details\": [                                     (array) details about in-wallet transaction\n"
             "    {\n"
-            "      \"account\": \"accountname\",        (string) DEPRECATED. The account name involved in the transaction, can be \"\" for the default account\n"
-            "      \"address\": \"horizenaddress\",     (string) the horizen address involved in the transaction\n"
-            "      \"category\": \"send|receive\",      (string) the category, either 'send' or 'receive'\n"
-            "      \"amount\": xxxx                     (numeric) the amount in " + CURRENCY_UNIT + "\n"
-            "      \"vout\": n,                         (numeric) the vout value\n"
+            "      \"account\": \"accountname\",                  (string) DEPRECATED. The account name involved in the transaction, can be \"\" for the default account\n"
+            "      \"address\": \"horizenaddress\",               (string) the horizen address involved in the transaction\n"
+            "      \"category\": \"send|receive\",                (string) the category, either 'send' or 'receive'\n"
+            "      \"amount\": xxxx                               (numeric) the amount in " + CURRENCY_UNIT + "\n"
+            "      \"vout\": n,                                   (numeric) the vout value\n"
             "    }\n"
             "    ,...\n"
             "  ],\n"
-            "  \"vjoinsplit\": [                        (array)\n" 
+            "  \"vjoinsplit\": [                                  (array)\n"
             "    {\n"
-            "      \"anchor\": \"treestateref\",        (string) merkle root of note commitment tree\n"
-            "      \"nullifiers\": [ string, ... ]      (string) nullifiers of input notes\n"
-            "      \"commitments\": [ string, ... ]     (string) note commitments for note outputs\n"
-            "      \"macs\": [ string, ... ]            (string) message authentication tags\n"
-            "      \"vpub_old\": xxxx                   (numeric) the amount removed from the transparent value pool\n"
-            "      \"vpub_new\": xxxx,                  (numeric) the amount added to the transparent value pool\n"
+            "      \"anchor\": \"treestateref\",                  (string) merkle root of note commitment tree\n"
+            "      \"nullifiers\": [ string, ... ]                (string) nullifiers of input notes\n"
+            "      \"commitments\": [ string, ... ]               (string) note commitments for note outputs\n"
+            "      \"macs\": [ string, ... ]                      (string) message authentication tags\n"
+            "      \"vpub_old\": xxxx                             (numeric) the amount removed from the transparent value pool\n"
+            "      \"vpub_new\": xxxx,                            (numeric) the amount added to the transparent value pool\n"
             "    }\n"
             "    ,...\n"
             "  ],\n"
-            "  \"hex\": \"data\"                        (string) raw data for transaction\n"
+            "  \"hex\": \"data\"                                  (string) raw data for transaction\n"
             "}\n"
 
             "\nExamples:\n"
@@ -3446,6 +3518,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
         nFee = -(wtx.getTxBase()->GetFeeAmount(nDebit) + cswInTotAmount);
     }
 
+    entry.pushKV("version", wtx.getTxBase()->nVersion);
     entry.pushKV("amount", ValueFromAmount(nNet - nFee));
     if (wtx.IsFromMe(filter))
         entry.pushKV("fee", ValueFromAmount(nFee));
