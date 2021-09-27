@@ -256,11 +256,12 @@ public:
             (643000, uint256S("0x0000cabf39e3ac435d54b95c32e6173d6bb1b060066ecb7453d2146a0dd40947"))
             (729000, uint256S("0x00013f6d5315f29094287bf0981b177098c5d467422bc4ab7764f88f11333f5f"))
             (816500, uint256S("0x0004c69745c68058fb35b2a8e090887500f71f7e107f0fd6f3e57d21afa5fe76"))
-            (869828, uint256S("0x0009d4d6d27f523b76ef9ed76b4a4c5044d30b3a6248b0a7296bdc58a5524c05")), // TODO pre + post fork checkpoints after fork execution
-            1624434824,     // * UNIX timestamp of last checkpoint block
-            1698638,        // * total number of transactions between genesis and last checkpoint
+            (869828, uint256S("0x0009d4d6d27f523b76ef9ed76b4a4c5044d30b3a6248b0a7296bdc58a5524c05"))
+            (924840, uint256S("0x0007e7525b8958d387aedbfbc622feed4a82d7ecb1033a080af75dcb8933a453")), // TODO pre + post fork checkpoints after zendoo fork execution
+            1632734842,     // * UNIX timestamp of last checkpoint block
+            1754342,        // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            1124            //   total number of tx / (checkpoint block height / (24 * 24))
+            1093            //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
 //  commented out - seems to make no sense but kept around for reference just in case
