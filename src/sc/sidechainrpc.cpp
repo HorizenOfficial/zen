@@ -416,20 +416,30 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         const UniValue& input = sc_crs[i];
         const UniValue& o = input.get_obj();
 
-        const UniValue& sh_v = find_value(o, "epoch_length");
-        if (sh_v.isNull() || !sh_v.isNum())
+        const UniValue& elv = find_value(o, "epoch_length");
+        if (elv.isNull() || !elv.isNum())
         {
             error = "Invalid parameter or missing epoch_length key";
             return false;
         }
-        int el = sh_v.get_int();
-        if (el < 0)
+
+        char errBuf[256] = {};
+        int withdrawalEpochLength = elv.get_int();
+
+        if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
         {
-            error = "Invalid parameter, epoch_length must be positive";
+            sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d\n", getScMinWithdrawalEpochLength());
+            error = errBuf;
+            return false;
+        }
+        if (withdrawalEpochLength > getScMaxWithdrawalEpochLength())
+        {
+            sprintf(errBuf, "Invalid withdrawalEpochLength: maximum value allowed=%d\n", getScMaxWithdrawalEpochLength());
+            error = errBuf;
             return false;
         }
 
-        sc.withdrawalEpochLength = el;
+        sc.withdrawalEpochLength = withdrawalEpochLength;
 
         const UniValue& av = find_value(o, "amount");
         if (av.isNull())

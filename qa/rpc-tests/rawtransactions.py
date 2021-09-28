@@ -238,9 +238,27 @@ class RawTransactionsTest(BitcoinTestFramework):
             "constant": constant
         })
 
+        # too big an epoch (max is 4032)
+        sc_cr_bad = [ {
+            "epoch_length": 4033,
+            "amount": sc_cr_amount2,
+            "address": sc_address,
+            "wCertVk": vk,
+            "wCeasedVk": cswVk,
+            "constant": constant
+        } ]
+
+        #Try create a SC with too big an epoch len
+        print("Try creating a SC with an epoch too big")
+
+        try:
+            rawtx=self.nodes[0].createrawtransaction([], {}, [], sc_cr_bad)
+        except JSONRPCException,e:
+            errorString = e.error['message']
+            assert_equal("withdrawalEpochLength" in errorString, True)
 
         #Try create a SC with no inputs
-        print("Try create a SC with no inputs...")
+        print("Try creating a SC with no inputs...")
 
         rawtx=self.nodes[0].createrawtransaction([],{},[],sc_cr)
         sigRawtx = self.nodes[0].signrawtransaction(rawtx)
@@ -248,7 +266,7 @@ class RawTransactionsTest(BitcoinTestFramework):
             finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
         except JSONRPCException,e:
             errorString = e.error['message']
-        assert_equal("vin-empty" in errorString, True)
+            assert_equal("vin-empty" in errorString, True)
 
         #Create a SC
         print("Create two SCs")

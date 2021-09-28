@@ -1929,6 +1929,7 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creation
 
     scTx.vsc_ccout.resize(1);
     scTx.vsc_ccout[0].nValue = creationTxAmount;
+    // do not check min/max range for epoch, for negative tests
     scTx.vsc_ccout[0].withdrawalEpochLength = (epochLenght < 0)?getScMinWithdrawalEpochLength(): epochLenght;
     scTx.vsc_ccout[0].forwardTransferScFee = CAmount(1); // Dummy amount
     scTx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = CAmount(1); // Dummy amount

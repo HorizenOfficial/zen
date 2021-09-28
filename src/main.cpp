@@ -8013,6 +8013,13 @@ int getScMinWithdrawalEpochLength()
     return retVal;
 }
 
+int getScMaxWithdrawalEpochLength()
+{
+    // gets constructed just one time
+    static int retVal(Params().ScMaxWithdrawalEpochLength());
+    return retVal;
+}
+
 static int getInitCbhMinAge()
 {
     if (Params().NetworkIDString() == "regtest")

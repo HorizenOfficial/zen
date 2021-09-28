@@ -168,6 +168,51 @@ TEST_F(SidechainsTestSuite, SproutNonCcNullTxsAreCurrentlySupported) {
         <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
 }
 
+TEST_F(SidechainsTestSuite, SidechainCreationsWithTooShortAnEpoch) {
+    int epochLen = 1;
+    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(100), epochLen);
+    CValidationState txState;
+
+    //test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    //checks
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
+        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
+    EXPECT_TRUE(txState.GetRejectReason() == "sidechain-sc-creation-epoch-too-short");
+}
+
+TEST_F(SidechainsTestSuite, SidechainCreationsWithTooLongAnEpoch) {
+    int epochLen = 4033; // max is the number of blocks mined in a week
+    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(100), epochLen);
+    CValidationState txState;
+
+    //test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    //checks
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
+        <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
+    EXPECT_TRUE(txState.GetRejectReason() == "sidechain-sc-creation-epoch-too-long");
+}
+
+TEST_F(SidechainsTestSuite, SidechainCreationsWithEpochMaxValue) {
+    int epochLen = 4032; // max is the number of blocks mined in a week
+    CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(100), epochLen);
+    CValidationState txState;
+
+    //test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    //checks
+    EXPECT_TRUE(res);
+    EXPECT_TRUE(txState.IsValid());
+}
+
 TEST_F(SidechainsTestSuite, SidechainCreationsWithoutForwardTransferAreNotSemanticallyValid) {
     CTransaction aTransaction = txCreationUtils::createNewSidechainTxWith(CAmount(0));
     CValidationState txState;

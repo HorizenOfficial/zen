@@ -306,6 +306,19 @@ class SCCreateTest(BitcoinTestFramework):
 
         # ---------------------------------------------------------------------------------------
         
+        # Node 1 try creating a SC with too long an epocLength
+        mark_logs("\nNode 1 try creating a SC with epochLength that is over the max limit", self.nodes, DEBUG_MODE)
+
+        try:
+            self.nodes[1].sc_create(4033, "ada", Decimal("1.0"), vk, "aa" * SC_FIELD_SIZE)
+            assert(True)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal("Invalid withdrawalEpochLength" in errorString, True)
+
+        # ---------------------------------------------------------------------------------------
+        
         # Node 1 create the SC
         mark_logs("\nNode 1 creates SC", self.nodes, DEBUG_MODE)
 
