@@ -310,7 +310,7 @@ class SCCreateTest(BitcoinTestFramework):
         mark_logs("\nNode 1 try creating a SC with epochLength that is over the max limit", self.nodes, DEBUG_MODE)
 
         try:
-            self.nodes[1].sc_create(4033, "ada", Decimal("1.0"), vk, "aa" * SC_FIELD_SIZE)
+            self.nodes[1].dep_sc_create(4033, "ada", Decimal("1.0"), vk, "aa" * SC_FIELD_SIZE)
             assert(True)
         except JSONRPCException, e:
             errorString = e.error['message']

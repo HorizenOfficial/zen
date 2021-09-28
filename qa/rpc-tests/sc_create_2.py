@@ -144,7 +144,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with a null epoch length in input", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].sc_create(cmdInput)
             assert_true(False);
         except JSONRPCException, e:
             errorString = e.error['message']
