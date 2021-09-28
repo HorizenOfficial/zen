@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import initialize_chain_clean, assert_equal, assert_true, assert_false, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
-    swap_bytes
+    get_total_amount_from_listaddressgroupings, swap_bytes
 from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
@@ -111,7 +111,7 @@ class sc_bwt_request(BitcoinTestFramework):
         print "Node0 Chain h = ", self.nodes[0].getblockcount()
 
         try:
-            ret = self.nodes[1].create_sidechain(cmdInput)
+            ret = self.nodes[1].sc_create(cmdInput)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -131,54 +131,53 @@ class sc_bwt_request(BitcoinTestFramework):
         fe3 = [generate_random_field_element_hex()]
         fe4 = [generate_random_field_element_hex()]
 
-        pkh1 = self.nodes[0].getnewaddress("", True)
-        pkh2 = self.nodes[0].getnewaddress("", True)
-        pkh3 = self.nodes[0].getnewaddress("", True)
-        pkh4 = self.nodes[0].getnewaddress("", True)
-
+        mc_dest_addr1 = self.nodes[0].getnewaddress()
+        mc_dest_addr2 = self.nodes[0].getnewaddress()
+        mc_dest_addr3 = self.nodes[0].getnewaddress()
+        mc_dest_addr4 = self.nodes[0].getnewaddress()
 
         #--- negative tests for bwt transfer request ----------------------------------------
         mark_logs("...performing some negative test...", self.nodes, DEBUG_MODE)
 
         # 1.  wrong scid
-        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':"abcd", 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData': fe1, 'scFee': SC_FEE, 'scid': "abcd", 'mcDestinationAddress': mc_dest_addr1}]
         try:
-            self.nodes[1].request_transfer_from_sidechain(outputs, {});
+            self.nodes[1].sc_request_transfer(outputs, {})
             assert_true(False)
         except JSONRPCException, e:
-            mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
+            mark_logs(e.error['message'], self.nodes, DEBUG_MODE)
 
-        # 2.  wrong pkh
-        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':scid1 }]
+        # 2.  wrong mcDestinationAddress
+        outputs = [{'vScRequestData': fe1, 'scFee': SC_FEE, 'scid': scid1, 'mcDestinationAddress': scid1}]
         try:
-            self.nodes[1].request_transfer_from_sidechain(outputs, {});
+            self.nodes[1].sc_request_transfer(outputs, {})
             assert_true(False)
         except JSONRPCException, e:
-            mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
+            mark_logs(e.error['message'], self.nodes, DEBUG_MODE)
 
         # 3.  negative scfee
-        outputs = [{'vScRequestData':fe1, 'scFee':Decimal("-0.2"), 'scid':scid1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData': fe1, 'scFee': Decimal("-0.2"), 'scid': scid1, 'mcDestinationAddress': mc_dest_addr1}]
         try:
-            self.nodes[1].request_transfer_from_sidechain(outputs, {});
+            self.nodes[1].sc_request_transfer(outputs, {})
             assert_true(False)
         except JSONRPCException, e:
-            mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
+            mark_logs(e.error['message'], self.nodes, DEBUG_MODE)
 
         # 4. not including one of the mandatory param
-        outputs = [{'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 }]
+        outputs = [{'scFee': SC_FEE, 'scid': scid1, 'mcDestinationAddress': mc_dest_addr1}]
         try:
-            self.nodes[1].request_transfer_from_sidechain(outputs, {});
+            self.nodes[1].sc_request_transfer(outputs, {})
             assert_true(False)
         except JSONRPCException, e:
-            mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
+            mark_logs(e.error['message'], self.nodes, DEBUG_MODE)
 
         # 5.  wrong field element
-        outputs = [{'vScRequestData':"abcd", 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData': "abcd", 'scFee': SC_FEE, 'scid': scid1, 'mcDestinationAddress': mc_dest_addr1}]
         try:
-            self.nodes[1].request_transfer_from_sidechain(outputs, {});
+            self.nodes[1].sc_request_transfer(outputs, {})
             assert_true(False)
         except JSONRPCException, e:
-            mark_logs(e.error['message'], self.nodes,DEBUG_MODE)
+            mark_logs(e.error['message'], self.nodes, DEBUG_MODE)
 
         #--- end of negative tests --------------------------------------------------
 
@@ -186,15 +185,15 @@ class sc_bwt_request(BitcoinTestFramework):
         totScFee = Decimal("0.0")
 
         TX_FEE = Decimal("0.000123")
-        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData': fe1, 'scFee': SC_FEE, 'scid': scid1, 'mcDestinationAddress': mc_dest_addr1}]
         cmdParms = { "minconf":0, "fee":TX_FEE}
 
         try:
-            bwt1 = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
+            bwt1 = self.nodes[1].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> bwt_tx_1 = {}.".format(bwt1), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
             assert_true(False)
 
         totScFee = totScFee + SC_FEE
@@ -205,18 +204,18 @@ class sc_bwt_request(BitcoinTestFramework):
         decoded_tx = self.nodes[1].getrawtransaction(bwt1, 1)
 
         assert_equal(len(decoded_tx['vmbtr_out']), 1)
-        assert_equal(decoded_tx['vmbtr_out'][0]['mcDestinationAddress']['pubkeyhash'], pkh1)
+        assert_equal(decoded_tx['vmbtr_out'][0]['mcDestinationAddress'], mc_dest_addr1)
         assert_equal(decoded_tx['vmbtr_out'][0]['scFee'], SC_FEE)
         assert_equal(decoded_tx['vmbtr_out'][0]['vScRequestData'], fe1)
         assert_equal(decoded_tx['vmbtr_out'][0]['scid'], scid1)
 
         mark_logs("Node1 creates a tx with the same single bwt request for sc", self.nodes, DEBUG_MODE)
         try:
-            bwt2 = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
+            bwt2 = self.nodes[1].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> bwt_tx_2 = {}.".format(bwt2), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
-            mark_logs(errorString,self.nodes,DEBUG_MODE)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
             assert_true(False)
 
         self.sync_all()
@@ -227,10 +226,10 @@ class sc_bwt_request(BitcoinTestFramework):
      
         mark_logs("Node0 creates a tx with a single bwt request for sc with mc_fee=0 and sc_fee=0", self.nodes, DEBUG_MODE)
 
-        outputs = [{'vScRequestData':fe1, 'scFee':Decimal("0.0"), 'scid':scid1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData': fe1, 'scFee': Decimal("0.0"), 'scid': scid1, 'mcDestinationAddress': mc_dest_addr1}]
         cmdParms = {"fee":0.0}
         try:
-            bwt3 = self.nodes[0].request_transfer_from_sidechain(outputs, cmdParms);
+            bwt3 = self.nodes[0].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> bwt_tx_3 = {}.".format(bwt3), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -251,13 +250,13 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Node0 creates a tx with many bwt request for sc, one of them is repeated", self.nodes, DEBUG_MODE)
         fer = [generate_random_field_element_hex()]
         outputs = [
-            {'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 },
-            {'vScRequestData':fer, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 },
-            {'vScRequestData':fer, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 }
+            {'vScRequestData': fe1, 'scFee': SC_FEE, 'scid': scid1, 'mcDestinationAddress': mc_dest_addr1},
+            {'vScRequestData': fer, 'scFee': SC_FEE, 'scid': scid1, 'mcDestinationAddress': mc_dest_addr1},
+            {'vScRequestData': fer, 'scFee': SC_FEE, 'scid': scid1, 'mcDestinationAddress': mc_dest_addr1}
         ]
         cmdParms = {"minconf":0, "fee":TX_FEE}
         try:
-            bwt4 = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
+            bwt4 = self.nodes[1].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> bwt_tx_4 = {}.".format(bwt4), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -306,7 +305,7 @@ class sc_bwt_request(BitcoinTestFramework):
         #  create one more sc
         prev_epoch_hash_2 = self.nodes[0].getbestblockhash()
         epoch_len_2 = 10
-        ret = self.nodes[0].sc_create(epoch_len_2, "dada", creation_amount2, vk2, "", c2, "", [], [], ftScFee, mbtrScFee, mbtrDataLength)
+        ret = self.nodes[0].dep_sc_create(epoch_len_2, "dada", creation_amount2, vk2, "", c2, "", [], [], ftScFee, mbtrScFee, mbtrDataLength)
         scid2  = ret['scid']
         cr_tx2 = ret['txid']
         mark_logs("Node0 created the SC2 spending {} coins via tx {}.".format(creation_amount1, cr_tx2), self.nodes, DEBUG_MODE)
@@ -314,7 +313,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         # create a bwt request with the raw cmd version
         mark_logs("Node0 creates a tx with a bwt request using raw version of cmd", self.nodes, DEBUG_MODE)
-        sc_bwt2_1 = [{'vScRequestData':fe2, 'scFee':SC_FEE, 'scid':scid2, 'pubkeyhash':pkh2}]
+        sc_bwt2_1 = [{'vScRequestData': fe2, 'scFee': SC_FEE, 'scid': scid2, 'mcDestinationAddress': mc_dest_addr2}]
         try:
             raw_tx = self.nodes[0].createrawtransaction([], {}, [], [], [], sc_bwt2_1)
             funded_tx = self.nodes[0].fundrawtransaction(raw_tx)
@@ -330,7 +329,7 @@ class sc_bwt_request(BitcoinTestFramework):
         self.sync_all()
         decoded_tx = self.nodes[0].decoderawtransaction(signed_tx['hex'])
         assert_equal(len(decoded_tx['vmbtr_out']), 1)
-        assert_equal(decoded_tx['vmbtr_out'][0]['mcDestinationAddress']['pubkeyhash'], pkh2)
+        assert_equal(decoded_tx['vmbtr_out'][0]['mcDestinationAddress'], mc_dest_addr2)
         assert_equal(decoded_tx['vmbtr_out'][0]['scFee'], SC_FEE)
         assert_equal(decoded_tx['vmbtr_out'][0]['vScRequestData'], fe2)
         assert_equal(decoded_tx['vmbtr_out'][0]['scid'], scid2)
@@ -338,16 +337,22 @@ class sc_bwt_request(BitcoinTestFramework):
         # create a bwt request with the raw cmd version with some mixed output and cc output
         mark_logs("Node0 creates a tx with a few bwt request and mixed outputs using raw version of cmd", self.nodes, DEBUG_MODE)
         outputs = { self.nodes[0].getnewaddress() :4.998 }
-        sc_cr = [ {"epoch_length":10, "amount":1.0, "address":"effe", "wCertVk":vk3, "constant":c3} ]
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        sc_cr_amount = 1.0
+        sc_cr = [ {"epoch_length":10, "amount":sc_cr_amount, "address":"effe", "wCertVk":vk3, "constant":c3} ]
+        ft_amount_1 = 1.0
+        ft_amount_2 = 2.0
+        mc_return_address = self.nodes[0].getnewaddress()
         sc_ft = [
-            {"address": "abc", "amount": 1.0, "scid": scid2, "mcReturnAddress": mc_return_address},
-            {"address": "cde", "amount": 2.0, "scid": scid2, "mcReturnAddress": mc_return_address}
+            {"address": "abc", "amount": ft_amount_1, "scid": scid2, "mcReturnAddress": mc_return_address},
+            {"address": "cde", "amount": ft_amount_2, "scid": scid2, "mcReturnAddress": mc_return_address}
         ]
+        bt_sc_fee_1 = 0.13
+        bt_sc_fee_2 = 0.23
+        bt_sc_fee_3 = 0.12
         sc_bwt3 = [
-            {'vScRequestData':fe2, 'scFee':Decimal("0.13"), 'scid':scid1, 'pubkeyhash':pkh2 },
-            {'vScRequestData':fe3, 'scFee':Decimal("0.23"), 'scid':scid2, 'pubkeyhash':pkh3 },
-            {'vScRequestData':fe4, 'scFee':Decimal("0.12"), 'scid':scid2, 'pubkeyhash':pkh4 }
+            {'vScRequestData': fe2, 'scFee': bt_sc_fee_1, 'scid': scid1, 'mcDestinationAddress': mc_dest_addr2},
+            {'vScRequestData': fe3, 'scFee': bt_sc_fee_2, 'scid': scid2, 'mcDestinationAddress': mc_dest_addr3},
+            {'vScRequestData': fe4, 'scFee': bt_sc_fee_3, 'scid': scid2, 'mcDestinationAddress': mc_dest_addr4}
         ]
         try:
             raw_tx = self.nodes[0].createrawtransaction([], outputs, [], sc_cr, sc_ft, sc_bwt3)
@@ -360,6 +365,7 @@ class sc_bwt_request(BitcoinTestFramework):
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
 
+
         totScFee = totScFee + Decimal("0.13")
 
         self.sync_all()
@@ -370,6 +376,13 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_equal(decoded_tx['vmbtr_out'][0]['vScRequestData'], fe2)
         assert_equal(decoded_tx['vmbtr_out'][1]['vScRequestData'], fe3)
         assert_equal(decoded_tx['vmbtr_out'][2]['vScRequestData'], fe4)
+
+        # Check transaction details
+        tx_details = self.nodes[0].gettransaction(bwt6)["details"]
+        assert_equal(3, len(tx_details))
+        assert_equal(tx_details[1]["category"], "send")
+        assert_equal(tx_details[1]["account"], "")
+        assert_equal(float(tx_details[1]["amount"]), -(sc_cr_amount + ft_amount_1 + ft_amount_2 + bt_sc_fee_1 + bt_sc_fee_2 + bt_sc_fee_3))
 
         # verify all bwts are in mempool
         assert_true(bwt3 in self.nodes[0].getrawmempool())
@@ -415,17 +428,17 @@ class sc_bwt_request(BitcoinTestFramework):
 
         #empty sc1 balance
         bwt_amount = creation_amount1
-        amounts = [{"pubkeyhash":pkh2, "amount":bwt_amount}]
+        amounts = [{"address": mc_dest_addr2, "amount": bwt_amount}]
         scid1_swapped = str(swap_bytes(scid1))
 
         proof = mcTest.create_test_proof(
-            "sc1", scid1_swapped, epoch_number, 0, mbtrScFee, ftScFee, epoch_cum_tree_hash, c1, [pkh2], [bwt_amount])
+            "sc1", scid1_swapped, epoch_number, 0, mbtrScFee, ftScFee, epoch_cum_tree_hash, c1, [mc_dest_addr2], [bwt_amount])
 
         mark_logs("Node1 sends a cert withdrawing the contribution of the creation amount to the sc balance", self.nodes, DEBUG_MODE)
         try:
-            cert_epoch_0 = self.nodes[1].send_certificate(scid1, epoch_number, 0,
+            cert_epoch_0 = self.nodes[1].sc_send_certificate(scid1, epoch_number, 0,
                 epoch_cum_tree_hash, proof, amounts, ftScFee, mbtrScFee, CERT_FEE)
-            mark_logs("Node 1 sent a cert with bwd transfer of {} coins to Node1 pkh via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
+            mark_logs("Node 1 sent a cert with bwd transfer of {} coins to Node1 address via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_0) > 0)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -457,11 +470,11 @@ class sc_bwt_request(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(ceasing_h - current_h - 1))
         self.sync_all()
 
-        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh3 }]
+        outputs = [{'vScRequestData': fe1, 'scFee': SC_FEE, 'scid': scid1, 'mcDestinationAddress': mc_dest_addr3}]
         cmdParms = { "minconf":0, "fee":0.0}
         mark_logs("Node0 creates a tx with a bwt request for a sc with null balance", self.nodes, DEBUG_MODE)
         try:
-            bwt7 = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
+            bwt7 = self.nodes[1].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> bwt_tx_7 = {}.".format(bwt7), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -470,12 +483,16 @@ class sc_bwt_request(BitcoinTestFramework):
 
         self.sync_all()
 
-        assert_true(bwt7 in self.nodes[0].getrawmempool());
+        assert_true(bwt7 in self.nodes[0].getrawmempool())
 
         # zero fee txes are not included in the block since we started nodes with -blockprioritysize=0
         #totScFee = totScFee + SC_FEE
         n1_net_bal = n1_net_bal - SC_FEE 
         assert_equal(n1_net_bal, Decimal(self.nodes[1].z_gettotalbalance(0)['total']))
+        # check also other commands which are handling balance, just for non-regressions
+        assert_equal(n1_net_bal, Decimal(self.nodes[1].listaccounts()[""]))
+        lag_list = self.nodes[1].listaddressgroupings()
+        assert_equal(n1_net_bal, get_total_amount_from_listaddressgroupings(lag_list))
 
         mark_logs("Node0 generates 1 block, thus ceasing SC 1", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(1))
@@ -489,16 +506,16 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_false(bwt7 in vtx)
 
         # and not in the mempool either
-        assert_false(bwt7 in self.nodes[0].getrawmempool());
+        assert_false(bwt7 in self.nodes[0].getrawmempool())
 
         # the scFee contribution of the removed tx has been restored to the Node balance
         n1_net_bal = n1_net_bal + SC_FEE 
 
-        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid1, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData': fe1, 'scFee': SC_FEE, 'scid': scid1, 'mcDestinationAddress': mc_dest_addr1}]
         cmdParms = {'minconf':0, 'fee':TX_FEE}
         mark_logs("Node1 creates a tx with a bwt request for a ceased sc (should fail)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
+            self.nodes[1].sc_request_transfer(outputs, cmdParms)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -513,6 +530,11 @@ class sc_bwt_request(BitcoinTestFramework):
         self.setup_network(False)
 
         assert_equal(n1_net_bal, Decimal(self.nodes[1].z_gettotalbalance(0)['total']))
+        # check also other commands handling balance, just for non-regressions
+        assert_equal(n1_net_bal, Decimal(self.nodes[1].listaccounts()[""]))
+        lag_list = self.nodes[1].listaddressgroupings()
+        assert_equal(n1_net_bal, get_total_amount_from_listaddressgroupings(lag_list))
+        
         sc_post_restart = self.nodes[0].getscinfo(scid1)['items'][0]
         assert_equal(sc_pre_restart, sc_post_restart)
 
@@ -538,16 +560,16 @@ class sc_bwt_request(BitcoinTestFramework):
         epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epoch_len_2))
 
         bt_amount = Decimal("1.0")
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
         quality = 10
         scid2_swapped = str(swap_bytes(scid2))
 
         proof = mcTest.create_test_proof(
-            "sc2", scid2_swapped, epoch_number, quality, mbtrScFee, ftScFee, epoch_cum_tree_hash, c2, [pkh_node1], [bt_amount])
+            "sc2", scid2_swapped, epoch_number, quality, mbtrScFee, ftScFee, epoch_cum_tree_hash, c2, [addr_node1], [bt_amount])
  
-        amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
+        amount_cert = [{"address": addr_node1, "amount": bt_amount}]
         try:
-            cert_bad = self.nodes[0].send_certificate(scid2, epoch_number, quality,
+            cert_bad = self.nodes[0].sc_send_certificate(scid2, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert, ftScFee, mbtrScFee, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -571,7 +593,7 @@ class sc_bwt_request(BitcoinTestFramework):
         # outputs = [{'vScRequestData':fe1, 'scFee':Decimal("0.001"), 'scid':scid2, 'pubkeyhash':pkh1 }]
         # cmdParms = { "minconf":0, "fee":0.0}
         # try:
-        #     tx_bwt = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
+        #     tx_bwt = self.nodes[1].sc_request_transfer(outputs, cmdParms);
         # except JSONRPCException, e:
         #     errorString = e.error['message']
         #     mark_logs(errorString,self.nodes,DEBUG_MODE)

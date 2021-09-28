@@ -95,7 +95,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with wrong vFieldElementCertificateFieldConfig obj in input (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].sc_create(cmdInput)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -108,7 +108,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with wrong vBitVectorCertificateFieldConfig array in input (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].sc_create(cmdInput)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -121,7 +121,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with a vBitVectorCertificateFieldConfig array with too large integers (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].sc_create(cmdInput)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -134,7 +134,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with a vFieldElementCertificateFieldConfig array with zeroes (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].sc_create(cmdInput)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -149,7 +149,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC with a BitVector made of a number of FE leaves that is not a power of 2 (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
-            self.nodes[1].create_sidechain(cmdInput)
+            self.nodes[1].sc_create(cmdInput)
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -176,7 +176,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC1 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
-            res = self.nodes[1].create_sidechain(cmdInput)
+            res = self.nodes[1].sc_create(cmdInput)
             tx =   res['txid']
             scid1 = res['scid']
             scid1_swapped = str(swap_bytes(scid1))
@@ -208,7 +208,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC2 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
-            ret = self.nodes[1].sc_create(EPOCH_LENGTH, "dada", amount, vk, customData, constant2, cswVk, feCfg[1], cmtCfg[1])
+            ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", amount, vk, customData, constant2, cswVk, feCfg[1], cmtCfg[1])
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -286,7 +286,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         # do some negative test for having a raw cert rejected by mempool
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
         bwt_amount = Decimal("0.1")
 
         # get a UTXO
@@ -294,7 +294,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         outputs = { self.nodes[0].getnewaddress() : change }
-        bwt_outs = {pkh_node1: bwt_amount}
+        bwt_outs = {addr_node1: bwt_amount}
 
         # cfgs for SC2: [16], []
         mark_logs("\nCreate raw cert with wrong field element for the referred SC2 (expecting failure)...", self.nodes, DEBUG_MODE)
@@ -305,7 +305,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         # this proof would be invalid but we expect an early failure
         scProof2 = mcTest.create_test_proof(
-            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [pkh_node1], [bwt_amount])
+            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [addr_node1], [bwt_amount])
 
         params = {
             'scid': scid2,
@@ -318,8 +318,8 @@ class sc_cert_customfields(BitcoinTestFramework):
         }
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
+            self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -337,7 +337,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe1 = "000000000000000000000000000000000000000000000000000000000000" + "0100"
 
         scProof3 = mcTest.create_test_proof(
-            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [pkh_node1], [bwt_amount],
+            'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [addr_node1], [bwt_amount],
             [fe1])
 
         print "cum =", epoch_cum_tree_hash_1
@@ -353,8 +353,8 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
@@ -379,7 +379,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         vCmt = ["1111"]
 
         # this proof would not be valid, but we expect an early failure
-        scProof1 = mcTest.create_test_proof('sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [pkh_node1], [bwt_amount])
+        scProof1 = mcTest.create_test_proof('sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [addr_node1], [bwt_amount])
 
         params = {
             'scid': scid1,
@@ -393,8 +393,8 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         try:
             rawcert    = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -420,7 +420,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe4 = BIT_VECTOR_FE
 
         scProof3 = mcTest.create_test_proof(
-            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [addr_node1], [bwt_amount],
             [fe1, fe2, fe3, fe4])
 
         params = {
@@ -435,8 +435,8 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -460,7 +460,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe4 = BIT_VECTOR_FE
 
         scProof3 = mcTest.create_test_proof(
-            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [pkh_node1], [bwt_amount],
+            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, constant1, epoch_cum_tree_hash_1, [addr_node1], [bwt_amount],
             [fe1, fe2, fe3, fe4])
 
         params = {
@@ -475,10 +475,9 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            # TODO: uncomment the following lines as soon the CCTP Lib and Mc Crypto Lib get updated.
-            # cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
-            # assert (False)
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
+            assert (False)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
@@ -500,7 +499,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         fe4 = BIT_VECTOR_FE
 
         scProof3 = mcTest.create_test_proof(
-            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [pkh_node1], [bwt_amount],
+            'sc1', scid1_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant1, [addr_node1], [bwt_amount],
             [fe1, fe2, fe3, fe4])
 
         params = {
@@ -515,8 +514,8 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         try:
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            signed_cert = self.nodes[0].signrawcertificate(rawcert)
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            signed_cert = self.nodes[0].signrawtransaction(rawcert)
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)

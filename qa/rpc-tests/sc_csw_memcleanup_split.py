@@ -112,7 +112,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
             'mainchainBackwardTransferRequestDataLength': 1
         }
 
-        res = self.nodes[0].create_sidechain(cmdInput)
+        res = self.nodes[0].sc_create(cmdInput)
         tx =   res['txid']
         scid = res['scid']
         self.sync_all()
@@ -154,16 +154,16 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], sc_epoch_len)
 
         bt_amount = Decimal("5.0")
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
         quality = 10
         scid_swapped = str(swap_bytes(scid))
 
         proof = certMcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bt_amount])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bt_amount])
 
-        amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
+        amount_cert = [{"address": addr_node1, "amount": bt_amount}]
         try:
-            cert_bad = self.nodes[2].send_certificate(scid, epoch_number, quality,
+            cert_bad = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert, 0, 0, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -198,11 +198,10 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         sc_csw_amount = sc_bal
         null = generate_random_field_element_hex()
         actCertData            = self.nodes[3].getactivecertdatahash(scid)['certDataHash']
-        pkh_mc_address         = self.nodes[3].validateaddress(csw_mc_address)['pubkeyhash']
         ceasingCumScTxCommTree = self.nodes[3].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
 
         csw_proof = cswMcTest.create_test_proof(
-                "csw1", sc_csw_amount, str(scid_swapped), null, pkh_mc_address, ceasingCumScTxCommTree, actCertData, constant)
+                "csw1", sc_csw_amount, str(scid_swapped), null, csw_mc_address, ceasingCumScTxCommTree, actCertData, constant)
 
         sc_csws = [{
             "amount": sc_csw_amount,

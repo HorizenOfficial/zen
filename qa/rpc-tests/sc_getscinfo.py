@@ -90,7 +90,7 @@ class sc_getscinfo(BitcoinTestFramework):
             vk = mcTest.generate_params(tag)
             # use two nodes for creating sc
             idx = i%2
-            ret = self.nodes[int(idx)].sc_create(EPOCH_LENGTH+i, "dada", creation_amount, vk, "abcdef", constant)
+            ret = self.nodes[int(idx)].dep_sc_create(EPOCH_LENGTH+i, "dada", creation_amount, vk, "abcdef", constant)
             creating_tx = ret['txid']
             scid = self.nodes[idx].getrawtransaction(creating_tx, 1)['vsc_ccout'][0]['scid']
             mark_logs("Node {} created SC {}".format(idx, scid), self.nodes, DEBUG_MODE)
@@ -269,8 +269,8 @@ class sc_getscinfo(BitcoinTestFramework):
         epoch_n = item['withdrawalEpochLength']
         epoch_number_1, epoch_cum_tree_hash_1 = get_epoch_data(scid_0, self.nodes[0], epoch_n)
 
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
-        amount_cert = [{"pubkeyhash": pkh_node1, "amount": bwt_amount}]
+        addr_node1 = self.nodes[1].getnewaddress()
+        amount_cert = [{"address": addr_node1, "amount": bwt_amount}]
 
         # Create Cert1 with quality 100 and place it in mempool
         mark_logs("Create Cert1 with quality 100 and place it in mempool", self.nodes, DEBUG_MODE)
@@ -278,10 +278,10 @@ class sc_getscinfo(BitcoinTestFramework):
         scid0_swapped = str(swap_bytes(scid_0))
 
         proof = mcTest.create_test_proof(
-            tag_0, scid0_swapped, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant, [pkh_node1], [bwt_amount])
+            tag_0, scid0_swapped, epoch_number_1, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant, [addr_node1], [bwt_amount])
 
         try:
-            cert_1_epoch_0 = self.nodes[0].send_certificate(scid_0, epoch_number_1, quality,
+            cert_1_epoch_0 = self.nodes[0].sc_send_certificate(scid_0, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)

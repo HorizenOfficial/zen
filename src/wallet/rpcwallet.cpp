@@ -190,8 +190,12 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     }
     entry.pushKV("vout", vout);
 
-    tx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
-    tx.getTxBase()->AddSidechainOutsToJSON(entry);
+    // add the cross chain outputs if tx version is -4
+    if (tx.getTxBase()->nVersion == SC_TX_VERSION)
+    {
+        tx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
+        tx.getTxBase()->AddSidechainOutsToJSON(entry);
+    }
     tx.getTxBase()->AddJoinSplitToJSON(entry);
 
     if (!tx.hashBlock.IsNull()) {
@@ -242,9 +246,12 @@ void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefi
     BOOST_FOREACH(const PAIRTYPE(string, string)& item, wtx.mapValue)
         entry.pushKV(item.first, item.second);
 
-    // add the cross chain outputs if any
-    wtx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
-    wtx.getTxBase()->AddSidechainOutsToJSON(entry);
+    // add the cross chain outputs if tx version is -4
+    if (wtx.getTxBase()->nVersion == SC_TX_VERSION)
+    {
+        wtx.getTxBase()->AddCeasedSidechainWithdrawalInputsToJSON(entry);
+        wtx.getTxBase()->AddSidechainOutsToJSON(entry);
+    }
     wtx.getTxBase()->AddJoinSplitToJSON(entry);
 }
 
@@ -277,37 +284,28 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 2)
+    if (fHelp || params.size() > 1)
         throw runtime_error(
-            "getnewaddress ( \"account\" , (retpubkeyhash))\n"
+            "getnewaddress ( \"account\" )\n"
             "\nReturns a new Horizen address for receiving payments.\n"
 
             "\nArguments:\n"
             "1. \"account\"        (string, optional) DEPRECATED. If provided, it MUST be set to the empty string \"\" to represent the default account. Passing any other string will result in an error.\n"
-            "2. retpubkeyhash    (boolean, optional) If provided the command will output the public key hash corresponding to the address.\n"
-            "\nResult, one of these:\n"
-            "\"horizenaddress\"    (string) The new Horizen address (default)\n"
-            "\"public key hash\"   (string) If retpubkeyhash==true, the public key hash (20 Bytes) corresponding to a new Horizen address (not shown)\n"
-            
+
             "\nResult:\n"
             "\"horizenaddress\"    (string) the new Horizen address or equivalent public key\n"
-            
+
             "\nExamples:\n"
             + HelpExampleCli("getnewaddress", "")
-            + HelpExampleCli("getnewaddress \"\"", "true")
             + HelpExampleRpc("getnewaddress", "")
         );
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     // Parse the account first so we don't generate a key if there's an error
     string strAccount;
-    bool retPkh = false;
 
     if (params.size() > 0)
         strAccount = AccountFromValue(params[0]);
-
-    if (params.size() == 2 )
-        retPkh = params[1].get_bool();
 
     if (!pwalletMain->IsLocked())
         pwalletMain->TopUpKeyPool();
@@ -320,20 +318,9 @@ UniValue getnewaddress(const UniValue& params, bool fHelp)
 
     pwalletMain->SetAddressBook(keyID, strAccount, "receive");
 
-    std::string ret;
-    if (retPkh)
-    {
-        // return the public key hash string
-        ret = keyID.ToString();
-    }
-    else
-    {
-        // return the taddr string
-        ret = CBitcoinAddress(keyID).ToString();
-    }
-    return ret;
+    // return the taddr string
+    return CBitcoinAddress(keyID).ToString();
 }
-
 
 CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
 {
@@ -711,26 +698,26 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
     return wtx.getWrappedTx().GetHash().GetHex();
 }
 
-UniValue sc_send(const UniValue& params, bool fHelp)
+UniValue dep_sc_send(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "sc_send \"address\" amount \"scid\"\n"
+            "dep_sc_send \"address\" amount \"scid\"\n"
             "\nSend a ZEN amount to an address of the given SC\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
             "1. \"address\"        (string, required) The uint256 hex representation of the PublicKey25519Proposition in the SC to send to.\n"
             "2. \"amount\"         (numeric, required) The amount in zen to send. eg 0.1\n"
             "3. \"side chain ID\"  (string, required) The uint256 side chain ID\n"
-            "4. \"mcReturnAddress\"(string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
+            "4. \"mcReturnAddress\":\"address\"   (string, required) The Horizen address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
 
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_send", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" \"e7ccbfd40c4e2304c4215f76d204e4de63c578ad\"")
+            + HelpExampleCli("dep_sc_send", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\" 0.1 \"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" \"e7ccbfd40c4e2304c4215f76d204e4de63c578ad\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -758,13 +745,14 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     uint256 scId;
     scId.SetHex(inputString);
 
-    // MC return address as PubKeyHash
-    inputString = params[3].get_str();
-    if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
-
-    uint160 mcReturnAddress;
-    mcReturnAddress.SetHex(inputString);
+    // MC return address as taddr
+    std::string mcReturnAddressStr = params[3].get_str();
+    CBitcoinAddress address(mcReturnAddressStr);
+    if (!address.IsValid() || !address.IsPubKey())
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress: not a valid Horizen transparent address.");
+    CKeyID keyId;
+    if(!address.GetKeyID(keyId))
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress: can not extract pub key hash.");
 
     {
         LOCK(mempool.cs);
@@ -789,7 +777,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     entry.pushKV("address", sc_address.GetHex());
     entry.pushKV("amount", ValueFromAmount(nAmount));
     entry.pushKV("scid", scId.GetHex());
-    entry.pushKV("mcReturnAddress", mcReturnAddress.GetHex());
+    entry.pushKV("mcReturnAddress", mcReturnAddressStr);
     array.push_back(entry);
 
     input.push_back(array);
@@ -817,14 +805,14 @@ static void ScHandleTransaction(CWalletTx& wtx, std::vector<CRecipientScCreation
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
 }
 
-UniValue sc_create(const UniValue& params, bool fHelp)
+UniValue dep_sc_create(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp ||  params.size() < 4 ) 
         throw runtime_error(
-            "sc_create withdrawalEpochLength [{\"address\":... ,\"amount\":...,\"wCertVk\":...,\"customData\":...,\"constant\":...,...},...]\n"
+            "dep_sc_create withdrawalEpochLength [{\"address\":... ,\"amount\":...,\"wCertVk\":...,\"customData\":...,\"constant\":...,...},...]\n"
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             " 1. withdrawalEpochLength:    (numeric, required) Length of the withdrawal epochs. The minimum valid value for " +
@@ -849,7 +837,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "\"transactionid\"    (string) The transaction id. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sc_create"," 123456 \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" 5.0 \"abcd..ef\" \"abcd..ef\" \"abcd..ef\" ")
+            + HelpExampleCli("dep_sc_create"," 123456 \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" 5.0 \"abcd..ef\" \"abcd..ef\" \"abcd..ef\" ")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1029,14 +1017,14 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     return ret;
 }
 
-UniValue create_sidechain(const UniValue& params, bool fHelp)
+UniValue sc_create(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp ||  params.size() != 1)
         throw runtime_error(
-            "create_sidechain {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":...}\n"
+            "sc_create {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":...}\n"
             "\nCreate a Side chain.\n"
             "\nArguments:\n"
             "{\n"                     
@@ -1072,7 +1060,7 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
             "  \"scid\": sidechainid       (string) The id of the sidechain created by this tx.\n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("create_sidechain", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0, \"wCertVk\": abcd..ef}'")
+            + HelpExampleCli("sc_create", "'{\"toaddress\": \"8aaddc9671dc5c8d33a3494df262883411935f4f54002fe283745fb394be508a\" ,\"amount\": 5.0, \"wCertVk\": abcd..ef}'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1385,21 +1373,21 @@ UniValue create_sidechain(const UniValue& params, bool fHelp)
     return ret;
 }
 
-UniValue send_to_sidechain(const UniValue& params, bool fHelp)
+UniValue sc_send(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || (params.size() != 1 && params.size() != 2))
         throw runtime_error(
-            "send_to_sidechain {...}\n"
+            "sc_send {...}\n"
             "\nArguments:\n"
             "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
             "[{\n"
             "   \"scid\": id                      (string, required) The uint256 side chain ID\n"
             "   \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
             "   \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
-            "   \"mcReturnAddress\":pkh          (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
+            "   \"mcReturnAddress\":\"address\"   (string, required) The Horizen address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
             "},...,]\n"
             "2. \"params\"                        (string, optional) A json object with the command parameters\n"
             "{\n"                     
@@ -1413,7 +1401,7 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"transactionid\"    (string) The resulting transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("send_to_sidechain", "'{TODO}]'")
+            + HelpExampleCli("sc_send", "'{TODO}]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1513,11 +1501,14 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
         uint160 mcReturnAddress;
         if (setKeyOutputArray.count("mcReturnAddress"))
         {
-            string inputString = find_value(o, "mcReturnAddress").get_str();
-            if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
-
-            mcReturnAddress.SetHex(inputString);
+            const string& addr = find_value(o, "mcReturnAddress").get_str();
+            CBitcoinAddress address(addr);
+            if (!address.IsValid() || !address.IsPubKey())
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress: not a valid Horizen transparent address.");
+            CKeyID keyId;
+            if(!address.GetKeyID(keyId))
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress: can not extract pub key hash.");
+            mcReturnAddress = keyId;
         }
         else
         {
@@ -1616,23 +1607,23 @@ UniValue send_to_sidechain(const UniValue& params, bool fHelp)
 }
 
 // request a backward transfer (BWT)
-UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
+UniValue sc_request_transfer(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || (params.size() != 1 && params.size() != 2))
         throw runtime_error(
-            "request_transfer_from_sidechain {TODO}\n"
+            "sc_request_transfer {TODO}\n"
             "\nArguments:\n"
             "1. \"outputs\"                       (string, required) A json array of json objects representing the amounts to send.\n"
             "[{\n"
-            "   \"scid\":side chain ID             (string, required) The uint256 side chain ID\n"
-            "   \"vScRequestData\":                 (array, required) It is an arbitrary array of byte strings of even length expressed in\n"
-            "                                         hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. The size of each string must be \n" +
+            "   \"scid\":side chain ID               (string, required) The uint256 side chain ID\n"
+            "   \"vScRequestData\":                  (array, required) It is an arbitrary array of byte strings of even length expressed in\n"
+            "                                           hexadecimal format representing the SC Utxo ID for which a backward transafer is being requested. The size of each string must be \n" +
                                                       strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
-            "   \"pubkeyhash\":pkh                 (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transferred amount\n"
-            "   \"scFee\":amount,                  (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
+            "   \"mcDestinationAddress\":\"address\" (string, required) The Horizen address where to send the backward transferred amount\n"
+            "   \"scFee\":amount,                    (numeric, required) The numeric amount in " + CURRENCY_UNIT + " representing the value spent by the sender that will be gained by a SC forger\n"
             "},...,]\n"
             "2. \"params\"                        (string, optional) A json object with the command parameters\n"
             "{\n"                     
@@ -1647,7 +1638,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
             "\"transactionid\"    (string) The resulting transaction id.\n"
 
             "\nExamples:\n"
-            + HelpExampleCli("request_transfer_from_sidechain", "'[{ \"pubkeyhash\": \"aa57c2e03eb533b361e748acb6f25ffc2f1e5e20\", \"vScRequestData\": [\"06f75b4e1c1f49e6f329aa23f57e42bf305644b5b85c4d4ac60d7ef3b50679e81ec06841065f425fe3f11f903672c73be5a70e3e254efca4ac01a5795d125c3ded49dedac58a48ee94070b24106126bc1ffd57653f0974a0e93ab5729e870000\"], \"scid\": \"13a3083bdcf42635c8ce5d46c2cae26cfed7dc889d9b4ac0b9939c6631a73bdc\", \"scFee\": 19.0 }]'")
+            + HelpExampleCli("sc_request_transfer", "'[{ \"mcDestinationAddress\": \"taddr\", \"vScRequestData\": [\"06f75b4e1c1f49e6f329aa23f57e42bf305644b5b85c4d4ac60d7ef3b50679e81ec06841065f425fe3f11f903672c73be5a70e3e254efca4ac01a5795d125c3ded49dedac58a48ee94070b24106126bc1ffd57653f0974a0e93ab5729e870000\"], \"scid\": \"13a3083bdcf42635c8ce5d46c2cae26cfed7dc889d9b4ac0b9939c6631a73bdc\", \"scFee\": 19.0 }]'")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1655,7 +1646,7 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
 
     // valid keywords in cmd arguments
     static const std::set<std::string> validKeyOutputArray =
-        {"scid", "vScRequestData", "pubkeyhash", "scFee"};
+        {"scid", "vScRequestData", "mcDestinationAddress", "scFee"};
 
     // valid keywords in optional params
     static const std::set<std::string> validKeyArgs =
@@ -1712,18 +1703,20 @@ UniValue request_transfer_from_sidechain(const UniValue& params, bool fHelp)
  
         // ---------------------------------------------------------
         uint160 pkeyValue;
-        if (setKeyOutputArray.count("pubkeyhash"))
+        if (setKeyOutputArray.count("mcDestinationAddress"))
         {
-            const string& pkeyStr = find_value(o, "pubkeyhash").get_str();
-            if (pkeyStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: not an hex");
-            if (pkeyStr.length() != 40)
-                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: len is not 20 bytes ");
-            pkeyValue.SetHex(pkeyStr);
+            const string& addr = find_value(o, "mcDestinationAddress").get_str();
+            CBitcoinAddress address(addr);
+            if (!address.IsValid() || !address.IsPubKey())
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcDestinationAddress: not a valid Horizen transparent address.");
+            CKeyID keyId;
+            if(!address.GetKeyID(keyId))
+                throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcDestinationAddress: can not extract pub key hash.");
+            pkeyValue = keyId;
         }
         else
         {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"pubkeyhash\"" );
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"mcDestinationAddress\"" );
         }
 
         CKeyID keyID(pkeyValue);
@@ -2038,11 +2031,18 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
+        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()) || !wtx.HasMatureOutputs())
             continue;
 
-        BOOST_FOREACH(const CTxOut& txout, wtx.getTxBase()->GetVout())
+        for(unsigned int pos = 0; pos < wtx.getTxBase()->GetVout().size(); ++pos)
         {
+            const CTxOut& txout = wtx.getTxBase()->GetVout()[pos];
+
+            if (wtx.getTxBase()->IsCertificate()) {
+                if (wtx.IsOutputMature(pos) != CCoins::outputMaturity::MATURE)
+                    continue;
+            }
+
             /* Check that txout.scriptPubKey starts with scriptPubKey instead of full match,
              * cause we cant compare OP_CHECKBLOCKATHEIGHT arguments, they are different all the time */
             auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(),
@@ -2102,11 +2102,18 @@ UniValue getreceivedbyaccount(const UniValue& params, bool fHelp)
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
+        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()) || !wtx.HasMatureOutputs())
             continue;
 
-        BOOST_FOREACH(const CTxOut& txout, wtx.getTxBase()->GetVout())
+        for(unsigned int pos = 0; pos < wtx.getTxBase()->GetVout().size(); ++pos)
         {
+            const CTxOut& txout = wtx.getTxBase()->GetVout()[pos];
+
+            if (wtx.getTxBase()->IsCertificate()) {
+                if (wtx.IsOutputMature(pos) != CCoins::outputMaturity::MATURE)
+                    continue;
+            }
+
             CTxDestination address;
             if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*pwalletMain, address) && setAddress.count(address))
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
@@ -2206,8 +2213,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             string strSentAccount;
             list<COutputEntry> listReceived;
             list<COutputEntry> listSent;
-            list<CScOutputEntry> listScSent;
-            wtx->GetAmounts(listReceived, listSent, listScSent, allFee, strSentAccount, filter);
+            wtx->GetAmounts(listReceived, listSent, allFee, strSentAccount, filter);
             if (wtx->GetDepthInMainChain() >= nMinDepth) {
                 for(const COutputEntry& r: listReceived)
                     if (r.maturity == CCoins::outputMaturity::MATURE)
@@ -2215,8 +2221,6 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             }
 
             for(const COutputEntry& s: listSent)
-                nBalance -= s.amount;
-            for(const CScOutputEntry& s: listScSent)
                 nBalance -= s.amount;
 
             nBalance -= allFee;
@@ -2783,21 +2787,20 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
         entry.pushKV("address", addr.ToString());
 }
 
-void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter)
+void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter, bool includeImmatureBTs)
 {
     CAmount nFee;
     string strSentAccount;
     list<COutputEntry> listReceived;
     list<COutputEntry> listSent;
-    list<CScOutputEntry> listScSent;
 
-    wtx.GetAmounts(listReceived, listSent, listScSent, nFee, strSentAccount, filter);
+    wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, filter);
 
     bool fAllAccounts = (strAccount == string("*"));
     bool involvesWatchonly = wtx.IsFromMe(ISMINE_WATCH_ONLY);
 
     // Sent
-    if (( (!listSent.empty() || !listScSent.empty() ) || nFee != 0) && (fAllAccounts || strAccount == strSentAccount))
+    if ((!listSent.empty() || nFee != 0) && (fAllAccounts || strAccount == strSentAccount))
     {
         BOOST_FOREACH(const COutputEntry& s, listSent)
         {
@@ -2815,19 +2818,6 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
                 WalletTxToJSON(wtx, entry, filter);
 
             entry.pushKV("size", (int)(wtx.getTxBase()->GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)) );
-            ret.push_back(entry);
-        }
-        BOOST_FOREACH(const CScOutputEntry& s, listScSent)
-        {
-            UniValue entry(UniValue::VOBJ);
-            entry.pushKV("sc address", s.address.GetHex());
-            entry.pushKV("category", "crosschain");
-            entry.pushKV("amount", ValueFromAmount(-s.amount));
-            entry.pushKV("fee", ValueFromAmount(-nFee));
-            if (fLong)
-                WalletTxToJSON(wtx, entry, filter);
-
-            entry.pushKV("size", (int)(wtx.getTxBase()->GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)));
             ret.push_back(entry);
         }
     }
@@ -2858,8 +2848,10 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
                 {
                     if (r.maturity == CCoins::outputMaturity::MATURE)
                         entry.pushKV("category", "receive");
-                    else
+                    else if(includeImmatureBTs)
                         entry.pushKV("category", "immature");
+                    else
+                        continue; // Don't add immature BT entry
                 }
                 entry.pushKV("amount", ValueFromAmount(r.amount));
                 if (r.vout != -1)
@@ -2896,9 +2888,9 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 5)
+    if (fHelp || params.size() > 6)
         throw runtime_error(
-            "listtransactions ( \"account\" count from includeWatchonly)\n"
+            "listtransactions   ( \"account\" count from includeWatchonly includeImmatureBTs )n"
             "\nReturns up to 'count' most recent transactions skipping the first 'from' transactions for address 'address'.\n"
             
             "\nArguments:\n"
@@ -2907,6 +2899,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
             "3. from                                 (numeric, optional, default=0) the number of transactions to skip\n"
             "4. includeWatchonly                     (bool, optional, default=false) include transactions to watchonly addresses (see 'importaddress')\n"
             "5. address                              (string, optional) include only transactions involving this address\n"
+            "6. includeImmatureBTs                   (bool, optional, default=false) Whether to include immature certificate Backward transfers\n"
             
             "\nResult:\n"
             "[\n"
@@ -2988,6 +2981,11 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
         }
     }
 
+    bool includeImmatureBTs = false;
+    if(params.size() > 5)
+        if(params[5].get_bool())
+            includeImmatureBTs = true;
+
     UniValue ret(UniValue::VARR);
     const TxItems & txOrdered = pwalletMain->wtxOrdered;
     // iterate backwards until we have nCount items to return:
@@ -2999,13 +2997,13 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
                 for(const CTxOut& txout : pwtx->getTxBase()->GetVout()) {
                     auto res = std::search(txout.scriptPubKey.begin(), txout.scriptPubKey.end(), scriptPubKey.begin(), scriptPubKey.end());
                     if (res == txout.scriptPubKey.begin()) {
-                        ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+                        ListTransactions(*pwtx, strAccount, 0, true, ret, filter, includeImmatureBTs);
                         break;
                     }
                 }
             }
             else {
-                ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
+                ListTransactions(*pwtx, strAccount, 0, true, ret, filter, includeImmatureBTs);
             }
         }
         CAccountingEntry *const pacentry = (*it).second.second;
@@ -3046,7 +3044,7 @@ UniValue getunconfirmedtxdata(const UniValue &params, bool fHelp)
     if (fHelp || params.size() > 3)
         throw runtime_error(
             "getunconfirmedtxdata ( \"address\")\n"
-            "\nReturns the server's total unconfirmed data relevanto to the input address\n"
+            "\nReturns the server's total unconfirmed data relevant to the input address\n"
             "\nArguments:\n"
             "1. \"address\"            (string, mandatory) consider transactions involving this address\n"
             "2. spendzeroconfchange  (boolean, optional) If provided the command will force zero confirmation change\n"
@@ -3248,19 +3246,15 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
         string strSentAccount;
         list<COutputEntry> listReceived;
         list<COutputEntry> listSent;
-        list<CScOutputEntry> listScSent;
 
         if (!wtx.HasMatureOutputs())
             continue;
 
-        wtx.GetAmounts(listReceived, listSent, listScSent, nFee, strSentAccount, includeWatchonly);
+        wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, includeWatchonly);
 
         mapAccountBalances[strSentAccount] -= nFee;
 
         for(const COutputEntry& s: listSent)
-            mapAccountBalances[strSentAccount] -= s.amount;
-
-        for(const CScOutputEntry& s: listScSent)
             mapAccountBalances[strSentAccount] -= s.amount;
 
         if (wtx.GetDepthInMainChain() >= nMinDepth) {
@@ -3301,7 +3295,8 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
             "1. \"blockhash\"                       (string, optional) the block hash to list transactions since\n"
             "2. target-confirmations:               (numeric, optional) the confirmations required, must be 1 or more\n"
             "3. includeWatchonly:                   (bool, optional, default=false) include transactions to watchonly addresses (see 'importaddress')"
-            
+            "4. includeImmatureBTs:                 (bool, optional, default=false) Whether to include immature certificate Backward transfers\n"
+
             "\nResult:\n"
             "{\n"
             "  \"transactions\": [\n"
@@ -3359,6 +3354,11 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
         if(params[2].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
 
+    bool includeImmatureBTs = false;
+    if(params.size() > 3)
+        if(params[3].getBool())
+            includeImmatureBTs = true;
+
     int depth = pindex ? (1 + chainActive.Height() - pindex->nHeight) : -1;
 
     UniValue transactions(UniValue::VARR);
@@ -3373,7 +3373,7 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
         const CWalletTransactionBase& tx = *((*it).second);
 #endif
         if (depth == -1 || tx.GetDepthInMainChain() < depth)
-            ListTransactions(tx, "*", 0, true, transactions, filter);
+            ListTransactions(tx, "*", 0, true, transactions, filter, includeImmatureBTs);
     }
 
     CBlockIndex *pblockLast = chainActive[chainActive.Height() + 1 - target_confirms];
@@ -3391,47 +3391,113 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() < 1 || params.size() > 2)
+    if (fHelp || params.size() < 1 || params.size() > 3)
         throw runtime_error(
-            "gettransaction \"txid\" ( includeWatchonly )\n"
+            "gettransaction \"txid\" ( includeWatchonly includeImmatureBTs )\n"
             "\nGet detailed information about in-wallet transaction <txid>\n"
             
             "\nArguments:\n"
-            "1. \"txid\"                                (string, required) the transaction id\n"
-            "2. \"includeWatchonly\"                    (bool, optional, default=false) whether to include watchonly addresses in balance calculation and details[]\n"
+            "1. \"txid\"                                         (string, required) the transaction id\n"
+            "2. \"includeWatchonly\"                             (bool, optional, default=false) whether to include watchonly addresses in balance calculation and details[]\n"
+            "3. \"includeImmatureBTs\"                           (bool, optional, default=false) Whether to include immature certificate Backward transfersin balance calculation and details[]\n"
             
             "\nResult:\n"
             "{\n"
-            "  \"amount\": xxxx,                        (numeric) the transaction amount in " + CURRENCY_UNIT + "\n"
-            "  \"confirmations\": n,                    (numeric) the number of confirmations\n"
-            "  \"blockhash\": \"hash\",                 (string) the block hash\n"
-            "  \"blockindex\": xx,                      (numeric) the block index\n"
-            "  \"blocktime\": ttt,                      (numeric) the time in seconds since epoch (1 Jan 1970 GMT)\n"
-            "  \"txid\": \"transactionid\",             (string) the transaction id.\n"
-            "  \"time\": ttt,                           (numeric) the transaction time in seconds since epoch (1 Jan 1970 GMT)\n"
-            "  \"timereceived\": ttt,                   (numeric) the time received in seconds since epoch (1 Jan 1970 GMT)\n"
-            "  \"details\": [                           (array) details about in-wallet transaction\n"                        
+            "  \"version\": n,                                   (numeric) the transaction version \n"
+            "  \"amount\": xxxx,                                 (numeric) the transaction amount in " + CURRENCY_UNIT + "\n"
+            "  \"confirmations\": n,                             (numeric) the number of confirmations\n"
+            "  \"blockhash\": \"hash\",                          (string) the block hash\n"
+            "  \"blockindex\": xx,                               (numeric) the block index\n"
+            "  \"blocktime\": ttt,                               (numeric) the time in seconds since epoch (1 Jan 1970 GMT)\n"
+            "  \"txid\": \"transactionid\",                      (string) the transaction id.\n"
+            "  \"time\": ttt,                                    (numeric) the transaction time in seconds since epoch (1 Jan 1970 GMT)\n"
+            "  \"timereceived\": ttt,                            (numeric) the time received in seconds since epoch (1 Jan 1970 GMT)\n"
+            "  \"vcsw_ccin\" : [                                 (array of json objects) Ceased sidechain withdrawal inputs (only if version = -4)\n"
+            "     {\n"
+            "       \"value\": x.xxx,                            (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"scId\": \"hex\",                           (string) The sidechain id\n"
+            "       \"nullifier\": \"hex\",                      (string) Withdrawal nullifier\n"
+            "       \"scriptPubKey\" : {                         (json object)\n"
+            "         \"asm\" : \"asm\",                         (string) the asm\n"
+            "         \"hex\" : \"hex\",                         (string) the hex\n"
+            "         \"reqSigs\" : n,                           (numeric) The required sigs\n"
+            "         \"type\" : \"pubkeyhash\",                 (string) The type, eg 'pubkeyhash'\n"
+            "         \"addresses\" : [                          (json array of string)\n"
+            "           \"horizenaddress\"                       (string) Horizen address\n"
+            "           ,...\n"
+            "         ]\n"
+            "       },\n"
+            "       \"scProof\": \"hex\",                         (string) the zero-knowledge proof\n"
+            "       \"redeemScript\": {                           (json object) The script\n"
+            "         \"asm\": \"asm\",                           (string) asm\n"
+            "         \"hex\": \"hex\"                            (string) hex\n"
+            "       }\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vsc_ccout\" : [                                  (array of json objects) Sidechain creation crosschain outputs (only if version = -4)\n"
+            "     {\n"
+            "       \"scid\" : \"hex\",                           (string) The sidechain id\n"
+            "       \"n\" : n,                                    (numeric) crosschain output index\n"
+            "       \"withdrawalEpochLength\" : n,                (numeric) Sidechain withdrawal epoch length\n"
+            "       \"value\" : x.xxx,                            (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"address\" : \"hex\",                        (string) The sidechain receiver address\n"
+            "       \"certProvingSystem\" : \"provingSystem\"     (string) The type of proving system to be used for certificate verification, allowed values:\n" + Sidechain::ProvingSystemTypeHelp() + "\n"
+            "       \"wCertVk\" : \"hex\",                        (string) The sidechain certificate snark proof verification key\n"
+            "       \"customData\" : \"hex\",                     (string) The sidechain declaration custom data\n"
+            "       \"constant\" : \"hex\",                       (string) The sidechain certificate snark proof constant data\n"
+            "       \"cswProvingSystem\" : \"provingSystem\"      (string) The type of proving system to be used for CSW verification, allowed values:\n" + Sidechain::ProvingSystemTypeHelp() + "\n"
+            "       \"wCeasedVk\" : \"hex\"                       (string) The ceased sidechain withdrawal input snark proof verification key\n"
+            "       \"ftScFee\" :                                 (numeric) The fee in " + CURRENCY_UNIT + " required to create a Forward Transfer to sidechain\n"
+            "       \"mbtrScFee\"                                 (numeric) The fee in " + CURRENCY_UNIT + " required to create a Mainchain Backward Transfer Request to sidechain\n"
+            "       \"mbtrRequestDataLength\"                     (numeric) The size of the MBTR request data length\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vft_ccout\" : [                                  (array of json objects) Sidechain forward transfer crosschain outputs (only if version = -4)\n"
+            "     {\n"
+            "       \"scid\" : \"hex\",                           (string) The sidechain id\n"
+            "       \"value\" : x.xxx,                            (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"n\" : n,                                    (numeric) crosschain output index\n"
+            "       \"address\" : \"hex\"                         (string) The sidechain receiver address\n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"vmbtr_out\" : [                                  (array of json objects) Sidechain backward transfer request outputs (only if version = -4)\n"
+            "     {\n"
+            "       \"scid\" : \"hex\",                           (string) The sidechain id\n"
+            "       \"n\" : n,                                    (numeric) crosschain output index\n"
+            "       \"mcDestinationAddress\": {                   (json object) The Mainchain destination address\n"
+            "         \"pubkeyhash\": \"asm\",                    (string) the pubkeyhash of the mainchain address\n"
+            "         \"taddr\": \"hex\"                          (string) the mainchain address\n"
+            "       }\n"
+            "       \"scFee\" :                                   (numeric) The fee in " + CURRENCY_UNIT + " required to create a Backward Transfer Request to sidechain\n"
+            "       \"vScRequestData\": []                        (array of string) \n"
+            "     }\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"details\": [                                     (array) details about in-wallet transaction\n"
             "    {\n"
-            "      \"account\": \"accountname\",        (string) DEPRECATED. The account name involved in the transaction, can be \"\" for the default account\n"
-            "      \"address\": \"horizenaddress\",     (string) the horizen address involved in the transaction\n"
-            "      \"category\": \"send|receive\",      (string) the category, either 'send' or 'receive'\n"
-            "      \"amount\": xxxx                     (numeric) the amount in " + CURRENCY_UNIT + "\n"
-            "      \"vout\": n,                         (numeric) the vout value\n"
+            "      \"account\": \"accountname\",                  (string) DEPRECATED. The account name involved in the transaction, can be \"\" for the default account\n"
+            "      \"address\": \"horizenaddress\",               (string) the horizen address involved in the transaction\n"
+            "      \"category\": \"send|receive\",                (string) the category, either 'send' or 'receive'\n"
+            "      \"amount\": xxxx                               (numeric) the amount in " + CURRENCY_UNIT + "\n"
+            "      \"vout\": n,                                   (numeric) the vout value\n"
             "    }\n"
             "    ,...\n"
             "  ],\n"
-            "  \"vjoinsplit\": [                        (array)\n" 
+            "  \"vjoinsplit\": [                                  (array)\n"
             "    {\n"
-            "      \"anchor\": \"treestateref\",        (string) merkle root of note commitment tree\n"
-            "      \"nullifiers\": [ string, ... ]      (string) nullifiers of input notes\n"
-            "      \"commitments\": [ string, ... ]     (string) note commitments for note outputs\n"
-            "      \"macs\": [ string, ... ]            (string) message authentication tags\n"
-            "      \"vpub_old\": xxxx                   (numeric) the amount removed from the transparent value pool\n"
-            "      \"vpub_new\": xxxx,                  (numeric) the amount added to the transparent value pool\n"
+            "      \"anchor\": \"treestateref\",                  (string) merkle root of note commitment tree\n"
+            "      \"nullifiers\": [ string, ... ]                (string) nullifiers of input notes\n"
+            "      \"commitments\": [ string, ... ]               (string) note commitments for note outputs\n"
+            "      \"macs\": [ string, ... ]                      (string) message authentication tags\n"
+            "      \"vpub_old\": xxxx                             (numeric) the amount removed from the transparent value pool\n"
+            "      \"vpub_new\": xxxx,                            (numeric) the amount added to the transparent value pool\n"
             "    }\n"
             "    ,...\n"
             "  ],\n"
-            "  \"hex\": \"data\"                        (string) raw data for transaction\n"
+            "  \"hex\": \"data\"                                  (string) raw data for transaction\n"
             "}\n"
 
             "\nExamples:\n"
@@ -3449,6 +3515,11 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     if(params.size() > 1)
         if(params[1].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
+
+    bool includeImmatureBTs = false;
+    if(params.size() > 2)
+        if(params[2].getBool())
+            includeImmatureBTs = true;
 
     UniValue entry(UniValue::VOBJ);
     if (!pwalletMain->getMapWallet().count(hash))
@@ -3468,6 +3539,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
         nFee = -(wtx.getTxBase()->GetFeeAmount(nDebit) + cswInTotAmount);
     }
 
+    entry.pushKV("version", wtx.getTxBase()->nVersion);
     entry.pushKV("amount", ValueFromAmount(nNet - nFee));
     if (wtx.IsFromMe(filter))
         entry.pushKV("fee", ValueFromAmount(nFee));
@@ -3475,7 +3547,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     WalletTxToJSON(wtx, entry, filter);
 
     UniValue details(UniValue::VARR);
-    ListTransactions(wtx, "*", 0, false, details, filter);
+    ListTransactions(wtx, "*", 0, false, details, filter, includeImmatureBTs);
     entry.pushKV("details", details);
 
     string strHex = wtx.getTxBase()->EncodeHex();
@@ -4059,14 +4131,15 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             "\nResult\n"
             "[                              (array of json object)\n"
             "  {\n"
-            "    \"txid\": \"txid\",        (string) the transaction id\n"
-            "    \"vout\": n,               (numeric) the vout value\n"
-            "    \"generated\": true|false  (boolean) true if txout is a coinbase transaction output\n"
-            "    \"address\": \"address\",  (string) the horizen address\n"
-            "    \"account\": \"account\",  (string) DEPRECATED. The associated account, or \"\" for the default account\n"
-            "    \"scriptPubKey\": \"key\", (string) the script key\n"
-            "    \"amount\": xxxx,          (numeric) the transaction amount in " + CURRENCY_UNIT + "\n"
-            "    \"confirmations\": n       (numeric) the number of confirmations\n"
+            "    \"txid\" : \"txid\",        (string) the transaction id \n"
+            "    \"vout\" : n,               (numeric) the vout value\n"
+            "    \"generated\" : true|false  (boolean) true if txout is a coinbase transaction output\n"
+            "    \"address\" : \"address\",  (string) the horizen address\n"
+            "    \"account\" : \"account\",  (string) DEPRECATED. The associated account, or \"\" for the default account\n"
+            "    \"scriptPubKey\" : \"key\", (string) the script key\n"
+            "    \"amount\" : x.xxx,         (numeric) the transaction amount in " + CURRENCY_UNIT + "\n"
+            "    \"confirmations\" : n       (numeric) The number of confirmations\n"
+            "    \"isCert\": true|false,     (boolean) true if a certificate\n"
             "  }\n"
             "  ,...\n"
             "]\n"
@@ -4124,14 +4197,9 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         UniValue entry(UniValue::VOBJ);
         entry.pushKV("txid", out.tx->getTxBase()->GetHash().GetHex());
         entry.pushKV("vout", out.pos);
-        if (out.tx->getTxBase()->IsCertificate() )
-        {
-            entry.pushKV("certified", true);
-        }
-        else
-        {
-            entry.pushKV("generated", out.tx->getTxBase()->IsCoinBase());
-        }
+        entry.pushKV("isCert", out.tx->getTxBase()->IsCertificate());
+        entry.pushKV("generated", out.tx->getTxBase()->IsCoinBase());
+
         CTxDestination address;
         if (ExtractDestination(out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey, address)) {
             entry.pushKV("address", CBitcoinAddress(address).ToString());
@@ -5390,12 +5458,12 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
             "sc_sendmany [{\"address\":... ,\"amount\":...,\"scid\":,...},...]\n"
             "\nSend cross chain forward transfer of coins multiple times. Amounts are double-precision floating point numbers."
             "\nArguments:\n"
-            "\"amounts\"                (array, required) An array of json objects representing the amounts to send.\n"
+            "\"amounts\"                            (array, required) An array of json objects representing the amounts to send.\n"
             "    [{\n"                     
-            "      \"address\":address     (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            "      \"amount\":amount       (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
-            "      \"scid\":side chain ID  (string, required) The uint256 side chain ID\n"
-            "      \"mcReturnAddress\":pkh (string, required) The uint160 public key hash corresponding to a main chain address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
+            "      \"address\":address              (string, required) The receiver PublicKey25519Proposition in the SC\n"
+            "      \"amount\":amount                (numeric, required) The numeric amount in " + CURRENCY_UNIT + " is the value\n"
+            "      \"scid\":side chain ID           (string, required) The uint256 side chain ID\n"
+            "      \"mcReturnAddress\":\"address\"  (string, required) The Horizen address where to send the backward transfer in case Forward Transfer is rejected by sidechain\n"
             "    }, ... ]\n"
             "\nResult:\n"
             "\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
@@ -5443,11 +5511,14 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
         scId.SetHex(inputString);
 
         inputString = find_value(o, "mcReturnAddress").get_str();
-        if (inputString.length() == 0 || inputString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcReturnAddress format: not an hex");
+        CBitcoinAddress mcReturnAddrSource(inputString);
+        if (!mcReturnAddrSource.IsValid() || !mcReturnAddrSource.IsPubKey())
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcDestinationAddress: not a valid Horizen transparent address.");
+        CKeyID keyId;
+        if(!mcReturnAddrSource.GetKeyID(keyId))
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid mcDestinationAddress: can not extract pub key hash.");
 
-        uint160 mcReturnAddress;
-        mcReturnAddress.SetHex(inputString);
+        uint160 mcReturnAddress = keyId;
 
         {
             LOCK(mempool.cs);
@@ -5497,14 +5568,14 @@ UniValue sc_sendmany(const UniValue& params, bool fHelp)
     return wtx.getWrappedTx().GetHash().GetHex();
 }
 
-UniValue send_certificate(const UniValue& params, bool fHelp)
+UniValue sc_send_certificate(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
     if (fHelp || params.size() < 8  )
         throw runtime_error(
-            "send_certificate scid epochNumber quality endEpochCumScTxCommTreeRoot scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
+            "sc_send_certificate scid epochNumber quality endEpochCumScTxCommTreeRoot scProof [{\"pubkeyhash\":... ,\"amount\":...},...] (subtractfeefromamount) (fee)\n"
             "\nSend cross chain backward transfers from SC to MC as a certificate."
             "\nArguments:\n"
             " 1. \"scid\"                        (string, required) The uint256 side chain ID\n"
@@ -5514,7 +5585,7 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             " 5. \"scProof\"                     (string, required) SNARK proof whose verification key wCertVk was set upon sidechain registration. Its size must be " + strprintf("%d", CScProof::MaxByteSize()) + " bytes max\n"
             " 6. transfers:                      (array, required) An array of json objects representing the amounts of the backward transfers. Can also be empty\n"
             "     [{\n"                     
-            "       \"pubkeyhash\":\"pkh\"       (string, required) The public key hash of the receiver\n"
+            "       \"address\":\"address\"      (string, required) The Horizen address of the receiver\n"
             "       \"amount\":amount            (numeric, required) The numeric amount in ZEN\n"
             "     }, ... ]\n"
             " 7. forwardTransferScFee            (numeric, required) The amount of fee due to sidechain actors when creating a FT\n"
@@ -5531,8 +5602,8 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "  \"certificateId\"   (string) The resulting certificate id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 5 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"813551c928d41c0436ba7361850797d9b30ad4ed\" ,\"amount\": 5.0}]'")
-            + HelpExampleCli("send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 7 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" \"abcd..ef\" \"abcd..ef\" '[{\"pubkeyhash\":\"76fea046133b0acc74ebabbd17b80e99816228ab\", \"amount\":33.5}]' false 0.00001")
+            + HelpExampleCli("sc_send_certificate", "\"054671870079a64a491ea68e08ed7579ec2e0bd148c51c6e2fe6385b597540f4\" 10 7 \"0a85efb37d1130009f1b588dcddd26626bbb159ae4a19a703715277b51033144\" \"abcd..ef\" \"abcd..ef\" '[{\"address\":\"taddr\", \"amount\":33.5}]' false 0.00001")
+            + HelpExampleCli("sc_send_certificate", "\"ea3e7ccbfd40c4e2304c4215f76d204e4de63c578ad835510f580d529516a874\" 12 5 \"04a1527384c67d9fce3d091ababfc1de325dbac9b3b14025a53722ff6c53d40e\" \"abcd..ef\" \"abcd..ef\" '[{\"address\":\"taddr\" ,\"amount\": 5.0}]'")
 
         );
 
@@ -5652,24 +5723,15 @@ UniValue send_certificate(const UniValue& params, bool fHelp)
         // sanity check, report error if unknown key-value pairs
         for (const string& s : o.getKeys())
         {
-            if (s != "amount" && s != "pubkeyhash")
+            if (s != "amount" && s != "address")
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
         }
 
-        const string& pkeyStr = find_value(o, "pubkeyhash").get_str();
-        if (pkeyStr.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: not an hex");
-        if (pkeyStr.length() != 40)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid pkey format: len is not 20 bytes ");
+        const string& addrStr = find_value(o, "address").get_str();
+        CBitcoinAddress taddr(addrStr);
 
-        uint160 pkeyValue;
-        pkeyValue.SetHex(pkeyStr);
-
-        CKeyID keyID(pkeyValue);
-        CBitcoinAddress taddr(keyID);
-
-        if (!taddr.IsValid()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, pubkeyhash does not give a valid address");
+        if (!taddr.IsValid() || !taddr.IsPubKey()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, invalid Horizen transparent address");
         }
 
         const UniValue& av = find_value(o, "amount");

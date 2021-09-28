@@ -106,14 +106,14 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
             'mainchainBackwardTransferRequestDataLength': 1
         }
 
-        res = self.nodes[0].create_sidechain(cmdInput)
+        res = self.nodes[0].sc_create(cmdInput)
         tx =   res['txid']
         scid = res['scid']
         scid_swapped = str(swap_bytes(scid))
         self.sync_all()
         mark_logs("tx {} created SC {}".format(tx, scid), self.nodes, DEBUG_MODE)
 
-        pkh1 = self.nodes[1].getnewaddress("", True)
+        dest_addr = self.nodes[1].getnewaddress()
         fe1 = [generate_random_field_element_hex()]
 
         # advance two epochs
@@ -151,19 +151,19 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         print "------------------"
         # use different nodes for sending txes and cert in order to be sure there are no dependancies from each other
         fwt_amount = Decimal("2.0")
-        mc_return_address = self.nodes[0].getnewaddress("", True)
+        mc_return_address = self.nodes[0].getnewaddress()
         mark_logs("\nNTW part 1) Node0 sends {} coins to SC".format(fwt_amount), self.nodes, DEBUG_MODE)
-        tx_fwd = self.nodes[0].sc_send("abcd", fwt_amount, scid, mc_return_address)
+        tx_fwd = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
         sync_mempools(self.nodes[0:3])
 
         mark_logs("              Check fwd tx {} is in mempool".format(tx_fwd), self.nodes, DEBUG_MODE)
         assert_true(tx_fwd in self.nodes[0].getrawmempool()) 
 
-        outputs = [{'vScRequestData':fe1, 'scFee':Decimal("0.001"), 'scid':scid, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData': fe1, 'scFee': Decimal("0.001"), 'scid': scid, 'mcDestinationAddress': dest_addr}]
         cmdParms = { "minconf":0, "fee":0.0}
         mark_logs("\nNTW part 1) Node1 creates a tx with a bwt request", self.nodes, DEBUG_MODE)
         try:
-            tx_bwt = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms)
+            tx_bwt = self.nodes[1].sc_request_transfer(outputs, cmdParms)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -178,14 +178,14 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], sc_epoch_len)
 
         bt_amount = Decimal("5.0")
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
         quality = 10
 
-        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bt_amount])
+        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bt_amount])
 
-        amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount}]
+        amount_cert = [{"address": addr_node1, "amount": bt_amount}]
         try:
-            cert_bad = self.nodes[2].send_certificate(scid, epoch_number, quality,
+            cert_bad = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert, 0, 0, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -203,14 +203,14 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[3], sc_epoch_len)
 
         bt_amount_2 = Decimal("10.0")
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
+        addr_node1 = self.nodes[1].getnewaddress()
         quality = 5
 
-        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bt_amount_2])
+        proof = certMcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bt_amount_2])
 
-        amount_cert = [{"pubkeyhash": pkh_node1, "amount": bt_amount_2}]
+        amount_cert = [{"address": addr_node1, "amount": bt_amount_2}]
         try:
-            cert = self.nodes[3].send_certificate(scid, epoch_number, quality,
+            cert = self.nodes[3].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert, 0, 0, 0.01)
         except JSONRPCException, e:
             errorString = e.error['message']

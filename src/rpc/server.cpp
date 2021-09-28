@@ -345,9 +345,7 @@ static const CRPCCommand vRPCCommands[] =
     { "rawtransactions",    "getrawtransaction",      &getrawtransaction,      true  },
     { "rawtransactions",    "getrawcertificate",      &getrawcertificate,      true  },
     { "rawtransactions",    "sendrawtransaction",     &sendrawtransaction,     false },
-    { "rawtransactions",    "sendrawcertificate",     &sendrawcertificate,     false },
     { "rawtransactions",    "signrawtransaction",     &signrawtransaction,     false }, /* uses wallet if enabled */
-    { "rawtransactions",    "signrawcertificate",     &signrawcertificate,     false }, /* uses wallet if enabled */
 #ifdef ENABLE_WALLET
     { "rawtransactions",    "fundrawtransaction",     &fundrawtransaction,     false },
 #endif
@@ -432,14 +430,14 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "z_importviewingkey",     &z_importviewingkey,     true  },
     { "wallet",             "z_exportwallet",         &z_exportwallet,         true  },
     { "wallet",             "z_importwallet",         &z_importwallet,         true  },
-    { "wallet",             "send_certificate",       &send_certificate,       false },
-    { "wallet",             "sc_send",                &sc_send ,               false },
+    { "wallet",             "sc_send_certificate",    &sc_send_certificate,    false },
+    { "wallet",             "dep_sc_send",            &dep_sc_send ,           false },
     { "wallet",             "sc_sendmany",            &sc_sendmany,            false },
-    { "wallet",             "sc_create",              &sc_create,              false },
+    { "wallet",             "dep_sc_create",          &dep_sc_create,          false },
     // useful for sbh wallet
-    { "wallet",             "create_sidechain",       &create_sidechain,       false },
-    { "wallet",             "send_to_sidechain",      &send_to_sidechain,      false },
-    { "wallet",             "request_transfer_from_sidechain",&request_transfer_from_sidechain,false },
+    { "wallet",             "sc_create",              &sc_create,              false },
+    { "wallet",             "sc_send",                &sc_send,                false },
+    { "wallet",             "sc_request_transfer",    &sc_request_transfer,    false },
 
     // TODO: rearrange into another category 
     { "disclosure",         "z_getpaymentdisclosure", &z_getpaymentdisclosure, true  }, 

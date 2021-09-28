@@ -82,7 +82,7 @@ class sc_big_block(BitcoinTestFramework):
 
         def create_sc(cmdInput, node):
             try:
-                res = node.create_sidechain(cmdInput)
+                res = node.sc_create(cmdInput)
                 tx =   res['txid']
                 scid = res['scid']
             except JSONRPCException, e:
@@ -114,7 +114,7 @@ class sc_big_block(BitcoinTestFramework):
                 print "...proof generated: {} secs".format(t1-t0)
  
                 try:
-                    cert = self.nodes[0].send_certificate(scids[i], epoch_number, q,
+                    cert = self.nodes[0].sc_send_certificate(scids[i], epoch_number, q,
                         epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, vCfe, vCmt)
                 except JSONRPCException, e:
                     errorString = e.error['message']
@@ -207,7 +207,6 @@ class sc_big_block(BitcoinTestFramework):
  
             # CSW sender MC address, in taddress and pub key hash formats
             csw_mc_address = self.nodes[0].getnewaddress()
-            pkh_mc_address = self.nodes[0].validateaddress(csw_mc_address)['pubkeyhash']
             actCertData            = self.nodes[0].getactivecertdatahash(scid)['certDataHash']
             ceasingCumScTxCommTree = self.nodes[0].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
  
@@ -217,7 +216,7 @@ class sc_big_block(BitcoinTestFramework):
             print "Generating csw proof..."
             t0 = time.time()
             sc_proof = cswMcTest.create_test_proof(
-                "scs", sc_csw_amount, str(scid_swapped), nullifier, pkh_mc_address, ceasingCumScTxCommTree,
+                "scs", sc_csw_amount, str(scid_swapped), nullifier, csw_mc_address, ceasingCumScTxCommTree,
                 actCertData, constant, CSW_NUM_CONSTRAINTS, SEGMENT_SIZE)
             assert_true(sc_proof != None)
             t1 = time.time()

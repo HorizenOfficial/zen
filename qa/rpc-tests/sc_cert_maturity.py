@@ -9,7 +9,8 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
-    assert_false, assert_true, swap_bytes
+    assert_false, assert_true, swap_bytes, \
+    get_total_amount_from_listaddressgroupings
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
@@ -82,7 +83,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         # Create a SC with a budget of 10 coins
-        ret = self.nodes[0].sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[0].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -107,15 +108,15 @@ class sc_cert_maturity(BitcoinTestFramework):
         bal_without_bwt = self.nodes[1].getbalance() 
 
         # node0 create a cert_1 for funding node1 
-        pkh_node1 = self.nodes[1].getnewaddress("", True)
-        amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount1}, {"pubkeyhash": pkh_node1, "amount": bwt_amount2}]
-        mark_logs("Node 0 sends a cert for scid {} with 2 bwd transfers of {} coins to Node1 pkh".format(scid, bwt_amount1+bwt_amount2, pkh_node1), self.nodes, DEBUG_MODE)
+        addr_node1 = self.nodes[1].getnewaddress()
+        amounts = [{"address": addr_node1, "amount": bwt_amount1}, {"address": addr_node1, "amount": bwt_amount2}]
+        mark_logs("Node 0 sends a cert for scid {} with 2 bwd transfers of {} coins to Node1 address".format(scid, bwt_amount1+bwt_amount2, addr_node1), self.nodes, DEBUG_MODE)
         try:
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1, pkh_node1], [bwt_amount1, bwt_amount2])
+            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1, addr_node1], [bwt_amount1, bwt_amount2])
 
-            cert_1 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
             self.sync_all()
@@ -161,14 +162,14 @@ class sc_cert_maturity(BitcoinTestFramework):
 
 
         # node0 create a cert_2 for funding node1 
-        amounts = [{"pubkeyhash": pkh_node1, "amount": bwt_amount3}]
-        mark_logs("Node 0 sends a cert for scid {} with 1 bwd transfers of {} coins to Node1 pkh".format(scid, bwt_amount3, pkh_node1), self.nodes, DEBUG_MODE)
+        amounts = [{"address": addr_node1, "amount": bwt_amount3}]
+        mark_logs("Node 0 sends a cert for scid {} with 1 bwd transfers of {} coins to Node1 address".format(scid, bwt_amount3, addr_node1), self.nodes, DEBUG_MODE)
         try:
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node1], [bwt_amount3])
+            proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount3])
 
-            cert_2 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
             self.sync_all()
@@ -203,6 +204,9 @@ class sc_cert_maturity(BitcoinTestFramework):
         mark_logs("Check Node1 has not bwt in its balance yet", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[1].getbalance(), bal_without_bwt) 
         assert_equal(self.nodes[1].z_getbalance(bwt_address), bal_without_bwt)
+
+        lag_list = self.nodes[1].listaddressgroupings()
+        assert_equal(get_total_amount_from_listaddressgroupings(lag_list), bal_without_bwt)
 
         mark_logs("Stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
@@ -263,7 +267,7 @@ class sc_cert_maturity(BitcoinTestFramework):
             quality = 22
             proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
 
-            cert_3 = self.nodes[0].send_certificate(scid, epoch_number, quality,
+            cert_3 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_3), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
@@ -272,14 +276,54 @@ class sc_cert_maturity(BitcoinTestFramework):
 
         self.sync_all()
 
+        assert_equal(self.nodes[1].z_getbalance(bwt_address), bwt_amount1+bwt_amount2)
+        assert_equal(self.nodes[1].getbalance(), bwt_amount1+bwt_amount2)
+        assert_equal(self.nodes[1].listaccounts()[""], bwt_amount1+bwt_amount2)
+
+        lag_list = self.nodes[1].listaddressgroupings()
+        assert_equal(get_total_amount_from_listaddressgroupings(lag_list), bwt_amount1+bwt_amount2)
+        assert_equal(Decimal(self.nodes[1].getreceivedbyaccount("")), bwt_amount1+bwt_amount2)
+
         mark_logs("Node0 generates 1 more block attaining the maturity of the last bwt", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
         
         assert_equal(self.nodes[1].z_getbalance(bwt_address), bwt_amount1+bwt_amount2+bwt_amount3)
         assert_equal(self.nodes[1].getbalance(), bwt_amount1+bwt_amount2+bwt_amount3)
+        assert_equal(self.nodes[1].listaccounts()[""], bwt_amount1+bwt_amount2+bwt_amount3)
+
+        lag_list = self.nodes[1].listaddressgroupings()
+        assert_equal(get_total_amount_from_listaddressgroupings(lag_list), bwt_amount1+bwt_amount2+bwt_amount3)
+        assert_equal(Decimal(self.nodes[1].getreceivedbyaccount("")), bwt_amount1+bwt_amount2+bwt_amount3)
+
         ud = self.nodes[1].getunconfirmedtxdata(bwt_address)
         assert_equal(ud['bwtImmatureOutput'], Decimal("0.0") )
+
+        # lock the bwt utxo
+        arr = [{"txid": cert_2, "vout":1}] 
+        ret = self.nodes[1].lockunspent(False, arr)
+        assert_equal(ret, True)
+        self.sync_all()
+
+        try:
+            ret = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("3.5")) 
+            assert_true(False)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+
+        # unlock the bwt utxo
+        ret = self.nodes[1].lockunspent(True, arr)
+        assert_equal(ret, True)
+        self.sync_all()
+
+        try:
+            ret = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("3.5")) 
+            mark_logs("Send succeeded {}".format(ret), self.nodes, DEBUG_MODE)
+        except JSONRPCException, e:
+            errorString = e.error['message']
+            mark_logs("Send failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert_true(False)
 
 
 

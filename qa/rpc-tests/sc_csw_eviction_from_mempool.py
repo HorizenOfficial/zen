@@ -95,7 +95,7 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
         mark_logs("\nNode 0 creates 2 sidechains", self.nodes, DEBUG_MODE)
 
         try:
-            ret = self.nodes[0].sc_create(withdrawalEpochLength, address, creation_amount, certVk1,
+            ret = self.nodes[0].dep_sc_create(withdrawalEpochLength, address, creation_amount, certVk1,
                 custom_data, constant1, cswVk1, feCfg, bvCfg, ftScFee, mbtrScFee, mbtrRequestDataLength)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -107,7 +107,7 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
         self.sync_all()
 
         try:
-            ret = self.nodes[0].sc_create(withdrawalEpochLength, address, creation_amount, certVk2,
+            ret = self.nodes[0].dep_sc_create(withdrawalEpochLength, address, creation_amount, certVk2,
                 custom_data, constant2, cswVk2, feCfg, bvCfg, ftScFee, mbtrScFee, mbtrRequestDataLength)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -167,7 +167,6 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
 
         # CSW sender MC address, in taddress and pub key hash formats
         csw_mc_address = self.nodes[0].getnewaddress()
-        pkh_mc_address = self.nodes[0].validateaddress(csw_mc_address)['pubkeyhash']
 
         nullifiers1 = []
         nullifiers2 = []
@@ -189,11 +188,11 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
             nullifiers2.append(generate_random_field_element_hex())
 
             csw_proofs1.append(cswMcTest.create_test_proof(
-                "sc1", sc_csw_amount, str(scid1_swapped), nullifiers1[i], pkh_mc_address,
+                "sc1", sc_csw_amount, str(scid1_swapped), nullifiers1[i], csw_mc_address,
                 ceasingCumScTxCommTree1, actCertData1, constant1))
 
             csw_proofs2.append(cswMcTest.create_test_proof(
-                "sc2", sc_csw_amount, str(scid2_swapped), nullifiers2[i], pkh_mc_address,
+                "sc2", sc_csw_amount, str(scid2_swapped), nullifiers2[i], csw_mc_address,
                 ceasingCumScTxCommTree2, actCertData2, constant2))
         
         sc_csws = []

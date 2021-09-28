@@ -22,7 +22,7 @@
 #include "uint256.h"
 #include "utilmoneystr.h"
 
-extern UniValue send_certificate(const UniValue& params, bool fHelp);
+extern UniValue sc_send_certificate(const UniValue& params, bool fHelp);
 extern CAmount AmountFromValue(const UniValue& value);
 
 using tcp = boost::asio::ip::tcp;
@@ -452,7 +452,7 @@ private:
     int sendCertificate(const UniValue& cmdParams, const std::string& clientRequestId, std::string& outMsg) {
         UniValue ret;
         try {
-             ret = send_certificate(cmdParams, false);
+             ret = sc_send_certificate(cmdParams, false);
         } catch (const UniValue& e) {
             dumpUniValueError(e, outMsg);
             return INVALID_PARAMETER;

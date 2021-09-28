@@ -170,13 +170,13 @@ class ScInvalidateTest(BitcoinTestFramework):
         totScFee = Decimal("0.0")
 
         fe1 = [generate_random_field_element_hex()]
-        pkh1 = self.nodes[1].getnewaddress("", True)
+        mc_dest_addr = self.nodes[1].getnewaddress()
         TX_FEE = Decimal("0.000123")
-        outputs = [{'vScRequestData':fe1, 'scFee':SC_FEE, 'scid':scid, 'pubkeyhash':pkh1 }]
+        outputs = [{'vScRequestData': fe1, 'scFee': SC_FEE, 'scid': scid, 'mcDestinationAddress':mc_dest_addr}]
         cmdParms = { "minconf":0, "fee":TX_FEE}
 
         try:
-            mbtrTx = self.nodes[1].request_transfer_from_sidechain(outputs, cmdParms);
+            mbtrTx = self.nodes[1].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> mbtrTx = {}.".format(mbtrTx), self.nodes, DEBUG_MODE)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -188,8 +188,8 @@ class ScInvalidateTest(BitcoinTestFramework):
 
         # Node 1 creates a FT of 1.0 coin and Node 0 generates 1 block
         mark_logs("\nNode1 sends " + str(fwt_amount_1) + " coins to SC", self.nodes, DEBUG_MODE)
-        mc_return_address = self.nodes[1].getnewaddress("", True)
-        ftTx = self.nodes[1].sc_send("abcd", fwt_amount_1, scid, mc_return_address)
+        mc_return_address = self.nodes[1].getnewaddress()
+        ftTx = self.nodes[1].dep_sc_send("abcd", fwt_amount_1, scid, mc_return_address)
         self.sync_all()
 
         assert_true(crTx in self.nodes[0].getrawmempool())

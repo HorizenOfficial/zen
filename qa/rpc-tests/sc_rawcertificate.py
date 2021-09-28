@@ -132,7 +132,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         sc_funds_pre = self.nodes[3].getscinfo(scid)['items'][0]['balance']
 
-        pkh_node2 = self.nodes[2].getnewaddress("", True)
+        addr_node2 = self.nodes[2].getnewaddress()
 
         mark_logs("Node3 generating 2 block, overcoming safeguard", self.nodes, DEBUG_MODE)
         self.nodes[3].generate(2)
@@ -141,13 +141,13 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 0
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [pkh_node2], [bt_amount])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node2], [bt_amount])
 
         utx, change = get_spendable(0, CERT_FEE)
         raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         raw_outs    = { self.nodes[0].getnewaddress() : change }
 
-        raw_bwt_outs = {pkh_node2: bt_amount}
+        raw_bwt_outs = {addr_node2: bt_amount}
         raw_params = {
             "scid": scid,
             "quality": quality,
@@ -160,7 +160,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         try:
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            signed_cert = self.nodes[0].signrawcertificate(raw_cert)
+            signed_cert = self.nodes[0].signrawtransaction(raw_cert)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
@@ -172,7 +172,7 @@ class sc_rawcert(BitcoinTestFramework):
         mark_logs("Node0 sending raw certificate for epoch {}, expecting failure...".format(epoch_number), self.nodes, DEBUG_MODE)
         # we expect it to fail because beyond the safeguard
         try:
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -184,7 +184,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node0 sending raw certificate for epoch {}, expecting success".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
@@ -222,7 +222,7 @@ class sc_rawcert(BitcoinTestFramework):
         assert_equal(sc_funds_post, sc_funds_pre - bt_amount)
 
         decoded_cert_post = self.nodes[2].getrawtransaction(cert, 1)
-        assert_equal(decoded_cert_post['certid'], cert)
+        assert_equal(decoded_cert_post['txid'], cert)
         assert_equal(decoded_cert_post['hex'], signed_cert['hex'])
         assert_equal(decoded_cert_post['blockhash'], mined)
         assert_equal(decoded_cert_post['confirmations'], 4)
@@ -265,7 +265,7 @@ class sc_rawcert(BitcoinTestFramework):
         # generate a certificate with no backward transfers and only a fee
         try:
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            signed_cert = self.nodes[0].signrawcertificate(raw_cert)
+            signed_cert = self.nodes[0].signrawtransaction(raw_cert)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
@@ -276,7 +276,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node3 sending raw certificate with no backward transfer for epoch {}".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
-            cert = self.nodes[3].sendrawcertificate(signed_cert['hex'])
+            cert = self.nodes[3].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
@@ -294,7 +294,7 @@ class sc_rawcert(BitcoinTestFramework):
         mark_logs("check that cert contents are as expected", self.nodes, DEBUG_MODE)
         # vout contains just the change 
         assert_equal(len(decoded_cert_post['vout']), 1)
-        assert_equal(decoded_cert_post['certid'], cert)
+        assert_equal(decoded_cert_post['txid'], cert)
         assert_equal(decoded_cert_post['hex'], signed_cert['hex'])
         assert_equal(decoded_cert_post['blockhash'], mined)
         assert_equal(decoded_cert_post['confirmations'], 1)
@@ -356,10 +356,10 @@ class sc_rawcert(BitcoinTestFramework):
         chunkValueOut = Decimal(change/numbOfChunks)
 
         for k in range(0, numbOfChunks):
-            pkh_node1 = self.nodes[1].getnewaddress("", True)
-            raw_bwt_outs.update({pkh_node1:chunkValueBt})
+            addr_node1 = self.nodes[1].getnewaddress()
+            raw_bwt_outs.update({addr_node1: chunkValueBt})
             taddr = self.nodes[3].getnewaddress()
-            raw_outs.update({ taddr : chunkValueOut })
+            raw_outs.update({taddr: chunkValueOut})
 
         totBwtOuts = len(raw_bwt_outs)*chunkValueBt
         totOuts    = len(raw_outs)*chunkValueOut
@@ -393,10 +393,10 @@ class sc_rawcert(BitcoinTestFramework):
         # generate a certificate with some backward transfer, several vin vout and a fee
         try:
             raw_cert    = self.nodes[3].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            signed_cert = self.nodes[3].signrawcertificate(raw_cert)
+            signed_cert = self.nodes[3].signrawtransaction(raw_cert)
             # let a different node, Node0, send it
             mark_logs("Node1 sending raw certificate for epoch {}".format(epoch_number), self.nodes, DEBUG_MODE)
-            cert        = self.nodes[1].sendrawcertificate(signed_cert['hex'])
+            cert        = self.nodes[1].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
@@ -406,7 +406,7 @@ class sc_rawcert(BitcoinTestFramework):
         decoded_cert_post = self.nodes[0].getrawtransaction(cert, 1)
 
         mark_logs("check that cert contents are as expected", self.nodes, DEBUG_MODE)
-        assert_equal(decoded_cert_post['certid'], cert)
+        assert_equal(decoded_cert_post['txid'], cert)
         # vin contains the expected numb of utxo
         assert_equal(len(decoded_cert_post['vin']), len(raw_inputs))
         # vout contains the change and the backward transfers 
@@ -461,7 +461,7 @@ class sc_rawcert(BitcoinTestFramework):
         try:
             mark_logs("Node0 creates and signs a raw certificate for epoch {}, expecting failure because the priv key is not his...".format(epoch_number), self.nodes, DEBUG_MODE)
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            signed_cert = self.nodes[0].signrawcertificate(raw_cert, pk_arr)
+            signed_cert = self.nodes[0].signrawtransaction(raw_cert, [], pk_arr)
             assert_equal(signed_cert['complete'], False)
             print "======> ", signed_cert['errors'][0]['error'], "\n"
         except JSONRPCException, e:
@@ -476,7 +476,7 @@ class sc_rawcert(BitcoinTestFramework):
         try:
             mark_logs("Node0 creates and signs a raw certificate for epoch {}, expecting success because the priv key is the right one...".format(epoch_number), self.nodes, DEBUG_MODE)
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            signed_cert = self.nodes[0].signrawcertificate(raw_cert, pk_arr)
+            signed_cert = self.nodes[0].signrawtransaction(raw_cert, [], pk_arr)
             assert_equal(signed_cert['complete'], True)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -484,7 +484,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node2 sending raw certificate for epoch {}".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
-            cert = self.nodes[2].sendrawcertificate(signed_cert['hex'])
+            cert = self.nodes[2].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
@@ -530,8 +530,8 @@ class sc_rawcert(BitcoinTestFramework):
         }
         try:
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            signed_cert = self.nodes[0].signrawcertificate(raw_cert)
-            cert = self.nodes[0].sendrawcertificate(signed_cert['hex'])
+            signed_cert = self.nodes[0].signrawtransaction(raw_cert)
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -565,7 +565,7 @@ class sc_rawcert(BitcoinTestFramework):
         # generate a certificate with no backward transfers, no vin and no change nor fee
         try:
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            signed_cert = self.nodes[0].signrawcertificate(raw_cert)
+            signed_cert = self.nodes[0].signrawtransaction(raw_cert)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
@@ -576,7 +576,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node3 sending raw certificate with no vin for epoch {}, expecting failure...".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
-            cert = self.nodes[3].sendrawcertificate(signed_cert['hex'])
+            cert = self.nodes[3].sendrawtransaction(signed_cert['hex'])
             assert_true(False)
         except JSONRPCException, e:
             errorString = e.error['message']
@@ -591,7 +591,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         try:
             raw_cert    = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            signed_cert = self.nodes[0].signrawcertificate(raw_cert)
+            signed_cert = self.nodes[0].signrawtransaction(raw_cert)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
@@ -599,7 +599,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node3 sending raw certificate with no fee for epoch {}...".format(epoch_number), self.nodes, DEBUG_MODE)
         try:
-            cert = self.nodes[3].sendrawcertificate(signed_cert['hex'])
+            cert = self.nodes[3].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString
