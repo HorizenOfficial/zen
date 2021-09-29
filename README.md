@@ -1,4 +1,4 @@
-Zen 2.1.0-beta4 <!---TO BE BUMPED UP UPON RELEASE -->
+Zen 3.0.0-beta1
 ================
 What is Horizen?
 ----------------
