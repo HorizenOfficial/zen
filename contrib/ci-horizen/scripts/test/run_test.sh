@@ -8,7 +8,7 @@ export ARGS="$2"
 if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
   # workaround until https://github.com/zcash/zcash/pull/3538 is pulled in from upstream
   # or the work porting the test suite to python3 is pulled in
-  find "${TRAVIS_BUILD_DIR}/qa" -type f -name *.py | LC_ALL=C xargs sed -i '' 's/env python2/env python/'
+  find "${TRAVIS_BUILD_DIR}/qa" "${TRAVIS_BUILD_DIR}/src/test" -type f -name *.py | LC_ALL=C xargs sed -i '' 's/env python2/env python/'
   bash -c 'set -xeuo pipefail && export HOST=$(gcc -dumpmachine) && export MAKEFLAGS="-j $(($(nproc)+1))" \
     && cd "${TRAVIS_BUILD_DIR}" && ./zcutil/fetch-params.sh && time "${CMD}" ${ARGS}'
 else
@@ -17,5 +17,5 @@ else
     -e LOCAL_USER_ID="$(id -u)" -e LOCAL_GRP_ID="$(id -g)" -e CMD -e ARGS \
     --env-file <(env | grep 'DOCKER_\|B2_\|TEST_\|TRAVIS_') --network=dockerbridge "${IMAGE_NAME}:${IMAGE_TAG}" \
     bash -c 'set -xeuo pipefail && export HOST=$(gcc -dumpmachine) \
-      && export MAKEFLAGS="-j $(($(nproc)+1))" && cd "${DOCKER_HOME}" && ./zcutil/fetch-params.sh && /usr/bin/time -v "${CMD}" ${ARGS}'
+      && export MAKEFLAGS="-j $(($(nproc)+1))" && cd "${DOCKER_HOME}" && ./zcutil/fetch-params.sh && time "${CMD}" ${ARGS}'
 fi
