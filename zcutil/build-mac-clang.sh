@@ -138,12 +138,12 @@ if [ "$LIBZENDOO_LEGACY_CPU" = "false" ]; then
   elif [ -f "/proc/cpuinfo" ]; then
     CPU_FLAGS="$(</proc/cpuinfo)"
   elif [ "$(uname)" = "Darwin" ]; then
-    CPU_FLAGS="$(sysctl -a | grep machdep.cpu.features)"
+    CPU_FLAGS="$(/usr/sbin/sysctl -n machdep.cpu.features machdep.cpu.leaf7_features)"
   else
     echo 'Warning: unable to detect CPU flags, please make sure bmi2 and adx are supported on this host.'
   fi
   if [ -n "$CPU_FLAGS" ] && ( ! grep -iq 'bmi2' <<< "$CPU_FLAGS" || ! grep -iq 'adx' <<< "$CPU_FLAGS" ); then
-    echo "Error: bmi2 and adx CPU flags are not supported on this host, please build with './zcutil/build.sh --legacy-cpu'."
+    echo "Error: bmi2 and adx CPU flags are not supported on this host, please build with './zcutil/build-mac-clang.sh --legacy-cpu'."
     exit 1
   fi
 fi
