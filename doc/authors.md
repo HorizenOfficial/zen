@@ -1,11 +1,11 @@
-Zcash Contributors
+Horizen Contributors
 ==================
 
 Jack Grigg (773)
 Simon Liu (338)
 FranckDG (219)
 Sean Bowe (204)
-cronicc (155)
+cronicc (157)
 Daira Hopwood (142)
 Wladimir J. van der Laan (122)
 Nathan Wilcox (106)

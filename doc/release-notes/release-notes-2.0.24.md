@@ -1,7 +1,7 @@
 Changelog
 =========
 
-cronicc (19):
+cronicc (21):
       Update about section in README.md
       Change user agent in help messages from 'MagicBean' to 'zen'
       Add websocket-client python test dependency
@@ -21,6 +21,8 @@ cronicc (19):
       Update OpenSSL to 1.1.1l
       Set deprecation height 1047600/2021-12-1
       Update manpages
+      Update changelog
+      Pull in patch fixing OpenSSL build error on older MacOS: https://github.com/openssl/openssl/commit/96ac8f13f4d0ee96baf5724d9f96c44c34b8606c
 
 luisantoniocrag (12):
       Fix RPC misc call help messages
