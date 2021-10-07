@@ -26,9 +26,11 @@ UniValue getconnectioncount(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getconnectioncount\n"
-            "\nReturns the number of connections to other nodes.\n"
-            "\nbResult:\n"
-            "n          (numeric) The connection count\n"
+            "\nReturns the number of active connections to other peers.\n"
+            
+            "\nResult:\n"
+            "n        (numeric) the connection count\n"
+            
             "\nExamples:\n"
             + HelpExampleCli("getconnectioncount", "")
             + HelpExampleRpc("getconnectioncount", "")
@@ -47,6 +49,10 @@ UniValue ping(const UniValue& params, bool fHelp)
             "\nRequests that a ping be sent to all other nodes, to measure ping time.\n"
             "Results provided in getpeerinfo, pingtime and pingwait fields are decimal seconds.\n"
             "Ping command is handled in queue with all other commands, so it measures processing backlog, not just network ping.\n"
+            
+            "\nResult:\n"
+            "Nothing\n"
+            
             "\nExamples:\n"
             + HelpExampleCli("ping", "")
             + HelpExampleRpc("ping", "")
@@ -81,37 +87,40 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp)
         throw runtime_error(
             "getpeerinfo\n"
             "\nReturns data about each connected network node as a json array of objects.\n"
-            "\nbResult:\n"
+            
+            "\nResult:\n"
             "[\n"
             "  {\n"
-            "    \"id\": n,                   (numeric) Peer index\n"
-            "    \"addr\":\"host:port\",      (string) The ip address and port of the peer\n"
-            "    \"addrlocal\":\"ip:port\",   (string) local address\n"
-            "    \"services\":\"xxxxxxxxxxxxxxxx\",   (string) The services offered\n"
-            "    \"tls_established\": true:false,     (boolean) Status of TLS connection\n"
-            "    \"tls_verified\": true:false,        (boolean) Status of peer certificate. Will be true if a peer certificate can be verified with some trusted root certs \n"
-            "    \"lastsend\": ttt,           (numeric) The time in seconds since epoch (Jan 1 1970 GMT) of the last send\n"
-            "    \"lastrecv\": ttt,           (numeric) The time in seconds since epoch (Jan 1 1970 GMT) of the last receive\n"
-            "    \"bytessent\": n,            (numeric) The total bytes sent\n"
-            "    \"bytesrecv\": n,            (numeric) The total bytes received\n"
-            "    \"conntime\": ttt,           (numeric) The connection time in seconds since epoch (Jan 1 1970 GMT)\n"
-            "    \"timeoffset\": ttt,         (numeric) The time offset in seconds\n"
-            "    \"pingtime\": n,             (numeric) ping time\n"
-            "    \"pingwait\": n,             (numeric) ping wait\n"
-            "    \"version\": v,              (numeric) The peer version, such as 170002\n"
-            "    \"subver\": \"/MagicBean:x.y.z[-v]/\",  (string) The string version\n"
-            "    \"inbound\": true|false,     (boolean) Inbound (true) or Outbound (false)\n"
-            "    \"startingheight\": n,       (numeric) The starting height (block) of the peer\n"
-            "    \"banscore\": n,             (numeric) The ban score\n"
-            "    \"synced_headers\": n,       (numeric) The last header we have in common with this peer\n"
-            "    \"synced_blocks\": n,        (numeric) The last block we have in common with this peer\n"
+            "    \"id\": n,                              (numeric) peer index\n"
+            "    \"addr\": \"host:port\",                (string) the ip address and port of the peer\n"
+            "    \"addrlocal\": \"ip:port\",             (string) local address\n"
+            "    \"services\":\"xxxxxxxxxxxxxxxx\",      (string) the services offered\n"
+            "    \"tls_established\": true|false,        (boolean) status of TLS connection\n"
+            "    \"tls_verified\": true|false,           (boolean) status of peer certificate. True if the chain of trust of a peer certificate can be verified using the OS certificate store\n"
+            "    \"lastsend\": ttt,                      (numeric) the time in seconds since epoch (Jan 1 1970 GMT) of the last send\n"
+            "    \"lastrecv\": ttt,                      (numeric) the time in seconds since epoch (Jan 1 1970 GMT) of the last receive\n"
+            "    \"bytessent\": n,                       (numeric) the total bytes sent\n"
+            "    \"bytesrecv\": n,                       (numeric) the total bytes received\n"
+            "    \"conntime\": ttt,                      (numeric) the connection time in seconds since 1 Jan 1970 GMT\n"
+            "    \"timeoffset\": ttt,                    (numeric) the time offset in seconds\n"
+            "    \"pingtime\": n,                        (numeric) ping time\n"
+            "    \"pingwait\": n,                        (numeric) ping wait\n"
+            "    \"version\": v,                         (numeric) the protocol version of the peer\n"
+            "    \"subver\": \"/zen:x.y.z[-v]/\",        (string) the user agent of the peer\n"
+            "    \"inbound\": true|false,                (boolean) inbound (true) or outbound (false)\n"
+            "    \"startingheight\": n,                  (numeric) the starting height (block) of the peer\n"
+            "    \"banscore\": n,                        (numeric) the ban score\n"
+            "    \"synced_headers\": n,                  (numeric) the last header we have in common with this peer\n"
+            "    \"synced_blocks\": n,                   (numeric) the last block we have in common with this peer\n"
             "    \"inflight\": [\n"
-            "       n,                        (numeric) The heights of blocks we're currently asking from this peer\n"
+            "       n,                                   (numeric) the heights of blocks we're currently asking from this peer\n"
             "       ...\n"
-            "    ]\n"
+            "    ],\n"
+            "    \"whitelisted\": true|false             (boolean) whether the peer is whitelisted\n"
             "  }\n"
             "  ,...\n"
             "]\n"
+            
             "\nExamples:\n"
             + HelpExampleCli("getpeerinfo", "")
             + HelpExampleRpc("getpeerinfo", "")
@@ -180,9 +189,14 @@ UniValue addnode(const UniValue& params, bool fHelp)
             "addnode \"node\" \"add|remove|onetry\"\n"
             "\nAttempts add or remove a node from the addnode list.\n"
             "Or try a connection to a node once.\n"
+            
             "\nArguments:\n"
-            "1. \"node\"     (string, required) The node (see getpeerinfo for nodes)\n"
+            "1. \"node\"     (string, required) the node (see getpeerinfo for nodes)\n"
             "2. \"command\"  (string, required) 'add' to add a node to the list, 'remove' to remove a node from the list, 'onetry' to try a connection to the node once\n"
+            
+            "\nResult:\n"
+            "Nothing\n"
+            
             "\nExamples:\n"
             + HelpExampleCli("addnode", "\"192.168.0.6:8233\" \"onetry\"")
             + HelpExampleRpc("addnode", "\"192.168.0.6:8233\", \"onetry\"")
@@ -225,11 +239,16 @@ UniValue disconnectnode(const UniValue& params, bool fHelp)
         throw runtime_error(
             "disconnectnode \"node\" \n"
             "\nImmediately disconnects from the specified node.\n"
+            
             "\nArguments:\n"
-            "1. \"node\"     (string, required) The node (see getpeerinfo for nodes)\n"
+            "1. \"node\"     (string, required) the node (see getpeerinfo for nodes)\n"
+            
+            "\nResult:\n"
+            "Nothing\n"
+            
             "\nExamples:\n"
-            + HelpExampleCli("disconnectnode", "\"192.168.0.6:8233\"")
-            + HelpExampleRpc("disconnectnode", "\"192.168.0.6:8233\"")
+            + HelpExampleCli("disconnectnode", "\"192.168.0.6:9033\"")
+            + HelpExampleRpc("disconnectnode", "\"192.168.0.6:9033\"")
         );
 
     CNode* pNode = FindNode(params[0].get_str());
@@ -245,22 +264,24 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "getaddednodeinfo dns ( \"node\" )\n"
+           "getaddednodeinfo dns ( \"node\" )\n"
             "\nReturns information about the given added node, or all added nodes\n"
             "(note that onetry addnodes are not listed here)\n"
             "If dns is false, only a list of added nodes will be provided,\n"
             "otherwise connected information will also be available.\n"
+            
             "\nArguments:\n"
-            "1. dns        (boolean, required) If false, only a list of added nodes will be provided, otherwise connected information will also be available.\n"
-            "2. \"node\"   (string, optional) If provided, return information about this specific node, otherwise all nodes are returned.\n"
+            "1. dns                                          (boolean, required) if false, only a list of added nodes will be provided, otherwise connected information will also be available\n"
+            "2. \"node\"                                     (string, optional) if provided, return information about this specific node, otherwise all nodes are returned\n"
+            
             "\nResult:\n"
             "[\n"
             "  {\n"
-            "    \"addednode\" : \"192.168.0.201\",   (string) The node ip address\n"
-            "    \"connected\" : true|false,          (boolean) If connected\n"
+            "    \"addednode\" : \"192.168.0.201\",          (string) the node ip address\n"
+            "    \"connected\" : true|false,                 (boolean) if connected\n"
             "    \"addresses\" : [\n"
             "       {\n"
-            "         \"address\" : \"192.168.0.201:8233\",  (string) The Horizen server host and port\n"
+            "         \"address\" : \"192.168.0.201:8233\",  (string) the Horizen server host and port\n"
             "         \"connected\" : \"outbound\"           (string) connection, inbound or outbound\n"
             "       }\n"
             "       ,...\n"
@@ -268,6 +289,7 @@ UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
             "  }\n"
             "  ,...\n"
             "]\n"
+            
             "\nExamples:\n"
             + HelpExampleCli("getaddednodeinfo", "true")
             + HelpExampleCli("getaddednodeinfo", "true \"192.168.0.201\"")
@@ -363,12 +385,14 @@ UniValue getnettotals(const UniValue& params, bool fHelp)
             "getnettotals\n"
             "\nReturns information about network traffic, including bytes in, bytes out,\n"
             "and current time.\n"
+            
             "\nResult:\n"
             "{\n"
-            "  \"totalbytesrecv\": n,   (numeric) Total bytes received\n"
-            "  \"totalbytessent\": n,   (numeric) Total bytes sent\n"
-            "  \"timemillis\": t        (numeric) Total cpu time\n"
+            "  \"totalbytesrecv\": n,   (numeric) total bytes received\n"
+            "  \"totalbytessent\": n,   (numeric) total bytes sent\n"
+            "  \"timemillis\": t        (numeric) number of milliseconds since 1 Jan 1970 GMT\n"
             "}\n"
+            
             "\nExamples:\n"
             + HelpExampleCli("getnettotals", "")
             + HelpExampleRpc("getnettotals", "")
@@ -408,35 +432,38 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp)
         throw runtime_error(
             "getnetworkinfo\n"
             "Returns an object containing various state info regarding P2P networking.\n"
+            
             "\nResult:\n"
             "{\n"
-            "  \"version\": xxxxx,                      (numeric) the server version\n"
-            "  \"subversion\": \"/MagicBean:x.y.z[-v]/\",     (string) the server subversion string\n"
-            "  \"protocolversion\": xxxxx,              (numeric) the protocol version\n"
-            "  \"localservices\": \"xxxxxxxxxxxxxxxx\", (string) the services we offer to the network\n"
-            "  \"timeoffset\": xxxxx,                   (numeric) the time offset (deprecated; always 0)\n"
-            "  \"connections\": xxxxx,                  (numeric) the number of connections\n"
-            "  \"tls_cert_verified\": true|flase,       (boolean) true if the certificate of the current node is verified\n"
-            "  \"networks\": [                          (array) information per network\n"
+            "  \"version\": xxxxx,                            (numeric) the version of the node as a numeric\n"
+            "  \"subversion\": \"/zen:x.y.z[-v]/\",           (string) the subversion of the node, as advertised to peers\n"
+            "  \"protocolversion\": xxxxx,                    (numeric) the protocol version of the node\n"
+            "  \"localservices\": \"xxxxxxx\",                (string) the services supported by the node, as advertised in its version message\n"
+            "  \"timeoffset\": 0,                             (numeric) the time offset (deprecated; always 0)\n"
+            "  \"connections\": xxxxx,                        (numeric) the total number of open connections for the node\n"
+            "  \"tls_cert_verified\": true|flase,             (boolean) true if the certificate of the current node is verified\n"
+            "  \"networks\": [                                (array) an array of objects describing IPV4, IPV6 and Onion network status\n"
             "  {\n"
-            "    \"name\": \"xxx\",                     (string) network (ipv4, ipv6 or onion)\n"
-            "    \"limited\": true|false,               (boolean) is the network limited using -onlynet?\n"
-            "    \"reachable\": true|false,             (boolean) is the network reachable?\n"
-            "    \"proxy\": \"host:port\"               (string) the proxy that is used for this network, or empty if none\n"
+            "    \"name\": \"xxx\",                           (string) network (ipv4, ipv6 or onion)\n"
+            "    \"limited\": true|false,                     (boolean) is the network limited using -onlynet?\n"
+            "    \"reachable\": true|false,                   (boolean) is the network reachable?\n"
+            "    \"proxy\": \"host:port\",                    (string) the proxy that is used for this network, or empty if none\n"
+            "    \"proxy_randomize_credentials\": true|false  (boolean) whether randomized credentials are used\n"
             "  }\n"
             "  ,...\n"
             "  ],\n"
-            "  \"relayfee\": x.xxxxxxxx,                (numeric) minimum relay fee for non-free transactions in " + CURRENCY_UNIT + "/kB\n"
-            "  \"localaddresses\": [                    (array) list of local addresses\n"
-            "  {\n"
-            "    \"address\": \"xxxx\",                 (string) network address\n"
-            "    \"port\": xxx,                         (numeric) network port\n"
-            "    \"score\": xxx                         (numeric) relative score\n"
-            "  }\n"
-            "  ,...\n"
-            "  ]\n"
-            "  \"warnings\": \"...\"                    (string) any network warnings (such as alert messages) \n"
+            "  \"relayfee\": xxxxxx,                          (numeric) minimum relay fee for non-free transactions in " + CURRENCY_UNIT + "/kB\n"
+            "  \"localaddresses\": [                          (array) an array of objects describing local addresses being listened on by the node\n"
+            "   {\n"
+            "    \"address\": \"xxxx\",                       (string) network address\n"
+            "    \"port\": xxx,                               (numeric) network port\n"
+            "    \"score\": xxx                               (numeric) relative score\n"
+            "   }\n"
+            "   ,...\n"
+            "  ],\n"
+            "  \"warnings\": \"...\"                          (string) any network warnings (such as alert messages) \n"
             "}\n"
+            
             "\nExamples:\n"
             + HelpExampleCli("getnetworkinfo", "")
             + HelpExampleRpc("getnetworkinfo", "")
@@ -480,18 +507,23 @@ UniValue setban(const UniValue& params, bool fHelp)
     if (fHelp || params.size() < 2 ||
         (strCommand != "add" && strCommand != "remove"))
         throw runtime_error(
-                            "setban \"ip(/netmask)\" \"add|remove\" (bantime) (absolute)\n"
-                            "\nAttempts add or remove a IP/Subnet from the banned list.\n"
-                            "\nArguments:\n"
-                            "1. \"ip(/netmask)\" (string, required) The IP/Subnet (see getpeerinfo for nodes ip) with a optional netmask (default is /32 = single ip)\n"
-                            "2. \"command\"      (string, required) 'add' to add a IP/Subnet to the list, 'remove' to remove a IP/Subnet from the list\n"
-                            "3. \"bantime\"      (numeric, optional) time in seconds how long (or until when if [absolute] is set) the ip is banned (0 or empty means using the default time of 24h which can also be overwritten by the -bantime startup argument)\n"
-                            "4. \"absolute\"     (boolean, optional) If set, the bantime must be a absolute timestamp in seconds since epoch (Jan 1 1970 GMT)\n"
-                            "\nExamples:\n"
-                            + HelpExampleCli("setban", "\"192.168.0.6\" \"add\" 86400")
-                            + HelpExampleCli("setban", "\"192.168.0.0/24\" \"add\"")
-                            + HelpExampleRpc("setban", "\"192.168.0.6\", \"add\" 86400")
-                            );
+            "setban \"ip(/netmask)\" \"add|remove\" (bantime) (absolute)\n"
+            "\nAttempts to add or remove an IP/Subnet from the banned list.\n"
+            
+            "\nArguments:\n"
+            "1. \"ip(/netmask)\" (string, required) the IP/Subnet (see getpeerinfo for nodes ip) with an optional netmask (default is /32 = single ip)\n"
+            "2. \"command\"      (string, required) 'add' to add an IP/Subnet to the list, 'remove' to remove an IP/Subnet from the list\n"
+            "3. \"bantime\"      (numeric, optional) time in seconds how long (or until when if [absolute] is set) the ip is banned (0 or empty means using the default time of 24h which can also be overwritten by the -bantime startup argument)\n"
+            "4. \"absolute\"     (boolean, optional) if set, the bantime must be a absolute timestamp in seconds since epoch (Jan 1 1970 GMT)\n"
+            
+            "\nResult:\n"
+            "Nothing\n"
+            
+            "\nExamples:\n"
+            + HelpExampleCli("setban", "\"192.168.0.6\" \"add\" 86400")
+            + HelpExampleCli("setban", "\"192.168.0.0/24\" \"add\"")
+            + HelpExampleRpc("setban", "\"192.168.0.6\", \"add\", 86400")       
+        );
 
     CSubNet subNet;
     CNetAddr netAddr;
@@ -540,12 +572,23 @@ UniValue listbanned(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
-                            "listbanned\n"
-                            "\nList all banned IPs/Subnets.\n"
-                            "\nExamples:\n"
-                            + HelpExampleCli("listbanned", "")
-                            + HelpExampleRpc("listbanned", "")
-                            );
+            "listbanned\n"
+            "\nList all banned IPs/Subnets.\n"
+            "If there are no banned IPs, it will return an empty array.\n"
+            
+            "\nResult:\n"
+            "[\n"
+            "   {\n"
+            "       \"address\": \"xxxxxx\"  (numeric) IP/Subnet,\n"
+            "       \"banned_until\": tttt   (numeric) time in seconds how long the ip is banned\n"
+            "   }\n"
+            "   ,...\n"
+            "]\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("listbanned", "")
+            + HelpExampleRpc("listbanned", "")
+        );
 
     std::map<CSubNet, int64_t> banMap;
     CNode::GetBanned(banMap);
@@ -566,12 +609,16 @@ UniValue clearbanned(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
         throw runtime_error(
-                            "clearbanned\n"
-                            "\nClear all banned IPs.\n"
-                            "\nExamples:\n"
-                            + HelpExampleCli("clearbanned", "")
-                            + HelpExampleRpc("clearbanned", "")
-                            );
+            "clearbanned\n"
+            "\nClear all banned IPs.\n"
+            
+            "\nResult:\n"
+            "Nothing\n"
+            
+            "\nExamples:\n"
+            + HelpExampleCli("clearbanned", "")
+            + HelpExampleRpc("clearbanned", "")
+        );
 
     CNode::ClearBanned();
 
