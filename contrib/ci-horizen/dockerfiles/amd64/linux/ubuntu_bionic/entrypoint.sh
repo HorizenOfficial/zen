@@ -18,9 +18,15 @@ if [ ! "$USER_ID" == "$LOCAL_UID" ] || [ ! "$GRP_ID" == "$LOCAL_GID" ]; then
     echo "Warning: User zenbuilder with differing UID $LOCAL_UID/GID $LOCAL_GID already exists, most likely this container was started before with a different UID/GID. Re-create it to change UID/GID."
 fi
 
-echo "Starting with UID/GID: $LOCAL_UID:$LOCAL_GID"
-
 export HOME=/home/zenbuilder
+
+gcc -v
+echo
+lscpu
+echo
+free -h
+echo
+echo "Username: zenbuilder, HOME: $HOME, UID: $LOCAL_UID, GID: $LOCAL_GID"
 
 # Mount host directories
 for dir in .ccache .zcash-params build; do
