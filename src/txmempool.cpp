@@ -234,6 +234,212 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     return true;
 }
 
+#ifdef ENABLE_ADDRESS_INDEXING
+
+void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, const CCoinsViewCache &view)
+{
+    LOCK(cs);
+    std::vector<CMempoolAddressDeltaKey> inserted;
+
+    const uint256& txBaseHash = txBase.GetHash();
+    for (unsigned int j = 0; j < txBase.GetVin().size(); j++) {
+        const CTxIn& input = txBase.GetVin()[j];
+        const CTxOut& prevout = view.GetOutputFor(input);
+
+        CScript::ScriptType type = prevout.scriptPubKey.GetType();
+        if (type == CScript::UNKNOWN)
+            continue;
+
+        CMempoolAddressDeltaKey key(type, prevout.scriptPubKey.AddressHash(), txBaseHash, j, 1);
+        CMempoolAddressDelta delta(nTime, prevout.nValue * -1, input.prevout.hash, input.prevout.n);
+        mapAddress.insert(std::make_pair(key, delta));
+        inserted.push_back(key);
+    }
+
+    // default values for cert handling, not used for ordinary txes
+    CMempoolAddressDelta::OutputStatus certBwtStatus = CMempoolAddressDelta::OutputStatus::NOT_APPLICABLE;
+    int certFirstBwtPos = -1;
+
+    if (txBase.IsCertificate())
+    {
+        const CScCertificate* cert = dynamic_cast<const CScCertificate*>(&txBase);
+        assert(cert != nullptr);
+
+        const uint256& topQualHash = mapSidechains.at(cert->GetScId()).GetTopQualityCert()->second;
+        bool isTopQualityCert = (topQualHash == cert->GetHash());
+
+        // set certificate bwts status
+        certBwtStatus = isTopQualityCert ?
+            CMempoolAddressDelta::OutputStatus::TOP_QUALITY_CERT_BACKWARD_TRANSFER :
+                CMempoolAddressDelta::OutputStatus::LOW_QUALITY_CERT_BACKWARD_TRANSFER;
+
+        // position of first bwt in vout vector
+        certFirstBwtPos = cert->nFirstBwtPos;
+
+        LogPrint("mempool", "%s():%d - cert[%s], isTopQualityCert[%s], certBwtStatus[%d], certFirstBwtPos[%d]\n",
+            __func__, __LINE__, cert->GetHash().ToString(), isTopQualityCert?"Y":"N", (int)certBwtStatus, certFirstBwtPos);
+
+        // if we have also other certificates for this sidechain and this is the top quality, we must modify the entry which was the
+        // previous top quality cert
+        if ( (mapSidechains.at(cert->GetScId()).mBackwardCertificates.size() > 1) && isTopQualityCert)
+        {
+            // Entries are ordered by quality, therefore the former top-quality is the second starting from the bottom
+            std::map<int64_t, uint256>::const_reverse_iterator mempoolCertEntryIt =
+                mapSidechains.at(cert->GetScId()).mBackwardCertificates.crbegin();
+
+            const uint256& certSuperseededHash = (++mempoolCertEntryIt)->second;
+
+            const CScCertificate& certSuperseeded = mapCertificate[certSuperseededHash].GetCertificate();
+
+            LogPrint("mempool", "%s():%d - cert[%s] is now superseeded\n", __func__, __LINE__, certSuperseededHash.ToString());
+
+            for (unsigned int m = certSuperseeded.nFirstBwtPos; m < certSuperseeded.GetVout().size(); m++)
+            {
+                const CTxOut &out = certSuperseeded.GetVout()[m];
+  
+                CScript::ScriptType type = out.scriptPubKey.GetType();
+                if (type == CScript::UNKNOWN)
+                    continue;
+
+                CMempoolAddressDeltaKey key(type, out.scriptPubKey.AddressHash(), certSuperseededHash, m, 0);
+                mapAddress[key].outStatus = CMempoolAddressDelta::OutputStatus::LOW_QUALITY_CERT_BACKWARD_TRANSFER;
+
+            }
+        }
+    }
+
+    // default for tx outputs and non-bwt cert outputs
+    CMempoolAddressDelta::OutputStatus outStatus = CMempoolAddressDelta::OutputStatus::ORDINARY_OUTPUT;
+
+    for (unsigned int k = 0; k < txBase.GetVout().size(); k++) {
+        const CTxOut &out = txBase.GetVout()[k];
+
+        if (certFirstBwtPos >= 0 && k >= certFirstBwtPos)
+        {
+            // here we have a bwt output from a certificate
+            outStatus = certBwtStatus;
+        }
+
+        CScript::ScriptType type = out.scriptPubKey.GetType();
+        if (type == CScript::UNKNOWN)
+            continue;
+
+        CMempoolAddressDeltaKey key(type, out.scriptPubKey.AddressHash(), txBaseHash, k, 0);
+        mapAddress.insert(std::make_pair(key, CMempoolAddressDelta(nTime, out.nValue, outStatus)));
+        inserted.push_back(key);
+    }
+
+    mapAddressInserted.insert(std::make_pair(txBaseHash, inserted));
+}
+
+void CTxMemPool::updateTopQualCertAddressIndex(const uint256& scid)
+{
+    // we have something to do only if there is still any certificate for this scid
+    if (mapSidechains.count(scid) && !mapSidechains.at(scid).mBackwardCertificates.empty())
+    {
+        const uint256& topQualHash = mapSidechains.at(scid).GetTopQualityCert()->second;
+        const CScCertificate& certTopQual = mapCertificate[topQualHash].GetCertificate();
+
+        LogPrint("mempool", "%s():%d - cert[%s] is now top quality\n", __func__, __LINE__, topQualHash.ToString());
+
+        for (unsigned int m = certTopQual.nFirstBwtPos; m < certTopQual.GetVout().size(); m++)
+        {
+            const CTxOut &out = certTopQual.GetVout()[m];
+  
+            CScript::ScriptType type = out.scriptPubKey.GetType();
+            if (type == CScript::UNKNOWN)
+                continue;
+ 
+            CMempoolAddressDeltaKey key(type, out.scriptPubKey.AddressHash(), topQualHash, m, 0);
+            mapAddress[key].outStatus = CMempoolAddressDelta::OutputStatus::TOP_QUALITY_CERT_BACKWARD_TRANSFER;
+        }
+    }
+}
+
+bool CTxMemPool::getAddressIndex(std::vector<std::pair<uint160, int> > &addresses,
+                                 std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > &results)
+{
+    LOCK(cs);
+    for (std::vector<std::pair<uint160, int> >::iterator it = addresses.begin(); it != addresses.end(); it++) {
+        addressDeltaMap::iterator ait = mapAddress.lower_bound(CMempoolAddressDeltaKey((*it).second, (*it).first));
+        while (ait != mapAddress.end() && (*ait).first.addressBytes == (*it).first && (*ait).first.type == (*it).second) {
+            results.push_back(*ait);
+            ait++;
+        }
+    }
+    return true;
+}
+
+bool CTxMemPool::removeAddressIndex(const uint256& txBaseHash)
+{
+    LOCK(cs);
+    addressDeltaMapInserted::iterator it = mapAddressInserted.find(txBaseHash);
+
+    if (it != mapAddressInserted.end()) {
+        std::vector<CMempoolAddressDeltaKey> keys = (*it).second;
+        for (std::vector<CMempoolAddressDeltaKey>::iterator mit = keys.begin(); mit != keys.end(); mit++) {
+            mapAddress.erase(*mit);
+        }
+        mapAddressInserted.erase(it);
+    }
+
+    return true;
+}
+
+void CTxMemPool::addSpentIndex(const CTransactionBase &txBase, const CCoinsViewCache &view)
+{
+    LOCK(cs);
+
+    std::vector<CSpentIndexKey> inserted;
+
+    const uint256& txBaseHash = txBase.GetHash();
+    for (unsigned int j = 0; j < txBase.GetVin().size(); j++) {
+        const CTxIn&  input   = txBase.GetVin()[j];
+        const CTxOut& prevout = view.GetOutputFor(input);
+
+        CSpentIndexKey key = CSpentIndexKey(input.prevout.hash, input.prevout.n);
+        CSpentIndexValue value = CSpentIndexValue(txBaseHash, j, -1, prevout.nValue,
+            prevout.scriptPubKey.GetType(),
+            prevout.scriptPubKey.AddressHash());
+
+        mapSpent.insert(std::make_pair(key, value));
+        inserted.push_back(key);
+
+    }
+
+    mapSpentInserted.insert(std::make_pair(txBaseHash, inserted));
+}
+
+bool CTxMemPool::getSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value)
+{
+    LOCK(cs);
+    mapSpentIndex::iterator it;
+
+    it = mapSpent.find(key);
+    if (it != mapSpent.end()) {
+        value = it->second;
+        return true;
+    }
+    return false;
+}
+
+bool CTxMemPool::removeSpentIndex(const uint256& txBaseHash)
+{
+    LOCK(cs);
+    mapSpentIndexInserted::iterator it = mapSpentInserted.find(txBaseHash);
+
+    if (it != mapSpentInserted.end()) {
+        std::vector<CSpentIndexKey> keys = (*it).second;
+        for (std::vector<CSpentIndexKey>::iterator mit = keys.begin(); mit != keys.end(); mit++) {
+            mapSpent.erase(*mit);
+        }
+        mapSpentInserted.erase(it);
+    }
+
+    return true;
+}
+#endif // ENABLE_ADDRESS_INDEXING
+
 std::vector<uint256> CTxMemPool::mempoolDirectDependenciesFrom(const CTransactionBase& root) const
 {
     AssertLockHeld(cs);
@@ -457,6 +663,13 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 
             nTransactionsUpdated++;
             minerPolicyEstimator->removeTx(hash);
+
+#ifdef ENABLE_ADDRESS_INDEXING
+            if (fAddressIndex)
+                removeAddressIndex(hash);
+            if (fSpentIndex)
+                removeSpentIndex(hash);
+#endif // ENABLE_ADDRESS_INDEXING
         } else if (mapCertificate.count(hash))
         {
             const CScCertificate& cert = mapCertificate[hash].GetCertificate();
@@ -465,16 +678,24 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             for(const CTxIn& txin: cert.GetVin())
                 mapNextTx.erase(txin.prevout);
 
+            const uint256& scid = cert.GetScId();
+
+#ifdef ENABLE_ADDRESS_INDEXING
+            // are we removing a top-quality cert?
+            const uint256& topQualHash = mapSidechains.at(scid).GetTopQualityCert()->second;
+            bool isTopQualityCert = (topQualHash == hash);
+#endif // ENABLE_ADDRESS_INDEXING
+
             // remove certificate hash from list
             LogPrint("mempool", "%s():%d - removing cert [%s] from mapSidechain[%s]\n",
-                __func__, __LINE__, hash.ToString(), cert.GetScId().ToString());
-            mapSidechains.at(cert.GetScId()).EraseCert(hash);
+                __func__, __LINE__, hash.ToString(), scid.ToString());
+            mapSidechains.at(scid).EraseCert(hash);
 
-            if (mapSidechains.at(cert.GetScId()).IsNull())
+            if (mapSidechains.at(scid).IsNull())
             {
-                assert(mapSidechains.at(cert.GetScId()).mBackwardCertificates.empty());
+                assert(mapSidechains.at(scid).mBackwardCertificates.empty());
                 LogPrint("mempool", "%s():%d - erasing scid [%s] from mapSidechain\n", __func__, __LINE__, cert.GetScId().ToString() );
-                mapSidechains.erase(cert.GetScId());
+                mapSidechains.erase(scid);
             }
 
             removedCerts.push_back(cert);
@@ -483,6 +704,21 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             LogPrint("mempool", "%s():%d - removing cert [%s] from mempool\n", __func__, __LINE__, hash.ToString() );
             mapCertificate.erase(hash);
             nCertificatesUpdated++;
+
+#ifdef ENABLE_ADDRESS_INDEXING
+            if (fAddressIndex)
+            {
+                removeAddressIndex(hash);
+                if (isTopQualityCert)
+                {
+                    // we have removed a top quality cert, if another one is promoted to be the next top quality, we have to
+                    // set the status properly in the address index data
+                    updateTopQualCertAddressIndex(scid);
+                }
+            }
+            if (fSpentIndex)
+                removeSpentIndex(hash);
+#endif // ENABLE_ADDRESS_INDEXING
         }
     }
 }
@@ -905,15 +1141,27 @@ void CTxMemPool::removeForBlock(const std::vector<CScCertificate>& vcert, unsign
 void CTxMemPool::clear()
 {
     LOCK(cs);
+
     mapTx.clear();
     mapCertificate.clear();
     mapDeltas.clear();
     mapNextTx.clear();
     mapSidechains.clear();
+    mapNullifiers.clear();
+    mapRecentlyAddedTxBase.clear();
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    mapAddress.clear();
+    mapAddressInserted.clear();
+    mapSpent.clear();
+    mapSpentInserted.clear();
+#endif // ENABLE_ADDRESS_INDEXING
+
     totalTxSize = 0;
     totalCertificateSize = 0;
     cachedInnerUsage = 0;
     ++nTransactionsUpdated;
+    ++nCertificatesUpdated;
 }
 
 void CTxMemPool::check(const CCoinsViewCache *pcoins) const
@@ -1230,7 +1478,7 @@ bool CTxMemPool::checkCswInputsPerScLimit(const CTransaction& incomingTx) const
 
     for(const CTxCeasedSidechainWithdrawalInput& csw: incomingTx.GetVcswCcIn())
     {
-        const uint256 scid = csw.scId;
+        const uint256& scid = csw.scId;
         totNumCswInputs[scid] += 1;
     }
 
@@ -1349,7 +1597,7 @@ bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) 
             continue; //no certs conflicts with certs of other sidechains
         if (certDep.quality >= incomingCert.quality)
         {
-            return error("%s():%d - cert %s depends on worse-quality ancestorCert %s\n", __func__, __LINE__,
+            return error("%s():%d - cert %s depends on better-quality ancestorCert %s\n", __func__, __LINE__,
                     incomingCert.GetHash().ToString(), certDep.GetHash().ToString());
         }
     }
@@ -1395,6 +1643,26 @@ bool CTxMemPool::lookup(const uint256& hash, CScCertificate& result) const
     if (i == mapCertificate.end()) return false;
     result = i->second.GetCertificate();
     return true;
+}
+
+void CTxMemPool::CertQualityStatusString(const CScCertificate& cert, std::string& statusString) const
+{
+    const uint256& scid = cert.GetScId();
+    if (mapSidechains.count(scid) == 0)
+    {
+        // not in mempool data structures
+        statusString = "UNKNOWN";
+        return;
+    }
+
+    if (mapSidechains.at(scid).GetTopQualityCert()->second == cert.GetHash())
+    {
+        statusString = "TOP_QUALITY_MEMPOOL";
+    }
+    else
+    {
+        statusString = "LOW_QUALITY_MEMPOOL";
+    }
 }
 
 CFeeRate CTxMemPool::estimateFee(int nBlocks) const

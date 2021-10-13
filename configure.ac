@@ -186,6 +186,13 @@ AC_ARG_ENABLE([werror],
     [enable_werror=$enableval],
     [enable_werror=no])
 
+# Enable AddressIndexing (typically for usage with Explorer)
+# Note that this flag enables 3 indexes: AddressIndex/AddressUnspentIndex, SpentIndex and TimestampBlockIndex
+AC_ARG_ENABLE([address-indexing],
+    [AS_HELP_STRING([--enable-address-indexing])],
+    [enable_address_indexing=$enableval],
+    [enable_address_indexing=no])
+
 AC_LANG_PUSH([C++])
 AX_CHECK_COMPILE_FLAG([-Werror],[CXXFLAG_WERROR="-Werror"],[CXXFLAG_WERROR=""])
 
@@ -891,6 +898,16 @@ else
   AC_MSG_RESULT([no])
 fi
 
+dnl enable address indexing
+AC_MSG_CHECKING([if address indexing should be enabled])
+if test x$enable_address_indexing != xno; then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE([ENABLE_ADDRESS_INDEXING],[1],[Define to 1 to enable address indexing functions])
+
+else
+  AC_MSG_RESULT(no)
+fi
+
 if test x$build_bitcoin_utils$build_bitcoin_libs$build_bitcoind$use_tests = xnononono; then
   AC_MSG_ERROR([No targets! Please specify at least one of: --with-utils --with-libs --with-daemon or --enable-tests])
 fi
@@ -906,6 +923,7 @@ AM_CONDITIONAL([GLIBC_BACK_COMPAT],[test x$use_glibc_compat = xyes])
 AM_CONDITIONAL([HARDEN],[test x$use_hardening = xyes])
 AM_CONDITIONAL([ASAN],[test x$use_asan = xyes])
 AM_CONDITIONAL([TSAN],[test x$use_tsan = xyes])
+AM_CONDITIONAL([ENABLE_ADDRESS_INDEXING],[test x$enable_address_indexing = xyes])
 
 AC_DEFINE(CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MAJOR, [Major version])
 AC_DEFINE(CLIENT_VERSION_MINOR, _CLIENT_VERSION_MINOR, [Minor version])
@@ -1001,6 +1019,7 @@ echo "  with zmq      = $use_zmq"
 echo "  with test     = $use_tests"
 echo "  debug enabled = $enable_debug"
 echo "  werror        = $enable_werror"
+echo "  addr index    = $enable_address_indexing"
 echo 
 echo "  target os     = $TARGET_OS"
 echo "  build os      = $BUILD_OS"

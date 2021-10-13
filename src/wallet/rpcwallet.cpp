@@ -114,7 +114,7 @@ void AddVinExpandedToJSON(const CWalletTransactionBase& tx, UniValue& entry)
                     const CTxOut& txout = (*mi).second->getTxBase()->GetVout()[txin.prevout.n];
 
                     in.pushKV("value", ValueFromAmount(txout.nValue));
-                    in.pushKV("valueSat", txout.nValue);
+                    in.pushKV("valueZat", txout.nValue);
 
                     txnouttype type;
                     int nRequired;
@@ -176,7 +176,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
         const CTxOut& txout = tx.getTxBase()->GetVout()[i];
         UniValue out(UniValue::VOBJ);
         out.pushKV("value", ValueFromAmount(txout.nValue));
-        out.pushKV("valueSat", txout.nValue);
+        out.pushKV("valueZat", txout.nValue);
         out.pushKV("n", (int64_t)i);
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);

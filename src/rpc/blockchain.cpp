@@ -4,12 +4,17 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "amount.h"
+#include "base58.h"
 #include "chain.h"
 #include "chainparams.h"
 #include "checkpoints.h"
 #include "consensus/validation.h"
 #include "main.h"
 #include "primitives/transaction.h"
+#include "script/script.h"
+#include "script/script_error.h"
+#include "script/sign.h"
+#include "script/standard.h"
 #include "rpc/server.h"
 #include "streams.h"
 #include "sync.h"
@@ -27,6 +32,7 @@
 #include "sc/sidechainrpc.h"
 
 #include "validationinterface.h"
+#include "txdb.h"
 
 using namespace std;
 
@@ -135,6 +141,114 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
     return result;
 }
+
+#ifdef ENABLE_ADDRESS_INDEXING
+UniValue blockToDeltasJSON(const CBlock& block, const CBlockIndex* blockindex)
+{
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("hash", block.GetHash().GetHex());
+    int confirmations = -1;
+    // Only report confirmations if the block is on the main chain
+    if (chainActive.Contains(blockindex)) {
+        confirmations = chainActive.Height() - blockindex->nHeight + 1;
+    } else {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block is an orphan");
+    }
+    result.pushKV("confirmations", confirmations);
+    result.pushKV("size", (int)::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION));
+    result.pushKV("height", blockindex->nHeight);
+    result.pushKV("version", block.nVersion);
+    result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
+
+    UniValue deltas(UniValue::VARR);
+
+    for (unsigned int i = 0; i < block.vtx.size(); i++) {
+        const CTransaction &tx = block.vtx[i];
+        const uint256 txhash = tx.GetHash();
+
+        UniValue entry(UniValue::VOBJ);
+        entry.pushKV("txid", txhash.GetHex());
+        entry.pushKV("index", (int)i);
+
+        UniValue inputs(UniValue::VARR);
+
+        if (!tx.IsCoinBase()) {
+
+            for (size_t j = 0; j < tx.GetVin().size(); j++) {
+                const CTxIn input = tx.GetVin()[j];
+
+                UniValue delta(UniValue::VOBJ);
+
+                CSpentIndexValue spentInfo;
+                CSpentIndexKey spentKey(input.prevout.hash, input.prevout.n);
+
+                if (GetSpentIndex(spentKey, spentInfo)) {
+                    if (spentInfo.addressType == 1) {
+                        delta.pushKV("address", CBitcoinAddress(CKeyID(spentInfo.addressHash)).ToString());
+                    } else if (spentInfo.addressType == 2)  {
+                        delta.pushKV("address", CBitcoinAddress(CScriptID(spentInfo.addressHash)).ToString());
+                    } else {
+                        continue;
+                    }
+                    delta.pushKV("satoshis", -1 * spentInfo.satoshis);
+                    delta.pushKV("index", (int)j);
+                    delta.pushKV("prevtxid", input.prevout.hash.GetHex());
+                    delta.pushKV("prevout", (int)input.prevout.n);
+
+                    inputs.push_back(delta);
+                } else {
+                    throw JSONRPCError(RPC_INTERNAL_ERROR, "Spent information not available");
+                }
+
+            }
+        }
+
+        entry.pushKV("inputs", inputs);
+
+        UniValue outputs(UniValue::VARR);
+
+        for (unsigned int k = 0; k < tx.GetVout().size(); k++) {
+            const CTxOut &out = tx.GetVout()[k];
+
+            UniValue delta(UniValue::VOBJ);
+
+            uint160 const addrHash = out.scriptPubKey.AddressHash();
+
+            if (out.scriptPubKey.IsPayToScriptHash()) {
+                delta.pushKV("address", CBitcoinAddress(CScriptID(addrHash)).ToString());
+
+            } else if (out.scriptPubKey.IsPayToPublicKeyHash()) {
+                delta.pushKV("address", CBitcoinAddress(CKeyID(addrHash)).ToString());
+            } else {
+                continue;
+            }
+
+            delta.pushKV("satoshis", out.nValue);
+            delta.pushKV("index", (int)k);
+
+            outputs.push_back(delta);
+        }
+
+        entry.pushKV("outputs", outputs);
+        deltas.push_back(entry);
+
+    }
+    result.pushKV("deltas", deltas);
+    result.pushKV("time", block.GetBlockTime());
+    result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
+    result.pushKV("nonce", block.nNonce.GetHex());
+    result.pushKV("bits", strprintf("%08x", block.nBits));
+    result.pushKV("difficulty", GetDifficulty(blockindex));
+    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+
+    if (blockindex->pprev)
+        result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
+    CBlockIndex *pnext = chainActive.Next(blockindex);
+    if (pnext)
+        result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
+    return result;
+}
+#endif // ENABLE_ADDRESS_INDEXING
 
 UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false)
 {
@@ -383,6 +497,104 @@ UniValue getrawmempool(const UniValue& params, bool fHelp)
 
     return mempoolToJSON(fVerbose);
 }
+
+#ifdef ENABLE_ADDRESS_INDEXING
+UniValue getblockdeltas(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error("");
+
+    std::string strHash = params[0].get_str();
+    uint256 hash(uint256S(strHash));
+
+    if (mapBlockIndex.count(hash) == 0)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+
+    CBlock block;
+    CBlockIndex* pblockindex = mapBlockIndex[hash];
+
+    if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
+
+    if(!ReadBlockFromDisk(block, pblockindex))
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
+
+    return blockToDeltasJSON(block, pblockindex);
+}
+
+UniValue getblockhashes(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() < 2)
+        throw runtime_error(
+            "getblockhashes timestamp\n"
+            "\nReturns array of hashes of blocks within the timestamp range provided.\n"
+            "\nArguments:\n"
+            "1. high         (numeric, required) The newer block timestamp\n"
+            "2. low          (numeric, required) The older block timestamp\n"
+            "3. options      (string, required) A json object\n"
+            "    {\n"
+            "      \"noOrphans\":true   (boolean) will only include blocks on the main chain\n"
+            "      \"logicalTimes\":true   (boolean) will include logical timestamps with hashes\n"
+            "    }\n"
+            "\nResult:\n"
+            "[\n"
+            "  \"hash\"         (string) The block hash\n"
+            "]\n"
+            "[\n"
+            "  {\n"
+            "    \"blockhash\": (string) The block hash\n"
+            "    \"logicalts\": (numeric) The logical timestamp\n"
+            "  }\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getblockhashes", "1231614698 1231024505")
+            + HelpExampleRpc("getblockhashes", "1231614698, 1231024505")
+            + HelpExampleCli("getblockhashes", "1231614698 1231024505 '{\"noOrphans\":false, \"logicalTimes\":true}'")
+            );
+
+    unsigned int high = params[0].get_int();
+    unsigned int low = params[1].get_int();
+    bool fActiveOnly = false;
+    bool fLogicalTS = false;
+
+    if (params.size() > 2) {
+        if (params[2].isObject()) {
+            UniValue noOrphans = find_value(params[2].get_obj(), "noOrphans");
+            UniValue returnLogical = find_value(params[2].get_obj(), "logicalTimes");
+
+            if (noOrphans.isBool())
+                fActiveOnly = noOrphans.get_bool();
+
+            if (returnLogical.isBool())
+                fLogicalTS = returnLogical.get_bool();
+        }
+    }
+
+    std::vector<std::pair<uint256, unsigned int> > blockHashes;
+
+    if (fActiveOnly)
+        LOCK(cs_main);
+
+    if (!GetTimestampIndex(high, low, fActiveOnly, blockHashes)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available for block hashes");
+    }
+
+    UniValue result(UniValue::VARR);
+
+    for (std::vector<std::pair<uint256, unsigned int> >::const_iterator it=blockHashes.begin(); it!=blockHashes.end(); it++) {
+        if (fLogicalTS) {
+            UniValue item(UniValue::VOBJ);
+            item.pushKV("blockhash", it->first.GetHex());
+            item.pushKV("logicalts", (int)it->second);
+            result.push_back(item);
+        } else {
+            result.push_back(it->first.GetHex());
+        }
+    }
+
+    return result;
+}
+#endif // ENABLE_ADDRESS_INDEXING
 
 UniValue getblockhash(const UniValue& params, bool fHelp)
 {
@@ -2120,4 +2332,144 @@ UniValue setproofverifierlowpriorityguard(const UniValue& params, bool fHelp)
     obj.pushKV("enabled",  isEnabled);
 
     return obj;
+}
+
+UniValue getcertmaturityinfo(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getcertmaturityinfo (\"hash\")\n"
+            "\nArgument:\n"
+            "   \"hash\"   (string, mandatory) certificate hash (txid)\n"
+            "\nReturns the informations about certificate maturity. The cmd line option -txindex must be enabled, otherwise it works only\n"
+            "for certificates in the mempool\n"
+            "\nResult:\n"
+            "{\n"
+            "    \"maturityHeight\"     (number) The maturity height when the backwardtransfer output are spendable\n"           
+            "    \"blocksToMaturity\"   (number) The number of blocks to be mined for achieving maturity (0 means already spendable)\n"           
+            "    \"certificateState\"   (string) Can be one of [\"MATURE\", \"IMMATURE\", \"SUPERSEDED\", \"TOP_QUALITY_MEMPOOL\", \"LOW_QUALITY_MEMPOOL\", \"INVALID\"]\n"  
+            "}\n"
+
+            "\nExamples\n"
+            + HelpExampleCli("getcertmaturityinfo", "\"1a3e7ccbfd40c4e2304c3215f76d204e4de63c578ad835510f580d529516a874\"")
+        );
+
+    UniValue ret(UniValue::VOBJ);
+    uint256 hash;
+
+    string hashString = params[0].get_str();
+    {
+        if (hashString.find_first_not_of("0123456789abcdefABCDEF", 0) != std::string::npos)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid hash format: not an hex");
+    }
+
+    hash.SetHex(hashString);
+
+    // Search for the certificate in the mempool
+    CScCertificate certOut;
+
+    {
+        LOCK(mempool.cs);
+        if (mempool.lookup(hash, certOut))
+        {
+            ret.pushKV("maturityHeight", -1);
+            ret.pushKV("blocksToMaturity", -1);
+            std::string s;
+            mempool.CertQualityStatusString(certOut, s);
+            ret.pushKV("certificateState", s);
+            return ret;
+        }
+    }
+
+    if (!fTxIndex)
+    {
+        throw JSONRPCError(RPC_TYPE_ERROR, "txindex option not set: can not retrieve info");
+    }
+
+    if (pblocktree == NULL)
+    {
+        throw JSONRPCError(RPC_TYPE_ERROR, "DB not initialized: can not retrieve info");
+    }
+
+    int currentTipHeight = -1;
+    CTxIndexValue txIndexValue;
+ 
+    {
+        LOCK(cs_main);
+        currentTipHeight = (int)chainActive.Height();
+        if (!pblocktree->ReadTxIndex(hash, txIndexValue))
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, "No info in Tx DB for the specified certificate");
+        }
+    }
+
+    int bwtMatHeight = txIndexValue.maturityHeight;
+
+    if (bwtMatHeight == 0)
+    {
+        // for instance when the hash is related to a tx
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid (null) certificate maturity height: is the input a tx hash?");
+    }
+
+    ret.pushKV("maturityHeight", bwtMatHeight);
+
+    if (bwtMatHeight < 0)
+    {
+        ret.pushKV("blocksToMaturity", -1);
+        if (bwtMatHeight == CTxIndexValue::INVALID_MATURITY_HEIGHT)
+        {
+            // this is the case when the certificate is not in the active chain
+            ret.pushKV("certificateState", "INVALID");
+        }
+        else
+        {
+            ret.pushKV("certificateState", "SUPERSEDED");
+        }
+    }
+    else
+    {
+        int deltaMaturity    = bwtMatHeight - currentTipHeight;
+        bool isMature        = (deltaMaturity <= 0);
+
+        if (!isMature)
+        {
+            ret.pushKV("blocksToMaturity", deltaMaturity);
+            ret.pushKV("certificateState", "IMMATURE");
+        }
+        else
+        {
+            ret.pushKV("blocksToMaturity", 0);
+            ret.pushKV("certificateState", "MATURE");
+        }
+    }
+    
+    return ret;
+}
+
+/**
+ * @brief Removes any transaction from the mempool.
+ */
+UniValue clearmempool(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+    {
+        throw runtime_error(
+            "clearmempool\n"
+            "\nRemoves any transaction and certificate from the mempool. Wallets are NOT synchronized.\n"
+            "Regtest and Testnet only.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("clearmempool", "")
+            + HelpExampleRpc("clearmempool", "")
+        );
+    }
+
+    if (Params().NetworkIDString() == "main")
+    {
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method can not be used in main network");
+    }
+
+    LOCK(cs_main);
+    mempool.clear();
+
+    return NullUniValue;
 }

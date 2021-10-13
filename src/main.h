@@ -10,6 +10,11 @@
 #include "config/bitcoin-config.h"
 #endif
 
+#ifdef ENABLE_ADDRESS_INDEXING
+#include "spentindex.h"
+#include "timestampindex.h"
+#endif // ENABLE_ADDRESS_INDEXING
+
 #include "amount.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -101,6 +106,17 @@ static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 /* Maximum number of heigths meaningful when looking for block finality */
 static const int MAX_BLOCK_AGE_FOR_FINALITY = 2000;
 
+#ifdef ENABLE_ADDRESS_INDEXING
+static const bool DEFAULT_ADDRESSINDEX = false;
+static const bool DEFAULT_TIMESTAMPINDEX = false;
+static const bool DEFAULT_SPENTINDEX = false;
+static const unsigned int DEFAULT_DB_MAX_OPEN_FILES = 1000;
+static const bool DEFAULT_DB_COMPRESSION = true;
+#else
+static const unsigned int DEFAULT_DB_MAX_OPEN_FILES = 64;
+static const bool DEFAULT_DB_COMPRESSION = false;
+#endif // ENABLE_ADDRESS_INDEXING
+
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
 BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE);
@@ -130,6 +146,12 @@ extern bool fImporting;
 extern bool fReindex;
 extern bool fReindexFast;
 extern int nScriptCheckThreads;
+
+#ifdef ENABLE_ADDRESS_INDEXING
+extern bool fAddressIndex;
+extern bool fSpentIndex;
+#endif // ENABLE_ADDRESS_INDEXING
+
 extern bool fTxIndex;
 extern bool fIsBareMultisigStd;
 extern bool fCheckBlockIndex;
@@ -369,31 +391,6 @@ struct CNodeStateStats {
     std::vector<int> vHeightInFlight;
 };
 
-struct CDiskTxPos : public CDiskBlockPos
-{
-    unsigned int nTxOffset; // after header
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*(CDiskBlockPos*)this);
-        READWRITE(VARINT(nTxOffset));
-    }
-
-    CDiskTxPos(const CDiskBlockPos &blockIn, unsigned int nTxOffsetIn) : CDiskBlockPos(blockIn.nFile, blockIn.nPos), nTxOffset(nTxOffsetIn) {
-    }
-
-    CDiskTxPos() {
-        SetNull();
-    }
-
-    void SetNull() {
-        CDiskBlockPos::SetNull();
-        nTxOffset = 0;
-    }
-};
-
 struct COrphanTx {
     std::shared_ptr<const CTransactionBase> tx;
     NodeId fromPeer;
@@ -519,6 +516,15 @@ public:
     ScriptError GetScriptError() const;
 };
 
+#ifdef ENABLE_ADDRESS_INDEXING
+bool GetTimestampIndex(const unsigned int &high, const unsigned int &low, const bool fActiveOnly, std::vector<std::pair<uint256, unsigned int> > &hashes);
+bool GetSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value);
+bool GetAddressIndex(uint160 addressHash, int type,
+                     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > &addressIndex,
+                     int start = 0, int end = 0);
+bool GetAddressUnspent(uint160 addressHash, int type,
+                       std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs);
+#endif // ENABLE_ADDRESS_INDEXING
 
 /** Functions for disk access for blocks */
 bool WriteBlockToDisk(CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart);
@@ -528,12 +534,20 @@ CBlock LoadBlockFrom(CBufferedFile& blkdat, CDiskBlockPos* pLastLoadedBlkPos);
 
 /** Functions for validating blocks and updating the block tree */
 
+/**
+ * @brief The enumeration to enable/disable Level DB indexes write.
+ * It is used in the ConnectBlock() and DisconnectBlock() to prevent updating the DB
+ * when called from VerifyDB() and TestBlockValidity().
+ * Such flag is needed because the indexes don't have a cache as CoinDB.
+ */
+enum class flagLevelDBIndexesWrite { ON, OFF };
+
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  In case pfClean is provided, operation will try to be tolerant about errors, and *pfClean
  *  will be true if no problems were found. Otherwise, the return value will be false in case
  *  of problems. Note that in any case, coins may be modified. */
-bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins,
-    bool* pfClean = NULL, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
+bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins, flagLevelDBIndexesWrite explorerIndexesWrite,
+                     bool* pfClean = NULL, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
 enum class flagCheckPow             { ON, OFF };
@@ -543,7 +557,7 @@ enum class flagScProofVerification  { ON, OFF };
 
 /**
  * @brief The enumeration of allowed types of block processing.
- * It is used in the CheckBlock() function to choose between the full/normal processing
+ * It is used in the ConnectBlock() function to choose between the full/normal processing
  * or a dry-run intended to check only the validity (without applying any changes).
  */
 enum class flagBlockProcessingType
@@ -555,6 +569,7 @@ enum class flagBlockProcessingType
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
     CCoinsViewCache& coins, const CChain& chain, flagBlockProcessingType processingType,
     flagScRelatedChecks fScRelatedChecks, flagScProofVerification fScProofVerification,
+    flagLevelDBIndexesWrite explorerIndexesWrite,
     std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Find the position in block files (blk??????.dat) in which a block must be written. */

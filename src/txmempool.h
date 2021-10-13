@@ -8,6 +8,15 @@
 
 #include <list>
 
+#if defined(HAVE_CONFIG_H)
+#include "config/bitcoin-config.h"
+#endif
+
+#ifdef ENABLE_ADDRESS_INDEXING
+#include "addressindex.h"
+#include "spentindex.h"
+#endif // ENABLE_ADDRESS_INDEXING
+
 #include "amount.h"
 #include "coins.h"
 #include "primitives/transaction.h"
@@ -163,6 +172,20 @@ private:
     uint64_t nRecentlyAddedSequence = 0;
     uint64_t nNotifiedSequence = 0;
 
+#ifdef ENABLE_ADDRESS_INDEXING
+    typedef std::map<CMempoolAddressDeltaKey, CMempoolAddressDelta, CMempoolAddressDeltaKeyCompare> addressDeltaMap;
+    addressDeltaMap mapAddress;
+
+    typedef std::map<uint256, std::vector<CMempoolAddressDeltaKey> > addressDeltaMapInserted;
+    addressDeltaMapInserted mapAddressInserted;
+
+    typedef std::map<CSpentIndexKey, CSpentIndexValue, CSpentIndexKeyCompare> mapSpentIndex;
+    mapSpentIndex mapSpent;
+
+    typedef std::map<uint256, std::vector<CSpentIndexKey> > mapSpentIndexInserted;
+    mapSpentIndexInserted mapSpentInserted;
+#endif // ENABLE_ADDRESS_INDEXING
+
 public:
     mutable CCriticalSection cs;
     std::map<uint256, CTxMemPoolEntry> mapTx;
@@ -198,6 +221,18 @@ public:
 
     bool addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry, bool fCurrentEstimate = true);
     bool addUnchecked(const uint256& hash, const CCertificateMemPoolEntry &entry, bool fCurrentEstimate = true);
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    void addAddressIndex(const CTransactionBase &txBase, int64_t nTime, const CCoinsViewCache &view);
+    bool getAddressIndex(std::vector<std::pair<uint160, int> > &addresses,
+                         std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > &results);
+    bool removeAddressIndex(const uint256& txBaseHash);
+    void updateTopQualCertAddressIndex(const uint256& scid);
+
+    void addSpentIndex(const CTransactionBase& txBase, const CCoinsViewCache &view);
+    bool getSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value);
+    bool removeSpentIndex(const uint256& txBaseHash);
+#endif // ENABLE_ADDRESS_INDEXING
 
     std::vector<uint256> mempoolDirectDependenciesFrom(const CTransactionBase& root) const;
     std::vector<uint256> mempoolDirectDependenciesOf(const CTransactionBase& root) const;
@@ -335,6 +370,8 @@ public:
 
     bool lookup(const uint256& hash, CTransaction& result) const;
     bool lookup(const uint256& hash, CScCertificate& result) const;
+
+    void CertQualityStatusString(const CScCertificate& cert, std::string& statusString) const;
 
     /** Estimate fee rate needed to get into the next nBlocks */
     CFeeRate estimateFee(int nBlocks) const;

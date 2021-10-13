@@ -67,7 +67,9 @@ UniValue TxJoinSplitToJSON(const CTransaction& tx) {
         UniValue joinsplit(UniValue::VOBJ);
 
         joinsplit.pushKV("vpub_old", ValueFromAmount(jsdescription.vpub_old));
+        joinsplit.pushKV("vpub_oldZat", jsdescription.vpub_old);
         joinsplit.pushKV("vpub_new", ValueFromAmount(jsdescription.vpub_new));
+        joinsplit.pushKV("vpub_newZat", jsdescription.vpub_new);
 
         joinsplit.pushKV("anchor", jsdescription.anchor.GetHex());
 
@@ -118,7 +120,10 @@ UniValue TxJoinSplitToJSON(const CTransaction& tx) {
 
 void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 {
-    entry.pushKV("txid", tx.GetHash().GetHex());
+
+    uint256 txid = tx.GetHash();
+    entry.pushKV("txid", txid.GetHex());
+    entry.pushKV("size", (int)::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION));
     entry.pushKV("version", tx.nVersion);
     entry.pushKV("locktime", (int64_t)tx.GetLockTime());
     UniValue vin(UniValue::VARR);
@@ -133,6 +138,22 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             o.pushKV("asm", txin.scriptSig.ToString());
             o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
             in.pushKV("scriptSig", o);
+
+#ifdef ENABLE_ADDRESS_INDEXING
+            // Add address and value info if spentindex enabled
+            CSpentIndexValue spentInfo;
+            CSpentIndexKey spentKey(txin.prevout.hash, txin.prevout.n);
+            if (GetSpentIndex(spentKey, spentInfo)) {
+                in.pushKV("value", ValueFromAmount(spentInfo.satoshis));
+                in.pushKV("valueZat", spentInfo.satoshis);
+                if (spentInfo.addressType == 1) {
+                    in.pushKV("address", CBitcoinAddress(CKeyID(spentInfo.addressHash)).ToString());
+                } else if (spentInfo.addressType == 2)  {
+                    in.pushKV("address", CBitcoinAddress(CScriptID(spentInfo.addressHash)).ToString());
+                }
+            }
+#endif // ENABLE_ADDRESS_INDEXING
+
         }
         in.pushKV("sequence", (int64_t)txin.nSequence);
         vin.push_back(in);
@@ -155,6 +176,18 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.pushKV("scriptPubKey", o);
+
+#ifdef ENABLE_ADDRESS_INDEXING
+        // Add spent information if spentindex is enabled
+        CSpentIndexValue spentInfo;
+        CSpentIndexKey spentKey(txid, i);
+        if (GetSpentIndex(spentKey, spentInfo)) {
+            out.pushKV("spentTxId", spentInfo.txid.GetHex());
+            out.pushKV("spentIndex", (int)spentInfo.inputIndex);
+            out.pushKV("spentHeight", spentInfo.blockHeight);
+        }
+#endif // ENABLE_ADDRESS_INDEXING
+
         vout.push_back(out);
     }
     entry.pushKV("vout", vout);
@@ -174,20 +207,25 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         if (mi != mapBlockIndex.end() && (*mi).second) {
             CBlockIndex* pindex = (*mi).second;
             if (chainActive.Contains(pindex)) {
+                entry.pushKV("height", pindex->nHeight);
                 entry.pushKV("confirmations", 1 + chainActive.Height() - pindex->nHeight);
                 entry.pushKV("time", pindex->GetBlockTime());
                 entry.pushKV("blocktime", pindex->GetBlockTime());
-            }
-            else
+            } else {
+                entry.pushKV("height", -1);
                 entry.pushKV("confirmations", 0);
+            }
         }
     }
 }
 
 void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& entry)
 {
-    entry.pushKV("txid", cert.GetHash().GetHex());
+    uint256 certId = cert.GetHash();
+    entry.pushKV("txid", certId.GetHex());
+    entry.pushKV("size", (int)::GetSerializeSize(cert, SER_NETWORK, PROTOCOL_VERSION));
     entry.pushKV("version", cert.nVersion);
+    entry.pushKV("locktime", (int64_t)cert.GetLockTime());
     UniValue vin(UniValue::VARR);
     BOOST_FOREACH(const CTxIn& txin, cert.GetVin()) {
         UniValue in(UniValue::VOBJ);
@@ -197,6 +235,22 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
         o.pushKV("asm", txin.scriptSig.ToString());
         o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
         in.pushKV("scriptSig", o);
+
+#ifdef ENABLE_ADDRESS_INDEXING
+        // Add address and value info if spentindex enabled
+        CSpentIndexValue spentInfo;
+        CSpentIndexKey spentKey(txin.prevout.hash, txin.prevout.n);
+        if (GetSpentIndex(spentKey, spentInfo)) {
+            in.pushKV("value", ValueFromAmount(spentInfo.satoshis));
+            in.pushKV("valueZat", spentInfo.satoshis);
+            if (spentInfo.addressType == 1) {
+                in.pushKV("address", CBitcoinAddress(CKeyID(spentInfo.addressHash)).ToString());
+            } else if (spentInfo.addressType == 2)  {
+                in.pushKV("address", CBitcoinAddress(CScriptID(spentInfo.addressHash)).ToString());
+            }
+        }
+#endif // ENABLE_ADDRESS_INDEXING
+
         in.pushKV("sequence", (int64_t)txin.nSequence);
         vin.push_back(in);
     }
@@ -211,6 +265,18 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.pushKV("scriptPubKey", o);
+
+#ifdef ENABLE_ADDRESS_INDEXING
+        // Add spent information if spentindex is enabled
+        CSpentIndexValue spentInfo;
+        CSpentIndexKey spentKey(certId, i);
+        if (GetSpentIndex(spentKey, spentInfo)) {
+            out.pushKV("spentTxId", spentInfo.txid.GetHex());
+            out.pushKV("spentIndex", (int)spentInfo.inputIndex);
+            out.pushKV("spentHeight", spentInfo.blockHeight);
+        }
+#endif // ENABLE_ADDRESS_INDEXING
+
         if (cert.IsBackwardTransfer(i))
         {
             out.pushKV("backwardTransfer", true);
@@ -255,11 +321,14 @@ void CertToJSON(const CScCertificate& cert, const uint256 hashBlock, UniValue& e
         if (mi != mapBlockIndex.end() && (*mi).second) {
             CBlockIndex* pindex = (*mi).second;
             if (chainActive.Contains(pindex)) {
+                entry.pushKV("height", pindex->nHeight);
                 entry.pushKV("confirmations", 1 + chainActive.Height() - pindex->nHeight);
+                entry.pushKV("time", pindex->GetBlockTime());
                 entry.pushKV("blocktime", pindex->GetBlockTime());
             }
             else
             {
+                entry.pushKV("height", -1);
                 entry.pushKV("confirmations", 0);
             }
         }
@@ -407,7 +476,6 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             + HelpExampleCli("getrawtransaction", "\"mytxid\" 1")
             + HelpExampleRpc("getrawtransaction", "\"mytxid\", 1")
         );
-    LOCK(cs_main);
 
     uint256 hash = ParseHashV(params[0], "parameter 1");
 
@@ -415,12 +483,15 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
     if (params.size() > 1)
         fVerbose = (params[1].get_int() != 0);
 
-    // allocated by the callee
     std::unique_ptr<CTransactionBase> pTxBase;
     
     uint256 hashBlock{};
-    if (!GetTxBaseObj(hash, pTxBase, hashBlock, true) || !pTxBase)
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
+
+    {
+        LOCK(cs_main);
+        if (!GetTxBaseObj(hash, pTxBase, hashBlock, true) || !pTxBase)
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
+    }
 
     std::string strHex = EncodeHex(pTxBase);
 

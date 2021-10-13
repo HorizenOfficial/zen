@@ -5,8 +5,7 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_node, connect_nodes
-from test_framework.mininode import COIN
+    start_node, connect_nodes, COIN
 
 import time
 

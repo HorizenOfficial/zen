@@ -302,6 +302,13 @@ static const CRPCCommand vRPCCommands[] =
     { "blockchain",         "getbestblockhash",       &getbestblockhash,       true  },
     { "blockchain",         "getblockcount",          &getblockcount,          true  },
     { "blockchain",         "getblock",               &getblock,               true  },
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    { "blockchain",         "getblockdeltas",         &getblockdeltas,         false },
+    { "blockchain",         "getblockhashes",         &getblockhashes,         true  },
+    { "blockchain",         "getspentinfo",           &getspentinfo,           false },
+#endif // ENABLE_ADDRESS_INDEXING
+
     { "blockchain",         "getblockhash",           &getblockhash,           true  },
     { "blockchain",         "getblockfinalityindex",  &getblockfinalityindex,  true  },
     { "blockchain",         "getglobaltips",          &getglobaltips,          true  },
@@ -316,6 +323,8 @@ static const CRPCCommand vRPCCommands[] =
     { "blockchain",         "gettxoutsetinfo",        &gettxoutsetinfo,        true  },
     { "blockchain",         "verifychain",            &verifychain,            true  },
     { "blockchain",         "checkcswnullifier",      &checkcswnullifier,      true  },
+    { "blockchain",         "getcertmaturityinfo",    &getcertmaturityinfo,    true  },
+    { "blockchain",         "clearmempool",           &clearmempool,           true  },
 
     /* Mining */
     { "mining",             "getblocktemplate",       &getblocktemplate,       true  },
@@ -349,6 +358,15 @@ static const CRPCCommand vRPCCommands[] =
 #ifdef ENABLE_WALLET
     { "rawtransactions",    "fundrawtransaction",     &fundrawtransaction,     false },
 #endif
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    /* Address index */
+    { "addressindex",       "getaddressmempool",      &getaddressmempool,      true  },
+    { "addressindex",       "getaddressutxos",        &getaddressutxos,        false },
+    { "addressindex",       "getaddressdeltas",       &getaddressdeltas,       false },
+    { "addressindex",       "getaddresstxids",        &getaddresstxids,        false },
+    { "addressindex",       "getaddressbalance",      &getaddressbalance,      false },
+#endif // ENABLE_ADDRESS_INDEXING
 
     /* Utility functions */
     { "util",               "createmultisig",         &createmultisig,         true  },

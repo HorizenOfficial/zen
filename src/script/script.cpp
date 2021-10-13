@@ -212,6 +212,33 @@ unsigned int CScript::GetSigOpCount(const CScript& scriptSig) const
     return subscript.GetSigOpCount(true);
 }
 
+bool CScript::IsPayToPublicKeyHash() const
+{
+    // Extra-fast test for pay-to-pubkey-hash CScripts:
+
+    // Check if this script is P2SH without OP_CHECKBLOCKATHEIGHT
+    bool p2pkh = (this->size() == 25 &&
+                (*this)[0] == OP_DUP &&
+                (*this)[1] == OP_HASH160 &&
+                (*this)[2] == 0x14 &&
+                (*this)[23] == OP_EQUALVERIFY &&
+                (*this)[24] == OP_CHECKSIG);
+
+     // Check if this script is P2PKH with OP_CHECKBLOCKATHEIGHT
+     // The overall size should not be more then 62:
+     // 25 bytes for common P2PKH + 1 byte size + 32 bytes of block hash + 1 byte size + 4 bytes of block height + 1 byte opcode
+    bool p2pkhWithReplay = (this->size() > 25 &&
+                            this->size() < 65 &&
+                          (*this)[0] == OP_DUP &&
+                          (*this)[1] == OP_HASH160 &&
+                          (*this)[2] == 0x14 &&
+                          (*this)[23] == OP_EQUALVERIFY &&
+                          (*this)[24] == OP_CHECKSIG &&
+                          (*this)[this->size() -1] == OP_CHECKBLOCKATHEIGHT);
+
+    return p2pkh || p2pkhWithReplay;
+}
+
 bool CScript::IsPayToScriptHash() const
 {
     // Extra-fast test for pay-to-script-hash CScripts:
@@ -274,4 +301,32 @@ std::string CScript::ToString() const
             str += GetOpName(opcode);
     }
     return str;
+}
+
+CScript::ScriptType CScript::GetType() const
+{
+    if (this->IsPayToPublicKeyHash())
+        return CScript::P2PKH;
+    if (this->IsPayToScriptHash())
+        return CScript::P2SH;
+    // We don't know this script type
+    return CScript::UNKNOWN;
+}
+
+uint160 CScript::AddressHash() const
+{
+    // where the address bytes begin depends on the script type
+    int start;
+    if (this->IsPayToPublicKeyHash())
+        start = 3;
+    else if (this->IsPayToScriptHash())
+        start = 2;
+    else {
+        // unknown script type; return zeros (this can happen)
+        vector<unsigned char> hashBytes;
+        hashBytes.resize(20, 0);
+        return uint160(hashBytes);
+    }
+    vector<unsigned char> hashBytes(this->begin() + start, this->begin() + start + 20);
+    return uint160(hashBytes);
 }

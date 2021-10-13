@@ -21,9 +21,19 @@
 #include <consensus/validation.h>
 
 class CBlockUndo;
+class CBlockTreeDB;
 class CTxInUndo;
 class CSidechainUndoData;
 class CScProofVerifier;
+
+struct CTxIndexValue;
+
+#ifdef ENABLE_ADDRESS_INDEXING
+struct CAddressIndexKey;
+struct CAddressIndexValue;
+struct CAddressUnspentKey;
+struct CAddressUnspentValue;
+#endif // ENABLE_ADDRESS_INDEXING
 
 static const int BWT_POS_UNSET = -1;
 
@@ -700,12 +710,47 @@ public:
     void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
     bool RestoreBackwardTransfers(const uint256& certHash, const std::vector<CTxInUndo>& outsToRestore);
 
+#ifdef ENABLE_ADDRESS_INDEXING
+    /**
+     * @brief The enumeration of allowed operations related to the indexes update.
+     * When connecting a new block, a previous top quality certificate get superseded.
+     * When disconnecting a block, a lower quality certificate becomes a top quality one
+     * and its Backward Transfers must be restored.
+     */
+    enum class flagIndexesUpdateType
+    {
+        SUPERSEDE_CERTIFICATE,      /**< Perform the normal/complete procedure applying changes. */
+        RESTORE_CERTIFICATE         /**< Perofrm only the validity check and do not apply any changes. */
+    };
+
+    void UpdateBackwardTransferIndexes(const uint256& certHash,
+                                        int certIndex,
+                                        std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
+                                        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex,
+                                        flagIndexesUpdateType updateType);
+#endif // ENABLE_ADDRESS_INDEXING
+
     //SIDECHAINS EVENTS RELATED MEMBERS
     bool HaveSidechainEvents(int height)                            const override;
     bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;
 
     bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
     bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
+
+    void HandleTxIndexSidechainEvents(int height, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<uint256, CTxIndexValue>>& txIndex);
+    void RevertTxIndexSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<uint256, CTxIndexValue>>& txIndex);
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    void HandleIndexesSidechainEvents(int height, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
+                                      std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex);
+
+    void RevertIndexesSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
+                                      std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex);
+#endif // ENABLE_ADDRESS_INDEXING
 
     //CSW NULLIFIER PUBLIC MEMBERS
     bool HaveCswNullifier(const uint256& scId, const CFieldElement &nullifier) const override;
