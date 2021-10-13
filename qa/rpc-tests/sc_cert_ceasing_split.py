@@ -133,7 +133,7 @@ class CeasingSplitTest(BitcoinTestFramework):
 
         mark_logs("\n==> certificate for epoch {} {}l".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
-        ceas_height = self.nodes[0].getscinfo(scid, False, False)['items'][0]['ceasing height']
+        ceas_height = self.nodes[0].getscinfo(scid, False, False)['items'][0]['ceasingHeight']
         numbBlocks = ceas_height - self.nodes[0].getblockcount() + sc_epoch_len - 1
 
         mark_logs("\nNode0 generates {} block reaching the sg for the next epoch".format(numbBlocks), self.nodes, DEBUG_MODE)
@@ -142,9 +142,9 @@ class CeasingSplitTest(BitcoinTestFramework):
 
         cur_h = self.nodes[0].getblockcount()
         ret=self.nodes[0].getscinfo(scid, True, False)['items'][0]
-        cr_height=ret['created at block height']
-        ceas_h = ret['ceasing height']
-        mark_logs("epoch number={}, current height={}, creation height={}, ceasing height={}, epoch_len={}"
+        cr_height=ret['createdAtBlockHeight']
+        ceas_h = ret['ceasingHeight']
+        mark_logs("epoch number={}, current height={}, creation height={}, ceasingHeight={}, epoch_len={}"
             .format(epoch_number, cur_h, cr_height, ceas_h, sc_epoch_len), self.nodes, DEBUG_MODE)
         print
 

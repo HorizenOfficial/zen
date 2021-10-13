@@ -194,7 +194,7 @@ class sc_cert_change(BitcoinTestFramework):
             mark_logs("Get transaction failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
-        # node3 has also immature amounts deriving from the latest certificate whose change has been used for the funds just received 
+        # node3 has also immatureAmounts deriving from the latest certificate whose change has been used for the funds just received 
         assert_equal(res['amount'], 0.0)
         assert_equal(res['txid'], cert_ep2)
         # immature BT amounts are not displayed by default
@@ -211,7 +211,7 @@ class sc_cert_change(BitcoinTestFramework):
             mark_logs("Get transaction failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
 
-        # node3 has also immature amounts deriving from the latest certificate whose change has been used for the funds just received 
+        # node3 has also immatureAmounts deriving from the latest certificate whose change has been used for the funds just received 
         assert_equal(res['amount'], 0.0)
         assert_equal(res['txid'], cert_ep2)
         # immature BT amounts must be displayed now

@@ -129,7 +129,7 @@ class sc_getscinfo(BitcoinTestFramework):
         # check all of them have right block creation hash which is part of verbose output
         # and fill the ordered scids lists
         for item in sc_info_all['items']:
-            assert_equal(item['created at block height'], sc_creating_height)
+            assert_equal(item['createdAtBlockHeight'], sc_creating_height)
             scids_all.append(item['scid'])
             if item['state'] == "ALIVE":
                 scids_alive.append(item['scid'])
@@ -157,7 +157,7 @@ class sc_getscinfo(BitcoinTestFramework):
         count = 0
         for item in sc_info['items']:
             try:
-                assert_equal(item['created at block height'], sc_creating_height)
+                assert_equal(item['createdAtBlockHeight'], sc_creating_height)
                 assert_true(False)
             except Exception, e:
                 # it is ok, we expected it
@@ -179,7 +179,7 @@ class sc_getscinfo(BitcoinTestFramework):
 
         count = from_par
         for item in sc_info['items']:
-            assert_equal(item['created at block height'], sc_creating_height)
+            assert_equal(item['createdAtBlockHeight'], sc_creating_height)
             assert_equal(scids_all[count], item['scid'])
             count += 1
 
@@ -293,8 +293,14 @@ class sc_getscinfo(BitcoinTestFramework):
         self.sync_all()
 
         result = self.nodes[0].getscinfo(scid_0)
-        assert_equal(cert_1_epoch_0, result['items'][0]['unconf top quality certificate hash'])
-        assert_equal(quality, result['items'][0]['unconf top quality certificate quality'])
+        assert_equal(cert_1_epoch_0, result['items'][0]['unconfTopQualityCertificateHash'])
+        assert_equal(quality, result['items'][0]['unconfTopQualityCertificateQuality'])
+
+        elen = item['withdrawalEpochLength']
+        wlen = item['certSubmissionWindowLength']
+        wlen_calc = max(2, int(elen/5))
+        assert_equal(wlen, wlen_calc)
+
 
 
 if __name__ == '__main__':

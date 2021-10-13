@@ -158,8 +158,8 @@ class ScSplitTest(BitcoinTestFramework):
         assert_equal(scinfoNode0, scinfoNode1)
         
         assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
-        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["created at block height"], ownerBlockHeight)
-        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["creating tx hash"], creating_tx)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["createdAtBlockHeight"], ownerBlockHeight)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["creatingTxHash"], creating_tx)
         assert_equal(0, self.nodes[2].getscinfo(scid)['totalItems'])
 
         # ---------------------------------------------------------------------------------------
@@ -175,8 +175,8 @@ class ScSplitTest(BitcoinTestFramework):
 
         mark_logs("\nChecking that sc info on Node1 are not available anymore in blockchain since tx has been reverted...", self.nodes, DEBUG_MODE)
         ret = self.nodes[1].getscinfo(scid)['items'][0]
-        assert_false('creating tx hash' in ret)
-        assert_true(ret['unconf creating tx hash'], creating_tx)
+        assert_false('creatingTxHash' in ret)
+        assert_true(ret['unconfCreatingTxHash'], creating_tx)
 
         # Check the mempools of every nodes
         mark_logs("\nChecking mempools...", self.nodes, DEBUG_MODE)
@@ -217,8 +217,8 @@ class ScSplitTest(BitcoinTestFramework):
         assert_equal(scinfoNode0, scinfoNode1)
         assert_equal(scinfoNode0, scinfoNode2)
         assert_equal(self.nodes[2].getscinfo(scid)['items'][0]["balance"], creation_amount + fwt_amount_1 + fwt_amount_2)
-        assert_equal(self.nodes[2].getscinfo(scid)['items'][0]["created at block height"], secondOwnerBlockHeight)
-        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["creating tx hash"], creating_tx)
+        assert_equal(self.nodes[2].getscinfo(scid)['items'][0]["createdAtBlockHeight"], secondOwnerBlockHeight)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]["creatingTxHash"], creating_tx)
 
 
 if __name__ == '__main__':

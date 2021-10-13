@@ -115,7 +115,7 @@ class quality_nodes(BitcoinTestFramework):
         #assert_equal(bal_before_sc_creation, bal_after_sc_creation + creation_amount + creation_amount - fee_sc_creation - fee_sc_creation)
 
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], Decimal(0))
-        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][0]['amount'], creation_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immatureAmounts'][0]['amount'], creation_amount)
 
         # Fwd Transfer to SC 1
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
@@ -137,8 +137,8 @@ class quality_nodes(BitcoinTestFramework):
         assert_equal(bal_before_fwd_tx, bal_after_fwd_tx + fwt_amount - fee_fwt - Decimal(MINER_REWARD_POST_H200))
 
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], Decimal(0))
-        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][0]['amount'], creation_amount)
-        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][1]['amount'], fwt_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immatureAmounts'][0]['amount'], creation_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immatureAmounts'][1]['amount'], fwt_amount)
 
 
         bal_after_fwd_tx = self.nodes[0].getbalance("", 0)
@@ -152,7 +152,7 @@ class quality_nodes(BitcoinTestFramework):
         mark_logs("Chain height={}".format(h), self.nodes, DEBUG_MODE)
 
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc balance has matured
-        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immatureAmounts']), 0)
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 

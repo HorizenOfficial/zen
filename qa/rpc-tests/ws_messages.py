@@ -205,8 +205,8 @@ class ws_messages(BitcoinTestFramework):
         decoded_coinbase = self.nodes[2].getrawtransaction(coinbase, 1)
         miner_quota = decoded_coinbase['vout'][0]['value']
         assert_equal((Decimal('7.5') + CERT_FEE), miner_quota)
-        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['last ftScFee'], FT_SC_FEE)
-        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['last mbtrScFee'], MBTR_SC_FEE)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['lastFtScFee'], FT_SC_FEE)
+        assert_equal(self.nodes[1].getscinfo(scid)['items'][0]['lastMbtrScFee'], MBTR_SC_FEE)
 
         # ----------------------------------------------------------------"
         # Test get single block

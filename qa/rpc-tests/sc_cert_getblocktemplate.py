@@ -89,7 +89,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         cur_h = self.nodes[0].getblockcount()
         ret = self.nodes[0].getscinfo(scid, True, False)['items'][0]
-        ceas_h = ret['ceasing height']
+        ceas_h = ret['ceasingHeight']
         ceas_limit_delta = ceas_h - cur_h - 1
 
         mark_logs("Node0 generating {} blocks reaching the third to last block before the SC ceasing".format(ceas_limit_delta), self.nodes, DEBUG_MODE)

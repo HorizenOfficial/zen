@@ -194,7 +194,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         self.refresh_sidechain(sc_info, scid)
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-        sc_creating_height = self.nodes[0].getscinfo(scid)['items'][0]['created at block height']
+        sc_creating_height = self.nodes[0].getscinfo(scid)['items'][0]['createdAtBlockHeight']
         epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * EPOCH_LENGTH))
 
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)

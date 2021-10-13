@@ -45,7 +45,7 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
                                 extra_args=['-debug=py', '-debug=sc', '-debug=mempool',
                                     '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib',
                                     '-scproofqueuesize=0', '-logtimemicros=1', '-rpcservertimeout=10'],
-                                timewait=10)]  # 10 seconds of timeout
+                                timewait=30)]  # 30 seconds of timeout
 
     def run_test(self):
 
@@ -88,7 +88,7 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
         self.nodes[0].generate(1)
 
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], Decimal(0))
-        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][0]['amount'], creation_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immatureAmounts'][0]['amount'], creation_amount)
 
         # Fwd Transfer to Sc
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
@@ -101,14 +101,14 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
         self.nodes[0].generate(1)
 
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], Decimal(0))
-        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][0]['amount'], creation_amount)
-        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][1]['amount'], fwt_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immatureAmounts'][0]['amount'], creation_amount)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immatureAmounts'][1]['amount'], fwt_amount)
 
         nblocks = EPOCH_LENGTH - 2
         mark_logs("Node0 generating {} more blocks to achieve end of withdrawal epoch".format(nblocks), self.nodes, DEBUG_MODE)
         self.nodes[0].generate(nblocks)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc balance has matured
-        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts']), 0)
+        assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immatureAmounts']), 0)
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)

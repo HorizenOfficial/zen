@@ -121,7 +121,7 @@ class quality_mempool(BitcoinTestFramework):
         assert_equal(bal_before_sc_creation, bal_after_sc_creation + creation_amount + creation_amount - fee_sc_creation_1 - fee_sc_creation_2)
 
         assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['balance'], Decimal(0))
-        assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['immature amounts'][0]['amount'], creation_amount)
+        assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['immatureAmounts'][0]['amount'], creation_amount)
 
         # Fwd Transfer to SC 1
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
@@ -155,14 +155,14 @@ class quality_mempool(BitcoinTestFramework):
         assert_equal(bal_before_fwd_tx, bal_after_fwd_tx + fwt_amount - fee_fwt - Decimal(MINER_REWARD_POST_H200))
 
         assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['balance'], Decimal(0))
-        assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['immature amounts'][0]['amount'], creation_amount)
-        assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['immature amounts'][1]['amount'], fwt_amount)
+        assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['immatureAmounts'][0]['amount'], creation_amount)
+        assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['immatureAmounts'][1]['amount'], fwt_amount)
 
         mark_logs("Node0 generating more blocks to achieve end of withdrawal epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(EPOCH_LENGTH - 3)
         self.sync_all()
         assert_equal(self.nodes[0].getscinfo(scid_1)['items'][0]['balance'], creation_amount + fwt_amount) # Sc balance has matured
-        assert_equal(len(self.nodes[0].getscinfo(scid_1)['items'][0]['immature amounts']), 0)
+        assert_equal(len(self.nodes[0].getscinfo(scid_1)['items'][0]['immatureAmounts']), 0)
 
         epoch_number_1, epoch_cum_tree_hash_1 = get_epoch_data(scid_1, self.nodes[0], EPOCH_LENGTH)
 

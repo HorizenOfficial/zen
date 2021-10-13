@@ -131,7 +131,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         mark_logs("\n==> certificate for epoch {} {}l".format(epoch_number, cert), self.nodes, DEBUG_MODE)
 
-        ceas_height = self.nodes[0].getscinfo(scid, False, False)['items'][0]['ceasing height']
+        ceas_height = self.nodes[0].getscinfo(scid, False, False)['items'][0]['ceasingHeight']
         numbBlocks = ceas_height - self.nodes[0].getblockcount() + sc_epoch_len - 1
         print "Node0 Chain h = ", self.nodes[0].getblockcount()
 

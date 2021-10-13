@@ -127,9 +127,9 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
 
         scinfo = self.nodes[2].getscinfo(scid, False, False)
         assert_equal(bwt_amount_1, creation_amount - scinfo['items'][0]['balance'])
-        assert_equal(bwt_amount_1, scinfo['items'][0]['last certificate amount'])
-        assert_equal(cert_epoch_0_1, scinfo['items'][0]['last certificate hash'])
-        assert_equal(quality, scinfo['items'][0]['last certificate quality'])
+        assert_equal(bwt_amount_1, scinfo['items'][0]['lastCertificateAmount'])
+        assert_equal(cert_epoch_0_1, scinfo['items'][0]['lastCertificateHash'])
+        assert_equal(quality, scinfo['items'][0]['lastCertificateQuality'])
 
         winfo = self.nodes[2].getwalletinfo()
         assert_equal(Decimal("0"), winfo['balance'])
@@ -159,9 +159,9 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
 
         scinfo = self.nodes[2].getscinfo(scid, False, False)
         assert_equal(bwt_amount_2, creation_amount - scinfo['items'][0]['balance'])
-        assert_equal(bwt_amount_2, scinfo['items'][0]['last certificate amount'])
-        assert_equal(cert_epoch_0_2, scinfo['items'][0]['last certificate hash'])
-        assert_equal(quality, scinfo['items'][0]['last certificate quality'])
+        assert_equal(bwt_amount_2, scinfo['items'][0]['lastCertificateAmount'])
+        assert_equal(cert_epoch_0_2, scinfo['items'][0]['lastCertificateHash'])
+        assert_equal(quality, scinfo['items'][0]['lastCertificateQuality'])
 
         winfo = self.nodes[2].getwalletinfo()
         assert_equal(Decimal("0"), winfo['balance'])
@@ -245,9 +245,9 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
 
         scinfo = self.nodes[2].getscinfo(scid, False, False)
         assert_equal(bwt_amount_4 + bwt_amount_2, creation_amount - scinfo['items'][0]['balance'])
-        assert_equal(bwt_amount_4, scinfo['items'][0]['last certificate amount'])
-        assert_equal(cert_epoch_1_4, scinfo['items'][0]['last certificate hash'])
-        assert_equal(quality_h, scinfo['items'][0]['last certificate quality'])
+        assert_equal(bwt_amount_4, scinfo['items'][0]['lastCertificateAmount'])
+        assert_equal(cert_epoch_1_4, scinfo['items'][0]['lastCertificateHash'])
+        assert_equal(quality_h, scinfo['items'][0]['lastCertificateQuality'])
 
         winfo = self.nodes[2].getwalletinfo()
         assert_equal(bwt_amount_2, winfo['balance'])
@@ -280,9 +280,9 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
 
         scinfo = self.nodes[2].getscinfo(scid, False, False)
         assert_equal(bwt_amount_5 + bwt_amount_4 + bwt_amount_2, creation_amount - scinfo['items'][0]['balance'])
-        assert_equal(bwt_amount_5, scinfo['items'][0]['last certificate amount'])
-        assert_equal(cert_epoch_2_5, scinfo['items'][0]['last certificate hash'])
-        assert_equal(quality, scinfo['items'][0]['last certificate quality'])
+        assert_equal(bwt_amount_5, scinfo['items'][0]['lastCertificateAmount'])
+        assert_equal(cert_epoch_2_5, scinfo['items'][0]['lastCertificateHash'])
+        assert_equal(quality, scinfo['items'][0]['lastCertificateQuality'])
 
         winfo = self.nodes[2].getwalletinfo()
         assert_equal(bwt_amount_2 + bwt_amount_4, winfo['balance'])
@@ -303,9 +303,9 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
 
         scinfo = self.nodes[2].getscinfo(scid, False, False)
         assert_equal(bwt_amount_5 + bwt_amount_4 + bwt_amount_2, creation_amount - scinfo['items'][0]['balance'])
-        assert_equal(bwt_amount_5, scinfo['items'][0]['last certificate amount'])
-        assert_equal(cert_epoch_2_5, scinfo['items'][0]['last certificate hash'])
-        assert_equal(quality, scinfo['items'][0]['last certificate quality'])
+        assert_equal(bwt_amount_5, scinfo['items'][0]['lastCertificateAmount'])
+        assert_equal(cert_epoch_2_5, scinfo['items'][0]['lastCertificateHash'])
+        assert_equal(quality, scinfo['items'][0]['lastCertificateQuality'])
 
         winfo = self.nodes[2].getwalletinfo()
         assert_equal(bwt_amount_2 + bwt_amount_4, winfo['balance'])

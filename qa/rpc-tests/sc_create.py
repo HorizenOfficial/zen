@@ -354,7 +354,7 @@ class SCCreateTest(BitcoinTestFramework):
 
         dump_sc_info_record(self.nodes[2].getscinfo(scid)['items'][0], 2, DEBUG_MODE)
         mark_logs("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 2), self.nodes, DEBUG_MODE)
-        ia = self.nodes[2].getscinfo(scid)['items'][0]["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid)['items'][0]["immatureAmounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + SC_COINS_MAT:
                 assert_equal(entry["amount"], creation_amount)
@@ -394,7 +394,7 @@ class SCCreateTest(BitcoinTestFramework):
         count = 0
         mark_logs("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 1), self.nodes, DEBUG_MODE)
         mark_logs("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 2), self.nodes, DEBUG_MODE)
-        ia = self.nodes[2].getscinfo(scid)['items'][0]["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid)['items'][0]["immatureAmounts"]
         for entry in ia:
             count += 1
             if entry["maturityHeight"] == curh + SC_COINS_MAT:
@@ -414,7 +414,7 @@ class SCCreateTest(BitcoinTestFramework):
         dump_sc_info_record(self.nodes[2].getscinfo(scid)['items'][0], 2, DEBUG_MODE)
         count = 0
         mark_logs("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 1), self.nodes, DEBUG_MODE)
-        ia = self.nodes[2].getscinfo(scid)['items'][0]["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid)['items'][0]["immatureAmounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + SC_COINS_MAT - 1:
                 assert_equal(entry["amount"], fwt_amount_many + fwt_amount_1)
@@ -432,7 +432,7 @@ class SCCreateTest(BitcoinTestFramework):
         pprint.pprint(scinfo)
 
         mark_logs("Check that there are no immature coins", self.nodes, DEBUG_MODE)
-        ia = self.nodes[2].getscinfo(scid)['items'][0]["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid)['items'][0]["immatureAmounts"]
         assert_equal(len(ia), 0)
 
         mark_logs("Checking blockindex persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)

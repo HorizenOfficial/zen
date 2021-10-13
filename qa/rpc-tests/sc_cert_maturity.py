@@ -254,7 +254,7 @@ class sc_cert_maturity(BitcoinTestFramework):
         self.nodes[0].generate(4)
         self.sync_all()
         print "Height=", self.nodes[0].getblockcount()
-        print "Ceasing at h =", self.nodes[0].getscinfo("*")['items'][0]['ceasing height']
+        print "Ceasing at h =", self.nodes[0].getscinfo("*")['items'][0]['ceasingHeight']
         print "State =", self.nodes[0].getscinfo("*")['items'][0]['state']
         assert_equal(self.nodes[0].getscinfo("*")['items'][0]['state'], "ALIVE")
 

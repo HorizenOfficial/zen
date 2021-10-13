@@ -573,7 +573,7 @@ class SCCreateTest(BitcoinTestFramework):
         if DEBUG_MODE:
             pprint.pprint(scinfo0)
 
-        assert_equal(tot_many, scinfo0['immature amounts'][0]['amount'])
+        assert_equal(tot_many, scinfo0['immatureAmounts'][0]['amount'])
         bal_t1 = self.nodes[1].getbalance()
         assert_equal(bal_t0, bal_t1 + tot_many + fee)
 

@@ -599,7 +599,7 @@ class CswNullifierTest(BitcoinTestFramework):
 
         ret = self.nodes[0].getscinfo(scid2, False, True)['items'][0]
         assert_equal(ret['state'], "CEASED")
-        assert_equal(ret['last certificate epoch'], 1)
+        assert_equal(ret['lastCertificateEpoch'], 1)
 
         try:
             assert_true(self.nodes[1].getactivecertdatahash(scid2)['certDataHash'])

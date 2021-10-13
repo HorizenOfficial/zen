@@ -1136,7 +1136,7 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
             if (scId == scCrAmount.GetScId())
             {
                  UniValue o(UniValue::VOBJ);
-                 o.pushKV("unconf amount", ValueFromAmount(scCrAmount.nValue));
+                 o.pushKV("unconfAmount", ValueFromAmount(scCrAmount.nValue));
                  ia.push_back(o);
              }
         }
@@ -1150,7 +1150,7 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
             if (scId == fwdAmount.scId)
             {
                  UniValue o(UniValue::VOBJ);
-                 o.pushKV("unconf amount", ValueFromAmount(fwdAmount.GetScValue()));
+                 o.pushKV("unconfAmount", ValueFromAmount(fwdAmount.GetScValue()));
                  ia.push_back(o);
              }
         }
@@ -1164,14 +1164,14 @@ static void addScUnconfCcData(const uint256& scId, UniValue& sc)
             if (scId == mbtrAmount.scId)
             {
                  UniValue o(UniValue::VOBJ);
-                 o.pushKV("unconf amount", ValueFromAmount(mbtrAmount.GetScValue()));
+                 o.pushKV("unconfAmount", ValueFromAmount(mbtrAmount.GetScValue()));
                  ia.push_back(o);
              }
         }
     }
 
     if (ia.size() > 0)
-        sc.pushKV("unconf immature amounts", ia);
+        sc.pushKV("unconfImmatureAmounts", ia);
 
     // there are no info about bwt requests in sc db, therefore we do not include them neither when they are in mempool
 }
@@ -1191,28 +1191,29 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
  
         sc.pushKV("balance", ValueFromAmount(info.balance));
         sc.pushKV("epoch", currentEpoch);
-        sc.pushKV("end epoch height", info.GetEndHeightForEpoch(currentEpoch));
+        sc.pushKV("endEpochHeight", info.GetEndHeightForEpoch(currentEpoch));
         sc.pushKV("state", CSidechain::stateToString(scState));
-        sc.pushKV("ceasing height", info.GetScheduledCeasingHeight());
+        sc.pushKV("ceasingHeight", info.GetScheduledCeasingHeight());
  
         if (bVerbose)
         {
-            sc.pushKV("creating tx hash", info.creationTxHash.GetHex());
+            sc.pushKV("creatingTxHash", info.creationTxHash.GetHex());
         }
  
-        sc.pushKV("created at block height", info.creationBlockHeight);
-        sc.pushKV("last certificate epoch", info.lastTopQualityCertReferencedEpoch);
-        sc.pushKV("last certificate hash", info.lastTopQualityCertHash.GetHex());
-        sc.pushKV("last certificate quality", info.lastTopQualityCertQuality);
-        sc.pushKV("last certificate amount", ValueFromAmount(info.lastTopQualityCertBwtAmount));
+        sc.pushKV("createdAtBlockHeight", info.creationBlockHeight);
+        sc.pushKV("lastCertificateEpoch", info.lastTopQualityCertReferencedEpoch);
+        sc.pushKV("lastCertificateHash", info.lastTopQualityCertHash.GetHex());
+        sc.pushKV("lastCertificateQuality", info.lastTopQualityCertQuality);
+        sc.pushKV("lastCertificateAmount", ValueFromAmount(info.lastTopQualityCertBwtAmount));
 
         const CScCertificateView& certView = scView.GetActiveCertView(scId);
-        sc.pushKV("active ftScFee", ValueFromAmount(certView.forwardTransferScFee));
-        sc.pushKV("active mbtrScFee", ValueFromAmount(certView.mainchainBackwardTransferRequestScFee));
+        sc.pushKV("activeFtScFee", ValueFromAmount(certView.forwardTransferScFee));
+        sc.pushKV("activeMbtrScFee", ValueFromAmount(certView.mainchainBackwardTransferRequestScFee));
  
         // creation parameters
         sc.pushKV("mbtrRequestDataLength", info.fixedParams.mainchainBackwardTransferRequestDataLength);
         sc.pushKV("withdrawalEpochLength", info.fixedParams.withdrawalEpochLength);
+        sc.pushKV("certSubmissionWindowLength", info.GetCertSubmissionWindowLength());
  
         if (bVerbose)
         {
@@ -1250,10 +1251,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             }
             sc.pushKV("vBitVectorCertificateFieldConfig", arrBitVectorConfig);
 
-            sc.pushKV("past ftScFee", ValueFromAmount(info.pastEpochTopQualityCertView.forwardTransferScFee));
-            sc.pushKV("past mbtrScFee", ValueFromAmount(info.pastEpochTopQualityCertView.mainchainBackwardTransferRequestScFee));
-            sc.pushKV("last ftScFee", ValueFromAmount(info.lastTopQualityCertView.forwardTransferScFee));
-            sc.pushKV("last mbtrScFee", ValueFromAmount(info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee));
+            sc.pushKV("pastFtScFee", ValueFromAmount(info.pastEpochTopQualityCertView.forwardTransferScFee));
+            sc.pushKV("pastMbtrScFee", ValueFromAmount(info.pastEpochTopQualityCertView.mainchainBackwardTransferRequestScFee));
+            sc.pushKV("lastFtScFee", ValueFromAmount(info.lastTopQualityCertView.forwardTransferScFee));
+            sc.pushKV("lastMbtrScFee", ValueFromAmount(info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee));
         }
  
         UniValue ia(UniValue::VARR);
@@ -1264,17 +1265,17 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             o.pushKV("amount", ValueFromAmount(entry.second));
             ia.push_back(o);
         }
-        sc.pushKV("immature amounts", ia);
+        sc.pushKV("immatureAmounts", ia);
 
         UniValue sf(UniValue::VARR);
         for(const auto& entry: info.scFees)
         {
             UniValue o(UniValue::VOBJ);
             o.pushKV("forwardTxScFee", ValueFromAmount(entry.forwardTxScFee));
-            o.pushKV("   mbtrTxScFee", ValueFromAmount(entry.mbtrTxScFee));
+            o.pushKV("mbtrTxScFee", ValueFromAmount(entry.mbtrTxScFee));
             sf.push_back(o);
         }
-        sc.pushKV("sc fees", sf);
+        sc.pushKV("scFees", sf);
 
         // get unconfirmed data if any
         if (mempool.hasSidechainCertificate(scId))
@@ -1282,10 +1283,10 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
             const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
  
-            sc.pushKV("unconf top quality certificate epoch",   topQualCert.epochNumber);
-            sc.pushKV("unconf top quality certificate hash",    topQualCertHash.GetHex());
-            sc.pushKV("unconf top quality certificate quality", topQualCert.quality);
-            sc.pushKV("unconf top quality certificate amount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers()));
+            sc.pushKV("unconfTopQualityCertificateEpoch",   topQualCert.epochNumber);
+            sc.pushKV("unconfTopQualityCertificateHash",    topQualCertHash.GetHex());
+            sc.pushKV("unconfTopQualityCertificateQuality", topQualCert.quality);
+            sc.pushKV("unconfTopQualityCertificateAmount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers()));
         }
 
         addScUnconfCcData(scId, sc);
@@ -1315,34 +1316,35 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             }
 
             sc.pushKV("state", CSidechain::stateToString(CSidechain::State::UNCONFIRMED));
-            sc.pushKV("unconf creating tx hash", info.creationTxHash.GetHex());
-            sc.pushKV("unconf withdrawalEpochLength", info.fixedParams.withdrawalEpochLength);
+            sc.pushKV("unconfCreatingTxHash", info.creationTxHash.GetHex());
+            sc.pushKV("unconfWithdrawalEpochLength", info.fixedParams.withdrawalEpochLength);
+            sc.pushKV("unconfCertSubmissionWindowLength", info.GetCertSubmissionWindowLength());
 
             if (bVerbose)
             {
-                sc.pushKV("unconf certProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCertVk.getProvingSystemType()));
-                sc.pushKV("unconf wCertVk", info.fixedParams.wCertVk.GetHexRepr());
-                sc.pushKV("unconf customData", HexStr(info.fixedParams.customData));
+                sc.pushKV("unconfCertProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCertVk.getProvingSystemType()));
+                sc.pushKV("unconfWCertVk", info.fixedParams.wCertVk.GetHexRepr());
+                sc.pushKV("unconfCustomData", HexStr(info.fixedParams.customData));
 
                 if(info.fixedParams.constant.is_initialized())
-                    sc.pushKV("unconf constant", info.fixedParams.constant->GetHexRepr());
+                    sc.pushKV("unconfConstant", info.fixedParams.constant->GetHexRepr());
                 else
-                    sc.pushKV("unconf constant", std::string{"NOT INITIALIZED"});
+                    sc.pushKV("unconfConstant", std::string{"NOT INITIALIZED"});
 
                 if(info.fixedParams.wCeasedVk.is_initialized())
                 {
-                    sc.pushKV("unconf cswProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType()));
-                    sc.pushKV("unconf wCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr());
+                    sc.pushKV("unconfCswProvingSystem", Sidechain::ProvingSystemTypeToString(info.fixedParams.wCeasedVk.get().getProvingSystemType()));
+                    sc.pushKV("unconfWCeasedVk", info.fixedParams.wCeasedVk.get().GetHexRepr());
                 }
                 else
-                    sc.pushKV("unconf wCeasedVk", std::string{"NOT INITIALIZED"});
+                    sc.pushKV("unconfWCeasedVk", std::string{"NOT INITIALIZED"});
 
                 UniValue arrFieldElementConfig(UniValue::VARR);
                 for(const auto& cfgEntry: info.fixedParams.vFieldElementCertificateFieldConfig)
                 {
                     arrFieldElementConfig.push_back(cfgEntry.getBitSize());
                 }
-                sc.pushKV("unconf vFieldElementCertificateFieldConfig", arrFieldElementConfig);
+                sc.pushKV("unconfVFieldElementCertificateFieldConfig", arrFieldElementConfig);
 
                 UniValue arrBitVectorConfig(UniValue::VARR);
                 for(const auto& cfgEntry: info.fixedParams.vBitVectorCertificateFieldConfig)
@@ -1352,7 +1354,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                     singlePair.push_back(cfgEntry.getMaxCompressedSizeBytes());
                     arrBitVectorConfig.push_back(singlePair);
                 }
-                sc.pushKV("unconf vBitVectorCertificateFieldConfig", arrBitVectorConfig);
+                sc.pushKV("unconfVBitVectorCertificateFieldConfig", arrBitVectorConfig);
             }
 
             addScUnconfCcData(scId, sc);
@@ -1502,38 +1504,42 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "  \"to\":                    xx,      (numeric) index of the ending item (excluded in result)\n"
             "  \"items\":[\n"
             "   {\n"
-            "     \"scid\":                    xxxxx,   (string)  sidechain ID\n"
-            "     \"balance\":                 xxxxx,   (numeric) available balance\n"
-            "     \"epoch\":                   xxxxx,   (numeric) current epoch for this sidechain\n"
-            "     \"end epoch height\":        xxxxx,   (numeric) height of the last block of the current epoch\n"
-            "     \"state\":                   xxxxx,   (string)  state of the sidechain at the current chain height\n"
-            "     \"ceasing height\":          xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
-            "     \"creating tx hash\":        xxxxx,   (string)  txid of the creating transaction\n"
-            "     \"created at block height\": xxxxx,   (numeric) height of the above block\n"
-            "     \"last certificate epoch\":  xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
-            "     \"last certificate hash\":   xxxxx,   (numeric) the hash of the last certificate that has been received\n"
-            "     \"last certificate quality\":xxxxx,   (numeric) the quality of the last certificate that has been received\n"
-            "     \"last certificate amount\": xxxxx,   (numeric) the amount of the last certificate that has been received\n"
-            "     \"active ftScFee\":          xxxxx,   (numeric) The currently active fee required to create a Forward Transfer to sidechain\n"
-            "     \"active mbtrScFee\":        xxxxx,   (numeric) The currently active fee required to create a Mainchain Backward Transfer Request to sidechain\n"
-            "     \"mbtrRequestDataLength\":   xxxxx,   (numeric) The size of the MBTR request data length\n"
-            "     \"withdrawalEpochLength\":   xxxxx,   (numeric) length of the withdrawal epoch\n"
-            "     \"certProvingSystem\"        xxxxx,   (numeric) The type of proving system used for certificate verification\n"
-            "     \"wCertVk\":                 xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
-            "     \"customData\":              xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
-            "     \"constant\":                xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
-            "     \"cswProvingSystem\"         xxxxx,   (numeric) The type of proving system used for CSW verification\n"
-            "     \"wCeasedVk\":               xxxxx,   (string)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
-            "     \"vFieldElementCertificateFieldConfig\"  xxxxx,   (string) A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
-            "     \"vBitVectorCertificateFieldConfig\"    xxxxx,   (string) A string representation of an array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom vBitVectorCertificateField with the corresponding sizes\n"
-            "     \"past ftScFee\":            xxxxx,   (numeric) The (past epoch) fee required to create a Forward Transfer to sidechain\n"
-            "     \"past mbtrScFee\":          xxxxx,   (numeric) The (past epoch) fee required to create a Mainchain Backward Transfer Request to sidechain\n"
-            "     \"last ftScFee\":            xxxxx,   (numeric) The (last epoch) fee required to create a Forward Transfer to sidechain\n"
-            "     \"last mbtrScFee\":          xxxxx,   (numeric) The (last epoch) fee required to create a Mainchain Backward Transfer Request to sidechain\n"
-            "     \"immature amounts\": [\n"
-            "       {\n"
-            "         \"maturityHeight\":      xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
-            "         \"amount\":              xxxxx,   (numeric) immature fund\n"
+            "     \"scid\":                               xxxxx,   (string)  sidechain ID\n"
+            "     \"balance\":                            xxxxx,   (numeric) available balance\n"
+            "     \"epoch\":                              xxxxx,   (numeric) current epoch for this sidechain\n"
+            "     \"endEpochHeight\":                     xxxxx,   (numeric) height of the last block of the current epoch\n"
+            "     \"state\":                              xxxxx,   (string)  state of the sidechain at the current chain height\n"
+            "     \"ceasingHeight\":                      xxxxx,   (numeric) height at which the sidechain is considered ceased if a certificate has not been received\n"
+            "     \"creatingTxHash\":                     xxxxx,   (string)  txid of the creating transaction\n"
+            "     \"createdAtBlockHeight\":               xxxxx,   (numeric) block height at which the sidechain was registered\n"
+            "     \"lastCertificateEpoch\":               xxxxx,   (numeric) last epoch number for which a certificate has been received\n"
+            "     \"lastCertificateHash\":                xxxxx,   (numeric) the hash of the last certificate that has been received\n"
+            "     \"lastCertificateQuality\":             xxxxx,   (numeric) the quality of the last certificate that has been received\n"
+            "     \"lastCertificateAmount\":              xxxxx,   (numeric) the amount of the last certificate that has been received\n"
+            "     \"activeFtScFee\":                      xxxxx,   (numeric) The currently active fee required to create a Forward Transfer to sidechain;\n"
+            "                                                              it can be either pastFtScFee or lastFtScFee value depending on the current block height, current epoch and last received top quality certificate\n"
+            "     \"activeMbtrScFee\":                    xxxxx,   (numeric) The currently active fee required to create a Mainchain Backward Transfer Request to sidechain\n"
+            "                                                              it can be either pastMbtrScFee or lastMbtrScFee value depending on the current block height, current epoch and last received top quality certificate\n"
+            "     \"mbtrRequestDataLength\":              xxxxx,   (numeric) The size of the MBTR request data length\n"
+            "     \"withdrawalEpochLength\":              xxxxx,   (numeric) length in blocks of the withdrawal epoch\n"
+            "     \"certSubmissionWindowLength\":         xxxxx,   (numeric) length in blocks of the submission window for certificates\n"
+            "     \"certProvingSystem\"                   xxxxx,   (numeric) The type of proving system used for certificate verification\n"
+            "     \"wCertVk\":                            xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
+            "     \"customData\":                         xxxxx,   (string)  The arbitrary byte string of custom data set at sc creation\n"
+            "     \"constant\":                           xxxxx,   (string)  The arbitrary byte string of constant set at sc creation\n"
+            "     \"cswProvingSystem\"                    xxxxx,   (numeric) The type of proving system used for CSW verification\n"
+            "     \"wCeasedVk\":                          xxxxx,   (string)  The verification key needed to verify a Ceased Sidechain Withdrawal input Proof, set at sc creation\n"
+            "     \"vFieldElementCertificateFieldConfig\" xxxxx,   (string)  A string representation of an array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            "     \"vBitVectorCertificateFieldConfig\"    xxxxx,   (string)  A string representation of an array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have\n"
+            "                                                              as many custom vBitVectorCertificateField with the corresponding sizes\n"
+            "     \"pastFtScFee\":                        xxxxx,   (numeric) The (past epoch) fee required to create a Forward Transfer to sidechain; it is the value set by the top quality certificate of the previous epoch\n"
+            "     \"pastMbtrScFee\":                      xxxxx,   (numeric) The (past epoch) fee required to create a Mainchain Backward Transfer Request to sidechain; it is the value set by the top quality certificate of the previous epoch\n"
+            "     \"lastFtScFee\":                        xxxxx,   (numeric) The (last epoch) fee required to create a Forward Transfer to sidechain; it refers to the most recent epoch for which a valid certificate has been received\n"
+            "     \"lastMbtrScFee\":                      xxxxx,   (numeric) The (last epoch) fee required to create a Mainchain Backward Transfer Request to sidechain; it refers to the most recent epoch for which a valid certificate has been received\n"
+            "     \"immatureAmounts\": [\n"              
+            "       {\n"                                  
+            "         \"maturityHeight\":                 xxxxx,   (numeric) height at which fund will become part of spendable balance\n"
+            "         \"amount\":                         xxxxx,   (numeric) immature fund\n"
             "       },\n"
             "       ... ]\n"
             "    },\n"

@@ -294,10 +294,10 @@ class sc_bwt_request(BitcoinTestFramework):
 
         sc_info = self.nodes[0].getscinfo(scid1)['items'][0]
 
-        mark_logs("Check creation and bwt requests contributed to immature amount of SC", self.nodes, DEBUG_MODE)
-        # check immature amounts, both cr and btrs 
+        mark_logs("Check creation and bwt requests contributed to immatureAmount of SC", self.nodes, DEBUG_MODE)
+        # check immatureAmounts, both cr and btrs 
         ima = Decimal("0.0")
-        for x in sc_info['immature amounts']:
+        for x in sc_info['immatureAmounts']:
             ima = ima + x['amount']
             assert_equal(x['maturityHeight'], curh + SC_COINS_MAT) 
         assert_equal(ima, totScFee + creation_amount1)
@@ -406,10 +406,10 @@ class sc_bwt_request(BitcoinTestFramework):
         ret_sc2 = self.nodes[0].getscinfo(scid2, False, False)['items'][0]
 
         # get the submission window limit for SC1
-        sc1_cr_height=ret_sc1['created at block height']
-        sc1_ceas_h = ret_sc1['ceasing height']
+        sc1_cr_height=ret_sc1['createdAtBlockHeight']
+        sc1_ceas_h = ret_sc1['ceasingHeight']
         sc1_ceas_limit_delta = sc1_ceas_h - cur_h - 1
-        mark_logs("current height={}, creation height={}, ceasing height={}, ceas_limit_delta={}, epoch_len={}"
+        mark_logs("current height={}, creation height={}, ceasingHeight={}, ceas_limit_delta={}, epoch_len={}"
             .format(cur_h, sc1_cr_height, sc1_ceas_h, sc1_ceas_limit_delta, EPOCH_LENGTH), self.nodes, DEBUG_MODE)
 
         mark_logs("Node0 generates {} blocks reaching the submission window height for SC1".format(sc1_ceas_limit_delta), self.nodes, DEBUG_MODE)
@@ -463,7 +463,7 @@ class sc_bwt_request(BitcoinTestFramework):
         sc_post_bwd = self.nodes[0].getscinfo(scid1, False, False)['items'][0]
         assert_equal(sc_post_bwd["balance"], totScFee)
 
-        ceasing_h = int(sc_post_bwd['ceasing height'])
+        ceasing_h = int(sc_post_bwd['ceasingHeight'])
         current_h = self.nodes[0].getblockcount()
 
         mark_logs("Node0 generates {} blocks moving on the ceasing limit of SC1".format(ceasing_h - current_h - 1), self.nodes, DEBUG_MODE)
@@ -543,7 +543,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         ret = self.nodes[0].getscinfo(scid2, False, False)['items'][0]
 
-        ceasing_h = int(ret['ceasing height'])
+        ceasing_h = int(ret['ceasingHeight'])
         current_h = self.nodes[0].getblockcount()
 
         mark_logs("Node0 generates {} blocks moving on the ceasing limit of SC2".format(ceasing_h - current_h - 1), self.nodes, DEBUG_MODE)
@@ -556,7 +556,7 @@ class sc_bwt_request(BitcoinTestFramework):
         # 1) send a cert
         mark_logs("\nNode0 sends a certificate to SC2", self.nodes, DEBUG_MODE)
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid2, self.nodes[0], epoch_len_2)
-        sc_creating_height = self.nodes[0].getscinfo(scid2)['items'][0]['created at block height']
+        sc_creating_height = self.nodes[0].getscinfo(scid2)['items'][0]['createdAtBlockHeight']
         epoch_block_hash = self.nodes[0].getblockhash(sc_creating_height - 1 + ((epoch_number + 1) * epoch_len_2))
 
         bt_amount = Decimal("1.0")

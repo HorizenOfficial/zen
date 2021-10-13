@@ -117,7 +117,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.sync_all()
 
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount)
-        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immature amounts'][0]['amount'], fwt_amount_immature_at_epoch)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['immatureAmounts'][0]['amount'], fwt_amount_immature_at_epoch)
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
@@ -276,7 +276,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         mark_logs("Node0 generating 4 block to show bwd has disappeared from history", self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(4))
         sc_post_regeneration = self.nodes[0].getscinfo(scid)['items'][0]
-        assert_equal(sc_post_regeneration["last certificate epoch"], Decimal(0))
+        assert_equal(sc_post_regeneration["lastCertificateEpoch"], Decimal(0))
         assert_equal(sc_post_regeneration["balance"], creation_amount + fwt_amount + fwt_amount_immature_at_epoch - bwt_amount)
 
         mark_logs("Node0 generating 6 block to have longest chain and cause reorg on other nodes", self.nodes, DEBUG_MODE)
@@ -288,7 +288,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         for idx, node in enumerate(self.nodes):
             mark_logs("Checking Node{} ScInfos".format(idx), self.nodes, DEBUG_MODE)
             sc_post_regeneration = node.getscinfo(scid)['items'][0]
-            assert_equal(sc_post_regeneration["last certificate epoch"], Decimal(0))
+            assert_equal(sc_post_regeneration["lastCertificateEpoch"], Decimal(0))
             assert_equal(sc_post_regeneration["balance"], creation_amount + fwt_amount + fwt_amount_immature_at_epoch - bwt_amount)
             assert(cert_epoch_1 not in node.getrawmempool())
             assert(speding_bwd_tx not in node.getrawmempool())
@@ -304,7 +304,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         for idx, node in enumerate(self.nodes):
             mark_logs("Checking Node{} after restart".format(idx), self.nodes, DEBUG_MODE)
             sc_post_regeneration = node.getscinfo(scid)['items'][0]
-            assert_equal(sc_post_regeneration["last certificate epoch"], Decimal(0))
+            assert_equal(sc_post_regeneration["lastCertificateEpoch"], Decimal(0))
             assert_equal(sc_post_regeneration["balance"], creation_amount + fwt_amount + fwt_amount_immature_at_epoch - bwt_amount)
             assert(cert_epoch_1 not in node.getrawmempool())
             assert(speding_bwd_tx not in node.getrawmempool())

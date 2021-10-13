@@ -111,7 +111,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         print "Current height: ", curh
         dump_sc_info_record(self.nodes[2].getscinfo(scid_1)['items'][0], 2)
         print "Check that %f coins will be mature at h=%d" % (creation_amount, curh + 2)
-        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + 2:
                 assert_equal(entry["amount"], creation_amount)
@@ -170,7 +170,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         count = 0
         print "Check that %f coins will be mature at h=%d" % (creation_amount, curh + 1)
         print "Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 2)
-        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             count += 1
             if entry["maturityHeight"] == curh + 2:
@@ -200,7 +200,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         dump_sc_info_record(self.nodes[2].getscinfo(scid_1)['items'][0], 2)
         count = 0
         print "Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 1)
-        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + 1:
                 assert_equal(entry["amount"], fwt_amount_many + fwt_amount_1)
@@ -220,7 +220,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         dump_sc_info_record(self.nodes[2].getscinfo(scid_1)['items'][0], 2)
         count = 0
         print "Check that there are no immature coins"
-        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         assert_equal(len(ia), 0)
         print "...OK"
         print
@@ -239,7 +239,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         dump_sc_info_record(self.nodes[2].getscinfo(scid_1)['items'][0], 2)
         count = 0
         print "Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 1)
-        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + 1:
                 assert_equal(entry["amount"], fwt_amount_many + fwt_amount_1)
@@ -264,7 +264,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         count = 0
         print "Check that %f coins will be mature at h=%d" % (creation_amount, curh + 1)
         print "Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 2)
-        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             count += 1
             if entry["maturityHeight"] == curh + 2:
@@ -289,14 +289,14 @@ class sc_fwd_maturity(BitcoinTestFramework):
         print "Current height: ", curh
         dump_sc_info(self.nodes, NUMB_OF_NODES)
         print "Check that %f coins will be mature at h=%d" % (creation_amount, curh + 2)
-        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immature amounts"]
+        ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + 2:
                 assert_equal(entry["amount"], creation_amount)
             print "...OK"
             print
 
-        creating_tx = self.nodes[2].getscinfo(scid_1)['items'][0]['creating tx hash']
+        creating_tx = self.nodes[2].getscinfo(scid_1)['items'][0]['creatingTxHash']
         
         mark_logs("\nNode 2 invalidates best block", self.nodes, DEBUG_MODE)
         try:
@@ -308,8 +308,8 @@ class sc_fwd_maturity(BitcoinTestFramework):
         print "Current height: ", self.nodes[2].getblockcount()
         print "Checking that sc info on Node2 is not available in blockchain (just in mempool)..."
         scinfo = self.nodes[2].getscinfo(scid_1)['items'][0]
-        assert_false('creating tx hash' in scinfo)
-        assert_true(scinfo['unconf creating tx hash'], creating_tx)
+        assert_false('creatingTxHash' in scinfo)
+        assert_true(scinfo['unconfCreatingTxHash'], creating_tx)
 
         print "...OK"
         print

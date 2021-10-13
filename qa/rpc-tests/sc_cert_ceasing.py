@@ -167,7 +167,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
                     assert_equal(sc_info["state"], "CEASED")
                 else:
                     assert_equal(sc_info["state"], "ALIVE")
-                assert_equal(sc_info["last certificate epoch"], last_cert_epochs[k])
+                assert_equal(sc_info["lastCertificateEpoch"], last_cert_epochs[k])
                 assert_equal(sc_info["balance"], creation_amount[k] - bwt_amount[k])
 
         bal1 = self.nodes[1].getbalance()
@@ -204,7 +204,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
                 print "idx = {}, k = {}".format(idx, k)
                 sc_info = node.getscinfo(scids[k])['items'][0]
                 assert_equal(sc_info["state"], "CEASED")
-                assert_equal(sc_info["last certificate epoch"], last_cert_epochs[k])
+                assert_equal(sc_info["lastCertificateEpoch"], last_cert_epochs[k])
                 assert_equal(sc_info["balance"], creation_amount[k] - bwt_amount[k])
 
         mark_logs("Node 0 tries to fwd coins to ceased sc {}...".format(scids[-1]), self.nodes, DEBUG_MODE)
@@ -227,7 +227,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
                 mark_logs("Checking Node{} after restart".format(idx), self.nodes, DEBUG_MODE)
                 sc_post_regeneration = node.getscinfo(scids[k])['items'][0]
                 assert_equal(sc_post_regeneration["state"], "CEASED")
-                assert_equal(sc_post_regeneration["last certificate epoch"], last_cert_epochs[k])
+                assert_equal(sc_post_regeneration["lastCertificateEpoch"], last_cert_epochs[k])
                 assert_equal(sc_post_regeneration["balance"], creation_amount[k] - bwt_amount[k])
 
         bal1 = self.nodes[1].getbalance()
