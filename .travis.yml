@@ -183,7 +183,7 @@ os: linux
 
 env:
   global:
-    - SKIP_OSX=true
+    - SKIP_OSX=false
 
 before_install:
   - source "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/setup_environment.sh"
