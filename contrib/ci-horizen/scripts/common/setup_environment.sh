@@ -63,7 +63,7 @@ if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
   export UPDATE_PACKAGES=""
   export PIP_INSTALL=""
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Prepare" ]; then
-    export PIP_INSTALL="${PIP_INSTALL} b2==1.4.2"
+    export PIP_INSTALL="${PIP_INSTALL} b2==1.4.2 funcsigs==1.0.2"
     export CLONE_REPO="https://github.com/HorizenOfficial/zencash-apple.git"
     export CLONE_TARGET="${HOME}/zencash-apple"
     export B2_UL_COMPRESS_FOLDER="${CLONE_TARGET}"
