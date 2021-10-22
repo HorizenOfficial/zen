@@ -62,8 +62,10 @@ fi
 if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
   export UPDATE_PACKAGES=""
   export PIP_INSTALL=""
+  export PIP3_INSTALL=""
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Prepare" ]; then
-    export PIP_INSTALL="${PIP_INSTALL} b2==1.4.2 funcsigs==1.0.2"
+    export PIP_INSTALL="${PIP_INSTALL}"
+    export PIP3_INSTALL="${PIP3_INSTALL} b2"
     export CLONE_REPO="https://github.com/HorizenOfficial/zencash-apple.git"
     export CLONE_TARGET="${HOME}/zencash-apple"
     export B2_UL_COMPRESS_FOLDER="${CLONE_TARGET}"
@@ -71,7 +73,8 @@ if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
     NEED_B2_CREDS="true"
   fi
   if [ "${TRAVIS_BUILD_STAGE_NAME}" = "Build" ]; then
-    export PIP_INSTALL="${PIP_INSTALL} b2==1.4.2"
+    export PIP_INSTALL="${PIP_INSTALL}"
+    export PIP3_INSTALL="${PIP3_INSTALL} b2"
     export B2_DL_DECOMPRESS_FOLDER="${HOME}/zencash-apple"
     export B2_DL_FILENAME="${TRAVIS_CPU_ARCH}-${TRAVIS_OS_NAME}-${TRAVIS_OSX_IMAGE}-${TRAVIS_BUILD_ID}-${TRAVIS_COMMIT}-zencash-apple.tar.gz"
     export B2_UL_COMPRESS_FOLDER="${TRAVIS_BUILD_DIR}"
