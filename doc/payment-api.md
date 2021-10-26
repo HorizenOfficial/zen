@@ -2,6 +2,8 @@
 
 ## Overview
 
+### Private Horizen payments
+
 Horizen extends the Bitcoin Core API with new RPC calls to support private Horizen payments.
 
 Horizen payments make use of two address formats:
@@ -13,6 +15,20 @@ When transferring funds from one taddr to another taddr, you can use either the 
 
 When a transfer involves zaddrs, you must use the new Horizen RPC calls.
 
+### Horizen Sidechains
+
+Horizen further extends the Bitcoin Core API with new RPC calls to support the creation of sidechains and bi-directional coins transfers between mainchain and sidechains.
+
+Such RPC calls contribute to implement the so called Cross Chain Transfer Protocol (CCTP)
+
+CCTP makes use of two address formats:
+
+* mainchain: only transparent funds can be used, that means only transparent addresses can be used
+* sidechain: addresses, also called PublicKey25519Propositions, are represented by a 32 long hex string
+
+When funds are transferred from mainchain to sidechain, no corresponding UTXOs are created in the mainchain because funds are made available on the sidechain side, this means that amounts sent from the mainchain to a sidechain are burnt on the mainchain.
+
+When funds are transferred from sidechain back to mainchain new UTXOs are generated on mainchain.
 
 ## Compatibility with Bitcoin Core
 
