@@ -16,6 +16,7 @@ if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
   export UPDATE_PACKAGES="ca-certificates curl jq openssl"
   export PIP_UPDATE_PACKAGES="python-pip python-setuptools python-wheel python-wheel-common"
   export PIP_INSTALL=""
+  export PIP3_INSTALL=""
   export IMAGE_NAME=zencash/zen-builder
   export IMAGE_BASE_TAG="${DOCKER_ARCH}-${DOCKER_TARGET_OS}-${DOCKER_FROM}"
   export IMAGE_LATEST_TAG="${IMAGE_BASE_TAG}-latest"
