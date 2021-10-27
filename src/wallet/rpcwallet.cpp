@@ -705,8 +705,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     if (fHelp ||  params.size() != 1)
         throw runtime_error(
-            "sc_create {\"withdrawalEpochLength\":... , \"fromaddress\":..., \"toaddress\":... ,\"amount\":... ,\"minconf\":..., \"fee\":..., \"wCertVk\":..., \"customData\":..., \"constant\":...}\n"
-            "\nCreate a Side chain.\n"
+            "sc_create <arguments_list>\n"
+            "\nCreate a Sidechain and sends funds to it.\n"
             "\nArguments:\n"
             "{\n"                     
             " \"withdrawalEpochLength\": epoch  (numeric, optional, default=" + strprintf("%d", SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH) +
@@ -716,7 +716,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             " \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
             " \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a new generated address will be used\n"
             " \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
-            " \"amount\":amount                 (numeric, required) Value expressed in " + CURRENCY_UNIT + "\n"
+            " \"amount\":amount                 (numeric, required) Funds to be sent to the newly created Sidechain. Value expressed in " + CURRENCY_UNIT + "\n"
             " \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
             " \"fee\":fee                       (numeric, optional, default=" +
                                                    strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
@@ -729,11 +729,11 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "                                       hexadecimal format. Used as public input for WCert proof verification. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
             " \"wCeasedVk\":data                (string, optional) It is an arbitrary byte string of even length expressed in\n"
             "                                       hexadecimal format. Used to verify a Ceased sidechain withdrawal proofs for given SC. Its size must be " + strprintf("%d", CFieldElement::ByteSize()) + " bytes\n"
-            " \"vFieldElementCertificateFieldConfig\"         (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
-            " \"vBitVectorCertificateFieldConfig\"            (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
-            " \"forwardTransferScFee\"                        (numeric, optional, default=0) The amount of fee in " + CURRENCY_UNIT + " due to sidechain actors when creating a FT\n"
-            " \"mainchainBackwardTransferScFee\"              (numeric, optional, default=0) The amount of fee in " + CURRENCY_UNIT + " due to sidechain actors when creating a MBTR\n"
-            " \"mainchainBackwardTransferRequestDataLength\"  (numeric, optional, default=0) The expected size (max=" + strprintf("%d", MAX_SC_MBTR_DATA_LEN) + ") of the request data vector (made of field elements) in a MBTR\n"
+            " \"vFieldElementCertificateFieldConfig\":array         (array, optional) An array whose entries are sizes (in bits). Any certificate should have as many custom FieldElements with the corresponding size.\n"
+            " \"vBitVectorCertificateFieldConfig\":array            (array, optional) An array whose entries are bitVectorSizeBits and maxCompressedSizeBytes pairs. Any certificate should have as many custom BitVectorCertificateField with the corresponding sizes\n"
+            " \"forwardTransferScFee\":fee                        (numeric, optional, default=0) The amount of fee in " + CURRENCY_UNIT + " due to sidechain actors when creating a FT\n"
+            " \"mainchainBackwardTransferScFee\":fee              (numeric, optional, default=0) The amount of fee in " + CURRENCY_UNIT + " due to sidechain actors when creating a MBTR\n"
+            " \"mainchainBackwardTransferRequestDataLength\":len (numeric, optional, default=0) The expected size (max=" + strprintf("%d", MAX_SC_MBTR_DATA_LEN) + ") of the request data vector (made of field elements) in a MBTR\n"
             "}\n"
             "\nResult:\n"
             "{\n"
