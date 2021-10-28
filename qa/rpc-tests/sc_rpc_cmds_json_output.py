@@ -380,7 +380,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
