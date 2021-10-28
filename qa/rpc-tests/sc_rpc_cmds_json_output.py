@@ -161,7 +161,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
             tx =   res['txid']
             scid1 = res['scid']
             scid1_swapped = str(swap_bytes(scid1))
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
