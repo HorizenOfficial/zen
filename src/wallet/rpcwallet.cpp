@@ -5152,7 +5152,7 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
             " 7. forwardTransferScFee            (numeric, required) The amount of fee due to sidechain actors when creating a FT\n"
             " 8. mainchainBackwardTransferScFee  (numeric, required) The amount of fee due to sidechain actors when creating a MBTR\n"
             " 9. fee                             (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
-            "10. fromAddress                     (string, optional) The address UTXO will be taken from\n"
+            "10. fromAddress                     (string, optional) The taddr to send the coins from. If omitted, coins are chosen among all available UTXOs\n"
             "11. vFieldElementCertificateField   (array, optional) An array of byte strings...TODO add description\n"
             "    [\n"                     
             "      \"fieldElement\"              (string, required) The HEX string representing a generic field element\n"
