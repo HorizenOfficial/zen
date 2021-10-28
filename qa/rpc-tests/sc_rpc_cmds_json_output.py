@@ -265,7 +265,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
 
         cmdParms = { "minconf":0, "changeaddress":mc_dest_addr0 }
         try:
-            tx = self.nodes[0].sc_request_transfer(outputs, cmdParms);
+            tx = self.nodes[0].sc_request_transfer(outputs, cmdParms)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
