@@ -216,7 +216,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
             funded_tx = self.nodes[0].fundrawtransaction(rawtx)
             sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
             creating_tx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
