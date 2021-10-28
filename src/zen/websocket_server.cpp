@@ -917,6 +917,9 @@ private:
                 const UniValue& cfe = find_value(reqPayload, "vFieldElementCertificateField");
                 if (!cfe.isNull())
                 {
+                    // Push the default value for fromAddress param(previous parameter).
+                    cmdParams.push_back("");
+
                     const UniValue& vCfe = cfe.get_array();
                     LogPrint("ws", "%s():%d - adding vFieldElementCertificateField, sz(%d): msg[%s]\n", __func__, __LINE__, vCfe.size(), msg);
                     cmdParams.push_back(vCfe);

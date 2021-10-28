@@ -92,7 +92,16 @@ class sc_cert_ceasing(BitcoinTestFramework):
         for i in range(0, 3):
             tag = "sc"+str(i+1)
             vk = mcTest.generate_params(tag)
-            ret = self.nodes[0].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount[i], vk, "abcdef", constant)
+            cmdInput = {
+                "withdrawalEpochLength": EPOCH_LENGTH,
+                "toaddress": "dada",
+                "amount": creation_amount[i],
+                "wCertVk": vk,
+                "constant": constant,
+                'customData': "abcdef"
+            }
+
+            ret = self.nodes[0].sc_create(cmdInput)
             creating_tx = ret['txid']
             mark_logs("Node 0 created SC spending {} coins via tx1 {}.".format(creation_amount[i], creating_tx), self.nodes, DEBUG_MODE)
             self.sync_all()
@@ -210,8 +219,9 @@ class sc_cert_ceasing(BitcoinTestFramework):
         mark_logs("Node 0 tries to fwd coins to ceased sc {}...".format(scids[-1]), self.nodes, DEBUG_MODE)
         fwt_amount = Decimal("0.5")
         mc_return_address = self.nodes[0].getnewaddress()
+        cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount, "scid": scids[-1], 'mcReturnAddress': mc_return_address}]
         try:
-            fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scids[-1], mc_return_address)
+            fwd_tx = self.nodes[0].sc_send(cmdInput)
             assert(False)
         except JSONRPCException, e:
             errorString = e.error['message']

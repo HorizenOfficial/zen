@@ -130,7 +130,7 @@ class sc_block_partitions(BitcoinTestFramework):
         
             try:
                 cert = self.nodes[0].sc_send_certificate(scid, epoch_number, (q+tot_num_cert),
-                    epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, [], [])
+                    epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, "", [], [])
             except JSONRPCException, e:
                 errorString = e.error['message']
                 print "Send certificate failed with reason {}".format(errorString)

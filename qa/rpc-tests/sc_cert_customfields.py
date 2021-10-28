@@ -84,7 +84,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         vk = mcTest.generate_params('sc1')
         constant1 = generate_random_field_element_hex()
 
-        amount = 1.0
+        amount = Decimal("1.0")
         fee = 0.000025
 
         #-------------------------------------------------------
@@ -207,8 +207,20 @@ class sc_cert_customfields(BitcoinTestFramework):
         cmtCfg.append([])
 
         mark_logs("\nNode 1 create SC2 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
+        cmdInput = {
+            "withdrawalEpochLength": EPOCH_LENGTH,
+            "toaddress": "dada",
+            "amount": amount,
+            "wCertVk": vk,
+            "constant": constant2,
+            'customData': customData,
+            'wCeasedVk': cswVk,
+            'vFieldElementCertificateFieldConfig': feCfg[1],
+            'vBitVectorCertificateFieldConfig': cmtCfg[1]
+        }
+
         try:
-            ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", amount, vk, customData, constant2, cswVk, feCfg[1], cmtCfg[1])
+            ret = self.nodes[1].sc_create(cmdInput)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -528,7 +540,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         #-------------------------------------------------------
         # parse a good cert and check custom fields
         mark_logs("\nVerify vFieldElementCertificateField/ vBitVectorCertificateFieldare correctly set in cert", self.nodes,DEBUG_MODE)
-        decoded = self.nodes[1].getrawcertificate(cert, 1)
+        decoded = self.nodes[1].getrawtransaction(cert, 1)
 
         vCfeCert = decoded['cert']['vFieldElementCertificateField']
         assert_equal(vCfeCert, vCfe)

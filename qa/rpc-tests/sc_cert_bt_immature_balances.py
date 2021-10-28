@@ -113,9 +113,14 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
+        cmdInput = {'withdrawalEpochLength': EPOCH_LENGTH,
+                    'toaddress': "dada",
+                    'amount': creation_amount,
+                    'wCertVk': vk,
+                    'constant': constant}
 
         # Create a SC with a budget of 10 coins
-        ret = self.nodes[0].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[0].sc_create(cmdInput)
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -156,7 +161,7 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
 
             cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                                                     epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE,
-                                                    CERT_FEE)
+                                                       CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
             self.sync_all()
         except JSONRPCException, e:

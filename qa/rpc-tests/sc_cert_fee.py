@@ -73,8 +73,16 @@ class sc_cert_base(BitcoinTestFramework):
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir, "darlin")
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
+        cmdInput = {
+            "withdrawalEpochLength": EPOCH_LENGTH,
+            "toaddress": "dada",
+            "amount": creation_amount,
+            "wCertVk": vk,
+            "constant": constant,
+        }
 
-        ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[1].sc_create(cmdInput)
+
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -104,9 +112,9 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         addr_node2 = self.nodes[2].getnewaddress()
-
         amounts = [{"address": addr_node2, "amount": bwt_amount}]
         
+
         #Create proof for WCert
         quality = 1
         proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node2], [bwt_amount])
@@ -186,7 +194,6 @@ class sc_cert_base(BitcoinTestFramework):
 
         bal3 = self.nodes[3].getbalance()
         bwt_amount_2 = bal3/2
-
         amounts = [{"address": addr_node2, "amount": bwt_amount_2}]
 
         #Create proof for WCert

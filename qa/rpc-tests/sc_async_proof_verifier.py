@@ -172,7 +172,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
             "sc", scid_swapped, epoch_number + 1, cert_quality, mbtr_fee, ft_fee, epoch_cum_tree_hash, constant, [], [])
 
         try:
-            # The sc_send_certificate call must be ok since the proof verification is disabled on node 2
+            # The send_certificate call must be ok since the proof verification is disabled on node 2
             invalid_cert = self.nodes[2].sc_send_certificate(scid, epoch_number, cert_quality, epoch_cum_tree_hash,
                                                           proof, [], ft_fee, mbtr_fee, cert_fee)
         except JSONRPCException, e:

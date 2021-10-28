@@ -102,8 +102,15 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
+        cmdInput = {
+            "withdrawalEpochLength": EPOCH_LENGTH,
+            "toaddress": "dada",
+            "amount": creation_amount,
+            "wCertVk": vk,
+            "constant": constant,
+        }
 
-        ret = self.nodes[0].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[0].sc_create(cmdInput)
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -125,7 +132,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_1), self.nodes, DEBUG_MODE)
         mc_return_address = self.nodes[0].getnewaddress()
-        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount_1, scid, mc_return_address)
+        cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount_1, "scid": scid, 'mcReturnAddress': mc_return_address}]
+        fwd_tx = self.nodes[0].sc_send(cmdInput)
         print "fwd_tx=" + fwd_tx
         sc_txes.append(fwd_tx)
         self.sync_all()
@@ -162,7 +170,8 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_2), self.nodes, DEBUG_MODE)
         mc_return_address = self.nodes[0].getnewaddress()
-        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount_2, scid, mc_return_address)
+        cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount_2, "scid": scid, 'mcReturnAddress': mc_return_address}]
+        fwd_tx = self.nodes[0].sc_send(cmdInput)
         mark_logs("fwd_tx = {}".format(fwd_tx), self.nodes, DEBUG_MODE)
         sc_txes.append(fwd_tx)
         self.sync_all()
@@ -170,8 +179,11 @@ class sc_cert_invalidate(BitcoinTestFramework):
         self.refresh_sidechain(sc_info, scid)
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_3), self.nodes, DEBUG_MODE)
+
         mc_return_address = self.nodes[0].getnewaddress()
-        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount_3, scid, mc_return_address)
+        cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount_3, "scid": scid, 'mcReturnAddress': mc_return_address}]
+        fwd_tx = self.nodes[0].sc_send(cmdInput)
+
         mark_logs("fwd_tx = {}".format(fwd_tx), self.nodes, DEBUG_MODE)
         sc_txes.append(fwd_tx)
         self.sync_all()
@@ -180,7 +192,9 @@ class sc_cert_invalidate(BitcoinTestFramework):
 
         mark_logs("Node 0 performs a fwd transfer of {} coins to SC...".format(fwt_amount_4), self.nodes, DEBUG_MODE)
         mc_return_address = self.nodes[0].getnewaddress()
-        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount_4, scid, mc_return_address)
+        cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount_4, "scid": scid, 'mcReturnAddress': mc_return_address}]
+        fwd_tx = self.nodes[0].sc_send(cmdInput)
+
         mark_logs("fwd_tx = {}".format(fwd_tx), self.nodes, DEBUG_MODE)
         sc_txes.append(fwd_tx)
         self.sync_all()

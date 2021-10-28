@@ -116,8 +116,17 @@ class ScSplitTest(BitcoinTestFramework):
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir, "darlin")
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
+        cmdInput = {
+            "withdrawalEpochLength": 123,
+            "toaddress": "dada",
+            "amount": creation_amount,
+            "wCertVk": vk,
+            "constant": constant,
+            "fee": Decimal("0.0"),
+            "minconf": 0
+        }
 
-        ret = self.nodes[1].dep_sc_create(123, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[1].sc_create(cmdInput)
         creating_tx = ret['txid']
         scid = ret['scid']
         mark_logs("created SC id: {} tx: {}".format(scid,creating_tx), self.nodes, DEBUG_MODE)
@@ -133,7 +142,8 @@ class ScSplitTest(BitcoinTestFramework):
         # Node 1 creates a FT of 4.0 coins and Node 0 generates 1 block
         mark_logs("\nNode 1 performs a fwd transfer of " + str(fwt_amount_1) + " coins ...", self.nodes, DEBUG_MODE)
         mc_return_address = self.nodes[1].getnewaddress()
-        txes.append(self.nodes[1].dep_sc_send("abcd", fwt_amount_1, scid, mc_return_address))
+        cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount_1, "scid": scid, 'mcReturnAddress': mc_return_address}]
+        txes.append(self.nodes[1].sc_send(cmdInput))
         mark_logs("tx: {}".format(txes[-1]), self.nodes, DEBUG_MODE)
 
         mark_logs("\nNode0 generating 1 honest block", self.nodes, DEBUG_MODE)
@@ -143,7 +153,9 @@ class ScSplitTest(BitcoinTestFramework):
         # Node 1 creates a FT of 1.0 coin and Node 0 generates 1 block
         mark_logs("\nNode 1 performs a fwd transfer of " + str(fwt_amount_2) + " coins ...", self.nodes, DEBUG_MODE)
         mc_return_address = self.nodes[1].getnewaddress()
-        txes.append(self.nodes[1].dep_sc_send("abcd", fwt_amount_2, scid, mc_return_address))
+        cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount_2, "scid": scid, 'mcReturnAddress': mc_return_address}]
+        cmdParams = {"minconf": 0}
+        txes.append(self.nodes[1].sc_send(cmdInput, cmdParams))
         mark_logs("tx: {}".format(txes[-1]), self.nodes, DEBUG_MODE)
         self.sync_all()
 
