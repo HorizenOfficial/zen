@@ -299,8 +299,8 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
 
         # preserve order for proof validity
         for k, v in bwt_outs.items():
-             addresses.append(k)
-             amounts.append(v)
+            addresses.append(k)
+            amounts.append(v)
 
         #-------------------------------------------------------
         mark_logs("\nCreate raw cert with good custom field elements for SC2...", self.nodes, DEBUG_MODE)
