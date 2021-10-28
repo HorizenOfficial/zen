@@ -705,8 +705,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     if (fHelp ||  params.size() != 1)
         throw runtime_error(
-            "sc_create <arguments_list>\n"
-            "\nCreate a Sidechain and sends funds to it.\n"
+            "sc_create <argument_list>\n"
+            "\nCreate a Sidechain and send funds to it.\n"
             "\nArguments:\n"
             "{\n"                     
             " \"withdrawalEpochLength\": epoch  (numeric, optional, default=" + strprintf("%d", SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH) +
