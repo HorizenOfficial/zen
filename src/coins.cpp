@@ -19,6 +19,7 @@
 #include <sc/proofverifier.h>
 
 #include "txdb.h"
+#include "maturityheightindex.h"
 
 std::string CCoins::ToString() const
 {
@@ -1110,6 +1111,18 @@ void CCoinsViewCache::RevertTxIndexSidechainEvents(int height, CBlockUndo& block
     return;
 }
 
+void CCoinsViewCache::HandleMaturityHeightIndexSidechainEvents(int height, CBlockTreeDB* pblocktree,
+                                                   std::vector<std::pair<CMaturityHeightKey,CMaturityHeightValue>>& maturityHeightIndex)
+{
+    return;
+} 
+
+void CCoinsViewCache::RevertMaturityHeightIndexSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
+                                                   std::vector<std::pair<CMaturityHeightKey,CMaturityHeightValue>>& maturityHeightIndex)
+{
+    return;
+}
+
 #ifdef ENABLE_ADDRESS_INDEXING
 void CCoinsViewCache::HandleIndexesSidechainEvents(int height, CBlockTreeDB* pblocktree,
                                                    std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
@@ -1643,6 +1656,57 @@ void CCoinsViewCache::RevertTxIndexSidechainEvents(int height, CBlockUndo& block
         }
     }
 }
+
+void CCoinsViewCache::HandleMaturityHeightIndexSidechainEvents(int height, CBlockTreeDB* pblocktree,
+                                                   std::vector<std::pair<CMaturityHeightKey,CMaturityHeightValue>>& maturityHeightIndex)
+{
+    if (!HaveSidechainEvents(height))
+        return;
+
+    CSidechainEvents scEvents;
+    GetSidechainEvents(height, scEvents);
+
+    //Handle Ceasing Sidechain
+    for (const uint256& ceasingScId : scEvents.ceasingScs)
+    {
+        CSidechain sidechain;
+        assert(GetSidechain(ceasingScId, sidechain));
+
+        if (sidechain.lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL) {
+            assert(sidechain.lastTopQualityCertHash.IsNull());
+            continue;
+        }
+
+        //Remove the certificate from the MaturityHeight DB
+        CMaturityHeightKey maturityHeightKey = CMaturityHeightKey(height, sidechain.lastTopQualityCertHash);
+        maturityHeightIndex.push_back(std::make_pair(maturityHeightKey, CMaturityHeightValue()));
+    }
+}
+
+void CCoinsViewCache::RevertMaturityHeightIndexSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
+                                                   std::vector<std::pair<CMaturityHeightKey,CMaturityHeightValue>>& maturityHeightIndex)
+{
+    if (!HaveSidechainEvents(height))
+        return;
+
+    // Reverting ceasing sidechains
+    for (auto it = blockUndo.scUndoDatabyScId.begin(); it != blockUndo.scUndoDatabyScId.end(); ++it)
+    {
+        if ((it->second.contentBitMask & CSidechainUndoData::AvailableSections::CEASED_CERT_DATA) == 0)
+            continue;
+
+        const uint256& scId = it->first;
+        const CSidechain* const pSidechain = AccessSidechain(scId);
+
+        if (pSidechain->lastTopQualityCertReferencedEpoch != CScCertificate::EPOCH_NULL)
+        {
+            // Restore lastTopQualityCert as valid (not superseded)
+            CMaturityHeightKey maturityHeightKey = CMaturityHeightKey(height, pSidechain->lastTopQualityCertHash);
+            maturityHeightIndex.push_back(std::make_pair(maturityHeightKey, CMaturityHeightValue(static_cast<char>(1))));
+        }
+    }
+}
+
 
 #ifdef ENABLE_ADDRESS_INDEXING
 void CCoinsViewCache::HandleIndexesSidechainEvents(int height, CBlockTreeDB* pblocktree,

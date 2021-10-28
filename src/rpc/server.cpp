@@ -302,6 +302,7 @@ static const CRPCCommand vRPCCommands[] =
     { "blockchain",         "getbestblockhash",       &getbestblockhash,       true  },
     { "blockchain",         "getblockcount",          &getblockcount,          true  },
     { "blockchain",         "getblock",               &getblock,               true  },
+    { "blockchain",         "getblockexpanded",       &getblockexpanded,       true  },
 
 #ifdef ENABLE_ADDRESS_INDEXING
     { "blockchain",         "getblockdeltas",         &getblockdeltas,         false },

@@ -126,6 +126,7 @@ testScripts=(
   'sc_cert_getblocktemplate.py'
   'sc_cert_bt_immature_balances.py'
   'txindex.py'
+  'getblockexpanded.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'

@@ -296,6 +296,7 @@ extern UniValue reconsiderblock(const UniValue& params, bool fHelp);
 extern UniValue getcertmaturityinfo(const UniValue& params, bool fHelp);
 extern UniValue clearmempool(const UniValue& params, bool fHelp);
 extern UniValue getspentinfo(const UniValue& params, bool fHelp);
+extern UniValue getblockexpanded(const UniValue& params, bool fHelp);
 
 extern UniValue getblocksubsidy(const UniValue& params, bool fHelp);
 extern UniValue getblockmerkleroots(const UniValue& params, bool fHelp);
