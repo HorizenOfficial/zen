@@ -16,6 +16,7 @@
 #include <boost/thread.hpp>
 #include <sc/sidechaintypes.h>
 #include "utilmoneystr.h"
+#include "maturityheightindex.h"
 
 using namespace std;
 
@@ -43,6 +44,7 @@ static const char DB_REINDEX_FLAG = 'R';
 static const char DB_FAST_REINDEX_FLAG = 'S';
 static const char DB_LAST_BLOCK = 'l';
 static const char DB_CSW_NULLIFIER = 'n';
+static const char DB_MATURITY_HEIGHT = 'h';
 
 
 void static BatchWriteAnchor(CLevelDBBatch &batch,
@@ -445,6 +447,56 @@ bool CBlockTreeDB::WriteTxIndex(const std::vector<std::pair<uint256, CTxIndexVal
     CLevelDBBatch batch;
     for (std::vector<std::pair<uint256,CTxIndexValue> >::const_iterator it=vect.begin(); it!=vect.end(); it++)
         batch.Write(make_pair(DB_TXINDEX, it->first), it->second);
+    return WriteBatch(batch);
+}
+
+bool CBlockTreeDB::ReadMaturityHeightIndex(const int height, std::vector<CMaturityHeightKey> &val) {
+    boost::scoped_ptr<leveldb::Iterator> pcursor(NewIterator());
+
+    CDataStream ssKeySet(SER_DISK, CLIENT_VERSION);
+    ssKeySet << make_pair(DB_MATURITY_HEIGHT, CMaturityHeightIteratorKey(height));
+    pcursor->Seek(ssKeySet.str());
+
+    while (pcursor->Valid()) {
+        boost::this_thread::interruption_point();
+        try {
+            leveldb::Slice slKey = pcursor->key();
+            CDataStream ssKey(slKey.data(), slKey.data()+slKey.size(), SER_DISK, CLIENT_VERSION);
+            
+            char chType;
+            ssKey >> chType;
+            if (chType == DB_MATURITY_HEIGHT)
+            {
+                CMaturityHeightKey indexKey;
+                ssKey >> indexKey;
+
+                if (indexKey.blockHeight == height) {
+                    val.push_back(indexKey);
+                    pcursor->Next();
+                }
+                else
+                {
+                    break;
+                }
+            } else {
+                break;
+            }
+        } catch (const std::exception& e) {
+            return error(e.what());
+        }
+    }
+    return true;
+}
+
+bool CBlockTreeDB::UpdateMaturityHeightIndex(const std::vector<std::pair<CMaturityHeightKey,CMaturityHeightValue>> &vect) {
+    CLevelDBBatch batch;
+    for (std::vector<std::pair<CMaturityHeightKey,CMaturityHeightValue> >::const_iterator it=vect.begin(); it!=vect.end(); it++)
+        //If the value is null we mean we want to erase the pair from the DB otherwise we persist it
+        if (it->second.IsNull()) {
+            batch.Erase(make_pair(DB_MATURITY_HEIGHT, it->first));
+        } else {
+            batch.Write(make_pair(DB_MATURITY_HEIGHT, it->first), it->second);
+        }
     return WriteBatch(batch);
 }
 

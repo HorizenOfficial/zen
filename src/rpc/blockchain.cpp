@@ -33,6 +33,7 @@
 
 #include "validationinterface.h"
 #include "txdb.h"
+#include "maturityheightindex.h"
 
 using namespace std;
 
@@ -809,6 +810,180 @@ UniValue getblock(const UniValue& params, bool fHelp)
     }
 
     return blockToJSON(block, pblockindex, verbosity >= 2);
+}
+
+UniValue getblockexpanded(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error(
+            "getblockexpanded \"hash|height\" ( verbose )\n"
+            "\nIf verbosity is 1, returns an Object with information about the block.\n"
+            "If verbosity is 2, returns an Object with information about the block and information about each transaction.\n"
+            "\nIt works only with -maturityheightindex=1 and -txindex=1.\n"
+            
+            "\nArguments:\n"
+            "1. \"hash|height\"                     (string, required) the block hash or height\n"
+            "2. verbosity                           (numeric, optional, default=1) 0 for hex encoded data, 1 for a json object, and 2 for json object with transaction data,\n"
+            "                                       also accept boolean for backward compatibility where true=1 and false=0\n"
+            
+            "\nResult (for verbose = 1):\n"
+            "{\n"
+            "  \"hash\": \"hash\",                  (string) the block hash (same as provided hash)\n"
+            "  \"confirmations\": n,                (numeric) the number of confirmations, or -1 if the block is not on the main chain\n"
+            "  \"size\": n,                         (numeric) the block size\n"
+            "  \"height\": n,                       (numeric) the block height or index (same as provided height)\n"
+            "  \"version\": n,                      (numeric) the block version\n"
+            "  \"merkleroot\": \"xxxx\",            (string) the merkle root\n"
+            "  \"tx\": [                            (array of string) the transaction ids\n"
+            "     \"transactionid\": \"hash\",      (string) the transaction id\n"
+            "     ,...\n"
+            "  ],\n"
+             "  \"cert\": [                         (array of string) the certificate ids\n"
+            "     \"certificateid\": \"hash\",      (string) the certificate id\n"
+            "     ,...\n"
+            "  ],\n"           
+            "  \"time\": ttt,                       (numeric) the block time in seconds since epoch (Jan 1 1970 GMT)\n"
+            "  \"nonce\": n,                        (numeric) the nonce\n"
+            "  \"bits\": \"hex\",                   (string) the bits\n"
+            "  \"difficulty\": xxxx,                (numeric) the difficulty\n"
+            "  \"chainwork\": \"hex\",              (string) txpected number of hashes required to produce the chain up to this block (in hex)\n"
+            "  \"anchor\": \"hex\",                 (string) the anchor\n"
+            "  \"valuePools\": [                    (array) value pools\n"
+            "      \"id\": \"sprout\"|\"sapling\",  (string) the pool id\n"
+            "      \"monitored\": true|false,       (boolean) if is monitored or not\n"
+            "      \"chainValue\": n.nnn,           (numeric) the chain value\n"
+            "      \"chainValueZat\": n,            (numeric) the chain value zat\n"
+            "      \"valueDelta\": n.nnn,           (numeric)the delta value\n"
+            "      \"valueDeltaZat\": n             (numeric) the delta zat value\n"
+            "  ],\n"
+            "  \"previousblockhash\": \"hash\",     (string, optional) the hash of the previous block (if available)\n"
+            "  \"nextblockhash\": \"hash\"          (string, optional) the hash of the next block (if available)\n"
+
+            "}\n"
+            "  \"matureCertificate\": [             (array of string) the certificate ids the became mature with this block\n"
+            "     \"certificateid\": \"hash\",      (string) the certificate id\n"
+            "     ,...\n"
+            "  ],\n"  
+            
+            "\nResult (for verbosity = 2):\n"
+            "{\n"
+            "  ...,                                 same output as verbosity = 1\n"
+            "  \"tx\" : [                           (array of Objects) the transactions in the format of the getrawtransaction RPC\n"
+            "         ,...\n"
+            "  ],\n"
+            "  \"cert\" : [                         (array of Objects) the certificates in the format of the getrawtransaction RPC\n"
+            "         ,...\n"
+            "  ],\n"
+            "  \"matureCertificate\" : [            (array of Objects) the certificates that became mature with this block in the format of the getrawtransaction RPC\n"
+            "         ,...\n"
+            "  ],\n"
+            "  ,...                     same output as verbosity = 1\n"
+            "}\n"
+            
+            "\nExamples:\n"
+            + HelpExampleCli("getblockexpanded", "\"hash\"")
+            + HelpExampleRpc("getblockexpanded", "\"hash\"")
+            + HelpExampleCli("getblockexpanded", "height")
+            + HelpExampleRpc("getblockexpanded", "height")
+        );
+
+    LOCK(cs_main);
+
+    std::string strHash = params[0].get_str();
+
+    if (!fMaturityHeightIndex)
+    {
+        throw JSONRPCError(RPC_TYPE_ERROR, "maturityHeightIndex option not set: can not retrieve info");
+    }
+
+    // If height is supplied, find the hash
+    if (strHash.size() < (2 * sizeof(uint256))) {
+        // std::stoi allows characters, whereas we want to be strict
+        regex r("[[:digit:]]+");
+        if (!regex_match(strHash, r)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid block height parameter");
+        }
+
+        int nHeight = -1;
+        try {
+            nHeight = std::stoi(strHash);
+        }
+        catch (const std::exception &e) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid block height parameter");
+        }
+
+        if (nHeight < 0 || nHeight > chainActive.Height()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+        }
+        strHash = chainActive[nHeight]->GetBlockHash().GetHex();
+    }
+
+    uint256 hash(uint256S(strHash));
+
+    int verbosity = 1;
+    if (params.size() > 1) {
+        if(params[1].isNum()) {
+            verbosity = params[1].get_int();
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Verbosity must be in range from 1 to 2");
+        }
+    }
+
+    if (verbosity < 1 || verbosity > 2) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Verbosity must be in range from 1 to 2");
+    }
+
+    if (mapBlockIndex.count(hash) == 0)
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+
+    CBlock block;
+    CBlockIndex* pblockindex = mapBlockIndex[hash];
+
+    if (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Block not available (pruned data)");
+
+    if(!ReadBlockFromDisk(block, pblockindex))
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
+
+    UniValue blockJSON = blockToJSON(block, pblockindex, verbosity >= 2);
+    
+    //Add certificates that became mature with this block    
+    if (block.nVersion == BLOCK_VERSION_SC_SUPPORT)
+    {
+        UniValue matureCertificate(UniValue::VARR);
+
+        int height = pblockindex->nHeight;
+        if (pblocktree == NULL)
+        {
+            throw JSONRPCError(RPC_TYPE_ERROR, "DB not initialized: can not retrieve info");
+        }
+        std::vector<CMaturityHeightKey> matureCertificatesKeys;
+        pblocktree->ReadMaturityHeightIndex(height, matureCertificatesKeys);
+        for (const CMaturityHeightKey& key : matureCertificatesKeys) 
+        {
+            if (verbosity == 2)
+            {
+                UniValue objCert(UniValue::VOBJ);
+                CScCertificate certAttempt;
+                uint256 hashBlock{};    
+                if (GetCertificate(key.certId, certAttempt, hashBlock, false))
+                {
+                    CertToJSON(certAttempt, uint256(), objCert);
+                    matureCertificate.push_back(objCert);
+                }
+                else
+                {
+                    throw JSONRPCError(RPC_TYPE_ERROR, "Can not retrieve info about the certificate!");
+                }    
+            }
+            else
+            {
+                matureCertificate.push_back(key.certId.GetHex());
+            }
+        }
+        blockJSON.pushKV("matureCertificate", matureCertificate);
+    }
+    return blockJSON;
 }
 
 UniValue gettxoutsetinfo(const UniValue& params, bool fHelp)

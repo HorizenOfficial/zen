@@ -190,7 +190,7 @@ class sc_rawcert(BitcoinTestFramework):
             print "\n======> ", errorString
             assert_true(False)
 
-        decoded_cert_pre = self.nodes[0].decoderawcertificate(signed_cert['hex'])
+        decoded_cert_pre = self.nodes[0].decoderawtransaction(signed_cert['hex'])
         decoded_cert_pre_list = sorted(decoded_cert_pre.items())
 
         sync_mempools(self.nodes[1:3])
@@ -698,7 +698,7 @@ class sc_rawcert(BitcoinTestFramework):
         mark_logs("Node0 creating raw certificate with valid FT and MBTR fees", self.nodes, DEBUG_MODE)
         try:
             raw_cert = self.nodes[0].createrawcertificate(raw_inputs, raw_outs, raw_bwt_outs, raw_params)
-            decoded_cert = self.nodes[0].decoderawcertificate(raw_cert)
+            decoded_cert = self.nodes[0].decoderawtransaction(raw_cert)
         except JSONRPCException, e:
             errorString = e.error['message']
             print "\n======> ", errorString

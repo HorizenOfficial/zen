@@ -93,10 +93,23 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 - Create a valid sidechain
         mark_logs("\nNode 0 creates 2 sidechains", self.nodes, DEBUG_MODE)
+        cmdInput = {
+            "withdrawalEpochLength": withdrawalEpochLength,
+            "toaddress": address,
+            "amount": creation_amount,
+            "wCertVk": certVk1,
+            "constant": constant1,
+            'customData': custom_data,
+            'wCeasedVk': cswVk1,
+            'vFieldElementCertificateFieldConfig': feCfg,
+            'vBitVectorCertificateFieldConfig': bvCfg,
+            'forwardTransferScFee': ftScFee,
+            'mainchainBackwardTransferScFee': mbtrScFee,
+            'mainchainBackwardTransferRequestDataLength': mbtrRequestDataLength
+        }
 
         try:
-            ret = self.nodes[0].dep_sc_create(withdrawalEpochLength, address, creation_amount, certVk1,
-                custom_data, constant1, cswVk1, feCfg, bvCfg, ftScFee, mbtrScFee, mbtrRequestDataLength)
+            ret = self.nodes[0].sc_create(cmdInput)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -105,10 +118,23 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
         scid1 = ret['scid']
         mark_logs("scid1={}".format(scid1), self.nodes, DEBUG_MODE)
         self.sync_all()
+        cmdInput = {
+            "withdrawalEpochLength": withdrawalEpochLength,
+            "toaddress": address,
+            "amount": creation_amount,
+            "wCertVk": certVk2,
+            "constant": constant2,
+            'customData': custom_data,
+            'wCeasedVk': cswVk2,
+            'vFieldElementCertificateFieldConfig': feCfg,
+            'vBitVectorCertificateFieldConfig': bvCfg,
+            'forwardTransferScFee': ftScFee,
+            'mainchainBackwardTransferScFee': mbtrScFee,
+            'mainchainBackwardTransferRequestDataLength': mbtrRequestDataLength
+        }
 
         try:
-            ret = self.nodes[0].dep_sc_create(withdrawalEpochLength, address, creation_amount, certVk2,
-                custom_data, constant2, cswVk2, feCfg, bvCfg, ftScFee, mbtrScFee, mbtrRequestDataLength)
+            ret = self.nodes[0].sc_create(cmdInput)
         except JSONRPCException, e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)

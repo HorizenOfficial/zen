@@ -80,7 +80,15 @@ class sc_cert_epoch(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        cmdInput = {
+            "withdrawalEpochLength": EPOCH_LENGTH,
+            "toaddress": "dada",
+            "amount": creation_amount,
+            "wCertVk": vk,
+            "constant": constant
+        }
+
+        ret = self.nodes[1].sc_create(cmdInput)
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -97,7 +105,8 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.sync_all()
 
         mc_return_address = self.nodes[0].getnewaddress()
-        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
+        cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount, "scid": scid, 'mcReturnAddress': mc_return_address}]
+        fwd_tx = self.nodes[0].sc_send(cmdInput)
         mark_logs("Node 0 performs a fwd transfer of {} coins to Sc via tx {}.".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         assert(len(fwd_tx) > 0)
         self.sync_all()
@@ -107,7 +116,9 @@ class sc_cert_epoch(BitcoinTestFramework):
         self.sync_all()
 
         mc_return_address = self.nodes[0].getnewaddress()
-        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount_immature_at_epoch, scid, mc_return_address)
+        cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount_immature_at_epoch, "scid": scid, 'mcReturnAddress': mc_return_address}]
+        fwd_tx = self.nodes[0].sc_send(cmdInput)
+
         mark_logs("Node 0 performs a fwd transfer of {} coins to Sc via tx {}.".format(fwt_amount_immature_at_epoch, fwd_tx), self.nodes, DEBUG_MODE)
         assert(len(fwd_tx) > 0)
         self.sync_all()

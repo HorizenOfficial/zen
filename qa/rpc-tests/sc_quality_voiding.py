@@ -78,8 +78,15 @@ class quality_voiding(BitcoinTestFramework):
         vk_tag = "sc1"
         vk = mcTest.generate_params(vk_tag)
         constant = generate_random_field_element_hex()
+        cmdInput = {
+            "withdrawalEpochLength": EPOCH_LENGTH,
+            "toaddress": "dada",
+            "amount": creation_amount,
+            "wCertVk": vk,
+            "constant": constant,
+        }
 
-        ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[1].sc_create(cmdInput)
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -109,7 +116,8 @@ class quality_voiding(BitcoinTestFramework):
         bal_before_fwd_tx = self.nodes[0].getbalance("", 0)
         mc_return_address = self.nodes[0].getnewaddress()
         mark_logs("Node0 balance before fwd tx: {}".format(bal_before_fwd_tx), self.nodes, DEBUG_MODE)
-        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
+        cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount, "scid": scid, "mcReturnAddress": mc_return_address}]
+        fwd_tx = self.nodes[0].sc_send(cmdInput)
         mark_logs("Node0 transfers {} coins to SC with tx {}...".format(fwt_amount, fwd_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
 
@@ -194,7 +202,7 @@ class quality_voiding(BitcoinTestFramework):
         self.sync_all()
 
         # Check balance
-        bwt_address = self.nodes[1].getrawcertificate(cert_2_epoch_0, 1)['vout'][1]['scriptPubKey']['addresses'][0]
+        bwt_address = self.nodes[1].getrawtransaction(cert_2_epoch_0, 1)['vout'][1]['scriptPubKey']['addresses'][0]
         res = self.nodes[1].listtxesbyaddress(bwt_address)
         assert_equal(res[0]['scid'], scid)
         mark_logs("Height : {}".format(res[0]['vout'][1]['maturityHeight']), self.nodes, DEBUG_MODE)

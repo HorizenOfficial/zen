@@ -211,7 +211,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
             #----------------------------------------------------------------------------------------------
             cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
-            mark_logs("\n===> Node 0 sent a cert for scid {} with bwd transfer of {} coins to Node1 address {})".format(scid, bwt_amount1, bwt_address), self.nodes, DEBUG_MODE)
+            mark_logs("\n===> Node 0 sent a cert for scid {} with bwd transfer of {} coins to Node1 pkh (addr {})".format(scid, bwt_amount1, bwt_address), self.nodes, DEBUG_MODE)
             #mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
             self.sync_all()
         except JSONRPCException, e:

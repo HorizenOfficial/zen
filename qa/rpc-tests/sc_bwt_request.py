@@ -305,7 +305,19 @@ class sc_bwt_request(BitcoinTestFramework):
         #  create one more sc
         prev_epoch_hash_2 = self.nodes[0].getbestblockhash()
         epoch_len_2 = 10
-        ret = self.nodes[0].dep_sc_create(epoch_len_2, "dada", creation_amount2, vk2, "", c2, "", [], [], ftScFee, mbtrScFee, mbtrDataLength)
+        cmdInput = {
+            "withdrawalEpochLength":epoch_len_2,
+            "toaddress":"dada",
+            "amount":creation_amount2,
+            "wCertVk":vk2,
+            "constant":c2,
+            'customData': "bb" * 1024,
+            'forwardTransferScFee': ftScFee,
+            'mainchainBackwardTransferScFee': mbtrScFee,
+            'mainchainBackwardTransferRequestDataLength': mbtrDataLength
+        }
+
+        ret = self.nodes[0].sc_create(cmdInput)
         scid2  = ret['scid']
         cr_tx2 = ret['txid']
         mark_logs("Node0 created the SC2 spending {} coins via tx {}.".format(creation_amount1, cr_tx2), self.nodes, DEBUG_MODE)

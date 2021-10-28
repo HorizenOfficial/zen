@@ -18,6 +18,9 @@
 class CBlockFileInfo;
 class CBlockIndex;
 struct CTxIndexValue;
+struct CMaturityHeightKey;
+struct CMaturityHeightIteratorKey;
+struct CMaturityHeightValue;
 
 #ifdef ENABLE_ADDRESS_INDEXING
 struct CAddressUnspentKey;
@@ -157,6 +160,8 @@ public:
     bool ReadFastReindexing(bool &fReindexFast);
     bool ReadTxIndex(const uint256 &txid, CTxIndexValue &val);
     bool WriteTxIndex(const std::vector<std::pair<uint256, CTxIndexValue> > &list);
+    bool ReadMaturityHeightIndex(int height, std::vector<CMaturityHeightKey> &val);
+    bool UpdateMaturityHeightIndex(const std::vector<std::pair<CMaturityHeightKey, CMaturityHeightValue>> &maturityHeightList);
 
 #ifdef ENABLE_ADDRESS_INDEXING
     bool ReadSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value);

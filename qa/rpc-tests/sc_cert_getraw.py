@@ -79,8 +79,16 @@ class sc_cert_getraw(BitcoinTestFramework):
         vk_tag = "sc1"
         vk = mcTest.generate_params(vk_tag)
         constant = generate_random_field_element_hex()
+        cmdInput = {
+            "withdrawalEpochLength": EPOCH_LENGTH,
+            "toaddress": "dada",
+            "amount": creation_amount,
+            "wCertVk": vk,
+            "constant": constant,
+        }
 
-        ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        ret = self.nodes[1].sc_create(cmdInput)
+
         creating_tx = ret['txid']
         scid = ret['scid']
         scid_swapped = str(swap_bytes(scid))
@@ -108,8 +116,11 @@ class sc_cert_getraw(BitcoinTestFramework):
 
         # Fwd Transfer to Sc
         mark_logs("Node0 sends fwd transfer", self.nodes, DEBUG_MODE)
+
         mc_return_address = self.nodes[0].getnewaddress()
-        fwd_tx = self.nodes[0].dep_sc_send("abcd", fwt_amount, scid, mc_return_address)
+        cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount, "scid": scid, 'mcReturnAddress': mc_return_address}]
+        fwd_tx = self.nodes[0].sc_send(cmdInput)
+
         self.sync_all()
 
         decoded_tx_mempool = self.nodes[1].getrawtransaction(fwd_tx, 1)
@@ -151,17 +162,17 @@ class sc_cert_getraw(BitcoinTestFramework):
         self.sync_all()
 
         decoded_cert_mempool = self.nodes[1].getrawtransaction(cert_epoch_0, 1)
-        decoded_cert_mempool2 = self.nodes[1].getrawcertificate(cert_epoch_0, 1)
+        decoded_cert_mempool2 = self.nodes[1].getrawtransaction(cert_epoch_0, 1)
         assert_equal(decoded_cert_mempool, decoded_cert_mempool2)
         assert_equal(scid, decoded_cert_mempool['cert']['scid'])
 
         decoded_cert_mempool_hex = self.nodes[1].getrawtransaction(cert_epoch_0)
-        decoded_cert_mempool_hex2 = self.nodes[1].getrawcertificate(cert_epoch_0)
+        decoded_cert_mempool_hex2 = self.nodes[1].getrawtransaction(cert_epoch_0)
         assert_equal(decoded_cert_mempool_hex, decoded_cert_mempool_hex2)
         dec = self.nodes[2].decoderawtransaction(decoded_cert_mempool_hex)
         assert_equal(cert_epoch_0, dec['txid'])
         assert_equal(scid, dec['cert']['scid'])
-        dec2 = self.nodes[2].decoderawcertificate(decoded_cert_mempool_hex)
+        dec2 = self.nodes[2].decoderawtransaction(decoded_cert_mempool_hex)
         assert_equal(dec2, dec)
 
         mark_logs("Node0 confims bwd transfer generating 1 block", self.nodes, DEBUG_MODE)

@@ -516,92 +516,6 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
     return result;
 }
 
-UniValue getrawcertificate(const UniValue& params, bool fHelp)
-{
-    if (fHelp || params.size() < 1 || params.size() > 2)
-        throw runtime_error(
-            "getrawcertificate \"certid\" ( verbose )\n"
-            "\nNOTE: By default this function only works sometimes. This is when the certificate is in the mempool\n"
-            "or there is an unspent output in the utxo for this certificate. To make it always work,\n"
-            "you need to maintain a transaction index, using the -txindex command line option.\n"
-            "\nReturn the raw certificate data.\n"
-            "\nIf verbose=0, returns a string that is serialized, hex-encoded data for 'certid'.\n"
-            "If verbose is non-zero, returns an Object with information about 'certid'.\n"
-
-            "\nArguments:\n"
-            "1. \"certid\"      (string, required) The certificate id\n"
-            "2. verbose       (numeric, optional, default=0) If 0, return a string, other return a json object\n"
-
-            "\nResult (if verbose is not set or set to 0):\n"
-            "\"data\"      (string) The serialized, hex-encoded data for 'certid'\n"
-
-            "\nResult (if verbose > 0):\n"
-            "{\n"
-            "  \"hex\" : \"data\",         (string) The serialized, hex-encoded data for 'certid'\n"
-            "  \"certid\" : \"id\",        (string) The transaction id (same as provided)\n"
-            "  \"version\" : n,          (numeric) The version\n"
-            "  \"cert\" :                (json object)\n"
-            "     {\n"
-            "       \"scid\" : \"sc id\",                      (string) the sidechain id\n"
-            "       \"epochNumber\": epn,                      (numeric) the withdrawal epoch number this certificate refers to\n"
-            "       \"quality\": n,                            (numeric) the quality of this withdrawal certificate. \n"
-            "       \"endEpochCumScTxCommTreeRoot\" : \"ecum\" (string) The hex string representation of the field element corresponding to the root of the cumulative scTxCommitment tree stored at the block marking the end of the referenced epoch\n"
-            "       \"scProof\": \"scp\"                       (string) SNARK proof whose verification key wCertVk was set upon sidechain registration\n"
-            "       \"totalAmount\" : x.xxx                    (numeric) The total value of the certificate in " + CURRENCY_UNIT + "\n"
-            "     }\n"
-            "  \"vout\" : [              (array of json objects)\n"
-            "     {\n"
-            "       \"value\" : x.xxx,            (numeric) The value in " + CURRENCY_UNIT + "\n"
-            "       \"valueZat\" : xxxx,          (numeric) The value in Zat\n"
-            "       \"n\" : n,                    (numeric) index\n"
-            "       \"scriptPubKey\" : {          (json object)\n"
-            "         \"asm\" : \"asm\",            (string) the asm\n"
-            "         \"hex\" : \"hex\",            (string) the hex\n"
-            "         \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
-            "         \"addresses\" : [           (json array of string)\n"
-            "           \"horizenaddress\"        (string) Horizen address\n"
-            "           ,...\n"
-            "         ]\n"
-            "       }\n"
-            "       --- optional fields present only if this vout is a backward transfer:\n" 
-            "       \"backwardTransfer\" : true  (bool)\n" 
-            "     }\n"
-            "     ,...\n"
-            "  ],\n"
-            "  \"blockhash\" : \"hash\",   (string) the block hash\n"
-            "  \"confirmations\" : n,    (numeric) The confirmations\n"
-            "  \"blocktime\" : ttt       (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
-            "}\n"
-
-            "\nExamples:\n"
-            + HelpExampleCli("getrawcertificate", "\"mycertid\"")
-            + HelpExampleCli("getrawcertificate", "\"mycertid\" 1")
-            + HelpExampleRpc("getrawcertificate", "\"mycertid\", 1")
-        );
-    LOCK(cs_main);
-
-    uint256 hash = ParseHashV(params[0], "parameter 1");
-
-    bool fVerbose = false;
-    if (params.size() > 1)
-        fVerbose = (params[1].get_int() != 0);
-
-    CScCertificate cert;
-    uint256 hashBlock;
-    if (!GetCertificate(hash, cert, hashBlock, true))
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about certificate");
-
-    string strHex = EncodeHexCert(cert);
-
-    if (!fVerbose)
-        return strHex;
-
-    UniValue result(UniValue::VOBJ);
-    result.pushKV("hex", strHex);
-    CertToJSON(cert, hashBlock, result);
-    return result;
-}
-
 UniValue gettxoutproof(const UniValue& params, bool fHelp)
 {
     if (fHelp || (params.size() != 1 && params.size() != 2))
@@ -1364,31 +1278,6 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     return EncodeHexCert(rawCert);
 }
 
-
-UniValue decoderawcertificate(const UniValue& params, bool fHelp)
-{   
-    if (fHelp || params.size() != 1)
-        throw runtime_error(
-            "decoderawcertificate \"hexstring\"\n"
-
-            "\nExamples:\n"
-            + HelpExampleCli("decoderawcertificate", "\"hexstring\"")
-            + HelpExampleRpc("decoderawcertificate", "\"hexstring\"")
-        );
-
-    LOCK(cs_main);
-    RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR));
-
-    CScCertificate cert;
-
-    if (!DecodeHexCert(cert, params[0].get_str()))
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
-
-    UniValue result(UniValue::VOBJ);
-    CertToJSON(cert, uint256(), result);
-
-    return result;
-}
 
 UniValue decodescript(const UniValue& params, bool fHelp)
 {   

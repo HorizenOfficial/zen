@@ -97,7 +97,9 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        ret = self.nodes[0].dep_sc_create(123, "dada", 3.0, vk, "bb" * 1024, constant)
+        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "dada", 'amount': 3.0, 'wCertVk': vk,
+                    'customData': "bb" * 1024, 'constant': constant}
+        ret = self.nodes[0].sc_create(cmdInput)
         scid = ret['scid']
         self.sync_all()
         self.nodes[0].sendtoaddress(tAddr, 1.0)
@@ -111,7 +113,8 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
         #Test getblockmerkleroots with a FT
         print("######## Test getblockmerkleroots with a FT ########")
 
-        self.nodes[0].dep_sc_send("abcd", 2.0, scid, mc_return_address)
+        cmdInput = [{'toaddress': "abcd", 'amount': 2.0, "scid": scid, "mcReturnAddress": mc_return_address}]
+        self.nodes[0].sc_send(cmdInput)
         self.sync_all()
         self.nodes[0].sendtoaddress(tAddr, 1.0)
         self.sync_all()

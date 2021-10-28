@@ -153,6 +153,7 @@ extern bool fSpentIndex;
 #endif // ENABLE_ADDRESS_INDEXING
 
 extern bool fTxIndex;
+extern bool fMaturityHeightIndex;
 extern bool fIsBareMultisigStd;
 extern bool fCheckBlockIndex;
 extern bool fCheckpointsEnabled;

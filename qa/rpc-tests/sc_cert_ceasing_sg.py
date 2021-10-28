@@ -88,7 +88,16 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         # SCs creation
         #----------------------------------------------------------------------
         vk = mcTest.generate_params("sc1")
-        ret = self.nodes[0].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "abcdef", constant)
+        cmdInput = {
+            "withdrawalEpochLength": EPOCH_LENGTH,
+            "toaddress": "dada",
+            "amount": creation_amount,
+            "wCertVk": vk,
+            "constant": constant,
+            'customData': "abcdef"
+        }
+
+        ret = self.nodes[0].sc_create(cmdInput)
         creating_tx = ret['txid']
         mark_logs("Node 0 created SC spending {} coins via tx1 {}.".format(creation_amount, creating_tx), self.nodes, DEBUG_MODE)
         self.sync_all()
