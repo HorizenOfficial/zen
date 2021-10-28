@@ -5,20 +5,14 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
-    start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
-    dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes, advance_epoch
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.util import assert_true, initialize_chain_clean, \
+    start_nodes, connect_nodes_bi, mark_logs, \
+    get_epoch_data, get_spendable, swap_bytes, advance_epoch
+from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.mc_test.mc_test import CSWTestUtils, CertTestUtils, generate_random_field_element_hex
 import os
-import pprint
 from decimal import Decimal
-import json
-import bz2
-import resource
-import binascii
 import subprocess
-import sys
 
 NUMB_OF_NODES = 2
 DEBUG_MODE = 1
