@@ -1,6 +1,7 @@
 #include "sc/sidechaintypes.h"
 #include "util.h"
 #include <consensus/consensus.h>
+#include <limits>
 
 CZendooLowPrioThreadGuard::CZendooLowPrioThreadGuard(bool pauseThreads): _pause(pauseThreads)
 {
@@ -451,7 +452,14 @@ void CVKeyPtrDeleter::operator()(sc_vk_t* p) const
 ////////////////////////////// Custom Config types //////////////////////////////
 bool FieldElementCertificateFieldConfig::IsValid() const
 {
-    if(nBits > 0 && nBits <= CFieldElement::ByteSize()*8)
+    /*
+        With this static assert we removed the previous check:
+
+        if(nBits > 0 && nBits <= CFieldElement::ByteSize()*8)
+    */
+    static_assert(std::numeric_limits<decltype(nBits)>::max() <= CFieldElement::ByteSize()*8, "Restore the IF check if ByteSize*8 is greater than the max value of a uint8_t variable");
+
+    if(nBits != 0)
         return true;
     else
         return false;
@@ -567,7 +575,12 @@ const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldEl
 
     int rem = 0;
 
-    assert(cfg.getBitSize() <= CFieldElement::BitSize());
+    /*
+        With this static assert we removed the previous check:
+
+        assert(cfg.getBitSize() <= CFieldElement::BitSize());
+    */
+    static_assert(std::numeric_limits<std::result_of<decltype(&FieldElementCertificateFieldConfig::getBitSize)(FieldElementCertificateFieldConfig)>::type>::max() <= CFieldElement::ByteSize()*8, "Restore the assert check if BitSize is greater than the max value of a uint8_t variable");
 
     int bytes = getBytesFromBits(cfg.getBitSize(), rem);
 
@@ -919,5 +932,5 @@ void dumpBt(const backward_transfer_t& bt, const std::string& name)
         ptr++;
     }
     printf("] -- ");
-    printf("amount:  %lu\n", bt.amount);
+    printf("amount:  %llu\n", bt.amount);
 }

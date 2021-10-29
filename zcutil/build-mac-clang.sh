@@ -122,6 +122,41 @@ then
     shift
 fi
 
+# If --legacy-cpu is the next argument, build libzendoo without +bmi2,+adx:
+LIBZENDOO_LEGACY_CPU='false'
+if [ "x${1:-}" = 'x--legacy-cpu' ]; then
+    LIBZENDOO_LEGACY_CPU='true'
+    shift
+fi
+
+set +x
+# Check if CPU supports required flags, if not warn the user and exit.
+if [ "$LIBZENDOO_LEGACY_CPU" = "false" ]; then
+  CPU_FLAGS=''
+  if command -v lscpu > /dev/null 2>&1; then
+    CPU_FLAGS="$(lscpu)"
+  elif [ -f "/proc/cpuinfo" ]; then
+    CPU_FLAGS="$(</proc/cpuinfo)"
+  elif [ "$(uname)" = "Darwin" ]; then
+    CPU_FLAGS="$(/usr/sbin/sysctl -n machdep.cpu.features machdep.cpu.leaf7_features)"
+  else
+    echo 'Warning: unable to detect CPU flags, please make sure bmi2 and adx are supported on this host.'
+  fi
+  if [ -n "$CPU_FLAGS" ] && ( ! grep -iq 'bmi2' <<< "$CPU_FLAGS" || ! grep -iq 'adx' <<< "$CPU_FLAGS" ); then
+    echo "Error: bmi2 and adx CPU flags are not supported on this host, please build with './zcutil/build-mac-clang.sh --legacy-cpu'."
+    exit 1
+  fi
+fi
+set -x
+
+# If --enable-address-indexing is the next argument, enable building AddressIndexing code:
+ADDRESSINDEXING_ARG=''
+if [ "x${1:-}" = 'x--enable-address-indexing' ]
+then
+    ADDRESSINDEXING_ARG='--enable-address-indexing'
+    shift
+fi
+
 PREFIX="$(pwd)/depends/$BUILD/"
 
 eval "$MAKE" --version
@@ -130,15 +165,8 @@ eval "$CXX" --version
 as --version
 ld -v
 
-# ZEN MOD START
-#echo '================================================'
-#echo "HOST=" "$HOST" "BUILD=" "$BUILD" "NO_RUST=" "$RUST_ARG"
-#echo "$MAKE" "$@" "-C ./depends/ V=1"
-#echo '================================================'
-# ZEN MOD END
 
-HOST="$HOST" BUILD="$BUILD" NO_RUST="$RUST_ARG" NO_PROTON="$PROTON_ARG" "$MAKE" "$@" -C ./depends/ V=1
+HOST="$HOST" BUILD="$BUILD" NO_RUST="$RUST_ARG" NO_PROTON="$PROTON_ARG" LIBZENDOO_LEGACY_CPU="$LIBZENDOO_LEGACY_CPU" "$MAKE" "$@" -C ./depends/ V=1
 ./autogen.sh
-# CC="$CC" CXX="$CXX" ./configure --prefix="${PREFIX}" --host="$HOST" --build="$BUILD" "$RUST_ARG" "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" "$LIBS_ARG" --enable-werror CXXFLAGS='-fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -g'
-CC="$CC" CXX="$CXX" ./configure --prefix="${PREFIX}" --host="$HOST" --build="$BUILD" "$RUST_ARG" "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" "$LIBS_ARG" --enable-werror  CXXFLAGS='-Wno-literal-conversion -g'
+CC="$CC" CXX="$CXX" ./configure --prefix="${PREFIX}" --host="$HOST" --build="$BUILD" "$RUST_ARG" "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" "$LIBS_ARG" "$ADDRESSINDEXING_ARG" --enable-werror CXXFLAGS='-Wno-literal-conversion -g'
 "$MAKE" "$@" V=1

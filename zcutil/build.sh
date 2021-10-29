@@ -130,11 +130,19 @@ if [ "$LIBZENDOO_LEGACY_CPU" = "false" ]; then
 fi
 set -x
 
+# If --enable-address-indexing is the next argument, enable building AddressIndexing code:
+ADDRESSINDEXING_ARG=''
+if [ "x${1:-}" = 'x--enable-address-indexing' ]
+then
+    ADDRESSINDEXING_ARG='--enable-address-indexing'
+    shift
+fi
+
 eval "$MAKE" --version
 as --version
 ld -v
 
 HOST="$HOST" BUILD="$BUILD" NO_PROTON="$PROTON_ARG" LIBZENDOO_LEGACY_CPU="$LIBZENDOO_LEGACY_CPU" "$MAKE" "$@" -C ./depends/ V=1
 ./autogen.sh
-CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure  "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" $CONFIGURE_FLAGS CXXFLAGS='-g'
+CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure  "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" "$ADDRESSINDEXING_ARG" $CONFIGURE_FLAGS CXXFLAGS='-g'
 "$MAKE" "$@" V=1

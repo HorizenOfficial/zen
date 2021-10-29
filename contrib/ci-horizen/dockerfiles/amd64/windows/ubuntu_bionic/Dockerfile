@@ -6,6 +6,8 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
 SHELL ["/bin/bash", "-c"]
 
+ENV LC_ALL=C.UTF-8 LANG=C.UTF-8 LANGUAGE=C.UTF-8
+
 RUN set -euxo pipefail \
     && export DEBIAN_FRONTEND=noninteractive \
     && apt-get update \
@@ -13,9 +15,8 @@ RUN set -euxo pipefail \
     && apt-get -y --no-install-recommends dist-upgrade \
     && apt-get -y --no-install-recommends install aria2 autoconf automake bsdmainutils build-essential \
        ca-certificates cmake curl dirmngr git g++-multilib gnupg2 help2man libc6-dev libgomp1 libtool \
-       m4 mingw-w64 ncurses-dev pigz pkg-config pv python-minimal python-pip python-setuptools python-wheel \
-       python-wheel-common time unzip wget zlib1g-dev \
-    && pip install b2==1.4.2 \
+       m4 mingw-w64 ncurses-dev pigz pkg-config pv python3-pip python3-setuptools time unzip wget zlib1g-dev \
+    && pip3 install b2 \
     && BASEURL="https://github.com/tianon/gosu/releases/download/" \
     && GOSU_VERSION="1.13" \
     && DPKG_ARCH="$(dpkg --print-architecture | awk -F- '{ print $NF }')" \

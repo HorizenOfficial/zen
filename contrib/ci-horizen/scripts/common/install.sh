@@ -28,6 +28,9 @@ if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
   if [ ! -z "${PIP_INSTALL}" ]; then
     sudo pip install --upgrade ${PIP_INSTALL}
   fi
+  if [ ! -z "${PIP3_INSTALL}" ]; then
+    sudo pip3 install --upgrade ${PIP3_INSTALL}
+  fi
 fi
 
 if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
@@ -36,5 +39,8 @@ if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
   fi
   if [ ! -z "${PIP_INSTALL}" ]; then
     sudo pip install --upgrade ${PIP_INSTALL}
+  fi
+  if [ ! -z "${PIP3_INSTALL}" ]; then
+    sudo pip3 install --upgrade ${PIP3_INSTALL}
   fi
 fi
