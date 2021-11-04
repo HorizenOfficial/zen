@@ -479,9 +479,9 @@ class sc_cert_base(BitcoinTestFramework):
         utx_out = self.nodes[0].gettxout(cert_epoch_0, 1)
         assert_true(utx_out is None)
 
-        mature_only = False
+        include_immature = True
         # Get BT txout including immature outputs
-        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, True, mature_only)
+        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, True, include_immature)
         assert_equal(utx_out["mature"], False)
         assert_equal(utx_out["maturityHeight"], -1)
         assert_equal(utx_out["blocksToMaturity"], -1)
@@ -492,7 +492,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         # Get BT txout excluding mempool
         # Check that BT is immature
-        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, False, mature_only)
+        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, False, include_immature)
         cur_h = self.nodes[0].getblockcount()
         cert_epoch_0_maturity_h = self.nodes[0].getscinfo(scid, True, False)['items'][0]['ceasingHeight']
         cert_epoch_0_maturity_delta = cert_epoch_0_maturity_h - cur_h - 1
@@ -648,8 +648,8 @@ class sc_cert_base(BitcoinTestFramework):
 
         # Get BT txout excluding mempool
         # Check that BT is mature
-        mature_only = True
-        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, False, mature_only)
+        include_immature = False
+        utx_out = self.nodes[0].gettxout(cert_epoch_0, 1, False, include_immature)
         assert_equal(utx_out["mature"], True)
         assert_equal(utx_out["maturityHeight"], cert_epoch_0_maturity_h)
         assert_equal(utx_out["blocksToMaturity"], 0)

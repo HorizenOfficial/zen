@@ -5157,7 +5157,7 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
             "10. fromAddress                     (string, optional) The taddr to send the coins from. If omitted, coins are chosen among all available UTXOs\n"
             "11. vFieldElementCertificateField   (array, optional) a list of hexadecimal strings each of them representing data used to verify the SNARK proof of the certificate\n"
             "    [\n"                     
-            "      \"fieldElement\"             (string, required) The HEX string representing generic opaq data\n"
+            "      \"fieldElement\"             (string, required) The HEX string representing generic data\n"
             "    , ... ]\n"
             "12. vBitVectorCertificateField      (array, optional) a list of hexadecimal strings each of them representing a compressed bit vector used to verify the SNARK proof of the certificate\n"
             "    [\n"                     
