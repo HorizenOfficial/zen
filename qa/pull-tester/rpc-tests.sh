@@ -127,6 +127,7 @@ testScripts=(
   'sc_cert_bt_immature_balances.py'
   'txindex.py'
   'getblockexpanded.py'
+  'sc_rpc_cmds_json_output.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
