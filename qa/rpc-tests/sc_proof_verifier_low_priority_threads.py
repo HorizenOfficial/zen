@@ -44,7 +44,7 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
         self.nodes = [start_node(0, self.options.tmpdir,
                                 extra_args=['-debug=py', '-debug=sc', '-debug=mempool',
                                     '-debug=net', '-debug=cert', '-debug=zendoo_mc_cryptolib',
-                                    '-scproofqueuesize=0', '-logtimemicros=1', '-rpcservertimeout=10'],
+                                    '-scproofqueuesize=0', '-logtimemicros=1'],
                                 timewait=30)]  # 30 seconds of timeout
 
     def run_test(self):
