@@ -1030,14 +1030,14 @@ UniValue gettxout(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() < 2 || params.size() > 4)
         throw runtime_error(
-            "gettxout \"txid\" n ( includemempool matureOnly)\n"
+            "gettxout \"txid\" n ( includemempool includeImmatureBTs)\n"
             "\nReturns details about an unspent transaction output.\n"
             
             "\nArguments:\n"
             "1. \"txid\"                    (string, required) The transaction id\n"
             "2. n                           (numeric, required) vout value\n"
             "3. includemempool              (boolean, optional, default=true) Whether to included the mem pool\n"
-            "4. matureOnly                  (booleab, optional, default=true) Allow to include only mature outputs (and skip immature coinbase or cert BTs)."
+            "4. includeImmatureBTs          (boolean, optional, default=false) Only include mature outputs (and skip immature coinbase or cert BTs)."
             "\nResult:\n"
             "{\n"
             "  \"bestblock\": \"hash\",      (string) the block hash\n"
@@ -1077,9 +1077,9 @@ UniValue gettxout(const UniValue& params, bool fHelp)
     if (params.size() > 2)
         fMempool = params[2].get_bool();
 
-    bool fMatureOnly = true;
+    bool fIncludeImmatureBTs = false;
     if (params.size() > 3)
-        fMatureOnly = params[3].get_bool();
+        fIncludeImmatureBTs = params[3].get_bool();
 
     CCoins coins;
     if (fMempool) {
@@ -1097,7 +1097,7 @@ UniValue gettxout(const UniValue& params, bool fHelp)
 
     // Note: we may discard either immature coinbases and certificate BTs
     bool isOutputMature = coins.isOutputMature(n, pcoinsTip->GetHeight()+1);
-    if(fMatureOnly && !isOutputMature)
+    if(!fIncludeImmatureBTs && !isOutputMature)
         return NullUniValue;
 
     BlockMap::iterator it = mapBlockIndex.find(pcoinsTip->GetBestBlock());
