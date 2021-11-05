@@ -181,9 +181,22 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         feCfg.append([16])
         cmtCfg.append([])
 
+        cmdInput = {'withdrawalEpochLength': EPOCH_LENGTH,
+                    'toaddress': "dada",
+                    'amount': amount,
+                    'wCertVk': vk,
+                    'customData': customData,
+                    'constant': constant2,
+                    'wCeasedVk': cswVk,
+                    'vFieldElementCertificateFieldConfig': feCfg[1],
+                    'vBitVectorCertificateFieldConfig': cmtCfg[1],
+                    'forwardTransferScFee': 0,
+                    'mainchainBackwardTransferScFee': 0,
+                    'mainchainBackwardTransferRequestDataLength': 1}
+
         mark_logs("\nNode 1 create SC2 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
-            ret = self.nodes[1].dep_sc_create(EPOCH_LENGTH, "dada", amount, vk, customData, constant2, cswVk, feCfg[1], cmtCfg[1], 0, 0, 1)
+            ret = self.nodes[1].sc_create(cmdInput)
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
