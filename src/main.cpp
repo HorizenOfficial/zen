@@ -91,6 +91,7 @@ bool fIsBareMultisigStd = true;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = true;
 bool fCoinbaseEnforcedProtectionEnabled = true;
+bool fRegtestAllowDustOutput = true;
 //true in case we still have not reached the highest known block from server startup
 bool fIsStartupSyncing = true;
 size_t nCoinCacheUsage = 5000 * 300;
@@ -749,7 +750,7 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
             reason = "bare-multisig";
             return false;
         } else if (txout.IsDust(::minRelayTxFee)) {
-            if (Params().NetworkIDString() == "regtest")
+            if (Params().NetworkIDString() == "regtest" && fRegtestAllowDustOutput)
             {
                 // do not reject this tx in regtest, there are py tests intentionally using zero values
                 // and expecting this to be processable
@@ -758,10 +759,12 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
             }
             else
             {
-            reason = "dust";
-            return false;
+                LogPrintf("%s():%d - ERROR: txout pos=%d, amount=%f is dust (min %f )\n",
+                    __func__, __LINE__, pos, txout.nValue, txout.GetDustThreshold(::minRelayTxFee));
+                reason = "dust (minimum output value is " + std::to_string(txout.GetDustThreshold(::minRelayTxFee)) + " zat)";
+                return false;
+            }
         }
-    }
     }
 
     // only one OP_RETURN txout is permitted

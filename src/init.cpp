@@ -548,6 +548,9 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-allownonstandardtx",
         "regtest/testnet only - allow non-standard tx (default depends on regtest/testnet params)");
 
+    strUsage += HelpMessageOpt("-allowdustoutput",
+        "regtest only - when checking a tx to be standard, regtest allows by default a tx to have a null or dust output. Setting this option to 0 will prevent that (default: 1 = allow dust output)");
+
     strUsage += HelpMessageOpt("-subsidyhalvinginterval=<n>", "regtest only - Set halving interval for testing purposes (default=2000; must be > 100)");
         
     if (GetBoolArg("-help-debug", false))
@@ -1974,6 +1977,11 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     GenerateBitcoins(GetBoolArg("-gen", false), GetArg("-genproclimit", 1));
  #endif
 #endif
+
+    if (Params().NetworkIDString() == "regtest")
+    {
+        fRegtestAllowDustOutput = GetBoolArg("-allowdustoutput", true);
+    }
 
     // ********************************************************* Step 11: finished
 

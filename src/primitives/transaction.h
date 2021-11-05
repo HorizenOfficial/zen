@@ -457,10 +457,13 @@ public:
         // which has units satoshis-per-kilobyte.
         // If you'd pay more than 1/3 in fees
         // to spend something, then we consider it dust.
-        // A typical spendable txout is 34 bytes big, and will
-        // need a CTxIn of at least 148 bytes to spend:
-        // so dust is a spendable txout less than 54 satoshis
+        // A typical spendable txout is 34 bytes big (or ~75 bytes big if we have the replay protection extension)
+        // and will need a CTxIn of at least 148 bytes to spend:
+        // so dust is a spendable txout less than 54 satoshis (or ~63)
         // with default minRelayTxFee.
+        // For certificate backward transfers (which do not have the replay protection extension) we
+        // consider the 148 bytes too, even if they do not have a corresponding input in the certificate.
+        // This is because is better to avoid having UTXOs under the dust threshold anyway. 
         if (scriptPubKey.IsUnspendable())
             return 0;
 

@@ -125,6 +125,7 @@ testScripts=(
   'sc_stale_ft_and_mbtr.py'
   'sc_cert_getblocktemplate.py'
   'sc_cert_bt_immature_balances.py'
+  'sc_cert_dust.py'
   'txindex.py'
   'getblockexpanded.py'
   'sc_rpc_cmds_json_output.py'

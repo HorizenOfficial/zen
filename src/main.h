@@ -160,6 +160,7 @@ extern bool fCheckpointsEnabled;
 // TODO: remove this flag by structuring our code such that
 // it is unneeded for testing
 extern bool fCoinbaseEnforcedProtectionEnabled;
+extern bool fRegtestAllowDustOutput;
 extern size_t nCoinCacheUsage;
 extern CFeeRate minRelayTxFee;
 extern bool fAlerts;
