@@ -9,6 +9,13 @@ os: linux
       - DOCKER_TARGET_OS=linux
       - DOCKER_FROM=ubuntu_bionic
       - DOCKER_IS_DEB=true
+  - &docker_amd64_linux_ubuntu_bionic_legacy_cpu
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_bionic
+      - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--legacy-cpu"
   - &docker_amd64_windows_ubuntu_bionic
     env:
       - DOCKER_ARCH=amd64
@@ -238,6 +245,9 @@ jobs:
       <<: *docker_amd64_linux_ubuntu_bionic
     - stage: Build
       <<: *build_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_bionic_legacy_cpu
+    - stage: Build
+      <<: *build_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_focal
     - stage: Build
       <<: *build_docker_amd64_x-large
@@ -247,6 +257,8 @@ jobs:
       if: env(SKIP_OSX) != true
       os: osx
       osx_image: xcode9.4
+      env:
+        - MAKEFLAGS="--disable-libs --legacy-cpu"
       cache:
         directories:
           - "$HOME/.ccache"
