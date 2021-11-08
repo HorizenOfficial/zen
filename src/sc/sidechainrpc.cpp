@@ -841,12 +841,18 @@ void fundCcRecipients(const CTransaction& tx,
 ScRpcCmd::ScRpcCmd(
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee): 
-        _fromMcAddress(fromaddress), _changeMcAddress(changeaddress), _minConf(minConf), _fee(nFee)
+        _fromMcAddress(fromaddress), _changeMcAddress(changeaddress), _minConf(minConf), _fee(nFee), _feeNeeded(-1),
+        _automaticFee(false), _totalInputAmount(0), _totalOutputAmount(0)
 {
-    _totalOutputAmount = 0;
-
     _hasFromAddress   = !(_fromMcAddress   == CBitcoinAddress());
     _hasChangeAddress = !(_changeMcAddress == CBitcoinAddress());
+
+    if (_fee == SC_RPC_OPERATION_AUTO_MINERS_FEE)
+    {
+        // fee must start from 0 when automatically calculated, and then its updated
+        _automaticFee = true;
+        _fee = CAmount(0);
+    }
 
     // Get dust threshold
     CKey secret;
@@ -855,6 +861,10 @@ ScRpcCmd::ScRpcCmd(
     CTxOut out(CAmount(1), scriptPubKey);
     _dustThreshold = out.GetDustThreshold(minRelayTxFee);
 
+}
+
+void ScRpcCmd::init()
+{
     _totalInputAmount = 0;
 }
 
@@ -968,11 +978,15 @@ void ScRpcCmd::addInputs()
 
 void ScRpcCmd::addChange()
 {
+    // fee must start from 0 when automatically calculated, and then its updated. It might also be set explicitly to 0
     CAmount change = _totalInputAmount - ( _totalOutputAmount + _fee);
 
     if (change > 0)
     {
         // handle the address for the change
+        // ---
+        // If an addresss for the change has been set by the caller we use it; else we use the fromAddress if specified.
+        // In case non of them is set, we use a new address
         CScript scriptPubKey;
         if (_hasChangeAddress)
         {
@@ -988,13 +1002,25 @@ void ScRpcCmd::addChange()
             CReserveKey keyChange(pwalletMain);
             CPubKey vchPubKey;
 
+            // bitcoin code has also KeepKey() in the CommitTransaction() for preventing the key reuse,
+            // but zcash does not do that.
             if (!keyChange.GetReservedKey(vchPubKey))
                 throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Could not generate a taddr to use as a change address"); // should never fail, as we just unlocked
 
             scriptPubKey = GetScriptForDestination(vchPubKey.GetID());
         }
 
-        addOutput(CTxOut(change, scriptPubKey));
+        // Never create dust outputs; if we would, just add the dust to the fee.
+        CTxOut newTxOut(change, scriptPubKey);
+        if (newTxOut.IsDust(::minRelayTxFee))
+        {
+            LogPrint("sc", "%s():%d - adding dust change=%lld to fee\n", __func__, __LINE__, change);
+            _fee += change;
+        }
+        else
+        {
+            addOutput(CTxOut(change, scriptPubKey));
+        }
     }
 }
 
@@ -1009,15 +1035,15 @@ ScRpcCmdCert::ScRpcCmdCert(
 {
 }
 
-void ScRpcCmdCert::execute()
+void ScRpcCmdCert::_execute()
 {
+    init();
     addInputs();
     addChange();
     addBackwardTransfers();
     addCustomFields();
     addScFees();
     sign();
-    send();
 }
 
 void ScRpcCmdCert::sign()
@@ -1069,41 +1095,105 @@ void ScRpcCmdCert::sign()
     _cert = certStreamed;
 }
 
-void ScRpcCmdCert::send()
+bool ScRpcCmd::checkFeeRate()
+{
+    // if the _fee is intentionally set to 0, go on and skip the check
+    if (_fee == 0 && !_automaticFee)
+    {
+        LogPrint("sc", "%s():%d - Null fee explicitly set, returning true\n", __func__, __LINE__);
+        return true;
+    }
+
+    unsigned int nSize = getSignedObjSize();
+
+    // there are 3 main user options handling the fee (plus an estimation algorithm currently broken):
+    // -------------------------------------------------------------------
+    // minRelayTxFee: set via zen option "-minrelaytxfee" defaults to 100 sat per K
+    //                Nodes, and expecially miners, consider txes under this thresholds the same as "free" transactions.
+    // payTxFee     : set via zen option "-paytxfee" defaults to 0 sat per K
+    //                This is the fee rate a user wants to use for paying fee when sending a transaction.
+    // minTxFee     : set via zen option "-mintxfee" defaults to 1000 sat per K
+    //                This is the fee rate used for automatically computing the fee a user will pay when sending
+    //                a transaction when the paytxfee has not been set.
+    // -------------------------------------------------------------------
+    // The function below checks all the various fee rate thresholds and returns the minimum needed.
+    // This value is anyway not lower than minRelayFee.
+
+    // Therefore, using default values, the fee needed is the one corresponding to the minTxFee rate of 1000 Zat / Kbyte
+    _feeNeeded = CWallet::GetMinimumFee(nSize, nTxConfirmTarget, mempool);
+
+    if (_fee < _feeNeeded)
+    {
+        if (!_automaticFee)
+        {
+            // the user explicitly set a non-zero fee
+            if (_fee < ::minRelayTxFee.GetFee(nSize))
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
+                    "tx with size %d has too low a fee: %lld < minrelaytxfee %lld, the miner might not include it in a block",
+                    nSize, _fee, ::minRelayTxFee.GetFee(nSize)));
+            }
+            else
+            {
+                LogPrintf("%s():%d - Warning: using a fee(%lld) < minimum(%lld) (tx size = %d)\n",
+                    __func__, __LINE__, _fee, _feeNeeded, nSize);
+            }
+        }
+        else
+        {
+            LogPrint("sc", "%s():%d - Updating fee: %lld --> %lld (size=%d)\n",
+                __func__, __LINE__, _fee, _feeNeeded, nSize);
+            // we have to retry with this value
+            _fee = _feeNeeded;
+            return false;
+        }
+    }
+    return true;
+}
+
+void ScRpcCmdCert::init()
+{
+    ScRpcCmd::init();
+
+    _cert.vin.clear();
+    _cert.resizeOut(0);
+    _cert.resizeBwt(0);
+
+    _cert.forwardTransferScFee = CScCertificate::INT_NULL;
+    _cert.mainchainBackwardTransferRequestScFee = CScCertificate::INT_NULL;
+    _cert.vFieldElementCertificateField.clear();
+    _cert.vBitVectorCertificateField.clear();
+}
+
+bool ScRpcCmd::send()
 {
     unsigned int nSize = getSignedObjSize();
 
-    // check we do not exceed max certificate size
-    if (nSize > MAX_CERT_SIZE)
+    // check we do not exceed max obj size
+    if (nSize > getMaxObjSize())
     {
-        LogPrintf("%s():%d - certificate size[%d] > max size(%d)\n", __func__, __LINE__, nSize, MAX_CERT_SIZE);
+        LogPrintf("%s():%d - tx/cert size[%d] > max size(%d)\n", __func__, __LINE__, nSize, getMaxObjSize());
         throw JSONRPCError(RPC_VERIFY_ERROR, strprintf(
-            "certificate size %d > max cert size(%d)", nSize, MAX_CERT_SIZE));
+            "tx/cert size %d > max size(%d)", nSize, getMaxObjSize()));
     }
 
-    // If fee is null then the user has explicitly set this cert as free.
-    // Else if fee is not null, check that the obj size does not imply a feeRate too low, because
-    // we might risk not to have it mined and yet spend the fee
-
-    LogPrint("sc", "%s():%d - cert cmd obj size[%d], fee %d, minFee %d\n", __func__, __LINE__, nSize, _fee, ::minRelayTxFee.GetFee(nSize));
-
-    if (_fee != 0 && _fee < ::minRelayTxFee.GetFee(nSize))
+    if (!checkFeeRate())
     {
-        LogPrintf("%s():%d - certificate size[%d], fee %d < minimum(%d)\n", __func__, __LINE__, nSize, _fee, ::minRelayTxFee.GetFee(nSize));
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf(
-            "certificate with size %d has too low a fee: %d < minimum(%d), the miner might not include it in a block",
-            nSize, _fee, ::minRelayTxFee.GetFee(nSize)));
+        // try again with an updated fee
+        return false;
     }
 
     UniValue val = UniValue(UniValue::VARR);
     val.push_back(_signedObjHex);
 
-    UniValue sendResultValue = sendrawtransaction(val, false);
-    if (sendResultValue.isNull())
+    UniValue hash = sendrawtransaction(val, false);
+    if (hash.isNull())
     {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Send raw transaction did not return an error or a txid.");
+        // should never happen, since the above command returns a valid hash or throws an exception itself
+        throw JSONRPCError(RPC_WALLET_ERROR, "sendrawtransaction has failed");
     }
-    LogPrint("sc", "cert sent[%s]\n", sendResultValue.get_str());
+    LogPrint("sc", "tx/cert sent[%s]\n", hash.get_str());
+    return true;
 }
 
 void ScRpcCmdCert::addBackwardTransfers()
@@ -1129,6 +1219,17 @@ void ScRpcCmdCert::addScFees()
 {
     _cert.forwardTransferScFee = _ftScFee;
     _cert.mainchainBackwardTransferRequestScFee = _mbtrScFee;
+}
+
+void ScRpcCmdTx::init()
+{
+    ScRpcCmd::init();
+
+    _tx.vin.clear();
+    _tx.resizeOut(0);
+    _tx.vsc_ccout.clear();
+    _tx.vft_ccout.clear();
+    _tx.vmbtr_out.clear();
 }
 
 ScRpcCmdTx::ScRpcCmdTx(
@@ -1185,25 +1286,41 @@ void ScRpcCmdTx::sign()
     _tx = txStreamed;
 }
 
-void ScRpcCmdTx::send()
+void ScRpcCmdTx::_execute()
 {
-    UniValue val = UniValue(UniValue::VARR);
-    val.push_back(_signedObjHex);
-
-    UniValue sendResultValue = sendrawtransaction(val, false);
-    if (sendResultValue.isNull())
-    {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Send raw transaction did not return an error or a txid.");
-    }
-}
-
-void ScRpcCmdTx::execute()
-{
+    init();
     addInputs();
     addChange();
     addCcOutputs();
     sign();
-    send();
+}
+
+void ScRpcCmd::execute()
+{
+    // we need a safety counter for the case when we have a large number of very small inputs that gets added to
+    // the tx increasing its size and the fee needed
+    // An alternative might as well be letting it fail when we do not have utxo's anymore.
+    static const int MAX_LOOP = 100;
+
+    int safeCount = MAX_LOOP;
+
+    while (true)
+    {
+        _execute();
+
+        LogPrint("sc", "%s():%d - cnt=%d, fee=%lld, feeNeeded=%lld\n", __func__, __LINE__,
+            (MAX_LOOP - safeCount + 1), _fee, _feeNeeded);
+
+        if (send())
+        {
+            // we made it
+            break;
+        }
+        if (safeCount-- <= 0)
+        {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Could not set minimum fee");
+        }
+    }
 }
 
 ScRpcCreationCmdTx::ScRpcCreationCmdTx(

@@ -679,7 +679,12 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
             wtxNew, reservekey, nFeeRequired, nChangePosRet, strError))
     {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > pwalletMain->GetBalance())
-            strError = strprintf("Error: This transaction requires a transaction fee of at least %s because of its amount, complexity, or use of recently received funds!", FormatMoney(nFeeRequired));
+        {
+            unsigned int nBytes = ::GetSerializeSize(*wtxNew.getTxBase(), SER_NETWORK, PROTOCOL_VERSION);
+            strError = strprintf(
+                "Error: This transaction (sz=%d, vin.size=%d) requires a transaction fee of at least %s because of its amount, complexity, or use of recently received funds!",
+                nBytes, wtxNew.getTxBase()->GetVin().size(), FormatMoney(nFeeRequired));
+        }
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     if (!pwalletMain->CommitTransaction(wtxNew, reservekey))
@@ -766,9 +771,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             " \"toaddress\":scaddr              (string, required) The receiver PublicKey25519Proposition in the SC\n"
             " \"amount\":amount                 (numeric, required) Funds to be sent to the newly created Sidechain. Value expressed in " + CURRENCY_UNIT + "\n"
             " \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
-            " \"fee\":fee                       (numeric, optional, default=" +
-                                                   strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
-                                                   ") The fee amount to attach to this transaction.\n"
+            " \"fee\":fee                       (numeric, optional) The fee amount to attach to this transaction in " + CURRENCY_UNIT + ". If not specified it is automatically computed using a fixed fee rate (default is 1zat per byte)\n"
             " \"wCertVk\":data                  (string, required) It is an arbitrary byte string of even length expressed in\n"
             "                                       hexadecimal format. Required to verify a WCert SC proof. Its size must be " + strprintf("%d", CScVKey::MaxByteSize()) + " bytes max\n"
             " \"customData\":data               (string, optional) It is an arbitrary byte string of even length expressed in\n"
@@ -906,7 +909,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
-    CAmount nFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
+    CAmount nFee = SC_RPC_OPERATION_AUTO_MINERS_FEE;
     if (setKeyArgs.count("fee"))
     {
         UniValue val = find_value(inputObject, "fee");
@@ -916,10 +919,11 @@ UniValue sc_create(const UniValue& params, bool fHelp)
         }
         else
         {
+            // throws exception for negative values
             nFee = AmountFromValue(val);
         }
     }
-    if (!MoneyRange(nFee))
+    if (nFee != SC_RPC_OPERATION_AUTO_MINERS_FEE && !MoneyRange(nFee))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee out of range");
     if (nFee > nAmount)
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than output %s",
@@ -1124,9 +1128,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
             "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
             "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a newly generated address will be used\n"
             "   \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
-            "   \"fee\":fee                       (numeric, optional, default=" +
-                                                      strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
-                                                      ") The fee amount to attach to this transaction.\n"
+            "   \"fee\":fee                       (numeric, optional) The fee amount to attach to this transaction in " + CURRENCY_UNIT + ". If not specified it is automatically computed using a fixed fee rate (default is 1zat per byte)\n"
             "}\n"
             "\nResult:\n"
             "\"txid\"    (string) The resulting transaction id.\n"
@@ -1253,7 +1255,7 @@ UniValue sc_send(const UniValue& params, bool fHelp)
     CBitcoinAddress fromaddress;
     CBitcoinAddress changeaddress;
     int nMinDepth = 1;
-    CAmount nFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
+    CAmount nFee = SC_RPC_OPERATION_AUTO_MINERS_FEE;
 
     if (params.size() > 1 && !params[1].isNull())
     {
@@ -1317,10 +1319,11 @@ UniValue sc_send(const UniValue& params, bool fHelp)
             }
             else
             {
+                // throws exception for negative values
                 nFee = AmountFromValue(val);
             }
         }
-        if (!MoneyRange(nFee))
+        if (nFee != SC_RPC_OPERATION_AUTO_MINERS_FEE && !MoneyRange(nFee))
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee out of range");
         if (nFee > totalAmount)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Fee %s is greater than output %s",
@@ -1361,9 +1364,7 @@ UniValue sc_request_transfer(const UniValue& params, bool fHelp)
             "   \"fromaddress\":taddr             (string, optional) The taddr to send the funds from. If omitted funds are taken from all available UTXO\n"
             "   \"changeaddress\":taddr           (string, optional) The taddr to send the change to, if any. If not set, \"fromaddress\" is used. If the latter is not set too, a newly generated address will be used\n"
             "   \"minconf\":conf                  (numeric, optional, default=1) Only use funds confirmed at least this many times.\n"
-            "   \"fee\":fee                       (numeric, optional, default=" +
-                                                      strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) +
-                                                      ") The fee amount to attach to this transaction.\n"
+            "   \"fee\":fee                       (numeric, optional) The fee amount to attach to this transaction in " + CURRENCY_UNIT + ". If not specified it is automatically computed using a fixed fee rate (default is 1zat per byte)\n"
             "}\n"
             "\nResult:\n"
             "\"txid\"    (string) The resulting transaction id.\n"
@@ -1520,7 +1521,7 @@ UniValue sc_request_transfer(const UniValue& params, bool fHelp)
     CBitcoinAddress fromaddress;
     CBitcoinAddress changeaddress;
     int nMinDepth = 1;
-    CAmount nFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
+    CAmount nFee = SC_RPC_OPERATION_AUTO_MINERS_FEE;
 
     if (params.size() > 1 && !params[1].isNull())
     {
@@ -1584,10 +1585,11 @@ UniValue sc_request_transfer(const UniValue& params, bool fHelp)
             }
             else
             {
+                // throws exception for negative values
                 nFee = AmountFromValue(val);
             }
         }
-        if (!MoneyRange(nFee))
+        if (nFee != SC_RPC_OPERATION_AUTO_MINERS_FEE && !MoneyRange(nFee))
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fee out of range");
     }
 
@@ -5245,7 +5247,7 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
             "     }, ... ]\n"
             " 7. forwardTransferScFee            (numeric, required) The amount of fee due to sidechain actors when creating a FT\n"
             " 8. mainchainBackwardTransferScFee  (numeric, required) The amount of fee due to sidechain actors when creating a MBTR\n"
-            " 9. fee                             (numeric, optional, default=" + strprintf("%s", FormatMoney(SC_RPC_OPERATION_DEFAULT_MINERS_FEE)) + ") The fee of the certificate in ZEN\n"
+            " 9. fee                             (numeric, optional) The fee amount of the certificate in " + CURRENCY_UNIT + ". If it is not specified or has a negative value it is automatically computed using a fixed fee rate (default is 1Zat/Byte)\n"
             "10. fromAddress                     (string, optional) The taddr to send the coins from. If omitted, coins are chosen among all available UTXOs\n"
             "11. vFieldElementCertificateField   (array, optional) a list of hexadecimal strings each of them representing data used to verify the SNARK proof of the certificate\n"
             "    [\n"                     
@@ -5438,19 +5440,23 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
     }
 
     //--------------------------------------------------------------------------
-    // fee, default to a small amount
-    CAmount nCertFee = SC_RPC_OPERATION_DEFAULT_MINERS_FEE;
+    // fee, default to a negative value, that means automatically computed
+    CAmount nCertFee = SC_RPC_OPERATION_AUTO_MINERS_FEE;
     if (params.size() > 8)
     {
+        UniValue feeVal = params[8];
         try {
-            nCertFee = AmountFromValue(params[8]);
+            nCertFee = SignedAmountFromValue(feeVal);
         } catch (const UniValue& error) {
             UniValue errMsg  = find_value(error, "message");
             throw JSONRPCError(RPC_TYPE_ERROR, ("Invalid fee param:" + errMsg.getValStr() ));
         } 
 
         if (nCertFee < 0)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for fee, can not be negative");
+        {
+            // negative values mean: compute automatically
+            nCertFee = SC_RPC_OPERATION_AUTO_MINERS_FEE;
+        }
         // any check for upper threshold is left to cert processing
     }
 

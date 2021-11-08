@@ -149,7 +149,7 @@ class sc_cert_quality_wallet(BitcoinTestFramework):
 
         amount_cert_2 = [{"address": addr_node2, "amount": bwt_amount_2}]
 
-        mark_logs("Node 0 sends cert of quality {} with bwt of {} coins for Node2 address".format(quality, amount_cert_2[0]["amount"], amount_cert_2[0]["address"]), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 sends cert of quality {} with bwt of {} coins for Node2 address {}".format(quality, amount_cert_2[0]["amount"], amount_cert_2[0]["address"]), self.nodes, DEBUG_MODE)
         try:
             cert_epoch_0_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

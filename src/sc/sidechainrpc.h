@@ -7,7 +7,7 @@
 #include "base58.h"
 
 //------------------------------------------------------------------------------------
-static const CAmount SC_RPC_OPERATION_DEFAULT_MINERS_FEE(1500);
+static const CAmount SC_RPC_OPERATION_AUTO_MINERS_FEE(-1);
 static const int SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH(100);
 
 class UniValue;
@@ -56,6 +56,8 @@ class ScRpcCmd
     CBitcoinAddress _changeMcAddress;
     int _minConf;
     CAmount _fee;
+    CAmount _feeNeeded;
+    bool _automaticFee;
 
     // internal members
     bool _hasFromAddress;
@@ -69,13 +71,20 @@ class ScRpcCmd
     // Input UTXO is a tuple (triple) of txid, vout, amount)
     typedef std::tuple<uint256, int, CAmount> SelectedUTXO;
 
+    // set null all data members that are filled during tx/cert construction  
+    virtual void init();
+
     void addInputs();
     void addChange();
-
-    virtual void sign() = 0;
-    virtual void send() = 0;    
     virtual void addOutput(const CTxOut& out) = 0;
     virtual void addInput(const CTxIn& out) = 0;
+    virtual void sign() = 0;
+
+    // gathers all steps for building a tx/cert
+    virtual void _execute() = 0;
+
+    bool checkFeeRate();
+    bool send();    
 
   public:
     virtual ~ScRpcCmd() {};
@@ -84,9 +93,10 @@ class ScRpcCmd
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee);
 
-    virtual void execute() = 0;
+    void execute();
 
     unsigned int getSignedObjSize() const { return _signedObjHex.size()/2; }
+    virtual unsigned int getMaxObjSize() const = 0;
 };
 
 class ScRpcCmdTx : public ScRpcCmd
@@ -95,13 +105,15 @@ class ScRpcCmdTx : public ScRpcCmd
     // this is a reference to the tx that gets processed
     CMutableTransaction& _tx;
 
+    void init() override;
     void addOutput(const CTxOut& out) override {_tx.addOut(out); }
     void addInput(const CTxIn& in) override    {_tx.vin.push_back(in); }
 
     virtual void addCcOutputs() = 0;
 
     void sign() override;
-    void send() override;    
+    void _execute() override;
+
 
   public:
     ScRpcCmdTx(
@@ -109,8 +121,7 @@ class ScRpcCmdTx : public ScRpcCmd
         const CBitcoinAddress& fromaddress, const CBitcoinAddress& changeaddress,
         int minConf, const CAmount& nFee);
 
-    void execute() override;
-
+    unsigned int getMaxObjSize() const override { return MAX_TX_SIZE; }
 };
 
 class ScRpcCmdCert : public ScRpcCmd
@@ -119,11 +130,13 @@ class ScRpcCmdCert : public ScRpcCmd
     // this is a reference to the tx that gets processed
     CMutableScCertificate& _cert;
 
+    void init() override;
     void addOutput(const CTxOut& out) override {_cert.addOut(out); }
     void addInput(const CTxIn& in) override    {_cert.vin.push_back(in); }
   
     void sign() override;
-    void send() override;    
+
+    void _execute() override;
 
   private:
     void addBackwardTransfers();
@@ -155,7 +168,7 @@ class ScRpcCmdCert : public ScRpcCmd
         const std::vector<FieldElementCertificateField>& vCfe, const std::vector<BitVectorCertificateField>& vCmt,
         const CAmount& ftScFee, const CAmount& mbtrScFee);
 
-    void execute() override;
+    unsigned int getMaxObjSize() const override { return MAX_CERT_SIZE; }
 };
 
 
