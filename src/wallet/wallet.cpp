@@ -1843,11 +1843,18 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
         }
 
         // Create an output for the value taken from or added to the transparent value pool by JoinSplits
-        if (myVpubOld > myVpubNew) {
-            COutputEntry output = {CNoDestination(), myVpubOld - myVpubNew, CCoins::outputMaturity::MATURE, (int)wrappedTx.GetVout().size()};
+        if (myVpubOld > myVpubNew)
+        {
+            COutputEntry output = {
+                CNoDestination(), myVpubOld - myVpubNew, CCoins::outputMaturity::MATURE,
+                (int)wrappedTx.GetVout().size(), /*isBackwardTransfer*/false};
             listSent.push_back(output);
-        } else if (myVpubNew > myVpubOld) {
-            COutputEntry output = {CNoDestination(), myVpubNew - myVpubOld, CCoins::outputMaturity::MATURE, (int)wrappedTx.GetVout().size()};
+        }
+        else if (myVpubNew > myVpubOld)
+        {
+            COutputEntry output = {
+                CNoDestination(), myVpubNew - myVpubOld, CCoins::outputMaturity::MATURE,
+                (int)wrappedTx.GetVout().size(), /*isBackwardTransfer*/false};
             listReceived.push_back(output);
         }
     }
@@ -1878,7 +1885,8 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
             address = CNoDestination();
         }
 
-        COutputEntry output = {address, txout.nValue, CCoins::outputMaturity::MATURE, (int)pos};
+        COutputEntry output = {
+            address, txout.nValue, CCoins::outputMaturity::MATURE, (int)pos, /*isBackwardTransfer*/false};
 
         // If we are debited by the transaction, add the output as a "sent" entry
         if (nDebit > 0)
@@ -1903,7 +1911,9 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
             for(const auto& out : wrappedTx.GetVBwtRequestOut())
                 totalScOut += out.scFee;
 
-            COutputEntry output = {CNoDestination(), totalScOut, CCoins::outputMaturity::MATURE, (int)wrappedTx.GetVout().size()};
+            COutputEntry output = {
+                CNoDestination(), totalScOut, CCoins::outputMaturity::MATURE,
+                (int)wrappedTx.GetVout().size(), /*isBackwardTransfer*/false};
             listSent.push_back(output);
 
         }
@@ -4594,12 +4604,12 @@ void CWalletCert::GetAmounts(std::list<COutputEntry>& listReceived, std::list<CO
         if (outputMaturity == CCoins::outputMaturity::NOT_APPLICABLE)
             continue;
 
-        COutputEntry output;
-        output = {address, txout.nValue, outputMaturity, (int)pos};
+        COutputEntry output = {
+            address, txout.nValue, outputMaturity, (int)pos, wrappedCertificate.IsBackwardTransfer(pos)};
 
         // If we are debited by the transaction, add the output as a "sent" entry
         // unless it is a backward transfer output
-        if (nDebit > 0 && !wrappedCertificate.IsBackwardTransfer(pos))
+        if (nDebit > 0 && !output.isBackwardTransfer)
             listSent.push_back(output);
 
         // If we are receiving the output, add it as a "received" entry

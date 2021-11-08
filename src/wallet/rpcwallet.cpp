@@ -221,7 +221,33 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     }
 }
 
-void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefilter filter)
+static int getCertMaturityHeight(const CWalletTransactionBase& wtx)
+{
+    if (wtx.hashBlock.IsNull())
+    {
+        // this is the case when wtx has not yet been mined (zero conf)
+        return -1;
+    }
+
+    int matDepth = wtx.bwtMaturityDepth;
+
+    // get index of the block which containn this cert
+    CBlockIndex *pindex = nullptr;
+    BlockMap::iterator it = mapBlockIndex.find(wtx.hashBlock);
+    if (it == mapBlockIndex.end())
+    {
+        throw JSONRPCError(RPC_TYPE_ERROR, strprintf(
+            "coluld not find cert maturity height since block %s is not in active chain",
+            wtx.hashBlock.ToString()));
+    }
+
+    return it->second->nHeight + matDepth;
+}
+
+// the flag addCertMaturityInfo is passed along only when the listsinceblock rpc cmd is used
+static void WalletTxToJSON(
+    const CWalletTransactionBase& wtx, UniValue& entry, isminefilter filter,
+    bool addCertMaturityInfo = false)
 {
     int confirms = wtx.GetDepthInMainChain();
     entry.pushKV("confirmations", confirms);
@@ -232,6 +258,28 @@ void WalletTxToJSON(const CWalletTransactionBase& wtx, UniValue& entry, isminefi
         entry.pushKV("blockhash", wtx.hashBlock.GetHex());
         entry.pushKV("blockindex", wtx.nIndex);
         entry.pushKV("blocktime", mapBlockIndex[wtx.hashBlock]->GetBlockTime());
+
+        if (addCertMaturityInfo)
+        {
+            int matHeight = getCertMaturityHeight(wtx);
+            if (matHeight == -1)
+            {
+                throw JSONRPCError(RPC_TYPE_ERROR, strprintf("invalid maturity height"));
+            }
+
+            CBlockIndex *pindexMat = chainActive[matHeight];
+            if (pindexMat == nullptr)
+            {
+                // the certificate is supposed to mature in a block in the active chain
+                throw JSONRPCError(RPC_TYPE_ERROR, strprintf("coluld not find the block where the cert reached maturity height"));
+            }
+
+            uint256 matBlock = pindexMat->GetBlockHash();
+
+            entry.pushKV("maturityblockheight", matHeight);
+            entry.pushKV("maturityblockhash", matBlock.GetHex());
+            entry.pushKV("maturityblocktime", pindexMat->GetBlockTime());
+        }
     }
 
     uint256 hash = wtx.getTxBase()->GetHash();
@@ -2470,7 +2518,11 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest)
         entry.pushKV("address", addr.ToString());
 }
 
-void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccount, int nMinDepth, bool fLong, UniValue& ret, const isminefilter& filter, bool includeImmatureBTs)
+// the flags minedInRange and certMaturingInRange are passed along only when the listsinceblock rpc cmd is used
+void ListTransactions(
+    const CWalletTransactionBase& wtx, const string& strAccount, int nMinDepth, bool fLong,
+    UniValue& transactions, const isminefilter& filter, bool includeImmatureBTs,
+    bool minedInRange = true, bool certMaturingInRange = false)
 {
     CAmount nFee;
     string strSentAccount;
@@ -2501,13 +2553,22 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
                 WalletTxToJSON(wtx, entry, filter);
 
             entry.pushKV("size", (int)(wtx.getTxBase()->GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)) );
-            ret.push_back(entry);
+            transactions.push_back(entry);
         }
     }
 
     // Received
     if (listReceived.size() > 0 && wtx.GetDepthInMainChain() >= nMinDepth) {
         for(const COutputEntry& r: listReceived) {
+
+            if ((!minedInRange && certMaturingInRange) && !r.isBackwardTransfer)
+            {
+                // we must process nothing but backward transfers if we are explicitly
+                // handling a certificate on behalf of the listsinceblock cmd, which is setting
+                // the flag minedInRange=false and certMaturingInRange=true
+                continue;
+            }
+
             string account;
             if (pwalletMain->mapAddressBook.count(r.destination))
                 account = pwalletMain->mapAddressBook[r.destination].name;
@@ -2530,20 +2591,32 @@ void ListTransactions(const CWalletTransactionBase& wtx, const string& strAccoun
                 else
                 {
                     if (r.maturity == CCoins::outputMaturity::MATURE)
+                    {
                         entry.pushKV("category", "receive");
+                    }
                     else if(includeImmatureBTs)
+                    {
                         entry.pushKV("category", "immature");
+                    }
                     else
                         continue; // Don't add immature BT entry
+
+                    // add this only if we have a backward transfer output 
+                    if (r.isBackwardTransfer)
+                        entry.pushKV("isBackwardTransfer", r.isBackwardTransfer);
                 }
+
                 entry.pushKV("amount", ValueFromAmount(r.amount));
                 if (r.vout != -1)
                    entry.pushKV("vout", r.vout);
                 if (fLong)
-                    WalletTxToJSON(wtx, entry, filter);
+                {
+                    bool fAddCertMaturityInfo = certMaturingInRange && r.isBackwardTransfer;
+                    WalletTxToJSON(wtx, entry, filter, fAddCertMaturityInfo);
+                }
 
                 entry.pushKV("size", (int)(wtx.getTxBase()->GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION)) );
-                ret.push_back(entry);
+                transactions.push_back(entry);
             }
         }
     }
@@ -2976,7 +3049,7 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
             
             "\nArguments:\n"
             "1. \"blockhash\"                       (string, optional) the block hash to list transactions since\n"
-            "2. target-confirmations:               (numeric, optional) the confirmations required, must be 1 or more\n"
+            "2. target-confirmations:               (numeric, optional, default=1) the confirmations required, must be 1 or more\n"
             "3. includeWatchonly:                   (bool, optional, default=false) include transactions to watchonly addresses (see 'importaddress')"
             "4. includeImmatureBTs:                 (bool, optional, default=false) Whether to include immature certificate Backward transfers\n"
 
@@ -3044,19 +3117,38 @@ UniValue listsinceblock(const UniValue& params, bool fHelp)
 
     int depth = pindex ? (1 + chainActive.Height() - pindex->nHeight) : -1;
 
+    int heightFrom = pindex ? pindex->nHeight : 0;
+    int heightTo   = chainActive.Height();
+    LogPrint("cert", "%s():%d - heightFrom[%d], heightTo[%d]\n", __func__, __LINE__, heightFrom, heightTo);
+
     UniValue transactions(UniValue::VARR);
 
-#if 0
-    for (map<uint256, CWalletTx>::iterator it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
-    {
-        const CWalletTx& tx = (*it).second;
-#else
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& tx = *((*it).second);
-#endif
-        if (depth == -1 || tx.GetDepthInMainChain() < depth)
-            ListTransactions(tx, "*", 0, true, transactions, filter, includeImmatureBTs);
+        int depthInMainChain = tx.GetDepthInMainChain();
+
+        bool minedInRange = (depth == -1) || depthInMainChain < depth;
+        bool certMaturingInRange = false; 
+
+        // for that check we consider only confirmed certificate
+        if (tx.getTxBase()->IsCertificate() && depthInMainChain > 0)
+        {
+            int matHeight = getCertMaturityHeight(tx);
+            int matDepth  = tx.bwtMaturityDepth;
+
+            // has certificate matured in a block included in this range?
+            certMaturingInRange = heightFrom <= matHeight && matHeight <= heightTo;
+
+            LogPrint("cert", "%s():%d - cert[%s]: depthInMc[%d], matHeight[%d], matDepth[%d], cmdDepth[%d], minedInRange[%s], matInRange[%s]\n",
+                __func__, __LINE__, tx.getTxBase()->GetHash().ToString(), depthInMainChain, matHeight,
+                matDepth, depth, minedInRange?"Y":"N", certMaturingInRange?"Y":"N");
+        }
+
+        if (minedInRange || certMaturingInRange)
+        {
+            ListTransactions(tx, "*", 0, true, transactions, filter, includeImmatureBTs, minedInRange, certMaturingInRange);
+        }
     }
 
     CBlockIndex *pblockLast = chainActive[chainActive.Height() + 1 - target_confirms];

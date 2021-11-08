@@ -163,6 +163,7 @@ struct COutputEntry
     CAmount        amount;
     CCoins::outputMaturity  maturity;
     int            vout;
+    bool isBackwardTransfer;
 };
 
 /** An note outpoint */
