@@ -118,10 +118,13 @@ class ScCertListsinceblock(BitcoinTestFramework):
             #==============================================================
             pkh_arr = []
             am_bwt_arr = []
-            raw_bwt_outs = {taddr1: am_bwt1, taddr2: am_bwt2}
-            for key in raw_bwt_outs.iterkeys():
-                pkh_arr.append(key)
-                am_bwt_arr.append(raw_bwt_outs[key])
+            raw_bwt_outs = [
+                {"address": taddr1, "amount": am_bwt1},
+                {"address": taddr2, "amount": am_bwt2}
+            ]
+            for entry in raw_bwt_outs:
+                pkh_arr.append(entry["address"])
+                am_bwt_arr.append(entry["amount"])
  
             proof = mcTest.create_test_proof(
                 "sc1", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant,

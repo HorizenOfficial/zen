@@ -306,14 +306,17 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
 
         inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         outputs = { addr_node0 : change }
-        bwt_outs = {addr_node1a: bwt_amount_1, addr_node1b: bwt_amount_2}
+        bwt_outs = [
+            {"address": addr_node1a, "amount": bwt_amount_1},
+            {"address": addr_node1b, "amount": bwt_amount_2}
+        ]
         addresses = []
         amounts = []
 
         # preserve order for proof validity
-        for k, v in bwt_outs.items():
-            addresses.append(k)
-            amounts.append(v)
+        for entry in bwt_outs:
+            addresses.append(entry["address"])
+            amounts.append(entry["amount"])
 
         #-------------------------------------------------------
         mark_logs("\nCreate raw cert with good custom field elements for SC2...", self.nodes, DEBUG_MODE)

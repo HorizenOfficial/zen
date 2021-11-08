@@ -112,7 +112,13 @@ class AddresMempool(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         # Create a SC
-        ret = self.nodes[0].dep_sc_create(EPOCH_LENGTH, "dada", creation_amount, vk, "", constant)
+        cmdInput = {'withdrawalEpochLength': EPOCH_LENGTH,
+                    'toaddress': "dada",
+                    'amount': creation_amount,
+                    'wCertVk': vk,
+                    'constant': constant}
+
+        ret = self.nodes[0].sc_create(cmdInput)
         scid = ret['scid']
         tx_cr = ret['txid']
         scid_swapped = str(swap_bytes(scid))
