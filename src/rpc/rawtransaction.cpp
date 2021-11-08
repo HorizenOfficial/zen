@@ -726,6 +726,38 @@ void AddOutputsToRawObject(CMutableTransactionBase& rawTxObj, const UniValue& se
     }
 }
 
+void AddBwtOutputsToRawObject(CMutableScCertificate& rawCert, const UniValue& backwardOutputs)
+{
+    for (const UniValue& o : backwardOutputs.getValues())
+    {
+        if (!o.isObject())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");
+
+        // sanity check, report error if unknown key-value pairs
+        for (const string& s : o.getKeys())
+        {
+            if (s != "amount" && s != "address")
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown key: ") + s);
+        }
+
+        const string& addrStr = find_value(o, "address").get_str();
+        CBitcoinAddress taddr(addrStr);
+
+        if (!taddr.IsValid() || !taddr.IsPubKey()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, invalid Horizen transparent address");
+        }
+
+        const UniValue& av = find_value(o, "amount");
+        // this throw an exception also if it is a legal value less than 1 ZAT
+        CAmount nAmount = AmountFromValue(av);
+        if (nAmount <= 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amount must be positive");
+
+        CScript scriptPubKey = GetScriptForDestination(taddr.Get(), false);
+        rawCert.addBwt(CTxOut(nAmount, scriptPubKey));
+    }
+}
+
 UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() > 6)
@@ -1096,7 +1128,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
 {   
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "createrawcertificate [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} {\"pubkeyhash\":amount,...} {\"scid\":\"id\", \"withdrawalEpochNumber\":n, \"quality\":n, \"endEpochCumScTxCommTreeRoot\":\"cum\", \"scProof\":\"scProof\"})\n"
+            "createrawcertificate [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...} [{\"address\":\"address\", \"amount\":amount},...] {\"scid\":\"id\", \"withdrawalEpochNumber\":n, \"quality\":n, \"endEpochCumScTxCommTreeRoot\":\"cum\", \"scProof\":\"scProof\"})\n"
             "\nCreate a SC certificate spending the given inputs, sending to the given addresses and transferring funds from the specified SC to the given pubkey hash list.\n"
             "Returns hex-encoded raw certificate.\n"
             "It is not stored in the wallet or transmitted to the network.\n"
@@ -1116,10 +1148,13 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "      ,...\n"                            
             "    }\n"                      
             "3. \"backward addresses\"     (string, required) A json object with pubkeyhash as keys and amounts as values. Can be an empty obj if no amounts are trasferred (empty certificate)\n"
-            "    {\n"                               
-            "      \"address\": x.xxx             (numeric, required) The key is the Horizen transaparent address, the value is the " + CURRENCY_UNIT + " amount to send to\n"
-            "      ,...\n"                                  
-            "    }\n"                               
+            "    [\n"
+            "      {\n"                     
+            "        \"address\":\"address\"          (string, required) The Horizen transaparent address of the receiver\n"
+            "        \"amount\":amount            (numeric, required) The numeric amount in ZEN\n"
+            "      }\n"
+            "      , ...\n"
+            "    ]\n"
             "4. \"certificate parameters\" (string, required) A json object with a list of key/values\n"
             "    {\n"
             "      \"scid\":\"id\",                    (string, required) The side chain id\n"
@@ -1138,18 +1173,18 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
             "\nExamples\n"
             + HelpExampleCli("createrawcertificate",
                 "\'[{\"txid\":\"7e3caf89f5f56fa7466f41d869d48c17ed8148a5fc6cc4c5923664dd2e667afe\", \"vout\": 0}]\' "
-                "\'{\"ztmDWqXc2ZaMDGMhsgnVEmPKGLhi5GhsQok\":10.0}\' \'{\"tmaDWqXc2ZaMDGMhsgnVEmPKGLhi5GhsQab\":0.1}\' "
+                "\'{\"ztmDWqXc2ZaMDGMhsgnVEmPKGLhi5GhsQok\":10.0}\' \'[{\"address\":\"ztYFqQQZPcLkFthMuogrX7ffCLLykYXeJho\", \"amount\":0.1}]\' "
                 "\'{\"scid\":\"02c5e79e8090c32e01e2a8636bfee933fd63c0cc15a78f0888cdf2c25b4a5e5f\", \"withdrawalEpochNumber\":3, \"quality\":10, \"endEpochCumScTxCommTreeRoot\":\"abcd..ef\", \"scProof\": \"abcd..ef\"}\'"
                 )
         );
 
     LOCK(cs_main);
     RPCTypeCheck(params, boost::assign::list_of 
-        (UniValue::VARR)(UniValue::VOBJ) (UniValue::VOBJ)(UniValue::VOBJ));
+        (UniValue::VARR)(UniValue::VOBJ) (UniValue::VARR)(UniValue::VOBJ));
 
     UniValue inputs          = params[0].get_array();
     UniValue standardOutputs = params[1].get_obj();
-    UniValue backwardOutputs = params[2].get_obj();
+    UniValue backwardOutputs = params[2].get_array();
     UniValue cert_params     = params[3].get_obj();
 
     CMutableScCertificate rawCert;
@@ -1162,23 +1197,7 @@ UniValue createrawcertificate(const UniValue& params, bool fHelp)
     AddOutputsToRawObject(rawCert, standardOutputs);
 
     // backward transfer outputs
-    set<CBitcoinAddress> setAddress;
-    vector<string> addrList = backwardOutputs.getKeys();
-    BOOST_FOREACH(const string& name_, addrList)
-    {
-        CBitcoinAddress address(name_);
-        if (!address.IsValid() || !address.IsPubKey())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Horizen transparent address: ")+name_);
-
-        if (setAddress.count(address))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+name_);
-        setAddress.insert(address);
-
-        CScript scriptPubKey = GetScriptForDestination(address.Get(), false);
-        CAmount nAmount = AmountFromValue(backwardOutputs[name_]);
-
-        rawCert.addBwt(CTxOut(nAmount, scriptPubKey));
-    }
+    AddBwtOutputsToRawObject(rawCert, backwardOutputs);
 
     if (!cert_params.isObject())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected object");

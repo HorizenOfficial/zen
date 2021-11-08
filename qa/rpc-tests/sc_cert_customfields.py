@@ -306,7 +306,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         outputs = { self.nodes[0].getnewaddress() : change }
-        bwt_outs = {addr_node1: bwt_amount}
+        bwt_outs = [{"address":addr_node1, "amount":bwt_amount}]
 
         # cfgs for SC2: [16], []
         mark_logs("\nCreate raw cert with wrong field element for the referred SC2 (expecting failure)...", self.nodes, DEBUG_MODE)
