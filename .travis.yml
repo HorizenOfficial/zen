@@ -2,7 +2,7 @@ language: shell
 
 os: linux
 
-.com.github.horizenofficial.zend_oo.env-definitions:
+.com.github.horizenofficial.zen.env-definitions:
   - &docker_amd64_linux_ubuntu_bionic
     env:
       - DOCKER_ARCH=amd64
@@ -172,7 +172,7 @@ os: linux
       - TEST_ARGS="rpc --rpc-extended --rpc-exclude=rpcbind_test.py,invalidblockrequest.py,invalidblockposthalving.py,p2p-acceptblock.py --rpc-split=10:10"
       - MAKEFLAGS="--disable-libs --legacy-cpu"
 
-.com.github.horizenofficial.zend_oo.job-definitions:
+.com.github.horizenofficial.zen.job-definitions:
   - &prepare_docker_amd64
     os: linux
     dist: focal

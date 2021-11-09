@@ -49,7 +49,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
 
         '''
         This script is useful for the generation of json outputs to be stored in github:
-        (https://github.com/HorizenOfficial/zend_oo/tree/master/doc/json-examples)
+        (https://github.com/HorizenOfficial/zen/tree/master/doc/json-examples)
         ---
         System calls to the zen-cli are used (instead for instance of json.dump()) in order to preserve the exact order 
         of the JSON keys as the one the user gets when sending rpc commands on the console.
