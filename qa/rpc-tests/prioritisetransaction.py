@@ -28,8 +28,9 @@ class PrioritiseTransactionTest (BitcoinTestFramework):
     def run_test (self):
         # tx priority is calculated: priority = sum(input_value_in_base_units * input_age)/size_in_bytes
 
-        print "Mining 11kb blocks..."
+        print("Mining 11kb blocks...")
         self.nodes[0].generate(501)
+        self.sync_all()
 
         base_fee = self.nodes[0].getnetworkinfo()['relayfee']
 
@@ -37,6 +38,8 @@ class PrioritiseTransactionTest (BitcoinTestFramework):
         taddr = self.nodes[1].getnewaddress()
         for _ in range(900):
             self.nodes[0].sendtoaddress(taddr, 0.1)
+
+        self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
 
@@ -83,7 +86,7 @@ class PrioritiseTransactionTest (BitcoinTestFramework):
         # getblocktemplate() will refresh after 1 min, or after 10 sec if new transaction is added to mempool
         # Mempool is probed every 10 seconds. We'll give getblocktemplate() a maximum of 30 seconds to refresh
         block_template = self.nodes[0].getblocktemplate()
-        start = time.time();
+        start = time.time()
         in_block_template = False
         while in_block_template == False:
             for tx in block_template['transactions']:
