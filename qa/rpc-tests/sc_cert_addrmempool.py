@@ -195,7 +195,7 @@ class AddresMempool(BitcoinTestFramework):
 
             self.sync_all()
 
-            cert_hex = self.nodes[2].getrawcertificate(cert_2_top)
+            cert_hex = self.nodes[2].getrawtransaction(cert_2_top)
 
         except JSONRPCException as e:
             errorString = e.error['message']
@@ -366,11 +366,14 @@ class AddresMempool(BitcoinTestFramework):
         # python orders dictionaries by key, therefore we must use the same order when creating the proof
         pkh_arr = []
         am_bwt_arr = []
-        raw_bwt_outs = {node1Addr: am_bwt1, node2Addr: am_bwt2}
-        for key in raw_bwt_outs.iterkeys():
-            pkh_arr.append(key)
-            am_bwt_arr.append(raw_bwt_outs[key])
-
+        raw_bwt_outs = [
+            {"address": node1Addr, "amount": am_bwt1},
+            {"address": node2Addr, "amount": am_bwt2}
+        ]
+        for entry in raw_bwt_outs:
+            pkh_arr.append(entry["address"])
+            am_bwt_arr.append(entry["amount"])
+ 
         proof = mcTest.create_test_proof(
             "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant,
             pkh_arr, am_bwt_arr)
