@@ -4,7 +4,7 @@ namespace zen {
 
 SidechainFork::SidechainFork()
 {
-    setHeightMap({{CBaseChainParams::Network::MAIN,1111111}, // TODO set it properly
+    setHeightMap({{CBaseChainParams::Network::MAIN,1047624},
                   {CBaseChainParams::Network::REGTEST,420},
                   {CBaseChainParams::Network::TESTNET,926225}});
 
