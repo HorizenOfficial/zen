@@ -6,13 +6,12 @@ Horizen is an inclusive and scalable platform where everyone is empowered and re
 
 Zend_oo - the Zendoo-powered Sidechain Platform
 ----------------
-Zend_oo is the new version of zend allowing the Horizen mainchain to manage and interact with any number of sidechains. It downloads and stores the entire history of Horizen transactions. Depending on the speed of your computer and network connection, the synchronization process could take a day or more.
+Zend_oo is the new version of zend allowing the Horizen mainchain to manage and interact with any number of sidechains. 
+This version of zend implements the Zendoo verifiable Cross-Chain Transfer Protocol (CCTP) that allows the creation of ad-hoc sidechains with independently customizable business logic. Additionally, it enables the transfer of coins from the mainchain to sidechains and from sidechains back to the mainchain through SNARK verifiable withdrawal certificates.
 
-This version of zend implements the Zendoo verifiable Cross-Chain Transfer Protocol (CCTP) that allows the creation of ad-hoc sidechains with independently customizable business logic. Additionally, it enables the transfer of coins from the mainchain to sidechains and from sidechains back to the mainchain through verifiable withdrawal certificates.
-
-Horizen Sidechains are fully decentralized:
+Horizen Sidechains are fully scalable and decentralized:
 ----------------
-- Sidechain nodes observe the mainchain but the mainchain only observes cryptographically authenticated certificates received from the sidechain.
+- The Cross-Chain Transfer Protocol (CCTP) enables coin transferring between sidechains and the mainchain without the need for the mainchain to follow them and to know their internal structure. The coin transfers from sidechains to the mainchain are performed using cryptographically authenticated certificates received from the sidechains.
 - Certificate authentication and validation are achieved through the innovative use of SNARK technology, which enables constant-sized proofs of arbitrary computations, without involving a trusted third party and keeps the mainchain totally agnostic from any sidechain rules.
 
 The main feature of our construction is the high degree of generalization. Sidechains are allowed to use their own rules and data, defining custom SNARKs to let the mainchain authenticate their certificates without any knowledge of the sidechain internals.
@@ -22,12 +21,12 @@ You can read more about the Zendoo protocol in our [whitepaper](https://www.hori
 New features
 ----------------
 - Sidechain declaration with customizable SNARK verification key
-- Forward transfer from mainchain to sidechain
-- Mainchain backward transfer request from sidechain to mainchain
-- Sidechain backward transfer from sidechain to mainchain by means of withdrawal certificate
+- Forward transfers from mainchain to sidechain
+- Sidechain backward transfers from sidechain to mainchain by means of withdrawal certificates
 - Sidechain epoch management with liveness monitoring and ceasing procedure
-- Ceased Sidechain Withdrawal transaction
-- Agnostic withdrawal certificate validation via custom SNARK proof verification (powered by [zendoo-mc-cryptolib](https://github.com/HorizenOfficial/zendoo-mc-cryptolib))
+- Mainchain backward transfer request from sidechain to mainchain
+- Ceased sidechain withdrawals
+- Agnostic withdrawal certificate validation via custom SNARK proof verification (powered by [ginger-lib](https://github.com/HorizenOfficial/ginger-lib))
 - Extended RPC interface to create and dispatch sidechain declaration, forward transfer transactions, mainchain backward transfer requests, ceased sidechain withdrawal requests and withdrawal certificates.
 - Extensive unit tests and integration tests for verifying sidechain functionality
 
@@ -115,7 +114,7 @@ Security Warnings
 
 See important security warnings in [doc/security-warnings.md](doc/security-warnings.md).
 
-**Horizen is unfinished and highly experimental.** Use at your own risk.
+**Zend_oo is experimental and a work in progress.** Use at your own risk.
 
 Need Help?
 ----------------
