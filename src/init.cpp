@@ -419,8 +419,9 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-tlskeypwd=<password>", _("Password for a private key encryption (default: not set, i.e. private key will be stored unencrypted)"));
     strUsage += HelpMessageOpt("-tlscertpath=<path>", _("Full path to a certificate"));
     strUsage += HelpMessageOpt("-tlstrustdir=<path>", _("Full path to a trusted certificates directory"));
-    strUsage += HelpMessageOpt("-websocket=<0 or 1>", _("If set to 1 opens a websocket channel listening for client connections on localhost (default: 0)"));
-    strUsage += HelpMessageOpt("-wsport=<port>", _("If websocket=1, listen for ws connections at this ip port on localhost (default: 8888)"));
+    strUsage += HelpMessageOpt("-websocket=<0 or 1>", _("If set to 1 opens a websocket channel listening for client connections (default: 0)"));
+    strUsage += HelpMessageOpt("-wsaddress=<ip address>", _("If websocket=1, listen for ws connections at this ip address (default: 127.0.0.1)"));
+    strUsage += HelpMessageOpt("-wsport=<port>", _("If websocket=1, listen for ws connections at <wsaddress>:<wsport> (default: 8888)"));
 #ifdef USE_UPNP
 #if USE_UPNP
     strUsage += HelpMessageOpt("-upnp", _("Use UPnP to map the listening port (default: 1 when listening and no -proxy)"));
@@ -1296,14 +1297,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // Count uptime
     MarkStartTime();
-
-    // running in mainnet is prevented for the time being
-    if ((chainparams.NetworkIDString() == "main"))
-    {
-        LogPrintf("ERROR: running this Zen version in main net is not allowed! Please restart zend with -regtest or -testnet flag\n");
-        LogPrintf("Zen version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
-        assert(!"ERROR: running this Zen version in main net is not allowed!");
-    }
 
     if ((chainparams.NetworkIDString() != "regtest") &&
             GetBoolArg("-showmetrics", isatty(STDOUT_FILENO)) &&

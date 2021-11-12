@@ -3,12 +3,13 @@
 set -euo pipefail
 
 if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-  if [ ! -z "${PIP_UPDATE_PACKAGES}" ] && [ ! -z "${PIP_INSTALL}" ]; then
+  if [ -n "${PIP_UPDATE_PACKAGES}" ] && [ -n "${PIP_INSTALL}" ]; then
     UPDATE_PACKAGES="${UPDATE_PACKAGES} ${PIP_UPDATE_PACKAGES}"
   fi
   sudo apt-get update
+  # shellcheck disable=SC2086
   sudo apt-get -y --no-install-recommends install ${UPDATE_PACKAGES}
-  if [ ! -z "${DOCKER_UPDATE_PACKAGES}" ]; then
+  if [ -n "${DOCKER_UPDATE_PACKAGES}" ]; then
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
     sudo add-apt-repository "deb [arch=${TRAVIS_CPU_ARCH}] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
     sudo apt-get update
@@ -18,6 +19,7 @@ if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
     sudo apt-get purge containerd docker.io runc
     sudo apt-get autoremove --purge
     sudo rm -f /etc/default/docker
+    # shellcheck disable=SC2086
     sudo apt-get -y --no-install-recommends -o Dpkg::Options::="--force-confnew" install ${DOCKER_UPDATE_PACKAGES}
     ls /proc/sys/fs/binfmt_misc/
     if [ "${TRAVIS_CPU_ARCH}" = "amd64" ]; then
@@ -25,22 +27,27 @@ if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
       docker image rm multiarch/qemu-user-static:latest
     fi
   fi
-  if [ ! -z "${PIP_INSTALL}" ]; then
+  if [ -n "${PIP_INSTALL}" ]; then
+    # shellcheck disable=SC2086
     sudo pip install --upgrade ${PIP_INSTALL}
   fi
-  if [ ! -z "${PIP3_INSTALL}" ]; then
+  if [ -n "${PIP3_INSTALL}" ]; then
+    # shellcheck disable=SC2086
     sudo pip3 install --upgrade ${PIP3_INSTALL}
   fi
 fi
 
 if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
-  if [ ! -z "${UPDATE_PACKAGES}" ]; then
+  if [ -n "${UPDATE_PACKAGES}" ]; then
+    # shellcheck disable=SC2086
     brew install ${UPDATE_PACKAGES}
   fi
-  if [ ! -z "${PIP_INSTALL}" ]; then
+  if [ -n "${PIP_INSTALL}" ]; then
+    # shellcheck disable=SC2086
     sudo pip install --upgrade ${PIP_INSTALL}
   fi
-  if [ ! -z "${PIP3_INSTALL}" ]; then
+  if [ -n "${PIP3_INSTALL}" ]; then
+    # shellcheck disable=SC2086
     sudo pip3 install --upgrade ${PIP3_INSTALL}
   fi
 fi

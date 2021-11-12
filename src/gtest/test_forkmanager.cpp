@@ -270,19 +270,19 @@ TEST(ForkManager, SidechainForkTestnet) {
 TEST(ForkManager, SidechainForkMainnet) {
 	SelectParams(CBaseChainParams::MAIN);
 	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(0), false);
-	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(1111110), false); // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
-	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(1111111), true);  // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
-	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(1111112), true); // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(1047623), false);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(1047624), true);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(1047625), true);
 	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(0), 0);
-	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(1111110), 0);             // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
-	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(1111111), SC_TX_VERSION); // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
-	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(1111112), SC_TX_VERSION); // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(1047623), 0);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(1047624), SC_TX_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(1047625), SC_TX_VERSION);
 	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(0), 0);
-	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(1111110), 0);               // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
-	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(1111111), SC_CERT_VERSION); // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
-	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(1111112), SC_CERT_VERSION); // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(1047623), 0);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(1047624), SC_CERT_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(1047625), SC_CERT_VERSION);
 	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(0), BLOCK_VERSION_ORIGINAL);
-	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1111110), BLOCK_VERSION_BEFORE_SC);   // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
-	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1111111), BLOCK_VERSION_SC_SUPPORT);  // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
-	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1111112), BLOCK_VERSION_SC_SUPPORT); // TODO update according to fork8_sidechainfork.cpp after setting final fork heights
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047623), BLOCK_VERSION_BEFORE_SC);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047624), BLOCK_VERSION_SC_SUPPORT);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047625), BLOCK_VERSION_SC_SUPPORT);
 }
