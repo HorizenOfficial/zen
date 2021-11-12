@@ -1,9 +1,9 @@
 package=crate_proc-macro2_z
 $(package)_crate_name=proc-macro2
-$(package)_version=1.0.29
+$(package)_version=1.0.32
 $(package)_download_path=https://static.crates.io/crates/$($(package)_crate_name)
 $(package)_file_name=$($(package)_crate_name)-$($(package)_version).crate
-$(package)_sha256_hash=b9f5105d4fdaab20335ca9565e106a5d9b82b6219b5ba735731124ac6711d23d
+$(package)_sha256_hash=ba508cc11742c0dc5c1659771673afbab7a0efab23aa17e854cbab0837ed0b43
 $(package)_crate_versioned_name=$($(package)_crate_name)
 
 define $(package)_preprocess_cmds
