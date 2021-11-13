@@ -22,7 +22,7 @@ if [ ! -d $BUILD_PATH ]; then
 fi
 
 PACKAGE_VERSION=$($SRC_PATH/src/zend --version | grep version | cut -d' ' -f4 | tr -d v)
-[ "$ENABLE_ADDRESS_INDEX" -eq 1 ] && PACKAGE_VERSION="${PACKAGE_VERSION}-legacy-cpu"
+[[ $MAKEFLAGS =~ ^.*legacy-cpu.*$ ]] && PACKAGE_VERSION="${PACKAGE_VERSION}-legacy-cpu"
 DEBVERSION=$(echo $PACKAGE_VERSION | sed 's/-beta/~beta/' | sed 's/-rc/~rc/' | sed 's/-/+/')
 BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-$ARCH"
 
