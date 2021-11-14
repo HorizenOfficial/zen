@@ -1,12 +1,12 @@
 package=rust
-$(package)_version=1.32.0
+$(package)_version=1.51.0
 $(package)_download_path=https://static.rust-lang.org/dist
 $(package)_file_name_linux=rust-$($(package)_version)-x86_64-unknown-linux-gnu.tar.gz
-$(package)_sha256_hash_linux=e024698320d76b74daf0e6e71be3681a1e7923122e3ebd03673fcac3ecc23810
+$(package)_sha256_hash_linux=9e125977aa13f012a68fdc6663629c685745091ae244f0587dd55ea4e3a3e42f
 $(package)_file_name_darwin=rust-$($(package)_version)-x86_64-apple-darwin.tar.gz
-$(package)_sha256_hash_darwin=f0dfba507192f9b5c330b5984ba71d57d434475f3d62bd44a39201e36fa76304
+$(package)_sha256_hash_darwin=765212098a415996b767d1e372ce266caf94027402b269fec33291fffc085ca4
 $(package)_file_name_mingw32=rust-$($(package)_version)-x86_64-pc-windows-gnu.tar.gz
-$(package)_sha256_hash_mingw32=358e1435347c67dbf33aa9cad6fe501a833d6633ed5d5aa1863d5dffa0349be9
+$(package)_sha256_hash_mingw32=5a571ded9b870bcb25a64dfd37d4ba4863ebb9ed467219374ccd0147d491561f
 
 ifeq ($(host_os),mingw32)
 $(package)_build_subdir=buildos
@@ -29,12 +29,12 @@ define $(package)_extract_cmds
 endef
 
 define $(package)_stage_cmds
-  ./install.sh --destdir=$($(package)_staging_dir) --prefix=$(host_prefix)/native --disable-ldconfig && \
+  ./install.sh --destdir=$($(package)_staging_dir) --prefix=$(host_prefix)/native --disable-ldconfig --without=rust-docs && \
   cp -r ../mingw32/rust-std-x86_64-pc-windows-gnu/lib/rustlib/x86_64-pc-windows-gnu $($(package)_staging_dir)$(host_prefix)/native/lib/rustlib
 endef
 else
 
 define $(package)_stage_cmds
-  ./install.sh --destdir=$($(package)_staging_dir) --prefix=$(host_prefix)/native --disable-ldconfig
+  ./install.sh --destdir=$($(package)_staging_dir) --prefix=$(host_prefix)/native --disable-ldconfig --without=rust-docs
 endef
 endif

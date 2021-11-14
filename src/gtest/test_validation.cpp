@@ -20,28 +20,28 @@ class FakeCoinsViewDB : public CCoinsView {
 public:
     FakeCoinsViewDB() {}
 
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const {
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override {
         return false;
     }
 
-    bool GetNullifier(const uint256 &nf) const {
+    bool GetNullifier(const uint256 &nf) const override {
         return false;
     }
 
-    bool GetCoins(const uint256 &txid, CCoins &coins) const {
+    bool GetCoins(const uint256 &txid, CCoins &coins) const override {
         return false;
     }
 
-    bool HaveCoins(const uint256 &txid) const {
+    bool HaveCoins(const uint256 &txid) const override {
         return false;
     }
 
-    uint256 GetBestBlock() const {
+    uint256 GetBestBlock() const override {
         uint256 a;
         return a;
     }
 
-    uint256 GetBestAnchor() const {
+    uint256 GetBestAnchor() const override {
         uint256 a;
         return a;
     }
@@ -50,11 +50,15 @@ public:
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers) {
+                    CNullifiersMap &mapNullifiers,
+                    CSidechainsMap& mapSidechains,
+                    CSidechainEventsMap& mapSidechainEvents,
+                    CCswNullifiersMap& cswNullifiersss) override
+    {
         return false;
     }
 
-    bool GetStats(CCoinsStats &stats) const {
+    bool GetStats(CCoinsStats &stats) const override {
         return false;
     }
 };
@@ -71,7 +75,7 @@ TEST(Validation, ContextualCheckInputsPassesWithCoinbase) {
     CCoinsViewCache view(&fakeDB);
 
     CValidationState state;
-    EXPECT_TRUE(ContextualCheckInputs(tx, state, view, false, chainActive, 0, false, Params(CBaseChainParams::MAIN).GetConsensus()));
+    EXPECT_TRUE(ContextualCheckTxInputs(tx, state, view, false, chainActive, 0, false, Params(CBaseChainParams::MAIN).GetConsensus()));
 }
 
 TEST(Validation, ReceivedBlockTransactions) {
@@ -79,14 +83,14 @@ TEST(Validation, ReceivedBlockTransactions) {
 
     // Create a fake genesis block
     CBlock block1;
-    block1.vtx.push_back(GetValidReceive(*params, sk, 5, true));
+    block1.vtx.push_back(GetValidReceive(*params, sk, 5, true).getWrappedTx());
     block1.hashMerkleRoot = block1.BuildMerkleTree();
     CBlockIndex fakeIndex1 {block1};
 
     // Create a fake child block
     CBlock block2;
     block2.hashPrevBlock = block1.GetHash();
-    block2.vtx.push_back(GetValidReceive(*params, sk, 10, true));
+    block2.vtx.push_back(GetValidReceive(*params, sk, 10, true).getWrappedTx());
     block2.hashMerkleRoot = block2.BuildMerkleTree();
     CBlockIndex fakeIndex2 {block2};
     fakeIndex2.pprev = &fakeIndex1;

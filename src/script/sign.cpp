@@ -6,6 +6,7 @@
 #include "script/sign.h"
 
 #include "primitives/transaction.h"
+#include "primitives/certificate.h"
 #include "key.h"
 #include "keystore.h"
 #include "script/standard.h"
@@ -17,18 +18,41 @@ using namespace std;
 
 typedef vector<unsigned char> valtype;
 
-TransactionSignatureCreator::TransactionSignatureCreator(const CKeyStore* keystoreIn, const CTransaction* txToIn, unsigned int nInIn, int nHashTypeIn) : BaseSignatureCreator(keystoreIn), txTo(txToIn), nIn(nInIn), nHashType(nHashTypeIn), checker(txTo, nIn, nullptr) {}
+TransactionSignatureCreator::TransactionSignatureCreator(const CKeyStore& keystoreIn, const CTransaction& txToIn, unsigned int nInIn, int nHashTypeIn):
+    BaseSignatureCreator(keystoreIn), txTo(txToIn), nIn(nInIn), nHashType(nHashTypeIn), checker(&txTo, nIn, nullptr) {}
 
 bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, const CKeyID& address, const CScript& scriptCode) const
 {
     CKey key;
-    if (!keystore->GetKey(address, key))
+    if (!keystore.GetKey(address, key))
         return false;
 
     uint256 hash;
     try {
-        hash = SignatureHash(scriptCode, *txTo, nIn, nHashType);
-    } catch (logic_error ex) {
+        hash = SignatureHash(scriptCode, txTo, nIn, nHashType);
+    } catch (const logic_error& ex) {
+        return false;
+    }
+
+    if (!key.Sign(hash, vchSig))
+        return false;
+    vchSig.push_back((unsigned char)nHashType);
+    return true;
+}
+
+CertificateSignatureCreator::CertificateSignatureCreator(const CKeyStore& keystoreIn, const CScCertificate& certToIn, unsigned int nInIn, int nHashTypeIn):
+    BaseSignatureCreator(keystoreIn), certTo(certToIn), nIn(nInIn), nHashType(nHashTypeIn), checker(&certTo, nIn, nullptr) {}
+
+bool CertificateSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, const CKeyID& address, const CScript& scriptCode) const
+{
+    CKey key;
+    if (!keystore.GetKey(address, key))
+        return false;
+
+    uint256 hash;
+    try {
+        hash = SignatureHash(scriptCode, certTo, nIn, nHashType);
+    } catch (const logic_error& ex) {
         return false;
     }
 
@@ -139,23 +163,59 @@ bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& fromPu
 
 bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, int nHashType)
 {
-    assert(nIn < txTo.vin.size());
-    CTxIn& txin = txTo.vin[nIn];
+    // Note: in case of sc support transaction version nIn may belong to regular inputs or CSW inputs
+    unsigned int nTotalInputs = txTo.IsScVersion() ? txTo.vin.size() + txTo.vcsw_ccin.size() : txTo.vin.size();
+    assert(nIn < nTotalInputs);
+
+    bool isRegularInput = nIn < txTo.vin.size();
+    CScript& scriptSig = isRegularInput ? txTo.vin[nIn].scriptSig : txTo.vcsw_ccin[nIn - txTo.vin.size()].redeemScript;
 
     CTransaction txToConst(txTo);
-    TransactionSignatureCreator creator(&keystore, &txToConst, nIn, nHashType);
+    TransactionSignatureCreator creator(keystore, txToConst, nIn, nHashType);
 
-    return ProduceSignature(creator, fromPubKey, txin.scriptSig);
+    return ProduceSignature(creator, fromPubKey, scriptSig);
+}
+
+// used in test_bitcoin
+bool SignSignature(const CKeyStore& keystore, const CScCertificate& certFrom, CMutableTransaction& txTo, unsigned int nIn, int nHashType)
+{
+    assert(nIn < txTo.vin.size());
+    CTxIn& txin = txTo.vin[nIn];
+    assert(txin.prevout.n < certFrom.GetVout().size());
+    const CTxOut& txout = certFrom.GetVout()[txin.prevout.n];
+
+    return SignSignature(keystore, txout.scriptPubKey, txTo, nIn, nHashType);
 }
 
 bool SignSignature(const CKeyStore &keystore, const CTransaction& txFrom, CMutableTransaction& txTo, unsigned int nIn, int nHashType)
 {
     assert(nIn < txTo.vin.size());
     CTxIn& txin = txTo.vin[nIn];
-    assert(txin.prevout.n < txFrom.vout.size());
-    const CTxOut& txout = txFrom.vout[txin.prevout.n];
+    assert(txin.prevout.n < txFrom.GetVout().size());
+    const CTxOut& txout = txFrom.GetVout()[txin.prevout.n];
 
     return SignSignature(keystore, txout.scriptPubKey, txTo, nIn, nHashType);
+}
+
+bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutableScCertificate& certTo, unsigned int nIn, int nHashType)
+{
+    assert(nIn < certTo.vin.size());
+    CTxIn& txin = certTo.vin[nIn];
+
+    CScCertificate certToConst(certTo);
+    CertificateSignatureCreator creator(keystore, certToConst, nIn, nHashType);
+
+    return ProduceSignature(creator, fromPubKey, txin.scriptSig);
+}
+
+bool SignSignature(const CKeyStore &keystore, const CScCertificate& certFrom, CMutableScCertificate& certTo, unsigned int nIn, int nHashType)
+{
+    assert(nIn < certTo.vin.size());
+    CTxIn& txin = certTo.vin[nIn];
+    assert(txin.prevout.n < certFrom.GetVout().size());
+    const CTxOut& txout = certFrom.GetVout()[txin.prevout.n];
+
+    return SignSignature(keystore, txout.scriptPubKey, certTo, nIn, nHashType);
 }
 
 static CScript PushAll(const vector<valtype>& values)
@@ -275,6 +335,13 @@ CScript CombineSignatures(const CScript& scriptPubKey, const CTransaction& txTo,
                           const CScript& scriptSig1, const CScript& scriptSig2)
 {
     TransactionSignatureChecker checker(&txTo, nIn, nullptr);
+    return CombineSignatures(scriptPubKey, checker, scriptSig1, scriptSig2);
+}
+
+CScript CombineSignatures(const CScript& scriptPubKey, const CScCertificate& certTo, unsigned int nIn,
+                          const CScript& scriptSig1, const CScript& scriptSig2)
+{
+    CertificateSignatureChecker checker(&certTo, nIn, nullptr);
     return CombineSignatures(scriptPubKey, checker, scriptSig1, scriptSig2);
 }
 

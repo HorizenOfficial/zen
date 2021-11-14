@@ -7,12 +7,15 @@ noinst_PROGRAMS += zen-gtest
 zen_gtest_SOURCES = \
 	gtest/main.cpp \
 	gtest/utils.cpp \
+	gtest/tx_creation_utils.cpp \
 	gtest/test_checktransaction.cpp \
 	gtest/test_consensus.cpp \
 	gtest/json_test_vectors.cpp \
 	gtest/json_test_vectors.h \
-        gtest/test_forkmanager.cpp \
-        gtest/test_checkblockdelay.cpp
+	gtest/libzendoo_test_files.h \
+ 	gtest/test_forkmanager.cpp \
+  	gtest/test_checkblockdelay.cpp
+
 # These tests are order-dependent, because they
 # depend on global state (see #1539)
 if ENABLE_WALLET
@@ -22,12 +25,13 @@ endif
 zen_gtest_SOURCES += \
 	gtest/test_tautology.cpp \
 	gtest/test_checkblock.cpp \
+	gtest/test_cumulativehash.cpp \
 	gtest/test_deprecation.cpp \
 	gtest/test_equihash.cpp \
 	gtest/test_httprpc.cpp \
 	gtest/test_joinsplit.cpp \
 	gtest/test_keystore.cpp \
-	gtest/test_libzcash_utils.cpp \	
+	gtest/test_libzcash_utils.cpp \
 	gtest/test_noteencryption.cpp \
 	gtest/test_mempool.cpp \
 	gtest/test_merkletree.cpp \
@@ -44,12 +48,21 @@ zen_gtest_SOURCES += \
 	gtest/test_circuit.cpp \
 	gtest/test_proofs.cpp \
 	gtest/test_paymentdisclosure.cpp \
-	gtest/test_relayforks.cpp \
-	gtest/test_reindex.cpp
+	gtest/test_relayforks.cpp	\
+	gtest/test_sidechain.cpp	\
+	gtest/test_sidechaintypes.cpp	\
+	gtest/test_sidechain_to_mempool.cpp \
+	gtest/test_sidechain_events.cpp \
+	gtest/test_sidechain_certificate_quality.cpp \
+	gtest/test_sidechain_blocks.cpp \
+	gtest/test_libzendoo.cpp \
+	gtest/test_reindex.cpp \
+	gtest/test_asyncproofverifier.cpp
 
 if ENABLE_WALLET
 zen_gtest_SOURCES += \
 	wallet/gtest/test_wallet.cpp \
+	wallet/gtest/test_wallet_cert.cpp \
 	wallet/gtest/test_deadlock.cpp
 endif
 
@@ -71,7 +84,7 @@ if ENABLE_WALLET
 zen_gtest_LDADD += $(LIBBITCOIN_WALLET)
 endif
 
-zen_gtest_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(LIBZCASH) $(LIBZENCASH) $(LIBSNARK) $(LIBZCASH_LIBS)
+zen_gtest_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(LIBZCASH) $(LIBZENCASH) $(LIBSNARK) $(LIBZCASH_LIBS) 
 
 if ENABLE_PROTON
 zen_gtest_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)

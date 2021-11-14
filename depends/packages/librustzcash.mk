@@ -9,7 +9,7 @@ $(package)_dependencies=rust $(rust_crates)
 $(package)_patches=cargo.config
 
 ifeq ($(host_os),mingw32)
-$(package)_library_file=target/x86_64-pc-windows-gnu/release/rustzcash.lib
+$(package)_library_file=target/x86_64-pc-windows-gnu/release/librustzcash.a
 else
 $(package)_library_file=target/release/librustzcash.a
 endif
@@ -21,7 +21,10 @@ endef
 
 define $(package)_preprocess_cmds
   mkdir .cargo && \
-  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' > .cargo/config
+  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' > .cargo/config && \
+  cat Cargo.toml | sed '/lto/d' | sed '/panic/d' > toml.temp && \
+  cat toml.temp >  Cargo.toml && \
+  rm toml.temp 
 endef
 
 define $(package)_build_cmds

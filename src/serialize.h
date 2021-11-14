@@ -26,7 +26,7 @@
 
 class CScript;
 
-static const unsigned int MAX_SIZE = 0x02000000;
+static const unsigned int MAX_SERIALIZED_COMPACT_SIZE = 0x02000000;
 
 /**
  * Dummy data type to identify deserializing constructors.
@@ -109,6 +109,11 @@ template<typename Stream> inline void ser_writedata32(Stream &s, uint32_t obj)
     obj = htole32(obj);
     s.write((char*)&obj, 4);
 }
+template<typename Stream> inline void ser_writedata32be(Stream &s, uint32_t obj)
+{
+    obj = htobe32(obj);
+    s.write((char*)&obj, 4);
+}
 template<typename Stream> inline void ser_writedata64(Stream &s, uint64_t obj)
 {
     obj = htole64(obj);
@@ -131,6 +136,12 @@ template<typename Stream> inline uint32_t ser_readdata32(Stream &s)
     uint32_t obj;
     s.read((char*)&obj, 4);
     return le32toh(obj);
+}
+template<typename Stream> inline uint32_t ser_readdata32be(Stream &s)
+{
+    uint32_t obj;
+    s.read((char*)&obj, 4);
+    return be32toh(obj);
 }
 template<typename Stream> inline uint64_t ser_readdata64(Stream &s)
 {
@@ -180,13 +191,34 @@ enum
 
 #define READWRITE(obj)      (::SerReadWrite(s, (obj), nType, nVersion, ser_action))
 
+#define READWRITE_VARINT_WITH_SIGN(obj)                                             \
+    if (ser_action.ForRead()) {                                                     \
+        READWRITE(VARINT(obj));                                                     \
+        if ((obj & 1) == 1) {                                                       \
+            obj >>= 1;                                                              \
+            obj *= -1;                                                              \
+        } else {                                                                    \
+            obj >>= 1;                                                              \
+        }                                                                           \
+    } else {                                                                        \
+        int tempObj = obj;                                                          \
+    if (tempObj < 0) {                                                              \
+            tempObj *= -1;                                                          \
+            tempObj <<= 1;                                                          \
+            tempObj |= 1;                                                           \
+        } else {                                                                    \
+            tempObj <<= 1;                                                          \
+        }                                                                           \
+        READWRITE(VARINT(tempObj));                                                 \
+    }                                                                               \
+
 /** 
  * Implement three methods for serializable objects. These are actually wrappers over
  * "SerializationOp" template, which implements the body of each class' serialization
  * code. Adding "ADD_SERIALIZE_METHODS" in the body of the class causes these wrappers to be
  * added as members. 
  */
-#define ADD_SERIALIZE_METHODS                                                          \
+#define ADD_SERIALIZE_METHODS                                                        \
     size_t GetSerializeSize(int nType, int nVersion) const {                         \
         CSizeComputer s(nType, nVersion);                                            \
         NCONST_PTR(this)->SerializationOp(s, CSerActionSerialize(), nType, nVersion);\
@@ -315,7 +347,7 @@ uint64_t ReadCompactSize(Stream& is)
         if (nSizeRet < 0x100000000ULL)
             throw std::ios_base::failure("non-canonical ReadCompactSize()");
     }
-    if (nSizeRet > (uint64_t)MAX_SIZE)
+    if (nSizeRet > (uint64_t)MAX_SERIALIZED_COMPACT_SIZE)
         throw std::ios_base::failure("ReadCompactSize(): size too large");
     return nSizeRet;
 }
@@ -697,11 +729,9 @@ void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion,
     }
 }
 
-template<typename Stream, typename T, typename A, typename V>
-void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion, const V&)
+template<typename Stream, typename T, typename A>
+void AddEntriesInVector(Stream& is, std::vector<T, A>& v, int nType, int nVersion, unsigned int nSize)
 {
-    v.clear();
-    unsigned int nSize = ReadCompactSize(is);
     unsigned int i = 0;
     unsigned int nMid = 0;
     while (nMid < nSize)
@@ -714,6 +744,15 @@ void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion,
             Unserialize(is, v[i], nType, nVersion);
     }
 }
+
+template<typename Stream, typename T, typename A, typename V>
+void Unserialize_impl(Stream& is, std::vector<T, A>& v, int nType, int nVersion, const V&)
+{
+    v.clear();
+    unsigned int nSize = ReadCompactSize(is);
+    AddEntriesInVector(is, v, nType, nVersion, nSize);
+}
+
 
 template<typename Stream, typename T, typename A>
 inline void Unserialize(Stream& is, std::vector<T, A>& v, int nType, int nVersion)

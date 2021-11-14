@@ -320,18 +320,20 @@ UniValue getmininginfo(const UniValue& params, bool fHelp)
             
             "\nResult:\n"
             "{\n"
-            "  \"blocks\": nnn,             (numeric) the current block\n"
-            "  \"currentblocksize\": nnn,   (numeric) the last block size\n"
-            "  \"currentblocktx\": nnn,     (numeric) the last block transaction\n"
-            "  \"difficulty\": xxxxxxxx,    (numeric) the current difficulty\n"
-            "  \"errors\": \"...\",         (string) current errors\n"
-            "  \"generate\": true|false,    (boolean) if the generation is on or off (see getgenerate or setgenerate calls)\n"
-            "  \"genproclimit\": n,         (numeric) the processor limit for generation. -1 if no generation. (see getgenerate or setgenerate calls)\n"
-            "  \"localsolps\": xxxxxxxx,    (numeric) the average local solution rate in Sol/s since this node was started\n"
-            "  \"networksolps\": x,         (numeric) the estimated network solution rate in Sol/s\n"
-            "  \"pooledtx\": n,             (numeric) the size of the mem pool\n"
-            "  \"testnet\": true|false,     (boolean) if using testnet or not\n"
-            "  \"chain\": \"xxxx\"          (string) current network name as defined in BIP70 (main, test, regtest)\n"
+            "  \"blocks\": nnn,                  (numeric) the current block\n"
+            "  \"currentblocksize\": nnn,        (numeric) the last block size\n"
+            "  \"currentblocktx\": nnn,          (numeric) number of transactions in the last block\n"
+            "  \"currentblockcert\": nnn,        (numeric) number of certificates in the last block\n"
+            "  \"difficulty\": xxxxxxxx,         (numeric) the current difficulty\n"
+            "  \"errors\": \"...\",              (string) current errors\n"
+            "  \"generate\": true|false,         (boolean) if the generation is on or off (see getgenerate or setgenerate calls)\n"
+            "  \"genproclimit\": n,              (numeric) the processor limit for generation. -1 if no generation. (see getgenerate or setgenerate calls)\n"
+            "  \"localsolps\": xxxxxxxx,         (numeric) the average local solution rate in Sol/s since this node was started\n"
+            "  \"networksolps\": x,              (numeric) the estimated network solution rate in Sol/s\n"
+            "  \"pooledtx\": n,                  (numeric) the number of txes in the mem pool\n"
+            "  \"pooledcert\": n,                (numeric) the number of certs in the mem pool\n"
+            "  \"testnet\": true|false,          (boolean) if using testnet or not\n"
+            "  \"chain\": \"xxxx\"               (string) current network name as defined in BIP70 (main, test, regtest)\n"
             "}\n"
             
             "\nExamples:\n"
@@ -346,13 +348,15 @@ UniValue getmininginfo(const UniValue& params, bool fHelp)
     obj.pushKV("blocks",           (int)chainActive.Height());
     obj.pushKV("currentblocksize", (uint64_t)nLastBlockSize);
     obj.pushKV("currentblocktx",   (uint64_t)nLastBlockTx);
+    obj.pushKV("currentblockcert", (uint64_t)nLastBlockCert);
     obj.pushKV("difficulty",       (double)GetNetworkDifficulty());
     obj.pushKV("errors",           GetWarnings("statusbar"));
     obj.pushKV("genproclimit",     (int)GetArg("-genproclimit", -1));
     obj.pushKV("localsolps"  ,     getlocalsolps(params, false));
     obj.pushKV("networksolps",     getnetworksolps(params, false));
     obj.pushKV("networkhashps",    getnetworksolps(params, false));
-    obj.pushKV("pooledtx",         (uint64_t)mempool.size());
+    obj.pushKV("pooledtx",         (uint64_t)mempool.sizeTx());
+    obj.pushKV("pooledcert",       (uint64_t)mempool.sizeCert());
     obj.pushKV("testnet",          Params().TestnetToBeDeprecatedFieldRPC());
     obj.pushKV("chain",            Params().NetworkIDString());
 #ifdef ENABLE_MINING
@@ -492,6 +496,9 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 #endif
     }
 
+    int nHeight = chainActive.Height() + 1;
+    bool certSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+
     std::string strMode = "template";
     UniValue lpval = NullUniValue;
     // TODO: Re-enable coinbasevalue once a specification has been written
@@ -536,7 +543,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             if (block.hashPrevBlock != pindexPrev->GetBlockHash())
                 return "inconclusive-not-best-prevblk";
             CValidationState state;
-            TestBlockValidity(state, block, pindexPrev, false, true);
+            TestBlockValidity(state, block, pindexPrev, flagCheckPow::OFF, flagCheckMerkleRoot::ON, flagScRelatedChecks::ON);
             return BIP22ValidationResult(state);
         }
     }
@@ -544,11 +551,11 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     if (strMode != "template")
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mode");
 
+    /* for testing, comment this block out if using just one node */
     if (vNodes.empty())
         throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Horizen is not connected!");
 
-    // from https://github.com/HorizenOfficial/zen/commit/e7a774e9a72fae1228ccbc764d520bd685860822
-    if (IsInitialBlockDownload() && ForkManager::getInstance().isAfterChainsplit(chainActive.Tip()->nHeight-(Params().GetConsensus().nMinerConfirmationWindow * 2)))
+    if (IsInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Horizen is downloading blocks...");
 
     static unsigned int nTransactionsUpdatedLast;
@@ -658,7 +665,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         entry.pushKV("hash", txHash.GetHex());
 
         UniValue deps(UniValue::VARR);
-        BOOST_FOREACH (const CTxIn &in, tx.vin)
+        BOOST_FOREACH (const CTxIn &in, tx.GetVin())
         {
             if (setTxIndex.count(in.prevout.hash))
                 deps.push_back(setTxIndex[in.prevout.hash]);
@@ -671,12 +678,12 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 
         if (tx.IsCoinBase()) {
             // Show community reward if it is required
-            if (pblock->vtx[0].vout.size() > 1) {
+            if (pblock->vtx[0].GetVout().size() > 1) {
                 // Correct this if GetBlockTemplate changes the order
-                entry.pushKV("communityfund", (int64_t)tx.vout[1].nValue);
-                if (pblock->vtx[0].vout.size() > 3) {
-                    entry.pushKV("securenodes", (int64_t)tx.vout[2].nValue);
-                    entry.pushKV("supernodes", (int64_t)tx.vout[3].nValue);
+                entry.pushKV("communityfund", (int64_t)tx.GetVout()[1].nValue);
+                if (pblock->vtx[0].GetVout().size() > 3) {
+                    entry.pushKV("securenodes", (int64_t)tx.GetVout()[2].nValue);
+                    entry.pushKV("supernodes", (int64_t)tx.GetVout()[3].nValue);
                 }
             }
             entry.pushKV("required", true);
@@ -696,6 +703,10 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     {
         aMutable.push_back("time");
         aMutable.push_back("transactions");
+        if (certSupported)
+        {
+            aMutable.push_back("certificates");
+        }
         aMutable.push_back("prevblock");
     }
 
@@ -704,20 +715,45 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     result.pushKV("version", pblock->nVersion);
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
     result.pushKV("transactions", transactions);
+    if (certSupported)
+    {
+        UniValue certificates(UniValue::VARR);
+        int cert_idx_in_template = 0;
+        BOOST_FOREACH (const CScCertificate& cert, pblock->vcert) {
+            uint256 certHash = cert.GetHash();
+            UniValue entry(UniValue::VOBJ);
+ 
+            entry.pushKV("data", EncodeHexCert(cert));
+            entry.pushKV("hash", certHash.GetHex());
+            // no depends for cert since there are no inputs
+            entry.pushKV("fee", pblocktemplate->vCertFees[cert_idx_in_template]);
+            entry.pushKV("sigops", pblocktemplate->vCertSigOps[cert_idx_in_template]);
+            certificates.push_back(entry);
+ 
+            cert_idx_in_template++;
+        }
+        result.pushKV("certificates", certificates);
+    }
+
     if (coinbasetxn) {
         assert(txCoinbase.isObject());
         result.pushKV("coinbasetxn", txCoinbase);
     } else {
         result.pushKV("coinbaseaux", aux);
-        result.pushKV("coinbasevalue", (int64_t)pblock->vtx[0].vout[0].nValue);
+        result.pushKV("coinbasevalue", (int64_t)pblock->vtx[0].GetVout()[0].nValue);
     }
+
+    unsigned int block_size_limit = MAX_BLOCK_SIZE;
+    if (pblock->nVersion != BLOCK_VERSION_SC_SUPPORT)
+        block_size_limit = MAX_BLOCK_SIZE_BEFORE_SC;
+
     result.pushKV("longpollid", chainActive.Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast));
     result.pushKV("target", hashTarget.GetHex());
     result.pushKV("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1);
     result.pushKV("mutable", aMutable);
     result.pushKV("noncerange", "00000000ffffffff");
     result.pushKV("sigoplimit", (int64_t)MAX_BLOCK_SIGOPS);
-    result.pushKV("sizelimit", (int64_t)MAX_BLOCK_SIZE);
+    result.pushKV("sizelimit", (int64_t)block_size_limit);
     result.pushKV("curtime", pblock->GetBlockTime());
     result.pushKV("bits", strprintf("%08x", pblock->nBits));
     result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
@@ -935,6 +971,70 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp)
     if (superNodeFund > 0) {
         result.pushKV("supernodes", ValueFromAmount(superNodeFund));
     }
+
+    return result;
+}
+
+UniValue getblockmerkleroots(const UniValue& params, bool fHelp) {
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+                "getblockmerkleroots transactions certificates\n"
+                "\nReturns Merkleroot and ScTxsCommitment for the next block.\n"
+                "\nArguments:\n"
+                "1. transactions         (array) Array of raw transactions (HEX format).\n"
+                "2. certificates         (array) Array of raw certificates (HEX format).\n"
+                "\nResult:\n"
+                "{\n"
+                "  \"merkleTree\" : \"xxx\"           (string) Merkleroot calculated on transactions and certificates.\n"
+                "  \"scTxsCommitment\" : \"xxxx\"      (string) scTxsCommitment calculated on certificates.\n"
+                "}\n"
+                "\nExamples:\n"
+                + HelpExampleCli("getblockmerkleroots", "'[\"0100000001000000...\", ...]', '[\"0100000001000000...\", ...]'")
+                + HelpExampleRpc("getblockmerkleroots", "'[\"0100000001000000...\", ...]', '[\"0100000001000000...\", ...]'")
+        );
+    LOCK(cs_main);
+
+    int nHeight = chainActive.Height() + 1;
+    bool certSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
+
+    UniValue txsStr =  params[0].get_array();
+    std::vector<CTransaction> txs;
+
+    for (const UniValue & tx : txsStr.getValues()) {
+    	CTransaction transaction;
+        if (!DecodeHexTx(transaction, tx.get_str()))
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+        txs.push_back(transaction);
+    }
+
+    UniValue certsStr =  params[1].get_array();
+    std::vector<CScCertificate> certs;
+
+    for (const UniValue & cert : certsStr.getValues()) {
+    	CScCertificate certificate;
+        if (!DecodeHexCert(certificate, cert.get_str()))
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Certificate decode failed");
+        certs.push_back(certificate);
+    }
+
+    // Create new block
+    std::unique_ptr<CBlockTemplate> pblocktemplate(new CBlockTemplate());
+    CBlock *pblock = &pblocktemplate->block; // pointer for convenience
+
+    pblock->vtx = txs;
+    pblock->vcert = certs;
+    CCoinsViewCache view(pcoinsTip);
+
+    uint256 merkleTree = pblock->BuildMerkleTree();
+    uint256 scTxsCommitment;
+    scTxsCommitment.SetNull();
+    if (certSupported) {
+        scTxsCommitment = pblock->BuildScTxsCommitment(view);
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("merkleTree", merkleTree.ToString());
+    result.pushKV("scTxsCommitment", scTxsCommitment.ToString());
 
     return result;
 }

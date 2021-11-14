@@ -203,6 +203,14 @@ uint256 NoteEncryption<MLEN>::generate_pubkey(const uint256 &sk_enc)
     return pk;
 }
 
+uint160 random_uint160()
+{
+    uint160 ret;
+    randombytes_buf(ret.begin(), 20);
+
+    return ret;
+}
+
 uint256 random_uint256()
 {
     uint256 ret;

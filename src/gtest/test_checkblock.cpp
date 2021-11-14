@@ -4,30 +4,15 @@
 #include "consensus/validation.h"
 #include "main.h"
 #include "zcash/Proof.hpp"
+#include <pow.h>
 #include "base58.h"
 #include "zen/forkmanager.h"
 #include "zen/forks/fork1_chainsplitfork.h"
 #include "zen/forks/fork3_communityfundandrpfixfork.h"
 #include "zen/forks/fork4_nulltransactionfork.h"
 #include "zen/forks/fork5_shieldfork.h"
+#include "zen/forks/fork8_sidechainfork.h"
 using namespace zen;
-
-class MockCValidationState : public CValidationState {
-public:
-    MOCK_METHOD5(DoS, bool(int level, bool ret,
-             unsigned char chRejectCodeIn, std::string strRejectReasonIn,
-             bool corruptionIn));
-    MOCK_METHOD3(Invalid, bool(bool ret,
-                 unsigned char _chRejectCode, std::string _strRejectReason));
-    MOCK_METHOD1(Error, bool(std::string strRejectReasonIn));
-    MOCK_CONST_METHOD0(IsValid, bool());
-    MOCK_CONST_METHOD0(IsInvalid, bool());
-    MOCK_CONST_METHOD0(IsError, bool());
-    MOCK_CONST_METHOD1(IsInvalid, bool(int &nDoSOut));
-    MOCK_CONST_METHOD0(CorruptionPossible, bool());
-    MOCK_CONST_METHOD0(GetRejectCode, unsigned char());
-    MOCK_CONST_METHOD0(GetRejectReason, std::string());
-};
 
 TEST(CheckBlock, VersionTooLow) {
     auto verifier = libzcash::ProofVerifier::Strict();
@@ -35,9 +20,12 @@ TEST(CheckBlock, VersionTooLow) {
     CBlock block;
     block.nVersion = 1;
 
-    MockCValidationState state;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "version-too-low", false)).Times(1);
-    EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
+    CValidationState state;
+    EXPECT_FALSE(CheckBlock(block, state, verifier, flagCheckPow::OFF, flagCheckMerkleRoot::OFF));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("version-invalid"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 
@@ -50,9 +38,9 @@ TEST(CheckBlock, BlockRejectsBadVersion) {
     mtx.vin.resize(1);
     mtx.vin[0].prevout.SetNull();
     mtx.vin[0].scriptSig = CScript() << 1 << OP_0;
-    mtx.vout.resize(1);
-    mtx.vout[0].scriptPubKey = CScript() << OP_TRUE;
-    mtx.vout[0].nValue = 0;
+    mtx.resizeOut(1);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_TRUE;
+    mtx.getOut(0).nValue = 0;
 
     mtx.nVersion = -1;
 
@@ -62,12 +50,15 @@ TEST(CheckBlock, BlockRejectsBadVersion) {
     block.nVersion = MIN_BLOCK_VERSION;
     block.vtx.push_back(tx);
 
-    MockCValidationState state;
+    CValidationState state;
 
     auto verifier = libzcash::ProofVerifier::Strict();
 
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-txns-version-too-low", false)).Times(1);
-    EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
+    EXPECT_FALSE(CheckBlock(block, state, verifier, flagCheckPow::OFF, flagCheckMerkleRoot::OFF));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("bad-txns-version-too-low"));
+    EXPECT_FALSE(state.CorruptionPossible());
 }
 
 
@@ -110,9 +101,9 @@ const CBlockIndex* helpMakeMain(int size)
 // by CheckBlock under consensus rules.
 TEST(CheckBlock, BlockRejectsNoCbh) {
     CleanUpAll();
-    SelectParams(CBaseChainParams::MAIN);
+    SelectParams(CBaseChainParams::REGTEST);
 
-    const CBlockIndex* fm = helpMakeMain(117576);
+    const CBlockIndex* fm = helpMakeMain(100); // this is ReplayProtectionFork height
 
     // the block to be checked
     CBlock block;
@@ -123,9 +114,9 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
     mtx_cb.vin.resize(1);
     mtx_cb.vin[0].prevout.SetNull();
     mtx_cb.vin[0].scriptSig = CScript() << 1 << OP_0;
-    mtx_cb.vout.resize(1);
-    mtx_cb.vout[0].scriptPubKey = CScript() << OP_TRUE;
-    mtx_cb.vout[0].nValue = 0;
+    mtx_cb.resizeOut(1);
+    mtx_cb.getOut(0).scriptPubKey = CScript() << OP_TRUE;
+    mtx_cb.getOut(0).nValue = 0;
 
     block.vtx.push_back(mtx_cb);
 
@@ -145,16 +136,17 @@ TEST(CheckBlock, BlockRejectsNoCbh) {
 
     //std::cout << "Script: " << scriptPubKey.ToString() << std::endl;
 
-    mtx.vout.push_back( CTxOut(0.5, scriptPubKey));
+    mtx.addOut(CTxOut(0.5 * COIN, scriptPubKey)); //CAmount is measured in zatoshi
 
     block.vtx.push_back(mtx);
 
-    MockCValidationState state;
+    CValidationState state;
 
-    auto verifier = libzcash::ProofVerifier::Strict();
-
-    EXPECT_CALL(state, DoS(0, false, REJECT_CHECKBLOCKATHEIGHT_NOT_FOUND, "op-checkblockatheight-needed", false)).Times(1);
-    EXPECT_FALSE(CheckBlock(block, state, verifier, false, false));
+    EXPECT_FALSE(ContextualCheckBlock(block, state, fm->pprev));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::CHECKBLOCKATHEIGHT_NOT_FOUND);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("op-checkblockatheight-needed"));
+    EXPECT_FALSE(state.CorruptionPossible());
 
     CleanUpAll();
 }
@@ -177,21 +169,21 @@ protected:
         // Set height
         mtx.vin[0].scriptSig = CScript() << height << OP_0;
 
-        mtx.vout.resize(1);
-        mtx.vout[0].scriptPubKey = CScript() << OP_TRUE;
-        mtx.vout[0].nValue = 0;
+        mtx.resizeOut(1);
+        mtx.getOut(0).scriptPubKey = CScript() << OP_TRUE;
+        mtx.getOut(0).nValue = 0;
 
         CAmount reward = GetBlockSubsidy(height, Params().GetConsensus());
 
-		for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
-			CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(height, reward, cfType);
-			if (vCommunityFund > 0) {
-				// Take some reward away from miners
-				mtx.vout[0].nValue -= vCommunityFund;
-				// And give it to the community
-				mtx.vout.push_back(CTxOut(vCommunityFund, Params().GetCommunityFundScriptAtHeight(height, cfType)));
-			}
-		}
+        for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+            CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(height, reward, cfType);
+            if (vCommunityFund > 0) {
+                // Take some reward away from miners
+                mtx.getOut(0).nValue -= vCommunityFund;
+                // And give it to the community
+                mtx.addOut(CTxOut(vCommunityFund, Params().GetCommunityFundScriptAtHeight(height, cfType)));
+            }
+        }
         return mtx;
     }
 
@@ -209,7 +201,7 @@ protected:
         indexPrev.nHeight = height - 1;
 
         // We now expect this to be a valid block.
-        MockCValidationState state;
+        CValidationState state;
         EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
     }
 
@@ -229,13 +221,13 @@ protected:
         indexPrev.nHeight = height - 1;
 
         // We now expect this to be an invalid block, for the given reason.
-        MockCValidationState state;
-        EXPECT_CALL(state, DoS(level, false, REJECT_INVALID, reason, false)).Times(1);
+        CValidationState state;
         EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+        EXPECT_TRUE(state.GetDoS() == level);
+        EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+        EXPECT_TRUE(state.GetRejectReason() == reason);
+        EXPECT_FALSE(state.CorruptionPossible());
     }
-
-
-
 };
 
 
@@ -246,16 +238,16 @@ TEST_F(ContextualCheckBlockTest, BadCoinbaseHeight) {
     mtx.vin.resize(1);
     mtx.vin[0].prevout.SetNull();
     mtx.vin[0].scriptSig = CScript() << OP_0; // missing height
-    mtx.vout.resize(1);
-    mtx.vout[0].scriptPubKey = CScript() << OP_TRUE;
-    mtx.vout[0].nValue = 0;
+    mtx.resizeOut(1);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_TRUE;
+    mtx.getOut(0).nValue = 0;
 
     CBlock block;
     block.vtx.push_back(mtx);
 
     // Treating block as genesis (no prev blocks) should pass
-    MockCValidationState state;
-    EXPECT_TRUE(ContextualCheckBlock(block, state, NULL));
+    CValidationState state_1;
+    EXPECT_TRUE(ContextualCheckBlock(block, state_1, NULL));
 
     // Treating block as non-genesis (a prev block with height=0) should fail
     CTransaction tx2 {mtx};
@@ -263,21 +255,33 @@ TEST_F(ContextualCheckBlockTest, BadCoinbaseHeight) {
     CBlock prev;
     CBlockIndex indexPrev {prev};
     indexPrev.nHeight = 0;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-cb-height", false)).Times(1);
-    EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+
+    CValidationState state_2;
+    EXPECT_FALSE(ContextualCheckBlock(block, state_2, &indexPrev));
+    EXPECT_TRUE(state_2.GetDoS() == 100);
+    EXPECT_TRUE(state_2.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state_2.GetRejectReason() == std::string("bad-cb-height"));
+    EXPECT_FALSE(state_2.CorruptionPossible());
 
     // Setting to an incorrect height should fail
     mtx.vin[0].scriptSig = CScript() << 2 << OP_0;
     CTransaction tx3 {mtx};
     block.vtx[0] = tx3;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "bad-cb-height", false)).Times(1);
-    EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+
+    CValidationState state_3;
+    EXPECT_FALSE(ContextualCheckBlock(block, state_3, &indexPrev));
+    EXPECT_TRUE(state_3.GetDoS() == 100);
+    EXPECT_TRUE(state_3.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state_3.GetRejectReason() == std::string("bad-cb-height"));
+    EXPECT_FALSE(state_3.CorruptionPossible());
 
     // After correcting the scriptSig, should pass
     mtx.vin[0].scriptSig = CScript() << 1 << OP_0;
     CTransaction tx4 {mtx};
     block.vtx[0] = tx4;
-    EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
+
+    CValidationState state_4;
+    EXPECT_TRUE(ContextualCheckBlock(block, state_4, &indexPrev));
 }
 
 // TODO check this: is it meaningful? Why is it called Sprout?
@@ -294,47 +298,49 @@ TEST_F(ContextualCheckBlockTest, BlockSproutRulesAcceptSproutTx) {
 
 class ContextualTxsCheckBlockTest : public ContextualCheckBlockTest {
 protected:
-	void TestTxsAcceptanceRules(CBaseChainParams::Network network, int expectedGrothTxSupportHeight) {
-	        SelectParams(network);
+    void TestTxsAcceptanceRules(CBaseChainParams::Network network, int expectedGrothTxSupportHeight) {
+            SelectParams(network);
 
-	    	CMutableTransaction mtx = GetBlockTxWithHeight(expectedGrothTxSupportHeight - 1);
+            CMutableTransaction mtx = GetBlockTxWithHeight(expectedGrothTxSupportHeight - 1);
 
-	        // Make it a Groth transaction: since nHeight is below 200, it will fail
-	        mtx.nVersion = GROTH_TX_VERSION;
-	        {
-	            SCOPED_TRACE("BlockShieldRulesRejectGrothTx");
-	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-shielded-version-too-low");
-	        }
+            // Make it a Groth transaction: since nHeight is below 200, it will fail
+            mtx.nVersion = GROTH_TX_VERSION;
+            {
+                SCOPED_TRACE("BlockShieldRulesRejectGrothTx");
+//                ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-shielded-version-too-low");
+                ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1, 0, "bad-tx-version-unexpected");
+            }
 
-	        // Make it a PHGR transaction: since nHeight is below 200, it will succeed
-	        mtx.nVersion = PHGR_TX_VERSION;
-	        {
-	            SCOPED_TRACE("BlockShieldRulesAcceptPhgrTx");
-	            ExpectValidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1);
-	        }
+            // Make it a PHGR transaction: since nHeight is below 200, it will succeed
+            mtx.nVersion = PHGR_TX_VERSION;
+            {
+                SCOPED_TRACE("BlockShieldRulesAcceptPhgrTx");
+                ExpectValidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight - 1);
+            }
 
-	        mtx = GetBlockTxWithHeight(expectedGrothTxSupportHeight);
-	        mtx.nVersion = GROTH_TX_VERSION;
-	        {
-	            SCOPED_TRACE("BlockShieldRulesAcceptGrothTx");
-	            ExpectValidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight);
-	        }
+            mtx = GetBlockTxWithHeight(expectedGrothTxSupportHeight);
+            mtx.nVersion = GROTH_TX_VERSION;
+            {
+                SCOPED_TRACE("BlockShieldRulesAcceptGrothTx");
+                ExpectValidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight);
+            }
 
-	        mtx.nVersion = PHGR_TX_VERSION;
-	        {
-	            SCOPED_TRACE("BlockShieldRulesRejectPhgrTx");
-	            ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-shielded-version-too-low");
-	        }
+            mtx.nVersion = PHGR_TX_VERSION;
+            {
+                SCOPED_TRACE("BlockShieldRulesRejectPhgrTx");
+                //ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-shielded-version-too-low");
+                ExpectInvalidBlockFromTx(CTransaction(mtx), expectedGrothTxSupportHeight, 100, "bad-tx-version-unexpected");
+            }
 
-	    }
+        }
 };
 
 
 TEST_F(ContextualTxsCheckBlockTest, BlockShieldRulesRejectOtherTx) {
 
-	TestTxsAcceptanceRules(CBaseChainParams::REGTEST, 200);
-	TestTxsAcceptanceRules(CBaseChainParams::TESTNET, 369900);
-	TestTxsAcceptanceRules(CBaseChainParams::MAIN, 455555);
+    TestTxsAcceptanceRules(CBaseChainParams::REGTEST, 200);
+    TestTxsAcceptanceRules(CBaseChainParams::TESTNET, 369900);
+    TestTxsAcceptanceRules(CBaseChainParams::MAIN, 455555);
 
 }
 
@@ -346,15 +352,15 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     mtx.vin.resize(1);
     mtx.vin[0].prevout.SetNull();
     mtx.vin[0].scriptSig = CScript() << 109999 << OP_0;
-    mtx.vout.resize(1);
-    mtx.vout[0].scriptPubKey = CScript() << OP_TRUE;
-    mtx.vout[0].nValue = 0;
+    mtx.resizeOut(1);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_TRUE;
+    mtx.getOut(0).nValue = 0;
     CTransaction tx{mtx};
     CBlock block;
     block.vtx.push_back(tx);
     block.nTime = chainsplitFork.getMinimumTime(CBaseChainParams::Network::MAIN);
 
-    MockCValidationState state;
+    CValidationState state;
     CBlock prev;
     CBlockIndex indexPrev{prev};
 
@@ -366,14 +372,18 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     mtx.vin[0].scriptSig = CScript() << 110001 << OP_0;
     block.vtx[0] = CTransaction(mtx);
     indexPrev.nHeight = 110000;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
+
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+    EXPECT_TRUE(state.GetDoS() == 100);
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state.GetRejectReason() == std::string("cb-no-community-fund"));
+    EXPECT_FALSE(state.CorruptionPossible());
 
     // Add community reward output for post chain split block
     CBitcoinAddress address(Params().GetCommunityFundAddressAtHeight(110001, Fork::CommunityFundType::FOUNDATION).c_str());
     CScriptID scriptID = boost::get<CScriptID>(address.Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.0625 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.0625 * COIN;
     block.vtx[0] = CTransaction(mtx);
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
@@ -382,11 +392,11 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
     int hardForkHeight = communityFundAndRPFixFork.getHeight(CBaseChainParams::MAIN);
     // Test community reward output for post hard fork block
     CScriptID scriptID2 = boost::get<CScriptID>(CBitcoinAddress("zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82").Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID2) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.5 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID2) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.5 * COIN;
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
     indexPrev.nHeight = hardForkHeight - 1;
-    block.vtx[0] = CTransaction(mtx);;
+    block.vtx[0] = CTransaction(mtx);
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
 
@@ -404,15 +414,15 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
 
-    mtx.vout.resize(3);
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.25 * COIN;
+    mtx.resizeOut(3);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.25 * COIN;
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-    mtx.vout[1].nValue = 1.25 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 1.25 * COIN;
 
-    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-    mtx.vout[2].nValue = 1.25 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 1.25 * COIN;
 
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);;
@@ -432,15 +442,15 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
 
-    mtx.vout.resize(3);
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
-    mtx.vout[0].nValue = 2.5 * COIN;
+    mtx.resizeOut(3);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.getOut(0).nValue = 2.5 * COIN;
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-    mtx.vout[1].nValue = 1.25 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 1.25 * COIN;
 
-    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-    mtx.vout[2].nValue = 1.25 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 1.25 * COIN;
 
     indexPrev.nHeight = hardForkHeight -1;
     block.vtx[0] = CTransaction(mtx);;
@@ -460,15 +470,15 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     mtx.vin[0].scriptSig = CScript() << exceedHeight << OP_0;
 
-    mtx.vout.resize(3);
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.25 * COIN;
+    mtx.resizeOut(3);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.25 * COIN;
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-    mtx.vout[1].nValue = 0.625 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 0.625 * COIN;
 
-    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-    mtx.vout[2].nValue = 0.625 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 0.625 * COIN;
 
     indexPrev.nHeight = exceedHeight -1;
     block.vtx[0] = CTransaction(mtx);
@@ -489,22 +499,22 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     mtx.vin[0].scriptSig = CScript() << exceedHeight << OP_0;
 
-    mtx.vout.resize(3);
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
-    mtx.vout[0].nValue = 2.5 * COIN;
+    mtx.resizeOut(3);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.getOut(0).nValue = 2.5 * COIN;
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-    mtx.vout[1].nValue = 1.25 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 1.25 * COIN;
 
-    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-    mtx.vout[2].nValue = 1.25 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 1.25 * COIN;
 
     indexPrev.nHeight = exceedHeight -1;
     block.vtx[0] = CTransaction(mtx);
 
     // check that pre-halving amounts are rejected
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
     EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+    EXPECT_TRUE(state.GetRejectCode() == CValidationState::Code::INVALID);
 
     // this is 10 block after the second halving height
     exceedHeight = Params().GetConsensus().nSubsidyHalvingInterval*2  + 10;
@@ -519,29 +529,95 @@ TEST(ContextualCheckBlock, CoinbaseCommunityReward) {
 
     mtx.vin[0].scriptSig = CScript() << exceedHeight << OP_0;
 
-    mtx.vout.resize(4);
+    mtx.resizeOut(4);
     // add also miner subsidy quote, even if it is not checked by ContextualCheckBlock()
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ParseHex("28daa861e86d49694937c3ee6e637d50e8343e4b") << OP_EQUAL;
-    mtx.vout[0].nValue = 1.8755 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ParseHex("28daa861e86d49694937c3ee6e637d50e8343e4b") << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.8755 * COIN;
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
-    mtx.vout[1].nValue = 0.625 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_found) << OP_EQUAL;
+    mtx.getOut(1).nValue = 0.625 * COIN;
 
-    mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-    mtx.vout[2].nValue = 0.3125 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 0.3125 * COIN;
 
-    mtx.vout[3].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-    mtx.vout[3].nValue = 0.3125 * COIN;
+    mtx.getOut(3).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(3).nValue = 0.3125 * COIN;
 
     indexPrev.nHeight = exceedHeight -1;
     block.vtx[0] = CTransaction(mtx);
     EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 }
 
+TEST(ContextualCheckBlockHeader, CheckBlockVersion) {
+    SelectParams(CBaseChainParams::MAIN);
+
+    const CChainParams& chainParams = Params();
+    const Consensus::Params& consensusParams = chainParams.GetConsensus();
+
+    CBlock prev;
+    CBlockIndex indexPrev{prev};
+
+    SidechainFork scFork;
+
+    CBlock block;
+    block.nBits = GetNextWorkRequired(&indexPrev, &block, consensusParams);
+    block.nTime = scFork.getMinimumTime(CBaseChainParams::Network::MAIN);
+
+    // check that after sidechain fork, the only legal block version is BLOCK_VERSION_SC_SUPPORT 
+    int hardForkHeight = scFork.getHeight(CBaseChainParams::MAIN);
+    indexPrev.nHeight = hardForkHeight -1;
+
+    int newBlockVersion = ForkManager::getInstance().getNewBlockVersion(hardForkHeight);
+    EXPECT_TRUE(newBlockVersion == BLOCK_VERSION_SC_SUPPORT);
+
+    block.nVersion = BLOCK_VERSION_ORIGINAL;
+
+    CValidationState state_1;
+    EXPECT_FALSE(ContextualCheckBlockHeader(block, state_1, &indexPrev));
+    EXPECT_TRUE(state_1.GetDoS() == 0);
+    EXPECT_TRUE(state_1.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state_1.GetRejectReason() == std::string("bad-version"));
+    EXPECT_FALSE(state_1.CorruptionPossible());
+
+    block.nVersion = BLOCK_VERSION_BEFORE_SC;
+
+    CValidationState state_2;
+    EXPECT_FALSE(ContextualCheckBlockHeader(block, state_2, &indexPrev));
+    EXPECT_TRUE(state_2.GetDoS() == 0);
+    EXPECT_TRUE(state_2.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state_2.GetRejectReason() == std::string("bad-version"));
+    EXPECT_FALSE(state_2.CorruptionPossible());
+
+    block.nVersion = BLOCK_VERSION_SC_SUPPORT;
+
+    CValidationState state_3;
+    EXPECT_TRUE(ContextualCheckBlockHeader(block, state_3, &indexPrev));
+
+    // check that before sidechain fork, block version BLOCK_VERSION_SC_SUPPORT is not valid 
+    // since is considered obsolete (<4)
+
+    EXPECT_TRUE(BLOCK_VERSION_SC_SUPPORT < BLOCK_VERSION_ORIGINAL);
+    hardForkHeight -= 1;
+    indexPrev.nHeight = hardForkHeight -1;
+    // set a suited prev block time not to have errors since sc fork is after timeblock fork 
+    indexPrev.nTime = block.nTime - MAX_FUTURE_BLOCK_TIME_LOCAL/2;
+    block.nVersion = BLOCK_VERSION_SC_SUPPORT;
+
+    CValidationState state_4;
+    EXPECT_FALSE(ContextualCheckBlockHeader(block, state_4, &indexPrev));
+    EXPECT_TRUE(state_4.GetDoS() == 0);
+    EXPECT_TRUE(state_4.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state_4.GetRejectReason() == std::string("bad-version"));
+    EXPECT_FALSE(state_4.CorruptionPossible());
+
+    // and before sidechain fork the new block version is the legacy BLOCK_VERSION_0x2000000
+    newBlockVersion = ForkManager::getInstance().getNewBlockVersion(hardForkHeight);
+    EXPECT_TRUE(newBlockVersion == BLOCK_VERSION_BEFORE_SC);
+}
+
 TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     SelectParams(CBaseChainParams::MAIN);
 
-    MockCValidationState state;
     CBlock prev;
     CBlockIndex indexPrev {prev};
     ChainsplitFork chainplitFork;
@@ -556,29 +632,39 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     mtx.vin.resize(1);
     mtx.vin[0].prevout.SetNull();
     mtx.vin[0].scriptSig = CScript() << 110001 << OP_0;
-    mtx.vout.resize(1);
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.0624 * COIN;
+    mtx.resizeOut(1);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.0624 * COIN;
     indexPrev.nHeight = 110000;
     CBlock block;
     block.vtx.push_back(CTransaction(mtx));
     block.nTime = chainplitFork.getMinimumTime(CBaseChainParams::Network::MAIN);
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
-    EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+
+    CValidationState state_1;
+    EXPECT_FALSE(ContextualCheckBlock(block, state_1, &indexPrev));
+    EXPECT_TRUE(state_1.GetDoS() == 100);
+    EXPECT_TRUE(state_1.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state_1.GetRejectReason() == std::string("cb-no-community-fund"));
+    EXPECT_FALSE(state_1.CorruptionPossible());
 
     // Test bad amount for community reward output after hard fork
     int hardForkHeight = communityFundAndRPFixFork.getHeight(CBaseChainParams::MAIN);
     mtx.vin[0].scriptSig = CScript() << hardForkHeight << OP_0;
     CBitcoinAddress address1(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str());
     CScriptID scriptID1 = boost::get<CScriptID>(address1.Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.0625 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.0625 * COIN;
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
-    EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
 
-    mtx.vout.resize(3);
+    CValidationState state_2;
+    EXPECT_FALSE(ContextualCheckBlock(block, state_2, &indexPrev));
+    EXPECT_TRUE(state_2.GetDoS() == 100);
+    EXPECT_TRUE(state_2.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state_2.GetRejectReason() == std::string("cb-no-community-fund"));
+    EXPECT_FALSE(state_2.CorruptionPossible());
+
+    mtx.resizeOut(3);
 
     NullTransactionFork nullTransactionFork;
 
@@ -587,34 +673,41 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
 
     address1.SetString((Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::FOUNDATION).c_str()));
     CBitcoinAddress address_sec_node(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SECURENODE).c_str());
-	CBitcoinAddress address_sup_node(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
+    CBitcoinAddress address_sup_node(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
 
-	CScriptID scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
-	CScriptID scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
+    CScriptID scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
+    CScriptID scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
     scriptID1 = boost::get<CScriptID>(address1.Get());
 
 
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
     // this is the wrong amount for the FOUNDATION
-    mtx.vout[0].nValue = 1.2 * COIN;
+    mtx.getOut(0).nValue = 1.2 * COIN;
 
-    mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-	mtx.vout[1].nValue = 1.25 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 1.25 * COIN;
 
-	mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-	mtx.vout[2].nValue = 1.25 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 1.25 * COIN;
 
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
-    EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+
+    CValidationState state_3;
+    EXPECT_FALSE(ContextualCheckBlock(block, state_3, &indexPrev));
+    EXPECT_TRUE(state_3.GetDoS() == 100);
+    EXPECT_TRUE(state_3.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state_3.GetRejectReason() == std::string("cb-no-community-fund"));
+    EXPECT_FALSE(state_3.CorruptionPossible());
 
     // this is the correct amount for the FOUNDATION
-    mtx.vout[0].nValue = 1.25 * COIN;
+    mtx.getOut(0).nValue = 1.25 * COIN;
 
     indexPrev.nHeight = hardForkHeight - 1;
     block.vtx[0] = CTransaction(mtx);
-    EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
+
+    CValidationState state_4;
+    EXPECT_TRUE(ContextualCheckBlock(block, state_4, &indexPrev));
 
 
     ShieldFork shieldFork;
@@ -626,37 +719,42 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAmount) {
     address_sup_node.SetString(Params().GetCommunityFundAddressAtHeight(hardForkHeight, Fork::CommunityFundType::SUPERNODE).c_str());
 
     scriptID_sec_node = boost::get<CScriptID>(address_sec_node.Get());
-	scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
-	scriptID1 = boost::get<CScriptID>(address1.Get());
+    scriptID_sup_node = boost::get<CScriptID>(address_sup_node.Get());
+    scriptID1 = boost::get<CScriptID>(address1.Get());
 
 
-	mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
-	// this is the wrong amount for the FOUNDATION
-	mtx.vout[0].nValue = 1.25 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
+    // this is the wrong amount for the FOUNDATION
+    mtx.getOut(0).nValue = 1.25 * COIN;
 
-	mtx.vout[1].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
-	mtx.vout[1].nValue = 1.25 * COIN;
+    mtx.getOut(1).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sec_node) << OP_EQUAL;
+    mtx.getOut(1).nValue = 1.25 * COIN;
 
-	mtx.vout[2].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
-	mtx.vout[2].nValue = 1.25 * COIN;
+    mtx.getOut(2).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID_sup_node) << OP_EQUAL;
+    mtx.getOut(2).nValue = 1.25 * COIN;
 
-	indexPrev.nHeight = hardForkHeight - 1;
-	block.vtx[0] = CTransaction(mtx);
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
-    EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+    indexPrev.nHeight = hardForkHeight - 1;
+    block.vtx[0] = CTransaction(mtx);
+
+    CValidationState state_5;
+    EXPECT_FALSE(ContextualCheckBlock(block, state_5, &indexPrev));
+    EXPECT_TRUE(state_5.GetDoS() == 100);
+    EXPECT_TRUE(state_5.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state_5.GetRejectReason() == std::string("cb-no-community-fund"));
+    EXPECT_FALSE(state_5.CorruptionPossible());
 
     // this is the correct amount for the FOUNDATION
-    mtx.vout[0].nValue = 2.5 * COIN;
-	indexPrev.nHeight = hardForkHeight - 1;
-	block.vtx[0] = CTransaction(mtx);
-    EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
+    mtx.getOut(0).nValue = 2.5 * COIN;
+    indexPrev.nHeight = hardForkHeight - 1;
+    block.vtx[0] = CTransaction(mtx);
 
+    CValidationState state_6;
+    EXPECT_TRUE(ContextualCheckBlock(block, state_6, &indexPrev));
 }
 
 TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     SelectParams(CBaseChainParams::MAIN);
 
-    MockCValidationState state;
     CBlock prev;
     CBlockIndex indexPrev {prev};
     ChainsplitFork chainsplitFork;
@@ -666,51 +764,65 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     mtx.vin.resize(1);
     mtx.vin[0].prevout.SetNull();
     mtx.vin[0].scriptSig = CScript() << 139199 << OP_0;
-    mtx.vout.resize(1);
+    mtx.resizeOut(1);
     CScriptID scriptID = boost::get<CScriptID>(CBitcoinAddress("zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82").Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.0625 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.0625 * COIN;
     indexPrev.nHeight = 139198;
     CBlock block;
     block.vtx.push_back(CTransaction(mtx));
     block.nTime = chainsplitFork.getMinimumTime(CBaseChainParams::Network::MAIN);
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
-    EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+
+    CValidationState state_1;
+    EXPECT_FALSE(ContextualCheckBlock(block, state_1, &indexPrev));
+    EXPECT_TRUE(state_1.GetDoS() == 100);
+    EXPECT_TRUE(state_1.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state_1.GetRejectReason() == std::string("cb-no-community-fund"));
+    EXPECT_FALSE(state_1.CorruptionPossible());
 
     // Test bad addr for community reward output after hardfork
     CScriptID scriptID1 = boost::get<CScriptID>(CBitcoinAddress("zsfa9VVJCEdjfPbku4XrFcRR8kTDm2T64rz").Get());
     mtx.vin[0].scriptSig = CScript() << 139200 << OP_0;
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
-    mtx.vout[0].nValue = 1.5 * COIN;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID1) << OP_EQUAL;
+    mtx.getOut(0).nValue = 1.5 * COIN;
     indexPrev.nHeight = 139199;
     block.vtx[0] = CTransaction(mtx);;
-    EXPECT_CALL(state, DoS(100, false, REJECT_INVALID, "cb-no-community-fund", false)).Times(1);
-    EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+
+    CValidationState state_2;
+    EXPECT_FALSE(ContextualCheckBlock(block, state_2, &indexPrev));
+    EXPECT_TRUE(state_2.GetDoS() == 100);
+    EXPECT_TRUE(state_2.GetRejectCode() == CValidationState::Code::INVALID);
+    EXPECT_TRUE(state_2.GetRejectReason() == std::string("cb-no-community-fund"));
+    EXPECT_FALSE(state_2.CorruptionPossible());
 
     // Test community reward address rotation. Addresses should change every 50000 blocks in a round-robin fashion.
     CScriptID scriptID3 = boost::get<CScriptID>(CBitcoinAddress("zsfULrmbX7xbhqhAFRffVqCw9RyGv2hqNNG").Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID3) << OP_EQUAL;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID3) << OP_EQUAL;
     mtx.vin[0].scriptSig = CScript() << 189200 << OP_0;
     indexPrev.nHeight = 189199;
     block.vtx[0] = CTransaction(mtx);
-    EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
+
+    CValidationState state_3;
+    EXPECT_TRUE(ContextualCheckBlock(block, state_3, &indexPrev));
 
     // Test community reward address rotation. Addresses should change every 50000 blocks in a round-robin fashion.
     CScriptID scriptID4 = boost::get<CScriptID>(CBitcoinAddress("zsoemTfqjicem2QVU8cgBHquKb1o9JR5p4Z").Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID4) << OP_EQUAL;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID4) << OP_EQUAL;
     mtx.vin[0].scriptSig = CScript() << 239200 << OP_0;
     indexPrev.nHeight = 239199;
     block.vtx[0] = CTransaction(mtx);
-    EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
+
+    CValidationState state_4;
+    EXPECT_TRUE(ContextualCheckBlock(block, state_4, &indexPrev));
 
     // Test community reward address rotation. Addresses should change every 50000 blocks in a round-robin fashion.
     CScriptID scriptID5 = boost::get<CScriptID>(CBitcoinAddress("zt339oiGL6tTgc9Q71f5g1sFTZf6QiXrRUr").Get());
-    mtx.vout[0].scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID5) << OP_EQUAL;
+    mtx.getOut(0).scriptPubKey = CScript() << OP_HASH160 << ToByteVector(scriptID5) << OP_EQUAL;
     mtx.vin[0].scriptSig = CScript() << 289200 << OP_0;
     indexPrev.nHeight = 289199;
     block.vtx[0] = CTransaction(mtx);
-    EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
 
-
+    CValidationState state_5;
+    EXPECT_TRUE(ContextualCheckBlock(block, state_5, &indexPrev));
 }
 

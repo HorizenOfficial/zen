@@ -14,10 +14,14 @@ import tempfile
 import traceback
 
 from authproxy import JSONRPCException
+from wsproxy import JSONWSException
 from util import assert_equal, check_json_precision, \
     initialize_chain, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, stop_nodes, \
     sync_blocks, sync_mempools, wait_bitcoinds
+
+MINIMAL_SC_HEIGHT = 420
+MINER_REWARD_POST_H200 = 7.50
 
 
 class BitcoinTestFramework(object):
@@ -124,6 +128,9 @@ class BitcoinTestFramework(object):
 
         except JSONRPCException as e:
             print("JSONRPC error: "+e.error['message'])
+            traceback.print_tb(sys.exc_info()[2])
+        except JSONWSException as e:
+            print("JSONWS error: {}".format(e.error))
             traceback.print_tb(sys.exc_info()[2])
         except AssertionError as e:
             print("Assertion failed: "+e.message)

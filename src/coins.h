@@ -15,11 +15,31 @@
 #include <assert.h>
 #include <stdint.h>
 
-#include <boost/foreach.hpp>
 #include <boost/unordered_map.hpp>
 #include "zcash/IncrementalMerkleTree.hpp"
+#include <sc/sidechain.h>
+#include <consensus/validation.h>
 
-/** 
+class CBlockUndo;
+class CBlockTreeDB;
+class CTxInUndo;
+class CSidechainUndoData;
+class CScProofVerifier;
+
+struct CTxIndexValue;
+struct CMaturityHeightValue;
+struct CMaturityHeightKey;
+
+#ifdef ENABLE_ADDRESS_INDEXING
+struct CAddressIndexKey;
+struct CAddressIndexValue;
+struct CAddressUnspentKey;
+struct CAddressUnspentValue;
+#endif // ENABLE_ADDRESS_INDEXING
+
+static const int BWT_POS_UNSET = -1;
+
+/**
  * Pruned version of CTransaction: only retains metadata and unspent transaction outputs
  *
  * Serialized format:
@@ -28,7 +48,8 @@
  * - unspentness bitvector, for vout[2] and further; least significant byte first
  * - the non-spent CTxOuts (via CTxOutCompressor)
  * - VARINT(nHeight)
- *
+ * - string(originSc);                  serialized for coins from certificates only
+ * - unsigned int(changeOutputCounter); serialized for coins from certificates only
  * The nCode value consists of:
  * - bit 1: IsCoinBase()
  * - bit 2: vout[0] is not spent
@@ -36,6 +57,11 @@
  * - The higher bits encode N, the number of non-zero bytes in the following bitvector.
  *   - In case both bit 2 and bit 4 are unset, they encode N-1, as there must be at
  *     least one non-spent output).
+ * - changeOutputCounteris introduced with certificates. It counts the number of vouts which do not
+ *   originate from a backward transfer. It uniquely specifies which vouts come
+ *   from backward transfers since we assume these vout are placed last, before all of other vouts.
+ *   changeOutputCounter is serialized for coins coming from certificates only, along with originScid,
+ *   in order to preserve backward compatibility
  *
  * Example: 0104835800816115944e077fe7c803cfa57f29b36bf87c1d358bb85e
  *          <><><--------------------------------------------><---->
@@ -87,71 +113,62 @@ public:
     //! as new tx version will probably only be introduced at certain heights
     int nVersion;
 
-    void FromTx(const CTransaction &tx, int nHeightIn) {
-        fCoinBase = tx.IsCoinBase();
-        vout = tx.vout;
-        nHeight = nHeightIn;
-        nVersion = tx.nVersion;
-        ClearUnspendable();
-    }
+    //| If coins comes from a certificate, nFirstBwtPos represents the position of the first backward transfer;
+    //! All outputs after nFirstBwtPos, including nFirstBwtPos, are backward transfers
+    //! If coins comes from a tx, it is currently set to BWT_POS_UNSET and not used
+    int nFirstBwtPos;
 
-    //! construct a CCoins from a CTransaction, at a given height
-    CCoins(const CTransaction &tx, int nHeightIn) {
-        FromTx(tx, nHeightIn);
-    }
+    //! if coin comes from a certificate, nBwtMaturityHeight signals the height at which these output will be mature
+    //! nBwtMaturityHeight will be serialized only for coins from certificate
+    int nBwtMaturityHeight;
 
-    void Clear() {
-        fCoinBase = false;
-        std::vector<CTxOut>().swap(vout);
-        nHeight = 0;
-        nVersion = 0;
-    }
+    std::string ToString() const;
 
     //! empty constructor
-    CCoins() : fCoinBase(false), vout(0), nHeight(0), nVersion(0) { }
+    CCoins();
+
+    //! construct a CCoins from a CTransaction, at a given height
+    CCoins(const CTransaction &tx, int nHeightIn);
+    CCoins(const CScCertificate &cert, int nHeightIn, int bwtMaturityHeight, bool isBlockTopQualityCert);
+
+    void From(const CTransaction &tx, int nHeightIn);
+    void From(const CScCertificate &tx, int nHeightIn, int bwtMaturityHeight, bool isBlockTopQualityCert);
+
+    void Clear();
 
     //!remove spent outputs at the end of vout
-    void Cleanup() {
-        while (vout.size() > 0 && vout.back().IsNull())
-            vout.pop_back();
-        if (vout.empty())
-            std::vector<CTxOut>().swap(vout);
-    }
+    void Cleanup();
 
-    void ClearUnspendable() {
-        BOOST_FOREACH(CTxOut &txout, vout) {
-            if (txout.scriptPubKey.IsUnspendable())
-                txout.SetNull();
-        }
-        Cleanup();
-    }
+    void ClearUnspendable();
 
-    void swap(CCoins &to) {
-        std::swap(to.fCoinBase, fCoinBase);
-        to.vout.swap(vout);
-        std::swap(to.nHeight, nHeight);
-        std::swap(to.nVersion, nVersion);
-    }
+    void swap(CCoins &to);
 
     //! equality test
-    friend bool operator==(const CCoins &a, const CCoins &b) {
-         // Empty CCoins objects are always equal.
-         if (a.IsPruned() && b.IsPruned())
-             return true;
-         return a.fCoinBase == b.fCoinBase &&
-                a.nHeight == b.nHeight &&
-                a.nVersion == b.nVersion &&
-                a.vout == b.vout;
-    }
-    friend bool operator!=(const CCoins &a, const CCoins &b) {
-        return !(a == b);
-    }
+    friend bool operator==(const CCoins &a, const CCoins &b);
+    friend bool operator!=(const CCoins &a, const CCoins &b);
 
-    void CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) const;
+    bool IsCoinBase() const;
+    bool IsFromCert() const;
 
-    bool IsCoinBase() const {
-        return fCoinBase;
-    }
+    enum class outputMaturity {
+        NOT_APPLICABLE = 0,
+        MATURE,
+        IMMATURE
+    };
+
+    bool isOutputMature(unsigned int outPos, int nSpendingHeight) const;
+
+    //! mark a vout spent
+    bool Spend(uint32_t nPos);
+
+    //! check whether a particular output is still available
+    bool IsAvailable(unsigned int nPos) const;
+
+    //! check whether the entire CCoins is spent
+    //! note that only !IsPruned() CCoins can be serialized
+    bool IsPruned() const;
+
+    size_t DynamicMemoryUsage() const;
 
     unsigned int GetSerializeSize(int nType, int nVersion) const {
         unsigned int nSize = 0;
@@ -173,6 +190,12 @@ public:
                 nSize += ::GetSerializeSize(CTxOutCompressor(REF(vout[i])), nType, nVersion);
         // height
         nSize += ::GetSerializeSize(VARINT(nHeight), nType, nVersion);
+
+        if (this->IsFromCert()) {
+            nSize += ::GetSerializeSize(nFirstBwtPos, nType, nVersion);
+            nSize += ::GetSerializeSize(nBwtMaturityHeight, nType, nVersion);
+        }
+
         return nSize;
     }
 
@@ -201,8 +224,14 @@ public:
             if (!vout[i].IsNull())
                 ::Serialize(s, CTxOutCompressor(REF(vout[i])), nType, nVersion);
         }
+
         // coinbase height
         ::Serialize(s, VARINT(nHeight), nType, nVersion);
+
+        if (this->IsFromCert()) {
+            ::Serialize(s, nFirstBwtPos, nType, nVersion);
+            ::Serialize(s, nBwtMaturityHeight, nType, nVersion);
+        }
     }
 
     template<typename Stream>
@@ -236,33 +265,17 @@ public:
         }
         // coinbase height
         ::Unserialize(s, VARINT(nHeight), nType, nVersion);
+
+        nFirstBwtPos = BWT_POS_UNSET;
+        if (this->IsFromCert()) {
+            ::Unserialize(s, nFirstBwtPos, nType,nVersion);
+            ::Unserialize(s, nBwtMaturityHeight, nType,nVersion);
+        }
+
         Cleanup();
     }
-
-    //! mark a vout spent
-    bool Spend(uint32_t nPos);
-
-    //! check whether a particular output is still available
-    bool IsAvailable(unsigned int nPos) const {
-        return (nPos < vout.size() && !vout[nPos].IsNull());
-    }
-
-    //! check whether the entire CCoins is spent
-    //! note that only !IsPruned() CCoins can be serialized
-    bool IsPruned() const {
-        BOOST_FOREACH(const CTxOut &out, vout)
-            if (!out.IsNull())
-                return false;
-        return true;
-    }
-
-    size_t DynamicMemoryUsage() const {
-        size_t ret = memusage::DynamicUsage(vout);
-        BOOST_FOREACH(const CTxOut &out, vout) {
-            ret += RecursiveDynamicUsage(out.scriptPubKey);
-        }
-        return ret;
-    }
+private:
+    void CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) const;
 };
 
 class CCoinsKeyHasher
@@ -281,6 +294,22 @@ public:
     size_t operator()(const uint256& key) const {
         return key.GetHash(salt);
     }
+};
+
+class CCswNullifiersKeyHasher
+{
+private:
+    static const size_t BUF_LEN = (sizeof(uint256) + CFieldElement::ByteSize())/sizeof(uint32_t);
+    uint32_t salt[BUF_LEN];
+public:
+    CCswNullifiersKeyHasher();
+
+    /**
+     * This *must* return size_t. With Boost 1.46 on 32-bit systems the
+     * unordered_map will behave unpredictably if the custom hasher returns a
+     * uint64_t, resulting in failures when syncing the chain (#4634).
+     */
+    size_t operator()(const std::pair<uint256, CFieldElement>& key) const;
 };
 
 struct CCoinsCacheEntry
@@ -321,9 +350,121 @@ struct CNullifiersCacheEntry
     CNullifiersCacheEntry() : entered(false), flags(0) {}
 };
 
-typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher> CCoinsMap;
-typedef boost::unordered_map<uint256, CAnchorsCacheEntry, CCoinsKeyHasher> CAnchorsMap;
+struct CMutableSidechainCacheEntry
+{
+    enum class Flags {
+        DEFAULT = 0,
+        DIRTY   = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+        FRESH   = (1 << 1), // The parent view does not have this entry
+        ERASED  = (1 << 2), // The parent view does have this entry but current one have it erased
+    } flag;
+
+    CMutableSidechainCacheEntry(Flags _flag): flag(_flag) {}
+};
+
+template<typename KeyType, typename ValueType, template<typename...> class MapType, typename ... TOthers >
+void WriteMutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap)
+{
+    typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
+
+    switch (value.flag) {
+        case CMutableSidechainCacheEntry::Flags::FRESH:
+            assert(
+                itLocalCacheEntry == destinationMap.end() ||
+                itLocalCacheEntry->second.flag == CMutableSidechainCacheEntry::Flags::ERASED
+            ); //A fresh entry should not exist in localCache or be already erased
+            destinationMap[key] = value;
+            break;
+        case CMutableSidechainCacheEntry::Flags::DIRTY: //A dirty entry may or may not exist in localCache
+            destinationMap[key] = value;
+            break;
+        case CMutableSidechainCacheEntry::Flags::ERASED:
+            if (itLocalCacheEntry != destinationMap.end())
+                itLocalCacheEntry->second.flag = CMutableSidechainCacheEntry::Flags::ERASED;
+            break;
+        case CMutableSidechainCacheEntry::Flags::DEFAULT:
+            assert(itLocalCacheEntry != destinationMap.end());
+            assert(itLocalCacheEntry->second.flag != CMutableSidechainCacheEntry::Flags::ERASED);
+            assert(itLocalCacheEntry->second.ContentCheck(value));
+            break; //nothing to do. entry is already persisted and has not been modified
+        default:
+            assert(false);
+    }
+}
+
+struct CImmutableSidechainCacheEntry
+{
+    enum class Flags {
+        DEFAULT = 0,
+        FRESH   = (1 << 1), // The parent view does not have this entry
+        ERASED  = (1 << 2), // The parent view does have this entry but current one have it erased
+    } flag;
+
+    CImmutableSidechainCacheEntry(Flags _flag): flag(_flag) {}
+};
+
+template<typename KeyType, typename ValueType, template<typename...> class MapType, typename ... TOthers >
+void WriteImmutableEntry(const KeyType& key, const ValueType& value, MapType<KeyType, ValueType, TOthers...>& destinationMap)
+{
+    typename MapType<KeyType, ValueType, TOthers...>::iterator itLocalCacheEntry = destinationMap.find(key);
+
+    switch (value.flag) {
+        case CImmutableSidechainCacheEntry::Flags::FRESH:
+            assert(
+                itLocalCacheEntry == destinationMap.end() ||
+                itLocalCacheEntry->second.flag == CImmutableSidechainCacheEntry::Flags::ERASED
+            ); //A fresh entry should not exist in localCache or be already erased
+            destinationMap[key] = value;
+            break;
+        case CImmutableSidechainCacheEntry::Flags::ERASED:
+            if (itLocalCacheEntry != destinationMap.end())
+                itLocalCacheEntry->second.flag = CImmutableSidechainCacheEntry::Flags::ERASED;
+            break;
+        case CImmutableSidechainCacheEntry::Flags::DEFAULT:
+            assert(itLocalCacheEntry != destinationMap.end());
+            assert(itLocalCacheEntry->second.flag != CImmutableSidechainCacheEntry::Flags::ERASED);
+            break; //nothing to do. entry is already persisted and has not been modified
+        default:
+            assert(false);
+    }
+}
+
+struct CSidechainsCacheEntry: public CMutableSidechainCacheEntry
+{
+    CSidechain sidechain;
+
+    CSidechainsCacheEntry(): CMutableSidechainCacheEntry(Flags::DEFAULT), sidechain() {}
+    CSidechainsCacheEntry(const CSidechain & _sidechain, Flags _flag):
+        CMutableSidechainCacheEntry(_flag), sidechain(_sidechain) {}
+
+    // Not an equality operator since we want to neglect flag
+    bool ContentCheck(const CSidechainsCacheEntry& rhs) {return this->sidechain == rhs.sidechain;}
+};
+
+struct CSidechainEventsCacheEntry: public CMutableSidechainCacheEntry
+{
+    CSidechainEvents scEvents;
+
+    CSidechainEventsCacheEntry(): CMutableSidechainCacheEntry(Flags::DEFAULT), scEvents() {}
+    CSidechainEventsCacheEntry(const CSidechainEvents & _scList, Flags _flag):
+        CMutableSidechainCacheEntry(_flag), scEvents(_scList) {}
+
+    // Not an equality operator since we want to neglect flag
+    bool ContentCheck(const CSidechainEventsCacheEntry& rhs) {return this->scEvents == rhs.scEvents;}
+};
+
+struct CCswNullifiersCacheEntry: public CImmutableSidechainCacheEntry
+{
+    CCswNullifiersCacheEntry(Flags _flag = Flags::DEFAULT): CImmutableSidechainCacheEntry(_flag) {}
+};
+
+typedef boost::unordered_map<uint256, CCoinsCacheEntry, CCoinsKeyHasher>      CCoinsMap;
+typedef boost::unordered_map<uint256, CAnchorsCacheEntry, CCoinsKeyHasher>    CAnchorsMap;
 typedef boost::unordered_map<uint256, CNullifiersCacheEntry, CCoinsKeyHasher> CNullifiersMap;
+
+typedef boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> CSidechainsMap;
+typedef boost::unordered_map<int, CSidechainEventsCacheEntry> CSidechainEventsMap;
+typedef boost::unordered_map<std::pair<uint256, CFieldElement>, CCswNullifiersCacheEntry, CCswNullifiersKeyHasher> CCswNullifiersMap;
 
 struct CCoinsStats
 {
@@ -356,11 +497,33 @@ public:
     //! This may (but cannot always) return true for fully spent transactions
     virtual bool HaveCoins(const uint256 &txid) const;
 
+    //! Just check whether we have data for a given sidechain id.
+    virtual bool HaveSidechain(const uint256& scId) const;
+
+    //! Retrieve the Sidechain informations for a given sidechain id.
+    virtual bool GetSidechain(const uint256& scId, CSidechain& info) const;
+
+    //! Just check whether we have ceasing sidechains at given height
+    virtual bool HaveSidechainEvents(int height) const;
+
+    //! Retrieve the scId list of sidechain ceasing at given height.
+    virtual bool GetSidechainEvents(int height, CSidechainEvents& scEvent) const;
+
+    //! Retrieve all the known sidechain ids
+    virtual void GetScIds(std::set<uint256>& scIdsList) const;
+
+    //! Check if cert has enough quality to be accepted
+    virtual bool CheckQuality(const CScCertificate& cert) const;
+
     //! Retrieve the block hash whose state this CCoinsView currently represents
     virtual uint256 GetBestBlock() const;
 
     //! Get the current "tip" or the latest anchored tree root in the chain
     virtual uint256 GetBestAnchor() const;
+    
+    //! Retrieve existance of CSW nullifier for specified Sidechain.
+    virtual bool HaveCswNullifier(const uint256& scId,
+                                  const CFieldElement& nullifier) const;
 
     //! Do a bulk modification (multiple CCoins changes + BestBlock change).
     //! The passed mapCoins can be modified.
@@ -368,7 +531,10 @@ public:
                             const uint256 &hashBlock,
                             const uint256 &hashAnchor,
                             CAnchorsMap &mapAnchors,
-                            CNullifiersMap &mapNullifiers);
+                            CNullifiersMap &mapNullifiers,
+                            CSidechainsMap& mapSidechains,
+                            CSidechainEventsMap& mapCeasedScs,
+                            CCswNullifiersMap& cswNullifiers);
 
     //! Calculate statistics about the unspent transaction output set
     virtual bool GetStats(CCoinsStats &stats) const;
@@ -386,19 +552,30 @@ protected:
 
 public:
     CCoinsViewBacked(CCoinsView *viewIn);
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const;
-    bool GetNullifier(const uint256 &nullifier) const;
-    bool GetCoins(const uint256 &txid, CCoins &coins) const;
-    bool HaveCoins(const uint256 &txid) const;
-    uint256 GetBestBlock() const;
-    uint256 GetBestAnchor() const;
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override;
+    bool GetNullifier(const uint256 &nullifier)                        const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)                  const override;
+    bool HaveCoins(const uint256 &txid)                                const override;
+    bool HaveSidechain(const uint256& scId)                            const override;
+    bool GetSidechain(const uint256& scId, CSidechain& info)           const override;
+    bool HaveSidechainEvents(int height)                               const override;
+    bool GetSidechainEvents(int height, CSidechainEvents& scEvents)    const override;
+    void GetScIds(std::set<uint256>& scIdsList)                        const override;
+    bool CheckQuality(const CScCertificate& cert)                      const override;
+    uint256 GetBestBlock()                                             const override;
+    uint256 GetBestAnchor()                                            const override;
+    bool HaveCswNullifier(const uint256& scId,
+                          const CFieldElement &nullifier)              const override;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers);
-    bool GetStats(CCoinsStats &stats) const;
+                    CNullifiersMap &mapNullifiers,
+                    CSidechainsMap& mapSidechains,
+                    CSidechainEventsMap& mapCeasedScs,
+                    CCswNullifiersMap& cswNullifiers)                  override;
+    bool GetStats(CCoinsStats &stats)                                  const override;
 };
 
 
@@ -436,32 +613,41 @@ protected:
      * Make mutable so that we can "fill the cache" even from Get-methods
      * declared as "const".  
      */
-    mutable uint256 hashBlock;
-    mutable CCoinsMap cacheCoins;
-    mutable uint256 hashAnchor;
-    mutable CAnchorsMap cacheAnchors;
+    mutable uint256        hashBlock;
+    mutable CCoinsMap      cacheCoins;
+    mutable CSidechainsMap cacheSidechains;
+    mutable CSidechainEventsMap cacheSidechainEvents;
+    mutable uint256        hashAnchor;
+    mutable CAnchorsMap    cacheAnchors;
     mutable CNullifiersMap cacheNullifiers;
+    mutable CCswNullifiersMap cacheCswNullifiers;
 
     /* Cached dynamic memory usage for the inner CCoins objects. */
     mutable size_t cachedCoinsUsage;
 
 public:
     CCoinsViewCache(CCoinsView *baseIn);
+    CCoinsViewCache(const CCoinsViewCache &) = delete; //we prevent accidentally using it when one intends to create a cache on top of a base cache.
     ~CCoinsViewCache();
 
     // Standard CCoinsView methods
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const;
-    bool GetNullifier(const uint256 &nullifier) const;
-    bool GetCoins(const uint256 &txid, CCoins &coins) const;
-    bool HaveCoins(const uint256 &txid) const;
-    uint256 GetBestBlock() const;
-    uint256 GetBestAnchor() const;
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override;
+    bool GetNullifier(const uint256 &nullifier)                        const override;
+    bool GetCoins(const uint256 &txid, CCoins &coins)                  const override;
+    bool HaveCoins(const uint256 &txid)                                const override;
+    uint256 GetBestBlock()                                             const override;
+    uint256 GetBestAnchor()                                            const override;
+    int GetHeight() const; // Return view height, which is inputs.GetBestBlock() (aka parent block) one.
     void SetBestBlock(const uint256 &hashBlock);
+    size_t WriteCoins(const uint256& key, CCoinsCacheEntry& value);
     bool BatchWrite(CCoinsMap &mapCoins,
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers);
+                    CNullifiersMap &mapNullifiers,
+                    CSidechainsMap& mapSidechains,
+                    CSidechainEventsMap& mapCeasedScs,
+                    CCswNullifiersMap& cswNullifiers)                  override;
 
 
     // Adds the tree to mapAnchors and sets the current commitment
@@ -494,6 +680,93 @@ public:
      * Failure to call this method before destruction will cause the changes to be forgotten.
      * If false is returned, the state of this cache (and its backing view) will be undefined.
      */
+
+    //SIDECHAIN RELATED PUBLIC MEMBERS
+    bool HaveSidechain(const uint256& scId)                           const override;
+    bool GetSidechain(const uint256 & scId, CSidechain& targetSidechain) const override;
+    void GetScIds(std::set<uint256>& scIdsList)                       const override;
+
+    CValidationState::Code IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scCheckType, bool* banSenderNode = nullptr) const;
+    bool CheckScTxTiming(const uint256& scId) const;
+
+    bool IsFtScFeeApplicable(const CTxForwardTransferOut& ftOutput) const;
+    bool IsMbtrScFeeApplicable(const CBwtRequestOut& mbtrOutput) const;
+
+    bool CheckMinimumFtScFee(const CTxForwardTransferOut& ftOutput, CAmount* minVal = nullptr) const;
+    bool CheckMinimumMbtrScFee(const CBwtRequestOut& mbtrOutput, CAmount* minVal = nullptr) const;
+
+    bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
+    bool RevertTxOutputs(const CTransaction& tx, int nHeight);
+    int getScCoinsMaturity();
+
+    //CERTIFICATES RELATED PUBLIC MEMBERS
+    CValidationState::Code IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode = nullptr) const;
+
+    CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(
+        const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot) const;
+
+    bool CheckCertTiming(const uint256& scId, int certEpoch) const;
+    bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
+    bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
+    bool CheckQuality(const CScCertificate& cert)  const override;
+    void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
+    bool RestoreBackwardTransfers(const uint256& certHash, const std::vector<CTxInUndo>& outsToRestore);
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    /**
+     * @brief The enumeration of allowed operations related to the indexes update.
+     * When connecting a new block, a previous top quality certificate get superseded.
+     * When disconnecting a block, a lower quality certificate becomes a top quality one
+     * and its Backward Transfers must be restored.
+     */
+    enum class flagIndexesUpdateType
+    {
+        SUPERSEDE_CERTIFICATE,      /**< Perform the normal/complete procedure applying changes. */
+        RESTORE_CERTIFICATE         /**< Perofrm only the validity check and do not apply any changes. */
+    };
+
+    void UpdateBackwardTransferIndexes(const uint256& certHash,
+                                        int certIndex,
+                                        std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
+                                        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex,
+                                        flagIndexesUpdateType updateType);
+#endif // ENABLE_ADDRESS_INDEXING
+
+    //SIDECHAINS EVENTS RELATED MEMBERS
+    bool HaveSidechainEvents(int height)                            const override;
+    bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override;
+
+    bool HandleSidechainEvents(int height, CBlockUndo& blockUndo, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
+    bool RevertSidechainEvents(const CBlockUndo& blockUndo, int height, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo);
+
+    void HandleTxIndexSidechainEvents(int height, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<uint256, CTxIndexValue>>& txIndex);
+    void RevertTxIndexSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<uint256, CTxIndexValue>>& txIndex);
+
+    void HandleMaturityHeightIndexSidechainEvents(int height, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<CMaturityHeightKey,CMaturityHeightValue>>& maturityHeightIndex);
+    void RevertMaturityHeightIndexSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
+                                                   std::vector<std::pair<CMaturityHeightKey,CMaturityHeightValue>>& maturityHeightIndex);
+#ifdef ENABLE_ADDRESS_INDEXING
+    void HandleIndexesSidechainEvents(int height, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
+                                      std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex);
+
+    void RevertIndexesSidechainEvents(int height, CBlockUndo& blockUndo, CBlockTreeDB* pblocktree,
+                                      std::vector<std::pair<CAddressIndexKey, CAddressIndexValue>>& addressIndex,
+                                      std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>& addressUnspentIndex);
+#endif // ENABLE_ADDRESS_INDEXING
+
+    //CSW NULLIFIER PUBLIC MEMBERS
+    bool HaveCswNullifier(const uint256& scId, const CFieldElement &nullifier) const override;
+    bool AddCswNullifier(const uint256& scId, const CFieldElement &nullifier);
+    bool RemoveCswNullifier(const uint256& scId, const CFieldElement &nullifier);
+
+    CFieldElement GetCeasingCumTreeHash(const uint256& scId) const;
+    const CScCertificateView& GetActiveCertView(const uint256& scId) const;
+    CSidechain::State GetSidechainState(const uint256& scId) const;
+
     bool Flush();
 
     //! Calculate the size of the cache (in number of transactions)
@@ -507,32 +780,36 @@ public:
      * Note that lightweight clients may not know anything besides the hash of previous transactions,
      * so may not be able to calculate this.
      *
-     * @param[in] tx	transaction for which we are checking input total
-     * @return	Sum of value of all inputs (scriptSigs)
+     * @param[in] tx    transaction for which we are checking input total
+     * @return    Sum of value of all inputs (scriptSigs)
      */
-    CAmount GetValueIn(const CTransaction& tx) const;
+    CAmount GetValueIn(const CTransactionBase& tx) const;
 
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
-    bool HaveInputs(const CTransaction& tx) const;
+    bool HaveInputs(const CTransactionBase& txBase) const;
 
     //! Check whether all joinsplit requirements (anchors/nullifiers) are satisfied
-    bool HaveJoinSplitRequirements(const CTransaction& tx) const;
+    bool HaveJoinSplitRequirements(const CTransactionBase& txBase) const;
 
     //! Return priority of tx at height nHeight
-    double GetPriority(const CTransaction &tx, int nHeight) const;
+    double GetPriority(const CTransactionBase &tx, int nHeight) const;
 
     const CTxOut &GetOutputFor(const CTxIn& input) const;
 
     friend class CCoinsModifier;
 
 private:
-    CCoinsMap::iterator FetchCoins(const uint256 &txid);
-    CCoinsMap::const_iterator FetchCoins(const uint256 &txid) const;
+    CCoinsMap::const_iterator           FetchCoins(const uint256 &txid)       const;
+    CCoinsMap::iterator                 FetchCoins(const uint256 &txid);
+    CSidechainsMap::const_iterator      FetchSidechains(const uint256& scId)  const;
+    CSidechainsMap::iterator            ModifySidechain(const uint256& scId);
+    const CSidechain* const             AccessSidechain(const uint256& scId)  const;
+    CSidechainEventsMap::const_iterator FetchSidechainEvents(int height)      const;
+    CSidechainEventsMap::iterator       ModifySidechainEvents(int height);
 
-    /**
-     * By making the copy constructor private, we prevent accidentally using it when one intends to create a cache on top of a base cache.
-     */
-    CCoinsViewCache(const CCoinsViewCache &);
+    static int getInitScCoinsMaturity();
+
+    bool DecrementImmatureAmount(const uint256& scId, const CSidechainsMap::iterator& targetEntry, CAmount nValue, int maturityHeight);
 };
 
 #endif // BITCOIN_COINS_H

@@ -74,6 +74,11 @@ public:
 
 }
 
+CachingTransactionSignatureChecker::CachingTransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn,
+                                                                       const CChain* chainIn, bool storeIn):
+                                                                        TransactionSignatureChecker(txToIn, nInIn, chainIn),
+                                                                        store(storeIn) {}
+
 bool CachingTransactionSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
 {
     static CSignatureCache signatureCache;
@@ -82,6 +87,26 @@ bool CachingTransactionSignatureChecker::VerifySignature(const std::vector<unsig
         return true;
 
     if (!TransactionSignatureChecker::VerifySignature(vchSig, pubkey, sighash))
+        return false;
+
+    if (store)
+        signatureCache.Set(sighash, vchSig, pubkey);
+    return true;
+}
+
+CachingCertificateSignatureChecker::CachingCertificateSignatureChecker(const CScCertificate* certToIn, unsigned int nInIn,
+                                                                       const CChain* chainIn, bool storeIn):
+                                                                        CertificateSignatureChecker(certToIn, nInIn, chainIn),
+                                                                        store(storeIn) {}
+
+bool CachingCertificateSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
+{
+    static CSignatureCache signatureCache;
+
+    if (signatureCache.Get(sighash, vchSig, pubkey))
+        return true;
+
+    if (!CertificateSignatureChecker::VerifySignature(vchSig, pubkey, sighash))
         return false;
 
     if (store)

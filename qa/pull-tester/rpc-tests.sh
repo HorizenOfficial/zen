@@ -7,6 +7,7 @@ CURDIR=$(cd $(dirname "$0"); pwd)
 
 export BITCOINCLI="${BUILDDIR}/qa/pull-tester/run-bitcoin-cli"
 export BITCOIND="${REAL_BITCOIND}"
+export ZENDOOMC="${REAL_ZENDOO_MC_TEST}"
 
 # parse args
 for i in "$@"; do
@@ -74,10 +75,62 @@ testScripts=(
   'blockdelay.py'
   'blockdelay_2.py'
   'z_sendmany.py'
+  'sc_create.py'
+  'sc_create_2.py'
+  'sc_split.py'
+  'sc_invalidate.py'
+  'sc_cert_base.py'
+  'sc_cert_fee.py'
+  'sc_cert_epoch.py'
+  'sc_cert_invalidate.py'
+  'sc_fwd_maturity.py'
+  'sc_rawcertificate.py'
+  'getunconfirmedtxdata.py'
+  'sc_cr_and_fw_in_mempool.py'
+  'sc_cert_change.py'
+  'sc_cert_orphans.py'
+  'sc_cert_maturity.py'
+  'sbh_rpc_cmds.py'
+  'sc_cert_ceasing.py'
+  'sc_cert_customfields.py'
+  'sc_cert_getraw.py'
+  'sc_quality_mempool.py'
+  'sc_ft_and_mbtr_fees.py'
+  'sc_bwt_request.py'
+  'sc_cert_quality_wallet.py'
+  'ws_messages.py'
+  'sc_cert_ceasing_split.py'
+  'sc_async_proof_verifier.py'
+  'sc_quality_blockchain.py'
+  'sc_quality_voiding.py'
+  'sc_csw_actcertdata.py'
+  'sc_csw_actcertdata_null.py'
+  'sc_cert_ceasing_sg.py'
+  'sc_csw_nullifier.py'
+  'sc_getscinfo.py'
+  'sc_quality_nodes.py'
+  'sc_cert_memcleanup_split.py'
+  'sc_csw_fundrawtransaction.py'
+  'sc_proof_verifier_low_priority_threads.py'
+  'subsidyhalving.py'
   'cbh_rpfix.py'
   'cbh_rpcheck.py'
   'tlsprotocols.py'
-  'subsidyhalving.py'
+  'getblockmerkleroots.py'
+  'sc_block_partitions.py'
+  'sc_cert_bwt_amount_rounding.py'
+  'sc_csw_eviction_from_mempool.py'
+  'sc_csw_memcleanup_split.py'
+  'sc_csw_balance_exceeding.py'
+  'sc_stale_ft_and_mbtr.py'
+  'sc_cert_getblocktemplate.py'
+  'sc_cert_bt_immature_balances.py'
+  'sc_rpc_cmds_fee_handling.py'
+  'sc_cert_listsinceblock.py'
+  'sc_cert_dust.py'
+  'txindex.py'
+  'getblockexpanded.py'
+  'sc_rpc_cmds_json_output.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
@@ -109,6 +162,7 @@ testScriptsExt=(
   'headers_09.py'
   'headers_10.py'
   'checkblockatheight.py'
+  'sc_big_block.py'
 );
 
 if [ "x$ENABLE_ZMQ" = "x1" ]; then
@@ -117,6 +171,14 @@ fi
 
 if [ "x$ENABLE_PROTON" = "x1" ]; then
   testScripts+=('proton_test.py')
+fi
+
+if [ "x$ENABLE_ADDRESS_INDEX" = "x1" ]; then
+  testScripts+=('addressindex.py'
+                'spentindex.py'
+                'timestampindex.py'
+                'sc_cert_addressindex.py'
+                'sc_cert_addrmempool.py')
 fi
 
 # include extended tests

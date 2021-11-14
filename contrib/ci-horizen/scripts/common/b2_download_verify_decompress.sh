@@ -11,10 +11,10 @@ if command -v pigz > /dev/null; then
 fi
 
 
-if [ "${RENAME_FOLDER}" = "true" ] && [ ! -z "${RENAME_SUFFIX}" ]; then
+if [ "${RENAME_FOLDER}" = "true" ] && [ -n "${RENAME_SUFFIX}" ]; then
   mv "${FOLDERNAME}" "${FOLDERNAME}${RENAME_SUFFIX}"
 fi
-if command -v aria2c 2>&1 > /dev/null; then
+if command -v aria2c &> /dev/null; then
   aria2c --file-allocation=none --max-tries=3 --continue=true "${B2_DOWNLOAD_URL}${FILENAME}.sha256" -d "${HOME}" || FAILURE="true"
   aria2c --file-allocation=none -s16 -x16 --max-tries=3 --continue=true "${B2_DOWNLOAD_URL}${FILENAME}" -d "${HOME}" || FAILURE="true"
 else

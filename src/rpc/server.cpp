@@ -109,6 +109,18 @@ void RPCTypeCheckObj(const UniValue& o,
     }
 }
 
+CAmount SignedAmountFromValue(const UniValue& value)
+{
+    if (!value.isNum() && !value.isStr())
+        throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
+    CAmount amount;
+    if (!ParseFixedPoint(value.getValStr(), 8, &amount))
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
+    if (amount > MAX_MONEY)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
+    return amount;
+}
+
 CAmount AmountFromValue(const UniValue& value)
 {
     if (!value.isNum() && !value.isStr())
@@ -276,6 +288,13 @@ static const CRPCCommand vRPCCommands[] =
     { "control",            "help",                   &help,                   true  },
     { "control",            "stop",                   &stop,                   true  },
     { "control",            "dbg_log",                &dbg_log,                true  },
+    { "control",            "dbg_do",                 &dbg_do,                 true  },
+    { "control",            "getscinfo",              &getscinfo,              true  },
+    { "control",            "getactivecertdatahash",  &getactivecertdatahash,  true  },
+    { "control",            "getceasingcumsccommtreehash", &getceasingcumsccommtreehash, true  },
+    { "control",            "getscgenesisinfo",       &getscgenesisinfo,       true  },
+    { "control",            "getproofverifierstats",  &getproofverifierstats,  true  },
+    { "control",            "setproofverifierlowpriorityguard",  &setproofverifierlowpriorityguard,  true  },
 
     /* P2P networking */
     { "network",            "getnetworkinfo",         &getnetworkinfo,         true  },
@@ -295,6 +314,14 @@ static const CRPCCommand vRPCCommands[] =
     { "blockchain",         "getbestblockhash",       &getbestblockhash,       true  },
     { "blockchain",         "getblockcount",          &getblockcount,          true  },
     { "blockchain",         "getblock",               &getblock,               true  },
+    { "blockchain",         "getblockexpanded",       &getblockexpanded,       true  },
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    { "blockchain",         "getblockdeltas",         &getblockdeltas,         false },
+    { "blockchain",         "getblockhashes",         &getblockhashes,         true  },
+    { "blockchain",         "getspentinfo",           &getspentinfo,           false },
+#endif // ENABLE_ADDRESS_INDEXING
+
     { "blockchain",         "getblockhash",           &getblockhash,           true  },
     { "blockchain",         "getblockfinalityindex",  &getblockfinalityindex,  true  },
     { "blockchain",         "getglobaltips",          &getglobaltips,          true  },
@@ -308,6 +335,9 @@ static const CRPCCommand vRPCCommands[] =
     { "blockchain",         "verifytxoutproof",       &verifytxoutproof,       true  },
     { "blockchain",         "gettxoutsetinfo",        &gettxoutsetinfo,        true  },
     { "blockchain",         "verifychain",            &verifychain,            true  },
+    { "blockchain",         "checkcswnullifier",      &checkcswnullifier,      true  },
+    { "blockchain",         "getcertmaturityinfo",    &getcertmaturityinfo,    true  },
+    { "blockchain",         "clearmempool",           &clearmempool,           true  },
 
     /* Mining */
     { "mining",             "getblocktemplate",       &getblocktemplate,       true  },
@@ -318,6 +348,8 @@ static const CRPCCommand vRPCCommands[] =
     { "mining",             "prioritisetransaction",  &prioritisetransaction,  true  },
     { "mining",             "submitblock",            &submitblock,            true  },
     { "mining",             "getblocksubsidy",        &getblocksubsidy,        true  },
+    { "mining",             "getblockmerkleroots",    &getblockmerkleroots,    true  },
+
 
 #ifdef ENABLE_MINING
     /* Coin generation */
@@ -329,6 +361,7 @@ static const CRPCCommand vRPCCommands[] =
     /* Raw transactions */
     { "rawtransactions",    "createrawtransaction",   &createrawtransaction,   true  },
     { "rawtransactions",    "decoderawtransaction",   &decoderawtransaction,   true  },
+    { "rawtransactions",    "createrawcertificate",   &createrawcertificate,   true  },
     { "rawtransactions",    "decodescript",           &decodescript,           true  },
     { "rawtransactions",    "getrawtransaction",      &getrawtransaction,      true  },
     { "rawtransactions",    "sendrawtransaction",     &sendrawtransaction,     false },
@@ -336,6 +369,15 @@ static const CRPCCommand vRPCCommands[] =
 #ifdef ENABLE_WALLET
     { "rawtransactions",    "fundrawtransaction",     &fundrawtransaction,     false },
 #endif
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    /* Address index */
+    { "addressindex",       "getaddressmempool",      &getaddressmempool,      true  },
+    { "addressindex",       "getaddressutxos",        &getaddressutxos,        false },
+    { "addressindex",       "getaddressdeltas",       &getaddressdeltas,       false },
+    { "addressindex",       "getaddresstxids",        &getaddresstxids,        false },
+    { "addressindex",       "getaddressbalance",      &getaddressbalance,      false },
+#endif // ENABLE_ADDRESS_INDEXING
 
     /* Utility functions */
     { "util",               "createmultisig",         &createmultisig,         true  },
@@ -382,6 +424,8 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "listreceivedbyaddress",  &listreceivedbyaddress,  false },
     { "wallet",             "listsinceblock",         &listsinceblock,         false },
     { "wallet",             "listtransactions",       &listtransactions,       false },
+    { "wallet",             "listtxesbyaddress",      &listtxesbyaddress,      false },
+    { "wallet",             "getunconfirmedtxdata",   &getunconfirmedtxdata,   false },
     { "wallet",             "listunspent",            &listunspent,            false },
     { "wallet",             "lockunspent",            &lockunspent,            true  },
     { "wallet",             "move",                   &movecmd,                false },
@@ -415,6 +459,11 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "z_importviewingkey",     &z_importviewingkey,     true  },
     { "wallet",             "z_exportwallet",         &z_exportwallet,         true  },
     { "wallet",             "z_importwallet",         &z_importwallet,         true  },
+    { "wallet",             "sc_send_certificate",    &sc_send_certificate,    false },
+    // useful for sbh wallet
+    { "wallet",             "sc_create",              &sc_create,              false },
+    { "wallet",             "sc_send",                &sc_send,                false },
+    { "wallet",             "sc_request_transfer",    &sc_request_transfer,    false },
 
     // TODO: rearrange into another category 
     { "disclosure",         "z_getpaymentdisclosure", &z_getpaymentdisclosure, true  }, 
@@ -527,8 +576,8 @@ void JSONRequest::parse(const UniValue& valRequest)
     if (!valMethod.isStr())
         throw JSONRPCError(RPC_INVALID_REQUEST, "Method must be a string");
     strMethod = valMethod.get_str();
-    if (strMethod != "getblocktemplate")
-        LogPrint("rpc", "ThreadRPCServer method=%s\n", SanitizeString(strMethod));
+
+    LogPrint("rpc", "ThreadRPCServer method=%s\n", SanitizeString(strMethod));
 
     // Parse params
     UniValue valParams = find_value(request, "params");

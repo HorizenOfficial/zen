@@ -221,8 +221,68 @@ TEST(ForkManager, FutureTimeStampRegtest) {
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(0), false);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(2), false);
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(200), false);
-	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(249), false);
-	int futureTimeStampActivation = 250;
+	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(209), false);
+	int futureTimeStampActivation = 210;
 	EXPECT_EQ(ForkManager::getInstance().isFutureMiningTimeStampActive(futureTimeStampActivation), true);
 	EXPECT_EQ(ForkManager::getInstance().isFutureTimeStampActive(futureTimeStampActivation), true);
+}
+
+TEST(ForkManager, SidechainForkRegtest) {
+	SelectParams(CBaseChainParams::REGTEST);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(0), false);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(419), false);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(420), true);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(421), true);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(0), 0);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(419), 0);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(420), SC_TX_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(421), SC_TX_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(0), 0);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(419), 0);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(420), SC_CERT_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(421), SC_CERT_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(0), BLOCK_VERSION_ORIGINAL);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(419), BLOCK_VERSION_BEFORE_SC);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(420), BLOCK_VERSION_SC_SUPPORT);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(421), BLOCK_VERSION_SC_SUPPORT);
+}
+
+TEST(ForkManager, SidechainForkTestnet) {
+	SelectParams(CBaseChainParams::TESTNET);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(0), false);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(926224), false);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(926225), true);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(926226), true);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(0), 0);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(926224), 0);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(926225), SC_TX_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(926226), SC_TX_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(0), 0);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(926224), 0);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(926225), SC_CERT_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(926226), SC_CERT_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(0), BLOCK_VERSION_ORIGINAL);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(926224), BLOCK_VERSION_BEFORE_SC);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(926225), BLOCK_VERSION_SC_SUPPORT);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(926226), BLOCK_VERSION_SC_SUPPORT);
+}
+
+TEST(ForkManager, SidechainForkMainnet) {
+	SelectParams(CBaseChainParams::MAIN);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(0), false);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(1047623), false);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(1047624), true);
+	EXPECT_EQ(ForkManager::getInstance().areSidechainsSupported(1047625), true);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(0), 0);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(1047623), 0);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(1047624), SC_TX_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getSidechainTxVersion(1047625), SC_TX_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(0), 0);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(1047623), 0);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(1047624), SC_CERT_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getCertificateVersion(1047625), SC_CERT_VERSION);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(0), BLOCK_VERSION_ORIGINAL);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047623), BLOCK_VERSION_BEFORE_SC);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047624), BLOCK_VERSION_SC_SUPPORT);
+	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047625), BLOCK_VERSION_SC_SUPPORT);
 }

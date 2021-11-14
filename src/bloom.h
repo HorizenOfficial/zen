@@ -10,7 +10,7 @@
 #include <vector>
 
 class COutPoint;
-class CTransaction;
+class CTransactionBase;
 class uint256;
 
 //! 20,000 items with fp rate < 0.1% or 10,000 items and <0.0001%
@@ -96,7 +96,7 @@ public:
     bool IsWithinSizeConstraints() const;
 
     //! Also adds any outputs which match the filter to the filter (to match their spending txes)
-    bool IsRelevantAndUpdate(const CTransaction& tx);
+    bool IsRelevantAndUpdate(const CTransactionBase& tx);
 
     //! Checks for empty and full filters to avoid wasting cpu
     void UpdateEmptyFull();

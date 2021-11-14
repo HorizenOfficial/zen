@@ -50,8 +50,6 @@ public:
         consensus.nPowMaxAdjustUp = 16; // 16% adjustment up
         consensus.nPowTargetSpacing = 2.5 * 60;
 //        consensus.fPowAllowMinDifficultyBlocks = false;
-        consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
-        consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
 
         /**
          * ZEN Network Magic Start Value
@@ -82,10 +80,10 @@ public:
         CMutableTransaction txNew;
         txNew.nVersion = 1;
         txNew.vin.resize(1);
-        txNew.vout.resize(1);
         txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
-        txNew.vout[0].nValue = 0;
-        txNew.vout[0].scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
+        txNew.addOut(CTxOut());
+        txNew.getOut(0).nValue = 0;
+        txNew.getOut(0).scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
         genesis.vtx.push_back(txNew);
         genesis.hashPrevBlock.SetNull();
         genesis.hashMerkleRoot = genesis.BuildMerkleTree();
@@ -135,6 +133,11 @@ public:
 
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 52596;
+        nScCoinsMaturity = 10;
+        nScNumBlocksForScFeeCheck = 200;
+        nScMinWithdrawalEpochLength = 100;
+        nScMaxWithdrawalEpochLength = 4032; // one week at 1 block/2.5 min rate
+        nScMaxNumberOfCswInputsInMempool = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
@@ -152,11 +155,12 @@ public:
             ( 724100, uint256S("0x000000000ab34fd9c61be9f10a11a97f63a0f26c8f530e67a6397fb9934709dc"))
             ( 812000, uint256S("0x0000000000bccf70e0d2caa0473279decddb798f456d5a4bb399898e00eb4ce9"))
             ( 902500, uint256S("0x0000000001258f2009278d042ed42dfd825de9a2bc31e410c0463bc8d6371ee4"))
-            ( 1014400, uint256S("0x00000000001564ef09ddc49728c4c44701fd348c418ced0ee9f656660cc08e3a")),
-            1633340596,     // * UNIX timestamp of last checkpoint block
-            24365699,       // * total number of transactions between genesis and last checkpoint
+            ( 1014400, uint256S("0x00000000001564ef09ddc49728c4c44701fd348c418ced0ee9f656660cc08e3a"))
+            ( 1035000, uint256S("0x0000000002cadc8f4c43ab96406211c489318c2e56b8e7d1e4e4b9fa5dffeea5")),
+            1636457101,     // * UNIX timestamp of last checkpoint block
+            25118518,       // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            13836           // * estimated number of transactions per day after checkpoint
+            13985           // * estimated number of transactions per day after checkpoint
                             //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
@@ -181,8 +185,6 @@ public:
         consensus.powLimit = uint256S("07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
 //        consensus.fPowAllowMinDifficultyBlocks = true;
-        consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
-        consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
 
         pchMessageStart[0] = 0xbf;
         pchMessageStart[1] = 0xf2;
@@ -205,7 +207,7 @@ public:
         vSeeds.push_back(CDNSSeedData("dnsseed.testnet.horizen.global", "dnsseed.testnet.horizen.global")); // dns seeder
         vSeeds.push_back(CDNSSeedData("dnsseed.testnet.zensystem.io", "dnsseed.testnet.zensystem.io")); // dns seeder
         vSeeds.push_back(CDNSSeedData("testnet.horizen.global", "testnet.horizen.global")); // fixed seed
-        vSeeds.push_back(CDNSSeedData("tesntet.zensytem.io", "tesntet.zensystem.io")); // fixed seed
+        vSeeds.push_back(CDNSSeedData("testnet.zensystem.io", "testnet.zensystem.io")); // fixed seed
         vSeeds.push_back(CDNSSeedData("node1.zenchain.info", "node1.zenchain.info")); // fixed seed
 
         // guarantees the first 2 characters, when base58 encoded, are "zt"
@@ -238,6 +240,11 @@ public:
 
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 52596;
+        nScCoinsMaturity = 10;
+        nScNumBlocksForScFeeCheck = 200;
+        nScMinWithdrawalEpochLength = 100;
+        nScMaxWithdrawalEpochLength = 4032;
+        nScMaxNumberOfCswInputsInMempool = 100;
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
@@ -251,11 +258,15 @@ public:
             (643000, uint256S("0x0000cabf39e3ac435d54b95c32e6173d6bb1b060066ecb7453d2146a0dd40947"))
             (729000, uint256S("0x00013f6d5315f29094287bf0981b177098c5d467422bc4ab7764f88f11333f5f"))
             (816500, uint256S("0x0004c69745c68058fb35b2a8e090887500f71f7e107f0fd6f3e57d21afa5fe76"))
-            (926224, uint256S("0x0001bbe15a4dc7b4c580ba3211c0d074d5716a0eb924d228440f88e0dfc23248")), // last block before zendoo hard fork activation
-            1632938878,     // * UNIX timestamp of last checkpoint block
-            1755729,        // * total number of transactions between genesis and last checkpoint
+            (869828, uint256S("0x0009d4d6d27f523b76ef9ed76b4a4c5044d30b3a6248b0a7296bdc58a5524c05"))
+            (924840, uint256S("0x0007e7525b8958d387aedbfbc622feed4a82d7ecb1033a080af75dcb8933a453"))
+            (926224, uint256S("0x0001bbe15a4dc7b4c580ba3211c0d074d5716a0eb924d228440f88e0dfc23248")) // pre fork8
+            (926225, uint256S("0x0002032ec1b1cc65502e24959a3fb6ed04ff52ff67add53c90cddfeca6cd13c6")) // fork8 activation
+            (949700, uint256S("0x0001ec9be52a04c305335d0669bd2aa283248be6f274ab5280bd883d8b8db0d8")),
+            1636479796,     // * UNIX timestamp of last checkpoint block
+            1779598,        // * total number of transactions between genesis and last checkpoint
                             //   (the tx=... number in the SetBestChain debug.log lines)
-            1091            //   total number of tx / (checkpoint block height / (24 * 24))
+            1079            //   total number of tx / (checkpoint block height / (24 * 24))
         };
 
 //  commented out - seems to make no sense but kept around for reference just in case
@@ -282,8 +293,6 @@ public:
         assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
         consensus.nPowMaxAdjustDown = 0; // Turn off adjustment down
         consensus.nPowMaxAdjustUp = 0; // Turn off adjustment up
-        consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
-        consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
 
         pchMessageStart[0] = 0x2f;
         pchMessageStart[1] = 0x54;
@@ -319,6 +328,11 @@ public:
 
         nCbhMinimumAge = 99;
         nCbhSafeDepth = 320;
+        nScCoinsMaturity = 3;
+        nScNumBlocksForScFeeCheck = 10;
+        nScMinWithdrawalEpochLength = 2;
+        nScMaxWithdrawalEpochLength = 4032;
+        nScMaxNumberOfCswInputsInMempool = 5;
 
         checkpointData = (Checkpoints::CCheckpointData){
             boost::assign::map_list_of

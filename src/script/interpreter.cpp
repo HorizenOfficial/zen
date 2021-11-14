@@ -1007,16 +1007,16 @@ namespace {
  */
 class CTransactionSignatureSerializer {
 private:
-    const CTransaction &txTo;  //! reference to the spending transaction (the one being serialized)
+    const CTransactionBase &txBaseTo;  //! reference to the spending transaction (the one being serialized)
     const CScript &scriptCode; //! output script being consumed
-    const unsigned int nIn;    //! input index of txTo being signed
+    const unsigned int nIn;    //! input index (both regular and CSW) of txBaseTo being signed
     const bool fAnyoneCanPay;  //! whether the hashtype has the SIGHASH_ANYONECANPAY flag set
     const bool fHashSingle;    //! whether the hashtype is SIGHASH_SINGLE
     const bool fHashNone;      //! whether the hashtype is SIGHASH_NONE
 
 public:
-    CTransactionSignatureSerializer(const CTransaction &txToIn, const CScript &scriptCodeIn, unsigned int nInIn, int nHashTypeIn) :
-        txTo(txToIn), scriptCode(scriptCodeIn), nIn(nInIn),
+    CTransactionSignatureSerializer(const CTransactionBase &txToIn, const CScript &scriptCodeIn, unsigned int nInIn, int nHashTypeIn) :
+        txBaseTo(txToIn), scriptCode(scriptCodeIn), nIn(nInIn),
         fAnyoneCanPay(!!(nHashTypeIn & SIGHASH_ANYONECANPAY)),
         fHashSingle((nHashTypeIn & 0x1f) == SIGHASH_SINGLE),
         fHashNone((nHashTypeIn & 0x1f) == SIGHASH_NONE) {}
@@ -1036,7 +1036,7 @@ public:
         if (fAnyoneCanPay)
             nInput = nIn;
         // Serialize the prevout
-        ::Serialize(s, txTo.vin[nInput].prevout, nType, nVersion);
+        ::Serialize(s, txBaseTo.GetVin()[nInput].prevout, nType, nVersion);
         // Serialize the script
         assert(nInput != NOT_AN_INPUT);
         if (nInput != nIn)
@@ -1049,9 +1049,9 @@ public:
             // let the others update at will
             ::Serialize(s, (int)0, nType, nVersion);
         else
-            ::Serialize(s, txTo.vin[nInput].nSequence, nType, nVersion);
+            ::Serialize(s, txBaseTo.GetVin()[nInput].nSequence, nType, nVersion);
     }
-
+    
     /** Serialize an output of txTo */
     template<typename S>
     void SerializeOutput(S &s, unsigned int nOutput, int nType, int nVersion) const {
@@ -1059,43 +1059,159 @@ public:
             // Do not lock-in the txout payee at other indices as txin
             ::Serialize(s, CTxOut(), nType, nVersion);
         else
-            ::Serialize(s, txTo.vout[nOutput], nType, nVersion);
+            ::Serialize(s, txBaseTo.GetVout()[nOutput], nType, nVersion);
+    }
+ 
+    /** Serialize a CSW input of txTo */
+    template<typename S>
+    void SerializeCswInput(S &s, unsigned int nCswInput, const CTransaction& txTo, int nType, int nVersion) const {
+        // In case of SIGHASH_ANYONECANPAY, only the CSW input being signed is serialized
+        if (fAnyoneCanPay)
+            nCswInput = nIn - txTo.GetVin().size();
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nValue, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scId, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].nullifier, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].pubKeyHash, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].scProof, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].actCertDataHash, nType, nVersion);
+        ::Serialize(s, txTo.GetVcswCcIn()[nCswInput].ceasingCumScTxCommTree, nType, nVersion);
+
+        // Serialize the script
+        unsigned int nTotalInIdx = nCswInput + txTo.GetVin().size();
+        assert(nTotalInIdx != NOT_AN_INPUT);
+        if (nTotalInIdx != nIn)
+            // Blank out other inputs' signatures
+            ::Serialize(s, CScript(), nType, nVersion);
+        else
+            SerializeScriptCode(s, nType, nVersion);
     }
 
     /** Serialize txTo */
     template<typename S>
     void Serialize(S &s, int nType, int nVersion) const {
-        // Serialize nVersion
-        ::Serialize(s, txTo.nVersion, nType, nVersion);
-        // Serialize vin
-        unsigned int nInputs = fAnyoneCanPay ? 1 : txTo.vin.size();
-        ::WriteCompactSize(s, nInputs);
-        for (unsigned int nInput = 0; nInput < nInputs; nInput++)
-             SerializeInput(s, nInput, nType, nVersion);
-        // Serialize vout
-        unsigned int nOutputs = fHashNone ? 0 : (fHashSingle ? nIn+1 : txTo.vout.size());
-        ::WriteCompactSize(s, nOutputs);
-        for (unsigned int nOutput = 0; nOutput < nOutputs; nOutput++)
-             SerializeOutput(s, nOutput, nType, nVersion);
-        // Serialize nLockTime
-        ::Serialize(s, txTo.nLockTime, nType, nVersion);
 
-        // Serialize vjoinsplit
-        if (txTo.nVersion >= PHGR_TX_VERSION || txTo.nVersion == GROTH_TX_VERSION) {
-            //
-            // SIGHASH_* functions will hash portions of
-            // the transaction for use in signatures. This
-            // keeps the JoinSplit cryptographically bound
-            // to the transaction.
-            //
-        	auto os = WithTxVersion(&s, txTo.nVersion);
-        	::Serialize(os, txTo.vjoinsplit, nType, nVersion);
-            if (txTo.vjoinsplit.size() > 0) {
-                ::Serialize(s, txTo.joinSplitPubKey, nType, nVersion);
+        // Serialize nVersion for both tx and cert
+        ::Serialize(s, txBaseTo.nVersion, nType, nVersion);
 
-                CTransaction::joinsplit_sig_t nullSig = {};
-                ::Serialize(s, nullSig, nType, nVersion);
+        if (!txBaseTo.IsCertificate() ) {
+            const CTransaction& txTo = dynamic_cast<const CTransaction&>(txBaseTo);
+
+            // Serialize vin
+            // In case of SIGHASH_ANYONECANPAY:
+            // * if Tx has Sc support version and nIn belongs to the CSW inputs - skip inputs serialization
+            // * otherwise only the input being signed is serialized
+            // Otherwise - serialize all inputs
+            unsigned int nInputs = fAnyoneCanPay ?
+                        (txTo.IsScVersion() && nIn >= txTo.GetVin().size() ? 0 : 1) :
+                        txTo.GetVin().size();
+            ::WriteCompactSize(s, nInputs);
+            for (unsigned int nInput = 0; nInput < nInputs; nInput++)
+                SerializeInput(s, nInput, nType, nVersion);
+            // Serialize vout
+            unsigned int nOutputs = fHashNone ? 0 : (fHashSingle ? nIn+1 : txTo.GetVout().size());
+            ::WriteCompactSize(s, nOutputs);
+            for (unsigned int nOutput = 0; nOutput < nOutputs; nOutput++)
+                 SerializeOutput(s, nOutput, nType, nVersion);
+ 
+            if (txTo.IsScVersion() )
+            {
+                // Serialize CSW inputs
+                // In case of SIGHASH_ANYONECANPAY:
+                // * if Tx has Sc support version and nIn belongs to the CSW inputs - only the CSW input being signed is serialized
+                // * otherwise skip CSW inputs
+                // Otherwise - serialize all CSW inputs
+                unsigned int nCswInputs = fAnyoneCanPay ?
+                            (nIn < txTo.GetVin().size() ? 0 : 1) :
+                            txTo.GetVcswCcIn().size();
+                ::WriteCompactSize(s, nCswInputs);
+                for (unsigned int nCswInput = 0; nCswInput < nCswInputs; nCswInput++)
+                    SerializeCswInput(s, nCswInput, txTo, nType, nVersion);
+
+                // Serialize vccouts
+                unsigned int nCcOutputs = 0;
+ 
+                nCcOutputs = fHashNone ? 0 : (txTo.GetVscCcOut().size());
+                ::WriteCompactSize(s, nCcOutputs);
+                for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
+                    ::Serialize(s, txTo.GetVscCcOut()[nCcOutput], nType, nVersion);
+ 
+                nCcOutputs = fHashNone ? 0 : (txTo.GetVftCcOut().size());
+                ::WriteCompactSize(s, nCcOutputs);
+                for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
+                    ::Serialize(s, txTo.GetVftCcOut()[nCcOutput], nType, nVersion);
+
+                nCcOutputs = fHashNone ? 0 : (txTo.GetVBwtRequestOut().size());
+                ::WriteCompactSize(s, nCcOutputs);
+                for (unsigned int nCcOutput = 0; nCcOutput < nCcOutputs; nCcOutput++)
+                    ::Serialize(s, txTo.GetVBwtRequestOut()[nCcOutput], nType, nVersion);
             }
+ 
+            // Serialize nLockTime
+            ::Serialize(s, txTo.GetLockTime(), nType, nVersion);
+ 
+            // Serialize vjoinsplit
+            if (txTo.nVersion >= PHGR_TX_VERSION || txTo.nVersion == GROTH_TX_VERSION) {
+                //
+                // SIGHASH_* functions will hash portions of
+                // the transaction for use in signatures. This
+                // keeps the JoinSplit cryptographically bound
+                // to the transaction.
+                //
+                auto os = WithTxVersion(&s, txTo.nVersion);
+                ::Serialize(os, txTo.GetVjoinsplit(), nType, nVersion);
+                if (txTo.GetVjoinsplit().size() > 0) {
+                ::Serialize(s, txTo.joinSplitPubKey, nType, nVersion);
+ 
+                    CTransaction::joinsplit_sig_t nullSig = {};
+                    ::Serialize(s, nullSig, nType, nVersion);
+                }
+            }
+        }
+        else
+        {
+            const CScCertificate& certTo = dynamic_cast<const CScCertificate&>(txBaseTo);
+
+            ::Serialize(s, certTo.GetScId(), nType, nVersion);
+            ::Serialize(s, certTo.epochNumber, nType, nVersion);
+            ::Serialize(s, certTo.quality, nType, nVersion);
+            ::Serialize(s, certTo.endEpochCumScTxCommTreeRoot, nType, nVersion);
+            ::Serialize(s, certTo.scProof, nType, nVersion);
+            ::Serialize(s, certTo.vFieldElementCertificateField, nType, nVersion);
+            ::Serialize(s, certTo.vBitVectorCertificateField, nType, nVersion);
+            ::Serialize(s, certTo.forwardTransferScFee, nType, nVersion);
+            ::Serialize(s, certTo.mainchainBackwardTransferRequestScFee, nType, nVersion);
+
+            // Serialize vin
+            unsigned int nInputs = fAnyoneCanPay ? 1 : certTo.GetVin().size();
+            ::WriteCompactSize(s, nInputs);
+            for (unsigned int nInput = 0; nInput < nInputs; nInput++)
+                 SerializeInput(s, nInput, nType, nVersion);
+
+            // Serialize vout
+
+            // split bwd transfer and change
+            std::vector<CBackwardTransferOut> vbt_ccout_ser;
+            // we must not modify vout
+            std::vector<CTxOut> vout_ser;
+ 
+            // reading from memory and writing to data stream
+            for(int pos = 0; pos < certTo.GetVout().size(); ++pos)
+            {
+                if (pos < certTo.nFirstBwtPos)
+                    vout_ser.push_back(certTo.GetVout()[pos]);
+                else
+                    vbt_ccout_ser.push_back(CBackwardTransferOut(certTo.GetVout()[pos]));
+            }
+ 
+            unsigned int nOutputs = fHashNone ? 0 : (fHashSingle ? nIn+1 : vout_ser.size());
+            ::WriteCompactSize(s, nOutputs);
+            for (unsigned int nOutput = 0; nOutput < nOutputs; nOutput++)
+                 SerializeOutput(s, nOutput, nType, nVersion);
+ 
+            unsigned int voutBtSize = vbt_ccout_ser.size();
+            ::WriteCompactSize(s, voutBtSize);
+            for (unsigned int nOutput = 0; nOutput < voutBtSize; nOutput++)
+                ::Serialize(s, vbt_ccout_ser[nOutput], nType, nVersion);
         }
     }
 };
@@ -1104,14 +1220,15 @@ public:
 
 uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType)
 {
-    if (nIn >= txTo.vin.size() && nIn != NOT_AN_INPUT) {
+    unsigned int nTotalInputs = txTo.IsScVersion() ? txTo.GetVin().size() + txTo.GetVcswCcIn().size() : txTo.GetVin().size();
+    if (nIn >= nTotalInputs && nIn != NOT_AN_INPUT) {
         //  nIn out of range
         throw logic_error("input index is out of range");
     }
 
     // Check for invalid use of SIGHASH_SINGLE
     if ((nHashType & 0x1f) == SIGHASH_SINGLE) {
-        if (nIn >= txTo.vout.size()) {
+        if (nIn >= txTo.GetVout().size()) {
             //  nOut out of range
             throw logic_error("no matching output for SIGHASH_SINGLE");
         }
@@ -1120,12 +1237,46 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
     // Wrapper to serialize only the necessary parts of the transaction being signed
     CTransactionSignatureSerializer txTmp(txTo, scriptCode, nIn, nHashType);
 
-
     // Serialize and hash
     CHashWriter ss(SER_GETHASH, 0);
     ss << txTmp << nHashType;
     return ss.GetHash();
 }
+
+uint256 SignatureHash(const CScript& scriptCode, const CScCertificate& certTo, unsigned int nIn, int nHashType)
+{
+    if (nIn >= certTo.GetVin().size() && nIn != NOT_AN_INPUT) {
+        //  nIn out of range
+        throw logic_error("input index is out of range");
+    }
+
+    // Check for invalid use of SIGHASH_SINGLE
+    if ((nHashType & 0x1f) == SIGHASH_SINGLE) {
+        // consider only the outputs that are not bwt
+        unsigned int outSize = certTo.nFirstBwtPos;
+        if (nIn >= outSize) {
+            //  nOut out of range
+            throw logic_error("no matching output for SIGHASH_SINGLE");
+        }
+    }
+
+    // Wrapper to serialize only the necessary parts of the transaction being signed
+    CTransactionSignatureSerializer certTmp(certTo, scriptCode, nIn, nHashType);
+
+    // Serialize and hash
+    CHashWriter ss(SER_GETHASH, 0);
+    ss << certTmp << nHashType;
+    return ss.GetHash();
+}
+
+TransactionSignatureChecker::TransactionSignatureChecker(const CTransaction* txToIn,
+                                                         unsigned int nInIn,
+                                                         const CChain* chainIn):
+                                                           txTo(txToIn),
+                                                           nIn(nInIn),
+                                                           chain(chainIn) {}
+
+TransactionSignatureChecker::TransactionSignatureChecker(const CChain* chainIn): txTo(nullptr), nIn(-1), chain(chainIn) {}
 
 bool TransactionSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
 {
@@ -1148,7 +1299,7 @@ bool TransactionSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn
     uint256 sighash;
     try {
         sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType);
-    } catch (logic_error ex) {
+    } catch (const logic_error& ex) {
         return false;
     }
 
@@ -1168,14 +1319,14 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     // unless the type of nLockTime being tested is the same as
     // the nLockTime in the transaction.
     if (!(
-        (txTo->nLockTime <  LOCKTIME_THRESHOLD && nLockTime <  LOCKTIME_THRESHOLD) ||
-        (txTo->nLockTime >= LOCKTIME_THRESHOLD && nLockTime >= LOCKTIME_THRESHOLD)
+        (txTo->GetLockTime() <  LOCKTIME_THRESHOLD && nLockTime <  LOCKTIME_THRESHOLD) ||
+        (txTo->GetLockTime() >= LOCKTIME_THRESHOLD && nLockTime >= LOCKTIME_THRESHOLD)
     ))
         return false;
 
     // Now that we know we're comparing apples-to-apples, the
     // comparison is a simple numeric one.
-    if (nLockTime > (int64_t)txTo->nLockTime)
+    if (nLockTime > (int64_t)txTo->GetLockTime())
         return false;
 
     // Finally the nLockTime feature can be disabled and thus
@@ -1188,8 +1339,12 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     // prevent this condition. Alternatively we could test all
     // inputs, but testing just this input minimizes the data
     // required to prove correct CHECKLOCKTIMEVERIFY execution.
-    if (txTo->vin[nIn].IsFinal())
-        return false;
+    // Check only regular inputs, skip CSW inputs
+    if(nIn < txTo->GetVin().size()) {
+        if (txTo->GetVin()[nIn].IsFinal())
+            return false;
+    }
+
 
     return true;
 }
@@ -1228,6 +1383,56 @@ bool CheckReplayProtectionData(const CChain* chain, int nHeight, const std::vect
     }
 
     return (vchCompareTo == vchBlockHash);
+}
+
+CertificateSignatureChecker::CertificateSignatureChecker(const CScCertificate* certToIn,
+                                                         unsigned int nInIn,
+                                                         const CChain* chainIn):
+                                                           certTo(certToIn),
+                                                           nIn(nInIn),
+                                                           chain(chainIn) {}
+
+bool CertificateSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
+{
+    return pubkey.Verify(sighash, vchSig);
+}
+
+bool CertificateSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn, const vector<unsigned char>& vchPubKey, const CScript& scriptCode) const
+{
+    CPubKey pubkey(vchPubKey);
+    if (!pubkey.IsValid())
+        return false;
+
+    // Hash type is one byte tacked on to the end of the signature
+    vector<unsigned char> vchSig(vchSigIn);
+    if (vchSig.empty())
+        return false;
+    int nHashType = vchSig.back();
+
+    if (nHashType != (int)SIGHASH_ALL)
+    {
+        LogPrintf("%s: %s():%d - ERROR: hash type 0x%x not supported\n", __FILE__, __func__, __LINE__, nHashType);
+        return false;
+    }
+
+    vchSig.pop_back();
+
+    uint256 sighash;
+    try {
+        sighash = SignatureHash(scriptCode, *certTo, nIn, nHashType);
+    } catch (const logic_error& ex) {
+        return false;
+    }
+
+    if (!VerifySignature(vchSig, pubkey, sighash))
+        return false;
+
+    return true;
+}
+
+bool CertificateSignatureChecker::CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& vchCompareTo) const
+{
+    return CheckReplayProtectionData(chain, nHeight, vchCompareTo);
 }
 
 bool TransactionSignatureChecker::CheckBlockHash(const int32_t nHeight, const std::vector<unsigned char>& vchCompareTo) const

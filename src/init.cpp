@@ -65,8 +65,10 @@
 #endif
 
 #include "librustzcash.h"
-
+#include "zen/websocket_server.h"
 #include <zen/forks/fork2_replayprotectionfork.h>
+
+#include "sc/asyncproofverifier.h"
 
 using namespace std;
 
@@ -193,6 +195,7 @@ void Shutdown()
     RenameThread("horizen-shutoff");
     mempool.AddTransactionsUpdated(1);
 
+    StopWsServer();
     StopHTTPRPC();
     StopREST();
     StopRPC();
@@ -373,6 +376,16 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-sysperms", _("Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)"));
 #endif
     strUsage += HelpMessageOpt("-txindex", strprintf(_("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)"), 0));
+    strUsage += HelpMessageOpt("-maturityheightindex", strprintf(_("Maintain a maturity height index that stores for every height the cerficates that became mature, used by the getblockexpanded rpc call. It requires -txindex (default: %u)"), 0));
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    strUsage += HelpMessageOpt("-addressindex", strprintf(_("Maintain a full address index, used to query for the balance, txids and unspent outputs for addresses (default: %u)"), DEFAULT_ADDRESSINDEX));
+    strUsage += HelpMessageOpt("-timestampindex", strprintf(_("Maintain a timestamp index for block hashes, used to query blocks hashes by a range of timestamps (default: %u)"), DEFAULT_TIMESTAMPINDEX));
+    strUsage += HelpMessageOpt("-spentindex", strprintf(_("Maintain a full spent index, used to query the spending txid and input index for an outpoint (default: %u)"), DEFAULT_SPENTINDEX));
+
+    strUsage += HelpMessageOpt("-blocktreedbmaxopenfiles", strprintf(_("Maximum number of open files for the Block Tree LevelDB (default: %u)"), DEFAULT_DB_MAX_OPEN_FILES));
+    strUsage += HelpMessageOpt("-blocktreedbcompression", strprintf(_("Enable compression for the Block Tree LevelDB (default: %u)"), DEFAULT_DB_COMPRESSION));
+#endif // ENABLE_ADDRESS_INDEXING
 
     strUsage += HelpMessageGroup(_("Connection options:"));
     strUsage += HelpMessageOpt("-addnode=<ip>", _("Add a node to connect to and attempt to keep the connection open"));
@@ -406,6 +419,9 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-tlskeypwd=<password>", _("Password for a private key encryption (default: not set, i.e. private key will be stored unencrypted)"));
     strUsage += HelpMessageOpt("-tlscertpath=<path>", _("Full path to a certificate"));
     strUsage += HelpMessageOpt("-tlstrustdir=<path>", _("Full path to a trusted certificates directory"));
+    strUsage += HelpMessageOpt("-websocket=<0 or 1>", _("If set to 1 opens a websocket channel listening for client connections (default: 0)"));
+    strUsage += HelpMessageOpt("-wsaddress=<ip address>", _("If websocket=1, listen for ws connections at this ip address (default: 127.0.0.1)"));
+    strUsage += HelpMessageOpt("-wsport=<port>", _("If websocket=1, listen for ws connections at <wsaddress>:<wsport> (default: 8888)"));
 #ifdef USE_UPNP
 #if USE_UPNP
     strUsage += HelpMessageOpt("-upnp", _("Use UPnP to map the listening port (default: 1 when listening and no -proxy)"));
@@ -469,8 +485,8 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-flushwallet", strprintf("Run a thread to flush wallet periodically (default: %u)", 1));
         strUsage += HelpMessageOpt("-stopafterblockimport", strprintf("Stop running after importing blocks from disk (default: %u)", 0));
     }
-    string debugCategories = "addrman, alert, bench, coindb, db, estimatefee, http, libevent, lock, mempool, net, partitioncheck, pow, proxy, prune, "
-                             "rand, reindex, rpc, selectcoins, tor, zmq, zrpc, zrpcunsafe (implies zrpc)"; // Don't translate these
+    string debugCategories = "addrman, alert, bench, cert, coindb, db, estimatefee, fork, http, libevent, lock, mempool, net, partitioncheck, pow, proxy, prune, "
+                             "rand, reindex, rpc, sc, selectcoins, tor, ws, zendoo_mc_cryptolib, zmq, zrpc, zrpcunsafe (implies zrpc)"; // Don't translate these
     strUsage += HelpMessageOpt("-debug=<category>", strprintf(_("Output debugging information (default: %u, supplying <category> is optional)"), 0) + ". " +
         _("If <category> is not supplied or if <category> = 1, output all debugging information.") + " " + _("<category> can be:") + " " + debugCategories + ".");
     strUsage += HelpMessageOpt("-experimentalfeatures", _("Enable use of experimental features"));
@@ -505,7 +521,10 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageGroup(_("Block creation options:"));
     strUsage += HelpMessageOpt("-blockminsize=<n>", strprintf(_("Set minimum block size in bytes (default: %u)"), 0));
     strUsage += HelpMessageOpt("-blockmaxsize=<n>", strprintf(_("Set maximum block size in bytes (default: %d)"), DEFAULT_BLOCK_MAX_SIZE));
-    strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE));
+    
+    strUsage += HelpMessageOpt("-blocktxpartitionmaxsize=<n> (regtest only)", strprintf(_("Set maximum partition block size for transcations in bytes (default: %u)"), DEFAULT_BLOCK_TX_PART_MAX_SIZE));
+
+    strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions/certificates in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE));
     strUsage += HelpMessageOpt("-blockmaxcomplexity=<n>",
         strprintf(_("Limit transactions to be included into blocks based on block complexity. "
         " Block complexity is the sum of transaction complexity per block. Transaction complexity is the number of inputs of a transaction squared. "
@@ -514,6 +533,12 @@ std::string HelpMessage(HelpMessageMode mode)
         ), DEFAULT_BLOCK_MAX_COMPLEXITY_SIZE)
     );
     strUsage += HelpMessageOpt("-deprecatedgetblocktemplate", (_("Disable block complexity calculation and use the previous GetBlockTemplate implementation")));
+
+    strUsage += HelpMessageOpt("-scproofverificationdelay=<time>",
+        strprintf(_("The maximum delay in milliseconds between sc proof batch verification requests. (default: %d)"), CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_DELAY));
+
+    strUsage += HelpMessageOpt("-scproofqueuesize=<size>",
+        strprintf(_("The threshold size of the sc proof queue that triggers a call to the batch verification. (default: %d)"), CScAsyncProofVerifier::BATCH_VERIFICATION_MAX_SIZE));
 
     strUsage += HelpMessageOpt("-cbhsafedepth=<n>",
         "regtest only - Set safe depth for skipping checkblockatheight in txout scripts (default depends on regtest/testnet params)");
@@ -524,11 +549,26 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-allownonstandardtx",
         "regtest/testnet only - allow non-standard tx (default depends on regtest/testnet params)");
 
+    strUsage += HelpMessageOpt("-allowdustoutput",
+        "regtest only - when checking a tx to be standard, regtest allows by default a tx to have a null or dust output. Setting this option to 0 will prevent that (default: 1 = allow dust output)");
+
     strUsage += HelpMessageOpt("-subsidyhalvinginterval=<n>", "regtest only - Set halving interval for testing purposes (default=2000; must be > 100)");
         
     if (GetBoolArg("-help-debug", false))
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
 
+    strUsage += HelpMessageOpt("-sccoinsmaturity=<n>",
+        "regtest only - Set the maturity of sc funds as number of blocks to be mined before they are computed in the sc balance (default depends on regtest/testnet params)");
+
+    strUsage += HelpMessageOpt("-blocksforscfeecheck=<n>",
+        "regtest only - Set the number of blocks used for computing the number of epoch to go back for getting the active data cert sc fee value and check on it for removing a FT or mbtr tx from mempool (default depends on regtest params)");
+
+    strUsage += HelpMessageOpt("-skipscproof",
+    "regtest only - Skip the proof verification for sidechain certificates or CSW transactions (by default it is never skipped)");
+
+    strUsage += HelpMessageOpt("-forcelocalban",
+    "regtest only - Override the default behavior that prevents the ban of a misbehaving local node");
+        
 #ifdef ENABLE_MINING
     strUsage += HelpMessageGroup(_("Mining options:"));
     strUsage += HelpMessageOpt("-gen", strprintf(_("Generate coins (default: %u)"), 0));
@@ -811,7 +851,7 @@ static void ZC_LoadParams()
     LogPrintf("Loaded Sapling parameters in %fs seconds.\n", elapsed);
 }
 
-bool AppInitServers(boost::thread_group& threadGroup)
+bool AppInitServers()
 {
     RPCServer::OnStopped(&OnRPCStopped);
     RPCServer::OnPreCommand(&OnRPCPreCommand);
@@ -824,6 +864,8 @@ bool AppInitServers(boost::thread_group& threadGroup)
     if (GetBoolArg("-rest", false) && !StartREST())
         return false;
     if (!StartHTTPServer())
+        return false;
+    if (GetBoolArg("-websocket", false) && !StartWsServer())
         return false;
     return true;
 }
@@ -1174,7 +1216,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
     }
 
-
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 
     // Initialize libsodium
@@ -1190,11 +1231,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (!InitSanityCheck())
         return InitError(_("Initialization sanity check failed. Zen is shutting down."));
 
-    std::string strDataDir = GetDataDir().string();
 #ifdef ENABLE_WALLET
     // Wallet file must be a plain filename without a directory
     if (strWalletFile != boost::filesystem::basename(strWalletFile) + boost::filesystem::extension(strWalletFile))
-        return InitError(strprintf(_("Wallet %s resides outside data directory %s"), strWalletFile, strDataDir));
+        return InitError(strprintf(_("Wallet %s resides outside data directory %s"), strWalletFile, GetDataDir().string()));
 #endif
     // Make sure only a single Bitcoin process is using the data directory.
     boost::filesystem::path pathLockFile = GetDataDir() / ".lock";
@@ -1204,11 +1244,19 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     try {
         static boost::interprocess::file_lock lock(pathLockFile.string().c_str());
         if (!lock.try_lock())
-            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zen is probably already running."), strDataDir));
+            return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zen is probably already running."), GetDataDir().string()));
 
     } catch(const boost::interprocess::interprocess_exception& e) {
-        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zen is probably already running.") + " %s.", strDataDir, e.what()));
+        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. Zen is probably already running.") + " %s.", GetDataDir().string(), e.what()));
     }
+
+    // Initialize sidechains folder, hosting keys for sidechains validations
+    if(!Sidechain::InitSidechainsFolder())
+        return InitError(strprintf(_("Cannot create or access sidechains folder.")));
+
+    // Initialize DLog keys
+    if(!Sidechain::InitDLogKeys())
+        return InitError(strprintf(_("Cannot initialize DLog keys in sidechains folder.")));
 
 #ifndef WIN32
     CreatePidFile(GetPidFile(), getpid());
@@ -1230,8 +1278,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (!fLogTimestamps)
         LogPrintf("Startup time: %s\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()));
     LogPrintf("Default data directory %s\n", GetDefaultDataDir().string());
-    LogPrintf("Using data directory %s\n", strDataDir);
-    LogPrintf("Using config file %s\n", GetConfigFile().string());
+    LogPrintf("Using data directory %s\n", GetDataDir().string());
+    // This print might not be correct, since at this point the options in the the zen.conf have already been read, and if a custom datadir has
+    // ben specified, the config file would be erroneously printed to be there
+    //    LogPrintf("Using config file %s\n", GetConfigFile().string());
     LogPrintf("Using at most %i connections (%i file descriptors available)\n", nMaxConnections, nFD);
     std::ostringstream strErrors;
 
@@ -1264,6 +1314,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Initialize Zcash circuit parameters
     ZC_LoadParams();
 
+    // check type sizes in crypto lib are as expected and assert() in case of failure
+    CZendooCctpLibraryChecker::CheckTypeSizes();
+
     /* Start the RPC server already.  It will be started in "warmup" mode
      * and not really process calls already (but it will signify connections
      * that the server is there and will be ready later).  Warmup mode will
@@ -1272,7 +1325,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (fServer)
     {
         uiInterface.InitMessage.connect(SetRPCWarmupStatus);
-        if (!AppInitServers(threadGroup))
+        if (!AppInitServers())
             return InitError(_("Unable to start HTTP server. See debug log for details."));
     }
 
@@ -1476,18 +1529,45 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
     }
 
+    // block tree db settings
+    int dbMaxOpenFiles = DEFAULT_DB_MAX_OPEN_FILES;
+    bool dbCompression = DEFAULT_DB_COMPRESSION;
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    dbMaxOpenFiles = GetArg("-blocktreedbmaxopenfiles", DEFAULT_DB_MAX_OPEN_FILES);
+    dbCompression = GetBoolArg("-blocktreedbcompression", DEFAULT_DB_COMPRESSION);
+#endif // ENABLE_ADDRESS_INDEXING
+
+    LogPrintf("Block index database configuration:\n");
+    LogPrintf("* Using %d max open files\n", dbMaxOpenFiles);
+    LogPrintf("* Compression is %s\n", dbCompression ? "enabled" : "disabled");
+
     // cache size calculations
     int64_t nTotalCache = (GetArg("-dbcache", nDefaultDbCache) << 20);
     nTotalCache = std::max(nTotalCache, nMinDbCache << 20); // total cache cannot be less than nMinDbCache
     nTotalCache = std::min(nTotalCache, nMaxDbCache << 20); // total cache cannot be greated than nMaxDbcache
     int64_t nBlockTreeDBCache = nTotalCache / 8;
-    if (nBlockTreeDBCache > (1 << 21) && !GetBoolArg("-txindex", false))
-        nBlockTreeDBCache = (1 << 21); // block tree db cache shouldn't be larger than 2 MiB
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    if (GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX) || GetBoolArg("-spentindex", DEFAULT_SPENTINDEX)) {
+        // enable 3/4 of the cache if addressindex and/or spentindex is enabled
+        nBlockTreeDBCache = nTotalCache * 3 / 4;
+    } else {
+#endif // ENABLE_ADDRESS_INDEXING
+        if (nBlockTreeDBCache > (1 << 21) && !GetBoolArg("-txindex", false)) {
+            nBlockTreeDBCache = (1 << 21); // block tree db cache shouldn't be larger than 2 MiB
+        }
+
+#ifdef ENABLE_ADDRESS_INDEXING
+    }
+#endif // ENABLE_ADDRESS_INDEXING
+
     nTotalCache -= nBlockTreeDBCache;
     int64_t nCoinDBCache = std::min(nTotalCache / 2, (nTotalCache / 4) + (1 << 23)); // use 25%-50% of the remainder for disk cache
     nTotalCache -= nCoinDBCache;
     nCoinCacheUsage = nTotalCache; // the rest goes to in-memory cache
     LogPrintf("Cache configuration:\n");
+    LogPrintf("* Max cache setting possible %.1fMiB\n", nMaxDbCache);
     LogPrintf("* Using %.1fMiB for block index database\n", nBlockTreeDBCache * (1.0 / 1024 / 1024));
     LogPrintf("* Using %.1fMiB for chain state database\n", nCoinDBCache * (1.0 / 1024 / 1024));
     LogPrintf("* Using %.1fMiB for in-memory UTXO set\n", nCoinCacheUsage * (1.0 / 1024 / 1024));
@@ -1508,7 +1588,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 delete pcoinscatcher;
                 delete pblocktree;
 
-                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex || fReindexFast);
+                pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex || fReindexFast, dbCompression, dbMaxOpenFiles);
                 pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex || fReindexFast);
                 pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
                 pcoinsTip = new CCoinsViewCache(pcoinscatcher);
@@ -1516,9 +1596,12 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 if (fReindex || fReindexFast) {
                     if (fReindex) pblocktree->WriteReindexing(true);
                     if (fReindexFast) pblocktree->WriteFastReindexing(true);
+
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (fPruneMode)
                         CleanupBlockRevFiles();
+
+                    Sidechain::ClearSidechainsFolder();
                 }
 
                 if (!LoadBlockIndex()) {
@@ -1542,6 +1625,32 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     strLoadError = _("You need to rebuild the database using -reindex to change -txindex");
                     break;
                 }
+
+                // Check for changed -maturityheightindex state
+                if (fMaturityHeightIndex != GetBoolArg("-maturityheightindex", false)) {
+                    strLoadError = _("You need to rebuild the database using -reindex to change -maturityheightindex");
+                    break;
+                }
+
+                // Check that -txindex is enabled when -maturityheightindex is enabled
+                if (fMaturityHeightIndex && !fTxIndex) {
+                    strLoadError = _("You need to enable -txindex in order to use -maturityheightindex");
+                    break;
+                }
+
+#ifdef ENABLE_ADDRESS_INDEXING
+                // Check for changed -addressindex state
+                if (fAddressIndex != GetBoolArg("-addressindex", false)) {
+                    strLoadError = _("You need to rebuild the database using -reindex to change -addressindex");
+                    break;
+                }
+
+                // Check that -txindex is enabled when -addressindex is enabled
+                if (fAddressIndex && !fTxIndex) {
+                    strLoadError = _("You need to enable -txindex in order to use -addressindex");
+                    break;
+                }
+#endif // ENABLE_ADDRESS_INDEXING
 
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks
                 // in the past, but is now trying to run unpruned.
@@ -1615,7 +1724,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     } else {
 
         // needed to restore wallet transaction meta data after -zapwallettxes
-        std::vector<CWalletTx> vWtx;
+        std::vector<std::shared_ptr<CWalletTransactionBase>> vWtx;
 
         if (GetBoolArg("-zapwallettxes", false)) {
             uiInterface.InitMessage(_("Zapping all transactions from wallet..."));
@@ -1643,8 +1752,15 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                 strErrors << _("Error loading wallet.dat: Wallet corrupted") << "\n";
             else if (nLoadWalletRet == DB_NONCRITICAL_ERROR)
             {
-                string msg(_("Warning: error reading wallet.dat! All keys read correctly, but transaction data"
+                string msg(_("error reading wallet.dat! All keys read correctly, but transaction data"
                              " or address book entries might be missing or incorrect."));
+
+                bool reindexing = false;
+                pblocktree->ReadReindexing(reindexing);
+                if (reindexing)
+                {
+                    msg = string(_("(Reindexing in progress...) ")) + msg;
+                }
                 InitWarning(msg);
             }
             else if (nLoadWalletRet == DB_TOO_NEW)
@@ -1723,14 +1839,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             {
                 CWalletDB walletdb(strWalletFile);
 
-                BOOST_FOREACH(const CWalletTx& wtxOld, vWtx)
+                for(const auto& wtxOld: vWtx)
                 {
-                    uint256 hash = wtxOld.GetHash();
-                    std::map<uint256, CWalletTx>::iterator mi = pwalletMain->mapWallet.find(hash);
-                    if (mi != pwalletMain->mapWallet.end())
+                    uint256 hash = wtxOld->getTxBase()->GetHash();
+                    auto mi = pwalletMain->getMapWallet().find(hash);
+                    if (mi != pwalletMain->getMapWallet().end())
                     {
-                        const CWalletTx* copyFrom = &wtxOld;
-                        CWalletTx* copyTo = &mi->second;
+                        const auto* copyFrom = wtxOld.get();
+                        CWalletTransactionBase* copyTo = mi->second.get();
                         copyTo->mapValue = copyFrom->mapValue;
                         copyTo->vOrderForm = copyFrom->vOrderForm;
                         copyTo->nTimeReceived = copyFrom->nTimeReceived;
@@ -1826,7 +1942,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     LogPrintf("nBestHeight = %d\n",                   chainActive.Height());
 #ifdef ENABLE_WALLET
     LogPrintf("setKeyPool.size() = %u\n",      pwalletMain ? pwalletMain->setKeyPool.size() : 0);
-    LogPrintf("mapWallet.size() = %u\n",       pwalletMain ? pwalletMain->mapWallet.size() : 0);
+    LogPrintf("mapWallet.size() = %u\n",       pwalletMain ? pwalletMain->getMapWallet().size() : 0);
     LogPrintf("mapAddressBook.size() = %u\n",  pwalletMain ? pwalletMain->mapAddressBook.size() : 0);
 #endif
 
@@ -1855,6 +1971,11 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
  #endif
 #endif
 
+    if (Params().NetworkIDString() == "regtest")
+    {
+        fRegtestAllowDustOutput = GetBoolArg("-allowdustoutput", true);
+    }
+
     // ********************************************************* Step 11: finished
 
     SetRPCWarmupFinished();
@@ -1872,6 +1993,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // SENDALERT
     threadGroup.create_thread(boost::bind(ThreadSendAlert));
+
+    // Start the thread for async sidechain proof verification
+    threadGroup.create_thread(
+            boost::bind(
+                    &CScAsyncProofVerifier::RunPeriodicVerification,
+                    &CScAsyncProofVerifier::GetInstance()
+            )
+    );
 
     return !fRequestShutdown;
 }

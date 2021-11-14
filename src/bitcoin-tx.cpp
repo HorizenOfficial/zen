@@ -44,7 +44,7 @@ static bool AppInitRawTx(int argc, char* argv[])
     if (argc<2 || mapArgs.count("-?") || mapArgs.count("-h") || mapArgs.count("-help"))
     {
         // First part of help message is specific to this utility
-        std::string strUsage = _("Zencash zen-tx utility version") + " " + FormatFullVersion() + "\n\n" +
+        std::string strUsage = _("Horizen zen-tx utility version") + " " + FormatFullVersion() + "\n\n" +
             _("Usage:") + "\n" +
               "  zen-tx [options] <hex-tx> [commands]  " + _("Update hex-encoded zencash transaction") + "\n" +
               "  zen-tx [options] -create [commands]   " + _("Create hex-encoded zencash transaction") + "\n" +
@@ -227,8 +227,7 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
     CScript scriptPubKey = GetScriptForDestination(addr.Get());
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
-    tx.vout.push_back(txout);
+    tx.addOut(CTxOut(value, scriptPubKey));
 }
 
 static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput)
@@ -250,8 +249,7 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput
     CScript scriptPubKey = ParseScript(strScript); // throws on err
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
-    tx.vout.push_back(txout);
+    tx.addOut(CTxOut(value, scriptPubKey));
 }
 
 static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
@@ -271,13 +269,13 @@ static void MutateTxDelOutput(CMutableTransaction& tx, const string& strOutIdx)
 {
     // parse requested deletion index
     int outIdx = atoi(strOutIdx);
-    if (outIdx < 0 || outIdx >= (int)tx.vout.size()) {
+    if (outIdx < 0 || outIdx >= (int)tx.getVout().size()) {
         string strErr = "Invalid TX output index '" + strOutIdx + "'";
         throw runtime_error(strErr.c_str());
     }
 
     // delete output from transaction
-    tx.vout.erase(tx.vout.begin() + outIdx);
+    tx.eraseAtPos(outIdx);
 }
 
 static const unsigned int N_SIGHASH_OPTS = 6;
@@ -425,16 +423,53 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
 
         txin.scriptSig.clear();
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
-        if (!fHashSingle || (i < mergedTx.vout.size()))
+        if (!fHashSingle || (i < mergedTx.getVout().size()))
             SignSignature(keystore, prevPubKey, mergedTx, i, nHashType);
 
         // ... and merge in other signatures:
         BOOST_FOREACH(const CTransaction& txv, txVariants) {
-            txin.scriptSig = CombineSignatures(prevPubKey, mergedTx, i, txin.scriptSig, txv.vin[i].scriptSig);
+            txin.scriptSig = CombineSignatures(prevPubKey, mergedTx, i, txin.scriptSig, txv.GetVin()[i].scriptSig);
         }
         if (!VerifyScript(txin.scriptSig, prevPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker(&mergedTx, i)))
             fComplete = false;
     }
+
+    // NOTE: Since no other sidechains features were imported in this module, it was decided to keep CSW code commented
+//    if(mergedTx.IsScVersion())
+//    {
+//        // Try to sign CeasedSidechainWithdrawal inputs:
+//        unsigned int nAllInputsIndex = mergedTx.vin.size();
+//        for (unsigned int i = 0; i < mergedTx.vcsw_ccin.size(); i++, nAllInputsIndex++)
+//        {
+//            CTxCeasedSidechainWithdrawalInput& txCswIn = mergedTx.vcsw_ccin[i];
+
+//            const CScript& prevPubKey = txCswIn.scriptPubKey();
+
+//            txCswIn.redeemScript.clear();
+//            // Only sign SIGHASH_SINGLE if there's a corresponding output:
+//            // Note: we should consider the regular inputs as well.
+//            if (!fHashSingle || (nAllInputsIndex < mergedTx.getVout().size()))
+//                SignSignature(keystore, prevPubKey, mergedTx, nAllInputsIndex, nHashType);
+
+//            // ... and merge in other signatures:
+//            /* Note:
+//             * For CTxCeasedSidechainWithdrawalInput currently only P2PKH is allowed.
+//             * SignSignature can return true and set `txCswIn.redeemScript` value in case there is a proper private key in the keystore.
+//             * It can return false and leave `txCswIn.redeemScript` empty in case of any error occurs.
+//             * CombineSignatures will try to get the most recent signature:
+//             * 1) if SignSignature operation was successful -> leave `txCswIn.redeemScript value as is.
+//             * 2) if SignSignature operation was unsuccessful -> set `txCswIn.redeemScript value equal to the origin `txv` csw input script.
+//             * Later the signature will be checked, so in case no origin signature and no new one exist -> verification will fail.
+//             */
+//            for(const CMutableTransaction& txv : txVariants)
+//                txCswIn.redeemScript = CombineSignatures(prevPubKey, mergedTx, nAllInputsIndex, txCswIn.redeemScript, txv.vcsw_ccin[i].redeemScript);
+
+//            ScriptError serror = SCRIPT_ERR_OK;
+//            if (!VerifyScript(txCswIn.redeemScript, prevPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
+//                              MutableTransactionSignatureChecker(&mergedTx, nAllInputsIndex), &serror))
+//                 fComplete = false;
+//        }
+//    }
 
     if (fComplete) {
         // do nothing... for now
@@ -457,6 +492,7 @@ public:
     }
 };
 
+// TODO: do we need to have prossibility to add CSW inputs and CC outputs?
 static void MutateTx(CMutableTransaction& tx, const string& command,
                      const string& commandVal)
 {

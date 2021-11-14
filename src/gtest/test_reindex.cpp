@@ -546,10 +546,10 @@ TEST_F(ReindexTestSuite, CreateNewBlockFile)
 CBlockHeader ReindexTestSuite::createCoinBaseOnlyBlockHeader(const uint256& prevBlockHash)
 {
     CBlockHeader res;
-    res.nVersion = MIN_BLOCK_VERSION;
+    res.nVersion = BLOCK_VERSION_ORIGINAL;
     res.hashPrevBlock = prevBlockHash;
     res.hashMerkleRoot = uint256();
-    res.hashReserved.SetNull();
+    res.hashScTxsCommitment.SetNull();
 
     static unsigned int runCounter = 0;
     SetMockTime(time(nullptr) + ++runCounter);
@@ -563,7 +563,8 @@ CBlockHeader ReindexTestSuite::createCoinBaseOnlyBlockHeader(const uint256& prev
 
 CBlock ReindexTestSuite::createCoinBaseOnlyBlock(const uint256& prevBlockHash, unsigned int blockHeight)
 {
-    CBlock res = createCoinBaseOnlyBlockHeader(prevBlockHash);
+    CBlock res;
+    res.SetBlockHeader(createCoinBaseOnlyBlockHeader(prevBlockHash));
 
     CScript coinbaseScript = CScript() << OP_DUP << OP_HASH160
             << ToByteVector(uint160()) << OP_EQUALVERIFY << OP_CHECKSIG;

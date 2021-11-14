@@ -10,6 +10,11 @@
 #include "config/bitcoin-config.h"
 #endif
 
+#ifdef ENABLE_ADDRESS_INDEXING
+#include "spentindex.h"
+#include "timestampindex.h"
+#endif // ENABLE_ADDRESS_INDEXING
+
 #include "amount.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -19,7 +24,6 @@
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "uint256.h"
-#include "versionbits.h"
 
 #include <algorithm>
 #include <exception>
@@ -41,14 +45,22 @@ class CBlockLocator;
 class CBlockTreeDB;
 class CScriptCheck;
 class CValidationState;
-
+class CTxUndo;
 struct CNodeStateStats;
+class CTxInUndo;
 
 /** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = MAX_BLOCK_SIZE;
+static const unsigned int DEFAULT_BLOCK_MAX_SIZE_BEFORE_SC = MAX_BLOCK_SIZE_BEFORE_SC;
 static const unsigned int DEFAULT_BLOCK_MIN_SIZE = 0;
+
+/** Default for -blocktxpartitionmaxsize which control the partition in block reserved for tx*/
+static const unsigned int DEFAULT_BLOCK_TX_PART_MAX_SIZE = BLOCK_TX_PARTITION_SIZE;
+
 /** Default for -blockprioritysize, maximum space for zero/low-fee transactions **/
-static const unsigned int DEFAULT_BLOCK_PRIORITY_SIZE = DEFAULT_BLOCK_MAX_SIZE / 2;
+static const unsigned int DEFAULT_BLOCK_PRIORITY_SIZE = BLOCK_TX_PARTITION_SIZE / 2;
+static const unsigned int DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC = MAX_BLOCK_SIZE_BEFORE_SC / 2;
+
 /** Default for -blockmaxcomplexity, which control the maximum comlexity of the block during template creation **/
 static const unsigned int DEFAULT_BLOCK_MAX_COMPLEXITY_SIZE = 0;
 /** Default for accepting alerts from the P2P network. */
@@ -94,26 +106,38 @@ static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 /* Maximum number of heigths meaningful when looking for block finality */
 static const int MAX_BLOCK_AGE_FOR_FINALITY = 2000;
 
+#ifdef ENABLE_ADDRESS_INDEXING
+static const bool DEFAULT_ADDRESSINDEX = false;
+static const bool DEFAULT_TIMESTAMPINDEX = false;
+static const bool DEFAULT_SPENTINDEX = false;
+static const unsigned int DEFAULT_DB_MAX_OPEN_FILES = 1000;
+static const bool DEFAULT_DB_COMPRESSION = true;
+#else
+static const unsigned int DEFAULT_DB_MAX_OPEN_FILES = 64;
+static const bool DEFAULT_DB_COMPRESSION = false;
+#endif // ENABLE_ADDRESS_INDEXING
+
 // Sanity check the magic numbers when we change them
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_MAX_SIZE <= MAX_BLOCK_SIZE);
+BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > MAX_CERT_SIZE);
+BOOST_STATIC_ASSERT(MAX_BLOCK_SIZE > BLOCK_TX_PARTITION_SIZE);
+BOOST_STATIC_ASSERT(BLOCK_TX_PARTITION_SIZE > MAX_TX_SIZE);
 BOOST_STATIC_ASSERT(DEFAULT_BLOCK_PRIORITY_SIZE <= DEFAULT_BLOCK_MAX_SIZE);
+BOOST_STATIC_ASSERT(DEFAULT_BLOCK_PRIORITY_SIZE_BEFORE_SC <= DEFAULT_BLOCK_MAX_SIZE_BEFORE_SC);
 
 #define equihash_parameters_acceptable(N, K) \
     ((CBlockHeader::HEADER_SIZE + equihash_solution_size(N, K))*MAX_HEADERS_RESULTS < \
      MAX_PROTOCOL_MESSAGE_LENGTH-1000)
 
-struct BlockHasher
-{
-    size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
-};
-
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
 extern CTxMemPool mempool;
-typedef boost::unordered_map<uint256, CBlockIndex*, BlockHasher> BlockMap;
+typedef boost::unordered_map<uint256, CBlockIndex*, ObjectHasher> BlockMap;
 extern BlockMap mapBlockIndex;
 extern uint64_t nLastBlockTx;
+extern uint64_t nLastBlockCert;
 extern uint64_t nLastBlockSize;
+extern uint64_t nLastBlockTxPartitionSize;
 extern const std::string strMessageMagic;
 extern CWaitableCriticalSection csBestBlock;
 extern CConditionVariable cvBlockChange;
@@ -122,13 +146,21 @@ extern bool fImporting;
 extern bool fReindex;
 extern bool fReindexFast;
 extern int nScriptCheckThreads;
+
+#ifdef ENABLE_ADDRESS_INDEXING
+extern bool fAddressIndex;
+extern bool fSpentIndex;
+#endif // ENABLE_ADDRESS_INDEXING
+
 extern bool fTxIndex;
+extern bool fMaturityHeightIndex;
 extern bool fIsBareMultisigStd;
 extern bool fCheckBlockIndex;
 extern bool fCheckpointsEnabled;
 // TODO: remove this flag by structuring our code such that
 // it is unneeded for testing
 extern bool fCoinbaseEnforcedProtectionEnabled;
+extern bool fRegtestAllowDustOutput;
 extern size_t nCoinCacheUsage;
 extern CFeeRate minRelayTxFee;
 extern bool fAlerts;
@@ -215,6 +247,31 @@ bool InitBlockIndex();
 bool LoadBlockIndex();
 /** Unload database information */
 void UnloadBlockIndex();
+// Utilities refactored out of ProcessMessages
+void ProcessMempoolMsg(const CTxMemPool& pool, CNode* pfrom);
+
+/**
+ * @brief The enumeration of states of the sidechain batch proof verification.
+ * 
+ * It is useful to correctly handle the behavior of the ProcessTxBaseMsg() function,
+ * in particular it should request an asynchronous batch verification of the proof
+ * when called for the first time (with parameter NOT_VERIFIED_YET) and then should
+ * be called a second time by the batch proof verification thread with the parameter
+ * VERIFIED.
+ */
+enum class BatchVerificationStateFlag
+{
+    NOT_VERIFIED_YET,   /**< The sidechain proof verification has not been verified yet. */
+    VERIFIED,           /**< The sidechain proof has been correctly verified. */
+    FAILED              /**< The sidechain proof has been rejected. */
+};
+
+/** Process a transaction or certificate that has to be added to memory pool */
+void ProcessTxBaseAcceptToMemoryPool(const CTransactionBase& txBase, CNode* pfrom,
+                                     BatchVerificationStateFlag proofVerificationState,
+                                     CValidationState& state);
+/** Process protocol message of type "tx" */
+void ProcessTxBaseMsg(const CTransactionBase& txBase, CNode* pfrom);
 /** Process protocol messages received from a given node */
 bool ProcessMessages(CNode* pfrom);
 /**
@@ -234,17 +291,25 @@ bool IsInitialBlockDownload();
 std::string GetWarnings(const std::string& strFor);
 /** Retrieve a transaction (from memory pool, or from disk, if possible) */
 bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock, bool fAllowSlow = false);
+/** Retrieve a certificate (from memory pool, or from disk, if possible) */
+bool GetCertificate(const uint256 &hash, CScCertificate &cert, uint256 &hashBlock, bool fAllowSlow = false);
+/** Retrieve a base obj (from memory pool, or from disk, if possible) */
+bool GetTxBaseObj(const uint256 &hash, std::unique_ptr<CTransactionBase>& pTxBase, uint256 &hashBlock, bool fAllowSlow = false);
+
 /** Find the best known block, and make it the tip of the block chain */
 bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL);
 /** Find an alternative chain tip and propagate to the network */
 bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sForkTips);
 
+CBlockIndex* AddToBlockIndex(const CBlockHeader& block);
 bool addToGlobalForkTips(const CBlockIndex* pindex);
 int getMostRecentGlobalForkTips(std::vector<uint256>& output);
 bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips);
 bool getHeadersIsOnMain(const CBlockLocator& locator, const uint256& hashStop, CBlockIndex** pindexReference);
 
 int getCheckBlockAtHeightSafeDepth();
+int getScMinWithdrawalEpochLength();
+int getScMaxWithdrawalEpochLength();
 int getCheckBlockAtHeightMinAge();
 bool getRequireStandard();
 
@@ -283,15 +348,43 @@ void FlushStateToDisk();
 /** Prune block files and flush state to disk. */
 void PruneAndFlush();
 
+// Accept Tx/Cert ToMempool parameters types and signature
+enum class LimitFreeFlag       { ON, OFF };
+enum class RejectAbsurdFeeFlag { ON, OFF };
+enum class MempoolReturnValue { INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
+
+/**
+ * @brief The enumeration of possible states of the sidechain proof verification
+ * inside the Accept(Tx/Cert)ToMempool().
+ */
+enum class MempoolProofVerificationFlag
+{
+    DISABLED,   /**< The proof verification is not required. */
+    SYNC,       /**< The proof verification is enabled and will be performed synchronously on the calling thread. */
+    ASYNC       /**< The proof verification is enabled and will pe performed asynchronously on a separate thread. */
+};
+
+/**
+ * @brief Rejects a certificate or transaction submitted to memory pool.
+ * 
+ * It sends an error message to the node that has sent the invalid entry
+ * and eventually bans it.
+ * 
+ * @param state The state of the validation process (containing the error information)
+ * @param txBase The transaction or certificate that failed the verification
+ * @param pfrom The node that sent the offending transaction or certificate
+ */
+void RejectMemoryPoolTxBase(const CValidationState& state, const CTransactionBase& txBase, CNode* pfrom);
+
 /** (try to) add transaction to memory pool **/
-bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
-                        bool* pfMissingInputs, bool fRejectAbsurdFee=false);
+MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionBase &txBase,
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
-/** Get the BIP9 state for a given deployment at the current tip. */
-ThresholdState VersionBitsTipState(const Consensus::Params& params, Consensus::DeploymentPos pos);
+MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx,
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
-/** Get the block height at which the BIP9 deployment switched into the state for the block building on the current tip. */
-int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::DeploymentPos pos);
+MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
 struct CNodeStateStats {
     int nMisbehavior;
@@ -300,33 +393,12 @@ struct CNodeStateStats {
     std::vector<int> vHeightInFlight;
 };
 
-struct CDiskTxPos : public CDiskBlockPos
-{
-    unsigned int nTxOffset; // after header
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(*(CDiskBlockPos*)this);
-        READWRITE(VARINT(nTxOffset));
-    }
-
-    CDiskTxPos(const CDiskBlockPos &blockIn, unsigned int nTxOffsetIn) : CDiskBlockPos(blockIn.nFile, blockIn.nPos), nTxOffset(nTxOffsetIn) {
-    }
-
-    CDiskTxPos() {
-        SetNull();
-    }
-
-    void SetNull() {
-        CDiskBlockPos::SetNull();
-        nTxOffset = 0;
-    }
+struct COrphanTx {
+    std::shared_ptr<const CTransactionBase> tx;
+    NodeId fromPeer;
 };
 
-
-CAmount GetMinRelayFee(const CTransaction& tx, unsigned int nBytes, bool fAllowFree);
+CAmount GetMinRelayFee(const CTransactionBase& tx, unsigned int nBytes, bool fAllowFree, unsigned int block_priority_size);
 
 /**
  * Check transaction inputs, and make sure any
@@ -345,14 +417,14 @@ CAmount GetMinRelayFee(const CTransaction& tx, unsigned int nBytes, bool fAllowF
  * @param[in] mapInputs    Map of previous transactions that have outputs we're spending
  * @return True if all inputs (scriptSigs) use only standard transaction forms
  */
-bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+bool AreInputsStandard(const CTransactionBase& txBase, const CCoinsViewCache& mapInputs);
 
-/** 
+/**
  * Count ECDSA signature operations the old-fashioned (pre-0.6) way
  * @return number of sigops this transaction's outputs will produce when spent
  * @see CTransaction::FetchInputs
  */
-unsigned int GetLegacySigOpCount(const CTransaction& tx);
+unsigned int GetLegacySigOpCount(const CTransactionBase& tx);
 
 /**
  * Count ECDSA signature operations in pay-to-script-hash inputs.
@@ -361,39 +433,57 @@ unsigned int GetLegacySigOpCount(const CTransaction& tx);
  * @return maximum number of sigops required to validate this transaction's inputs
  * @see CTransaction::FetchInputs
  */
-unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+unsigned int GetP2SHSigOpCount(const CTransactionBase& tx, const CCoinsViewCache& mapInputs);
 
 
 /**
- * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
+ * Check whether the specified input (either regular or CSW) of this transaction has valid scripts & sigs.
  * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
  * instead of being performed inline.
  */
-bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+bool InputScriptCheck(const CScript& scriptPubKey, const CTransactionBase& tx, unsigned int nIn,
+                      const CChain& chain, unsigned int flags, bool cache,  CValidationState &state, std::vector<CScriptCheck> *pvChecks);
+/**
+ * Check whether all inputs (either regular and CSW) of this transaction are valid (no double spends, scripts & sigs, amounts)
+ * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
+ * instead of being performed inline.
+ */
+bool ContextualCheckTxInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
+                           const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
+                           std::vector<CScriptCheck> *pvChecks = NULL);
+/**
+ * Check whether all inputs of this certificates are valid (no double spends, scripts & sigs, amounts)
+ * This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
+ * instead of being performed inline.
+ */
+bool ContextualCheckCertInputs(const CScCertificate& cert, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            const CChain& chain, unsigned int flags, bool cacheStore, const Consensus::Params& consensusParams,
                            std::vector<CScriptCheck> *pvChecks = NULL);
 
-/** Check a transaction contextually against a set of consensus rules */
-bool ContextualCheckTransaction(const CTransaction& tx, CValidationState &state, int nHeight, int dosLevel,
-                                bool (*isInitBlockDownload)() = IsInitialBlockDownload);
-
 /** Apply the effects of this transaction on the UTXO set represented by view */
-void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, int nHeight);
+bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint& out);
+void UpdateCoins(const CTransaction& tx, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight);
+void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo& txundo, int nHeight, bool isBlockTopQualityCert);
+
+std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToConnect, const CCoinsViewCache& view);
+std::map<uint256,uint256> HighQualityCertData(const CBlock& blockToDisconnect, const CBlockUndo& blockUndo);
 
 /** Context-independent validity checks */
 bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash::ProofVerifier& verifier);
+bool CheckCertificate(const CScCertificate& cert, CValidationState& state);
 bool CheckTransactionWithoutProofVerification(const CTransaction& tx, CValidationState &state);
+bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CValidationState& state);
 
 /** Check for standard transaction types
  * @return True if all outputs (scriptPubKeys) use only standard transaction forms
  */
-bool IsStandardTx(const CTransaction& tx, std::string& reason, int nHeight);
+bool IsStandardTx(const CTransactionBase& txBase, std::string& reason, int nHeight);
 
 /**
  * Check if transaction is final and can be included in a block with the
  * specified height and time. Consensus critical.
  */
-bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime);
+bool IsFinalTx(const CTransactionBase &tx, int nBlockHeight, int64_t nBlockTime);
 
 /**
  * Check if transaction will be final in the next block to be created.
@@ -402,7 +492,7 @@ bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime);
  *
  * See consensus/consensus.h for flag definitions.
  */
-bool CheckFinalTx(const CTransaction &tx, int flags = -1);
+bool CheckFinalTx(const CTransactionBase &tx, int flags = -1);
 
 /** 
  * Closure representing one script verification
@@ -412,7 +502,7 @@ class CScriptCheck
 {
 private:
     CScript scriptPubKey;
-    const CTransaction *ptxTo;
+    const CTransactionBase *ptxTo;
     unsigned int nIn;
     const CChain *chain;
     unsigned int nFlags;
@@ -420,26 +510,23 @@ private:
     ScriptError error;
 
 public:
-    CScriptCheck(): ptxTo(0), nIn(0), chain(nullptr), nFlags(0), cacheStore(false), error(SCRIPT_ERR_UNKNOWN_ERROR) {}
-    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn) :
-        scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey),
-        ptxTo(&txToIn), nIn(nInIn), chain(chainIn), nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR) { }
-
+    CScriptCheck();
+    CScriptCheck(const CCoins& txFromIn, const CTransactionBase& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn);
+    CScriptCheck(const CScript& scriptPubKeyIn, const CTransactionBase& txToIn, unsigned int nInIn, const CChain* chainIn, unsigned int nFlagsIn, bool cacheIn);
     bool operator()();
-
-    void swap(CScriptCheck &check) {
-        scriptPubKey.swap(check.scriptPubKey);
-        std::swap(ptxTo, check.ptxTo);
-        std::swap(nIn, check.nIn);
-        std::swap(chain, check.chain);
-        std::swap(nFlags, check.nFlags);
-        std::swap(cacheStore, check.cacheStore);
-        std::swap(error, check.error);
-    }
-
-    ScriptError GetScriptError() const { return error; }
+    void swap(CScriptCheck &check);
+    ScriptError GetScriptError() const;
 };
 
+#ifdef ENABLE_ADDRESS_INDEXING
+bool GetTimestampIndex(const unsigned int &high, const unsigned int &low, const bool fActiveOnly, std::vector<std::pair<uint256, unsigned int> > &hashes);
+bool GetSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value);
+bool GetAddressIndex(uint160 addressHash, int type,
+                     std::vector<std::pair<CAddressIndexKey, CAddressIndexValue> > &addressIndex,
+                     int start = 0, int end = 0);
+bool GetAddressUnspent(uint160 addressHash, int type,
+                       std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs);
+#endif // ENABLE_ADDRESS_INDEXING
 
 /** Functions for disk access for blocks */
 bool WriteBlockToDisk(CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart);
@@ -449,30 +536,61 @@ CBlock LoadBlockFrom(CBufferedFile& blkdat, CDiskBlockPos* pLastLoadedBlkPos);
 
 /** Functions for validating blocks and updating the block tree */
 
+/**
+ * @brief The enumeration to enable/disable Level DB indexes write.
+ * It is used in the ConnectBlock() and DisconnectBlock() to prevent updating the DB
+ * when called from VerifyDB() and TestBlockValidity().
+ * Such flag is needed because the indexes don't have a cache as CoinDB.
+ */
+enum class flagLevelDBIndexesWrite { ON, OFF };
+
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  In case pfClean is provided, operation will try to be tolerant about errors, and *pfClean
  *  will be true if no problems were found. Otherwise, the return value will be false in case
  *  of problems. Note that in any case, coins may be modified. */
-bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins, bool* pfClean = NULL);
+bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins, flagLevelDBIndexesWrite explorerIndexesWrite,
+                     bool* pfClean = NULL, std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins */
-bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins, const CChain& chain, bool fJustCheck = false);
+enum class flagCheckPow             { ON, OFF };
+enum class flagCheckMerkleRoot      { ON, OFF };
+enum class flagScRelatedChecks      { ON, OFF };
+enum class flagScProofVerification  { ON, OFF };
+
+/**
+ * @brief The enumeration of allowed types of block processing.
+ * It is used in the ConnectBlock() function to choose between the full/normal processing
+ * or a dry-run intended to check only the validity (without applying any changes).
+ */
+enum class flagBlockProcessingType
+{
+    COMPLETE,       /**< Perform the normal/complete procedure applying changes. */
+    CHECK_ONLY      /**< Perofrm only the validity check and do not apply any changes. */
+};
+
+bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
+    CCoinsViewCache& coins, const CChain& chain, flagBlockProcessingType processingType,
+    flagScRelatedChecks fScRelatedChecks, flagScProofVerification fScProofVerification,
+    flagLevelDBIndexesWrite explorerIndexesWrite,
+    std::vector<CScCertificateStatusUpdateInfo>* pCertsStateInfo = nullptr);
 
 /** Find the position in block files (blk??????.dat) in which a block must be written. */
 bool FindBlockPos(CValidationState &state, CDiskBlockPos &pos, unsigned int nAddSize, unsigned int nHeight, uint64_t nTime, bool fKnown = false);
 
 /** Context-independent validity checks */
-bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW = true);
+bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, flagCheckPow fCheckPOW = flagCheckPow::ON);
 bool CheckBlock(const CBlock& block, CValidationState& state,
                 libzcash::ProofVerifier& verifier,
-                bool fCheckPOW = true, bool fCheckMerkleRoot = true);
+                flagCheckPow fCheckPOW = flagCheckPow::ON,
+                flagCheckMerkleRoot fCheckMerkleRoot = flagCheckMerkleRoot::ON);
 
 /** Context-dependent validity checks */
 bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex *pindexPrev);
 bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIndex *pindexPrev);
 
 /** Check a block is completely valid from start to finish (only works on top of our current best block, with cs_main held) */
-bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex *pindexPrev, bool fCheckPOW = true, bool fCheckMerkleRoot = true);
+bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex *pindexPrev,
+        flagCheckPow fCheckPOW, flagCheckMerkleRoot fCheckMerkleRoot, flagScRelatedChecks fScRelatedChecks);
 
 /**
  * Store block on disk.
@@ -483,7 +601,6 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
  */
 bool AcceptBlock(CBlock& block, CValidationState& state, CBlockIndex **pindex, bool fRequested, CDiskBlockPos* dbp, BlockSet* sForkTips = NULL);
 bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex **ppindex= NULL, bool lookForwardTips = false);
-
 
 
 class CBlockFileInfo
@@ -567,26 +684,45 @@ extern CCoinsViewCache *pcoinsTip;
 extern CBlockTreeDB *pblocktree;
 
 /**
- * Return the spend height, which is one more than the inputs.GetBestBlock().
- * While checking, GetBestBlock() refers to the parent block. (protected by cs_main)
- * This is also true for mempool checks.
- */
-int GetSpendHeight(const CCoinsViewCache& inputs);
-
-/**
  * Check if the output nIn is CF Reward
  */
 bool IsCommunityFund(const CCoins *coins, int nIn);
 
-extern VersionBitsCache versionbitscache;
-
-/**
-* Determine what nVersion a new block should use.
-*/
-int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params);
-
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
+bool CheckTxInputs(const CTransactionBase& txBase, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
 }
+
+struct CTransactionNetworkObj
+{
+    CTransaction tx;
+    CScCertificate cert;
+
+    int32_t nVersion;
+
+    bool IsCertificate() const { return (nVersion == SC_CERT_VERSION); }
+    bool IsTx() const { return !IsCertificate(); }
+
+    template<typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion) {
+        SerializationOp(s, CSerActionUnserialize(), nType, nVersion);
+    } 
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+
+        ::Unserialize(s, this->nVersion, nType, nVersion);
+        nVersion = this->nVersion;
+        s.Rewind(sizeof(nVersion));
+
+        if (this->IsCertificate())
+        {
+            ::Unserialize(s, *const_cast<CScCertificate*>(&cert), nType, nVersion);
+        }
+        else
+        {
+            ::Unserialize(s, *const_cast<CTransaction*>(&tx), nType, nVersion);
+        }
+    }
+};
 
 #endif // BITCOIN_MAIN_H

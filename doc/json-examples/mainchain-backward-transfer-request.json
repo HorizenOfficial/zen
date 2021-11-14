@@ -1,0 +1,62 @@
+{
+  "txid": "50ad5fc47440ef5f47a13fe81053f3bb9528f3333a854f32e3c9f6872cfbb599",
+  "size": 452,
+  "version": -4,
+  "locktime": 0,
+  "vin": [
+    {
+      "txid": "9d3c5f9d11383adf35009afceee452004d5e46c5508ddbb96c739cc28020e272",
+      "vout": 0,
+      "scriptSig": {
+        "asm": "30440220367780e5efe274783139384ffeae35ce2b8992f9ce375b9d824c5043fff7996b02204ce7fcb94ae552b08087b9ea70a340175b53ac5aba7b6b3a7aade17729c3738201 02d114261a6cc5111aafeb71573e2bfbfd4d9d2cfb8da1c9c2caf8ac80fb1df65c",
+        "hex": "4730440220367780e5efe274783139384ffeae35ce2b8992f9ce375b9d824c5043fff7996b02204ce7fcb94ae552b08087b9ea70a340175b53ac5aba7b6b3a7aade17729c37382012102d114261a6cc5111aafeb71573e2bfbfd4d9d2cfb8da1c9c2caf8ac80fb1df65c"
+      },
+      "sequence": 4294967295
+    }
+  ],
+  "vcsw_ccin": [
+  ],
+  "vout": [
+    {
+      "value": 0.99485009,
+      "valueZat": 99485009,
+      "n": 0,
+      "scriptPubKey": {
+        "asm": "OP_DUP OP_HASH160 7d30a3f4b62e625249cb491099637d96ee9d1d90 OP_EQUALVERIFY OP_CHECKSIG bccefd36f9bd5f7a05e7128e9ebc667f56019b4700eaefc0419309fff0515703 123 OP_CHECKBLOCKATHEIGHT",
+        "hex": "76a9147d30a3f4b62e625249cb491099637d96ee9d1d9088ac20bccefd36f9bd5f7a05e7128e9ebc667f56019b4700eaefc0419309fff0515703017bb4",
+        "reqSigs": 1,
+        "type": "pubkeyhashreplay",
+        "addresses": [
+          "zteZuVdYyy5fsQqdnR4Y2hmGJiAr521tbms"
+        ]
+      }
+    }
+  ],
+  "vsc_ccout": [
+  ],
+  "vft_ccout": [
+  ],
+  "vmbtr_out": [
+    {
+      "scid": "033ee1246483c2eafdfcb2e7189371183b6d89a56af1e59d40dbf83eb894be75",
+      "n": 0,
+      "mcDestinationAddress": "zteZuVdYyy5fsQqdnR4Y2hmGJiAr521tbms",
+      "scFee": 0.00250000,
+      "vScRequestData": [
+        "3f5d13a4282b609a966c69949cfb6582a31ad1c3c51d64e5b91b104e75baaf00",
+        "cc372dd9f632864c1d36463c3fb01ccac5179bf70e826657ccc28f6260a10200"
+      ]
+    },
+    {
+      "scid": "1e4290be1bd8b03fe5a01a925d32c459fdb29483efcbf93034e4097520e3bd72",
+      "n": 1,
+      "mcDestinationAddress": "ztnGrMz3sHwLEv8hEhMLfECugUyEzpC4Lqr",
+      "scFee": 0.00260000,
+      "vScRequestData": [
+        "b4fbf4cfb6df8ee06e8847f2841a3544442276bb3452c8a0efacae929a767a00"
+      ]
+    }
+  ],
+  "vjoinsplit": [
+  ]
+}

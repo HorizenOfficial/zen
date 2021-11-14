@@ -69,12 +69,12 @@ CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey)
     txCredit.nVersion = 1;
     txCredit.nLockTime = 0;
     txCredit.vin.resize(1);
-    txCredit.vout.resize(1);
+    txCredit.resizeOut(1);
     txCredit.vin[0].prevout.SetNull();
     txCredit.vin[0].scriptSig = CScript() << CScriptNum(0) << CScriptNum(0);
     txCredit.vin[0].nSequence = std::numeric_limits<unsigned int>::max();
-    txCredit.vout[0].scriptPubKey = scriptPubKey;
-    txCredit.vout[0].nValue = 0;
+    txCredit.getOut(0).scriptPubKey = scriptPubKey;
+    txCredit.getOut(0).nValue = 0;
 
     return txCredit;
 }
@@ -85,13 +85,34 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CMu
     txSpend.nVersion = 1;
     txSpend.nLockTime = 0;
     txSpend.vin.resize(1);
-    txSpend.vout.resize(1);
+    txSpend.resizeOut(1);
     txSpend.vin[0].prevout.hash = txCredit.GetHash();
     txSpend.vin[0].prevout.n = 0;
     txSpend.vin[0].scriptSig = scriptSig;
     txSpend.vin[0].nSequence = std::numeric_limits<unsigned int>::max();
-    txSpend.vout[0].scriptPubKey = CScript();
-    txSpend.vout[0].nValue = 0;
+    txSpend.getOut(0).scriptPubKey = CScript();
+    txSpend.getOut(0).nValue = 0;
+
+    return txSpend;
+}
+
+CMutableTransaction BuildCSWInputSpendingTransaction(const CKeyID& pubKeyHash, const CScript& redeemScript)
+{
+    CMutableTransaction txSpend;
+    txSpend.nVersion = SC_TX_VERSION;
+    txSpend.nLockTime = 0;
+
+    txSpend.vcsw_ccin.resize(1);
+    txSpend.vcsw_ccin[0].nValue = 100;
+    txSpend.vcsw_ccin[0].scId = uint256();
+    txSpend.vcsw_ccin[0].nullifier = CFieldElement{};
+    txSpend.vcsw_ccin[0].pubKeyHash = pubKeyHash;
+    txSpend.vcsw_ccin[0].scProof.SetByteArray(std::vector<unsigned char>(CScProof::MaxByteSize(),0x0));
+    txSpend.vcsw_ccin[0].redeemScript = redeemScript;
+
+    txSpend.resizeOut(1);
+    txSpend.getOut(0).scriptPubKey = CScript();
+    txSpend.getOut(0).nValue = 0;
 
     return txSpend;
 }
@@ -297,7 +318,7 @@ public:
     {
         TestBuilder copy = *this; // Make a copy so we can rollback the push.
         DoPush();
-        DoTest(creditTx.vout[0].scriptPubKey, spendTx.vin[0].scriptSig, flags, expect, comment);
+        DoTest(creditTx.GetVout()[0].scriptPubKey, spendTx.vin[0].scriptSig, flags, expect, comment);
         *this = copy;
         return *this;
     }
@@ -307,7 +328,7 @@ public:
         DoPush();
         UniValue array(UniValue::VARR);
         array.push_back(FormatScript(spendTx.vin[0].scriptSig));
-        array.push_back(FormatScript(creditTx.vout[0].scriptPubKey));
+        array.push_back(FormatScript(creditTx.GetVout()[0].scriptPubKey));
         array.push_back(FormatScriptFlags(flags));
         array.push_back(comment);
         return array;
@@ -320,7 +341,7 @@ public:
 
     const CScript& GetScriptPubKey()
     {
-        return creditTx.vout[0].scriptPubKey;
+        return creditTx.GetVout()[0].scriptPubKey;
     }
 };
 }
@@ -742,7 +763,7 @@ BOOST_AUTO_TEST_CASE(script_CHECKMULTISIG12)
     CScript goodsig1 = sign_multisig(scriptPubKey12, key1, txTo12);
     BOOST_CHECK(VerifyScript(goodsig1, scriptPubKey12, flags, MutableTransactionSignatureChecker(&txTo12, 0), &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_OK, ScriptErrorString(err));
-    txTo12.vout[0].nValue = 2;
+    txTo12.getOut(0).nValue = 2;
     BOOST_CHECK(!VerifyScript(goodsig1, scriptPubKey12, flags, MutableTransactionSignatureChecker(&txTo12, 0), &err));
     BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
 
@@ -841,7 +862,7 @@ BOOST_AUTO_TEST_CASE(script_combineSigs)
 
     CMutableTransaction txFrom = BuildCreditingTransaction(GetScriptForDestination(keys[0].GetPubKey().GetID()));
     CMutableTransaction txTo = BuildSpendingTransaction(CScript(), txFrom);
-    CScript& scriptPubKey = txFrom.vout[0].scriptPubKey;
+    CScript& scriptPubKey = txFrom.getOut(0).scriptPubKey;
     CScript& scriptSig = txTo.vin[0].scriptSig;
 
     CScript empty;
@@ -963,6 +984,74 @@ BOOST_AUTO_TEST_CASE(script_IsPushOnly_on_invalid_scripts)
     // the invalid push. Still, it doesn't hurt to test it explicitly.
     static const unsigned char direct[] = { 1 };
     BOOST_CHECK(!CScript(direct, direct+sizeof(direct)).IsPushOnly());
+}
+
+BOOST_AUTO_TEST_CASE(script_csw_inputs)
+{
+    // Test the CSW input signing
+    CBasicKeyStore keystore;
+    vector<CKey> keys;
+    vector<CPubKey> pubkeys;
+    for (int i = 0; i < 3; i++)
+    {
+        CKey key;
+        key.MakeNewKey(i%2 == 1);
+        keys.push_back(key);
+        pubkeys.push_back(key.GetPubKey());
+        keystore.AddKey(key);
+    }
+
+    CMutableTransaction cswTx = BuildCSWInputSpendingTransaction(keys[0].GetPubKey().GetID(), CScript());
+
+    const CScript scriptPubKey = cswTx.vcsw_ccin[0].scriptPubKey();
+    CScript& scriptSig = cswTx.vcsw_ccin[0].redeemScript;
+
+    unsigned int inputIndex = 0;
+    CScript empty;
+    CScript combined = CombineSignatures(scriptPubKey, cswTx, inputIndex, scriptSig, empty);
+    BOOST_CHECK(scriptSig == combined);
+    BOOST_CHECK(combined.empty());
+
+    // SIGHASH_ALL signature case:
+    // Note: scriptSig expected to be changed
+    BOOST_CHECK(SignSignature(keystore, scriptPubKey, cswTx, inputIndex, SIGHASH_ALL));
+
+    ScriptError serror = SCRIPT_ERR_OK;
+    BOOST_CHECK(VerifyScript(scriptSig, scriptPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
+                      MutableTransactionSignatureChecker(&cswTx, inputIndex), &serror));
+    BOOST_CHECK(serror == SCRIPT_ERR_OK);
+
+
+    // SIGHASH_SINGLE signature case:
+    // Note: scriptSig expected to be changed
+    scriptSig.clear();
+    BOOST_CHECK(SignSignature(keystore, scriptPubKey, cswTx, inputIndex, SIGHASH_SINGLE));
+
+    BOOST_CHECK(VerifyScript(scriptSig, scriptPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
+                      MutableTransactionSignatureChecker(&cswTx, inputIndex), &serror));
+    BOOST_CHECK(serror == SCRIPT_ERR_OK);
+
+
+    // SIGHASH_NONE signature case:
+    // Note: scriptSig expected to be changed
+    scriptSig.clear();
+    BOOST_CHECK(SignSignature(keystore, scriptPubKey, cswTx, inputIndex, SIGHASH_NONE));
+
+    BOOST_CHECK(VerifyScript(scriptSig, scriptPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
+                      MutableTransactionSignatureChecker(&cswTx, inputIndex), &serror));
+    BOOST_CHECK(serror == SCRIPT_ERR_OK);
+
+
+
+    // SIGHASH_SINGLE signature failure case: no corresponding output for given CSW input index
+    scriptSig.clear();
+    inputIndex = 1;
+    cswTx.vcsw_ccin.resize(2);
+    cswTx.vcsw_ccin[1] = cswTx.vcsw_ccin[0];
+    cswTx.vcsw_ccin[1].pubKeyHash = keys[1].GetPubKey().GetID();
+    BOOST_CHECK(!SignSignature(keystore, scriptPubKey, cswTx, inputIndex, SIGHASH_SINGLE));
+
+
 }
 
 BOOST_AUTO_TEST_SUITE_END()

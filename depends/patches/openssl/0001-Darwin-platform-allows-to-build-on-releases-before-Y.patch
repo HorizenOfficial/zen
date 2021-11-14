@@ -25,7 +25,7 @@ index 43f1069d15..0f4525106a 100644
 -#if defined(__APPLE__)
 -# include <CommonCrypto/CommonRandom.h>
 -#endif
- 
+
  #if defined(OPENSSL_SYS_UNIX) || defined(__DJGPP__)
  # include <sys/types.h>
 @@ -381,7 +378,7 @@ static ssize_t syscall_random(void *buf, size_t buflen)
@@ -36,15 +36,15 @@ index 43f1069d15..0f4525106a 100644
 +#  elif defined(OPENSSL_APPLE_CRYPTO_RANDOM)
      if (CCRandomGenerateBytes(buf, buflen) == kCCSuccess)
  	    return (ssize_t)buflen;
- 
+
 diff --git a/include/crypto/rand.h b/include/crypto/rand.h
 index 5350d3a931..674f840fd1 100644
 --- a/include/crypto/rand.h
 +++ b/include/crypto/rand.h
 @@ -20,6 +20,16 @@
- 
+
  # include <openssl/rand.h>
- 
+
 +# if defined(__APPLE__) && !defined(OPENSSL_NO_APPLE_CRYPTO_RANDOM)
 +#  include <Availability.h>
 +#  if (defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000) || \
@@ -57,7 +57,6 @@ index 5350d3a931..674f840fd1 100644
 +
  /* forward declaration */
  typedef struct rand_pool_st RAND_POOL;
- 
--- 
-2.31.1
 
+--
+2.31.1

@@ -116,7 +116,7 @@ double benchmark_create_joinsplit()
     struct timeval tv_start;
     timer_start(tv_start);
     JSDescription jsdesc(true,
-						 *pzcashParams,
+                         *pzcashParams,
                          pubKeyHash,
                          anchor,
                          {JSInput(), JSInput()},
@@ -237,10 +237,8 @@ double benchmark_large_tx()
     // The "original" transaction that the spending transaction will spend
     // from.
     CMutableTransaction m_orig_tx;
-    m_orig_tx.vout.resize(1);
-    m_orig_tx.vout[0].nValue = 1000000;
     CScript prevPubKey = GetScriptForDestination(pub.GetID());
-    m_orig_tx.vout[0].scriptPubKey = prevPubKey;
+    m_orig_tx.addOut(CTxOut(1000000, prevPubKey));
 
     auto orig_tx = CTransaction(m_orig_tx);
 
@@ -275,7 +273,7 @@ double benchmark_large_tx()
     timer_start(tv_start);
     for (size_t i = 0; i < NUM_INPUTS; i++) {
         ScriptError serror = SCRIPT_ERR_OK;
-        assert(VerifyScript(final_spending_tx.vin[i].scriptSig,
+        assert(VerifyScript(final_spending_tx.GetVin()[i].scriptSig,
                             prevPubKey,
                             STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
                             TransactionSignatureChecker(&final_spending_tx, i, nullptr),
@@ -293,11 +291,11 @@ double benchmark_try_decrypt_notes(size_t nAddrs)
     }
 
     auto sk = libzcash::SpendingKey::random();
-    auto tx = GetValidReceive(*pzcashParams, sk, 10, true);
+    auto walletTx = GetValidReceive(*pzcashParams, sk, 10, true);
 
     struct timeval tv_start;
     timer_start(tv_start);
-    auto nd = wallet.FindMyNotes(tx);
+    auto nd = wallet.FindMyNotes(walletTx.getWrappedTx());
     return timer_stop(tv_start);
 }
 
@@ -313,17 +311,17 @@ double benchmark_increment_note_witnesses(size_t nTxs)
     CBlock block1;
     for (int i = 0; i < nTxs; i++) {
         auto wtx = GetValidReceive(*pzcashParams, sk, 10, true);
-        auto note = GetNote(*pzcashParams, sk, wtx, 0, 1);
+        auto note = GetNote(*pzcashParams, sk, wtx.getWrappedTx(), 0, 1);
         auto nullifier = note.nullifier(sk);
 
         mapNoteData_t noteData;
-        JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+        JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
         CNoteData nd {sk.address(), nullifier};
         noteData[jsoutpt] = nd;
 
         wtx.SetNoteData(noteData);
         wallet.AddToWallet(wtx, true, NULL);
-        block1.vtx.push_back(wtx);
+        block1.vtx.push_back(wtx.getWrappedTx());
     }
     CBlockIndex index1(block1);
     index1.nHeight = 1;
@@ -336,17 +334,17 @@ double benchmark_increment_note_witnesses(size_t nTxs)
     block2.hashPrevBlock = block1.GetHash();
     {
         auto wtx = GetValidReceive(*pzcashParams, sk, 10, true);
-        auto note = GetNote(*pzcashParams, sk, wtx, 0, 1);
+        auto note = GetNote(*pzcashParams, sk, wtx.getWrappedTx(), 0, 1);
         auto nullifier = note.nullifier(sk);
 
         mapNoteData_t noteData;
-        JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
+        JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
         CNoteData nd {sk.address(), nullifier};
         noteData[jsoutpt] = nd;
 
         wtx.SetNoteData(noteData);
         wallet.AddToWallet(wtx, true, NULL);
-        block2.vtx.push_back(wtx);
+        block2.vtx.push_back(wtx.getWrappedTx());
     }
     CBlockIndex index2(block2);
     index2.nHeight = 2;
@@ -365,7 +363,7 @@ class FakeCoinsViewDB : public CCoinsViewDB {
 public:
     FakeCoinsViewDB(std::string dbName, uint256& hash) : CCoinsViewDB(dbName, 100, false, false), hash(hash) {}
 
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const {
+    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override {
         if (rt == t.root()) {
             tree = t;
             return true;
@@ -373,15 +371,15 @@ public:
         return false;
     }
 
-    bool GetNullifier(const uint256 &nf) const {
+    bool GetNullifier(const uint256 &nf) const override {
         return false;
     }
 
-    uint256 GetBestBlock() const {
+    uint256 GetBestBlock() const override {
         return hash;
     }
 
-    uint256 GetBestAnchor() const {
+    uint256 GetBestAnchor() const override {
         return t.root();
     }
 
@@ -389,11 +387,15 @@ public:
                     const uint256 &hashBlock,
                     const uint256 &hashAnchor,
                     CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers) {
+                    CNullifiersMap &mapNullifiers,
+                    CSidechainsMap& mapSidechains,
+                    CSidechainEventsMap& mapSidechainEvents,
+                    CCswNullifiersMap& cswNullifiers) override
+    {
         return false;
     }
 
-    bool GetStats(CCoinsStats &stats) const {
+    bool GetStats(CCoinsStats &stats) const override {
         return false;
     }
 };
@@ -430,7 +432,8 @@ double benchmark_connectblock_slow()
     CValidationState state;
     struct timeval tv_start;
     timer_start(tv_start);
-    assert(ConnectBlock(block, state, &index, view, chain, true));
+    assert(ConnectBlock(block, state, &index, view, chain, flagBlockProcessingType::CHECK_ONLY,
+                        flagScRelatedChecks::ON, flagScProofVerification::ON, flagLevelDBIndexesWrite::OFF));
     auto duration = timer_stop(tv_start);
 
     // Undo alterations to global state

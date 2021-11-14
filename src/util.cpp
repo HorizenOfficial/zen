@@ -617,6 +617,7 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
     set<string> setOptions;
     setOptions.insert("*");
 
+    LogPrintf("Reading config file %s\n", GetConfigFile().string());
     for (boost::program_options::detail::config_file_iterator it(streamConfig, setOptions), end; it != end; ++it)
     {
         // Don't overwrite existing settings so command line settings override zen.conf
@@ -933,3 +934,34 @@ int GetNumCores()
     return boost::thread::physical_concurrency();
 }
 
+int getTrailingZeroBitsInByte(unsigned char inputByte)
+{
+    // output: c will count inputByte's trailing zero bits,
+    // so if inputByte is 1101000 (base 2), then c will be 3
+    int c = CHAR_BIT;
+
+    if (inputByte)
+    {
+        inputByte = (inputByte ^ (inputByte - 1)) >> 1;  // Set inputByte's trailing 0s to 1s and zero rest
+        for (c = 0; inputByte; c++)
+        {
+            inputByte >>= 1;
+        }
+    }
+    return c;
+}
+
+int getBytesFromBits(int nbits, int& reminder)
+{
+    reminder = 0;
+    if (nbits < 0)
+        return 0;
+
+    const auto ret = std::div(nbits, CHAR_BIT);
+    int bytes = ret.quot;
+    reminder  = ret.rem;
+    if (reminder)
+        bytes++;
+
+    return bytes;
+}

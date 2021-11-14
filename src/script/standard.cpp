@@ -13,7 +13,6 @@
 #include <boost/foreach.hpp>
 
 #include "main.h"
-#include "versionbits.h"
 #include "zen/forkmanager.h"
 using namespace zen;
 
@@ -178,8 +177,8 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
             {
                 if (rpLevel < RPLEVEL_FIXED_2)
                 {
-                	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
-                	if (vch1.size() <= sizeof(int32_t))
+                    // Possible values of OP_CHECKBLOCKATHEIGHT parameters
+                    if (vch1.size() <= sizeof(int32_t))
                     {
                         if (vch1.size() == 0 && (opcode1 >= OP_1 && opcode1 <= OP_16) )
                         {
@@ -205,7 +204,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                 else
                 {
                     std::vector<unsigned char> vchCbhData;
-                	// Possible values of OP_CHECKBLOCKATHEIGHT parameters
+                    // Possible values of OP_CHECKBLOCKATHEIGHT parameters
                     // they are pushed into a stack for preventing the inversion of height/hash
 
                     if (vch1.size() == 0)
@@ -257,8 +256,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 #if !defined(BITCOIN_TX) // zen-tx does not have access to chain state so no replay protection is possible
                 if (rpLevel < RPLEVEL_FIXED_2)
                 {
-            	    // Full-fledged implementation of the OP_CHECKBLOCKATHEIGHT opcode for verification of vout's
-  
+                    // Full-fledged implementation of the OP_CHECKBLOCKATHEIGHT opcode for verification of vout's
 
                     if (vchBlockHash.size() != 32)
                     {
@@ -333,7 +331,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                     }
                     catch(...)
                     {
-                        LogPrint("%s: %s():%d - unexpected exception\n", __FILE__, __func__, __LINE__);
+                        LogPrintf("%s: %s():%d - unexpected exception\n", __FILE__, __func__, __LINE__);
                         break;
                     }
 
@@ -387,7 +385,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 }
 
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet) {
-	ReplayProtectionAttributes rpAttributes;
+    ReplayProtectionAttributes rpAttributes;
     return Solver(scriptPubKey, typeRet, vSolutionsRet, rpAttributes);
 }
 
@@ -453,7 +451,7 @@ void GetReplayProtectionAttributes(const CScript& scriptPubKey, ReplayProtection
 
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
 {
-	ReplayProtectionAttributes rpAttributes;
+    ReplayProtectionAttributes rpAttributes;
     return IsStandard(scriptPubKey, whichType, rpAttributes);
 }
 

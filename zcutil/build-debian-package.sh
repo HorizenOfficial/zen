@@ -22,6 +22,7 @@ if [ ! -d $BUILD_PATH ]; then
 fi
 
 PACKAGE_VERSION=$($SRC_PATH/src/zend --version | grep version | cut -d' ' -f4 | tr -d v)
+[[ $MAKEFLAGS =~ ^.*legacy-cpu.*$ ]] && PACKAGE_VERSION="${PACKAGE_VERSION}-legacy-cpu"
 DEBVERSION=$(echo $PACKAGE_VERSION | sed 's/-beta/~beta/' | sed 's/-rc/~rc/' | sed 's/-/+/')
 BUILD_DIR="$BUILD_PATH/$PACKAGE_NAME-$PACKAGE_VERSION-$ARCH"
 
@@ -47,7 +48,7 @@ cp $SRC_PATH/src/zen-cli $DEB_BIN
 cp $SRC_PATH/zcutil/fetch-params.sh $DEB_BIN/zen-fetch-params
 # Copy docs
 cp $SRC_PATH/doc/release-notes/release-notes-$(cut -d "-" -f 1-2 <<<${PACKAGE_VERSION})* $DEB_DOC/changelog ||
-cp "$(ls -v $SRC_PATH/doc/release-notes/release-notes-* | tail -n1)" $DEB_DOC/changelog
+cp "$(ls -vrt $SRC_PATH/doc/release-notes/release-notes-* | tail -n1)" $DEB_DOC/changelog
 cp $SRC_DEB/changelog $DEB_DOC/changelog.Debian
 cp $SRC_DEB/copyright $DEB_DOC
 cp -r $SRC_DEB/examples $DEB_DOC

@@ -4,7 +4,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "uint256.h"
-
 #include "utilstrencodings.h"
 
 #include <stdio.h>
@@ -141,6 +140,38 @@ uint64_t uint256::GetHash(const uint256& salt) const
     a += pn[6] ^ salt_pn[6];
     b += pn[7] ^ salt_pn[7];
     HashFinal(a, b, c);
+
+    return ((((uint64_t)b) << 32) | c);
+}
+
+uint64_t CalculateHash(const uint32_t* const src, size_t length, const uint32_t* const salt)
+{
+    // Taken from lookup3, by Bob Jenkins.
+    uint32_t a, b, c;
+    const uint32_t *pn = (const uint32_t*)src;
+    const uint32_t *salt_pn = (const uint32_t*)salt;
+    size_t width = length * sizeof(uint32_t); // length of uint32_t to bytes length
+    a = b = c = 0xdeadbeef + width;
+
+    while(length > 3 ) {
+        a += pn[0] ^ salt_pn[0];
+        b += pn[1] ^ salt_pn[1];
+        c += pn[2] ^ salt_pn[2];
+        HashMix(a, b, c);
+
+        length -= 3;
+        pn += 3;
+        salt_pn += 3;
+    }
+
+    switch(length) {
+        case 3 : c += pn[2] ^ salt_pn[2];
+        case 2 : b += pn[1] ^ salt_pn[1];
+        case 1 : a += pn[0] ^ salt_pn[0];
+            HashFinal(a, b, c);
+        case 0:
+            break;
+    }
 
     return ((((uint64_t)b) << 32) | c);
 }

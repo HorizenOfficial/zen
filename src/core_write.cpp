@@ -6,6 +6,7 @@
 
 #include "base58.h"
 #include "primitives/transaction.h"
+#include "primitives/certificate.h"
 #include "script/script.h"
 #include "script/standard.h"
 #include "serialize.h"
@@ -61,6 +62,34 @@ string EncodeHexTx(const CTransaction& tx)
     return HexStr(ssTx.begin(), ssTx.end());
 }
 
+string EncodeHexCert(const CScCertificate& cert)
+{
+    CDataStream ssCert(SER_NETWORK, PROTOCOL_VERSION);
+    ssCert << cert;
+    return HexStr(ssCert.begin(), ssCert.end());
+}
+
+string EncodeHex(const std::unique_ptr<CTransactionBase>& pTxBase)
+{
+    if (!pTxBase) {
+        throw std::invalid_argument(strprintf("%s():%d - null ptr", __func__, __LINE__));
+    }
+
+    CDataStream ssData(SER_NETWORK, PROTOCOL_VERSION);
+    try {
+        if (pTxBase->IsCertificate()) {
+            CScCertificate cert(dynamic_cast<const CScCertificate&>(*pTxBase));
+            ssData << cert;
+        } else {
+            CTransaction tx(dynamic_cast<const CTransaction&>(*pTxBase));
+            ssData << tx;
+        }
+    } catch (std::bad_cast& e) {
+        throw std::invalid_argument(strprintf("%s():%d - invalid txBase obj", __func__, __LINE__));
+    }
+    return HexStr(ssData.begin(), ssData.end());
+}
+    
 void ScriptPubKeyToUniv(const CScript& scriptPubKey,
                         UniValue& out, bool fIncludeHex)
 {
@@ -90,10 +119,10 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("version", tx.nVersion);
-    entry.pushKV("locktime", (int64_t)tx.nLockTime);
+    entry.pushKV("locktime", (int64_t)tx.GetLockTime());
 
     UniValue vin(UniValue::VARR);
-    BOOST_FOREACH(const CTxIn& txin, tx.vin) {
+    BOOST_FOREACH(const CTxIn& txin, tx.GetVin()) {
         UniValue in(UniValue::VOBJ);
         if (tx.IsCoinBase())
             in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
@@ -111,8 +140,8 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
     entry.pushKV("vin", vin);
 
     UniValue vout(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.vout.size(); i++) {
-        const CTxOut& txout = tx.vout[i];
+    for (unsigned int i = 0; i < tx.GetVout().size(); i++) {
+        const CTxOut& txout = tx.GetVout()[i];
 
         UniValue out(UniValue::VOBJ);
 
