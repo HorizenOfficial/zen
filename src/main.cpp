@@ -5845,7 +5845,13 @@ bool InitBlockIndex() {
 
     // Check whether we're already initialized
     if (chainActive.Genesis() != NULL)
+    {
         return true;
+    }
+
+    // set the flag upon db initialization
+    std::string indexVersionStr = CURRENT_INDEX_VERSION_STR;
+    pblocktree->WriteString("indexVersion", indexVersionStr); 
 
     // Use the provided setting for -txindex in the new database
     fTxIndex = GetBoolArg("-txindex", false);
