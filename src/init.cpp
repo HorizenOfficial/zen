@@ -1632,12 +1632,11 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     break;
                 }
 
-                // Check that -txindex is enabled when -maturityheightindex is enabled
-                if (fMaturityHeightIndex && !fTxIndex) {
-                    strLoadError = _("You need to enable -txindex in order to use -maturityheightindex");
-                    break;
-                }
-
+                // read the version of the txindexing related version
+                std::string indexVersionStr = DEFAULT_INDEX_VERSION_STR;
+                pblocktree->ReadString("indexVersion", indexVersionStr);
+                LogPrintf("%s: indexVersion %s\n", __func__, indexVersionStr);  
+   
 #ifdef ENABLE_ADDRESS_INDEXING
                 // Check for changed -addressindex state
                 if (fAddressIndex != GetBoolArg("-addressindex", false)) {
@@ -1650,7 +1649,28 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
                     strLoadError = _("You need to enable -txindex in order to use -addressindex");
                     break;
                 }
+
+                if (fAddressIndex && indexVersionStr == DEFAULT_INDEX_VERSION_STR) {
+                    strLoadError = _("You need to reindex in order to use -addressindex");
+                    break;
+                }
 #endif // ENABLE_ADDRESS_INDEXING
+
+                if (fMaturityHeightIndex && indexVersionStr == DEFAULT_INDEX_VERSION_STR)
+                {
+                    indexVersionStr = CURRENT_INDEX_VERSION_STR;
+                    pblocktree->WriteString("indexVersion", indexVersionStr); 
+   
+                    std::string dum;
+                    pblocktree->ReadString("indexVersion", dum);
+                    LogPrintf("%s: indexVersion %s\n", __func__, dum);  
+                }
+
+                // Check that -txindex is enabled when -maturityheightindex is enabled
+                if (fMaturityHeightIndex && !fTxIndex) {
+                    strLoadError = _("You need to enable -txindex in order to use -maturityheightindex");
+                    break;
+                }
 
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks
                 // in the past, but is now trying to run unpruned.
