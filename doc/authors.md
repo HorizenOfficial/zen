@@ -3,9 +3,9 @@ Horizen Contributors
 
 Jack Grigg (778)
 abi87 (686)
-Alberto Sala (594)
+Alberto Sala (596)
 Simon Liu (338)
-cronicc (270)
+cronicc (273)
 FranckDG (219)
 Sean Bowe (204)
 Daira Hopwood (142)
