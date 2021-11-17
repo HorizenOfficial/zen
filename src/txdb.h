@@ -46,6 +46,9 @@ static const int64_t nMaxDbCache = sizeof(void*) > 4 ? 16384 : 1024;
 //! min. -dbcache in (MiB)
 static const int64_t nMinDbCache = 4;
 
+static const std::string DEFAULT_INDEX_VERSION_STR = "0.0";
+static const std::string CURRENT_INDEX_VERSION_STR = "1.0";
+
 struct CDiskTxPos : public CDiskBlockPos
 {
     unsigned int nTxOffset; // after header
@@ -85,19 +88,15 @@ struct CTxIndexValue {
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(txPosition);
 
-        if (ser_action.ForRead()) {
-            if (s.size() == 0) {
-                // can happen when we are reading old records in txindex db
-                // we have completed the stream buffer, set remaining values to default
-                txIndex = 0;
-                maturityHeight = 0;
-            }
-            else {
-                READWRITE(VARINT(txIndex));
-                READWRITE_VARINT_WITH_SIGN(maturityHeight);
-            }
+        if (ser_action.ForRead() && (s.size() == 0))
+        {
+            // can happen when we are reading old records in txindex db
+            // we have completed the stream buffer, set remaining values to default
+            txIndex = 0;
+            maturityHeight = 0;
         }
-        else {
+        else
+        {
             READWRITE(VARINT(txIndex));
             // Since the maturity can be negative, we have to manipulate it to store the sign bit in a VARINT
             READWRITE_VARINT_WITH_SIGN(maturityHeight);
