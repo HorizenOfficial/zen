@@ -5850,7 +5850,7 @@ bool InitBlockIndex() {
     }
 
     // set the flag upon db initialization
-    std::string indexVersionStr = "1.0";
+    std::string indexVersionStr = CURRENT_INDEX_VERSION_STR;
     pblocktree->WriteString("indexVersion", indexVersionStr); 
 
     // Use the provided setting for -txindex in the new database
