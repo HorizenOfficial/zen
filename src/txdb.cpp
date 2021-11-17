@@ -723,6 +723,16 @@ bool CBlockTreeDB::blockOnchainActive(const uint256 &hash) {
 }
 #endif // ENABLE_ADDRESS_INDEXING
 
+bool CBlockTreeDB::WriteString(const std::string &name, std::string sValue) {
+    return Write(std::make_pair(DB_FLAG, name), sValue);
+}
+
+bool CBlockTreeDB::ReadString(const std::string &name, std::string &sValue) {
+    if (!Read(std::make_pair(DB_FLAG, name), sValue))
+        return false;
+    return true;
+}
+
 bool CBlockTreeDB::WriteFlag(const std::string &name, bool fValue) {
     return Write(std::make_pair(DB_FLAG, name), fValue ? '1' : '0');
 }

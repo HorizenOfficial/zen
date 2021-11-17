@@ -84,10 +84,24 @@ struct CTxIndexValue {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(txPosition);
-        READWRITE(VARINT(txIndex));
-        
-        // Since the maturity can be negative, we have to manipulate it to store the sign bit in a VARINT
-        READWRITE_VARINT_WITH_SIGN(maturityHeight);
+
+        if (ser_action.ForRead()) {
+            if (s.size() == 0) {
+                // can happen when we are reading old records in txindex db
+                // we have completed the stream buffer, set remaining values to default
+                txIndex = 0;
+                maturityHeight = 0;
+            }
+            else {
+                READWRITE(VARINT(txIndex));
+                READWRITE_VARINT_WITH_SIGN(maturityHeight);
+            }
+        }
+        else {
+            READWRITE(VARINT(txIndex));
+            // Since the maturity can be negative, we have to manipulate it to store the sign bit in a VARINT
+            READWRITE_VARINT_WITH_SIGN(maturityHeight);
+        }
     }
 
     CTxIndexValue(const CDiskTxPos& txPos, int txIdx, int maturity) {
@@ -184,6 +198,8 @@ public:
 
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
+    bool WriteString(const std::string &name, std::string fValue);
+    bool ReadString(const std::string &name, std::string &fValue);
     bool LoadBlockIndexGuts();
 };
 
