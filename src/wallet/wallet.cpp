@@ -1886,7 +1886,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived, list<COutputEntry>&
         }
 
         COutputEntry output = {
-            address, txout.nValue, CCoins::outputMaturity::MATURE, (int)pos, /*isBackwardTransfer*/false};
+            address, txout.nValue, IsOutputMature(pos), (int)pos, /*isBackwardTransfer*/false};
 
         // If we are debited by the transaction, add the output as a "sent" entry
         if (nDebit > 0)
@@ -2282,6 +2282,12 @@ bool CWalletTransactionBase::HasMatureOutputs() const
         default:
             return false;
         }
+    }
+
+    // Check if it is a shielded transaction
+    if (getTxBase()->GetVjoinsplit().size() > 0)
+    {
+        return true;
     }
 
     return false;
