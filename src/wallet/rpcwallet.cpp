@@ -1939,7 +1939,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
         for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
         {
             const CWalletTransactionBase* wtx = it->second.get();
-            if (!CheckFinalTx(*wtx->getTxBase()) || !wtx->HasMatureOutputs())
+            if (!CheckFinalTx(*wtx->getTxBase()) || (wtx->getTxBase()->IsCoinBase() && !wtx->HasMatureOutputs()))
                 continue;
 
             CAmount allFee;
@@ -3005,7 +3005,7 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
         list<COutputEntry> listReceived;
         list<COutputEntry> listSent;
 
-        if (!wtx.HasMatureOutputs())
+        if (wtx.getTxBase()->IsCoinBase() && !wtx.HasMatureOutputs())
             continue;
 
         wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, includeWatchonly);
