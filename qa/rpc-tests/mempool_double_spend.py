@@ -175,5 +175,12 @@ class TxnMallTest(BitcoinTestFramework):
 
         mark_logs("Current balance of the sending address: {:.8f}".format(self.nodes[0].z_getbalance(node0_address)), self.nodes, DEBUG_MODE)
 
+        # Check the consistency of all "getbalance" RPC commands
+        for i in range(NUMB_OF_NODES):
+            node_amount = self.nodes[i].getbalance()
+            assert_equal(node_amount, self.nodes[i].getbalance(""))
+            assert_equal(node_amount, self.nodes[i].getbalance("*"))
+            assert_equal(node_amount, Decimal(self.nodes[i].z_gettotalbalance()["total"]))
+
 if __name__ == '__main__':
     TxnMallTest().main()
