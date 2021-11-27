@@ -2266,6 +2266,9 @@ bool CWalletTransactionBase::HasImmatureOutputs() const
 
 bool CWalletTransactionBase::HasMatureOutputs() const
 {
+    if (GetDepthInMainChain() < 0)
+        return false;
+
     for(unsigned int pos = 0; pos < getTxBase()->GetVout().size(); ++pos)
     {
         switch(this->IsOutputMature(pos)) {
