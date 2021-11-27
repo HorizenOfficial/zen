@@ -1764,7 +1764,7 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()) || !wtx.HasMatureOutputs())
+        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
             continue;
 
         for(unsigned int pos = 0; pos < wtx.getTxBase()->GetVout().size(); ++pos)
@@ -1835,7 +1835,7 @@ UniValue getreceivedbyaccount(const UniValue& params, bool fHelp)
     for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
     {
         const CWalletTransactionBase& wtx = *((*it).second);
-        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()) || !wtx.HasMatureOutputs())
+        if (wtx.getTxBase()->IsCoinBase() || !CheckFinalTx(*wtx.getTxBase()))
             continue;
 
         for(unsigned int pos = 0; pos < wtx.getTxBase()->GetVout().size(); ++pos)
@@ -1939,7 +1939,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
         for (auto it = pwalletMain->getMapWallet().begin(); it != pwalletMain->getMapWallet().end(); ++it)
         {
             const CWalletTransactionBase* wtx = it->second.get();
-            if (!CheckFinalTx(*wtx->getTxBase()) || (wtx->getTxBase()->IsCoinBase() && !wtx->HasMatureOutputs()))
+            if (!CheckFinalTx(*wtx->getTxBase()) || (wtx->getTxBase()->IsCoinBase() && !wtx->HasMatureOutputs()) || wtx->GetDepthInMainChain() < 0)
                 continue;
 
             CAmount allFee;
@@ -3005,7 +3005,7 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
         list<COutputEntry> listReceived;
         list<COutputEntry> listSent;
 
-        if (wtx.getTxBase()->IsCoinBase() && !wtx.HasMatureOutputs())
+        if ((wtx.getTxBase()->IsCoinBase() && !wtx.HasMatureOutputs()) || wtx.GetDepthInMainChain() < 0)
             continue;
 
         wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount, includeWatchonly);
