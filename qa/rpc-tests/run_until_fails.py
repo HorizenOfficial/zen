@@ -1,3 +1,13 @@
+# This is a utility Python script to spot sporadic failures in regression tests (and eventually debug them).
+# It continously runs a Python test until it fails for some reason, printing the output to console.
+# Please, note that only the output of the failing test is printed, the output of the succeeding tests is filtered out.
+#
+# Usage:
+# python run_until_fails.py <test_file>
+#
+# Example usage:
+# python run_until_fails.py addressindex.py
+
 import os.path
 import subprocess
 import sys
