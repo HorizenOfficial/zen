@@ -296,8 +296,9 @@ bool GetCertificate(const uint256 &hash, CScCertificate &cert, uint256 &hashBloc
 /** Retrieve a base obj (from memory pool, or from disk, if possible) */
 bool GetTxBaseObj(const uint256 &hash, std::unique_ptr<CTransactionBase>& pTxBase, uint256 &hashBlock, bool fAllowSlow = false);
 
+static bool DUMMY_FALSE_VALUE = false;
 /** Find the best known block, and make it the tip of the block chain */
-bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL);
+bool ActivateBestChain(CValidationState &state, CBlock *pblock = NULL, bool &postponeRelay = DUMMY_FALSE_VALUE);
 /** Find an alternative chain tip and propagate to the network */
 bool RelayAlternativeChain(CValidationState &state, CBlock *pblock, BlockSet* sForkTips);
 
