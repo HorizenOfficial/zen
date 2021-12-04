@@ -198,6 +198,12 @@ class sc_cert_base(BitcoinTestFramework):
             assert(len(self.nodes[i].getblocktemplate()['certificates']) == 1)
             assert(len(self.nodes[i].getblocktemplate()['transactions']) == 1)
 
+        # Check that `getblocktemplate` "merkleTree" and "scTxsCommitment" match `getblockmerkleroots`
+        for i in range(0, NUMB_OF_NODES):
+            gbt = self.nodes[i].getblocktemplate()
+            roots = self.nodes[i].getblockmerkleroots([gbt['coinbasetxn']['data']] + [x['data'] for x in gbt['transactions']], [x['data'] for x in gbt['certificates']])
+            assert_equal(gbt['merkleTree'], roots['merkleTree'])
+            assert_equal(gbt['scTxsCommitment'], roots['scTxsCommitment'])
 
 if __name__ == '__main__':
     sc_cert_base().main()

@@ -443,6 +443,8 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "{\n"
             "  \"version\" : n,                         (numeric) the block version\n"
+            "  \"merkleTree\" : \"xxxx\",               (string) Merkleroot calculated on transactions and certificates. (Note: If you construct coinbasetxn outside of zend please use \"getblockmerkleroots\" RPC to calculate \"merkleTree\" and \"scTxsCommitment\".)\n"
+            "  \"scTxsCommitment\" : \"xxxx\",          (string) scTxsCommitment calculated on certificates.\n"
             "  \"previousblockhash\" : \"xxxx\",        (string) the hash of current highest block\n"
             "  \"transactions\" : [                     (array) contents of non-coinbase transactions that should be included in the next block\n"
             "      {\n"
@@ -711,8 +713,15 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     }
 
     UniValue result(UniValue::VOBJ);
+    pblock->hashMerkleRoot = pblock->BuildMerkleTree();
+    if (certSupported) {
+        CCoinsViewCache view(pcoinsTip);
+        pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment(view);
+    }
     result.pushKV("capabilities", aCaps);
     result.pushKV("version", pblock->nVersion);
+    result.pushKV("merkleTree", pblock->hashMerkleRoot.ToString());
+    result.pushKV("scTxsCommitment", pblock->hashScTxsCommitment.ToString());
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
     result.pushKV("transactions", transactions);
     if (certSupported)
