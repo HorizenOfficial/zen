@@ -123,6 +123,7 @@ class AddressIndexTest(BitcoinTestFramework):
         genesisCbah = "20bb1acf2c1fc1228967a611c7db30632098f0c641855180b5fe23793b72eea50d00b4"
         scriptPubKey = binascii.unhexlify(op_hash160 + op_push_20_bytes_onto_the_stack + addressHash + op_equal + genesisCbah)
         unspent = self.nodes[0].listunspent()
+        unspent.sort(key=lambda x: x["amount"], reverse=True)
         tx = CTransaction()
         tx.vin = [CTxIn(COutPoint(int(unspent[0]["txid"], 16), unspent[0]["vout"]))]
         tx.vout = [CTxOut(10, scriptPubKey), CTxOut(11, scriptPubKey)]
@@ -155,6 +156,7 @@ class AddressIndexTest(BitcoinTestFramework):
         self.nodes[0].importprivkey(privkey2)
 
         unspent = self.nodes[0].listunspent()
+        unspent.sort(key=lambda x: x["amount"], reverse=True)
         tx = CTransaction()
         tx.vin = [CTxIn(COutPoint(int(unspent[0]["txid"], 16), unspent[0]["vout"]))]
         amount = unspent[0]["amount"] * 100000000
@@ -247,6 +249,7 @@ class AddressIndexTest(BitcoinTestFramework):
         #address4 = "zrJgNMHvfLY26avAQCeHk8NAQxubq7CExqH"
         scriptPubKey4 = binascii.unhexlify(op_hash160 + op_push_20_bytes_onto_the_stack + addressHash3 + op_equal + genesisCbah)
         unspent = self.nodes[2].listunspent()
+        unspent.sort(key=lambda x: x["amount"], reverse=True)
 
         tx = CTransaction()
         tx.vin = [CTxIn(COutPoint(int(unspent[0]["txid"], 16), unspent[0]["vout"]))]
