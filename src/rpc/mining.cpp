@@ -711,6 +711,18 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     }
 
     UniValue result(UniValue::VOBJ);
+
+    // return merkleTree and scTxsCommitment
+    CCoinsViewCache view(pcoinsTip);
+    uint256 merkleTree = pblock->BuildMerkleTree();
+    uint256 scTxsCommitment;
+    scTxsCommitment.SetNull();
+    if (certSupported) {
+        scTxsCommitment = pblock->BuildScTxsCommitment(view);
+    }
+
+    result.pushKV("merkleTree", merkleTree.ToString());
+    result.pushKV("scTxsCommitment", scTxsCommitment.ToString());
     result.pushKV("capabilities", aCaps);
     result.pushKV("version", pblock->nVersion);
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
