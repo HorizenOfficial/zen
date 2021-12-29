@@ -1974,3 +1974,26 @@ TEST(CctpLibrary, TestInvalidProofVkWhenOversized)
 
     //TODO: Might be useful to test the same behaviour with bit vector
 }
+
+TEST(CctpLibrary, TestCustomFieldsValidation)
+{
+    for (uint8_t i = 1; i < CHAR_BIT; i++)
+    {
+        for (uint8_t j = 1; j > 0; j++)
+        {
+            std::vector<unsigned char> rawBytes = { j };
+            FieldElementCertificateField certField = FieldElementCertificateField(rawBytes);
+            FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i);
+            CFieldElement fe = certField.GetFieldElement(config);
+
+            if (j < 1 << i)
+            {
+                EXPECT_TRUE(fe.IsValid());
+            }
+            else
+            {
+                EXPECT_FALSE(fe.IsValid());
+            }
+        }
+    }
+}

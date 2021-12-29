@@ -17,6 +17,7 @@
 #include "utiltime.h"
 
 #include <stdarg.h>
+#include <stdio.h>
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread.h>
@@ -934,21 +935,15 @@ int GetNumCores()
     return boost::thread::physical_concurrency();
 }
 
-int getTrailingZeroBitsInByte(unsigned char inputByte)
+int getLeadingZeroBitsInByte(unsigned char inputByte)
 {
-    // output: c will count inputByte's trailing zero bits,
-    // so if inputByte is 1101000 (base 2), then c will be 3
-    int c = CHAR_BIT;
+    // Behavior of __builtin_clz() is undefined for zero input, so we need to handle this case explicitly.
+    if (inputByte == 0)
+        return 8;
 
-    if (inputByte)
-    {
-        inputByte = (inputByte ^ (inputByte - 1)) >> 1;  // Set inputByte's trailing 0s to 1s and zero rest
-        for (c = 0; inputByte; c++)
-        {
-            inputByte >>= 1;
-        }
-    }
-    return c;
+    // __builtin_clz() returns the number of leading zeros for an unsigned int, so we need to perform a
+    // conversion to use it for an unsigned char.
+    return __builtin_clz(inputByte) % (sizeof(unsigned int) * 8 - CHAR_BIT);
 }
 
 int getBytesFromBits(int nbits, int& reminder)

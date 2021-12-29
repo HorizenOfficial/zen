@@ -595,7 +595,7 @@ const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldEl
     {
         // check null bits in the last byte are as expected
         unsigned char lastByte = vRawData.back();
-        int numbOfZeroBits = getTrailingZeroBitsInByte(lastByte);
+        int numbOfZeroBits = getLeadingZeroBitsInByte(lastByte);
         if (numbOfZeroBits < (CHAR_BIT - rem))
         {
             LogPrint("sc", "%s():%d - ERROR: wrong number of null bits in last byte[0x%x]: %d vs %d\n",
@@ -605,7 +605,7 @@ const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldEl
     }
 
     std::vector<unsigned char> extendedRawData = vRawData;
-    extendedRawData.insert(extendedRawData.begin(), CFieldElement::ByteSize()-vRawData.size(), 0x0);
+    extendedRawData.insert(extendedRawData.end(), CFieldElement::ByteSize() - vRawData.size(), 0x0);
 
     fieldElement.SetByteArray(extendedRawData);
     if (fieldElement.IsValid())
