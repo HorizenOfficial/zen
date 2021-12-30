@@ -326,7 +326,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         vCmt = []
 
         # serialized fe for the proof has 32 byte size
-        fe1 = "000000000000000000000000000000000000000000000000000000000000" + "0100"
+        fe1 = "0100" + "000000000000000000000000000000000000000000000000000000000000"
 
         quality = 72
         scProof3 = certMcTest.create_test_proof(
@@ -370,9 +370,9 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         # this is a compressed buffer which will yield a valid field element for the proof (see below)
         vCmt = [BIT_VECTOR_BUF]
 
-        fe1 = "00000000000000000000000000000000000000000000000000000000" + "ab000100"
-        fe2 = "0000000000000000000000000000000000000000000000000000" + "ccccdddd0000"
-        fe3 = "000000000000000000000000000000000000000000000000000000000000" + "0100"
+        fe1 = "ab000100" + "00000000000000000000000000000000000000000000000000000000"
+        fe2 = "ccccdddd0000" + "0000000000000000000000000000000000000000000000000000"
+        fe3 = "0100" + "000000000000000000000000000000000000000000000000000000000000"
         fe4 = BIT_VECTOR_FE
 
         quality = 18

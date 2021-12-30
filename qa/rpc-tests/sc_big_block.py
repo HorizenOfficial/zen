@@ -177,7 +177,7 @@ class sc_big_block(BitcoinTestFramework):
         vCfe = ["ab000100"]
         vCmt = [BIT_VECTOR_BUF]
 
-        fe1 = "00000000000000000000000000000000000000000000000000000000" + "ab000100"
+        fe1 = "ab000100" + "00000000000000000000000000000000000000000000000000000000"
         fe2 = BIT_VECTOR_FE
 
         proofCfeArray = [fe1, fe2]
