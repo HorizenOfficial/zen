@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -109,11 +109,11 @@ class sc_bwt_request(BitcoinTestFramework):
             "mainchainBackwardTransferRequestDataLength":1
         }
 
-        print "Node0 Chain h = ", self.nodes[0].getblockcount()
+        print("Node0 Chain h = ", self.nodes[0].getblockcount())
 
         try:
             ret = self.nodes[1].sc_create(cmdInput)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False);
@@ -145,7 +145,7 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             self.nodes[1].sc_request_transfer(outputs, {})
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             mark_logs(e.error['message'], self.nodes, DEBUG_MODE)
 
         # 2.  wrong mcDestinationAddress
@@ -153,7 +153,7 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             self.nodes[1].sc_request_transfer(outputs, {})
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             mark_logs(e.error['message'], self.nodes, DEBUG_MODE)
 
         # 3.  negative scfee
@@ -161,7 +161,7 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             self.nodes[1].sc_request_transfer(outputs, {})
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             mark_logs(e.error['message'], self.nodes, DEBUG_MODE)
 
         # 4. not including one of the mandatory param
@@ -169,7 +169,7 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             self.nodes[1].sc_request_transfer(outputs, {})
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             mark_logs(e.error['message'], self.nodes, DEBUG_MODE)
 
         # 5.  wrong field element
@@ -177,7 +177,7 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             self.nodes[1].sc_request_transfer(outputs, {})
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             mark_logs(e.error['message'], self.nodes, DEBUG_MODE)
 
         #--- end of negative tests --------------------------------------------------
@@ -192,7 +192,7 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             bwt1 = self.nodes[1].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> bwt_tx_1 = {}.".format(bwt1), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
             assert_true(False)
@@ -214,7 +214,7 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             bwt2 = self.nodes[1].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> bwt_tx_2 = {}.".format(bwt2), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
             assert_true(False)
@@ -232,7 +232,7 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             bwt3 = self.nodes[0].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> bwt_tx_3 = {}.".format(bwt3), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -259,7 +259,7 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             bwt4 = self.nodes[1].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> bwt_tx_4 = {}.".format(bwt4), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -335,7 +335,7 @@ class sc_bwt_request(BitcoinTestFramework):
             bwt5 = self.nodes[0].sendrawtransaction(signed_tx['hex'])
             mark_logs("  --> bwt_tx_5 = {}.".format(bwt5), self.nodes, DEBUG_MODE)
 
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -374,7 +374,7 @@ class sc_bwt_request(BitcoinTestFramework):
             signed_tx = self.nodes[0].signrawtransaction(funded_tx['hex'])
             bwt6 = self.nodes[0].sendrawtransaction(signed_tx['hex'])
             mark_logs("  --> bwt_tx_6 = {}.".format(bwt6), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -430,7 +430,7 @@ class sc_bwt_request(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(sc1_ceas_limit_delta))
         self.sync_all()
 
-        print "Node0 Chain h = ", self.nodes[0].getblockcount()
+        print("Node0 Chain h = ", self.nodes[0].getblockcount())
 
         # the zero fee mbtr tx has not yet been removed from mempool since we reached epoch safe guard but
         # we are still in the epoch 0
@@ -454,7 +454,7 @@ class sc_bwt_request(BitcoinTestFramework):
                 epoch_cum_tree_hash, proof, amounts, ftScFee, mbtrScFee, CERT_FEE)
             mark_logs("Node 1 sent a cert with bwd transfer of {} coins to Node1 address via cert {}.".format(bwt_amount, cert_epoch_0), self.nodes, DEBUG_MODE)
             assert(len(cert_epoch_0) > 0)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
             assert(False)
@@ -469,7 +469,7 @@ class sc_bwt_request(BitcoinTestFramework):
         #
         # Check removed because MBTR does not depend on cert data hash anymore
         #
-        # print "Node0 Chain h = ", self.nodes[0].getblockcount()
+        # print("Node0 Chain h = ", self.nodes[0].getblockcount())
         # mark_logs("Check btr {} is removed from mempool".format(bwt3), self.nodes, DEBUG_MODE)
         # assert_false(bwt3 in self.nodes[0].getrawmempool())
 
@@ -490,7 +490,7 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             bwt7 = self.nodes[1].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> bwt_tx_7 = {}.".format(bwt7), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -531,7 +531,7 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             self.nodes[1].sc_request_transfer(outputs, cmdParms)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -563,7 +563,7 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Node0 generates {} blocks moving on the ceasing limit of SC2".format(ceasing_h - current_h - 1), self.nodes, DEBUG_MODE)
         blocks.extend(self.nodes[0].generate(ceasing_h - current_h - 1))
         self.sync_all()
-        print "Current height = ",  self.nodes[0].getblockcount()
+        print("Current height = ",  self.nodes[0].getblockcount())
 
         any_error = False
 
@@ -585,9 +585,9 @@ class sc_bwt_request(BitcoinTestFramework):
         try:
             cert_bad = self.nodes[0].sc_send_certificate(scid2, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert, ftScFee, mbtrScFee, 0.01)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print "Send certificate failed with reason {}".format(errorString)
+            print("Send certificate failed with reason {}".format(errorString))
             assert(False)
         self.sync_all()
 
@@ -608,7 +608,7 @@ class sc_bwt_request(BitcoinTestFramework):
         # cmdParms = { "minconf":0, "fee":0.0}
         # try:
         #     tx_bwt = self.nodes[1].sc_request_transfer(outputs, cmdParms);
-        # except JSONRPCException, e:
+        # except JSONRPCException as e:
         #     errorString = e.error['message']
         #     mark_logs(errorString,self.nodes,DEBUG_MODE)
         #     assert_true(False)
@@ -640,7 +640,7 @@ class sc_bwt_request(BitcoinTestFramework):
         assert_equal(ret, ret_sc2)
 
         if any_error:
-            print" =========================> Test failed!!!"
+            print(" =========================> Test failed!!!")
             assert(False)
 
 

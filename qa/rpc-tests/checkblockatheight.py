@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -11,10 +11,10 @@ from test_framework.util import assert_equal, assert_greater_than, initialize_ch
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision, disconnect_nodes
 from test_framework.script import CScript
 from test_framework.mininode import CTransaction, ToHex
-from test_framework.util import hex_str_to_bytes, bytes_to_hex_str, swap_bytes
+from test_framework.util import hex_str_to_bytes, swap_bytes
 import traceback
 from binascii import unhexlify
-import cStringIO
+from io import StringIO
 import os,sys
 import shutil
 from decimal import Decimal
@@ -88,7 +88,7 @@ class checkblockatheight(BitcoinTestFramework):
         self.is_network_split = False
 
     def mark_logs(self, msg):
-        print msg
+        print(msg)
         self.nodes[0].dbg_log(msg)
         self.nodes[1].dbg_log(msg)
         self.nodes[2].dbg_log(msg)
@@ -150,7 +150,7 @@ class checkblockatheight(BitcoinTestFramework):
 
         # build an object from the raw tx in order to be able to modify it
         tx_01 = CTransaction()
-        f = cStringIO.StringIO(unhexlify(rawTx))
+        f = StringIO.StringIO(unhexlify(rawTx))
         tx_01.deserialize(f)
 
         decodedScriptOrig = self.nodes[0].decodescript(binascii.hexlify(tx_01.vout[1].scriptPubKey))
@@ -174,28 +174,28 @@ class checkblockatheight(BitcoinTestFramework):
         tx_01.rehash()
 
         decodedScriptMod = self.nodes[0].decodescript(binascii.hexlify(tx_01.vout[1].scriptPubKey))
-        print "  Modified scriptPubKey in tx 1: ", decodedScriptMod['asm']
+        print("  Modified scriptPubKey in tx 1: ", decodedScriptMod['asm'])
 
         signedRawTx = self.nodes[0].signrawtransaction(ToHex(tx_01))
 
         h = self.nodes[0].getblockcount()
         assert_greater_than(FINALITY_MIN_AGE, h - modTargetHeigth)
 
-        print "  Node0 sends %f coins to Node2" % payment
+        print("  Node0 sends %f coins to Node2" % payment)
 
         try:
             txid = self.nodes[0].sendrawtransaction(signedRawTx['hex'])
-            print "  Tx sent: ", txid
+            print("  Tx sent: ", txid)
             # should fail, therefore force test failure
             assert_equal(True, False)
 
-        except JSONRPCException,e:
-            print "  ==> tx has been rejected as expected:"
-            print "      referenced block height=%d, chainActive.height=%d, minimumAge=%d" % (modTargetHeigth, h, FINALITY_MIN_AGE)
+        except JSONRPCException as e:
+            print("  ==> tx has been rejected as expected:")
+            print("      referenced block height=%d, chainActive.height=%d, minimumAge=%d" % (modTargetHeigth, h, FINALITY_MIN_AGE))
             print
 
         #-------------------------------------------------------------------------------------------------------
-        print "Check that small digit height for referenced blocks works in scriptPubKey"
+        print("Check that small digit height for referenced blocks works in scriptPubKey")
         #-------------------------------------------------------------------------------------------------------
         # check that small height works for 'check block at height' in script
         #--------------------------------------------------------------------
@@ -203,7 +203,7 @@ class checkblockatheight(BitcoinTestFramework):
         self.mark_logs("  Node0 sends %f coins to Node3" % node1_pay)
 
         tx1 = self.nodes[0].sendtoaddress(self.nodes[3].getnewaddress(), node1_pay)
-        print "  ==> tx sent: ", tx1
+        print("  ==> tx sent: ", tx1)
 
         sync_mempools(self.nodes[0:4])
 
@@ -214,7 +214,7 @@ class checkblockatheight(BitcoinTestFramework):
         small_h = int(tokens[6])
         small_h_hash = swap_bytes(tokens[5])
 
-        print "  ScriptPubKey: ", script
+        print("  ScriptPubKey: ", script)
 
         assert_equal(small_h, small_target_h)
         assert_equal(small_h_hash, blocks[int(small_h)])
@@ -223,8 +223,8 @@ class checkblockatheight(BitcoinTestFramework):
         blocks.extend(self.nodes[0].generate(1))
         self.sync_all()
 
-        print "  | Node2 balance: ", self.nodes[2].getbalance()
-        print "  | Node3 balance: ", self.nodes[3].getbalance()
+        print("  | Node2 balance: ", self.nodes[2].getbalance())
+        print("  | Node3 balance: ", self.nodes[3].getbalance())
 
         # check tx is no more in mempool
         assert_equal(self.is_in_mempool(tx1), False)
@@ -239,7 +239,7 @@ class checkblockatheight(BitcoinTestFramework):
         self.mark_logs("  Node3 sends {} coins to Node2".format(amount_node2) )
 
         tx2 = self.nodes[3].sendtoaddress(self.nodes[2].getnewaddress(), amount_node2)
-        print "  ==> tx sent: ", tx2
+        print("  ==> tx sent: ", tx2)
 
         sync_mempools(self.nodes[0:4])
 
@@ -258,14 +258,14 @@ class checkblockatheight(BitcoinTestFramework):
         # check Node2 got his money
         assert_equal(amount_node2, self.nodes[2].getbalance())
 
-        print "  ==> OK, small digit height works in scripts:"
+        print("  ==> OK, small digit height works in scripts:")
         print
         #--------------------------------------------------------------------
         
-        print "Verify that a legal tx, when the referenced block is reverted, becomes invalid until the necessary depth of the referenced block height has been reached..."
+        print("Verify that a legal tx, when the referenced block is reverted, becomes invalid until the necessary depth of the referenced block height has been reached...")
         # it is necessary to use cbhminage=0 otherwise the tx to be setup would be refused since it refers
         # to a block too recent in cbh script 
-        print "  Restarting network with -cbhminage=0"
+        print("  Restarting network with -cbhminage=0")
 
         stop_nodes(self.nodes)
         wait_bitcoinds()
@@ -294,7 +294,7 @@ class checkblockatheight(BitcoinTestFramework):
         h_attacked_swapped = swap_bytes(hex_tmp)
         h_safe_estimated = h_attacked + FINALITY_SAFE_DEPTH + 1
 
-        print "  Honest network has current h[%d]" % h_attacked
+        print("  Honest network has current h[%d]" % h_attacked)
 
         # mainchain creates cbh scripts where target block hash/height are CBH_DELTA_HEIGHT older than chain tip
         h_checked = h_current - CBH_DELTA_HEIGHT
@@ -314,7 +314,7 @@ class checkblockatheight(BitcoinTestFramework):
         inputs  = [{"txid":usp[0]['txid'], "vout":usp[0]['vout']}]
         outputs = {self.nodes[1].getnewaddress(): change, self.nodes[2].getnewaddress(): amount}
 
-        print"  Creating raw tx referencing the current block %d where Node1 sends %f coins to Node2..." % (h_attacked, amount)
+        print("  Creating raw tx referencing the current block %d where Node1 sends %f coins to Node2..." % (h_attacked, amount))
         rawTx   = self.nodes[1].createrawtransaction(inputs, outputs)
 
         # replace hash and h referenced in tx's script with the ones of target block 
@@ -336,23 +336,23 @@ class checkblockatheight(BitcoinTestFramework):
 
         signedRawTxReplaced = self.nodes[1].signrawtransaction(rawTxReplaced)
 
-        print "  | Node1 balance: ", self.nodes[1].getbalance()
-        print "  | Node2 balance: ", self.nodes[2].getbalance()
+        print("  | Node1 balance: ", self.nodes[1].getbalance())
+        print("  | Node2 balance: ", self.nodes[2].getbalance())
         assert_equal(amount_node1, self.nodes[1].getbalance())
         assert_equal(amount_node2, self.nodes[2].getbalance())
 
         # the tx modified has a script that is currently valid but that will not pass the check
         # at referenced block once the chain is reverted
         tx_1000 = self.nodes[1].sendrawtransaction(signedRawTxReplaced['hex'])
-        print "  ==> tx sent: ", tx_1000
-        print "       amount : %f" % ( amount)
-        print "       change : %f" % ( change)
+        print("  ==> tx sent: ", tx_1000)
+        print("       amount : %f" % ( amount))
+        print("       change : %f" % ( change))
 
         sync_mempools(self.nodes[0:3])
         assert_equal(self.is_in_mempool(tx_1000, 1), True)
-        print "  OK, tx is in mempool..."
-        print "  | Node1 balance: ", self.nodes[1].getbalance()
-        print "  | Node2 balance: ", self.nodes[2].getbalance()
+        print("  OK, tx is in mempool...")
+        print("  | Node1 balance: ", self.nodes[1].getbalance())
+        print("  | Node2 balance: ", self.nodes[2].getbalance())
         assert_equal(change,    self.nodes[1].getbalance())
         assert_equal(amount_node2, self.nodes[2].getbalance())
 
@@ -365,22 +365,22 @@ class checkblockatheight(BitcoinTestFramework):
 
         # check tx is in the block just mined
         assert_equal(self.is_in_block(tx_1000, blocks[-1], 1), True)
-        print "  OK, tx is not in mempool anymore (it is contained in the block just mined)"
-        print "  Block: (%d) %s" % ( int(self.nodes[2].getblockcount()), blocks[-1])
+        print("  OK, tx is not in mempool anymore (it is contained in the block just mined)")
+        print("  Block: (%d) %s" % ( int(self.nodes[2].getblockcount()), blocks[-1]))
 
-        print "  | Node1 balance: ", self.nodes[1].getbalance()
-        print "  | Node2 balance: ", self.nodes[2].getbalance()
+        print("  | Node1 balance: ", self.nodes[1].getbalance())
+        print("  | Node2 balance: ", self.nodes[2].getbalance())
         assert_equal(change, self.nodes[1].getbalance())
         assert_equal(amount_node2 + amount, self.nodes[2].getbalance())
 
-        print "  Node3 generating 3 malicious blocks thus reverting the honest chain once the ntw is joined!"
+        print("  Node3 generating 3 malicious blocks thus reverting the honest chain once the ntw is joined!")
         blocks.extend(self.nodes[3].generate(3))
         sync_blocks(self.nodes, limit_loop=5)
         
         self.mark_logs("Joining network")
         self.join_network()
 
-        print "  Network joined: (0)---(1)---(2)---(3)"
+        print("  Network joined: (0)---(1)---(2)---(3)")
         self.mark_logs("Network joined")
 
         # check attacked transaction is back in the mempool of nodes belonging to the honest portion of the joined network
@@ -389,13 +389,13 @@ class checkblockatheight(BitcoinTestFramework):
         assert_equal(self.is_in_mempool(tx_1000, 2), True)
         assert_equal(self.is_in_mempool(tx_1000, 3), False)
 
-        print "  ==> the block has been reverted, the tx is back in the mempool of the reverted nodes!"
+        print("  ==> the block has been reverted, the tx is back in the mempool of the reverted nodes!")
 
         node1_bal = Decimal(self.nodes[1].getbalance() )
         node2_bal = Decimal(self.nodes[2].getbalance() )
 
-        print "  | Node1 balance: ", node1_bal
-        print "  | Node2 balance: ", node2_bal
+        print("  | Node1 balance: ", node1_bal)
+        print("  | Node2 balance: ", node2_bal)
         assert_equal(change, node1_bal)
         assert_equal(amount_node2, node2_bal)
 
@@ -406,18 +406,18 @@ class checkblockatheight(BitcoinTestFramework):
         # check tx_1000 is in the block just mined
         assert_equal(self.is_in_block(tx_1000, blocks[-1], 2), True)
 
-        print "  ==> TX referencing reverted block has been mined in a new block!!"
-        print "       Block: (%d) %s" % ( int(self.nodes[3].getblockcount()), blocks[-1])
+        print("  ==> TX referencing reverted block has been mined in a new block!!")
+        print("       Block: (%d) %s" % ( int(self.nodes[3].getblockcount()), blocks[-1]))
 
         node1_bal = Decimal(self.nodes[1].getbalance() )
         node2_bal = Decimal(self.nodes[2].getbalance() )
 
-        print "  | Node1 balance: ", node1_bal
-        print "  | Node2 balance: ", node2_bal
+        print("  | Node1 balance: ", node1_bal)
+        print("  | Node2 balance: ", node2_bal)
         assert_equal(change, node1_bal)
         assert_equal(amount_node2, node2_bal)
 
-        print "  Node3 generating %d honest blocks more" % (FINALITY_SAFE_DEPTH - 2)
+        print("  Node3 generating %d honest blocks more" % (FINALITY_SAFE_DEPTH - 2))
 
         blocks.extend(self.nodes[3].generate(FINALITY_SAFE_DEPTH - 2))
         self.sync_all()
@@ -432,13 +432,13 @@ class checkblockatheight(BitcoinTestFramework):
         node1_bal = Decimal(self.nodes[1].getbalance() )
         node2_bal = Decimal(self.nodes[2].getbalance() )
 
-        print "  OK, at h[%d] the attacked tx have been restored (node will have it in cached balance after a restart)" % h_safe
+        print("  OK, at h[%d] the attacked tx have been restored (node will have it in cached balance after a restart)" % h_safe)
 
-        print "  Balances before node restart:"
-        print "  | Node1 balance (cached): ", node1_bal
-        print "  | Node2 balance (cached): ", node2_bal
-        print "  | Node1 z_balance: ", node1_zbal
-        print "  | Node2 z_balance: ", node2_zbal
+        print("  Balances before node restart:")
+        print("  | Node1 balance (cached): ", node1_bal)
+        print("  | Node2 balance (cached): ", node2_bal)
+        print("  | Node1 z_balance: ", node1_zbal)
+        print("  | Node2 z_balance: ", node2_zbal)
 
         # non-cached balance must be ok while cached balance still does not have correct amounts
         assert_equal(node2_bal + amount, node2_zbal)
@@ -454,9 +454,9 @@ class checkblockatheight(BitcoinTestFramework):
         node1_zbal = Decimal(self.nodes[1].z_gettotalbalance()['total'])
         node2_zbal = Decimal(self.nodes[2].z_gettotalbalance()['total'])
 
-        print "  Balances after node restart:"
-        print "  | Node1 balance: ", final_bal1 
-        print "  | Node2 balance: ", final_bal2
+        print("  Balances after node restart:")
+        print("  | Node1 balance: ", final_bal1)
+        print("  | Node2 balance: ", final_bal2)
 
         # ensure the amounts have been restored in cached balances
         assert_equal(node1_bal, final_bal1)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -33,14 +33,14 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
         try:
             self.nodes[0].getblockmerkleroots([])
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             assert_equal("getblockmerkleroots transactions certificates" in errorString, True)
 
         try:
             self.nodes[0].getblockmerkleroots([""],[""])
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             assert_equal("TX decode failed" in errorString, True)
 

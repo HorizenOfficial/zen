@@ -7,7 +7,7 @@
 from mininode import CBlock, CTransaction, CTxIn, CTxOut, COutPoint, ToHex
 from script import CScript, OP_0, OP_EQUAL, OP_HASH160, OP_DUP, OP_CHECKBLOCKATHEIGHT, OP_EQUALVERIFY, OP_CHECKSIG
 from decimal import Decimal
-from cStringIO import StringIO
+from io import StringIO
 from binascii import unhexlify, hexlify
 from util import hex_str_to_bytes, swap_bytes
 
@@ -95,7 +95,7 @@ key_list = sorted(fork_points.keys())
 
 def get_coinbase_quotas(fork_height):
     found = False
-    for k in xrange(1, len(key_list)):
+    for k in range(1, len(key_list)):
         if fork_height < key_list[k]:
             found = True
             key = key_list[k-1] 

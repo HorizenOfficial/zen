@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2016 The Zcash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -36,7 +36,7 @@ class WalletNullifiersTest (BitcoinTestFramework):
 
         timeout = 300
         status = None
-        for x in xrange(1, timeout):
+        for x in range(1, timeout):
             results = self.nodes[0].z_getoperationresult(opids)
             if len(results)==0:
                 time.sleep(1)
@@ -77,7 +77,7 @@ class WalletNullifiersTest (BitcoinTestFramework):
 
         timeout = 300
         status = None
-        for x in xrange(1, timeout):
+        for x in range(1, timeout):
             results = self.nodes[0].z_getoperationresult(opids)
             if len(results)==0:
                 time.sleep(1)
@@ -109,7 +109,7 @@ class WalletNullifiersTest (BitcoinTestFramework):
 
         timeout = 300
         status = None
-        for x in xrange(1, timeout):
+        for x in range(1, timeout):
             results = self.nodes[2].z_getoperationresult(opids)
             if len(results)==0:
                 time.sleep(1)
@@ -150,7 +150,7 @@ class WalletNullifiersTest (BitcoinTestFramework):
 
         timeout = 300
         status = None
-        for x in xrange(1, timeout):
+        for x in range(1, timeout):
             results = self.nodes[1].z_getoperationresult(opids)
             if len(results)==0:
                 time.sleep(1)

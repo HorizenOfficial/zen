@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -85,7 +85,7 @@ def ParseScriptFlags(flag_string):
         if x in flag_map:
             flags |= flag_map[x]
         else:
-            print "Error: unrecognized script flag: ", x
+            print("Error: unrecognized script flag: ", x)
     return flags
 
 '''
@@ -109,7 +109,7 @@ def ParseScript(json_script):
                 parsed_script += CScriptNum(int(x, 0))
         elif x.startswith("0x"):
             # Raw hex data, inserted NOT pushed onto stack:
-            for i in xrange(2, len(x), 2):
+            for i in range(2, len(x), 2):
                 parsed_script = CScript(bytes(parsed_script) + bytes(chr(int(x[i:i+2],16))))
         elif x.startswith("'") and x.endswith("'") and len(x) >= 2:
             # Single-quoted string, pushed as data.
@@ -120,7 +120,7 @@ def ParseScript(json_script):
             if tryopname in OPCODES_BY_NAME:
                 parsed_script += CScriptOp(OPCODES_BY_NAME["OP_" + x])
             else:
-                print "ParseScript: error parsing '%s'" % x
+                print("ParseScript: error parsing '%s'" % x)
                 return ""
     return parsed_script
             
@@ -165,10 +165,10 @@ class ScriptTest(ComparisonTestFramework):
 
         chainHeight = self.nodes[0].getblockcount()
         t_now = int(time.time())
-        print "Called at height = {}, delta_t = {}".format(chainHeight, (t_now + MAX_FUTURE_BLOCK_TIME_LOCAL - self.block_time))
+        print("Called at height = {}, delta_t = {}".format(chainHeight, (t_now + MAX_FUTURE_BLOCK_TIME_LOCAL - self.block_time)))
         if self.block_time > (t_now + MAX_FUTURE_BLOCK_TIME_LOCAL - 100):
             delta = self.block_time - t_now - MAX_FUTURE_BLOCK_TIME_LOCAL + 100
-            print "\n...waiting {} secs not to overtake node time --------------\n".format(delta)
+            print("\n...waiting {} secs not to overtake node time --------------\n".format(delta))
             time.sleep(delta)
 
 
@@ -188,7 +188,7 @@ class ScriptTest(ComparisonTestFramework):
         self.tip = block.sha256
         test.blocks_and_transactions = [[block, True]]
 
-        for i in xrange(100):
+        for i in range(100):
             block = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time, get_nBits(chainHeight))
             chainHeight += 1
             self.block_time += 1
@@ -196,7 +196,7 @@ class ScriptTest(ComparisonTestFramework):
             self.tip = block.sha256
             test.blocks_and_transactions.append([block, True])
             if ((i+1) % 10) == 0:
-                print "... {} blocks created".format(i+1)
+                print("... {} blocks created".format(i+1))
 
         block = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time, get_nBits(chainHeight))
         chainHeight += 1
@@ -233,7 +233,7 @@ class ScriptTest(ComparisonTestFramework):
         Build out to 100 blocks total, maturing the coinbase.
         '''
         test = TestInstance(objects=[], sync_every_block=False, sync_every_tx=False)
-        for i in xrange(100):
+        for i in range(100):
             b = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time, get_nBits(chainHeight))
             chainHeight += 1
             b.solve()
@@ -241,16 +241,16 @@ class ScriptTest(ComparisonTestFramework):
             self.tip = b.sha256
             self.block_time += 1
             if ((i+1) % 10) == 0:
-                print "... {} blocks created".format(i+1)
+                print("... {} blocks created".format(i+1))
         yield test
  
 
         ''' Iterate through script tests. '''
-        print "Iterate through script tests..."
+        print("Iterate through script tests...")
         counter = 0
         for script_test in self.scripts.get_records():
 
-            print "{}) blockchain (h={}) ".format(counter, self.nodes[0].getblockcount())
+            print("{}) blockchain (h={}) ".format(counter, self.nodes[0].getblockcount()))
 
             assert(self.nodes[0].getblockcount() == self.nodes[1].getblockcount())
             
@@ -275,7 +275,7 @@ class ScriptTest(ComparisonTestFramework):
             #else:
             #    self.block_time = 1333230000 + counter # Before the BIP16 switchover
 
-            print "Script test: [%s]" % script_test
+            print("Script test: [%s]" % script_test)
 
             yield self.generate_test_instance(scriptpubkey, scriptsig)
             counter += 1

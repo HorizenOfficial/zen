@@ -24,7 +24,7 @@ import binascii
 import time
 import sys
 import random
-import cStringIO
+from io import StringIO
 import hashlib
 from threading import RLock
 from threading import Thread
@@ -39,7 +39,7 @@ from .equihash import (
     zcash_person,
 )
 
-from util import hex_str_to_bytes, bytes_to_hex_str, COIN
+from test_framework.util import bytes_to_hex_str, hex_str_to_bytes, COIN
 
 BIP0031_VERSION = 60000
 MY_VERSION = 170002  # past bip-31 for ping/pong
@@ -82,41 +82,41 @@ def deser_string(f):
 
 def ser_string(s):
     if len(s) < 253:
-        return chr(len(s)) + s
+        return struct.pack("B", len(s)) + s
     elif len(s) < 0x10000:
-        return chr(253) + struct.pack("<H", len(s)) + s
-    elif len(s) < 0x100000000L:
-        return chr(254) + struct.pack("<I", len(s)) + s
-    return chr(255) + struct.pack("<Q", len(s)) + s
+        return struct.pack("<BH", 253, len(s)) + s
+    elif len(s) < 0x100000000:
+        return struct.pack("<BI", 254, len(s)) + s
+    return struct.pack("<BQ", 255, len(s)) + s
 
 
 def deser_uint256(f):
-    r = 0L
-    for i in xrange(8):
+    r = 0
+    for i in range(8):
         t = struct.unpack("<I", f.read(4))[0]
         r += t << (i * 32)
     return r
 
 
 def ser_uint256(u):
-    rs = ""
-    for i in xrange(8):
-        rs += struct.pack("<I", u & 0xFFFFFFFFL)
+    rs = b""
+    for i in range(8):
+        rs += struct.pack("<I", u & 0xFFFFFFFF)
         u >>= 32
     return rs
 
 
 def uint256_from_str(s):
-    r = 0L
+    r = 0
     t = struct.unpack("<IIIIIIII", s[:32])
-    for i in xrange(8):
+    for i in range(8):
         r += t[i] << (i * 32)
     return r
 
 
 def uint256_from_compact(c):
     nbytes = (c >> 24) & 0xFF
-    v = (c & 0xFFFFFFL) << (8 * (nbytes - 3))
+    v = (c & 0xFFFFFF) << (8 * (nbytes - 3))
     return v
 
 
@@ -129,7 +129,7 @@ def deser_vector(f, c):
     elif nit == 255:
         nit = struct.unpack("<Q", f.read(8))[0]
     r = []
-    for i in xrange(nit):
+    for i in range(nit):
         t = c()
         t.deserialize(f)
         r.append(t)
@@ -137,15 +137,15 @@ def deser_vector(f, c):
 
 
 def ser_vector(l):
-    r = ""
+    r = b""
     if len(l) < 253:
-        r = chr(len(l))
+        r = struct.pack("B", len(l))
     elif len(l) < 0x10000:
-        r = chr(253) + struct.pack("<H", len(l))
-    elif len(l) < 0x100000000L:
-        r = chr(254) + struct.pack("<I", len(l))
+        r = struct.pack("<BH", 253, len(l))
+    elif len(l) < 0x100000000:
+        r = struct.pack("<BI", 254, len(l))
     else:
-        r = chr(255) + struct.pack("<Q", len(l))
+        r = struct.pack("<BQ", 255, len(l))
     for i in l:
         r += i.serialize()
     return r
@@ -160,7 +160,7 @@ def deser_uint256_vector(f):
     elif nit == 255:
         nit = struct.unpack("<Q", f.read(8))[0]
     r = []
-    for i in xrange(nit):
+    for i in range(nit):
         t = deser_uint256(f)
         r.append(t)
     return r
@@ -172,7 +172,7 @@ def ser_uint256_vector(l):
         r = chr(len(l))
     elif len(l) < 0x10000:
         r = chr(253) + struct.pack("<H", len(l))
-    elif len(l) < 0x100000000L:
+    elif len(l) < 0x100000000:
         r = chr(254) + struct.pack("<I", len(l))
     else:
         r = chr(255) + struct.pack("<Q", len(l))
@@ -190,7 +190,7 @@ def deser_string_vector(f):
     elif nit == 255:
         nit = struct.unpack("<Q", f.read(8))[0]
     r = []
-    for i in xrange(nit):
+    for i in range(nit):
         t = deser_string(f)
         r.append(t)
     return r
@@ -202,7 +202,7 @@ def ser_string_vector(l):
         r = chr(len(l))
     elif len(l) < 0x10000:
         r = chr(253) + struct.pack("<H", len(l))
-    elif len(l) < 0x100000000L:
+    elif len(l) < 0x100000000:
         r = chr(254) + struct.pack("<I", len(l))
     else:
         r = chr(255) + struct.pack("<Q", len(l))
@@ -220,7 +220,7 @@ def deser_int_vector(f):
     elif nit == 255:
         nit = struct.unpack("<Q", f.read(8))[0]
     r = []
-    for i in xrange(nit):
+    for i in range(nit):
         t = struct.unpack("<i", f.read(4))[0]
         r.append(t)
     return r
@@ -232,7 +232,7 @@ def ser_int_vector(l):
         r = chr(len(l))
     elif len(l) < 0x10000:
         r = chr(253) + struct.pack("<H", len(l))
-    elif len(l) < 0x100000000L:
+    elif len(l) < 0x100000000:
         r = chr(254) + struct.pack("<I", len(l))
     else:
         r = chr(255) + struct.pack("<Q", len(l))
@@ -259,7 +259,7 @@ def deser_char_vector(f):
     elif nit == 255:
         nit = struct.unpack("<Q", f.read(8))[0]
     r = []
-    for i in xrange(nit):
+    for i in range(nit):
         t = struct.unpack("<B", f.read(1))[0]
         r.append(t)
     return r
@@ -271,7 +271,7 @@ def ser_char_vector(l):
         r = chr(len(l))
     elif len(l) < 0x10000:
         r = chr(253) + struct.pack("<H", len(l))
-    elif len(l) < 0x100000000L:
+    elif len(l) < 0x100000000:
         r = chr(254) + struct.pack("<I", len(l))
     else:
         r = chr(255) + struct.pack("<Q", len(l))
@@ -314,7 +314,7 @@ class CInv(object):
         1: "TX",
         2: "Block"}
 
-    def __init__(self, t=0, h=0L):
+    def __init__(self, t=0, h=0):
         self.type = t
         self.hash = h
 
@@ -511,7 +511,7 @@ class COutPoint(object):
         self.n = struct.unpack("<I", f.read(4))[0]
 
     def serialize(self):
-        r = ""
+        r = b""
         r += ser_uint256(self.hash)
         r += struct.pack("<I", self.n)
         return r
@@ -536,7 +536,7 @@ class CTxIn(object):
         self.nSequence = struct.unpack("<I", f.read(4))[0]
 
     def serialize(self):
-        r = ""
+        r = b""
         r += self.prevout.serialize()
         r += ser_string(self.scriptSig)
         r += struct.pack("<I", self.nSequence)
@@ -558,7 +558,7 @@ class CTxOut(object):
         self.scriptPubKey = deser_string(f)
 
     def serialize(self):
-        r = ""
+        r = b""
         r += struct.pack("<q", self.nValue)
         r += ser_string(self.scriptPubKey)
         return r
@@ -606,7 +606,7 @@ class CTransaction(object):
         self.hash = None
 
     def serialize(self):
-        r = ""
+        r = b""
         r += struct.pack("<i", self.nVersion)
         r += ser_vector(self.vin)
         r += ser_vector(self.vout)
@@ -625,12 +625,12 @@ class CTransaction(object):
     def calc_sha256(self):
         if self.sha256 is None:
             self.sha256 = uint256_from_str(hash256(self.serialize()))
-        self.hash = hash256(self.serialize())[::-1].encode('hex_codec')
+        self.hash = hash256(self.serialize())[::-1].hex()
 
     def is_valid(self):
         self.calc_sha256()
         for tout in self.vout:
-            if tout.nValue < 0 or tout.nValue > 21000000L * 100000000L:
+            if tout.nValue < 0 or tout.nValue > 21000000 * 100000000:
                 return False
         return True
 
@@ -641,7 +641,7 @@ class CTransaction(object):
             r += " vjoinsplit=%s" % repr(self.vjoinsplit)
             if len(self.vjoinsplit) > 0:
                 r += " joinSplitPubKey=%064x joinSplitSig=%064x" \
-                    (self.joinSplitPubKey, self.joinSplitSig)
+                    % (self.joinSplitPubKey, self.joinSplitSig)
         r += ")"
         return r
 
@@ -746,7 +746,7 @@ class CBlock(CBlockHeader):
             hashes.append(ser_uint256(tx.sha256))
         while len(hashes) > 1:
             newhashes = []
-            for i in xrange(0, len(hashes), 2):
+            for i in range(0, len(hashes), 2):
                 i2 = min(i+1, len(hashes)-1)
                 newhashes.append(hash256(hashes[i] + hashes[i2]))
             hashes = newhashes
@@ -1019,7 +1019,7 @@ class msg_getblocks(object):
 
     def __init__(self):
         self.locator = CBlockLocator()
-        self.hashstop = 0L
+        self.hashstop = 0
 
     def deserialize(self, f):
         self.locator = CBlockLocator()
@@ -1107,7 +1107,7 @@ class msg_ping_prebip31(object):
 class msg_ping(object):
     command = "ping"
 
-    def __init__(self, nonce=0L):
+    def __init__(self, nonce=0):
         self.nonce = nonce
 
     def deserialize(self, f):
@@ -1125,7 +1125,7 @@ class msg_ping(object):
 class msg_pong(object):
     command = "pong"
 
-    def __init__(self, nonce=0L):
+    def __init__(self, nonce=0):
         self.nonce = nonce
 
     def deserialize(self, f):
@@ -1165,7 +1165,7 @@ class msg_getheaders(object):
 
     def __init__(self):
         self.locator = CBlockLocator()
-        self.hashstop = 0L
+        self.hashstop = 0
 
     def deserialize(self, f):
         self.locator = CBlockLocator()
@@ -1212,7 +1212,7 @@ class msg_reject(object):
         self.message = ""
         self.code = ""
         self.reason = ""
-        self.data = 0L
+        self.data = 0
 
     def deserialize(self, f):
         self.message = deser_string(f)
@@ -1267,8 +1267,8 @@ class NodeConnCB(object):
             try:
                 self.cbmap[message.command](conn, message)
             except:
-                print "ERROR delivering %s (%s)" % (repr(message),
-                                                    sys.exc_info()[0])
+                print("ERROR delivering %s (%s)" % (repr(message),
+                                                    sys.exc_info()[0]))
 
     def on_version(self, conn, message):
         if message.nVersion >= 209:
@@ -1357,7 +1357,7 @@ class NodeConn(asyncore.dispatcher):
         vt.addrFrom.ip = "0.0.0.0"
         vt.addrFrom.port = 0
 
-        print 'MiniNode: Connecting to Bitcoin Node IP # ' + dstaddr + ':' + str(dstport)
+        print('MiniNode: Connecting to Bitcoin Node IP # ' + dstaddr + ':' + str(dstport))
 
         try:
             # No tls connection; workaround:
@@ -1372,7 +1372,7 @@ class NodeConn(asyncore.dispatcher):
             self.disconnect = False
             self.connect((dstaddr, dstport))
         except:
-            print 'MiniNode: Could not connect to Node IP # ' + dstaddr + ':' + str(dstport)
+            print('MiniNode: Could not connect to Node IP # ' + dstaddr + ':' + str(dstport))
             self.handle_close()
 
         self.send_message(vt, True)
@@ -1455,7 +1455,7 @@ class NodeConn(asyncore.dispatcher):
                     raise ValueError("got bad checksum " + repr(self.recvbuf))
                 self.recvbuf = self.recvbuf[4+12+4+4+msglen:]
             if command in self.messagemap:
-                f = cStringIO.StringIO(msg)
+                f = StringIO.StringIO(msg)
                 t = self.messagemap[command]()
                 t.deserialize(f)
                 self.got_message(t)

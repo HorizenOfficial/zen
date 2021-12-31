@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -109,7 +109,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[2].sc_create(cmdInput)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal(True, "Insufficient transparent funds" in errorString)
@@ -132,7 +132,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[2].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal(True, "Insufficient transparent funds" in errorString)
@@ -152,7 +152,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -171,7 +171,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("Invalid amount" in errorString, True)
@@ -191,7 +191,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("amount can not be null" in errorString, True)
@@ -211,7 +211,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("Amount out of range" in errorString, True)
@@ -231,7 +231,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("wCertVk: Invalid format: not an hex" in errorString, True)
@@ -250,7 +250,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("must be even" in errorString, True)
@@ -269,7 +269,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("Invalid wCertVk" in errorString, True)
@@ -288,7 +288,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("Invalid wCertVk" in errorString, True)
@@ -307,7 +307,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("Invalid wCertVk" in errorString, True)
@@ -328,7 +328,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("customData: Invalid format: not an hex" in errorString, True)
@@ -348,7 +348,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("must be even" in errorString, True)
@@ -368,7 +368,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("bytes" in errorString, True)
@@ -388,7 +388,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("constant: Invalid format: not an hex" in errorString, True)
@@ -408,7 +408,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("must be even" in errorString, True)
@@ -428,7 +428,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("bytes" in errorString, True)
@@ -448,7 +448,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("bytes" in errorString, True)
@@ -468,7 +468,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("invalid constant" in errorString, True)
@@ -489,7 +489,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("Invalid withdrawalEpochLength" in errorString, True)
@@ -510,7 +510,7 @@ class SCCreateTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert(True)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("Invalid withdrawalEpochLength" in errorString, True)

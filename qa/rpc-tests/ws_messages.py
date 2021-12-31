@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -35,10 +35,10 @@ def ws_client(node, arg):
     wsurl = node.get_wsurl()
 
     if wsurl == None:
-        print "###################### no ws conn: exiting"
+        print("###################### no ws conn: exiting")
         return
 
-    print "##### ws client connecting to ws_url {} ######################".format(wsurl)
+    print("##### ws client connecting to ws_url {} ######################".format(wsurl))
     ws = create_connection(wsurl)
 
     t = threading.currentThread()
@@ -53,16 +53,16 @@ def ws_client(node, arg):
             if getattr(t, "handle_events", True):
                 arg.wsEventPayload = json.loads(data)['eventPayload']
                 arg.sem.release()
-                print "############ Sem Given"
-        except WebSocketConnectionClosedException, e:
-            print "############ Server closed connection"
+                print("############ Sem Given")
+        except WebSocketConnectionClosedException as e:
+            print("############ Server closed connection")
             break
-        except Exception, e:
-            print "Unexpected exception:  ", str(e)
+        except Exception as e:
+            print("Unexpected exception:  ", str(e))
             break
 
 
-    print "##### ws client closing".format(wsurl)
+    print("##### ws client closing".format(wsurl))
     ws.close()
 
 class ws_messages(BitcoinTestFramework):
@@ -103,7 +103,7 @@ class ws_messages(BitcoinTestFramework):
 
         self.sem = threading.Semaphore()
         self.sem.acquire()
-        print "############ Sem Taken"
+        print("############ Sem Taken")
 
         t = threading.Thread(target=ws_client, args=(self.nodes[1], self,))
         t.daemon = True         # This thread dies when main thread exits.
@@ -130,11 +130,11 @@ class ws_messages(BitcoinTestFramework):
         mark_logs("Sending an invalid ws message", self.nodes, DEBUG_MODE)
         try:
             self.nodes[0].ws_test("Hello World!")
-            print qqq
-        except JSONWSException, e:
-            print "############ exception:", e.error
-        except Exception, e:
-            print "Unexpected exception:  ", str(e)
+            print(qqq)
+        except JSONWSException as e:
+            print("############ exception:", e.error)
+        except Exception as e:
+            print("Unexpected exception:  ", str(e))
 
 
         # SC creation
@@ -227,7 +227,7 @@ class ws_messages(BitcoinTestFramework):
         while True:
             self.sem.acquire()
             t.handle_events = False
-            print "############ Sem Taken"
+            print("############ Sem Taken")
             break
 
         height = self.nodes[0].getblockcount()
@@ -235,7 +235,7 @@ class ws_messages(BitcoinTestFramework):
         assert_equal(self.wsEventPayload['height'], height)
         assert_equal(self.wsEventPayload['hash'], block_hash)
         assert_equal(self.wsEventPayload['block'], exp_block)
-        print "=====> GotEvent: "
+        print("=====> GotEvent: ")
         pprint.pprint(self.wsEventPayload)
 
         mark_logs("Getting block via ws with block height", self.nodes, DEBUG_MODE)
@@ -312,14 +312,14 @@ class ws_messages(BitcoinTestFramework):
             self.nodes[0].ws_get_multiple_block_hashes(start_hash, BLOCK_HASH_LIMIT + 1)
             raise RuntimeError("Get multiple block hashes. Rquest over the limit(" + str(BLOCK_HASH_LIMIT) +" hashes) passed.")
         except JSONWSException as e:
-            print "Exception:", e.error
+            print("Exception:", e.error)
 
         try:
             mark_logs("Try to request block hashes over the limit", self.nodes, DEBUG_MODE)
             self.nodes[0].ws_get_multiple_block_hashes(start_height, BLOCK_HASH_LIMIT + 1)
             raise RuntimeError("Get multiple block hashes. Rquest over the limit(" + str(BLOCK_HASH_LIMIT) +" hashes) passed.")
         except JSONWSException as e:
-            print "Exception:", e.error
+            print("Exception:", e.error)
 
         # ----------------------------------------------------------------"
         # Test get new block hashes
@@ -357,7 +357,7 @@ class ws_messages(BitcoinTestFramework):
             self.nodes[0].ws_get_new_block_hashes([start_hash], BLOCK_HASH_LIMIT + 1)
             raise RuntimeError("New block hashes. Rquest over the limit(" + str(BLOCK_HASH_LIMIT) +" hashes) passed.")
         except JSONWSException as e:
-            print "Exception:", e.error
+            print("Exception:", e.error)
 
         mark_logs("Test for retrieving 1 header", self.nodes, DEBUG_MODE)
         start_height = self.nodes[0].getblockcount()
@@ -398,7 +398,7 @@ class ws_messages(BitcoinTestFramework):
             self.nodes[0].ws_get_block_headers(hashes)
             raise RuntimeError("Get block headers. Rquest over the limit(50 headers) passed.")
         except JSONWSException as e:
-            print "Exception:", e.error
+            print("Exception:", e.error)
 
         t.do_run = False
 

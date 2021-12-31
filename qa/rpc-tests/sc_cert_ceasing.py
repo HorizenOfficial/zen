@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -139,7 +139,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
             cert_1 = self.nodes[0].sc_send_certificate(scids[0], epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -156,7 +156,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
             cert_2 = self.nodes[0].sc_send_certificate(scids[1], epoch_number, quality,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -171,7 +171,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         mark_logs("Verifying scs state for all nodes", self.nodes, DEBUG_MODE)
         for k in range(len(scids)):
             for idx, node in enumerate(self.nodes):
-                print "idx = {}, k = {}".format(idx, k)
+                print("idx = {}, k = {}".format(idx, k))
                 sc_info = node.getscinfo(scids[k])['items'][0]
                 if (k == 2):
                     assert_equal(sc_info["state"], "CEASED")
@@ -181,7 +181,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
                 assert_equal(sc_info["balance"], creation_amount[k] - bwt_amount[k])
 
         bal1 = self.nodes[1].getbalance()
-        print "Balance Node1 = {}\n".format(bal1)
+        print("Balance Node1 = {}\n".format(bal1))
         #assert_equal(bal1, bwt_amount[0])
 
         mark_logs("Node0 generates 2 more blocks to achieve certs maturity and scs ceasing", self.nodes, DEBUG_MODE)
@@ -189,7 +189,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         self.sync_all()
 
         bal1 = self.nodes[1].getbalance()
-        print "Balance Node1 = {}\n".format(bal1)
+        print("Balance Node1 = {}\n".format(bal1))
         #assert_equal(bal1, bwt_amount[0])
 
         mark_logs("Node0 generates 3 block to restore Node1 balance ", self.nodes, DEBUG_MODE)
@@ -197,13 +197,13 @@ class sc_cert_ceasing(BitcoinTestFramework):
         self.sync_all()
 
         bal1 = self.nodes[1].getbalance()
-        print "Balance Node1 = {}\n".format(bal1)
+        print("Balance Node1 = {}\n".format(bal1))
         #------> TODO fix this in walletassert_equal(bal1, Decimal("0.0"))
 
         mark_logs("Node 1 tries to send coins to node0...", self.nodes, DEBUG_MODE)
         try:
             tx = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1.0)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -211,7 +211,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         mark_logs("Verifying scs state for all nodes", self.nodes, DEBUG_MODE)
         for k in range(len(scids)):
             for idx, node in enumerate(self.nodes):
-                print "idx = {}, k = {}".format(idx, k)
+                print("idx = {}, k = {}".format(idx, k))
                 sc_info = node.getscinfo(scids[k])['items'][0]
                 assert_equal(sc_info["state"], "CEASED")
                 assert_equal(sc_info["lastCertificateEpoch"], last_cert_epochs[k])
@@ -224,7 +224,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         try:
             fwd_tx = self.nodes[0].sc_send(cmdInput)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -242,7 +242,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
                 assert_equal(sc_post_regeneration["balance"], creation_amount[k] - bwt_amount[k])
 
         bal1 = self.nodes[1].getbalance()
-        print "Balance Node1 = {}\n".format(bal1)
+        print("Balance Node1 = {}\n".format(bal1))
         #------> TODO fix this in walletassert_equal(bal1, Decimal("0.0"))
 
         mark_logs("Node0 generates 3 block to restore Node1 balance ", self.nodes, DEBUG_MODE)
@@ -252,7 +252,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         mark_logs("Node 1 tries to send coins to node0...", self.nodes, DEBUG_MODE)
         try:
             tx = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1.0)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 

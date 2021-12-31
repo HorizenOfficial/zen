@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -111,7 +111,7 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
 
         try:
             ret = self.nodes[0].sc_create(cmdInput)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -137,7 +137,7 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
 
         try:
             ret = self.nodes[0].sc_create(cmdInput)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -282,7 +282,7 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
         try:
             finalRawtx2 = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send csw failed (expected) with reason {}".format(errorString), self.nodes, DEBUG_MODE)
 
@@ -297,7 +297,7 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
         try:
             finalRawtx2 = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
             mark_logs("sent csw tx {}".format(finalRawtx), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)

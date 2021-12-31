@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -120,7 +120,7 @@ def assert_template(node, tmpl, txlist, certlist, expect, input_sc_commitment = 
 #        raw_input("Pres to continue 1...")
      rsp = node.getblocktemplate({'data':template_to_hex(tmpl, txlist, certlist, input_sc_commitment),'mode':'proposal'})
      if rsp != expect:
-         print "expect: ", expect, ", rsp: ", rsp
+         print("expect: ", expect, ", rsp: ", rsp)
          raise AssertionError('unexpected: %s' % (rsp,))
 #    except JSONRPCException as e:
 #            print "exception: ", e.error['message']

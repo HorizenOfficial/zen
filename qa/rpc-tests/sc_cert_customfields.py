@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -103,7 +103,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("not an array" in errorString)
@@ -123,7 +123,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("Invalid vBitVectorCertificateFieldConfig" in errorString)
@@ -143,7 +143,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("invalid-custom-config" in errorString)
@@ -163,7 +163,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("Invalid parameter, expected positive integer in the range [1,..,255]" in errorString)
@@ -185,7 +185,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         try:
             self.nodes[1].sc_create(cmdInput)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true("sidechain-sc-creation-invalid-custom-config" in errorString)
@@ -221,7 +221,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             tx =   res['txid']
             scid1 = res['scid']
             scid1_swapped = str(swap_bytes(scid1))
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -263,7 +263,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         try:
             ret = self.nodes[1].sc_create(cmdInput)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -307,7 +307,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             funded_tx = self.nodes[0].fundrawtransaction(rawtx)
             sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
             creating_tx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -382,7 +382,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             signed_cert = self.nodes[0].signrawtransaction(rawcert)
             self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert_true("bad-sc-cert-not-applicable" in errorString)
@@ -439,7 +439,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             'sc2', scid2_swapped, epoch_number_1, 10, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash_1, constant2, [addr_node1], [bwt_amount],
             [fe1])
 
-        print "cum =", epoch_cum_tree_hash_1
+        print("cum =", epoch_cum_tree_hash_1)
         params = {
             'scid': scid2,
             'quality': 10,
@@ -454,7 +454,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
@@ -495,7 +495,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert_true("bad-sc-cert-not-applicable" in errorString)
@@ -537,7 +537,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert_true("bad-sc-cert-not-applicable" in errorString)
@@ -577,7 +577,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert_true("bad-sc-cert-not-applicable" in errorString)
@@ -615,7 +615,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
             signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)

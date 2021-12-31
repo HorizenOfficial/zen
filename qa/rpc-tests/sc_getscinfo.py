@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -174,7 +174,7 @@ class sc_getscinfo(BitcoinTestFramework):
             try:
                 assert_equal(item['createdAtBlockHeight'], sc_creating_height)
                 assert_true(False)
-            except Exception, e:
+            except Exception as e:
                 # it is ok, we expected it
                 pass
 
@@ -230,43 +230,43 @@ class sc_getscinfo(BitcoinTestFramework):
         try:
             self.nodes[1].getscinfo("*", False, True, -2, 5)
             assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
+        except JSONRPCException as e:
+            print(e.error['message'])
             pass
 
         try:
             self.nodes[1].getscinfo("*", False, True, 5, 5)
             assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
+        except JSONRPCException as e:
+            print(e.error['message'])
             pass
 
         try:
             self.nodes[1].getscinfo("*", True, True, 6, 5)
             assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
+        except JSONRPCException as e:
+            print(e.error['message'])
             pass
 
         try:
             self.nodes[1].getscinfo("*", True, True, 1, -5)
             assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
+        except JSONRPCException as e:
+            print(e.error['message'])
             pass
 
         try:
             self.nodes[1].getscinfo("*", False, True, NUM_OF_SIDECHAINS+2, -1)
             assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
+        except JSONRPCException as e:
+            print(e.error['message'])
             pass
 
         try:
             # this is ok because the interval is legal
             self.nodes[1].getscinfo("*", False, True, NUM_ALIVE, 100)
-        except JSONRPCException, e:
-            print e.error['message']
+        except JSONRPCException as e:
+            print(e.error['message'])
             assert_true(False)
 
         # get a ceased sc info filtering on active state
@@ -300,7 +300,7 @@ class sc_getscinfo(BitcoinTestFramework):
                 epoch_cum_tree_hash_1, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)

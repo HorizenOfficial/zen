@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -374,9 +374,9 @@ class ListTransactionsTest(BitcoinTestFramework):
             res = self.nodes[1].sc_create(cmdInput)
             tx = res['txid']
             self.sync_all()
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print errorString
+            print(errorString)
             assert_true(False)
 
         # check we have no vout since we should have arranged a null change

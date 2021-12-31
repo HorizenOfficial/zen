@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2015 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -8,7 +8,7 @@
 #
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, start_nodes
+from test_framework.util import assert_equal, start_nodes
 
 import zmq
 import struct
@@ -36,7 +36,7 @@ class ZMQTest(BitcoinTestFramework):
         genhashes = self.nodes[0].generate(1)
         self.sync_all()
 
-        print "listen..."
+        print("listen...")
         msg = self.zmqSubSocket.recv_multipart()
         topic = msg[0]
         assert_equal(topic, b"hashtx")
@@ -51,7 +51,7 @@ class ZMQTest(BitcoinTestFramework):
         body = msg[1]
         msgSequence = struct.unpack('<I', msg[-1])[-1]
         assert_equal(msgSequence, 0) #must be sequence 0 on hashblock
-        blkhash = bytes_to_hex_str(body)
+        blkhash = body.hex()
 
         assert_equal(genhashes[0], blkhash) #blockhash from generate must be equal to the hash received over zmq
 
@@ -66,7 +66,7 @@ class ZMQTest(BitcoinTestFramework):
             topic = msg[0]
             body = msg[1]
             if topic == b"hashblock":
-                zmqHashes.append(bytes_to_hex_str(body))
+                zmqHashes.append(body.hex())
                 msgSequence = struct.unpack('<I', msg[-1])[-1]
                 assert_equal(msgSequence, blockcount+1)
                 blockcount += 1
@@ -84,7 +84,7 @@ class ZMQTest(BitcoinTestFramework):
         body = msg[1]
         hashZMQ = ""
         if topic == b"hashtx":
-            hashZMQ = bytes_to_hex_str(body)
+            hashZMQ = body.hex()
             msgSequence = struct.unpack('<I', msg[-1])[-1]
             assert_equal(msgSequence, blockcount+1)
 

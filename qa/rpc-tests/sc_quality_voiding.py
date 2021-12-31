@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -162,7 +162,7 @@ class quality_voiding(BitcoinTestFramework):
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate of quality {} is {}".format(quality, cert_1_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -189,7 +189,7 @@ class quality_voiding(BitcoinTestFramework):
             assert(len(cert_2_epoch_0) > 0)
             mark_logs("Certificate of quality {} is {}".format(quality, cert_2_epoch_0), self.nodes, DEBUG_MODE)
             assert_equal(True, cert_2_epoch_0 in self.nodes[1].getrawmempool())
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
@@ -230,7 +230,7 @@ class quality_voiding(BitcoinTestFramework):
                 epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert (len(cert_3_epoch_0) > 0)
             mark_logs("Certificate of quality {} is {}".format(quality, cert_3_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)

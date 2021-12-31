@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -72,7 +72,7 @@ class InvalidBlockRequestTest(ComparisonTestFramework):
         Now we need that block to mature so we can spend the coinbase.
         '''
         test = TestInstance(sync_every_block=False)
-        for i in xrange(100):
+        for i in range(100):
             block = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time, get_nBits(chainHeight))
             chainHeight += 1
             block.solve()

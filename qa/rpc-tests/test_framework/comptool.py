@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -335,7 +335,7 @@ class TestManager(object):
                 if (not self.check_mempool(tx.sha256, tx_outcome)):
                     raise AssertionError("Mempool test failed at test %d" % test_number)
 
-            print "Test %d: PASS" % test_number, [ c.rpc.getblockcount() for c in self.connections ]
+            print("Test %d: PASS" % test_number, [ c.rpc.getblockcount() for c in self.connections ])
             test_number += 1
 
         [ c.disconnect_node() for c in self.connections ]

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -163,7 +163,7 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
                                                           MBTR_SC_FEE, CERT_FEE)
             assert (len(cert_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)

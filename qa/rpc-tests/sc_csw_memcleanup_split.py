@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -88,7 +88,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        print "Node0 Chain h = ", self.nodes[0].getblockcount()
+        print("Node0 Chain h = ", self.nodes[0].getblockcount())
 
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
         sc_epoch_len = EPOCH_LENGTH
@@ -136,12 +136,12 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
 
         ceas_height = self.nodes[0].getscinfo(scid, False, False)['items'][0]['ceasingHeight']
         numbBlocks = ceas_height - self.nodes[0].getblockcount() + sc_epoch_len - 1
-        print "Node0 Chain h = ", self.nodes[0].getblockcount()
+        print("Node0 Chain h = ", self.nodes[0].getblockcount())
 
         mark_logs("\nNode0 generates {} block reaching the sg for the next epoch".format(numbBlocks), self.nodes, DEBUG_MODE)
         self.nodes[0].generate(numbBlocks)
         self.sync_all()
-        print "Node0 Chain h = ", self.nodes[0].getblockcount()
+        print("Node0 Chain h = ", self.nodes[0].getblockcount())
         
         #============================================================================================
         mark_logs("\nSplit network", self.nodes, DEBUG_MODE)
@@ -149,7 +149,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         mark_logs("The network is split: 0-1-2 .. 3", self.nodes, DEBUG_MODE)
 
         # Network part 0-1-2
-        print "------------------"
+        print("------------------")
 
         mark_logs("\nNTW part 1) Node2 sends a certificate", self.nodes, DEBUG_MODE)
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[2], sc_epoch_len)
@@ -166,9 +166,9 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         try:
             cert_bad = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert, 0, 0, 0.01)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print "Send certificate failed with reason {}".format(errorString)
+            print("Send certificate failed with reason {}".format(errorString))
             assert(False)
         sync_mempools(self.nodes[0:3])
 
@@ -178,7 +178,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         mark_logs("Generates two blocks to make the chain longer than sub-network 2", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(2)
 
-        print "Node0 Chain h = ", self.nodes[0].getblockcount()
+        print("Node0 Chain h = ", self.nodes[0].getblockcount())
 
         # Network part 2
         #------------------
@@ -224,7 +224,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
             csw_bad = self.nodes[3].sendrawtransaction(sigRawtx['hex'])
             pprint.pprint(self.nodes[3].getrawtransaction(tx, 1))
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
 
@@ -247,7 +247,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         try:
             self.nodes[3].getrawtransaction(csw_bad, 1)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("===> {}".format(errorString), self.nodes, DEBUG_MODE)
             assert_true("No information" in errorString)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -169,7 +169,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -184,7 +184,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number + 1, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -202,7 +202,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 wrong_epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -217,7 +217,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality - 100,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -232,7 +232,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, "aa" * (MAX_SC_PROOF_SIZE_IN_BYTES + 1), amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -248,7 +248,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, "aa", amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -267,7 +267,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof_wrong, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -287,7 +287,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof_wrong, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -306,7 +306,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof_wrong, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -325,7 +325,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof_wrong, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -344,7 +344,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof_wrong, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -363,7 +363,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof_wrong, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -383,7 +383,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof_wrong, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -412,7 +412,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, wrong_proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -442,7 +442,7 @@ class sc_cert_base(BitcoinTestFramework):
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -513,7 +513,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof2, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -548,7 +548,7 @@ class sc_cert_base(BitcoinTestFramework):
         try:
             tx = self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), amount_cert_1[0]["amount"] / 2)
             assert(len(tx) == 0)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
@@ -585,7 +585,7 @@ class sc_cert_base(BitcoinTestFramework):
             assert(len(cert_epoch_1) > 0)
             mark_logs("Certificate is {}".format(cert_epoch_1), self.nodes, DEBUG_MODE)
             self.sync_all()
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -593,7 +593,7 @@ class sc_cert_base(BitcoinTestFramework):
         try:
             ret = self.nodes[0].getrawtransaction(cert_epoch_1, 1)
             assert_equal(ret['cert']['scid'], scid)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("can not get raw info for cert {} error: {}".format(cert_epoch_1, errorString), self.nodes, DEBUG_MODE)
     
@@ -661,7 +661,7 @@ class sc_cert_base(BitcoinTestFramework):
         try:
             tx = self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), amount_cert_1[0]["amount"] / 2)
             assert(len(tx) > 0)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("tx spending certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -685,7 +685,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number_0, 0,
                 epoch_cum_tree_hash_0, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
         assert_equal("bad-sc-cert-not-applicable" in errorString, True)
@@ -734,7 +734,7 @@ class sc_cert_base(BitcoinTestFramework):
             self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -11,7 +11,7 @@ from test_framework.blocktools import create_coinbase, create_block
 from test_framework.comptool import TestInstance, TestManager
 from test_framework.script import CScript, OP_1NEGATE, OP_NOP2, OP_DROP
 from binascii import unhexlify
-import cStringIO
+from io import StringIO
 import time
 
 
@@ -49,7 +49,7 @@ class BIP65Test(ComparisonTestFramework):
         rawtx = node.createrawtransaction(inputs, outputs)
         signresult = node.signrawtransaction(rawtx)
         tx = CTransaction()
-        f = cStringIO.StringIO(unhexlify(signresult['hex']))
+        f = StringIO.StringIO(unhexlify(signresult['hex']))
         tx.deserialize(f)
         return tx
 

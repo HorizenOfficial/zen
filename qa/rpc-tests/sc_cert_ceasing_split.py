@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -157,7 +157,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         mark_logs("The network is split: 0-1-2 .. 3", self.nodes, DEBUG_MODE)
 
         # Network part 0-1-2
-        print "------------------"
+        print("------------------")
         # use different nodes for sending txes and cert in order to be sure there are no dependancies from each other
         fwt_amount = Decimal("2.0")
         mc_return_address = self.nodes[0].getnewaddress()
@@ -174,7 +174,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         mark_logs("\nNTW part 1) Node1 creates a tx with a bwt request", self.nodes, DEBUG_MODE)
         try:
             tx_bwt = self.nodes[1].sc_request_transfer(outputs, cmdParms);
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -198,9 +198,9 @@ class CeasingSplitTest(BitcoinTestFramework):
         try:
             cert_bad = self.nodes[2].sc_send_certificate(scid, epoch_number, 10,
                 epoch_cum_tree_hash, proof, amount_cert, 0, 0, 0.01)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print "Send certificate failed with reason {}".format(errorString)
+            print("Send certificate failed with reason {}".format(errorString))
             assert(False)
 
         sync_mempools(self.nodes[0:3])
@@ -209,7 +209,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         assert_true(cert_bad in self.nodes[0].getrawmempool()) 
 
         # Network part 2
-        print "------------------"
+        print("------------------")
 
         mark_logs("\nNTW part 2) Let SC cease... ".format(scid), self.nodes, DEBUG_MODE)
 
@@ -237,17 +237,17 @@ class CeasingSplitTest(BitcoinTestFramework):
 
         #assert_false(tx_fwd in self.nodes[0].getrawmempool()) 
         if tx_fwd in self.nodes[0].getrawmempool():
-            print "FIX FIX FIX!!! fwt is still in mempool" 
+            print("FIX FIX FIX!!! fwt is still in mempool" )
             any_error = True
 
 
         mark_logs("And that no info are available too...".format(tx_fwd), self.nodes, DEBUG_MODE)
         try:
             dec = self.nodes[0].getrawtransaction(tx_fwd, 1)
-            print "FIX FIX FIX!!! tx_fwd has info in Node0" 
+            print("FIX FIX FIX!!! tx_fwd has info in Node0" )
             any_error = True
             #assert (False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("===> {}".format(errorString), self.nodes, DEBUG_MODE)
             assert_true("No information" in errorString)
@@ -255,16 +255,16 @@ class CeasingSplitTest(BitcoinTestFramework):
         mark_logs("Check bwd tx {} is no more in mempool".format(tx_bwt), self.nodes, DEBUG_MODE)
         #assert_false(tx_bwt in self.nodes[0].getrawmempool()) 
         if tx_bwt in self.nodes[0].getrawmempool():
-            print "FIX FIX FIX!!! bwt is still in mempool" 
+            print("FIX FIX FIX!!! bwt is still in mempool" )
             any_error = True
 
         mark_logs("And that no info are available too...".format(tx_bwt), self.nodes, DEBUG_MODE)
         try:
             dec = self.nodes[0].getrawtransaction(tx_bwt, 1)
-            print "FIX FIX FIX!!! tx_bwt has info in Node0" 
+            print("FIX FIX FIX!!! tx_bwt has info in Node0" )
             any_error = True
             #assert (False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("===> {}".format(errorString), self.nodes, DEBUG_MODE)
             assert_true("No information" in errorString)
@@ -272,15 +272,15 @@ class CeasingSplitTest(BitcoinTestFramework):
         mark_logs("Check cert {} is no more in mempool".format(cert_bad), self.nodes, DEBUG_MODE)
         #assert_false(cert in self.nodes[0].getrawmempool()) 
         if cert_bad in self.nodes[0].getrawmempool():
-            print "FIX FIX FIX!!! cert is still in mempool" 
+            print("FIX FIX FIX!!! cert is still in mempool" )
 
         mark_logs("And that no info are available too...", self.nodes, DEBUG_MODE)
         try:
             dec = self.nodes[0].getrawtransaction(cert_bad, 1)
-            print "FIX FIX FIX!!! cert has info in Node0" 
+            print("FIX FIX FIX!!! cert has info in Node0" )
             any_error = True
             #assert (False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("===> {}".format(errorString), self.nodes, DEBUG_MODE)
 
@@ -288,14 +288,14 @@ class CeasingSplitTest(BitcoinTestFramework):
         try:
             bal_final = self.nodes[0].getscinfo(scid)['items'][0]['balance']
             assert_equal(bal_initial, bal_final)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("===> {}".format(errorString), self.nodes, DEBUG_MODE)
 
         pprint.pprint(self.nodes[0].getrawmempool())
 
         if any_error:
-            print" =========================> Test failed!!!"
+            print(" =========================> Test failed!!!")
             assert(False)
 
         # if any_error this should fail

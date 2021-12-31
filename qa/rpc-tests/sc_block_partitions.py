@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -68,7 +68,7 @@ class sc_block_partitions(BitcoinTestFramework):
                 res = node.sc_create(cmdInput)
                 tx =   res['txid']
                 scid = res['scid']
-            except JSONRPCException, e:
+            except JSONRPCException as e:
                 errorString = e.error['message']
                 mark_logs(errorString,self.nodes,DEBUG_MODE)
                 assert_true(False)
@@ -77,7 +77,7 @@ class sc_block_partitions(BitcoinTestFramework):
 
         # network topology: (0)--(1)
 
-        print "Miners have max block size = {}, max tx partition size = {}".format(TEST_BLOCK_MAX_SIZE, TEST_BLOCK_TX_PARTITION_MAX_SIZE)
+        print("Miners have max block size = {}, max tx partition size = {}".format(TEST_BLOCK_MAX_SIZE, TEST_BLOCK_TX_PARTITION_MAX_SIZE))
 
         mark_logs("Node 1 generates {} block".format(100), self.nodes, DEBUG_MODE)
         self.nodes[1].generate(100)
@@ -130,15 +130,15 @@ class sc_block_partitions(BitcoinTestFramework):
                 epoch_cum_tree_hash, constant, [], [], [])
             assert_true(proof != None)
             t1 = time.time()
-            print "...proof generated: {} secs".format(t1-t0)
+            print("...proof generated: {} secs".format(t1-t0))
             proofs.append(proof)
         
             try:
                 cert = self.nodes[0].sc_send_certificate(scid, epoch_number, (q+tot_num_cert),
                     epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE, "", [], [])
-            except JSONRPCException, e:
+            except JSONRPCException as e:
                 errorString = e.error['message']
-                print "Send certificate failed with reason {}".format(errorString)
+                print("Send certificate failed with reason {}".format(errorString))
                 assert(False)
             self.sync_all()
             tot_num_cert += 1
@@ -150,7 +150,7 @@ class sc_block_partitions(BitcoinTestFramework):
             if tot_cert_sz > TEST_BLOCK_MAX_SIZE:
                 break
 
-        print "tot cert = {}, tot sz = {} ".format(tot_num_cert, tot_cert_sz)
+        print("tot cert = {}, tot sz = {} ".format(tot_num_cert, tot_cert_sz))
 
         mark_logs("Creating txes...", self.nodes, DEBUG_MODE)
         tot_num_tx = 0
@@ -176,9 +176,9 @@ class sc_block_partitions(BitcoinTestFramework):
                 raw_tx = self.nodes[1].createrawtransaction(raw_inputs, raw_outs, [], [], sc_ft)
                 signed_tx = self.nodes[1].signrawtransaction(raw_tx)
                 tx = self.nodes[1].sendrawtransaction(signed_tx['hex'])
-            except JSONRPCException, e:
+            except JSONRPCException as e:
                 errorString = e.error['message']
-                print "Send raw tx failed with reason {}".format(errorString)
+                print("Send raw tx failed with reason {}".format(errorString))
                 assert(False)
 
             tot_num_tx += 1
@@ -188,16 +188,16 @@ class sc_block_partitions(BitcoinTestFramework):
                 self.sync_all()
                 break
 
-        print "tot tx   = {}, tot sz = {} ".format(tot_num_tx, tot_tx_sz)
+        print("tot tx   = {}, tot sz = {} ".format(tot_num_tx, tot_tx_sz))
 
         mark_logs("Generating 1 block and checking blocks partitions...", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
         ret = self.nodes[0].getmininginfo()
 
-        print "block num of cert = ", ret['currentblockcert']
-        print "block size        = ", ret['currentblocksize']
-        print "block num of tx   = ", ret['currentblocktx']
+        print("block num of cert = ", ret['currentblockcert'])
+        print("block size        = ", ret['currentblocksize'])
+        print("block num of tx   = ", ret['currentblocktx'])
 
         # all certs but one are included in the block
         assert_equal(ret['currentblockcert'], tot_num_cert - 1)
@@ -209,9 +209,9 @@ class sc_block_partitions(BitcoinTestFramework):
         self.sync_all()
         ret = self.nodes[0].getmininginfo()
 
-        print "block num of cert = ", ret['currentblockcert']
-        print "block size        = ", ret['currentblocksize']
-        print "block num of tx   = ", ret['currentblocktx']
+        print("block num of cert = ", ret['currentblockcert'])
+        print("block size        = ", ret['currentblocksize'])
+        print("block num of tx   = ", ret['currentblocktx'])
 
         # last cert has been included in the block
         assert_equal(ret['currentblockcert'], 1)
@@ -225,9 +225,9 @@ class sc_block_partitions(BitcoinTestFramework):
         self.sync_all()
         ret = self.nodes[0].getmininginfo()
 
-        print "block num of cert = ", ret['currentblockcert']
-        print "block size        = ", ret['currentblocksize']
-        print "block num of tx   = ", ret['currentblocktx']
+        print("block num of cert = ", ret['currentblockcert'])
+        print("block size        = ", ret['currentblocksize'])
+        print("block num of tx   = ", ret['currentblocktx'])
 
         # no more certs
         assert_equal(ret['currentblockcert'], 0)

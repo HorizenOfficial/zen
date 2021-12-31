@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -80,9 +80,9 @@ class blockdelay(BitcoinTestFramework):
         c = 0
         for y in sorted_x:
             if (c == 0):
-                print y
+                print(y)
             else:
-                print " ",y
+                print(" ", y)
             c = 1
 
     def order_tips(self, tip_list):
@@ -135,27 +135,27 @@ class blockdelay(BitcoinTestFramework):
         print("\n\nGenesis block is: " + blocks[0])
 #        raw_input("press enter to start..")
         try:
-            print "\nChecking finality of block (%d) [%s]" % (0, blocks[0])
-            print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(blocks[0])
+            print("\nChecking finality of block (%d) [%s]" % (0, blocks[0]))
+            print("  Node0 has: %d" % self.nodes[0].getblockfinalityindex(blocks[0]))
             print
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print errorString
+            print(errorString)
         '''
         '''
 
         print("\n\nGenerating initial blockchain 104 blocks")
         blocks.extend(self.nodes[0].generate(101)) # block height 1
-        #print blocks[len(blocks)-1]
+        #print(blocks[len(blocks)-1])
         self.sync_all()
         blocks.extend(self.nodes[1].generate(1)) # block height 2
-        #print blocks[len(blocks)-1]
+        #print(blocks[len(blocks)-1])
         self.sync_all()
         blocks.extend(self.nodes[2].generate(1)) # block height 3
-        #print blocks[len(blocks)-1]
+        #print(blocks[len(blocks)-1])
         self.sync_all()
         blocks.extend(self.nodes[3].generate(1)) # block height 4
-        print "104) ", blocks[len(blocks)-1]
+        print("104) ", blocks[len(blocks)-1])
         self.sync_all()
         print("\nBlocks generated")
 
@@ -184,12 +184,12 @@ class blockdelay(BitcoinTestFramework):
         for i in range (0, 5):
             blocks.extend(self.nodes[0].generate(1)) # block height 105 -6 -7 -8 - 9 - 10
             bl.append(blocks[len(blocks)-1])
-            print "%2d) %s" % ((i+105), bl[i])
+            print("%2d) %s" % ((i+105), bl[i]))
         self.sync_all()
         for i in range (5, 12):
             blocks.extend(self.nodes[1].generate(1)) # block height 111-12-13-14-15-16
             bl.append(blocks[len(blocks)-1])
-            print "%2d) %s" % ((i+105), bl[i])
+            print("%2d) %s" % ((i+105), bl[i]))
         last_main_blockhash=blocks[len(blocks)-1]
         first_main_blockhash=bl[0]
         self.sync_all()
@@ -197,7 +197,7 @@ class blockdelay(BitcoinTestFramework):
 
         # check node1 balance has changed
         assert self.nodes[1].getbalance() == 3.0
-        print "\nNode1 balance:", self.nodes[1].getbalance()
+        print("\nNode1 balance:", self.nodes[1].getbalance())
 
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
 
@@ -219,13 +219,13 @@ class blockdelay(BitcoinTestFramework):
         print("Malicious blocks generated")
 
         for i in range(0, 4):
-            print "Node%d  ---" % i
+            print("Node%d  ---" % i)
             getchaintips_res = self.nodes[i].getchaintips(True)
             self.dump_ordered_tips(getchaintips_res)
             assert(getchaintips_res[0]["penalty-at-start"] == 0)
             assert(getchaintips_res[0]["penalty-at-tip"] == 0)
             assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
-            print "---"
+            print("---")
 
 #   Node(0): [0]->..->[104]->[105h]...->[116h]
 #   /
@@ -245,10 +245,10 @@ class blockdelay(BitcoinTestFramework):
         print("\nNetwork joined")
 
         for i in range(0, 4):
-            print "Node%d  ---" % i
+            print("Node%d  ---" % i)
             getchaintips_res = self.nodes[i].getchaintips(True)
             self.dump_ordered_tips(getchaintips_res)
-            print "---"
+            print("---")
 
         print("\nTesting fork related data from getchaintips")
         print("\nTesting Node 0")
@@ -282,15 +282,15 @@ class blockdelay(BitcoinTestFramework):
         assert self.nodes[0].getbestblockhash() == last_main_blockhash
         print("Confirmed: malicious chain is under penalty")
 
-        print "\nChecking finality of first honest block [%s]" %  first_main_blockhash
+        print("\nChecking finality of first honest block [%s]" %  first_main_blockhash)
         for i in range(0, 4):
             try:
-                print "  Node%d sees:"  % i
-                print "      finality: %d" % self.nodes[i].getblockfinalityindex(first_main_blockhash)
+                print("  Node%d sees:"  % i)
+                print("      finality: %d" % self.nodes[i].getblockfinalityindex(first_main_blockhash))
                 print
-            except JSONRPCException,e:
+            except JSONRPCException as e:
                 errorString = e.error['message']
-                print "      " + errorString
+                print("      " + errorString)
                 print
 
 #   +-------Node(0): [0]->..->[104]->[105h]...->[116h]   <<==ACTIVE
@@ -319,9 +319,9 @@ class blockdelay(BitcoinTestFramework):
         self.sync_longest_fork(1, 10);
 
         for i in range(0, 4):
-            print "Node%d  ---" % i
+            print("Node%d  ---" % i)
             self.dump_ordered_tips(self.nodes[i].getchaintips(True))
-            print "---"
+            print("---")
 
         print("\nTesting fork related data from getchaintips")
         print("\nTesting Node 0")
@@ -357,7 +357,7 @@ class blockdelay(BitcoinTestFramework):
 
         # check node1 balance has not changed
         assert self.nodes[1].getbalance() == 3.0
-        print "\nNode1 balance is still the same:", self.nodes[1].getbalance()
+        print("\nNode1 balance is still the same:", self.nodes[1].getbalance())
 
 
 #   +-------Node(0): [0]->..->[104]->[105h]...->[116h]                       <<==ACTIVE
@@ -401,9 +401,9 @@ class blockdelay(BitcoinTestFramework):
 #                                 +->[105h]...->[116h]->[117h]->..->[181h]
 
         for i in range(0, 4):
-            print "Node%d  ---" % i
+            print("Node%d  ---" % i)
             self.dump_ordered_tips(self.nodes[i].getchaintips(True))
-            print "---"
+            print("---")
 
 #        raw_input("press enter to generate 1 more malicious blocks which will cause the attack to succeed..")
 
@@ -439,7 +439,7 @@ class blockdelay(BitcoinTestFramework):
         self.mark_logs("Generating 1 more malicious block ")
         last_malicious_blockhash=self.nodes[3].generate(1)[0]
         print("Malicious block generated:")
-        print last_malicious_blockhash
+        print(last_malicious_blockhash)
 
         print("\n\nWaiting that all network nodes are synced with same chain length")
         sync_blocks(self.nodes, 1, True, 5)
@@ -447,9 +447,9 @@ class blockdelay(BitcoinTestFramework):
         print("Network nodes are synced")
 
         for i in range(0, 4):
-            print "Node%d  ---" % i
+            print("Node%d  ---" % i)
             self.dump_ordered_tips(self.nodes[i].getchaintips(True))
-            print "---"
+            print("---")
 
         print("\nTesting fork related data from getchaintips")
         print("\nTesting Node 0")
@@ -506,7 +506,7 @@ class blockdelay(BitcoinTestFramework):
 
         # check node1 balance has been erased
         assert self.nodes[1].getbalance() == 0.0
-        print "\nNode1 balance has been erased!:", self.nodes[1].getbalance()
+        print("\nNode1 balance has been erased!:", self.nodes[1].getbalance())
 
 #        raw_input("press enter to connect a brand new node..")
 
@@ -520,9 +520,9 @@ class blockdelay(BitcoinTestFramework):
         sync_blocks(self.nodes, 1, True, 5)
 
         for i in range(0, 5):
-            print "Node%d  ---" % i
+            print("Node%d  ---" % i)
             self.dump_ordered_tips(self.nodes[i].getchaintips(True))
-            print "---"
+            print("---")
 
         print("\nNode0 generating 1 new blocks")
         self.mark_logs("Node0 generating 1 new blocks")
@@ -531,13 +531,13 @@ class blockdelay(BitcoinTestFramework):
         sync_blocks(self.nodes, 1, True, 5)
 
         for i in range(0, 5):
-            print "Node%d  ---" % i
+            print("Node%d  ---" % i)
             self.dump_ordered_tips(self.nodes[i].getchaintips(True))
-            print "---"
+            print("---")
 
         # check node1 balance has been restored
         assert self.nodes[1].getbalance() == 3.0
-        print "Node1 balance has been restored: ", self.nodes[1].getbalance()
+        print("Node1 balance has been restored: ", self.nodes[1].getbalance())
 
 #   +-------Node(0): [0]->..->[104]->[105h]...->[116h]->[117h]->..->[181h]
 #   |         /                  \

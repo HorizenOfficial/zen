@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
@@ -53,7 +53,7 @@ class cbh_rpfix(BitcoinTestFramework):
         self.sync_all()
 
     def mark_logs(self, msg):
-        print msg
+        print(msg)
         self.nodes[0].dbg_log(msg)
         self.nodes[1].dbg_log(msg)
         self.nodes[2].dbg_log(msg)
@@ -75,8 +75,8 @@ class cbh_rpfix(BitcoinTestFramework):
             self.mark_logs("Node1 sending tx1 with tampered cbh script to Node2")
             tx_1 = self.nodes[1].sendrawtransaction(raw_tx_1['hex'])
             self.sync_all()
-        except JSONRPCException,e:
-            print " ==> Tx has been rejected! {}".format(e.error['message'])
+        except JSONRPCException as e:
+            print(" ==> Tx has been rejected! {}".format(e.error['message']))
             # before rp fix fork this is expected to succeed
             assert_true(False)
 
@@ -88,8 +88,8 @@ class cbh_rpfix(BitcoinTestFramework):
             self.mark_logs("Node1 sending tx2 with tampered cbh script to Node2")
             tx_2 = self.nodes[1].sendrawtransaction(raw_tx_2['hex'])
             self.sync_all()
-        except JSONRPCException,e:
-            print " ==> Tx has been rejected! {}".format(e.error['message'])
+        except JSONRPCException as e:
+            print(" ==> Tx has been rejected! {}".format(e.error['message']))
             # before rp fix fork this is expected to succeed
             assert_true(False)
 
@@ -101,8 +101,8 @@ class cbh_rpfix(BitcoinTestFramework):
             self.mark_logs("Node1 sending tx3 with tampered cbh script to Node2")
             tx_3 = self.nodes[1].sendrawtransaction(raw_tx_3['hex'])
             self.sync_all()
-        except JSONRPCException,e:
-            print " ==> Tx has been rejected! {}".format(e.error['message'])
+        except JSONRPCException as e:
+            print(" ==> Tx has been rejected! {}".format(e.error['message']))
             # before rp fix fork this is expected to succeed
             assert_true(False)
 
@@ -134,7 +134,7 @@ class cbh_rpfix(BitcoinTestFramework):
             tx_bad = self.nodes[2].sendtoaddress(self.nodes[0].getnewaddress(), payment)
             # after rp fix fork this is expected to fail
             assert_true(False)
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             self.mark_logs("==> Node2 tx has not been accepted in mempool! {}".format(e.error['message']))
             assert_true("The transaction was rejected" in e.error['message'])
             self.sync_all()
@@ -167,8 +167,8 @@ class cbh_rpfix(BitcoinTestFramework):
             tx = self.nodes[1].sendrawtransaction(raw_tx['hex'])
             # after rp fix fork this is expected to fail
             assert_true(False)
-        except JSONRPCException,e:
-            print " ==> Tx has been rejected!"
+        except JSONRPCException as e:
+            print(" ==> Tx has been rejected!")
             assert_true("scriptpubkey" in e.error['message'])
 
         payment = Decimal('2.0')
@@ -179,8 +179,8 @@ class cbh_rpfix(BitcoinTestFramework):
             tx = self.nodes[1].sendrawtransaction(raw_tx['hex'])
             # after rp fix fork this is expected to fail
             assert_true(False)
-        except JSONRPCException,e:
-            print " ==> Tx has been rejected!"
+        except JSONRPCException as e:
+            print(" ==> Tx has been rejected!")
             assert_true("scriptpubkey" in e.error['message'])
 
         # create a Tx TODO
@@ -191,8 +191,8 @@ class cbh_rpfix(BitcoinTestFramework):
             tx = self.nodes[1].sendrawtransaction(raw_tx['hex'])
             # after rp fix fork this is expected to fail
             assert_true(False)
-        except JSONRPCException,e:
-            print " ==> Tx has been rejected! {}".format(e.error['message'])
+        except JSONRPCException as e:
+            print(" ==> Tx has been rejected! {}".format(e.error['message']))
             assert_true("scriptpubkey" in e.error['message'])
 
         # check Node2 still has no valid utxos

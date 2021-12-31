@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -69,9 +69,9 @@ class headers(BitcoinTestFramework):
         c = 0
         for y in sorted_x:
             if (c == 0):
-                print y 
+                print(y)
             else:
-                print " ",y 
+                print(" ",y)
             c = 1
 
     def run_test(self):
@@ -86,7 +86,7 @@ class headers(BitcoinTestFramework):
         self.mark_logs(s)
 
         blocks.extend(self.nodes[1].generate(1)) # block height 1
-        print blocks[1]
+        print(blocks[1])
         self.sync_all()
 
 # Node(0): [0]->[1]
@@ -103,20 +103,20 @@ class headers(BitcoinTestFramework):
         print("\nNode1 generating 19 honest block")
         blocks.extend(self.nodes[1].generate(19)) # block height 2
         for i in range(2, 21):
-            print blocks[i]
-#        print blocks[2]
+            print(blocks[i])
+#        print(blocks[2])
         self.sync_all()
 
         print("\nNode2 generating 20 mal block")
         blocks.extend(self.nodes[2].generate(20)) # block height 2
         for i in range(21, 41):
-            print blocks[i]
-#        print blocks[3]
+            print(blocks[i])
+#        print(blocks[3])
         self.sync_all()
 
         for i in range(0, 3):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
+            print("---")
 
 # Node(0): [0]->[1]->[2h]
 #   |                   
@@ -133,35 +133,35 @@ class headers(BitcoinTestFramework):
 
         for i in range(0, 3):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
+            print("---")
 
         time.sleep(2)
         print("\nNetwork joined") 
         self.mark_logs("Network joined")
 
         try:
-            print "\nChecking finality of block (%d) [%s]" % (0, blocks[2])
-            print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(blocks[2])
+            print("\nChecking finality of block (%d) [%s]" % (0, blocks[2]))
+            print("  Node0 has: %d" % self.nodes[0].getblockfinalityindex(blocks[2]))
             print
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print errorString
+            print(errorString)
 
         print("\nNode2 generating 170 mal block")
         blocks.extend(self.nodes[2].generate(170)) # block height 2
         for i in range(41, 211):
-            print blocks[i]
-#        print blocks[3]
+            print(blocks[i])
+#        print(blocks[3])
         sync_blocks(self.nodes, 1, True, 3)
 #        self.sync_all()
         blocks.extend(self.nodes[2].generate(1)) # block height 2
         sync_blocks(self.nodes, 1, True, 3)
-        print blocks[211]
+        print(blocks[211])
 
 # Node(0): [0]->[1]->[2h]
         for i in range(0, 3):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
+            print("---")
 
 # Node(0): [0]->[1]->[2h]  **Active**
 #   |             \     
