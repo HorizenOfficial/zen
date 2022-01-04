@@ -58,7 +58,7 @@ class SpentIndexTest(BitcoinTestFramework):
         scriptPubKey = binascii.unhexlify(op_dup + op_hash160 + op_push_20_bytes_onto_the_stack + addressHash + op_equalverify + op_checksig + genesisCbah)
         unspent = self.nodes[0].listunspent()
         tx = CTransaction()
-        amount = unspent[0]["amount"] * 100000000
+        amount = to_satoshis(unspent[0]["amount"])
         tx.vin = [CTxIn(COutPoint(int(unspent[0]["txid"], 16), unspent[0]["vout"]))]
         tx.vout = [CTxOut(amount, scriptPubKey)]
         tx.rehash()

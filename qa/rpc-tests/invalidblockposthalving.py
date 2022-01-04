@@ -53,7 +53,7 @@ class InvalidBlockPostHalving(ComparisonTestFramework):
 
     def get_tests(self):
         if self.tip is None:
-            self.tip = int ("0x" + self.nodes[0].getbestblockhash() + "L", 0)
+            self.tip = int ("0x" + self.nodes[0].getbestblockhash(), 0)
         self.block_time = int(time.time())+1
 
         chainHeight = 0
@@ -179,7 +179,7 @@ class InvalidBlockPostHalving(ComparisonTestFramework):
         block3 = create_block(self.tip, create_coinbase_h(chainHeight+1, SUBS_HALV_INTERVAL), self.block_time, get_nBits(chainHeight))
         chainHeight += 1
         self.block_time += 1
-        block3.vtx[0].vout[0].nValue *= 1.5 # Too high!
+        block3.vtx[0].vout[0].nValue = int(block3.vtx[0].vout[0].nValue * 1.5) # Too high!
         block3.vtx[0].sha256=None
         block3.vtx[0].calc_sha256()
         block3.hashMerkleRoot = block3.calc_merkle_root()
@@ -212,7 +212,7 @@ class InvalidBlockPostHalving(ComparisonTestFramework):
         block3 = create_block(self.tip, create_coinbase_h(chainHeight+1, SUBS_HALV_INTERVAL), self.block_time, get_nBits(chainHeight))
         chainHeight += 1
         self.block_time += 1
-        block3.vtx[0].vout[0].nValue *= 0.5
+        block3.vtx[0].vout[0].nValue = int(block3.vtx[0].vout[0].nValue * 0.5)
         block3.vtx[0].sha256=None
         block3.vtx[0].calc_sha256()
         block3.hashMerkleRoot = block3.calc_merkle_root()

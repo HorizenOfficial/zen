@@ -1,5 +1,6 @@
 from operator import itemgetter
 import struct
+from functools import reduce
 
 DEBUG = False
 VERBOSE = False
@@ -80,9 +81,9 @@ def compress_array(inp, out_len, bit_len, byte_pad=0):
 
 def get_indices_from_minimal(minimal, bit_len):
     eh_index_size = 4
-    assert (bit_len+7)/8 <= eh_index_size
-    len_indices = 8*eh_index_size*len(minimal)/bit_len
-    byte_pad = eh_index_size - (bit_len+7)/8
+    assert (bit_len+7)//8 <= eh_index_size
+    len_indices = 8*eh_index_size*len(minimal)//bit_len
+    byte_pad = eh_index_size - (bit_len+7)//8
     expanded = expand_array(minimal, len_indices, bit_len, byte_pad)
     return [struct.unpack('>I', expanded[i:i+4])[0] for i in range(0, len_indices, eh_index_size)]
 
@@ -90,9 +91,9 @@ def get_minimal_from_indices(indices, bit_len):
     eh_index_size = 4
     assert (bit_len+7)//8 <= eh_index_size
     len_indices = len(indices)*eh_index_size
-    min_len = bit_len*len_indices/(8*eh_index_size)
-    byte_pad = eh_index_size - (bit_len+7)/8
-    byte_indices = bytearray(''.join([struct.pack('>I', i) for i in indices]))
+    min_len = bit_len*len_indices//(8*eh_index_size)
+    byte_pad = eh_index_size - (bit_len+7)//8
+    byte_indices = bytearray(b''.join([struct.pack('>I', i) for i in indices]))
     return compress_array(byte_indices, min_len, bit_len, byte_pad)
 
 
@@ -114,7 +115,7 @@ def count_zeroes(h):
     return (h+'1').index('1')
 
 def has_collision(ha, hb, i, l):
-    res = [ha[j] == hb[j] for j in range((i-1)*l/8, i*l/8)]
+    res = [ha[j] == hb[j] for j in range((i-1)*l//8, i*l//8)]
     return reduce(lambda x, y: x and y, res)
 
 def distinct_indices(a, b):
@@ -244,7 +245,7 @@ def gbp_validate(digest, minimal, n, k):
         r = i % indices_per_hash_output
         # X_i = H(I||V||x_i)
         curr_digest = digest.copy()
-        hash_xi(curr_digest, i/indices_per_hash_output)
+        hash_xi(curr_digest, i//indices_per_hash_output)
         tmp_hash = curr_digest.digest()
         X.append((
             expand_array(bytearray(tmp_hash[r*n//8:(r+1)*n//8]),

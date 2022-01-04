@@ -22,7 +22,7 @@ import codecs
 SC_CERTIFICATE_BLOCK_VERSION = 3
 
 # this is defined in src/primitives/block.cpp
-SC_NULL_HASH = hash256(ser_string("Horizen ScTxsCommitment null hash string"))
+SC_NULL_HASH = hash256(ser_string(b"Horizen ScTxsCommitment null hash string"))
 
 SC_EPOCH_LENGTH = 5
 SC_CREATION_AMOUNT = Decimal("1.0")
@@ -89,7 +89,7 @@ def genmrklroot(leaflist):
         cur = n
     return cur[0]
 
-def template_to_bytes(tmpl, txlist, certlist, input_sc_commitment = None):
+def template_to_bytearray(tmpl, txlist, certlist, input_sc_commitment = None):
     blkver = pack('<L', tmpl['version'])
     objlist = txlist + certlist
     mrklroot = genmrklroot(list(dblsha(a) for a in objlist))
@@ -109,10 +109,10 @@ def template_to_bytes(tmpl, txlist, certlist, input_sc_commitment = None):
         blk += varlenEncode(len(certlist))
         for cert in certlist:
             blk += cert
-    return blk
+    return bytearray(blk)
 
 def template_to_hex(tmpl, txlist, certlist, input_sc_commitment):
-    return b2x(template_to_bytes(tmpl, txlist, certlist, input_sc_commitment))
+    return b2x(template_to_bytearray(tmpl, txlist, certlist, input_sc_commitment))
 
 def assert_template(node, tmpl, txlist, certlist, expect, input_sc_commitment = None):
 #    try:
@@ -226,7 +226,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         certlist = []
 
         # Test: set a non-zero 'hashReserved' field (32 bytes after mkl tree field); this is used from the sc fork on, renamed as 'scTxsCommitment'
-        rawtmpl = template_to_bytes(tmpl, txlist, certlist)
+        rawtmpl = template_to_bytearray(tmpl, txlist, certlist)
 
         # a 32 null byte array string
         nb1 = b2x(bytearray(32))
@@ -305,7 +305,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
 
         # Test 5: Add an invalid tx to the end (non-duplicate)
         txlist.append(bytearray(txlist[0]))
-        txlist[-1][4+1] = b'\xff'
+        txlist[-1][4+1] = 0xff
         #! This transaction is failing sooner than intended in the
         #! test because of the lack of an op-checkblockheight
         #assert_template(node, tmpl, txlist, 'bad-txns-inputs-missingorspent') 
@@ -333,7 +333,7 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         tmpl['bits'] = realbits
 
         # Test 9: Bad merkle root
-        rawtmpl = template_to_bytes(tmpl, txlist, certlist)
+        rawtmpl = template_to_bytearray(tmpl, txlist, certlist)
         rawtmpl[4+32] = (rawtmpl[4+32] + 1) % 0x100
         rsp = node.getblocktemplate({'data':b2x(rawtmpl),'mode':'proposal'})
         if rsp != 'bad-txnmrklroot':

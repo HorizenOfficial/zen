@@ -41,7 +41,7 @@ def ws_client(node, arg):
     print("##### ws client connecting to ws_url {} ######################".format(wsurl))
     ws = create_connection(wsurl)
 
-    t = threading.currentThread()
+    t = threading.current_thread()
     c = 0
 
     while getattr(t, "do_run", True):

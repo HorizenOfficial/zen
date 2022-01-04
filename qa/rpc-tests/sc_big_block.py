@@ -211,7 +211,7 @@ class sc_big_block(BitcoinTestFramework):
             print("SC{} - {}".format(k, sc_info["state"]))
 
      
-        for scid in scids[TOT_NUM_OF_SIDECHAINS/2:]:
+        for scid in scids[TOT_NUM_OF_SIDECHAINS//2:]:
             sc_csw_amount = Decimal("0.1")
  
             # CSW sender MC address, in taddress and pub key hash formats

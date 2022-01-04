@@ -68,7 +68,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         # Read the huge bit vector from file
         with open(os.path.dirname(os.path.abspath(__file__)) + "/../zen/test_data/16_GB_bitvector.bz2", "rb") as f:
-            BIT_VECTOR_BUF_HUGE = binascii.hexlify(f.read())
+            BIT_VECTOR_BUF_HUGE = bytes_to_hex_str(f.read())
 
         mark_logs("Node 1 generates 2 block",self.nodes,DEBUG_MODE)
         self.nodes[1].generate(2)
@@ -169,7 +169,7 @@ class sc_cert_customfields(BitcoinTestFramework):
             assert_true("Invalid parameter, expected positive integer in the range [1,..,255]" in errorString)
 
         #-------------------------------------------------------
-        not_power_of_two_size = len(bz2.BZ2Decompressor().decompress(BIT_VECTOR_BUF_NOT_POW2[2:].decode("hex"))) # Skip the first byte that is used internally to get the compression algorithm (BZip2).
+        not_power_of_two_size = len(bz2.BZ2Decompressor().decompress(hex_str_to_bytes(BIT_VECTOR_BUF_NOT_POW2[2:]))) # Skip the first byte that is used internally to get the compression algorithm (BZip2).
         not_power_of_two_compressed_size = len(BIT_VECTOR_BUF_NOT_POW2)
         not_power_of_two_array = [[not_power_of_two_size, not_power_of_two_compressed_size]]#[[1039368, 151]]
         cmdInput = {

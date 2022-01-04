@@ -109,7 +109,7 @@ class tlsproto(BitcoinTestFramework):
         #b = ssl.HAS_TLSv1_3
 
         # TLS1.3 support has been added from 1.1.1 on
-        openssl_111_v = hex(long('1010100f', base=16))
+        openssl_111_v = hex(int('1010100f', base=16))
 
         hex_openssl_v = hex(ssl.OPENSSL_VERSION_NUMBER)
         print("Using system lib: {} - ({})".format(ssl.OPENSSL_VERSION, hex_openssl_v))

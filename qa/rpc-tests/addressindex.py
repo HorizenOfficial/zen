@@ -12,7 +12,7 @@ import pprint
 import time
 from decimal import Decimal
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, connect_nodes, initialize_chain_clean, start_node
+from test_framework.util import assert_equal, connect_nodes, initialize_chain_clean, start_node, to_satoshis
 from test_framework.mininode import COutPoint, CTransaction, CTxIn, CTxOut
 from test_framework.authproxy import JSONRPCException
 
@@ -112,7 +112,7 @@ class AddressIndexTest(BitcoinTestFramework):
 
         # Check that balances are correct
         balance0 = self.nodes[1].getaddressbalance(addr1)
-        assert_equal(balance0["balance"], 45 * 100000000)
+        assert_equal(balance0["balance"], to_satoshis(45))
 
         # Check that outputs with the same address will only return one txid
         print("Testing for txid uniqueness...")
@@ -142,7 +142,7 @@ class AddressIndexTest(BitcoinTestFramework):
         # Check that balances are correct
         print("Testing balances...")
         balance0 = self.nodes[1].getaddressbalance(addr1)
-        assert_equal(balance0["balance"], 45 * 100000000 + 21)
+        assert_equal(balance0["balance"], to_satoshis(45) + 21)
 
         # Check that balances are correct after spending
         print("Testing balances after spending...")
@@ -159,7 +159,7 @@ class AddressIndexTest(BitcoinTestFramework):
         unspent.sort(key=lambda x: x["amount"], reverse=True)
         tx = CTransaction()
         tx.vin = [CTxIn(COutPoint(int(unspent[0]["txid"], 16), unspent[0]["vout"]))]
-        amount = unspent[0]["amount"] * 100000000
+        amount = to_satoshis(unspent[0]["amount"])
         tx.vout = [CTxOut(amount, scriptPubKey2)]
         tx.rehash()
         signed_tx = self.nodes[0].signrawtransaction(binascii.hexlify(tx.serialize()).decode("utf-8"))
@@ -171,7 +171,7 @@ class AddressIndexTest(BitcoinTestFramework):
 
         tx = CTransaction()
         tx.vin = [CTxIn(COutPoint(int(spending_txid, 16), 0))]
-        send_amount = 1 * 100000000 + 12840
+        send_amount = to_satoshis(1) + 12840
         change_amount = amount - send_amount - 10000
         tx.vout = [CTxOut(change_amount, scriptPubKey2), CTxOut(send_amount, scriptPubKey)]
         tx.rehash()
@@ -253,7 +253,7 @@ class AddressIndexTest(BitcoinTestFramework):
 
         tx = CTransaction()
         tx.vin = [CTxIn(COutPoint(int(unspent[0]["txid"], 16), unspent[0]["vout"]))]
-        amount = unspent[0]["amount"] * 100000000
+        amount = to_satoshis(unspent[0]["amount"])
         tx.vout = [CTxOut(amount, scriptPubKey3)]
         tx.rehash()
         signed_tx = self.nodes[2].signrawtransaction(binascii.hexlify(tx.serialize()).decode("utf-8"))
@@ -262,12 +262,12 @@ class AddressIndexTest(BitcoinTestFramework):
 
         tx2 = CTransaction()
         tx2.vin = [CTxIn(COutPoint(int(unspent[1]["txid"], 16), unspent[1]["vout"]))]
-        amount = unspent[1]["amount"] * 100000000
+        amount = to_satoshis(unspent[1]["amount"])
         tx2.vout = [
-            CTxOut(amount / 4, scriptPubKey3),
-            CTxOut(amount / 4, scriptPubKey3),
-            CTxOut(amount / 4, scriptPubKey4),
-            CTxOut(amount / 4, scriptPubKey4)
+            CTxOut(amount // 4, scriptPubKey3),
+            CTxOut(amount // 4, scriptPubKey3),
+            CTxOut(amount // 4, scriptPubKey4),
+            CTxOut(amount // 4, scriptPubKey4)
         ]
         tx2.rehash()
         signed_tx2 = self.nodes[2].signrawtransaction(binascii.hexlify(tx2.serialize()).decode("utf-8"))
@@ -294,7 +294,7 @@ class AddressIndexTest(BitcoinTestFramework):
             CTxIn(COutPoint(int(memtxid2, 16), 0)),
             CTxIn(COutPoint(int(memtxid2, 16), 1))
         ]
-        tx.vout = [CTxOut(amount / 2 - 10000, scriptPubKey2)]
+        tx.vout = [CTxOut(amount // 2 - 10000, scriptPubKey2)]
         tx.rehash()
         self.nodes[2].importprivkey(privKey3)
         signed_tx3 = self.nodes[2].signrawtransaction(binascii.hexlify(tx.serialize()).decode("utf-8"))

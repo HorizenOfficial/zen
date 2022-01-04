@@ -58,11 +58,11 @@ class sc_getscinfo(BitcoinTestFramework):
 
         creation_amount = Decimal("1.0")
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT/2), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT/2)
+        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT//2), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT//2)
         self.sync_all()
-        mark_logs("Node 1 generates {} block".format(MINIMAL_SC_HEIGHT/2), self.nodes, DEBUG_MODE)
-        self.nodes[1].generate(MINIMAL_SC_HEIGHT/2)
+        mark_logs("Node 1 generates {} block".format(MINIMAL_SC_HEIGHT//2), self.nodes, DEBUG_MODE)
+        self.nodes[1].generate(MINIMAL_SC_HEIGHT//2)
         self.sync_all()
 
         #generate wCertVk and constant
@@ -313,7 +313,7 @@ class sc_getscinfo(BitcoinTestFramework):
 
         elen = item['withdrawalEpochLength']
         wlen = item['certSubmissionWindowLength']
-        wlen_calc = max(2, int(elen/5))
+        wlen_calc = max(2, int(elen//5))
         assert_equal(wlen, wlen_calc)
 
         # Reach the sidechain version fork point

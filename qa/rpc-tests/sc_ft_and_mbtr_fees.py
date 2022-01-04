@@ -416,7 +416,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
             epoch_cum_tree_hash, proof, amount_cert_1, newFtFee, newMbtrFee)
 
         mark_logs("Certificate sent to mempool, node 1 generates " + str(EPOCH_LENGTH / 2) + " blocks", self.nodes, DEBUG_MODE)
-        self.nodes[1].generate(EPOCH_LENGTH / 2)
+        self.nodes[1].generate(EPOCH_LENGTH // 2)
 
         # Check that Node 1 has updated the sidechain fees
         mark_logs("\nCheck that node 1 has updated the sidechain fees", self.nodes, DEBUG_MODE)

@@ -24,18 +24,9 @@ class FakeDict(dict):
     def __init__(self, items):
         # need to have something in the dictionary
         self['something'] = 'something'
-        self.items = items
-
-    def __getitem__(self, key):
-        return self.last_val
-
-    def __iter__(self):
-        def generator():
-            for key, value in self.items:
-                self.last_val = value
-                yield key
-
-        return generator()
+        self._items = items
+    def items(self):
+        return self._items
 
 class SCCreateTest(BitcoinTestFramework):
     alert_filename = None

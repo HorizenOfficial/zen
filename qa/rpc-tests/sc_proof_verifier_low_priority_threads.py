@@ -3,9 +3,6 @@
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-import time
-from httplib import CannotSendRequest
-from threading import Thread
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException, AuthServiceProxy
@@ -15,7 +12,6 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
 from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import *
 import os
-import pprint
 from decimal import Decimal
 
 DEBUG_MODE = 1
@@ -143,11 +139,10 @@ class sc_proof_verifier_low_priority_threads(BitcoinTestFramework):
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(False)
         except Exception as e:
-            errorString = e.message
-            assert("timed out" == errorString)
+            assert("timed out" == str(e))
             # Establish new AuthServiceProxy, because previous one is dead after the timeout error
             self.nodes[0] = AuthServiceProxy(self.nodes[0].get_service_url(), timeout=10)
-            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            mark_logs("Send certificate failed with reason {}".format(e), self.nodes, DEBUG_MODE)
 
         # Disable CZendooLowPrioThreadGuard
         mark_logs("Disable CZendooLowPrioThreadGuard...", self.nodes, DEBUG_MODE)

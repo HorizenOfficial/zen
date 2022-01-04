@@ -7,7 +7,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
-    start_nodes, get_epoch_data, \
+    start_nodes, get_epoch_data, str_to_hex_str, \
     sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     assert_false, assert_true, swap_bytes
 from test_framework.mc_test.mc_test import *
@@ -285,13 +285,13 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         check_array_result(list_transactions, {"txid": cert_1}, {"txid": cert_1})
 
         include_immature_bts = False
-        list_sinceblock = self.nodes[1].listsinceblock(block_id[0].hex(), 1, False, include_immature_bts)
+        list_sinceblock = self.nodes[1].listsinceblock(str_to_hex_str(block_id[0]), 1, False, include_immature_bts)
         assert_equal(2, len(list_sinceblock))
         assert_equal(0, len(list_sinceblock['transactions']),
                      "listsinceblock: no cert immature BTs expected to be accounted.")
 
         include_immature_bts = True
-        list_sinceblock = self.nodes[1].listsinceblock(block_id[0].hex(), 1, False, include_immature_bts)
+        list_sinceblock = self.nodes[1].listsinceblock(str_to_hex_str(block_id[0]), 1, False, include_immature_bts)
         assert_equal(2, len(list_sinceblock))
         check_array_result(list_sinceblock['transactions'], {"txid": cert_1}, {"txid": cert_1})
 
@@ -473,7 +473,7 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         mark_logs("Check that there are Mature BT outputs in the inchain cert for the listsinceblock command.",
                   self.nodes, DEBUG_MODE)
         include_immature_bts = False
-        list_sinceblock = self.nodes[1].listsinceblock(block_id[0].hex(), 1, False, include_immature_bts)
+        list_sinceblock = self.nodes[1].listsinceblock(str_to_hex_str(block_id[0]), 1, False, include_immature_bts)
         assert_equal(2, len(list_sinceblock))
         check_array_result(list_sinceblock['transactions'], {"txid": cert_1}, {"txid": cert_1})
 

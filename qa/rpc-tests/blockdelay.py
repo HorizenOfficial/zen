@@ -261,7 +261,7 @@ class blockdelay(BitcoinTestFramework):
         assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
 
         print("\nTesting Node 1")
-        assert(self.nodes[1].getchaintips(True).sort() == self.nodes[0].getchaintips(True).sort())
+        assert(self.nodes[1].getchaintips(True).sort(key=lambda tip: tip["height"]) == self.nodes[0].getchaintips(True).sort(key=lambda tip: tip["height"]))
 
         print("\nTesting Node 2")
         getchaintips_res = self.order_tips(self.nodes[2].getchaintips(True))
@@ -334,7 +334,7 @@ class blockdelay(BitcoinTestFramework):
         assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
 
         print("\nTesting Node 1")
-        assert(self.nodes[1].getchaintips(True).sort() == self.nodes[0].getchaintips(True).sort())
+        assert(self.nodes[1].getchaintips(True).sort(key=lambda tip: tip["height"]) == self.nodes[0].getchaintips(True).sort(key=lambda tip: tip["height"]))
 
         print("\nTesting Node 2")
         getchaintips_res = self.order_tips(self.nodes[2].getchaintips(True))
@@ -418,7 +418,7 @@ class blockdelay(BitcoinTestFramework):
         assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
 
         print("\nTesting Node 1")
-        assert(self.nodes[1].getchaintips(True).sort() == self.nodes[0].getchaintips(True).sort())
+        assert(self.nodes[1].getchaintips(True).sort(key=lambda tip: tip["height"]) == self.nodes[0].getchaintips(True).sort(key=lambda tip: tip["height"]))
 
         print("\nTesting Node 2")
         getchaintips_res = self.order_tips(self.nodes[2].getchaintips(True))
@@ -462,7 +462,7 @@ class blockdelay(BitcoinTestFramework):
         assert(getchaintips_res[0]["blocks-to-mainchain"] == 0)
 
         print("\nTesting Node 1")
-        assert(self.nodes[1].getchaintips(True).sort() == self.nodes[0].getchaintips(True).sort())
+        assert(self.nodes[1].getchaintips(True).sort(key=lambda tip: tip["height"]) == self.nodes[0].getchaintips(True).sort(key=lambda tip: tip["height"]))
 
         print("\nTesting Node 2")
         getchaintips_res = self.order_tips(self.nodes[2].getchaintips(True))

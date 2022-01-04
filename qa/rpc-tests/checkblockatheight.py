@@ -6,7 +6,7 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.script import OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_EQUAL, hash160, OP_CHECKSIG, OP_CHECKBLOCKATHEIGHT
-from test_framework.util import assert_equal, assert_greater_than, initialize_chain_clean, \
+from test_framework.util import assert_equal, assert_greater_than, bytes_to_hex_str, initialize_chain_clean, \
     start_nodes, start_node, connect_nodes, stop_node, stop_nodes, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, p2p_port, check_json_precision, disconnect_nodes
 from test_framework.script import CScript
@@ -14,7 +14,7 @@ from test_framework.mininode import CTransaction, ToHex
 from test_framework.util import hex_str_to_bytes, swap_bytes
 import traceback
 from binascii import unhexlify
-from io import StringIO
+from io import BytesIO
 import os,sys
 import shutil
 from decimal import Decimal
@@ -150,10 +150,10 @@ class checkblockatheight(BitcoinTestFramework):
 
         # build an object from the raw tx in order to be able to modify it
         tx_01 = CTransaction()
-        f = StringIO.StringIO(unhexlify(rawTx))
+        f = BytesIO(unhexlify(rawTx))
         tx_01.deserialize(f)
 
-        decodedScriptOrig = self.nodes[0].decodescript(binascii.hexlify(tx_01.vout[1].scriptPubKey))
+        decodedScriptOrig = self.nodes[0].decodescript(bytes_to_hex_str(tx_01.vout[1].scriptPubKey))
 
         scriptOrigAsm = decodedScriptOrig['asm']
 
@@ -173,7 +173,7 @@ class checkblockatheight(BitcoinTestFramework):
         tx_01.vout[1].scriptPubKey = modScriptPubKey
         tx_01.rehash()
 
-        decodedScriptMod = self.nodes[0].decodescript(binascii.hexlify(tx_01.vout[1].scriptPubKey))
+        decodedScriptMod = self.nodes[0].decodescript(bytes_to_hex_str(tx_01.vout[1].scriptPubKey))
         print("  Modified scriptPubKey in tx 1: ", decodedScriptMod['asm'])
 
         signedRawTx = self.nodes[0].signrawtransaction(ToHex(tx_01))

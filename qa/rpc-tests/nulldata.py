@@ -2,12 +2,8 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, assert_greater_than, \
-    initialize_chain_clean, start_nodes, start_node, connect_nodes_bi, \
-    stop_nodes, sync_blocks, sync_mempools, wait_bitcoinds
-from binascii import hexlify, unhexlify
-import struct
-import logging
+from test_framework.util import assert_equal, assert_false, hex_str_to_bytes, hex_str_to_str, \
+    initialize_chain_clean, start_nodes, connect_nodes_bi, str_to_hex_str
 from decimal import Decimal
 
 
@@ -40,7 +36,7 @@ class NullDataTest (BitcoinTestFramework):
         #logging.getLogger("BitcoinRPC").setLevel(logging.DEBUG)
 
         def create_null_tx_with_custom_data(node_from, node_to, data): 
- 
+
             # Use createrawtransaction to create a template
             # We will later replace one of the outputs with a
             # NULLDATA transaction 
@@ -58,7 +54,7 @@ class NullDataTest (BitcoinTestFramework):
             dummy_address  = node_to.getnewaddress()
             tx =  node_from.createrawtransaction([{"txid": txid, "vout": vout}], {dummy_address: 0 , \
                                    change_address:change_amount})
- 
+
             decoded_tx = node_from.decoderawtransaction(tx)
             
             # Forging a dummy script and replacing it with an OP_RETURN script.
@@ -67,10 +63,10 @@ class NullDataTest (BitcoinTestFramework):
                 if vo['valueZat']==0:
                     dummy_script = vo['scriptPubKey']['hex']
                     break
- 
+
             # prepend script size
-            dummy_script = hexlify(chr(len(dummy_script)/2))+dummy_script
- 
+            dummy_script = format(len(dummy_script)//2, 'x') + dummy_script
+
             # Manually forging a valid OP_RETURN script with OP_CHECKBLOCKHEIGHT at the end.
             newScriptPubKey = "6a"
 
@@ -80,14 +76,14 @@ class NullDataTest (BitcoinTestFramework):
             if len(data) > 75:
                 newScriptPubKey += "4c"
 
-            newScriptPubKey = newScriptPubKey + hexlify(chr(len(data)))\
-            + hexlify(data)\
+            newScriptPubKey = newScriptPubKey + str_to_hex_str(chr(len(data)))\
+            + str_to_hex_str(data)\
             +"20bb1acf2c1fc1228967a611c7db30632098f0c641855180b5fe23793b72eea50d"\
             +"00b4" # Genesis Block hash + ParamHeight=0 + OP_CHECKBLOCKHEIGHT
- 
+
             # prepend script size
-            newScriptPubKey = hexlify(chr(len(unhexlify(newScriptPubKey)))) + newScriptPubKey
- 
+            newScriptPubKey = str_to_hex_str(chr(len(hex_str_to_bytes(newScriptPubKey)))) + newScriptPubKey
+
             # Replace the dummy script with the OP_RETURN script in our transaction.
             tx = tx.replace(dummy_script, newScriptPubKey)
             return tx
@@ -97,23 +93,23 @@ class NullDataTest (BitcoinTestFramework):
             # Signing and broadcasting the transactions
             tx = node.signrawtransaction(tx)['hex']
             returned_txid = node.sendrawtransaction(tx)
-                
+
 
             self.sync_all()
  
             node.generate(1)
             self.sync_all() 
-            
+
             returnedTx = node.decoderawtransaction(node.gettransaction(returned_txid)['hex'])
             returned_data = ""
- 
+
             assert len(returnedTx['vout'])!=0
             
             for vo in returnedTx['vout']:
-                if hexlify(data) in vo['scriptPubKey']['asm']:
-                    returned_data = unhexlify( vo['scriptPubKey']['asm'].split()[1] )
+                if str_to_hex_str(data) in vo['scriptPubKey']['asm']:
+                    returned_data = hex_str_to_str(vo['scriptPubKey']['asm'].split()[1])
                     break
-            
+
             assert returned_data != ""
             # Make sure the data is correctly stored on the blockchain.
             assert returned_data == data
@@ -123,11 +119,11 @@ class NullDataTest (BitcoinTestFramework):
             tx1 = create_null_tx_with_custom_data(self.nodes[2], self.nodes[0], data1)
             send_null_tx_and_check(self.nodes[2], tx1, data1)
             self.sync_all()
- 
+
             tx2 = create_null_tx_with_custom_data(self.nodes[2], self.nodes[0], data2)
             send_null_tx_and_check(self.nodes[2], tx2, data2)
             self.sync_all()
- 
+
             tx3 = create_null_tx_with_custom_data(self.nodes[2], self.nodes[0], data3)
             try:
                 send_null_tx_and_check(self.nodes[2], tx3, data3)
@@ -137,7 +133,7 @@ class NullDataTest (BitcoinTestFramework):
                 assert_equal("scriptpubkey" in errorString, True);
                 print("...Ok, refused data exceeding max size")
 
-                
+
         # ----------- Tests start ----------------------
         self.nodes[0].generate(1)
         self.sync_all()
@@ -158,7 +154,7 @@ class NullDataTest (BitcoinTestFramework):
         data1 = "Horizen is awesome!"
         data2 = "Msg for reaching a size of 76 bytes, one more than the limit for small data!"
         data3 = "Let's now create a large message string for reaching a size bigger than 80 bytes limit!"
- 
+
         # perform a first pass before rp fork fix 
         print("first pass before rp fork fix: chain height = ", self.nodes[0].getblockcount())
         doTest()
@@ -169,7 +165,6 @@ class NullDataTest (BitcoinTestFramework):
         # perform a second pass after rp fork fix 
         print("second pass after rp fork fix: chain height = ", self.nodes[0].getblockcount())
         doTest()
-        
 
 if __name__ == '__main__':
     NullDataTest().main()

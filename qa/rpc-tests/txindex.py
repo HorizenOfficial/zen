@@ -48,7 +48,7 @@ class TxIndexTest(BitcoinTestFramework):
 
         privkey = "cSdkPxkAjA4HDr5VHgsebAPDEh9Gyub4HK8UJr2DFGGqKKy4K5sG"
         address = "mgY65WSfEmsyYaYPQaXhmXMeBhwp4EcsQW"
-        addressHash = "0b2f0a0c31bfe0406b0ccc1381fdbe311946dadc".decode("hex")
+        addressHash = hex_str_to_bytes("0b2f0a0c31bfe0406b0ccc1381fdbe311946dadc")
         scriptPubKey = CScript([OP_DUP, OP_HASH160, addressHash, OP_EQUALVERIFY, OP_CHECKSIG, hex_str_to_bytes(swap_bytes(blocks[0])), 1, OP_CHECKBLOCKATHEIGHT])
         unspent = self.nodes[0].listunspent()
         print("####UNSPENT###")

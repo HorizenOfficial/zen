@@ -144,7 +144,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         # one custom bv element with:
         # - as many bits in the uncompressed form (must be divisible by 254 and 8)
         # - a compressed size that allows the usage of BIT_VECTOR_BUF
-        cmtCfg.append([[254*4, len(BIT_VECTOR_BUF)/2]])
+        cmtCfg.append([[254*4, len(BIT_VECTOR_BUF)//2]])
 
         # ascii chars, just for storing a text string
         customData = "746869732069732061207465737420737472696e67"

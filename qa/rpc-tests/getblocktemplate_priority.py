@@ -47,7 +47,7 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
     def calculate_fee_rate(self, fee, rawtx):
         size = len (rawtx['hex'])
 
-        if size == 0 :
+        if size == 0:
             return 0
 
         # add a multiplier for improving precision. We are interested in having
@@ -122,56 +122,56 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
         node0_txs_amount.append(tx2_inputs_sum - tx2_fee)
         node0_txs_fee_rate.append( self.calculate_fee_rate( tx2_fee, tx2_rawtx) )
 
-    # Create 2 Txs with 2 inputs each.
-    for n in range(2,4):
-        tx_inputs = []
-        tx_inputs_sum = Decimal('0.0')
-        for i in range(0,2):
-            tx_inputs.append({"txid" : node0_unspent[(2*n)+i]['txid'], 'vout' : 0})
-            tx_inputs_sum += node0_unspent[(2*n)+i]['amount']
+        # Create 2 Txs with 2 inputs each.
+        for n in range(2,4):
+            tx_inputs = []
+            tx_inputs_sum = Decimal('0.0')
+            for i in range(0,2):
+                tx_inputs.append({"txid" : node0_unspent[(2*n)+i]['txid'], 'vout' : 0})
+                tx_inputs_sum += node0_unspent[(2*n)+i]['amount']
 
-        tx_fee = Decimal('0.0001')
-        if n == 3:
-        tx_fee = Decimal('0.0003')
-        tx_outputs = {node0_taddrs[n] : tx_inputs_sum - tx_fee}
+            tx_fee = Decimal('0.0001')
+            if n == 3:
+                tx_fee = Decimal('0.0003')
+            tx_outputs = {node0_taddrs[n] : tx_inputs_sum - tx_fee}
 
-        tx_rawtx = self.nodes[0].createrawtransaction(tx_inputs, tx_outputs)
-        tx_rawtx = self.nodes[0].signrawtransaction(tx_rawtx)
+            tx_rawtx = self.nodes[0].createrawtransaction(tx_inputs, tx_outputs)
+            tx_rawtx = self.nodes[0].signrawtransaction(tx_rawtx)
 
-        node0_txs.append(self.nodes[0].sendrawtransaction(tx_rawtx['hex']))
-        node0_txs_amount.append(tx_inputs_sum - tx_fee)
-        node0_txs_fee_rate.append( self.calculate_fee_rate( tx_fee, tx_rawtx) )
+            node0_txs.append(self.nodes[0].sendrawtransaction(tx_rawtx['hex']))
+            node0_txs_amount.append(tx_inputs_sum - tx_fee)
+            node0_txs_fee_rate.append( self.calculate_fee_rate( tx_fee, tx_rawtx))
 
-    self.sync_all()
-    time.sleep(5)
+        self.sync_all()
+        time.sleep(5)
 
 #        for i in range(0, len(node0_txs)):
 #            print "UTXO[%d]: sum=%f, feeRate=%f, txid[%s]" % (i, node0_txs_amount[i], node0_txs_fee_rate[i], node0_txs[i]) 
 
-	# At this moment mempool contains 4 UTXO with 2 inputs each, with the same coins amount
-	# UTXO by priorities has order: node0_txs[1], node0_txs[0], node0_txs[2], node0_txs[3]
-	# UTXO by feeRates has order: node0_txs[1], node0_txs[3], node0_txs[0], node0_txs[2]
-	# Note: node0_txs[0] and node1_tx[1] has equal priorities but different feeRates.
-	
-	# Test 1: nodes[0] must have all 4 txs in order by priority, then by feeRate
-	tmpl = self.nodes[0].getblocktemplate()
-	assert_equal(len(tmpl['transactions']), 4)
-	assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
-	assert_equal(tmpl['transactions'][1]['hash'], node0_txs[0])
-	assert_equal(tmpl['transactions'][2]['hash'], node0_txs[2])
-	assert_equal(tmpl['transactions'][3]['hash'], node0_txs[3])
+        # At this moment mempool contains 4 UTXO with 2 inputs each, with the same coins amount
+        # UTXO by priorities has order: node0_txs[1], node0_txs[0], node0_txs[2], node0_txs[3]
+        # UTXO by feeRates has order: node0_txs[1], node0_txs[3], node0_txs[0], node0_txs[2]
+        # Note: node0_txs[0] and node1_tx[1] has equal priorities but different feeRates.
 
-	# Test 2: nodes[1] has blockmaxcompexity=9, must contain 2 txs in order by priority, then by fee
-	tmpl = self.nodes[1].getblocktemplate()
-	assert_equal(len(tmpl['transactions']), 2) # 2 Tx with 2 inputs each
-	assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
-	assert_equal(tmpl['transactions'][1]['hash'], node0_txs[0])
+        # Test 1: nodes[0] must have all 4 txs in order by priority, then by feeRate
+        tmpl = self.nodes[0].getblocktemplate()
+        assert_equal(len(tmpl['transactions']), 4)
+        assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
+        assert_equal(tmpl['transactions'][1]['hash'], node0_txs[0])
+        assert_equal(tmpl['transactions'][2]['hash'], node0_txs[2])
+        assert_equal(tmpl['transactions'][3]['hash'], node0_txs[3])
 
-	# Test 3: nodes[2] must have all 4 txs in order by feeRate, then by priority
-	tmpl = self.nodes[2].getblocktemplate()
-	assert_equal(len(tmpl['transactions']), 4)
-	assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
-	assert_equal(tmpl['transactions'][1]['hash'], node0_txs[3])
+        # Test 2: nodes[1] has blockmaxcompexity=9, must contain 2 txs in order by priority, then by fee
+        tmpl = self.nodes[1].getblocktemplate()
+        assert_equal(len(tmpl['transactions']), 2) # 2 Tx with 2 inputs each
+        assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
+        assert_equal(tmpl['transactions'][1]['hash'], node0_txs[0])
+
+        # Test 3: nodes[2] must have all 4 txs in order by feeRate, then by priority
+        tmpl = self.nodes[2].getblocktemplate()
+        assert_equal(len(tmpl['transactions']), 4)
+        assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
+        assert_equal(tmpl['transactions'][1]['hash'], node0_txs[3])
 
         # check fee rates for tx with equal fee
         # ---------
@@ -180,82 +180,82 @@ class GetBlockTemplatePriorityTest(BitcoinTestFramework):
         # depending on the value of R and S points on the ECDSA curve).
         # Therefore we might have a feeRate that randomly slightly varies across different runs for a fixed fee.
         if node0_txs_fee_rate[0] >= node0_txs_fee_rate[2]: 
-	    assert_equal(tmpl['transactions'][2]['hash'], node0_txs[0])
+            assert_equal(tmpl['transactions'][2]['hash'], node0_txs[0])
             assert_equal(tmpl['transactions'][3]['hash'], node0_txs[2])
         else:
-	    assert_equal(tmpl['transactions'][2]['hash'], node0_txs[2])
-	    assert_equal(tmpl['transactions'][3]['hash'], node0_txs[0])
+            assert_equal(tmpl['transactions'][2]['hash'], node0_txs[2])
+            assert_equal(tmpl['transactions'][3]['hash'], node0_txs[0])
 
-	# Test 4: nodes[3] has blockmaxcompexity=9, must contain 2 txs in order by fee, then by priority
-	tmpl = self.nodes[3].getblocktemplate()
-	assert_equal(len(tmpl['transactions']), 2) # 2 Tx with 2 inputs each
-	assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
-	assert_equal(tmpl['transactions'][1]['hash'], node0_txs[3])
-	
-	
-	# Add orphan transaction to mempool. Fee = 0.0009, 4 inputs (1 from mempool)
-	node0_orphan_tx = self.nodes[0].getnewaddress()
-	node0_taddrs.append(node0_orphan_tx)
-	orphan_inputs = []
-	orphan_inputs_sum = Decimal('0.0')
-	orphan_inputs.append({'txid': node0_txs[1], 'vout' : 0})
-	orphan_inputs_sum += node0_txs_amount[1]
-	for i in range(0,3):
-	    orphan_inputs.append({"txid" : self.nodes[0].listunspent()[i]['txid'], 'vout' : 0})
-	    orphan_inputs_sum += self.nodes[0].listunspent()[i]['amount']
-	
-	
-	orphan_fee = Decimal('0.0009')
-	orphan_outputs = {node0_orphan_tx : orphan_inputs_sum - orphan_fee}
+        # Test 4: nodes[3] has blockmaxcompexity=9, must contain 2 txs in order by fee, then by priority
+        tmpl = self.nodes[3].getblocktemplate()
+        assert_equal(len(tmpl['transactions']), 2) # 2 Tx with 2 inputs each
+        assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
+        assert_equal(tmpl['transactions'][1]['hash'], node0_txs[3])
 
-	orphantx_rawtx = self.nodes[0].createrawtransaction(orphan_inputs, orphan_outputs)
+
+        # Add orphan transaction to mempool. Fee = 0.0009, 4 inputs (1 from mempool)
+        node0_orphan_tx = self.nodes[0].getnewaddress()
+        node0_taddrs.append(node0_orphan_tx)
+        orphan_inputs = []
+        orphan_inputs_sum = Decimal('0.0')
+        orphan_inputs.append({'txid': node0_txs[1], 'vout' : 0})
+        orphan_inputs_sum += node0_txs_amount[1]
+        for i in range(0,3):
+            orphan_inputs.append({"txid" : self.nodes[0].listunspent()[i]['txid'], 'vout' : 0})
+            orphan_inputs_sum += self.nodes[0].listunspent()[i]['amount']
+
+
+        orphan_fee = Decimal('0.0009')
+        orphan_outputs = {node0_orphan_tx : orphan_inputs_sum - orphan_fee}
+
+        orphantx_rawtx = self.nodes[0].createrawtransaction(orphan_inputs, orphan_outputs)
         orphantx_rawtx = self.nodes[0].signrawtransaction(orphantx_rawtx)
-	node0_txs.append(self.nodes[0].sendrawtransaction(orphantx_rawtx['hex']))
+        node0_txs.append(self.nodes[0].sendrawtransaction(orphantx_rawtx['hex']))
         node0_txs_amount.append(orphan_inputs_sum - orphan_fee)
         node0_txs_fee_rate.append( self.calculate_fee_rate( orphan_fee, orphantx_rawtx) )
-	
-	self.sync_all()
-	time.sleep(5) # wait to be sured, tah orphan tx was added to the wallet and mempool
+
+        self.sync_all()
+        time.sleep(5) # wait to be sured, tah orphan tx was added to the wallet and mempool
 
 #        for i in range(0, len(node0_txs)):
 #            print "UTXO[%d]: sum=%f, feeRate=%f, txid[%s]" % (i, node0_txs_amount[i], node0_txs_fee_rate[i], node0_txs[i]) 
 
-	# At this moment mempool contains 4 UTXO (with 2 inputs each, with the same coins amount)
-	# and 1 orphan UTXO (node0_txs[4]) with 4 inputs (Tx complexity = 16), that depends on node0_txs[1]
-	# UTXO by priorities has order: node0_txs[1], node0_txs[4], node0_txs[0], node0_txs[2], node0_txs[3]
-	# UTXO by fees has order: node0_txs[1], node0_txs[4], node0_txs[3], node0_txs[0], node0_txs[2]
-	# Note: node0_txs[0] and node1_tx[1] has equal priorities but different fees.
+        # At this moment mempool contains 4 UTXO (with 2 inputs each, with the same coins amount)
+        # and 1 orphan UTXO (node0_txs[4]) with 4 inputs (Tx complexity = 16), that depends on node0_txs[1]
+        # UTXO by priorities has order: node0_txs[1], node0_txs[4], node0_txs[0], node0_txs[2], node0_txs[3]
+        # UTXO by fees has order: node0_txs[1], node0_txs[4], node0_txs[3], node0_txs[0], node0_txs[2]
+        # Note: node0_txs[0] and node1_tx[1] has equal priorities but different fees.
 
-	# Test 5: nodes[0] must have all 5 txs in order by priority, then by fee
-	tmpl = self.nodes[0].getblocktemplate()
-	assert_equal(len(tmpl['transactions']), 5)
-	assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
-	assert_equal(tmpl['transactions'][1]['hash'], node0_txs[4])
-	assert_equal(tmpl['transactions'][2]['hash'], node0_txs[0])
-	assert_equal(tmpl['transactions'][3]['hash'], node0_txs[2])
-	assert_equal(tmpl['transactions'][4]['hash'], node0_txs[3])
+        # Test 5: nodes[0] must have all 5 txs in order by priority, then by fee
+        tmpl = self.nodes[0].getblocktemplate()
+        assert_equal(len(tmpl['transactions']), 5)
+        assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
+        assert_equal(tmpl['transactions'][1]['hash'], node0_txs[4])
+        assert_equal(tmpl['transactions'][2]['hash'], node0_txs[0])
+        assert_equal(tmpl['transactions'][3]['hash'], node0_txs[2])
+        assert_equal(tmpl['transactions'][4]['hash'], node0_txs[3])
 
 
-	# Test 6: nodes[1] has blockmaxcompexity=9, must contain 2 txs in order by priority, then by fee
-	# Note: node0_txs[4] has complexity greater than max value -> should be skipped
-	tmpl = self.nodes[1].getblocktemplate()
-	assert_equal(len(tmpl['transactions']), 2) # 2 Tx with 2 inputs each
-	assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
-	assert_equal(tmpl['transactions'][1]['hash'], node0_txs[0])
+        # Test 6: nodes[1] has blockmaxcompexity=9, must contain 2 txs in order by priority, then by fee
+        # Note: node0_txs[4] has complexity greater than max value -> should be skipped
+        tmpl = self.nodes[1].getblocktemplate()
+        assert_equal(len(tmpl['transactions']), 2) # 2 Tx with 2 inputs each
+        assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
+        assert_equal(tmpl['transactions'][1]['hash'], node0_txs[0])
 
-	# Test 7: nodes[2] must have all 5 txs in order by fee, then by priority
-	tmpl = self.nodes[2].getblocktemplate()
-	assert_equal(len(tmpl['transactions']), 5)
-	assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
-	assert_equal(tmpl['transactions'][1]['hash'], node0_txs[4])
-	assert_equal(tmpl['transactions'][2]['hash'], node0_txs[3])
+        # Test 7: nodes[2] must have all 5 txs in order by fee, then by priority
+        tmpl = self.nodes[2].getblocktemplate()
+        assert_equal(len(tmpl['transactions']), 5)
+        assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
+        assert_equal(tmpl['transactions'][1]['hash'], node0_txs[4])
+        assert_equal(tmpl['transactions'][2]['hash'], node0_txs[3])
 
-	# Test 8: nodes[3] has blockmaxcompexity=9, must contain 2 txs in order by fee, then by priority
-	# Note: node0_txs[4] has complexity greater than max value -> should be skipped
-	tmpl = self.nodes[3].getblocktemplate()
-	assert_equal(len(tmpl['transactions']), 2) # 2 Tx with 2 inputs each
-	assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
-	assert_equal(tmpl['transactions'][1]['hash'], node0_txs[3])
+        # Test 8: nodes[3] has blockmaxcompexity=9, must contain 2 txs in order by fee, then by priority
+        # Note: node0_txs[4] has complexity greater than max value -> should be skipped
+        tmpl = self.nodes[3].getblocktemplate()
+        assert_equal(len(tmpl['transactions']), 2) # 2 Tx with 2 inputs each
+        assert_equal(tmpl['transactions'][0]['hash'], node0_txs[1])
+        assert_equal(tmpl['transactions'][1]['hash'], node0_txs[3])
 
 
 if __name__ == '__main__':

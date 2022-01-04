@@ -51,7 +51,7 @@ class InvalidBlockRequestTest(ComparisonTestFramework):
 
     def get_tests(self):
         if self.tip is None:
-            self.tip = int ("0x" + self.nodes[0].getbestblockhash() + "L", 0)
+            self.tip = int ("0x" + self.nodes[0].getbestblockhash(), 0)
         self.block_time = int(time.time())+1
 
         chainHeight = 0
@@ -92,9 +92,9 @@ class InvalidBlockRequestTest(ComparisonTestFramework):
         chainHeight += 1
         self.block_time += 1
 
-        # chr(81) is OP_TRUE
-        tx1 = create_transaction(self.block1.vtx[0], 0, chr(81), 4*100000000)
-        tx2 = create_transaction(tx1, 0, chr(81), 4*100000000)
+        # b'\x51' is b'\x51'
+        tx1 = create_transaction(self.block1.vtx[0], 0, b'\x51', 4*100000000)
+        tx2 = create_transaction(tx1, 0, b'\x51', 4*100000000)
 
         block2.vtx.extend([tx1, tx2])
         block2.hashMerkleRoot = block2.calc_merkle_root()

@@ -4,10 +4,10 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #
 
-from mininode import CBlock, CTransaction, CInv, NodeConn, NodeConnCB, \
+from test_framework.mininode import CBlock, CTransaction, CInv, NodeConn, NodeConnCB, \
     msg_inv, msg_getheaders, msg_ping, msg_mempool, mininode_lock, MAX_INV_SZ
-from blockstore import BlockStore, TxStore
-from util import p2p_port
+from test_framework.blockstore import BlockStore, TxStore
+from test_framework.util import p2p_port
 
 import time
 
@@ -193,7 +193,7 @@ class TestManager(object):
 
         # --> error if not requested
         if not wait_until(blocks_requested, attempts=20*num_blocks):
-            # print [ c.cb.block_request_map for c in self.connections ]
+            # print([ c.cb.block_request_map for c in self.connections])
             raise AssertionError("Not all nodes requested block")
         # --> Answer request (we did this inline!)
 

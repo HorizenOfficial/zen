@@ -3,16 +3,16 @@
 #             and for constructing a getheaders message
 #
 
-from mininode import CBlock, CBlockHeader, CBlockLocator, CTransaction, msg_block, msg_headers, msg_tx
+from test_framework.mininode import CBlock, CBlockHeader, CBlockLocator, CTransaction, msg_block, msg_headers, msg_tx
 
 import sys
-from io import StringIO
+from io import BytesIO
 import dbm
 
 class BlockStore(object):
     def __init__(self, datadir):
         self.blockDB = dbm.open(datadir + "/blocks", 'c')
-        self.currentBlock = 0L
+        self.currentBlock = 0
 
     def close(self):
         self.blockDB.close()
@@ -23,7 +23,7 @@ class BlockStore(object):
             serialized_block = self.blockDB[repr(blockhash)]
         except KeyError:
             return None
-        f = StringIO.StringIO(serialized_block)
+        f = BytesIO(serialized_block)
         ret = CBlock()
         ret.deserialize(f)
         ret.calc_sha256()
@@ -107,7 +107,7 @@ class TxStore(object):
             serialized_tx = self.txDB[repr(txhash)]
         except KeyError:
             return None
-        f = StringIO.StringIO(serialized_tx)
+        f = BytesIO(serialized_tx)
         ret = CTransaction()
         ret.deserialize(f)
         ret.calc_sha256()
