@@ -116,8 +116,12 @@ def ensure_no_dot_so_in_depends():
     return exit_code == 0
 
 def util_test():
+    python = []
+    if os.path.isfile('/usr/local/bin/python3'):
+        python = ['/usr/local/bin/python3']
+
     return subprocess.call(
-        [repofile('src/test/bitcoin-util-test.py')],
+        python + [repofile('src/test/bitcoin-util-test.py')],
         cwd=repofile('src'),
         env={'PYTHONPATH': repofile('src/test'), 'srcdir': repofile('src')}
     ) == 0
