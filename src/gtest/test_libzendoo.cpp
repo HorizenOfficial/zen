@@ -19,6 +19,15 @@
 
 using namespace blockchain_test_utils;
 
+// Random uint used to generate a random custom field
+const uint32_t RANDOM_CUSTOM_FIELD_SEED = 1641809674;
+
+// Random custom field generated from the seed above
+const uint8_t RANDOM_CUSTOM_FIELD[] = {0xbe, 0x61, 0x16, 0xab, 0x27, 0xee, 0xab, 0xbc,
+                                       0x09, 0x35, 0xb3, 0xe2, 0x1b, 0xc3, 0xcf, 0xcd,
+                                       0x3f, 0x06, 0xac, 0xb3, 0x8a, 0x5c, 0xeb, 0xd4,
+                                       0x42, 0xf4, 0x96, 0xd8, 0xbf, 0xd3, 0x8e, 0x7d};
+
 static CMutableTransaction CreateDefaultTx()
 {
     // Create a tx with a sc creation, a fwt, a bwtr and a csw
@@ -1975,6 +1984,16 @@ TEST(CctpLibrary, TestInvalidProofVkWhenOversized)
     //TODO: Might be useful to test the same behaviour with bit vector
 }
 
+TEST(CctpLibrary, TestRandomCustomFieldGeneration)
+{
+    srand(RANDOM_CUSTOM_FIELD_SEED);
+
+    for (int i = 0; i < 32; i++)
+    {
+        ASSERT_EQ(rand() % 256, RANDOM_CUSTOM_FIELD[i]);
+    }
+}
+
 TEST(CctpLibrary, TestCustomFieldsValidation)
 {
     for (uint8_t i = 1; i < CHAR_BIT; i++)
@@ -1984,6 +2003,99 @@ TEST(CctpLibrary, TestCustomFieldsValidation)
             std::vector<unsigned char> rawBytes = { j };
             FieldElementCertificateField certField = FieldElementCertificateField(rawBytes);
             FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i);
+            CFieldElement fe = certField.GetFieldElement(config);
+
+            if (j < 1 << i)
+            {
+                EXPECT_TRUE(fe.IsValid());
+            }
+            else
+            {
+                EXPECT_FALSE(fe.IsValid());
+            }
+        }
+    }
+}
+
+/**
+ * @brief Test the validation of a full (32 bytes) random custom field
+ * iteratively changing the last byte.
+ */
+TEST(CctpLibrary, TestFullCustomFieldValidation)
+{
+    std::vector<unsigned char> rawBytes(std::begin(RANDOM_CUSTOM_FIELD), std::end(RANDOM_CUSTOM_FIELD));
+
+    for (uint8_t i = 1; i < CHAR_BIT; i++)
+    {
+        for (uint8_t j = 1; j > 0; j++)
+        {
+            rawBytes.back() = j;
+            FieldElementCertificateField certField = FieldElementCertificateField(rawBytes);
+            FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i + 31 * CHAR_BIT);
+            CFieldElement fe = certField.GetFieldElement(config);
+
+            // The Field Element is valid if it matches the configuration (j < 1 << i)
+            // and if doesn't exceed the modulus, thus the last two bits cannot be set (j < 1 << 6).
+            if (j < 1 << i && j < 1 << 6)
+            {
+                EXPECT_TRUE(fe.IsValid());
+            }
+            else
+            {
+                EXPECT_FALSE(fe.IsValid());
+            }
+        }
+    }
+}
+
+/**
+ * @brief Test the validation of a random custom field
+ * with a size equivalent to a long integer (64 bits, 8 bytes)
+ * iteratively changing the last byte.
+ */
+TEST(CctpLibrary, TestLongIntCustomFieldValidation)
+{
+    std::vector<unsigned char> rawBytes(std::begin(RANDOM_CUSTOM_FIELD), std::end(RANDOM_CUSTOM_FIELD));
+    rawBytes.resize(8);
+
+    for (uint8_t i = 1; i < CHAR_BIT; i++)
+    {
+        for (uint8_t j = 1; j > 0; j++)
+        {
+            rawBytes.back() = j;
+            FieldElementCertificateField certField = FieldElementCertificateField(rawBytes);
+            FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i + 7 * CHAR_BIT);
+            CFieldElement fe = certField.GetFieldElement(config);
+
+            if (j < 1 << i)
+            {
+                EXPECT_TRUE(fe.IsValid());
+            }
+            else
+            {
+                EXPECT_FALSE(fe.IsValid());
+            }
+        }
+    }
+}
+
+/**
+ * @brief Test the validation of a random custom field
+ * with a size equivalent to an integer (32 bits, 4 bytes)
+ * iteratively changing the last byte.
+ */
+TEST(CctpLibrary, TestIntCustomFieldValidation)
+{
+    std::vector<unsigned char> rawBytes(std::begin(RANDOM_CUSTOM_FIELD), std::end(RANDOM_CUSTOM_FIELD));
+    rawBytes.resize(4);
+
+    for (uint8_t i = 1; i < CHAR_BIT; i++)
+    {
+        for (uint8_t j = 1; j > 0; j++)
+        {
+            rawBytes.back() = j;
+            FieldElementCertificateField certField = FieldElementCertificateField(rawBytes);
+            FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i + 3 * CHAR_BIT);
             CFieldElement fe = certField.GetFieldElement(config);
 
             if (j < 1 << i)
