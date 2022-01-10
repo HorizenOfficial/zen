@@ -1994,6 +1994,16 @@ TEST(CctpLibrary, TestRandomCustomFieldGeneration)
     }
 }
 
+TEST(CctpLibrary, TestGetLeadingZeros)
+{
+    ASSERT_EQ(8, getLeadingZeroBitsInByte(0));
+
+    for (uint8_t n = 1; n > 0; n++)
+    {
+        ASSERT_EQ(__builtin_clz(n) % (sizeof(unsigned int) * 8 - CHAR_BIT), getLeadingZeroBitsInByte(n));
+    }
+}
+
 TEST(CctpLibrary, TestCustomFieldsValidation)
 {
     for (uint8_t i = 1; i < CHAR_BIT; i++)

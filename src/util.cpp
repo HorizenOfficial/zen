@@ -935,15 +935,24 @@ int GetNumCores()
     return boost::thread::physical_concurrency();
 }
 
+/**
+ * @brief Get the Leading Zero Bits in a byte
+ * (e.g 00000100 => 5 trailing zero bits).
+ * 
+ * @param inputByte the byte to be checked
+ * @return int The number of trailing zero bits found.
+ */
 int getLeadingZeroBitsInByte(unsigned char inputByte)
 {
-    // Behavior of __builtin_clz() is undefined for zero input, so we need to handle this case explicitly.
-    if (inputByte == 0)
-        return 8;
+    int nonZeroBits = 0;
 
-    // __builtin_clz() returns the number of leading zeros for an unsigned int, so we need to perform a
-    // conversion to use it for an unsigned char.
-    return __builtin_clz(inputByte) % (sizeof(unsigned int) * 8 - CHAR_BIT);
+    while (inputByte > 0)
+    {
+        inputByte >>= 1;
+        nonZeroBits++;
+    }
+
+    return CHAR_BIT - nonZeroBits;
 }
 
 int getBytesFromBits(int nbits, int& reminder)
