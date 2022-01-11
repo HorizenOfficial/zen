@@ -67,7 +67,12 @@ AT:=$(AT_$(V))
 
 all: install
 
+ifeq ($(CLANG_ARG),true)
+include hosts/$(host_os)_clang.mk
+else
 include hosts/$(host_os).mk
+endif
+
 include hosts/default.mk
 include builders/$(build_os).mk
 include builders/default.mk

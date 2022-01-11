@@ -5,6 +5,13 @@ $(package)_file_name=$(package)_$($(package)_version).tar.bz2
 $(package)_sha256_hash=83bfc1507731a0906e387fc28b7ef5417d591429e51e788417fe9ff025e116b1
 $(package)_patches=signals2-noise.patch
 
+compiler = 
+ifeq ($(CLANG_ARG),true)
+compiler = clang
+else
+compiler = gcc
+endif
+
 define $(package)_set_vars
 $(package)_config_opts_release=variant=release
 $(package)_config_opts_debug=variant=debug
@@ -16,7 +23,7 @@ $(package)_config_opts_mingw32=binary-format=pe target-os=windows threadapi=win3
 $(package)_config_opts_x86_64_mingw32=address-model=64
 $(package)_config_opts_i686_mingw32=address-model=32
 $(package)_config_opts_i686_linux=address-model=32 architecture=x86
-$(package)_toolset_$(host_os)=gcc
+$(package)_toolset_$(host_os)=$(compiler)
 $(package)_archiver_$(host_os)=$($(package)_ar)
 $(package)_toolset_darwin=darwin
 $(package)_archiver_darwin=$($(package)_libtool)
