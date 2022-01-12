@@ -156,8 +156,9 @@ if test "x$want_boost" = "xyes"; then
     LDFLAGS="$LDFLAGS $BOOST_LDFLAGS"
     export LDFLAGS
 
-    CXXFLAGS_SAVED="$CPPFLAGS"
+    CXXFLAGS_SAVED="$CXXFLAGS"
     CXXFLAGS=
+    export CXXFLAGS
 
     AC_REQUIRE([AC_PROG_CXX])
     AC_LANG_PUSH(C++)
@@ -184,6 +185,7 @@ if test "x$want_boost" = "xyes"; then
     if test "x$succeeded" != "xyes"; then
         CPPFLAGS="$CPPFLAGS_SAVED"
         LDFLAGS="$LDFLAGS_SAVED"
+        CXXFLAGS="$CXXFLAGS_SAVED"
         BOOST_CPPFLAGS=
         BOOST_LDFLAGS=
         _version=0
