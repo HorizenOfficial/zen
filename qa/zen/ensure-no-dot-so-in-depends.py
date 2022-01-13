@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 
 import sys
 import os
@@ -22,18 +22,18 @@ def main():
 
         for lib in libraries:
             if lib.find(".so") != -1:
-                print lib
+                print(lib)
                 exit_code = 1
     else:
         exit_code = 2
-        print "arch-specific build dir not present: {}".format(arch_dir)
-        print "Did you build the ./depends tree?"
-        print "Are you on a currently unsupported architecture?"
+        print("arch-specific build dir not present: {arch_dir}")
+        print("Did you build the ./depends tree?")
+        print("Are you on a currently unsupported architecture?")
 
     if exit_code == 0:
-        print "PASS."
+        print("PASS.")
     else:
-        print "FAIL."
+        print("FAIL.")
 
     sys.exit(exit_code)
 
