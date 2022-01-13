@@ -17,6 +17,8 @@
 #include <clientversion.h>
 #include <sc/proofverifier.h> // for MC_CRYPTO_LIB_MOCKED 
 
+#include <boost/dynamic_bitset.hpp>
+
 using namespace blockchain_test_utils;
 
 // Random uint used to generate a random custom field
@@ -1984,6 +1986,15 @@ TEST(CctpLibrary, TestInvalidProofVkWhenOversized)
     //TODO: Might be useful to test the same behaviour with bit vector
 }
 
+/**
+ * @brief Check the generation of the RANDOM_CUSTOM_FIELD
+ * This test is only meant to show how the random custom field has been generated.
+ * We initialized random generator with random seeds until we got a sequence of bytes
+ * so that the first byte has the most significant bit set.
+ * 
+ * This is done to avoid that the tests related to the validation of the custom fields pass
+ * even though the should fail (for instance, due to the usage of the wrong endianness).
+ */
 TEST(CctpLibrary, TestRandomCustomFieldGeneration)
 {
     srand(RANDOM_CUSTOM_FIELD_SEED);
@@ -1992,6 +2003,9 @@ TEST(CctpLibrary, TestRandomCustomFieldGeneration)
     {
         ASSERT_EQ(rand() % 256, RANDOM_CUSTOM_FIELD[i]);
     }
+
+    // Check that the 8th bit of the first byte is set
+    ASSERT_EQ(RANDOM_CUSTOM_FIELD[0] & 0x80, 0x80);
 }
 
 TEST(CctpLibrary, TestGetLeadingZeros)
@@ -2001,6 +2015,41 @@ TEST(CctpLibrary, TestGetLeadingZeros)
     for (uint8_t n = 1; n > 0; n++)
     {
         ASSERT_EQ(__builtin_clz(n) % (sizeof(unsigned int) * 8 - CHAR_BIT), getLeadingZeroBitsInByte(n));
+    }
+}
+
+/**
+ * @brief Check the correctness of the GetBytesFromBits utility function
+ * 
+ * In order to keep the test fast, the iteration is limited to the first 2^16 numbers.
+ */
+TEST(CctpLibrary, TestGetBytesFromBits)
+{
+    int reminder = 0;
+
+    // Check that the function works properly with the "0" input
+    ASSERT_EQ(0, getBytesFromBits(0, reminder));
+    ASSERT_EQ(0, reminder);
+
+    for (uint16_t n = 1; n > 0; n++)
+    {
+        // Allocate a set of n bits
+        boost::dynamic_bitset<uint8_t> bitset(n);
+
+        // Convert the bit set to byte vector
+        std::vector<uint8_t> bytes;
+        boost::to_block_range(bitset, std::back_inserter(bytes));
+
+        ASSERT_EQ(bytes.size(), getBytesFromBits(n, reminder));
+
+        if (reminder == 0)
+        {
+            ASSERT_EQ(0, n % CHAR_BIT);
+        }
+        else
+        {
+            ASSERT_EQ(reminder, n - (bytes.size() - 1) * CHAR_BIT);
+        }
     }
 }
 
