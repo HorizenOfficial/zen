@@ -21,14 +21,16 @@
 
 using namespace blockchain_test_utils;
 
-// Random uint used to generate a random custom field
-const uint32_t RANDOM_CUSTOM_FIELD_SEED = 1641809674;
-
-// Random custom field generated from the seed above
-const uint8_t RANDOM_CUSTOM_FIELD[] = {0xbe, 0x61, 0x16, 0xab, 0x27, 0xee, 0xab, 0xbc,
-                                       0x09, 0x35, 0xb3, 0xe2, 0x1b, 0xc3, 0xcf, 0xcd,
-                                       0x3f, 0x06, 0xac, 0xb3, 0x8a, 0x5c, 0xeb, 0xd4,
-                                       0x42, 0xf4, 0x96, 0xd8, 0xbf, 0xd3, 0x8e, 0x7d};
+/**
+ * @brief Custom field randomly generated from seed 1641809674 using the rand() function.
+ * Also the seed has been chosen randomly so that the first byte of the custom field
+ * has the most significant bit set (to avoid that unit tests pass due to wrong endianness
+ * even when they should not).
+ */
+const uint8_t TEST_CUSTOM_FIELD[] = {0xbe, 0x61, 0x16, 0xab, 0x27, 0xee, 0xab, 0xbc,
+                                     0x09, 0x35, 0xb3, 0xe2, 0x1b, 0xc3, 0xcf, 0xcd,
+                                     0x3f, 0x06, 0xac, 0xb3, 0x8a, 0x5c, 0xeb, 0xd4,
+                                     0x42, 0xf4, 0x96, 0xd8, 0xbf, 0xd3, 0x8e, 0x7d};
 
 static CMutableTransaction CreateDefaultTx()
 {
@@ -1986,28 +1988,6 @@ TEST(CctpLibrary, TestInvalidProofVkWhenOversized)
     //TODO: Might be useful to test the same behaviour with bit vector
 }
 
-/**
- * @brief Check the generation of the RANDOM_CUSTOM_FIELD
- * This test is only meant to show how the random custom field has been generated.
- * We initialized random generator with random seeds until we got a sequence of bytes
- * so that the first byte has the most significant bit set.
- * 
- * This is done to avoid that the tests related to the validation of the custom fields pass
- * even though the should fail (for instance, due to the usage of the wrong endianness).
- */
-TEST(CctpLibrary, TestRandomCustomFieldGeneration)
-{
-    srand(RANDOM_CUSTOM_FIELD_SEED);
-
-    for (int i = 0; i < 32; i++)
-    {
-        ASSERT_EQ(rand() % 256, RANDOM_CUSTOM_FIELD[i]);
-    }
-
-    // Check that the 8th bit of the first byte is set
-    ASSERT_EQ(RANDOM_CUSTOM_FIELD[0] & 0x80, 0x80);
-}
-
 TEST(CctpLibrary, TestGetLeadingZeros)
 {
     ASSERT_EQ(8, getLeadingZeroBitsInByte(0));
@@ -2029,6 +2009,10 @@ TEST(CctpLibrary, TestGetBytesFromBits)
 
     // Check that the function works properly with the "0" input
     ASSERT_EQ(0, getBytesFromBits(0, reminder));
+    ASSERT_EQ(0, reminder);
+
+    // Check that the function works properly with a negative input
+    ASSERT_EQ(0, getBytesFromBits(-1, reminder));
     ASSERT_EQ(0, reminder);
 
     for (uint16_t n = 1; n > 0; n++)
@@ -2082,7 +2066,7 @@ TEST(CctpLibrary, TestCustomFieldsValidation)
  */
 TEST(CctpLibrary, TestFullCustomFieldValidation)
 {
-    std::vector<unsigned char> rawBytes(std::begin(RANDOM_CUSTOM_FIELD), std::end(RANDOM_CUSTOM_FIELD));
+    std::vector<unsigned char> rawBytes(std::begin(TEST_CUSTOM_FIELD), std::end(TEST_CUSTOM_FIELD));
 
     for (uint8_t i = 1; i < CHAR_BIT; i++)
     {
@@ -2114,7 +2098,7 @@ TEST(CctpLibrary, TestFullCustomFieldValidation)
  */
 TEST(CctpLibrary, TestLongIntCustomFieldValidation)
 {
-    std::vector<unsigned char> rawBytes(std::begin(RANDOM_CUSTOM_FIELD), std::end(RANDOM_CUSTOM_FIELD));
+    std::vector<unsigned char> rawBytes(std::begin(TEST_CUSTOM_FIELD), std::end(TEST_CUSTOM_FIELD));
     rawBytes.resize(8);
 
     for (uint8_t i = 1; i < CHAR_BIT; i++)
@@ -2145,7 +2129,7 @@ TEST(CctpLibrary, TestLongIntCustomFieldValidation)
  */
 TEST(CctpLibrary, TestIntCustomFieldValidation)
 {
-    std::vector<unsigned char> rawBytes(std::begin(RANDOM_CUSTOM_FIELD), std::end(RANDOM_CUSTOM_FIELD));
+    std::vector<unsigned char> rawBytes(std::begin(TEST_CUSTOM_FIELD), std::end(TEST_CUSTOM_FIELD));
     rawBytes.resize(4);
 
     for (uint8_t i = 1; i < CHAR_BIT; i++)
