@@ -13,10 +13,9 @@ RUN set -euxo pipefail \
     && apt-get update \
     && apt-get -y --no-install-recommends install apt-utils \
     && apt-get -y --no-install-recommends dist-upgrade \
-    && apt-get -y --no-install-recommends install aria2 autoconf automake bsdmainutils build-essential \
-       ca-certificates cmake curl dirmngr fakeroot git g++-multilib gnupg2 help2man libc6-dev libgomp1 \
-       libtool lintian m4 ncurses-dev pigz pkg-config pv python3-dev python3-pip \
-       python3-setuptools time unzip wget zlib1g-dev \
+    && apt-get -y --no-install-recommends install aria2 autoconf automake bsdmainutils build-essential ca-certificates \
+       cmake curl dirmngr fakeroot git g++-multilib gnupg2 help2man libc6-dev libgomp1 libtool lintian m4 ncurses-dev \
+       pigz pkg-config pv python3-dev python3-pip python3-setuptools python3-wheel time unzip wget zlib1g-dev \
     && pip3 install b2 pyblake2 pyzmq websocket-client2 pyzmq \
     && BASEURL="https://github.com/tianon/gosu/releases/download/" \
     && GOSU_VERSION="1.13" \
