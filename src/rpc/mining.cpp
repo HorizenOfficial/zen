@@ -721,16 +721,19 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     }
 
     UniValue result(UniValue::VOBJ);
-    pblock->hashMerkleRoot = pblock->BuildMerkleTree();
-    if (certSupported) {
-        CCoinsViewCache view(pcoinsTip);
-        pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment(view);
-    }
+
     result.pushKV("capabilities", aCaps);
     result.pushKV("version", pblock->nVersion);
 
     if (includeMerkleRoots)
     {
+        pblock->hashMerkleRoot = pblock->BuildMerkleTree();
+
+        if (certSupported) {
+            CCoinsViewCache view(pcoinsTip);
+            pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment(view);
+        }
+
         result.pushKV("merkleTree", pblock->hashMerkleRoot.ToString());
         result.pushKV("scTxsCommitment", pblock->hashScTxsCommitment.ToString());
     }
