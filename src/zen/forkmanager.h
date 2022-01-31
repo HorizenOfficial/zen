@@ -110,6 +110,10 @@ public:
 	 */
 	bool isFutureTimeStampActive(int height) const;
 
+    /**
+     * @brief Get the maximum allowed sidechain version for a specific block height
+     */
+    uint8_t getMaxSidechainVersion(int height) const;
 
 private:
     
