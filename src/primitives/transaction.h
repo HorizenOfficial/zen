@@ -585,6 +585,7 @@ private:
     void GenerateScId(const uint256& txHash, unsigned int pos) const;
 
 public:
+    int8_t version;
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
@@ -610,7 +611,27 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(withdrawalEpochLength);
+
+        // The first serialization field is a 4 bytes element containing the SC Creation version in the first byte
+        // and the withdrawalEpochLenght in the remaining 3 bytes. The first implementation didn't have the version
+        // field, but only the withdrawalEpochLenght, so the version was implicitly set to 0 anyway.
+        if (ser_action.ForRead())
+        {
+            int withdrawalEpochLengthAndVersion;
+            READWRITE(withdrawalEpochLengthAndVersion);
+            
+            // Get the most significant byte
+            version = withdrawalEpochLengthAndVersion >> 24;
+
+            // Get the leasst significant 3 bytes
+            withdrawalEpochLength = withdrawalEpochLengthAndVersion & 0x00FFFFFF;
+        }
+        else
+        {
+            int withdrawalEpochLengthAndVersion = (version << 24) | withdrawalEpochLength;
+            READWRITE(withdrawalEpochLengthAndVersion);
+        }
+
         READWRITE(nValue);
         READWRITE(address);
         READWRITE(customData);

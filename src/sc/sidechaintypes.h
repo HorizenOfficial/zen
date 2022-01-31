@@ -481,6 +481,7 @@ bool IsUndefinedProvingSystemType(const std::string& str);
 
 struct ScFixedParameters
 {
+    uint8_t version;
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
@@ -495,6 +496,7 @@ struct ScFixedParameters
     bool IsNull() const
     {
         return (
+            version == 0                                              &&
             withdrawalEpochLength == -1                               &&
             customData.empty()                                        &&
             constant == boost::none                                   &&
@@ -519,12 +521,13 @@ struct ScFixedParameters
         READWRITE(mainchainBackwardTransferRequestDataLength);
     }
 
-    ScFixedParameters(): withdrawalEpochLength(-1), mainchainBackwardTransferRequestDataLength(0)
+    ScFixedParameters(): version(0), withdrawalEpochLength(-1), mainchainBackwardTransferRequestDataLength(0)
     {}
 
     inline bool operator==(const ScFixedParameters& rhs) const
     {
-        return (withdrawalEpochLength == rhs.withdrawalEpochLength)                                             &&
+        return (version == rhs.version)                                                                          &&
+               (withdrawalEpochLength == rhs.withdrawalEpochLength)                                             &&
                (customData == rhs.customData)                                                                   &&
                (constant == rhs.constant)                                                                       &&
                (wCertVk == rhs.wCertVk)                                                                         &&
@@ -536,6 +539,7 @@ struct ScFixedParameters
     inline bool operator!=(const ScFixedParameters& rhs) const { return !(*this == rhs); }
     inline ScFixedParameters& operator=(const ScFixedParameters& cp)
     {
+        version                                     = cp.version;
         withdrawalEpochLength                       = cp.withdrawalEpochLength;
         customData                                  = cp.customData;
         constant                                    = cp.constant;
