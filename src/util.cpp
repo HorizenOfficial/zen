@@ -955,6 +955,23 @@ int getLeadingZeroBitsInByte(unsigned char inputByte)
     return CHAR_BIT - nonZeroBits;
 }
 
+int getTrailingZeroBitsInByte(unsigned char inputByte)
+{
+    // output: c will count inputByte's trailing zero bits,
+    // so if inputByte is 1101000 (base 2), then c will be 3
+    int c = CHAR_BIT;
+
+    if (inputByte)
+    {
+        inputByte = (inputByte ^ (inputByte - 1)) >> 1;  // Set inputByte's trailing 0s to 1s and zero rest
+        for (c = 0; inputByte; c++)
+        {
+            inputByte >>= 1;
+        }
+    }
+    return c;
+}
+
 int getBytesFromBits(int nbits, int& reminder)
 {
     reminder = 0;

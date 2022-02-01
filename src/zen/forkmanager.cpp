@@ -30,6 +30,11 @@ ForkManager& ForkManager::getInstance() {
     return instance;
 }
 
+const Fork* ForkManager::getHighestFork() const
+{
+    return forks.back();
+}
+
 /**
  * @brief selectNetwork is called by SelectParams in chainparams.cpp to select the current network
  * @param network the newly selected network

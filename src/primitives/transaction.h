@@ -585,6 +585,19 @@ private:
     void GenerateScId(const uint256& txHash, unsigned int pos) const;
 
 public:
+    /**
+     * @brief  Version of the sidechain.
+     * The sidechain version has been introduced with hard fork 9 to increase the flexibility of the sidechain mechanism.
+     * Since the Sidechain Creation Output was at the beginning designed without the version, a single byty for such field
+     * has been taken from the WithdrawalEpochLength (before hard fork 9 its size was 4 bytes, after hard fork 9 it is 3 bytes).
+     * Due to the constraints of the consensus logic, we are sure that the most significant byte of the WithdrawalEpochLength was
+     * always zero before hard fork 9.
+     * 
+     * Version 0: due to a bug in the validation of the certificate custom fields, they had to be treated in a special way
+     *            (wrong endianness, see FieldElementCertificateField::GetFieldElement function for further details).
+     * 
+     * Version 1: the validation of custom fields has been fixed.
+     */
     int8_t version;
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
@@ -597,7 +610,8 @@ public:
     CAmount mainchainBackwardTransferRequestScFee;
     uint8_t mainchainBackwardTransferRequestDataLength;
 
-    CTxScCreationOut(): withdrawalEpochLength(-1),
+    CTxScCreationOut(): version(0),
+                        withdrawalEpochLength(-1),
                         forwardTransferScFee(-1),
                         mainchainBackwardTransferRequestScFee(-1),
                         mainchainBackwardTransferRequestDataLength(0) { }

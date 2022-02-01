@@ -314,8 +314,8 @@ CTxScCreationOut::CTxScCreationOut(
     const CAmount& ftScFee, const CAmount& mbtrScFee,
     const Sidechain::ScFixedParameters& paramsIn)
     :CTxCrosschainOut(nValueIn, addressIn), generatedScId(),
-     withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData), constant(paramsIn.constant),
-     wCertVk(paramsIn.wCertVk), wCeasedVk(paramsIn.wCeasedVk),
+     version(paramsIn.version), withdrawalEpochLength(paramsIn.withdrawalEpochLength), customData(paramsIn.customData),
+     constant(paramsIn.constant), wCertVk(paramsIn.wCertVk), wCeasedVk(paramsIn.wCeasedVk),
      vFieldElementCertificateFieldConfig(paramsIn.vFieldElementCertificateFieldConfig),
      vBitVectorCertificateFieldConfig(paramsIn.vBitVectorCertificateFieldConfig),
      forwardTransferScFee(ftScFee),

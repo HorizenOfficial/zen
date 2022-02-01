@@ -479,7 +479,7 @@ bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCert
     for (int i = 0; i < vCfe.size(); i++)
     {
         const FieldElementCertificateField& fe = vCfe.at(i);
-        if (!fe.IsValid(vCfeCfg.at(i)))
+        if (!fe.IsValid(vCfeCfg.at(i), sidechain.fixedParams.version))
         {
             LogPrint("sc", "%s():%d - invalid custom field at pos %d\n", __func__, __LINE__, i);
             return false;
@@ -489,7 +489,7 @@ bool Sidechain::checkCertCustomFields(const CSidechain& sidechain, const CScCert
     for (int i = 0; i < vCmt.size(); i++)
     {
         const BitVectorCertificateField& cmt = vCmt.at(i);
-        if (!cmt.IsValid(vCmtCfg.at(i)))
+        if (!cmt.IsValid(vCmtCfg.at(i), sidechain.fixedParams.version))
         {
             LogPrint("sc", "%s():%d - invalid compr mkl tree field at pos %d\n", __func__, __LINE__, i);
             return false;

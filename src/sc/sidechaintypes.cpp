@@ -549,12 +549,12 @@ FieldElementCertificateField& FieldElementCertificateField::operator=(const Fiel
     return *this;
 }
 
-bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg) const
+bool FieldElementCertificateField::IsValid(const FieldElementCertificateFieldConfig& cfg, uint8_t sidechainVersion) const
 {
-    return !this->GetFieldElement(cfg).IsNull();
+    return !this->GetFieldElement(cfg, sidechainVersion).IsNull();
 }
 
-const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const
+const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldElementCertificateFieldConfig& cfg, uint8_t sidechainVersion) const
 {
     if (state != VALIDATION_STATE::NOT_INITIALIZED)
     {
@@ -595,7 +595,17 @@ const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldEl
     {
         // check null bits in the last byte are as expected
         unsigned char lastByte = vRawData.back();
-        int numbOfZeroBits = getLeadingZeroBitsInByte(lastByte);
+        int numbOfZeroBits = 0;
+        
+        if (sidechainVersion == 0)
+        {
+            numbOfZeroBits = getTrailingZeroBitsInByte(lastByte);
+        }
+        else
+        {
+            numbOfZeroBits = getLeadingZeroBitsInByte(lastByte);
+        }
+
         if (numbOfZeroBits < (CHAR_BIT - rem))
         {
             LogPrint("sc", "%s():%d - ERROR: wrong number of null bits in last byte[0x%x]: %d vs %d\n",
@@ -605,7 +615,15 @@ const CFieldElement& FieldElementCertificateField::GetFieldElement(const FieldEl
     }
 
     std::vector<unsigned char> extendedRawData = vRawData;
-    extendedRawData.insert(extendedRawData.end(), CFieldElement::ByteSize() - vRawData.size(), 0x0);
+
+    if (sidechainVersion == 0)
+    {
+        extendedRawData.insert(extendedRawData.begin(), CFieldElement::ByteSize() - vRawData.size(), 0x0);
+    }
+    else
+    {
+        extendedRawData.insert(extendedRawData.end(), CFieldElement::ByteSize() - vRawData.size(), 0x0);
+    }
 
     fieldElement.SetByteArray(extendedRawData);
     if (fieldElement.IsValid())
@@ -642,12 +660,12 @@ BitVectorCertificateField& BitVectorCertificateField::operator=(const BitVectorC
     return *this;
 }
 
-bool BitVectorCertificateField::IsValid(const BitVectorCertificateFieldConfig& cfg) const
+bool BitVectorCertificateField::IsValid(const BitVectorCertificateFieldConfig& cfg, uint8_t sidechainVersion) const
 {
-    return !this->GetFieldElement(cfg).IsNull();
+    return !this->GetFieldElement(cfg, sidechainVersion).IsNull();
 }
 
-const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const
+const CFieldElement& BitVectorCertificateField::GetFieldElement(const BitVectorCertificateFieldConfig& cfg, uint8_t sidechainVersion) const
 {
     if (state != VALIDATION_STATE::NOT_INITIALIZED)
     {
