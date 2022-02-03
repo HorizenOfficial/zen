@@ -15,6 +15,7 @@
 #include <script/sign.h>
 #include <boost/filesystem.hpp>
 #include <sc/proofverifier.h>
+#include "txdb.h"
 
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength,
                                                 const CAmount& ftScFee, const CAmount& mbtrScFee, int mbtrDataLength)
@@ -100,6 +101,7 @@ void txCreationUtils::signTx(CMutableScCertificate& mcert)
 CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
 {
     CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, epochLength);
+
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vft_ccout.resize(0);
@@ -339,6 +341,47 @@ void chainSettingUtils::ExtendChainActiveWithBlock(const CBlock& block)
 namespace blockchain_test_utils
 {
 /**
+ * @brief Generate a valid block for the specified height.
+ * 
+ * The block includes a coinbase transaction.
+ * 
+ * @param height The target height of the block
+ * @return CBlock The generated block
+ */
+CBlock BlockchainTestManager::GenerateValidBlock(int height)
+{
+    CMutableTransaction mtx;
+
+    // No inputs.
+    mtx.vin.resize(1);
+    mtx.vin[0].prevout.SetNull();
+
+    // Set height
+    mtx.vin[0].scriptSig = CScript() << height << OP_0;
+
+    mtx.resizeOut(1);
+    mtx.getOut(0).scriptPubKey = CScript() << OP_TRUE;
+    mtx.getOut(0).nValue = 0;
+
+    CAmount reward = GetBlockSubsidy(height, Params().GetConsensus());
+
+    for (Fork::CommunityFundType cfType=Fork::CommunityFundType::FOUNDATION; cfType < Fork::CommunityFundType::ENDTYPE; cfType = Fork::CommunityFundType(cfType + 1)) {
+        CAmount vCommunityFund = ForkManager::getInstance().getCommunityFundReward(height, reward, cfType);
+        if (vCommunityFund > 0) {
+            // Take some reward away from miners
+            mtx.getOut(0).nValue -= vCommunityFund;
+            // And give it to the community
+            mtx.addOut(CTxOut(vCommunityFund, Params().GetCommunityFundScriptAtHeight(height, cfType)));
+        }
+    }
+    
+    CBlock block;
+    block.vtx.push_back(mtx);
+
+    return block;
+}
+
+/**
  * @brief BlockchainTestManager constructor.
  */
 BlockchainTestManager::BlockchainTestManager()
@@ -481,6 +524,8 @@ void BlockchainTestManager::Reset()
     view = std::make_shared<CInMemorySidechainDb>();
     viewCache = std::make_shared<CNakedCCoinsViewCache>(view.get());
 
+    InitCoinGeneration();
+
     ResetAsyncProofVerifier();
 }
 
@@ -512,6 +557,24 @@ CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 
 }
 
 /**
+ * @brief Creates a Sidechain Creation output.
+ * 
+ * @param sidechainVersion The version of the sidechain to be created
+ * @return CTxScCreationOut The sidechain creation output created.
+ */
+CTxScCreationOut BlockchainTestManager::CreateScCreationOut(uint8_t sidechainVersion, ProvingSystem provingSystem) const
+{
+    CTxScCreationOut scCreationOut;
+    scCreationOut.version = sidechainVersion;
+    scCreationOut.withdrawalEpochLength = getScMinWithdrawalEpochLength();
+    scCreationOut.nValue = CAmount(10);
+    scCreationOut.forwardTransferScFee = 0;
+    scCreationOut.mainchainBackwardTransferRequestScFee = 0;
+    scCreationOut.wCertVk = GetTestVerificationKey(provingSystem, TestCircuitType::Certificate);
+    return scCreationOut;
+}
+
+/**
  * @brief Creates a mutable transaction based on the parameters passed as input.
  * 
  * @param args The parameters of the transaction
@@ -528,7 +591,62 @@ CMutableTransaction BlockchainTestManager::CreateTransaction(const CTransactionC
     tx.vmbtr_out = args.vmbtr_out;
     tx.vsc_ccout = args.vsc_ccout;
 
+    if (args.fGenerateValidInput)
+    {
+        uint32_t totalInputAmount = 0;
+
+        // Count the total amount of coins we need as input
+        for (const auto& out : args.vft_ccout)
+        {
+            totalInputAmount += out.nValue;
+        }
+
+        for (const auto& out : args.vmbtr_out)
+        {
+            totalInputAmount += out.scFee;
+        }
+
+        for (const auto& out : args.vsc_ccout)
+        {
+            totalInputAmount += out.nValue;
+        }
+
+
+        std::pair<uint256, CCoinsCacheEntry> coinData = GenerateCoinsAmount(totalInputAmount);
+        StoreCoins(coinData);
+
+        tx.vin.resize(1);
+        tx.vin[0].prevout = COutPoint(coinData.first, 0);
+        assert(SignSignature(keystore, coinData.second.coins.vout[0].scriptPubKey, tx, 0) == true);
+    }
+
     return tx;
+}
+
+/**
+ * @brief Tries to send a transaction to memory pool.
+ * 
+ * @param state The validation state that will be returned as result of the operation
+ * @param tx The transaction to be added to the mempool
+ * @return The result of the operation
+ */
+MempoolReturnValue BlockchainTestManager::TestAcceptTxToMemoryPool(CValidationState &state, const CTransaction &tx) const
+{
+    CCoinsViewCache* saved_pcoinsTip = pcoinsTip;
+
+    CTxMemPool pool(::minRelayTxFee);
+    pcoinsTip = viewCache.get();
+    pcoinsTip->SetBestBlock(chainActive.Tip()->GetBlockHash());
+    pindexBestHeader = chainActive.Tip();
+
+    CCoinsViewCache view(pcoinsTip);
+
+    LOCK(cs_main);
+    MempoolReturnValue val = AcceptTxToMemoryPool(pool, state, tx, LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::SYNC);
+
+    pcoinsTip = saved_pcoinsTip;
+
+    return val;
 }
 
 /**

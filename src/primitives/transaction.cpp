@@ -388,6 +388,7 @@ void CTxScCreationOut::GenerateScId(const uint256& txHash, unsigned int pos) con
 CTxScCreationOut& CTxScCreationOut::operator=(const CTxScCreationOut &ccout) {
     CTxCrosschainOut::operator=(ccout);
     *const_cast<uint256*>(&generatedScId) = ccout.generatedScId;
+    version = ccout.version;
     withdrawalEpochLength = ccout.withdrawalEpochLength;
     customData = ccout.customData;
     constant = ccout.constant;
@@ -1054,12 +1055,14 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
     // at height >= sidechain_fork same as above but also v=-4 with joinsplit empty
 
     // sidechain fork (happens after groth fork)
-    int sidechainVersion = 0; 
+    int sidechainTxVersion = 0; 
     bool areSidechainsSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
     if (areSidechainsSupported)
     {
-        sidechainVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
+        sidechainTxVersion = ForkManager::getInstance().getSidechainTxVersion(nHeight);
     }
+
+    uint8_t maxSidechainVersionAllowed = ForkManager::getInstance().getMaxSidechainVersion(nHeight);
 
     // groth fork
     const int shieldedTxVersion = ForkManager::getInstance().getShieldedTxVersion(nHeight);
@@ -1069,13 +1072,24 @@ bool CTransaction::ContextualCheck(CValidationState& state, int nHeight, int dos
     {
         //verify if transaction is transparent or related to sidechain...
         if (nVersion == TRANSPARENT_TX_VERSION  ||
-            (areSidechainsSupported && (nVersion == sidechainVersion) ) )
+            (areSidechainsSupported && (nVersion == sidechainTxVersion) ) )
         {
             //enforce empty joinsplit for transparent txs and sidechain tx
             if(!GetVjoinsplit().empty()) {
                 return state.DoS(dosLevel, error("ContextualCheck(): transparent or sc tx but vjoinsplit not empty"),
                                      CValidationState::Code::INVALID, "bad-txns-transparent-jsnotempty");
             }
+
+            //enforce that any eventual SC creation output is using a valid sidechain version for the current active fork
+            for (const CTxScCreationOut& scCreationOutput : vsc_ccout)
+            {
+                if (scCreationOutput.version > maxSidechainVersionAllowed)
+                {
+                    return state.DoS(dosLevel, error("ContextualCheck(): transparent or sc tx but sc creation output has wrong sidechain version"),
+                                     CValidationState::Code::INVALID, "bad-tx-sc-creation-wrong-version");
+                }
+            }
+
             return true;
         }
 
