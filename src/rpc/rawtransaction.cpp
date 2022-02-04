@@ -435,6 +435,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "     {\n"
             "       \"scid\" : \"hex\",                 (string) The sidechain id\n"
             "       \"n\" : n,                          (numeric) crosschain output index\n"
+            "       \"version\" : n,                    (numeric) the sidechain version\n"
             "       \"withdrawalEpochLength\" : n,      (numeric) Sidechain withdrawal epoch length\n"
             "       \"value\" : x.xxx,                  (numeric) The value in " + CURRENCY_UNIT + "\n"
             "       \"address\" : \"hex\",              (string) The sidechain receiver address\n"

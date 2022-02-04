@@ -61,6 +61,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         UniValue o(UniValue::VOBJ);
         o.pushKV("scid", out.GetScId().GetHex());
         o.pushKV("n", (int64_t)nIdx);
+        o.pushKV("version", out.version);
         o.pushKV("withdrawalEpochLength", (int)out.withdrawalEpochLength);
         o.pushKV("value", ValueFromAmount(out.nValue));
         o.pushKV("address", out.address.GetHex());
