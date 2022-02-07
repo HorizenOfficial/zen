@@ -598,7 +598,7 @@ public:
      * 
      * Version 1: the validation of custom fields has been fixed.
      */
-    int8_t version;
+    uint8_t version;
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
@@ -610,7 +610,7 @@ public:
     CAmount mainchainBackwardTransferRequestScFee;
     uint8_t mainchainBackwardTransferRequestDataLength;
 
-    CTxScCreationOut(): version(0),
+    CTxScCreationOut(): version(0xff),
                         withdrawalEpochLength(-1),
                         forwardTransferScFee(-1),
                         mainchainBackwardTransferRequestScFee(-1),

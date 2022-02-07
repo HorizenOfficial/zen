@@ -496,7 +496,7 @@ struct ScFixedParameters
     bool IsNull() const
     {
         return (
-            version == 0                                              &&
+            version == 0xff                                           &&
             withdrawalEpochLength == -1                               &&
             customData.empty()                                        &&
             constant == boost::none                                   &&
@@ -522,7 +522,7 @@ struct ScFixedParameters
         READWRITE(mainchainBackwardTransferRequestDataLength);
     }
 
-    ScFixedParameters(): version(0), withdrawalEpochLength(-1), mainchainBackwardTransferRequestDataLength(0)
+    ScFixedParameters(): version(0xff), withdrawalEpochLength(-1), mainchainBackwardTransferRequestDataLength(0)
     {}
 
     inline bool operator==(const ScFixedParameters& rhs) const

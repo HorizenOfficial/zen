@@ -329,7 +329,7 @@ uint256 CTxScCreationOut::GetHash() const
 
 std::string CTxScCreationOut::ToString() const
 {
-    return strprintf("CTxScCreationOut(scId=%s, withdrawalEpochLength=%d, "
+    return strprintf("CTxScCreationOut(scId=%s, version=%d, withdrawalEpochLength=%d, "
                                        "nValue=%d.%08d, address=%s, customData=[%s], "
                                        "constant=[%s], wCertVk=[%s], wCeasedVk=[%s], "
                                        "vFieldElementCertificateFieldConfig=[%s], "
@@ -337,7 +337,7 @@ std::string CTxScCreationOut::ToString() const
                                        "forwardTransferScFee=%d, "
                                        "mainchainBackwardTransferRequestScFee=%d, "
                                        "mainchainBackwardTransferRequestDataLength=%u",
-        generatedScId.ToString(), withdrawalEpochLength, nValue / COIN,
+        generatedScId.ToString(), version, withdrawalEpochLength, nValue / COIN,
         nValue % COIN, HexStr(address).substr(0, 30), HexStr(customData),
         constant.is_initialized()? constant->GetHexRepr(): CFieldElement{}.GetHexRepr(),
         wCertVk.GetHexRepr(), wCeasedVk ? wCeasedVk.get().GetHexRepr() : "",
