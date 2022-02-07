@@ -150,11 +150,21 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         customData = "746869732069732061207465737420737472696e67"
 
         cmdInput = {
-            'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': fee,
-            'constant':constant1 , 'wCertVk': vk, 'toaddress':"cdcd", 'wCeasedVk': cswVk, 'customData': customData,
-            'vFieldElementCertificateFieldConfig': feCfg[0], 'vBitVectorCertificateFieldConfig': cmtCfg[0],
-            'forwardTransferScFee': Decimal('0.001'), 'mainchainBackwardTransferScFee' : Decimal('0.002'),
-            'mainchainBackwardTransferRequestDataLength': 2 }
+            'version': 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'amount': amount,
+            'fee': fee,
+            'constant':constant1,
+            'wCertVk': vk,
+            'toaddress':"cdcd",
+            'wCeasedVk': cswVk,
+            'customData': customData,
+            'vFieldElementCertificateFieldConfig': feCfg[0],
+            'vBitVectorCertificateFieldConfig': cmtCfg[0],
+            'forwardTransferScFee': Decimal('0.001'),
+            'mainchainBackwardTransferScFee' : Decimal('0.002'),
+            'mainchainBackwardTransferRequestDataLength': 2
+        }
 
         mark_logs("\nNode 1 create SC1 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
@@ -182,18 +192,20 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         feCfg.append([16])
         cmtCfg.append([])
 
-        cmdInput = {'withdrawalEpochLength': EPOCH_LENGTH,
-                    'toaddress': "dada",
-                    'amount': amount,
-                    'wCertVk': vk,
-                    'customData': customData,
-                    'constant': constant2,
-                    'wCeasedVk': cswVk,
-                    'vFieldElementCertificateFieldConfig': feCfg[1],
-                    'vBitVectorCertificateFieldConfig': cmtCfg[1],
-                    'forwardTransferScFee': 0,
-                    'mainchainBackwardTransferScFee': 0,
-                    'mainchainBackwardTransferRequestDataLength': 1}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'toaddress': "dada",
+            'amount': amount,
+            'wCertVk': vk,
+            'customData': customData,
+            'constant': constant2,
+            'wCeasedVk': cswVk,
+            'vFieldElementCertificateFieldConfig': feCfg[1],
+            'vBitVectorCertificateFieldConfig': cmtCfg[1],
+            'forwardTransferScFee': 0,
+            'mainchainBackwardTransferScFee': 0,
+            'mainchainBackwardTransferRequestDataLength': 1}
 
         mark_logs("\nNode 1 create SC2 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:

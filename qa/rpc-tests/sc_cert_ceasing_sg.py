@@ -89,6 +89,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         #----------------------------------------------------------------------
         vk = mcTest.generate_params("sc1")
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "dada",
             "amount": creation_amount,

@@ -99,6 +99,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         fee_cr1 = Decimal("0.0002")
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength":EPOCH_LENGTH,
             "toaddress":"dada",
             "amount":creation_amount1,
@@ -306,6 +307,7 @@ class sc_bwt_request(BitcoinTestFramework):
         prev_epoch_hash_2 = self.nodes[0].getbestblockhash()
         epoch_len_2 = 10
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength":epoch_len_2,
             "toaddress":"dada",
             "amount":creation_amount2,

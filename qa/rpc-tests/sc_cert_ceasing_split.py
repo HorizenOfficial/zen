@@ -101,6 +101,7 @@ class CeasingSplitTest(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         cmdInput = {
+            'version': 0,
             'withdrawalEpochLength': sc_epoch_len,
             'amount': sc_cr_amount,
             'toaddress': sc_address,

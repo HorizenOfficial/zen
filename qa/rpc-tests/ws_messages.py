@@ -144,6 +144,7 @@ class ws_messages(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "dada",
             "amount": creation_amount,
@@ -408,6 +409,7 @@ class ws_messages(BitcoinTestFramework):
         sc2_constant = generate_random_field_element_hex()
         SC2_EPOCH_LENGTH = 20
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": SC2_EPOCH_LENGTH,
             "toaddress": "dada",
             "amount": creation_amount,

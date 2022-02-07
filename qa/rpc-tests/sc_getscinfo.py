@@ -92,6 +92,7 @@ class sc_getscinfo(BitcoinTestFramework):
             idx = i%2
 
             cmdInput = {
+                "version": 0,
                 "withdrawalEpochLength": EPOCH_LENGTH + i,
                 "toaddress": "dada",
                 "amount": creation_amount,

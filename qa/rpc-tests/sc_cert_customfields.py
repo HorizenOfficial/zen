@@ -90,8 +90,14 @@ class sc_cert_customfields(BitcoinTestFramework):
         #-------------------------------------------------------
         bad_obj = {"a":1, "b":2}
         cmdInput = {
-            'withdrawalEpochLength': EPOCH_LENGTH, 'vFieldElementCertificateFieldConfig': bad_obj,
-            'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
+            'version': 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'vFieldElementCertificateFieldConfig': bad_obj,
+            'toaddress': "abcd",
+            'amount': amount,
+            'fee': fee,
+            'wCertVk': vk
+        }
 
         mark_logs("\nNode 1 create SC with wrong vFieldElementCertificateFieldConfig obj in input (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
@@ -104,7 +110,14 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         bad_array = ["hello", "world"]
-        cmdInput = {'vBitVectorCertificateFieldConfig': bad_array, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
+        cmdInput = {
+            'version': 0,
+            'vBitVectorCertificateFieldConfig': bad_array,
+            'toaddress': "abcd",
+            'amount': amount,
+            'fee': fee,
+            'wCertVk': vk
+        }
 
         mark_logs("\nNode 1 create SC with wrong vBitVectorCertificateFieldConfig array in input (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
@@ -117,7 +130,14 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         too_large_array_values = [[1000761, 31]] # [1000192, 1000192/8] at most
-        cmdInput = {'vBitVectorCertificateFieldConfig': too_large_array_values, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
+        cmdInput = {
+            'version': 0,
+            'vBitVectorCertificateFieldConfig': too_large_array_values,
+            'toaddress': "abcd",
+            'amount': amount,
+            'fee': fee,
+            'wCertVk': vk
+        }
 
         mark_logs("\nNode 1 create SC with a vBitVectorCertificateFieldConfig array with too large integers (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
@@ -130,7 +150,14 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         #-------------------------------------------------------
         zero_values_array = [0, 0]
-        cmdInput = {'vFieldElementCertificateFieldConfig': zero_values_array, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
+        cmdInput = {
+            'version': 0,
+            'vFieldElementCertificateFieldConfig': zero_values_array,
+            'toaddress': "abcd",
+            'amount': amount,
+            'fee': fee,
+            'wCertVk': vk
+        }
 
         mark_logs("\nNode 1 create SC with a vFieldElementCertificateFieldConfig array with zeroes (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
@@ -145,7 +172,14 @@ class sc_cert_customfields(BitcoinTestFramework):
         not_power_of_two_size = len(bz2.BZ2Decompressor().decompress(BIT_VECTOR_BUF_NOT_POW2[2:].decode("hex"))) # Skip the first byte that is used internally to get the compression algorithm (BZip2).
         not_power_of_two_compressed_size = len(BIT_VECTOR_BUF_NOT_POW2)
         not_power_of_two_array = [[not_power_of_two_size, not_power_of_two_compressed_size]]#[[1039368, 151]]
-        cmdInput = {'vBitVectorCertificateFieldConfig': not_power_of_two_array, 'toaddress': "abcd", 'amount': amount, 'fee': fee, 'wCertVk': vk}
+        cmdInput = {
+            'version': 0,
+            'vBitVectorCertificateFieldConfig': not_power_of_two_array,
+            'toaddress': "abcd",
+            'amount': amount,
+            'fee': fee,
+            'wCertVk': vk
+        }
 
         mark_logs("\nNode 1 create SC with a BitVector made of a number of FE leaves that is not a power of 2 (expecting failure...)", self.nodes, DEBUG_MODE)
         try:
@@ -170,9 +204,16 @@ class sc_cert_customfields(BitcoinTestFramework):
         cmtCfg.append([[254*4, len(BIT_VECTOR_BUF_HUGE)]])
 
         cmdInput = {
-            'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': fee,
-            'constant':constant1 , 'wCertVk': vk, 'toaddress':"cdcd",
-            'vFieldElementCertificateFieldConfig':feCfg[0], 'vBitVectorCertificateFieldConfig':cmtCfg[0] }
+            'version': 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'amount': amount,
+            'fee': fee,
+            'constant':constant1,
+            'wCertVk': vk,
+            'toaddress':"cdcd",
+            'vFieldElementCertificateFieldConfig':feCfg[0],
+            'vBitVectorCertificateFieldConfig':cmtCfg[0]
+        }
 
         mark_logs("\nNode 1 create SC1 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
@@ -208,6 +249,7 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("\nNode 1 create SC2 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "dada",
             "amount": amount,

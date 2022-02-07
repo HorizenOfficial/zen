@@ -161,9 +161,17 @@ class sc_big_block(BitcoinTestFramework):
         cmtCfg.append([[254*4, 151]])
 
         cmdInput = {
-            'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': fee,
-            'constant':constant , 'wCertVk': certVk, 'wCeasedVk': cswVk, 'toaddress':"cdcd",
-            'vFieldElementCertificateFieldConfig':feCfg[0], 'vBitVectorCertificateFieldConfig':cmtCfg[0] }
+            'version': 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'amount': amount,
+            'fee': fee,
+            'constant':constant ,
+            'wCertVk': certVk,
+            'wCeasedVk': cswVk,
+            'toaddress':"cdcd",
+            'vFieldElementCertificateFieldConfig':feCfg[0],
+            'vBitVectorCertificateFieldConfig':cmtCfg[0]
+        }
       
         scids = []
         scc_txs = []
