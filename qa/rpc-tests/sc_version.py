@@ -3,7 +3,7 @@
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import BitcoinTestFramework, SC_VERSION_FORK_HEIGHT
 from test_framework.util import initialize_chain_clean, start_nodes,mark_logs
 from test_framework.blockchainhelper import BlockchainHelper, EXPECT_SUCCESS, EXPECT_FAILURE
 
@@ -35,8 +35,8 @@ class sc_version(BitcoinTestFramework):
         test_helper = BlockchainHelper(self)
 
         # We need to stop at 448 (so that the sidechain would be created in block 449)
-        mark_logs("Node 0 generates 448 blocks", self.nodes,DEBUG_MODE)
-        self.nodes[0].generate(448)
+        mark_logs("Node 0 generates {} blocks".format(SC_VERSION_FORK_HEIGHT - 2), self.nodes,DEBUG_MODE)
+        self.nodes[0].generate(SC_VERSION_FORK_HEIGHT - 2)
         self.sync_all()
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
@@ -48,7 +48,7 @@ class sc_version(BitcoinTestFramework):
         self.sync_all()
 
         # Generate 1 more block to reach the sidechain version fork point
-        mark_logs("Node 0 generates 1 block (to reach height 449)", self.nodes,DEBUG_MODE)
+        mark_logs("Node 0 generates 1 block (to reach height {})".format(SC_VERSION_FORK_HEIGHT - 1), self.nodes,DEBUG_MODE)
         self.nodes[0].generate(1)
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)

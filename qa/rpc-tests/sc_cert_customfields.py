@@ -8,7 +8,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, get_field_element_with_padding, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200, SC_VERSION_FORK_HEIGHT
 from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 import os
 import pprint
@@ -657,7 +657,7 @@ class sc_cert_customfields(BitcoinTestFramework):
         assert_true(cert in self.nodes[1].getblock(bestHash, True)['cert'])
 
         # Generate some blocks to reach the sidechain version fork point
-        self.nodes[0].generate(450 - self.nodes[0].getblockcount())
+        self.nodes[0].generate(SC_VERSION_FORK_HEIGHT - self.nodes[0].getblockcount())
         self.sync_all()
 
         # Create a sidechain v1 and test the validation of custom fields (endianness)
