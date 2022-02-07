@@ -233,8 +233,15 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         cmtCfg.append([[254*8*4, 1967]])
 
         sc_cr = [{
-            "epoch_length": EPOCH_LENGTH, "amount":amount, "address":"ddaa", "wCertVk": vk, "constant": constant3,
-            "vFieldElementCertificateFieldConfig":feCfg[2], "vBitVectorCertificateFieldConfig":cmtCfg[2] }]
+            "version": 0,
+            "epoch_length": EPOCH_LENGTH,
+            "amount":amount,
+            "address":"ddaa",
+            "wCertVk": vk,
+            "constant": constant3,
+            "vFieldElementCertificateFieldConfig":feCfg[2],
+            "vBitVectorCertificateFieldConfig":cmtCfg[2]
+        }]
 
         mark_logs("\nNode 0 create SC3 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:

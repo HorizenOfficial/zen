@@ -505,9 +505,18 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mark_logs("\nNode 0 creates a raw transaction with sidechain creation fees", self.nodes, DEBUG_MODE)
 
         sc_cr = [{
-            "epoch_length": withdrawalEpochLength, "amount": creation_amount, "address": address, "wCertVk": vk, "constant": constant,
-            "vFieldElementCertificateFieldConfig":[], "vBitVectorCertificateFieldConfig":[],
-            "forwardTransferScFee": ftFee, "mainchainBackwardTransferScFee": mbtrFee, "mainchainBackwardTransferRequestDataLength": mbtrRequestDataLength }]
+            "version": 0,
+            "epoch_length": withdrawalEpochLength,
+            "amount": creation_amount,
+            "address": address,
+            "wCertVk": vk,
+            "constant": constant,
+            "vFieldElementCertificateFieldConfig":[],
+            "vBitVectorCertificateFieldConfig":[],
+            "forwardTransferScFee": ftFee,
+            "mainchainBackwardTransferScFee": mbtrFee,
+            "mainchainBackwardTransferRequestDataLength": mbtrRequestDataLength
+        }]
 
         try:
             rawtx = self.nodes[0].createrawtransaction([],{},[],sc_cr)

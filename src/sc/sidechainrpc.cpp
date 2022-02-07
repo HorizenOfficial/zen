@@ -417,6 +417,14 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         const UniValue& input = sc_crs[i];
         const UniValue& o = input.get_obj();
 
+        const UniValue& vv = find_value(o, "version");
+        if (vv.isNull() || !vv.isNum())
+        {
+            error = "Invalid sidechain creation output parameter \"version\"";
+            return false;
+        }
+        sc.version = vv.get_int();
+
         const UniValue& elv = find_value(o, "epoch_length");
         if (elv.isNull() || !elv.isNum())
         {
