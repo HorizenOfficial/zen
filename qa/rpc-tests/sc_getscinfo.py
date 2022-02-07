@@ -4,13 +4,14 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200, SC_VERSION_FORK_HEIGHT
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
     assert_false, assert_true, swap_bytes
 from test_framework.mc_test.mc_test import *
+from test_framework.blockchainhelper import BlockchainHelper, EXPECT_SUCCESS, EXPECT_FAILURE
 import os
 import pprint
 import time
@@ -135,6 +136,10 @@ class sc_getscinfo(BitcoinTestFramework):
         assert_equal(sc_info_all['totalItems'], NUM_OF_SIDECHAINS)
         assert_equal(sc_info_all['from'], 0)
         assert_equal(sc_info_all['to'], NUM_OF_SIDECHAINS)
+
+        # Check that all the sidechains have the correct version
+        for item in sc_info_all['items']:
+            assert_equal(item['sidechainVersion'], 0)
 
         # check all of them have right block creation hash which is part of verbose output
         # and fill the ordered scids lists
@@ -311,7 +316,31 @@ class sc_getscinfo(BitcoinTestFramework):
         wlen_calc = max(2, int(elen/5))
         assert_equal(wlen, wlen_calc)
 
+        # Reach the sidechain version fork point
+        test_helper = BlockchainHelper(self)
+        self.nodes[0].generate(SC_VERSION_FORK_HEIGHT - MINIMAL_SC_HEIGHT)
 
+        mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("v0", 0)
+
+        mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("v1", 1)
+
+        self.sync_all()
+
+        mark_logs("Check info for v0 and v1 sidechains (unconfirmed)", self.nodes, DEBUG_MODE)
+        v0_sc_id = test_helper.get_sidechain_id("v0")
+        v1_sc_id = test_helper.get_sidechain_id("v1")
+        assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['unconfSidechainVersion'], 0)
+        assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['unconfSidechainVersion'], 1)
+
+        mark_logs("Node 0 generates a block to confirm the creation of sidechains v0 and v1", self.nodes, DEBUG_MODE);
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        mark_logs("Check info for v0 and v1 sidechains (confirmed)", self.nodes, DEBUG_MODE)
+        assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['sidechainVersion'], 0)
+        assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['sidechainVersion'], 1)
 
 if __name__ == '__main__':
     sc_getscinfo().main()

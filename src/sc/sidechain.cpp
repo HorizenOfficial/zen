@@ -135,7 +135,7 @@ std::string CSidechain::ToString() const
                       " lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
                       " lastTopQualityCertQuality=%d\n lastTopQualityCertBwtAmount=%s\n balance=%s\n"
                       " fixedParams=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
-        sidechainVersion
+        fixedParams.version
         , creationBlockHeight
         , creationTxHash.ToString()
         , pastEpochTopQualityCertView.ToString()

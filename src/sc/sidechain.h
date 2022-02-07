@@ -52,7 +52,7 @@ public:
 class CSidechain {
 public:
     CSidechain():
-        sidechainVersion(0), creationBlockHeight(-1), creationTxHash(),
+        creationBlockHeight(-1), creationTxHash(),
         pastEpochTopQualityCertView(), lastTopQualityCertView(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
@@ -74,8 +74,6 @@ public:
              mImmatureAmounts.empty())                                        &&
              scFees.empty();
     }
-
-    int32_t sidechainVersion;
 
     // We can not serialize a pointer value to block index, but can retrieve it from chainActive if we have height
     int creationBlockHeight;
@@ -132,7 +130,6 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
-        READWRITE(sidechainVersion);
         READWRITE(VARINT(creationBlockHeight));
         READWRITE(creationTxHash);
         READWRITE(pastEpochTopQualityCertView);
@@ -156,8 +153,7 @@ public:
 
     inline bool operator==(const CSidechain& rhs) const
     {
-        return (this->sidechainVersion                           == rhs.sidechainVersion)                  &&
-               (this->creationBlockHeight                        == rhs.creationBlockHeight)               &&
+        return (this->creationBlockHeight                        == rhs.creationBlockHeight)               &&
                (this->creationTxHash                             == rhs.creationTxHash)                    &&
                (this->pastEpochTopQualityCertView                == rhs.pastEpochTopQualityCertView)       &&
                (this->lastTopQualityCertView                     == rhs.lastTopQualityCertView)            &&

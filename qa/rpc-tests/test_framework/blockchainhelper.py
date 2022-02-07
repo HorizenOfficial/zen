@@ -23,28 +23,43 @@ class BlockchainHelper(object):
         self.cert_utils = CertTestUtils(bitcoin_test_framework.options.tmpdir, bitcoin_test_framework.options.srcdir)
         self.csw_utils = CSWTestUtils(bitcoin_test_framework.options.tmpdir, bitcoin_test_framework.options.srcdir)
 
-    def create_sidechain(self, sc_id, sidechain_version, should_fail = False):
-        sc_input = self.get_sidechain_creation_input(sc_id, sidechain_version)
+    # sc_name is not the real sidechain id (it will be generated automatically during the call to sc_create)
+    # but an identifier used to:
+    # 1) search for the sidechain in the sidechain map
+    # 2) generate the certificate and CSW verification keys
+    def create_sidechain(self, sc_name, sidechain_version, should_fail = False):
+        sc_input = self.get_sidechain_creation_input(sc_name, sidechain_version)
         error_message = None
 
         try:
-            self.nodes[0].sc_create(sc_input)
+            ret = self.nodes[0].sc_create(sc_input)
             assert(not should_fail)
+            self.store_sidechain(sc_name, sc_input, ret["txid"])
         except JSONRPCException as e:
             error_message = e.error['message']
             mark_logs(error_message, self.nodes, 1)
             assert(should_fail)
 
-        # TODO: store the sidechain information in self.sidechain_map so that we can easily perform other operations
-        # in the future (e.g. certificate creation, forwards transfers, backward transfers, and ceased sidechain withdrawals).
-
         return error_message
 
-    def get_sidechain_creation_input(self, sc_id, sidechain_version):
+    def store_sidechain(self, sc_name, sc_params, tx_id):
+        self.sidechain_map[sc_name] = {
+            "name": sc_name,
+            "version": sc_params["version"],
+            "cert_vk": sc_params["wCertVk"],
+            "creation_tx_id": tx_id
+        }
+
+    def get_sidechain_creation_input(self, sc_name, sidechain_version):
         return {
             "version": sidechain_version,
             "withdrawalEpochLength": 10,
             "toaddress": "abcd",
             "amount":  Decimal("1.0"),
-            "wCertVk": self.cert_utils.generate_params(sc_id),
+            "wCertVk": self.cert_utils.generate_params(sc_name),
         }
+
+    def get_sidechain_id(self, sc_name):
+        sc_id = self.nodes[0].getrawtransaction(self.sidechain_map[sc_name]["creation_tx_id"], 1)['vsc_ccout'][0]['scid']
+        self.sidechain_map[sc_name]["sc_id"] = sc_id
+        return sc_id

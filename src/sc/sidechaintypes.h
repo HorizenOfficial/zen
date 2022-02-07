@@ -511,6 +511,7 @@ struct ScFixedParameters
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(version);
         READWRITE(withdrawalEpochLength);
         READWRITE(customData);
         READWRITE(constant);
