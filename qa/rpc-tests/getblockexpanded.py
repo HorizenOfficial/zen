@@ -56,8 +56,14 @@ class getblockexpanded(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        cmdInput = {'withdrawalEpochLength': EPOCH_LENGTH, 'toaddress': "dada", 'amount': creation_amount, 'wCertVk': vk,
-                    'constant': constant}
+        cmdInput = {
+            "version": 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'toaddress': "dada",
+            'amount': creation_amount,
+            'wCertVk': vk,
+            'constant': constant
+        }
 
         ret = self.nodes[0].sc_create(cmdInput)
         creating_tx = ret['txid']

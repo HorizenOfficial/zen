@@ -762,7 +762,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "\nCreate a Sidechain and send funds to it.\n"
             "\nArguments:\n"
             "{\n"
-            " \"version\":                      (numeric, optional, default=0) The version of the sidechain \n"
+            " \"version\":                      (numeric, required) The version of the sidechain \n"
             " \"withdrawalEpochLength\": epoch  (numeric, optional, default=" + strprintf("%d", SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH) +
                                                ") length of the withdrawal epochs. The minimum valid value in " + Params().NetworkIDString() +
                                                " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
@@ -830,6 +830,10 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
         if (sidechainVersion < 0 || sidechainVersion > ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion())
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid sidechain version"));
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"version\"" );
     }
 
     // ---------------------------------------------------------
