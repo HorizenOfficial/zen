@@ -420,7 +420,7 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
         const UniValue& vv = find_value(o, "version");
         if (vv.isNull() || !vv.isNum())
         {
-            error = "Invalid sidechain creation output parameter \"version\"";
+            error = "Invalid or missing sidechain creation output parameter \"version\"";
             return false;
         }
         sc.version = vv.get_int();

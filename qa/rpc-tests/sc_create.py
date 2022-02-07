@@ -72,11 +72,31 @@ class SCCreateTest(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         # ---------------------------------------------------------------------------------------
-        # Node 2 try creating a SC with insufficient funds
-        mark_logs("\nNode 2 try creating a SC with insufficient funds", self.nodes, DEBUG_MODE)
+        # Node 2 tries to create a SC without version
+        mark_logs("\nNode 2 tries to create a SC without specifying the version", self.nodes, DEBUG_MODE)
 
         amounts = [{"address": "dada", "amount": creation_amount}]
         errorString = ""
+        cmdInput = {
+            'withdrawalEpochLength': 123,
+            'toaddress': "dada",
+            'amount': Decimal("1.0"),
+            'wCertVk': vk,
+            'constant': constant
+        }
+
+        try:
+            self.nodes[2].sc_create(cmdInput)
+            assert(False)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal(True, "Missing mandatory parameter in input: \"version\"" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 2 try creating a SC with insufficient funds
+        mark_logs("\nNode 2 try creating a SC with insufficient funds", self.nodes, DEBUG_MODE)
+
         cmdInput = {
             'version': 0,
             'withdrawalEpochLength': 123,
