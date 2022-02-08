@@ -342,5 +342,14 @@ class sc_getscinfo(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['sidechainVersion'], 0)
         assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['sidechainVersion'], 1)
 
+        mark_logs("Checking persistance, stopping and restarting nodes", self.nodes, DEBUG_MODE)
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.setup_network(False)
+
+        mark_logs("Check info persistance for v0 and v1 sidechains", self.nodes, DEBUG_MODE)
+        assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['sidechainVersion'], 0)
+        assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['sidechainVersion'], 1)
+
 if __name__ == '__main__':
     sc_getscinfo().main()

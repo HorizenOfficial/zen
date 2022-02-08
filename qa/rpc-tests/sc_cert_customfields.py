@@ -790,6 +790,26 @@ class sc_cert_customfields(BitcoinTestFramework):
         mark_logs("Check cert is in mempools", self.nodes, DEBUG_MODE)
         assert_equal(True, cert in self.nodes[0].getrawmempool())
 
+        # Check that the same certificate is valid after restarting the node (to verify the persistance of custom fields info)
+        mark_logs("...stopping and restarting nodes", self.nodes, DEBUG_MODE)
+        stop_nodes(self.nodes)
+        wait_bitcoinds()
+        self.setup_network(False)
+
+        mark_logs("Check cert is still valid after restart", self.nodes, DEBUG_MODE)
+        try:
+            #rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
+            #signed_cert = self.nodes[0].signrawtransaction(rawcert)
+            cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            assert (False)
+
+        self.sync_all()
+        mark_logs("Check cert is in mempools after restart", self.nodes, DEBUG_MODE)
+        assert_equal(True, cert in self.nodes[0].getrawmempool())
+
 
 
 if __name__ == '__main__':
