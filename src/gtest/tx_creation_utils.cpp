@@ -43,6 +43,7 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("3");
 
     mtx.vsc_ccout.resize(1);
+    mtx.vsc_ccout[0].version = 0;
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].address = uint256S("bebe111222dada");
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;

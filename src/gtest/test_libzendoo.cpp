@@ -566,6 +566,7 @@ TEST(SidechainsField, NakedZendooFeatures_TreeCommitmentCalculation)
 
     auto ccout = CTxScCreationOut(CAmount(10), uint256S("aaa"), CAmount(0), CAmount(0), Sidechain::ScFixedParameters());
     // set mandatory/legal params
+    ccout.version = 0;
     ccout.withdrawalEpochLength = 11;
     ccout.wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
     ccout.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
