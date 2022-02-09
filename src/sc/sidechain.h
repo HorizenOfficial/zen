@@ -130,6 +130,17 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
+        /*
+            This is some reserved space that at beginning was intended to be used for storing the sidechain version.
+            However, since Zendoo was released without handling the version (in particular in CTxScCreationOut), such field
+            has been introduced later with fork 9 and "extracted" from the first byte of the withdrawalEpochLength inside
+            ScFixedParameters.
+            The initial "sidechainVersion" variable has then been removed to avoid confusion and inconsistencies and its
+            space in the serialization is held by this dummy/reserved variable.
+        */
+        uint32_t reserved = 0xffffffff;
+
+        READWRITE(reserved);
         READWRITE(VARINT(creationBlockHeight));
         READWRITE(creationTxHash);
         READWRITE(pastEpochTopQualityCertView);
