@@ -6,7 +6,7 @@ from authproxy import JSONRPCException
 from mc_test.mc_test import CertTestUtils, CSWTestUtils
 from util import mark_logs
 
-# An helper class to accomplish some operations in a faster way
+# A helper class to accomplish some operations in a faster way
 # (e.g. sidechain creation).
 
 EXPECT_SUCCESS = False

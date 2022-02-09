@@ -9,7 +9,6 @@
 //------------------------------------------------------------------------------------
 static const CAmount SC_RPC_OPERATION_AUTO_MINERS_FEE(-1);
 static const int SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH(100);
-static const uint8_t SC_RPC_OPERATION_DEFAULT_SIDECHAIN_VERSION(0);
 
 class UniValue;
 class CTransaction;

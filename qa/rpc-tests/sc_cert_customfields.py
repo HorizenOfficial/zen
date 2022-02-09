@@ -798,8 +798,6 @@ class sc_cert_customfields(BitcoinTestFramework):
 
         mark_logs("Check cert is still valid after restart", self.nodes, DEBUG_MODE)
         try:
-            #rawcert = self.nodes[0].createrawcertificate(inputs, outputs, bwt_outs, params)
-            #signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert = self.nodes[0].sendrawtransaction(signed_cert['hex'])
         except JSONRPCException as e:
             errorString = e.error['message']

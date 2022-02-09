@@ -823,7 +823,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
-    int sidechainVersion = SC_RPC_OPERATION_DEFAULT_SIDECHAIN_VERSION;
+    int sidechainVersion;
     if (setKeyArgs.count("version"))
     {
         sidechainVersion = find_value(inputObject, "version").get_int();
