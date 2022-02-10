@@ -19,6 +19,8 @@
 
 #include <boost/dynamic_bitset.hpp>
 
+extern unsigned char ReverseBitsInByte(unsigned char input);
+
 using namespace blockchain_test_utils;
 
 /**
@@ -31,6 +33,16 @@ const uint8_t TEST_CUSTOM_FIELD[] = {0xbe, 0x61, 0x16, 0xab, 0x27, 0xee, 0xab, 0
                                      0x09, 0x35, 0xb3, 0xe2, 0x1b, 0xc3, 0xcf, 0xcd,
                                      0x3f, 0x06, 0xac, 0xb3, 0x8a, 0x5c, 0xeb, 0xd4,
                                      0x42, 0xf4, 0x96, 0xd8, 0xbf, 0xd3, 0x8e, 0x7d};
+
+/**
+ * @brief Value of the modulus for Tweedle Fr (little endian).
+ * It is the field used for the representation of Field Elements, useful for unit tests
+ * involving the custom fields validation.
+ */
+const uint8_t TWEEDLE_FR_MODULUS[] = {0x01, 0x00, 0x00, 0x00, 0xe2, 0x64, 0x40, 0xa1,
+                                      0xb9, 0x59, 0x3f, 0x6c, 0x27, 0xa1, 0x8a, 0x03,
+                                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40};
 
 static CMutableTransaction CreateDefaultTx(uint8_t sidechainVersion)
 {
@@ -2027,6 +2039,16 @@ TEST(CctpLibrary, TestGetLeadingZeros)
     }
 }
 
+TEST(CctpLibrary, TestGetTrailingZeros)
+{
+    ASSERT_EQ(8, getTrailingZeroBitsInByte(0));
+
+    for (uint8_t n = 1; n > 0; n++)
+    {
+        ASSERT_EQ(__builtin_ctz(n) % (sizeof(unsigned int) * 8 - CHAR_BIT), getTrailingZeroBitsInByte(n));
+    }
+}
+
 /**
  * @brief Check the correctness of the GetBytesFromBits utility function
  * 
@@ -2066,6 +2088,34 @@ TEST(CctpLibrary, TestGetBytesFromBits)
     }
 }
 
+TEST(CctpLibrary, TestCustomFieldsValidation_v0)
+{
+    uint8_t sidechainVersion = 0;
+
+    for (uint8_t i = 2; i < CHAR_BIT; i++)
+    {
+        for (uint8_t j = 1; j > 0; j++)
+        {
+            std::vector<unsigned char> rawBytes = { ReverseBitsInByte(j) };
+            FieldElementCertificateField certField = FieldElementCertificateField(rawBytes);
+            FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i);
+            CFieldElement fe = certField.GetFieldElement(config, sidechainVersion);
+
+            // The Field Element is valid if it matches the configuration (j < 1 << i)
+            // and if doesn't exceed the modulus, thus the last two bits cannot be set (j < 1 << 6).
+            // Since v0 uses the wrong endianness, "j" must be reversed before checking.
+            if (j < 1 << i && ReverseBitsInByte(j) <= 1 << (CHAR_BIT - 2))
+            {
+                EXPECT_TRUE(fe.IsValid());
+            }
+            else
+            {
+                EXPECT_FALSE(fe.IsValid());
+            }
+        }
+    }
+}
+
 TEST(CctpLibrary, TestCustomFieldsValidation_v1)
 {
     uint8_t sidechainVersion = 1;
@@ -2079,6 +2129,7 @@ TEST(CctpLibrary, TestCustomFieldsValidation_v1)
             FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i);
             CFieldElement fe = certField.GetFieldElement(config, sidechainVersion);
 
+            // The Field Element is valid if it matches the configuration (j < 1 << i).
             if (j < 1 << i)
             {
                 EXPECT_TRUE(fe.IsValid());
@@ -2092,8 +2143,42 @@ TEST(CctpLibrary, TestCustomFieldsValidation_v1)
 }
 
 /**
- * @brief Test the validation of a full (32 bytes) random custom field
- * iteratively changing the last byte.
+ * @brief Test the validation of a full (32 bytes) random custom field iteratively
+ * changing the last (most significant) byte.
+ */
+TEST(CctpLibrary, TestFullCustomFieldValidation_v0)
+{
+    uint8_t sidechainVersion = 0;
+
+    std::vector<unsigned char> rawBytes(std::begin(TEST_CUSTOM_FIELD), std::end(TEST_CUSTOM_FIELD));
+
+    for (uint8_t i = 1; i < CHAR_BIT; i++)
+    {
+        for (uint8_t j = 1; j > 0; j++)
+        {
+            rawBytes.back() = ReverseBitsInByte(j);
+            FieldElementCertificateField certField = FieldElementCertificateField(rawBytes);
+            FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i + 31 * CHAR_BIT);
+            CFieldElement fe = certField.GetFieldElement(config, sidechainVersion);
+
+            // The Field Element is valid if it matches the configuration (j < 1 << i)
+            // and if doesn't exceed the modulus, thus the last two bits cannot be set (j < 1 << 6).
+            // Since v0 uses the wrong endianness, "j" must be reversed before checking.
+            if (j < 1 << i && ReverseBitsInByte(j) < 1 << (CHAR_BIT - 2))
+            {
+                EXPECT_TRUE(fe.IsValid());
+            }
+            else
+            {
+                EXPECT_FALSE(fe.IsValid());
+            }
+        }
+    }
+}
+
+/**
+ * @brief Test the validation of a full (32 bytes) random custom field iteratively
+ * changing the last (most significant) byte.
  */
 TEST(CctpLibrary, TestFullCustomFieldValidation_v1)
 {
@@ -2112,7 +2197,7 @@ TEST(CctpLibrary, TestFullCustomFieldValidation_v1)
 
             // The Field Element is valid if it matches the configuration (j < 1 << i)
             // and if doesn't exceed the modulus, thus the last two bits cannot be set (j < 1 << 6).
-            if (j < 1 << i && j < 1 << 6)
+            if (j < 1 << i && j < 1 << (CHAR_BIT - 2))
             {
                 EXPECT_TRUE(fe.IsValid());
             }
@@ -2127,7 +2212,43 @@ TEST(CctpLibrary, TestFullCustomFieldValidation_v1)
 /**
  * @brief Test the validation of a random custom field
  * with a size equivalent to a long integer (64 bits, 8 bytes)
- * iteratively changing the last byte.
+ * iteratively changing the last (most significant) byte.
+ */
+TEST(CctpLibrary, TestLongIntCustomFieldValidation_v0)
+{
+    uint8_t sidechainVersion = 0;
+
+    std::vector<unsigned char> rawBytes(std::begin(TEST_CUSTOM_FIELD), std::end(TEST_CUSTOM_FIELD));
+    rawBytes.resize(8);
+
+    for (uint8_t i = 1; i < CHAR_BIT; i++)
+    {
+        for (uint8_t j = 1; j > 0; j++)
+        {
+            rawBytes.back() = ReverseBitsInByte(j);
+            FieldElementCertificateField certField = FieldElementCertificateField(rawBytes);
+            FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i + 7 * CHAR_BIT);
+            CFieldElement fe = certField.GetFieldElement(config, sidechainVersion);
+
+            // The Field Element is valid if it matches the configuration (j < 1 << i)
+            // and if doesn't exceed the modulus, thus the last two bits cannot be set (j < 1 << 6).
+            // Since v0 uses the wrong endianness, "j" must be reversed before checking.
+            if (j < 1 << i && ReverseBitsInByte(j) < 1 << (CHAR_BIT - 2))
+            {
+                EXPECT_TRUE(fe.IsValid());
+            }
+            else
+            {
+                EXPECT_FALSE(fe.IsValid());
+            }
+        }
+    }
+}
+
+/**
+ * @brief Test the validation of a random custom field
+ * with a size equivalent to a long integer (64 bits, 8 bytes)
+ * iteratively changing the last (most significant) byte.
  */
 TEST(CctpLibrary, TestLongIntCustomFieldValidation_v1)
 {
@@ -2145,6 +2266,7 @@ TEST(CctpLibrary, TestLongIntCustomFieldValidation_v1)
             FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i + 7 * CHAR_BIT);
             CFieldElement fe = certField.GetFieldElement(config, sidechainVersion);
 
+            // The Field Element is valid if it matches the configuration (j < 1 << i).
             if (j < 1 << i)
             {
                 EXPECT_TRUE(fe.IsValid());
@@ -2160,7 +2282,43 @@ TEST(CctpLibrary, TestLongIntCustomFieldValidation_v1)
 /**
  * @brief Test the validation of a random custom field
  * with a size equivalent to an integer (32 bits, 4 bytes)
- * iteratively changing the last byte.
+ * iteratively changing the last (most significant) byte.
+ */
+TEST(CctpLibrary, TestIntCustomFieldValidation_v0)
+{
+    uint8_t sidechainVersion = 0;
+
+    std::vector<unsigned char> rawBytes(std::begin(TEST_CUSTOM_FIELD), std::end(TEST_CUSTOM_FIELD));
+    rawBytes.resize(4);
+
+    for (uint8_t i = 1; i < CHAR_BIT; i++)
+    {
+        for (uint8_t j = 1; j > 0; j++)
+        {
+            rawBytes.back() = ReverseBitsInByte(j);
+            FieldElementCertificateField certField = FieldElementCertificateField(rawBytes);
+            FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i + 3 * CHAR_BIT);
+            CFieldElement fe = certField.GetFieldElement(config, sidechainVersion);
+
+            // The Field Element is valid if it matches the configuration (j < 1 << i)
+            // and if doesn't exceed the modulus, thus the last two bits cannot be set (j < 1 << 6).
+            // Since v0 uses the wrong endianness, "j" must be reversed before checking.
+            if (j < 1 << i && ReverseBitsInByte(j) < 1 << (CHAR_BIT - 2))
+            {
+                EXPECT_TRUE(fe.IsValid());
+            }
+            else
+            {
+                EXPECT_FALSE(fe.IsValid());
+            }
+        }
+    }
+}
+
+/**
+ * @brief Test the validation of a random custom field
+ * with a size equivalent to an integer (32 bits, 4 bytes)
+ * iteratively changing the last (most significant) byte.
  */
 TEST(CctpLibrary, TestIntCustomFieldValidation_v1)
 {
@@ -2178,6 +2336,7 @@ TEST(CctpLibrary, TestIntCustomFieldValidation_v1)
             FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(i + 3 * CHAR_BIT);
             CFieldElement fe = certField.GetFieldElement(config, sidechainVersion);
 
+            // The Field Element is valid if it matches the configuration (j < 1 << i).
             if (j < 1 << i)
             {
                 EXPECT_TRUE(fe.IsValid());
@@ -2188,4 +2347,133 @@ TEST(CctpLibrary, TestIntCustomFieldValidation_v1)
             }
         }
     }
+}
+
+/**
+ * @brief This test is intented to check that the validation mechanism works as expected
+ * both in sidechain version 0 and 1 with values around the field modulus.
+ */
+TEST(CctpLibrary, TestTweedleFrModulusLimit)
+{
+    FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(255);
+    std::vector<unsigned char> rawBytes(std::begin(TWEEDLE_FR_MODULUS), std::end(TWEEDLE_FR_MODULUS));
+
+    /*
+     * To decrease the Field Element we can just decrease the least significant byte,
+     * but only if there is no overflow (if byte is 0, then 0 - 1 = 0xFF).
+     */
+    ASSERT_TRUE(rawBytes.front() > 0);
+    rawBytes.front()--;
+
+    FieldElementCertificateField certField = FieldElementCertificateField(rawBytes);
+    CFieldElement fe = certField.GetFieldElement(config, 0);
+    ASSERT_TRUE(fe.IsValid());
+
+    certField = FieldElementCertificateField(rawBytes);
+    fe = certField.GetFieldElement(config, 1);
+    ASSERT_TRUE(fe.IsValid());
+
+    rawBytes.front()++;
+
+    certField = FieldElementCertificateField(rawBytes);
+    fe = certField.GetFieldElement(config, 0);
+    ASSERT_FALSE(fe.IsValid());
+
+    certField = FieldElementCertificateField(rawBytes);
+    fe = certField.GetFieldElement(config, 1);
+    ASSERT_FALSE(fe.IsValid());
+
+    /*
+     * Even though the test is working as expected (meaning that both v0 and v1 are able to
+     * correctly validate a Field Element containing the value "MODULUS - 1" and instead
+     * reject the value "MODULUS"), we cannot be sure that the rawBytes are read with the
+     * right endianness. If, by mistake, we are decreasing the wrong byte (not the least
+     * significant but the most significant one), the previous checks would pass anyway).
+     * 
+     * To prove that the endianness is correct we can than run the same checks by keeping
+     * the least significant byte and clearing the other ones (expeting success). Then,
+     * if we increase the same byte, the checks would pass only if we picked the right
+     * byte, otherwise we would end up with a value over the modulus!
+     */
+
+    std::vector<unsigned char> clearedBytes = { rawBytes.front() };
+    clearedBytes.resize(rawBytes.size(), 0);
+
+    certField = FieldElementCertificateField(clearedBytes);
+    fe = certField.GetFieldElement(config, 0);
+    ASSERT_TRUE(fe.IsValid());
+
+    certField = FieldElementCertificateField(clearedBytes);
+    fe = certField.GetFieldElement(config, 1);
+    ASSERT_TRUE(fe.IsValid());
+
+    /*
+     * For the same reason as before, before increasing the byte we have to make sure that
+     * there is no overflow.
+     */
+    ASSERT_TRUE(clearedBytes.front() < 0xff);
+    clearedBytes.front()++;
+
+    certField = FieldElementCertificateField(clearedBytes);
+    fe = certField.GetFieldElement(config, 0);
+    ASSERT_TRUE(fe.IsValid());
+
+    certField = FieldElementCertificateField(clearedBytes);
+    fe = certField.GetFieldElement(config, 1);
+    ASSERT_TRUE(fe.IsValid());
+
+    /*
+     * As a countercheck, we should expect a failure if we pick (and increase) the wrong
+     * byte after having cleared the other ones.
+     */
+    std::vector<unsigned char> wrongBytes(rawBytes.size(), 0);
+    wrongBytes.back() = rawBytes.back();
+
+    certField = FieldElementCertificateField(wrongBytes);
+    fe = certField.GetFieldElement(config, 0);
+    ASSERT_TRUE(fe.IsValid());
+
+    certField = FieldElementCertificateField(wrongBytes);
+    fe = certField.GetFieldElement(config, 1);
+    ASSERT_TRUE(fe.IsValid());
+
+
+    ASSERT_TRUE(wrongBytes.back() < 0xff);
+    wrongBytes.back()++;
+
+    certField = FieldElementCertificateField(wrongBytes);
+    fe = certField.GetFieldElement(config, 0);
+    ASSERT_FALSE(fe.IsValid());
+
+    certField = FieldElementCertificateField(wrongBytes);
+    fe = certField.GetFieldElement(config, 1);
+    ASSERT_FALSE(fe.IsValid());
+}
+
+/**
+ * @brief This test is intented to check that version 0 of the custom fields validation
+ * is buggy, while version 1 is fixed.
+ * 
+ * To do that, we try to validate a "special" field element.
+ * 
+ */
+TEST(CctpLibrary, TestCustomFieldsValidationFix)
+{
+    FieldElementCertificateFieldConfig config = FieldElementCertificateFieldConfig(9);
+    std::vector<unsigned char> rawBytes = { 0, 1 };
+
+    /*
+     * This byte array is like [00000000] ... [00000001] [00000000], where the second least
+     * significant byte is set to 1. It clearly uses 9 bits, but the version 0 validation
+     * would fail processing thinking that it uses 16 bits instead (due to the different
+     * endianness).
+     */
+
+    FieldElementCertificateField certField = FieldElementCertificateField(rawBytes);
+    CFieldElement fe = certField.GetFieldElement(config, 0);
+    ASSERT_FALSE(fe.IsValid());
+
+    certField = FieldElementCertificateField(rawBytes);
+    fe = certField.GetFieldElement(config, 1);
+    ASSERT_TRUE(fe.IsValid());
 }
