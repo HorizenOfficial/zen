@@ -511,8 +511,25 @@ struct ScFixedParameters
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(version);
-        READWRITE(withdrawalEpochLength);
+
+        // See CTxScCreationOut for details about the serialization of "version" field.
+        if (ser_action.ForRead())
+        {
+            int withdrawalEpochLengthAndVersion;
+            READWRITE(withdrawalEpochLengthAndVersion);
+            
+            // Get the most significant byte
+            version = withdrawalEpochLengthAndVersion >> 24;
+
+            // Get the least significant 3 bytes
+            withdrawalEpochLength = withdrawalEpochLengthAndVersion & 0x00FFFFFF;
+        }
+        else
+        {
+            int withdrawalEpochLengthAndVersion = (version << 24) | withdrawalEpochLength;
+            READWRITE(withdrawalEpochLengthAndVersion);
+        }
+
         READWRITE(customData);
         READWRITE(constant);
         READWRITE(wCertVk);
