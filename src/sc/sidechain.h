@@ -138,7 +138,7 @@ public:
             The initial "sidechainVersion" variable has then been removed to avoid confusion and inconsistencies and its
             space in the serialization is held by this dummy/reserved variable.
         */
-        uint32_t reserved = 0xffffffff;
+        uint32_t reserved = 0;
 
         READWRITE(reserved);
         READWRITE(VARINT(creationBlockHeight));
