@@ -637,7 +637,7 @@ public:
             // Get the most significant byte
             version = withdrawalEpochLengthAndVersion >> 24;
 
-            // Get the leasst significant 3 bytes
+            // Get the least significant 3 bytes
             withdrawalEpochLength = withdrawalEpochLengthAndVersion & 0x00FFFFFF;
         }
         else
