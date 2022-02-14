@@ -588,7 +588,7 @@ public:
     /**
      * @brief  Version of the sidechain.
      * The sidechain version has been introduced with hard fork 9 to increase the flexibility of the sidechain mechanism.
-     * Since the Sidechain Creation Output was at the beginning designed without the version, a single byty for such field
+     * Since the Sidechain Creation Output was at the beginning designed without the version, a single byte for such field
      * has been taken from the WithdrawalEpochLength (before hard fork 9 its size was 4 bytes, after hard fork 9 it is 3 bytes).
      * Due to the constraints of the consensus logic, we are sure that the most significant byte of the WithdrawalEpochLength was
      * always zero before hard fork 9.
