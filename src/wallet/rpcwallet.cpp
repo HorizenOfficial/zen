@@ -828,7 +828,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     {
         sidechainVersion = find_value(inputObject, "version").get_int();
 
-        if (sidechainVersion < 0 || sidechainVersion > ForkManager::getInstance().getHighestFork()->getMaxSidechainVersion())
+        if (sidechainVersion < 0 || sidechainVersion > ForkManager::getInstance().getMaxSidechainVersion(chainActive.Height() + 1))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid sidechain version"));
     }
     else
