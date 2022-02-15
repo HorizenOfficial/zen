@@ -43,7 +43,10 @@ class sc_version(BitcoinTestFramework):
         test_helper.create_sidechain("pre_fork_v0", 0, EXPECT_SUCCESS)
 
         mark_logs("Node 0 creates a v1 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
-        assert("bad-tx-sc-creation-wrong-version" in test_helper.create_sidechain("pre_fork_v1", 1, EXPECT_FAILURE))
+        assert("Invalid sidechain version" in test_helper.create_sidechain("pre_fork_v1", 1, EXPECT_FAILURE))
+
+        mark_logs("Node 0 creates a v2 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
+        assert("Invalid sidechain version" in test_helper.create_sidechain("pre_fork_v2", 2, EXPECT_FAILURE))
 
         self.sync_all()
 
@@ -56,6 +59,9 @@ class sc_version(BitcoinTestFramework):
 
         mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
         test_helper.create_sidechain("post_fork_v1", 1, EXPECT_SUCCESS)
+
+        mark_logs("Node 0 creates a v2 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
+        assert("Invalid sidechain version" in test_helper.create_sidechain("post_fork_v2", 2, EXPECT_FAILURE))
 
         self.sync_all()
 
