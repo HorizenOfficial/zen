@@ -99,6 +99,7 @@ testScripts=(
   'sc_bwt_request.py'
   'sc_cert_quality_wallet.py'
   'ws_messages.py'
+  'ws_getsidechainversions.py'
   'sc_cert_ceasing_split.py'
   'sc_async_proof_verifier.py'
   'sc_quality_blockchain.py'
