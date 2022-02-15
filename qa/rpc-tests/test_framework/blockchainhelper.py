@@ -34,7 +34,7 @@ class BlockchainHelper(object):
         try:
             ret = self.nodes[0].sc_create(sc_input)
             assert(not should_fail)
-            self.store_sidechain(sc_name, sc_input, ret["txid"])
+            self.store_sidechain(sc_name, sc_input, ret)
         except JSONRPCException as e:
             error_message = e.error['message']
             mark_logs(error_message, self.nodes, 1)
@@ -42,12 +42,13 @@ class BlockchainHelper(object):
 
         return error_message
 
-    def store_sidechain(self, sc_name, sc_params, tx_id):
+    def store_sidechain(self, sc_name, sc_params, creation_response):
         self.sidechain_map[sc_name] = {
             "name": sc_name,
             "version": sc_params["version"],
             "cert_vk": sc_params["wCertVk"],
-            "creation_tx_id": tx_id
+            "creation_tx_id": creation_response["txid"],
+            "sc_id": creation_response["scid"]
         }
 
     def get_sidechain_creation_input(self, sc_name, sidechain_version):
@@ -60,6 +61,7 @@ class BlockchainHelper(object):
         }
 
     def get_sidechain_id(self, sc_name):
-        sc_id = self.nodes[0].getrawtransaction(self.sidechain_map[sc_name]["creation_tx_id"], 1)['vsc_ccout'][0]['scid']
-        self.sidechain_map[sc_name]["sc_id"] = sc_id
-        return sc_id
+        #sc_id = self.nodes[0].getrawtransaction(self.sidechain_map[sc_name]["creation_tx_id"], 1)['vsc_ccout'][0]['scid']
+        #self.sidechain_map[sc_name]["sc_id"] = sc_id
+        #return sc_id
+        return self.sidechain_map[sc_name]["sc_id"]
