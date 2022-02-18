@@ -526,6 +526,9 @@ struct ScFixedParameters
         }
         else
         {
+            // Check any possible inconsistency that would overwrite the "version" byte
+            assert(withdrawalEpochLength <= 0x00FFFFFF);
+
             int withdrawalEpochLengthAndVersion = (version << 24) | withdrawalEpochLength;
             READWRITE(withdrawalEpochLengthAndVersion);
         }
