@@ -2195,6 +2195,8 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
         sSidechainVersion_tag scVersion = {};
         scVersion.sidechainId = cert.GetScId();
         scVersion.sidechainVersion = sc.fixedParams.version;
+
+        vSidechainVersion.push_back(scVersion);
     }
 
     ssBlock << vSidechainVersion;
