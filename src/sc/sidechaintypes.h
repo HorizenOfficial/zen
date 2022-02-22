@@ -440,6 +440,21 @@ typedef struct sPowRelatedData_tag
     }
 } ScPowRelatedData;
 
+// useful in sc rpc command for getting genesis info
+struct sSidechainVersion_tag
+{
+    uint256 sidechainId;
+    uint8_t sidechainVersion;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(sidechainId);
+        READWRITE(sidechainVersion);
+    }
+};
+
 // useful in checking SC fees
 enum class ScFeeCheckFlag {
     LATEST_VALUE,
