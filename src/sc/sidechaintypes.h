@@ -305,7 +305,7 @@ public:
     }
 
     friend std::ostream& operator<<(std::ostream& os, const FieldElementCertificateFieldConfig& r) {
-        os << r.nBits;
+        os << (int)r.nBits;
         return os;
     }
 };
