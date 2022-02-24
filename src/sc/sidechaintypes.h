@@ -441,7 +441,7 @@ typedef struct sPowRelatedData_tag
 } ScPowRelatedData;
 
 // useful in sc rpc command for getting genesis info
-struct sSidechainVersion_tag
+struct ScVersionInfo
 {
     uint256 sidechainId;
     uint8_t sidechainVersion;

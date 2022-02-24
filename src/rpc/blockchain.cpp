@@ -2181,7 +2181,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     ssBlock << block;
 
     // Retrieve sidechain version for any sidechain that published a certificate in this block
-    std::vector<sSidechainVersion_tag> vSidechainVersion;
+    std::vector<ScVersionInfo> vSidechainVersion;
 
     for (const CScCertificate& cert : block.vcert)
     {
@@ -2192,7 +2192,7 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not found: ") + cert.GetScId().ToString());
         }
 
-        sSidechainVersion_tag scVersion = {};
+        ScVersionInfo scVersion = {};
         scVersion.sidechainId = cert.GetScId();
         scVersion.sidechainVersion = sc.fixedParams.version;
 
