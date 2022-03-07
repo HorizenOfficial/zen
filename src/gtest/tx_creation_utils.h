@@ -179,6 +179,8 @@ public:
     // TRANSACTION HELPERS
     CTxCeasedSidechainWithdrawalInput CreateCswInput(uint256 scId, CAmount nValue, ProvingSystem provingSystem) const;
     CTxScCreationOut CreateScCreationOut(uint8_t sidechainVersion, ProvingSystem provingSystem) const;
+    CTxForwardTransferOut CreateForwardTransferOut(uint256 scId) const;
+    CBwtRequestOut CreateBackwardTransferRequestOut(uint256 scId) const;
     CMutableTransaction CreateTransaction(const CTransactionCreationArguments& args) const;
 
     // MEMPOOL HELPERS
@@ -190,6 +192,7 @@ public:
     CScProof GenerateTestCertificateProof(CCertProofVerifierInput certificate, ProvingSystem provingSystem, TestCircuitType circuitType = TestCircuitType::Certificate) const;
     CScProof GenerateTestCswProof(CCswProofVerifierInput csw, ProvingSystem provingSystem, TestCircuitType circuitType = TestCircuitType::CSW) const;
     CScVKey GetTestVerificationKey(ProvingSystem provingSystem, TestCircuitType circuitType) const;
+    CSidechain GenerateSidechain(uint256 scId, uint8_t version) const;
     void StoreSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight) const;
     bool VerifyCertificateProof(CCertProofVerifierInput certificate) const;
     bool VerifyCswProof(CCswProofVerifierInput csw) const;

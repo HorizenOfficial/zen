@@ -547,6 +547,7 @@ CTxCeasedSidechainWithdrawalInput BlockchainTestManager::CreateCswInput(uint256 
     input.actCertDataHash = CFieldElement{SAMPLE_FIELD};
     input.ceasingCumScTxCommTree = CFieldElement{SAMPLE_FIELD};
     input.nullifier = CFieldElement{SAMPLE_FIELD};
+    input.pubKeyHash = uint160S("aaaa");
 
     CSidechain sidechain;
     assert(viewCache->GetSidechain(scId, sidechain));
@@ -573,6 +574,32 @@ CTxScCreationOut BlockchainTestManager::CreateScCreationOut(uint8_t sidechainVer
     scCreationOut.mainchainBackwardTransferRequestScFee = 0;
     scCreationOut.wCertVk = GetTestVerificationKey(provingSystem, TestCircuitType::Certificate);
     return scCreationOut;
+}
+
+/**
+ * @brief Creates a Sidechain Forward Transfer output.
+ * 
+ * @param scId The ID of the sidechain to which the coins must be transferred
+ * @return CTxScForwardTransferOut The sidechain forward transfer output created.
+ */
+CTxForwardTransferOut BlockchainTestManager::CreateForwardTransferOut(uint256 scId) const
+{
+    CTxForwardTransferOut forwardTransferOut;
+    forwardTransferOut.address = uint256S("aaaa");
+    forwardTransferOut.scId = scId;
+    forwardTransferOut.nValue = CAmount(1);
+    forwardTransferOut.mcReturnAddress = uint160S("bbbb");
+    return forwardTransferOut;
+}
+
+CBwtRequestOut BlockchainTestManager::CreateBackwardTransferRequestOut(uint256 scId) const
+{
+    CBwtRequestOut bwtRequestOut;
+    bwtRequestOut.scId = scId;
+    bwtRequestOut.mcDestinationAddress = uint160S("aaaa");
+    bwtRequestOut.scFee = CAmount(1);
+    bwtRequestOut.vScRequestData.push_back(CFieldElement{SAMPLE_FIELD});
+    return bwtRequestOut;
 }
 
 /**
@@ -863,6 +890,22 @@ CScProof BlockchainTestManager::GenerateTestCswProof(CCswProofVerifierInput csw,
 CScVKey BlockchainTestManager::GetTestVerificationKey(ProvingSystem provingSystem, TestCircuitType circuitType) const
 {
     return CScVKey(ReadBytesFromFile(GetTestFilePath(provingSystem, circuitType) + "vk"));
+}
+
+/**
+ * @brief Generate a sidechain object
+ * 
+ * @param scId The sidechain id
+ * @return CSidechain The generated sidechain object
+ */
+CSidechain BlockchainTestManager::GenerateSidechain(uint256 scId, uint8_t version) const
+{
+    CSidechain sc;
+    sc.fixedParams.version = version;
+    sc.fixedParams.constant = CFieldElement{SAMPLE_FIELD};
+    sc.fixedParams.wCertVk = GetTestVerificationKey(ProvingSystem::CoboundaryMarlin, TestCircuitType::CertificateNoConstant);
+    sc.fixedParams.wCeasedVk = GetTestVerificationKey(ProvingSystem::CoboundaryMarlin, TestCircuitType::CSWNoConstant);
+    return sc;
 }
 
 /**
