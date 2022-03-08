@@ -21,6 +21,15 @@ public:
     int paramIdx;                      //! 0-based idx of param to convert
 };
 
+/**
+ * @brief A list of RPC command parameters that need to be converted.
+ * 
+ * In particular, this list must include any parameter that is not a string,
+ * otherwhise the related command would not work if used from the zen-cli.
+ * 
+ * Note that JSON object arguments must be included in this list.
+ * 
+ */
 static const CRPCConvertParam vRPCConvertParams[] =
 {
     { "stop", 0 },
@@ -62,6 +71,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listaccounts", 1 },
     { "walletpassphrase", 1 },
     { "getblocktemplate", 0 },
+    { "getblocktemplate", 1 },
     { "listsinceblock", 1 },
     { "listsinceblock", 2 },
     { "listsinceblock", 3 },
