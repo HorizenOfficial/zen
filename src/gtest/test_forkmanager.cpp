@@ -115,6 +115,33 @@ TEST(ForkManager, SelectNetworkAfterChainsplit) {
     EXPECT_TRUE(ForkManager::getInstance().isAfterChainsplit(110001));
 }
 
+TEST(ForkManager, GetCommunityFundAddressRegtest) {
+    SelectParams(CBaseChainParams::REGTEST);
+    Fork::CommunityFundType foundation = Fork::CommunityFundType::FOUNDATION;
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(0, 840000, foundation),"");
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1 - 1, 840000, foundation),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1, 840000, foundation),"zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1 + 1, 840000, foundation),"zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD");
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(101 - 1, 840000, foundation),"zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(101, 840000, foundation),"zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(101 + 1, 840000, foundation),"zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD");
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(105 - 1, 840000, foundation),"zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(105, 840000, foundation),"zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(105 + 1, 840000, foundation),"zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD");
+
+    // Test the new addresses introduced in the hard fork 9 (sidechain version)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(450 - 1, 0, foundation),"zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(450, 0, foundation),"zrGrtLkMLiGPeRtzDmHeRiAKjVcRYmGWddh");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(450 + 1, 0, foundation),"zrGrtLkMLiGPeRtzDmHeRiAKjVcRYmGWddh");
+
+    // Test the highest possible block (for spotting potential regressions)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, foundation),"zrGrtLkMLiGPeRtzDmHeRiAKjVcRYmGWddh");
+}
+
 TEST(ForkManager, GetCommunityFundAddressTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(70000,840000, Fork::CommunityFundType::FOUNDATION),"");
@@ -123,6 +150,14 @@ TEST(ForkManager, GetCommunityFundAddressTestnet) {
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(85500,840000, Fork::CommunityFundType::FOUNDATION),"zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1");
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(260499,840000, Fork::CommunityFundType::FOUNDATION),"zrRBQ5heytPMN5nY3ssPf3cG4jocXeD8fm1");
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(260500,840000, Fork::CommunityFundType::FOUNDATION),"zrFzxutppvxEdjyu4QNjogBMjtC1py9Hp1S");
+
+    // Test the new addresses introduced in the hard fork 9 (sidechain version)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 - 1, 0, Fork::CommunityFundType::FOUNDATION),"zrFzxutppvxEdjyu4QNjogBMjtC1py9Hp1S");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000, 0, Fork::CommunityFundType::FOUNDATION),"zrRARDJGHe6VxZRPHd5bUtkkWn8qb5nGwKb");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 + 1, 0, Fork::CommunityFundType::FOUNDATION),"zrRARDJGHe6VxZRPHd5bUtkkWn8qb5nGwKb");
+
+    // Test the highest possible block (for spotting potential regressions)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::FOUNDATION),"zrRARDJGHe6VxZRPHd5bUtkkWn8qb5nGwKb");
 }
 
 TEST(ForkManager, GetCommunityFundAddressMainnet) {
@@ -143,26 +178,120 @@ TEST(ForkManager, GetCommunityFundAddressMainnet) {
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(339200,840000, Fork::CommunityFundType::FOUNDATION),"zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82");
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(344699,840000, Fork::CommunityFundType::FOUNDATION),"zsyF68hcYYNLPj5i4PfQJ1kUY6nsFnZkc82");
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(344700,840000, Fork::CommunityFundType::FOUNDATION),"zszpcLB6C5B8QvfDbF2dYWXsrpac5DL9WRk");
+
+    // Test the new addresses introduced in the hard fork 9 (sidechain version)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 - 1, 0, Fork::CommunityFundType::FOUNDATION),"zszpcLB6C5B8QvfDbF2dYWXsrpac5DL9WRk");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000, 0, Fork::CommunityFundType::FOUNDATION),"zstvVYkJdEVinD9hxqyyevKcaX7dkGddTS8");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 + 1, 0, Fork::CommunityFundType::FOUNDATION),"zstvVYkJdEVinD9hxqyyevKcaX7dkGddTS8");
+
+    // Test the highest possible block (for spotting potential regressions)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::FOUNDATION),"zstvVYkJdEVinD9hxqyyevKcaX7dkGddTS8");
+}
+
+TEST(ForkManager, GetSecureNodeFundAddressRegtest) {
+    SelectParams(CBaseChainParams::REGTEST);
+    Fork::CommunityFundType securenode = Fork::CommunityFundType::SECURENODE;
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(0, 840000, securenode),"");
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1 - 1, 840000, securenode),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1, 840000, securenode),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1 + 1, 840000, securenode),"");
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(101 - 1, 840000, securenode),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(101, 840000, securenode),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(101 + 1, 840000, securenode),"");
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(105 - 1, 840000, securenode),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(105, 840000, securenode),"zrQG6x9j33DLbCfzAqu3qKMe7z1VDL1z2L7");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(105 + 1, 840000, securenode),"zrQG6x9j33DLbCfzAqu3qKMe7z1VDL1z2L7");
+
+    // Test the new addresses introduced in the hard fork 9 (sidechain version)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(450 - 1, 0, securenode),"zrQG6x9j33DLbCfzAqu3qKMe7z1VDL1z2L7");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(450, 0, securenode),"zr8SmmBHw7ios52wx7UktF3NhejxmBTUAwM");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(450 + 1, 0, securenode),"zr8SmmBHw7ios52wx7UktF3NhejxmBTUAwM");
+
+    // Test the highest possible block (for spotting potential regressions)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, securenode),"zr8SmmBHw7ios52wx7UktF3NhejxmBTUAwM");
 }
 
 TEST(ForkManager, GetSecureNodeFundAddressTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(260500,840000, Fork::CommunityFundType::SECURENODE),"zrS7QUB2eDbbKvyP43VJys3t7RpojW8GdxH");
+
+    // Test the new addresses introduced in the hard fork 9 (sidechain version)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 - 1, 0, Fork::CommunityFundType::SECURENODE),"zrS7QUB2eDbbKvyP43VJys3t7RpojW8GdxH");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000, 0, Fork::CommunityFundType::SECURENODE),"zr8mk2LzX243vfTJGuUavbhr9Zv5hihrXQg");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 + 1, 0, Fork::CommunityFundType::SECURENODE),"zr8mk2LzX243vfTJGuUavbhr9Zv5hihrXQg");
+
+    // Test the highest possible block (for spotting potential regressions)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::SECURENODE),"zr8mk2LzX243vfTJGuUavbhr9Zv5hihrXQg");
 }
 
 TEST(ForkManager, GetSecureNodeFundAddressMainnet) {
     SelectParams(CBaseChainParams::MAIN);
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(344700,840000, Fork::CommunityFundType::SECURENODE),"zsxWnyDbU8pk2Vp98Uvkx5Nh33RFzqnCpWN");
+
+    // Test the new addresses introduced in the hard fork 9 (sidechain version)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 - 1, 0, Fork::CommunityFundType::SECURENODE),"zsxWnyDbU8pk2Vp98Uvkx5Nh33RFzqnCpWN");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000, 0, Fork::CommunityFundType::SECURENODE),"zszxbgE4fPZMeMyVhfhiejG9VRE4LPMVSVf");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 + 1, 0, Fork::CommunityFundType::SECURENODE),"zszxbgE4fPZMeMyVhfhiejG9VRE4LPMVSVf");
+
+    // Test the highest possible block (for spotting potential regressions)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::SECURENODE),"zszxbgE4fPZMeMyVhfhiejG9VRE4LPMVSVf");
+}
+
+TEST(ForkManager, GetSuperNodeFundAddressRegtest) {
+    SelectParams(CBaseChainParams::REGTEST);
+    Fork::CommunityFundType supernode = Fork::CommunityFundType::SUPERNODE;
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(0, 840000, supernode),"");
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1 - 1, 840000, supernode),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1, 840000, supernode),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(1 + 1, 840000, supernode),"");
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(101 - 1, 840000, supernode),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(101, 840000, supernode),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(101 + 1, 840000, supernode),"");
+
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(105 - 1, 840000, supernode),"");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(105, 840000, supernode),"zrMasbhB1yyfQ5RBUm7NPcEjGWZdRneWCEx");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(105 + 1, 840000, supernode),"zrMasbhB1yyfQ5RBUm7NPcEjGWZdRneWCEx");
+
+    // Test the new addresses introduced in the hard fork 9 (sidechain version)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(450 - 1, 0, supernode),"zrMasbhB1yyfQ5RBUm7NPcEjGWZdRneWCEx");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(450, 0, supernode),"zr7hHLWwfQeFeDjWAy1NsimsKm5pra5snLG");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(450 + 1, 0, supernode),"zr7hHLWwfQeFeDjWAy1NsimsKm5pra5snLG");
+
+    // Test the highest possible block (for spotting potential regressions)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, supernode),"zr7hHLWwfQeFeDjWAy1NsimsKm5pra5snLG");
 }
 
 TEST(ForkManager, GetSuperNodeFundAddressTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(260500,840000, Fork::CommunityFundType::SUPERNODE),"zrFr5HVm7woVq3oFzkMEdJdbfBchfPAPDsP");
+
+    // Test the new addresses introduced in the hard fork 9 (sidechain version)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 - 1, 0, Fork::CommunityFundType::SUPERNODE),"zrFr5HVm7woVq3oFzkMEdJdbfBchfPAPDsP");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000, 0, Fork::CommunityFundType::SUPERNODE),"zrCqcKMTwc5ukZ19LP7aUvsNtGscHFNMrw5");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 + 1, 0, Fork::CommunityFundType::SUPERNODE),"zrCqcKMTwc5ukZ19LP7aUvsNtGscHFNMrw5");
+
+    // Test the highest possible block (for spotting potential regressions)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::SUPERNODE),"zrCqcKMTwc5ukZ19LP7aUvsNtGscHFNMrw5");
 }
 
 TEST(ForkManager, GetSuperNodeFundAddressMainnet) {
     SelectParams(CBaseChainParams::MAIN);
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(344700,840000, Fork::CommunityFundType::SUPERNODE),"zsnL6pKdzvZ1BPVzALUoqw2KsY966XFs5CE");
+
+    // Test the new addresses introduced in the hard fork 9 (sidechain version)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 - 1, 0, Fork::CommunityFundType::SUPERNODE),"zsnL6pKdzvZ1BPVzALUoqw2KsY966XFs5CE");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000, 0, Fork::CommunityFundType::SUPERNODE),"zsmtifdePb5b1fgwkdz1msgSEJLJQ8NyXpG");
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(2000000 + 1, 0, Fork::CommunityFundType::SUPERNODE),"zsmtifdePb5b1fgwkdz1msgSEJLJQ8NyXpG");
+
+    // Test the highest possible block (for spotting potential regressions)
+    EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::SUPERNODE),"zsmtifdePb5b1fgwkdz1msgSEJLJQ8NyXpG");
 }
 
 TEST(ForkManager, GetMinimumTimeTestnet) {
