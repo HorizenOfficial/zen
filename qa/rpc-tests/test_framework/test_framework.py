@@ -27,6 +27,10 @@ MINER_REWARD_POST_H200 = 7.50
 
 class BitcoinTestFramework(object):
 
+    def __init__(self):
+        self.nodes = []
+        self.is_network_split = False
+
     # These may be over-ridden by subclasses:
     def run_test(self):
         for node in self.nodes:

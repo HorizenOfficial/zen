@@ -20,8 +20,6 @@ class sc_getscgenesisinfo(BitcoinTestFramework):
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 
     def setup_network(self, split=False):
-        self.nodes = []
-
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
             [['-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert', '-scproofqueuesize=0', '-logtimemicros=1']] * NUMB_OF_NODES)
 
@@ -102,7 +100,7 @@ class sc_getscgenesisinfo(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        epoch_length = test_helper.sidechain_map[v0_sc1_name]["withdrawalEpochLength"]
+        epoch_length = test_helper.sidechain_map[v0_sc1_name]["creation_args"].withdrawalEpochLength
 
         mark_logs("Node 0 generates {} blocks to reach end of epoch".format(epoch_length - 1), self.nodes, DEBUG_MODE)
         self.nodes[0].generate(epoch_length - 1)
@@ -133,6 +131,21 @@ class sc_getscgenesisinfo(BitcoinTestFramework):
 
         # Check that the genesis sidechain info contains the correct sidechain version for sidechain 2
         assert_equal(versions[test_helper.sidechain_map[v1_sc2_name]["sc_id"]], 1)
+
+        # The test is over, the following lines are only intended to be used as reference for SDK tests
+        mark_logs("Print raw block and sidechain commitment root for cross checks with SDK", self.nodes, DEBUG_MODE)
+        raw_block = self.nodes[0].getblock(last_block_hash, 0)
+        json_block = self.nodes[0].getblock(last_block_hash, 1)
+        sc_txs_commitment_tree_root = json_block["scTxsCommitment"]
+        print("")
+        print("Block raw hex:")
+        print(raw_block)
+        print("")
+        print("Block sc txs commitment tree root: {}".format(sc_txs_commitment_tree_root))
+
+        print("ID sidechain 1: {}".format(test_helper.sidechain_map[v0_sc1_name]["sc_id"]))
+        print("ID sidechain 2: {}".format(test_helper.sidechain_map[v1_sc2_name]["sc_id"]))
+        print("ID sidechain 3: {}".format(test_helper.sidechain_map[v1_sc3_name]["sc_id"]))
 
 if __name__ == '__main__':
     sc_getscgenesisinfo().main()
