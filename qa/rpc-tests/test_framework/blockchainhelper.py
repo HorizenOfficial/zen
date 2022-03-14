@@ -3,8 +3,8 @@
 from decimal import Decimal
 
 from authproxy import JSONRPCException
-from mc_test.mc_test import CertTestUtils, CSWTestUtils
-from util import mark_logs
+from mc_test.mc_test import CertTestUtils, CSWTestUtils, generate_random_field_element_hex
+from util import mark_logs, swap_bytes
 
 # A helper class to accomplish some operations in a faster way
 # (e.g. sidechain creation).
@@ -48,7 +48,9 @@ class BlockchainHelper(object):
             "version": sc_params["version"],
             "cert_vk": sc_params["wCertVk"],
             "creation_tx_id": creation_response["txid"],
-            "sc_id": creation_response["scid"]
+            "sc_id": creation_response["scid"],
+            "withdrawalEpochLength": sc_params["withdrawalEpochLength"],
+            "constant": sc_params["constant"]
         }
 
     def get_sidechain_creation_input(self, sc_name, sidechain_version):
@@ -58,10 +60,31 @@ class BlockchainHelper(object):
             "toaddress": "abcd",
             "amount":  Decimal("1.0"),
             "wCertVk": self.cert_utils.generate_params(sc_name),
+            "constant": generate_random_field_element_hex()
         }
 
     def get_sidechain_id(self, sc_name):
-        #sc_id = self.nodes[0].getrawtransaction(self.sidechain_map[sc_name]["creation_tx_id"], 1)['vsc_ccout'][0]['scid']
-        #self.sidechain_map[sc_name]["sc_id"] = sc_id
-        #return sc_id
         return self.sidechain_map[sc_name]["sc_id"]
+
+    def send_certificate(self, sc_name, quality):
+        sc_info = self.sidechain_map[sc_name]
+        scid = sc_info["sc_id"]
+        withdrawalEpochLength = sc_info["withdrawalEpochLength"]
+        constant = sc_info["constant"]
+
+        sc_creation_height = self.nodes[0].getscinfo(scid)['items'][0]['createdAtBlockHeight']
+        current_height = self.nodes[0].getblockcount()
+        epoch_number = (current_height - sc_creation_height + 1) // withdrawalEpochLength - 1
+        end_epoch_block_hash = self.nodes[0].getblockhash(sc_creation_height - 1 + ((epoch_number + 1) * withdrawalEpochLength))
+        epoch_cum_tree_hash = self.nodes[0].getblock(end_epoch_block_hash)['scCumTreeHash']
+        scid_swapped = str(swap_bytes(scid))
+        
+        proof = self.cert_utils.create_test_proof(sc_name, scid_swapped, epoch_number, quality, 0, 0, epoch_cum_tree_hash, constant)
+
+        if proof is None:
+            print("Unable to create proof")
+            assert(False)
+
+        certificate_id = self.nodes[0].sc_send_certificate(scid, epoch_number, quality, epoch_cum_tree_hash, proof, [], 0, 0)
+
+        return certificate_id

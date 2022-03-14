@@ -305,7 +305,7 @@ public:
     }
 
     friend std::ostream& operator<<(std::ostream& os, const FieldElementCertificateFieldConfig& r) {
-        os << r.nBits;
+        os << (int)r.nBits;
         return os;
     }
 };
@@ -439,6 +439,21 @@ typedef struct sPowRelatedData_tag
         READWRITE(b);
     }
 } ScPowRelatedData;
+
+// useful in sc rpc command for getting genesis info
+struct ScVersionInfo
+{
+    uint256 sidechainId;
+    uint8_t sidechainVersion;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(sidechainId);
+        READWRITE(sidechainVersion);
+    }
+};
 
 // useful in checking SC fees
 enum class ScFeeCheckFlag {

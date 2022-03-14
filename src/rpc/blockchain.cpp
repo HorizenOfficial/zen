@@ -2180,6 +2180,27 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
     // block hex data
     ssBlock << block;
 
+    // Retrieve sidechain version for any sidechain that published a certificate in this block
+    std::vector<ScVersionInfo> vSidechainVersion;
+
+    for (const CScCertificate& cert : block.vcert)
+    {
+        CSidechain sc;
+        if (!scView.GetSidechain(cert.GetScId(), sc))
+        {
+            LogPrint("sc", "cound not get info for scid[%s] while checking certificate\n", cert.GetScId().ToString() );
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not found: ") + cert.GetScId().ToString());
+        }
+
+        ScVersionInfo scVersion = {};
+        scVersion.sidechainId = cert.GetScId();
+        scVersion.sidechainVersion = sc.fixedParams.version;
+
+        vSidechainVersion.push_back(scVersion);
+    }
+
+    ssBlock << vSidechainVersion;
+
     std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
     return strHex;
 
