@@ -120,6 +120,7 @@ class MerkleBlockTest(BitcoinTestFramework):
 
         sc_cr = []
         sc_cr.append({
+            "version": 0,
             "epoch_length": sc_epoch_len,
             "amount": sc_cr_amount,
             "address": sc_address,

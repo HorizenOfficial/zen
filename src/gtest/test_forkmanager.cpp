@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "zen/forkmanager.h"
 #include "chainparams.h"
+#include "zen/forks/fork9_sidechainversionfork.h"
 
 using namespace zen;
 TEST(ForkManager, TestCommunityFundRewardTestnet) {
@@ -285,4 +286,43 @@ TEST(ForkManager, SidechainForkMainnet) {
 	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047623), BLOCK_VERSION_BEFORE_SC);
 	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047624), BLOCK_VERSION_SC_SUPPORT);
 	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047625), BLOCK_VERSION_SC_SUPPORT);
+}
+
+TEST(ForkManager, SidechainVersionForkMainnet) {
+    SelectParams(CBaseChainParams::MAIN);
+
+    // TODO: set proper fork height value.
+    int sidechainVersionForkHeight = 2000000;
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(0), 0);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight - 1), 0);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight), 1);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight + 1), 1);
+}
+
+TEST(ForkManager, SidechainVersionForkTestnet) {
+    SelectParams(CBaseChainParams::TESTNET);
+
+    // TODO: set proper fork height value.
+    int sidechainVersionForkHeight = 2000000;
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(0), 0);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight - 1), 0);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight), 1);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight + 1), 1);
+}
+
+TEST(ForkManager, SidechainVersionForkRegtest) {
+    SelectParams(CBaseChainParams::REGTEST);
+
+    // TODO: set proper fork height value.
+    int sidechainVersionForkHeight = 450;
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(0), 0);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight - 1), 0);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight), 1);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight + 1), 1);
+}
+
+TEST(ForkManager, HighestFork) {
+    SelectParams(CBaseChainParams::MAIN);
+    const Fork* highestFork = ForkManager::getInstance().getHighestFork();
+    EXPECT_EQ(typeid(*highestFork), typeid(SidechainVersionFork));
 }

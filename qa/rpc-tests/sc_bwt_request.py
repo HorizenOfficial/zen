@@ -99,6 +99,7 @@ class sc_bwt_request(BitcoinTestFramework):
 
         fee_cr1 = Decimal("0.0002")
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength":EPOCH_LENGTH,
             "toaddress":"dada",
             "amount":creation_amount1,
@@ -306,6 +307,7 @@ class sc_bwt_request(BitcoinTestFramework):
         prev_epoch_hash_2 = self.nodes[0].getbestblockhash()
         epoch_len_2 = 10
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength":epoch_len_2,
             "toaddress":"dada",
             "amount":creation_amount2,
@@ -350,7 +352,7 @@ class sc_bwt_request(BitcoinTestFramework):
         mark_logs("Node0 creates a tx with a few bwt request and mixed outputs using raw version of cmd", self.nodes, DEBUG_MODE)
         outputs = { self.nodes[0].getnewaddress() :4.998 }
         sc_cr_amount = 1.0
-        sc_cr = [ {"epoch_length":10, "amount":sc_cr_amount, "address":"effe", "wCertVk":vk3, "constant":c3} ]
+        sc_cr = [ {"version": 0, "epoch_length":10, "amount":sc_cr_amount, "address":"effe", "wCertVk":vk3, "constant":c3} ]
         ft_amount_1 = 1.0
         ft_amount_2 = 2.0
         mc_return_address = self.nodes[0].getnewaddress()

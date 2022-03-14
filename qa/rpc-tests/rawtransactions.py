@@ -221,6 +221,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         sc_cr = []
         sc_cr.append({
+            "version": 0,
             "epoch_length": sc_epoch_len,
             "amount": sc_cr_amount,
             "address": sc_address,
@@ -230,6 +231,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         })
 
         sc_cr.append({
+            "version": 0,
             "epoch_length": sc_epoch2_len,
             "amount": sc_cr_amount2,
             "address": sc_address,
@@ -238,8 +240,19 @@ class RawTransactionsTest(BitcoinTestFramework):
             "constant": constant
         })
 
+        # missing sc version
+        sc_cr_without_version = [ {
+            "epoch_length": sc_epoch_len,
+            "amount": sc_cr_amount,
+            "address": sc_address,
+            "wCertVk": vk,
+            "wCeasedVk": cswVk,
+            "constant": constant
+        }]
+
         # too big an epoch (max is 4032)
         sc_cr_bad = [ {
+            "version": 0,
             "epoch_length": 4033,
             "amount": sc_cr_amount2,
             "address": sc_address,
@@ -247,6 +260,15 @@ class RawTransactionsTest(BitcoinTestFramework):
             "wCeasedVk": cswVk,
             "constant": constant
         } ]
+
+        #Try create a SC without providing the version
+        print("Try creating a SC without version")
+
+        try:
+            rawtx=self.nodes[0].createrawtransaction([], {}, [], sc_cr_without_version)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            assert_equal("version" in errorString, True)
 
         #Try create a SC with too big an epoch len
         print("Try creating a SC with an epoch too big")
@@ -408,6 +430,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         cswVk2 = self.cswMcTest.generate_params("csw2")
         constant2 = generate_random_field_element_hex()
         sc_cr2 = [{
+            "version": 0,
             "epoch_length": sc_epoch_len,
             "amount": Decimal("4.0"),
             "address": "ccc",

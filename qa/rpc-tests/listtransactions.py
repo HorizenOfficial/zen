@@ -361,7 +361,15 @@ class ListTransactionsTest(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        cmdInput = {'fromaddress': fromaddr, 'toaddress': sidechain_address, 'amount': sc_creation_amount, 'fee': fee, 'wCertVk': vk, "constant": constant}
+        cmdInput = {
+            'version': 0,
+            'fromaddress': fromaddr,
+            'toaddress': sidechain_address,
+            'amount': sc_creation_amount,
+            'fee': fee,
+            'wCertVk': vk,
+            'constant': constant
+        }
         try:
             res = self.nodes[1].sc_create(cmdInput)
             tx = res['txid']

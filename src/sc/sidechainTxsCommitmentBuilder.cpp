@@ -254,7 +254,7 @@ bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, const S
     for (i = 0; i < cert.vFieldElementCertificateField.size(); i++)
     {
         FieldElementCertificateField entry = cert.vFieldElementCertificateField.at(i);
-        CFieldElement fe{entry.GetFieldElement(scFixedParams.vFieldElementCertificateFieldConfig.at(i))};
+        CFieldElement fe{entry.GetFieldElement(scFixedParams.vFieldElementCertificateFieldConfig.at(i), scFixedParams.version)};
         wrappedFieldPtr sptrFe = fe.GetFieldElement();
         custom_fields[i] = sptrFe.get();
         vSptr.push_back(sptrFe);
@@ -263,7 +263,7 @@ bool SidechainTxsCommitmentBuilder::add_cert(const CScCertificate& cert, const S
     for (int j = 0; j < cert.vBitVectorCertificateField.size(); j++)
     {
         BitVectorCertificateField entry = cert.vBitVectorCertificateField.at(j);
-        CFieldElement fe{entry.GetFieldElement(scFixedParams.vBitVectorCertificateFieldConfig.at(j))};
+        CFieldElement fe{entry.GetFieldElement(scFixedParams.vBitVectorCertificateFieldConfig.at(j), scFixedParams.version)};
         wrappedFieldPtr sptrFe = fe.GetFieldElement();
         custom_fields[i+j] = sptrFe.get();
         vSptr.push_back(sptrFe);

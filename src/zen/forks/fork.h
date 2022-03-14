@@ -124,6 +124,11 @@ public:
 	 */
 	virtual bool isFutureTimeStampActive(int height, CBaseChainParams::Network network) const=0;
 
+    /**
+     * @brief Get the maximum allowed sidechain version for a specific block height
+     */
+    virtual uint8_t getMaxSidechainVersion() const = 0;
+
 protected:
     
     /**

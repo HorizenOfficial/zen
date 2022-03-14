@@ -88,6 +88,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         constant_2 = generate_random_field_element_hex()
 
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "dada",
             "amount": creation_amount,
@@ -102,6 +103,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         self.sync_all()
 
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "baba",
             "amount": creation_amount,

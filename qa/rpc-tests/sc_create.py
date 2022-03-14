@@ -72,13 +72,39 @@ class SCCreateTest(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         # ---------------------------------------------------------------------------------------
-        # Node 2 try creating a SC with insufficient funds
-        mark_logs("\nNode 2 try creating a SC with insufficient funds", self.nodes, DEBUG_MODE)
+        # Node 2 tries to create a SC without version
+        mark_logs("\nNode 2 tries to create a SC without specifying the version", self.nodes, DEBUG_MODE)
 
         amounts = [{"address": "dada", "amount": creation_amount}]
         errorString = ""
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "dada", 'amount': Decimal("1.0"), 'wCertVk': vk,
-                    'constant': constant}
+        cmdInput = {
+            'withdrawalEpochLength': 123,
+            'toaddress': "dada",
+            'amount': Decimal("1.0"),
+            'wCertVk': vk,
+            'constant': constant
+        }
+
+        try:
+            self.nodes[2].sc_create(cmdInput)
+            assert(False)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+        assert_equal(True, "Missing mandatory parameter in input: \"version\"" in errorString)
+
+        # ---------------------------------------------------------------------------------------
+        # Node 2 try creating a SC with insufficient funds
+        mark_logs("\nNode 2 try creating a SC with insufficient funds", self.nodes, DEBUG_MODE)
+
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "dada",
+            'amount': Decimal("1.0"),
+            'wCertVk': vk,
+            'constant': constant
+        }
 
         try:
             self.nodes[2].sc_create(cmdInput)
@@ -94,8 +120,14 @@ class SCCreateTest(BitcoinTestFramework):
 
         self.nodes[2].generate(1)
         self.sync_all()
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "dada", 'amount': Decimal("1.0"), 'wCertVk': vk,
-                    'constant': constant}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "dada",
+            'amount': Decimal("1.0"),
+            'wCertVk': vk,
+            'constant': constant
+        }
 
         try:
             self.nodes[2].sc_create(cmdInput)
@@ -108,8 +140,14 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with null address
         mark_logs("\nNode 1 try creating a SC with null address", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "", 'amount': creation_amount, 'wCertVk': vk,
-                    'constant': constant}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "",
+            'amount': creation_amount,
+            'wCertVk': vk,
+            'constant': constant
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -121,8 +159,14 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with null amount
         mark_logs("\nNode 1 try creating a SC with null amount", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': "", 'wCertVk': vk,
-                    'constant': constant}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': "",
+            'wCertVk': vk,
+            'constant': constant
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -135,8 +179,14 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with 0 amount
         mark_logs("\nNode 1 try creating a SC with 0 amount", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': Decimal("0.0"), 'wCertVk': vk,
-                    'constant': constant}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': Decimal("0.0"),
+            'wCertVk': vk,
+            'constant': constant
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -149,8 +199,14 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with negative amount
         mark_logs("\nNode 1 try creating a SC with 0 amount", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': Decimal("-1.0"), 'wCertVk': vk,
-                    'constant': constant}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': Decimal("-1.0"),
+            'wCertVk': vk,
+            'constant': constant
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -163,8 +219,14 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a bad wCertVk
         mark_logs("\nNode 1 try creating a SC with a non hex wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': 0.1, 'wCertVk': "zz" * SC_VK_SIZE,
-                    'constant': constant}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': "zz" * SC_VK_SIZE,
+            'constant': constant
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -177,7 +239,13 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a bad wCertVk
         mark_logs("\nNode 1 try creating a SC with a odd number of char in wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': 0.1, 'wCertVk': "a" * (SC_VK_SIZE - 1)}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': "a" * (SC_VK_SIZE - 1)
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -190,7 +258,13 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a wCertVk too short
         mark_logs("\nNode 1 try creating a SC with too short wCertVk byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': 0.1, 'wCertVk': "aa" * (SC_VK_SIZE - 1)}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': "aa" * (SC_VK_SIZE - 1)
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -203,7 +277,13 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a wCertVk too long
         mark_logs("\nNode 1 try creating a SC with too long wCertVk byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': 0.1, 'wCertVk': "aa" * (SC_VK_SIZE + 1)}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': "aa" * (SC_VK_SIZE + 1)
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -216,7 +296,13 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with an invalid wCertVk
         mark_logs("\nNode 1 try creating a SC with an invalid wCertVk", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': 0.1, 'wCertVk': "aa" * SC_VK_SIZE}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': "aa" * SC_VK_SIZE
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -230,8 +316,14 @@ class SCCreateTest(BitcoinTestFramework):
 
         # Node 1 try creating a SC with a bad customData
         mark_logs("\nNode 1 try creating a SC with a bad customData", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': 0.1, 'wCertVk' : vk,
-                    'customData': "zz" * 1024}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk' : vk,
+            'customData': "zz" * 1024
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -244,8 +336,14 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a bad customData
         mark_logs("\nNode 1 try creating a SC with a odd number of char in customData", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': 0.1, 'wCertVk' : vk,
-                    'customData': "b" * 1023}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk' : vk,
+            'customData': "b" * 1023
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -258,8 +356,14 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with customData too long
         mark_logs("\nNode 1 try creating a SC with too long customData byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': 0.1, 'wCertVk': vk,
-                    'customData': "bb" * 1025}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': vk,
+            'customData': "bb" * 1025
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -272,8 +376,14 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a bad constant
         mark_logs("\nNode 1 try creating a SC with a non hex constant", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': 0.1, 'wCertVk': vk,
-                    'constant': "zz" * SC_FIELD_SIZE}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': vk,
+            'constant': "zz" * SC_FIELD_SIZE
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -286,8 +396,14 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a bad constant
         mark_logs("\nNode 1 try creating a SC with a odd number of char in constant", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': 0.1, 'wCertVk': vk,
-                    'constant': "b" * (SC_FIELD_SIZE - 1)}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': vk,
+            'constant': "b" * (SC_FIELD_SIZE - 1)
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -300,8 +416,14 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a constant too short
         mark_logs("\nNode 1 try creating a SC with too short constant byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "ada", 'amount': 0.1, 'wCertVk': vk,
-                    'constant': "bb" * (SC_FIELD_SIZE - 1)}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': vk,
+            'constant': "bb" * (SC_FIELD_SIZE - 1)
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -314,11 +436,14 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a constant too long
         mark_logs("\nNode 1 try creating a SC with too long constant byte string", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123,
-                    'toaddress': "ada",
-                    'amount': 0.1,
-                    'wCertVk': vk,
-                    'constant': "bb" * (SC_FIELD_SIZE + 1)}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': vk,
+            'constant': "bb" * (SC_FIELD_SIZE + 1)
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -331,11 +456,13 @@ class SCCreateTest(BitcoinTestFramework):
         # ---------------------------------------------------------------------------------------
         # Node 1 try creating a SC with a bad constant
         mark_logs("\nNode 1 try creating a SC with an invalid constant", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123,
-                    'toaddress': "ada",
-                    'amount': 0.1,
-                    'wCertVk': vk,
-                    'constant': "aa" * SC_FIELD_SIZE
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': vk,
+            'constant': "aa" * SC_FIELD_SIZE
         }
 
         try:
@@ -350,8 +477,14 @@ class SCCreateTest(BitcoinTestFramework):
         
         # Node 1 try creating a SC with negative epocLength
         mark_logs("\nNode 1 try creating a SC with 0 epochLength", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 0, 'toaddress': "ada", 'amount': 0.1, 'wCertVk': vk,
-                    'constant': "aa" * SC_FIELD_SIZE}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 0,
+            'toaddress': "ada",
+            'amount': 0.1,
+            'wCertVk': vk,
+            'constant': "aa" * SC_FIELD_SIZE
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -365,11 +498,14 @@ class SCCreateTest(BitcoinTestFramework):
         
         # Node 1 try creating a SC with too long an epocLength
         mark_logs("\nNode 1 try creating a SC with epochLength that is over the max limit", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 4033,
-                    'toaddress': "ada",
-                    'amount': Decimal("1.0"),
-                    'wCertVk': vk,
-                    'customData': "aa" * SC_FIELD_SIZE}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 4033,
+            'toaddress': "ada",
+            'amount': Decimal("1.0"),
+            'wCertVk': vk,
+            'customData': "aa" * SC_FIELD_SIZE
+        }
 
         try:
             self.nodes[1].sc_create(cmdInput)
@@ -383,13 +519,16 @@ class SCCreateTest(BitcoinTestFramework):
         
         # Node 1 create the SC
         mark_logs("\nNode 1 creates SC", self.nodes, DEBUG_MODE)
-        cmdInput = {'withdrawalEpochLength': 123,
-                    'toaddress': "dada",
-                    'amount': creation_amount,
-                    'wCertVk': vk,
-                    'customData': "bb" * 1024,
-                    'constant': constant,
-                    'minconf': 0}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "dada",
+            'amount': creation_amount,
+            'wCertVk': vk,
+            'customData': "bb" * 1024,
+            'constant': constant,
+            'minconf': 0
+        }
 
         ret = self.nodes[1].sc_create(cmdInput)
         creating_tx = ret['txid']
