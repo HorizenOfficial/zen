@@ -77,7 +77,13 @@ class ScCertDust(BitcoinTestFramework):
         # create SC
         #------------------------------------------------------------------------------------------------------------
         cmd_input = {
-            'toaddress': "abcd", 'amount': 1.0, 'wCertVk': vk, 'withdrawalEpochLength': EPOCH_LENGTH,'constant': constant}
+            'version': 0,
+            'toaddress': "abcd",
+            'amount': 1.0,
+            'wCertVk': vk,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'constant': constant
+        }
 
         mark_logs("\nNode 1 create SC", self.nodes, DEBUG_MODE)
         try:

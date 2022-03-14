@@ -87,6 +87,7 @@ class quality_mempool(BitcoinTestFramework):
         vk_2 = mcTest.generate_params(vk_tag_2)
         constant_2 = generate_random_field_element_hex()
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "dada",
             "amount": creation_amount,
@@ -102,6 +103,7 @@ class quality_mempool(BitcoinTestFramework):
         self.sync_all()
 
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "baba",
             "amount": creation_amount,

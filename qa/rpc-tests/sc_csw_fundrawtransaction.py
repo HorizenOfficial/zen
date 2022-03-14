@@ -101,7 +101,7 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
 
         sc_cr = []
         sc_cr.append({
-
+            "version": 0,
             "epoch_length": sc_epoch_len,
             "amount": sc_cr_amount,
             "address": sc_address,
@@ -360,6 +360,7 @@ class CswFundrawtransactionTest(BitcoinTestFramework):
         constant2 = generate_random_field_element_hex()
 
         sc_cr = [{
+            "version": 0,
             "epoch_length": EPOCH_LENGTH,
             "amount": cr_amount,
             "address": sc_address,

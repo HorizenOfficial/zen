@@ -7,7 +7,8 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, mark_logs, \
-    get_epoch_data, get_spendable, swap_bytes, advance_epoch
+    get_epoch_data, get_spendable, swap_bytes, advance_epoch, \
+    get_field_element_with_padding
 from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.mc_test.mc_test import CSWTestUtils, CertTestUtils, generate_random_field_element_hex
 import os
@@ -149,11 +150,21 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         customData = "746869732069732061207465737420737472696e67"
 
         cmdInput = {
-            'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': fee,
-            'constant':constant1 , 'wCertVk': vk, 'toaddress':"cdcd", 'wCeasedVk': cswVk, 'customData': customData,
-            'vFieldElementCertificateFieldConfig': feCfg[0], 'vBitVectorCertificateFieldConfig': cmtCfg[0],
-            'forwardTransferScFee': Decimal('0.001'), 'mainchainBackwardTransferScFee' : Decimal('0.002'),
-            'mainchainBackwardTransferRequestDataLength': 2 }
+            'version': 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'amount': amount,
+            'fee': fee,
+            'constant':constant1,
+            'wCertVk': vk,
+            'toaddress':"cdcd",
+            'wCeasedVk': cswVk,
+            'customData': customData,
+            'vFieldElementCertificateFieldConfig': feCfg[0],
+            'vBitVectorCertificateFieldConfig': cmtCfg[0],
+            'forwardTransferScFee': Decimal('0.001'),
+            'mainchainBackwardTransferScFee' : Decimal('0.002'),
+            'mainchainBackwardTransferRequestDataLength': 2
+        }
 
         mark_logs("\nNode 1 create SC1 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
@@ -181,18 +192,20 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         feCfg.append([16])
         cmtCfg.append([])
 
-        cmdInput = {'withdrawalEpochLength': EPOCH_LENGTH,
-                    'toaddress': "dada",
-                    'amount': amount,
-                    'wCertVk': vk,
-                    'customData': customData,
-                    'constant': constant2,
-                    'wCeasedVk': cswVk,
-                    'vFieldElementCertificateFieldConfig': feCfg[1],
-                    'vBitVectorCertificateFieldConfig': cmtCfg[1],
-                    'forwardTransferScFee': 0,
-                    'mainchainBackwardTransferScFee': 0,
-                    'mainchainBackwardTransferRequestDataLength': 1}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'toaddress': "dada",
+            'amount': amount,
+            'wCertVk': vk,
+            'customData': customData,
+            'constant': constant2,
+            'wCeasedVk': cswVk,
+            'vFieldElementCertificateFieldConfig': feCfg[1],
+            'vBitVectorCertificateFieldConfig': cmtCfg[1],
+            'forwardTransferScFee': 0,
+            'mainchainBackwardTransferScFee': 0,
+            'mainchainBackwardTransferRequestDataLength': 1}
 
         mark_logs("\nNode 1 create SC2 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
@@ -220,8 +233,15 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         cmtCfg.append([[254*8*4, 1967]])
 
         sc_cr = [{
-            "epoch_length": EPOCH_LENGTH, "amount":amount, "address":"ddaa", "wCertVk": vk, "constant": constant3,
-            "vFieldElementCertificateFieldConfig":feCfg[2], "vBitVectorCertificateFieldConfig":cmtCfg[2] }]
+            "version": 0,
+            "epoch_length": EPOCH_LENGTH,
+            "amount":amount,
+            "address":"ddaa",
+            "wCertVk": vk,
+            "constant": constant3,
+            "vFieldElementCertificateFieldConfig":feCfg[2],
+            "vBitVectorCertificateFieldConfig":cmtCfg[2]
+        }]
 
         mark_logs("\nNode 0 create SC3 with valid vFieldElementCertificateFieldConfig / vBitVectorCertificateFieldConfig pair", self.nodes,DEBUG_MODE)
         try:
@@ -326,7 +346,7 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         vCmt = []
 
         # serialized fe for the proof has 32 byte size
-        fe1 = "0100" + "000000000000000000000000000000000000000000000000000000000000"
+        fe1 = get_field_element_with_padding("0100", 0)
 
         quality = 72
         scProof3 = certMcTest.create_test_proof(
@@ -370,9 +390,9 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         # this is a compressed buffer which will yield a valid field element for the proof (see below)
         vCmt = [BIT_VECTOR_BUF]
 
-        fe1 = "ab000100" + "00000000000000000000000000000000000000000000000000000000"
-        fe2 = "ccccdddd0000" + "0000000000000000000000000000000000000000000000000000"
-        fe3 = "0100" + "000000000000000000000000000000000000000000000000000000000000"
+        fe1 = get_field_element_with_padding("ab000100", 0)
+        fe2 = get_field_element_with_padding("ccccdddd0000", 0)
+        fe3 = get_field_element_with_padding("0100", 0)
         fe4 = BIT_VECTOR_FE
 
         quality = 18

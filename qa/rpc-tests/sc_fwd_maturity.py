@@ -98,6 +98,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": 123,
             "toaddress": "dada",
             "amount": creation_amount,
@@ -149,6 +150,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         amounts.append({"toaddress": "dada", "amount": creation_amount})
 
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": 123,
             "toaddress": "dada",
             "amount": creation_amount,
@@ -161,6 +163,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         mark_logs("created SC id: {}".format(scid_2), self.nodes, DEBUG_MODE)
 
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": 123,
             "toaddress": "dada",
             "amount": creation_amount,
@@ -172,6 +175,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         mark_logs("created SC id: {}".format(scid_3), self.nodes, DEBUG_MODE)
 
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": 123,
             "toaddress": "dada",
             "amount": creation_amount,

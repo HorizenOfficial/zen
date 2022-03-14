@@ -816,6 +816,7 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.lastTopQualityCertView.forwardTransferScFee = cr.forwardTransferScFee;
         scIt->second.sidechain.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = cr.mainchainBackwardTransferRequestScFee;
 
+        scIt->second.sidechain.fixedParams.version = cr.version;
         scIt->second.sidechain.fixedParams.withdrawalEpochLength = cr.withdrawalEpochLength;
         scIt->second.sidechain.fixedParams.customData = cr.customData;
         scIt->second.sidechain.fixedParams.constant = cr.constant;

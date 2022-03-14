@@ -1600,6 +1600,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         // creation parameters
         sc.pushKV("mbtrRequestDataLength", info.fixedParams.mainchainBackwardTransferRequestDataLength);
         sc.pushKV("withdrawalEpochLength", info.fixedParams.withdrawalEpochLength);
+        sc.pushKV("sidechainVersion", info.fixedParams.version);
         sc.pushKV("certSubmissionWindowLength", info.GetCertSubmissionWindowLength());
  
         if (bVerbose)
@@ -1691,6 +1692,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
                 if (scId == scCreation.GetScId())
                 {
                     info.creationTxHash = scCreationHash;
+                    info.fixedParams.version = scCreation.version;
                     info.fixedParams.withdrawalEpochLength = scCreation.withdrawalEpochLength;
                     info.fixedParams.customData = scCreation.customData;
                     info.fixedParams.constant = scCreation.constant;
@@ -1705,6 +1707,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             sc.pushKV("state", CSidechain::stateToString(CSidechain::State::UNCONFIRMED));
             sc.pushKV("unconfCreatingTxHash", info.creationTxHash.GetHex());
             sc.pushKV("unconfWithdrawalEpochLength", info.fixedParams.withdrawalEpochLength);
+            sc.pushKV("unconfSidechainVersion", info.fixedParams.version);
             sc.pushKV("unconfCertSubmissionWindowLength", info.GetCertSubmissionWindowLength());
 
             if (bVerbose)
@@ -1877,7 +1880,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
         throw runtime_error(
             "getscinfo (\"scid\" onlyAlive)\n"
             "\nArguments:\n"
-            "1. \"scid\"   (string, mandatory) Retrive only information about specified scid, \"*\" means all \n"
+            "1. \"scid\"   (string, mandatory) Retrieve only information about specified scid, \"*\" means all \n"
             "2. onlyAlive (bool, optional, default=false) Retrieve only information for alive sidechains\n"
             "3. verbose   (bool, optional, default=true) If false include only essential info in result\n"
             "   --- meaningful if scid is not specified:\n"
@@ -1909,6 +1912,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "                                                              it can be either pastMbtrScFee or lastMbtrScFee value depending on the current block height, current epoch and last received top quality certificate\n"
             "     \"mbtrRequestDataLength\":              xxxxx,   (numeric) The size of the MBTR request data length\n"
             "     \"withdrawalEpochLength\":              xxxxx,   (numeric) length in blocks of the withdrawal epoch\n"
+            "     \"sidechainVersion\":                   xxxxx,   (numeric) version of the sidechain\n"
             "     \"certSubmissionWindowLength\":         xxxxx,   (numeric) length in blocks of the submission window for certificates\n"
             "     \"certProvingSystem\"                   xxxxx,   (numeric) The type of proving system used for certificate verification\n"
             "     \"wCertVk\":                            xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
@@ -2175,6 +2179,27 @@ UniValue getscgenesisinfo(const UniValue& params, bool fHelp)
 
     // block hex data
     ssBlock << block;
+
+    // Retrieve sidechain version for any sidechain that published a certificate in this block
+    std::vector<ScVersionInfo> vSidechainVersion;
+
+    for (const CScCertificate& cert : block.vcert)
+    {
+        CSidechain sc;
+        if (!scView.GetSidechain(cert.GetScId(), sc))
+        {
+            LogPrint("sc", "cound not get info for scid[%s] while checking certificate\n", cert.GetScId().ToString() );
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("scid not found: ") + cert.GetScId().ToString());
+        }
+
+        ScVersionInfo scVersion = {};
+        scVersion.sidechainId = cert.GetScId();
+        scVersion.sidechainVersion = sc.fixedParams.version;
+
+        vSidechainVersion.push_back(scVersion);
+    }
+
+    ssBlock << vSidechainVersion;
 
     std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
     return strHex;

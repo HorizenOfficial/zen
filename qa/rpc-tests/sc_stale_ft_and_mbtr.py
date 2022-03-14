@@ -182,6 +182,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
         ftScFee   = FT_SC_FEES[0]
         mbtrScFee = MBTR_SC_FEES[0]
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": withdrawalEpochLength,
             "toaddress": address,
             "amount": creation_amount,

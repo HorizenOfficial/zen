@@ -94,6 +94,7 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
         # Node 1 - Create a valid sidechain
         mark_logs("\nNode 0 creates 2 sidechains", self.nodes, DEBUG_MODE)
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": withdrawalEpochLength,
             "toaddress": address,
             "amount": creation_amount,
@@ -119,6 +120,7 @@ class ScCswEvictionFromMempool(BitcoinTestFramework):
         mark_logs("scid1={}".format(scid1), self.nodes, DEBUG_MODE)
         self.sync_all()
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": withdrawalEpochLength,
             "toaddress": address,
             "amount": creation_amount,

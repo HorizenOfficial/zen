@@ -98,8 +98,13 @@ class sc_block_partitions(BitcoinTestFramework):
 
         #-------------------------------------------------------
         cmdInput = {
-            'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': 0.0001,
-            'constant':constant , 'wCertVk': certVk, 'toaddress':"cdcd",
+            'version': 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'amount': amount,
+            'fee': 0.0001,
+            'constant':constant ,
+            'wCertVk': certVk,
+            'toaddress':"cdcd",
         }
       
         tx, scid = create_sc(cmdInput, self.nodes[0])

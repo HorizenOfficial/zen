@@ -99,8 +99,14 @@ class ScRpcCmdsFeeHandling(BitcoinTestFramework):
         # create SC without specifying the fee; it is automatically computed based on fee rate set by paytxfee parameter
         #------------------------------------------------------------------------------------------------------------
         cmdInput = {
-            'toaddress': toaddress, 'amount': 6.0, 'minconf': MIN_CONF, 'wCertVk': vk,
-            'withdrawalEpochLength': EPOCH_LENGTH,'constant': constant}
+            'version': 0,
+            'toaddress': toaddress,
+            'amount': 6.0,
+            'minconf': MIN_CONF,
+            'wCertVk': vk,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'constant': constant
+        }
 
         mark_logs("\nNode 1 create SC with an minconf value in input which is OK, with scid auto generation and valid custom data", self.nodes, DEBUG_MODE)
         try:

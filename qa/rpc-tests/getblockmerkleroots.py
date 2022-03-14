@@ -97,8 +97,15 @@ class GetBlockMerkleRootsTest(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        cmdInput = {'withdrawalEpochLength': 123, 'toaddress': "dada", 'amount': 3.0, 'wCertVk': vk,
-                    'customData': "bb" * 1024, 'constant': constant}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': 123,
+            'toaddress': "dada",
+            'amount': 3.0,
+            'wCertVk': vk,
+            'customData': "bb" * 1024,
+            'constant': constant
+        }
         ret = self.nodes[0].sc_create(cmdInput)
         scid = ret['scid']
         self.sync_all()

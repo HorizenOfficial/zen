@@ -83,6 +83,7 @@ class sc_cert_base(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength":EPOCH_LENGTH,
             "toaddress":"dada",
             "amount":creation_amount,
@@ -693,6 +694,7 @@ class sc_cert_base(BitcoinTestFramework):
         mark_logs("Node0 creates new sidechain", self.nodes, DEBUG_MODE)
         vk2 = mcTest.generate_params("sc2", "cert_no_const")
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength":EPOCH_LENGTH,
             "toaddress":"dada",
             "amount":creation_amount,

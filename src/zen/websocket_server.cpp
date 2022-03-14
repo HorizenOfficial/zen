@@ -35,6 +35,7 @@ net::io_context ioc;
 
 static int MAX_BLOCKS_REQUEST = 100;
 static int MAX_HEADERS_REQUEST = 50;
+static int MAX_SIDECHAINS_REQUEST = 50;
 static int tot_connections = 0;
 
 class WsNotificationInterface;
@@ -103,6 +104,7 @@ public:
         SEND_CERTIFICATE = 3,
         GET_MULTIPLE_BLOCK_HEADERS = 4,
         GET_TOP_QUALITY_CERTIFICATES = 5,
+        GET_SIDECHAIN_VERSIONS = 6,
         REQ_UNDEFINED = 0xff
     };
     
@@ -248,6 +250,21 @@ private:
         
         rspPayload.push_back(Pair("mempoolTopQualityCert", mempoolCert));
         rspPayload.push_back(Pair("chainTopQualityCert", chainCert));
+
+        UniValue* rv = wse->getPayload();
+        if (!clientRequestId.empty())
+            rv->push_back(Pair("requestId", clientRequestId));
+        rv->push_back(Pair("responsePayload", rspPayload));
+        write(wse);
+    }
+
+    void sendSidechainVersions(const UniValue& sidechainVersions, WsEvent::WsMsgType msgType, std::string clientRequestId = "")
+    {
+        WsEvent* wse = new WsEvent(msgType);
+        LogPrint("ws", "%s():%d - allocated %p\n", __func__, __LINE__, wse);
+        UniValue rspPayload(UniValue::VOBJ);
+        
+        rspPayload.push_back(Pair("sidechainVersions", sidechainVersions));
 
         UniValue* rv = wse->getPayload();
         if (!clientRequestId.empty())
@@ -562,6 +579,57 @@ private:
         }
 
         sendTopQualityCertificates(mempoolTopQualityCert, chainTopQualityCert, WsEvent::MSG_RESPONSE, clientRequestId);
+
+        return OK;
+    }
+
+    int sendSidechainVersionsFromId(const UniValue& sidechainIds, const std::string& clientRequestId)
+    {
+        if (sidechainIds.size() > MAX_SIDECHAINS_REQUEST)
+        {
+            LogPrint("ws", "%s():%d - too many sidechain ids as argument %d (max is %d)\n",
+                     __func__, __LINE__, sidechainIds.size(), MAX_SIDECHAINS_REQUEST);
+            return INVALID_PARAMETER;
+        }
+            
+        UniValue versions(UniValue::VARR);
+            
+        for (const UniValue& o : sidechainIds.getValues())
+        {
+            if (o.isObject())
+            {
+                LogPrint("ws", "%s():%d - invalid obj\n", __func__, __LINE__);
+                return INVALID_PARAMETER;
+            }
+            
+            std::string strScId = o.get_str();
+            uint256 scId;
+            scId.SetHex(strScId);
+
+            {
+                LOCK(cs_main);
+                CCoinsViewCache view(pcoinsTip);
+
+                if (!view.HaveSidechain(scId))
+                {
+                    LogPrint("ws", "%s():%d - sidechain id not found[%s]\n", __func__, __LINE__, strScId);
+                    return INVALID_PARAMETER;
+                }
+
+                CSidechain sidechainInfo;
+
+                if (view.GetSidechain(scId, sidechainInfo))
+                {
+                    UniValue sidechainEntry(UniValue::VOBJ);
+                    sidechainEntry.push_back(Pair("scId", strScId));
+                    sidechainEntry.push_back(Pair("version", sidechainInfo.fixedParams.version));
+
+                    versions.push_back(sidechainEntry);
+                }
+            }
+        }
+
+        sendSidechainVersions(versions, WsEvent::MSG_RESPONSE, clientRequestId);
 
         return OK;
     }
@@ -971,6 +1039,35 @@ private:
                 }
 
                 return sendTopQualityCertificatesForScid(scId, clientRequestId);
+            }
+
+            if (requestType == std::to_string(WsEvent::GET_SIDECHAIN_VERSIONS))
+            {
+                reqType = WsEvent::GET_SIDECHAIN_VERSIONS;
+                if (clientRequestId.empty()) {
+                    LogPrint("ws", "%s():%d - clientRequestId empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_REQID;
+                }
+                const UniValue& reqPayload = find_value(request, "requestPayload");
+                if (reqPayload.isNull())
+                {
+                    LogPrint("ws", "%s():%d - requestPayload null: msg[%s]\n", __func__, __LINE__, msg);
+                    return INVALID_JSON_FORMAT;
+                }
+
+                const UniValue&  scIdArray = find_value(reqPayload, "sidechainIds");
+                if (scIdArray.isNull()) {
+                    LogPrint("ws", "%s():%d - sidechainIds empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_PARAMETER;
+                }
+
+                const UniValue& scIds = scIdArray.get_array();
+                if (scIds.size()==0) {
+                    LogPrint("ws", "%s():%d - sidechain ID array empty: msg[%s]\n", __func__, __LINE__, msg);
+                    return MISSING_PARAMETER;
+                }
+
+                return sendSidechainVersionsFromId(scIds, clientRequestId);
             }
 
             // if we are here that means it is no valid request type, and reqType is an enum defaulting to 255
