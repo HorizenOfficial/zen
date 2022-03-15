@@ -74,8 +74,8 @@ class FundAddressesTest(BitcoinTestFramework):
         current_fork_height = SC_VERSION_FORK_HEIGHT - 1 # sidechain version fork
         mark_logs("Check sidechain version fork addresses [height = {}]".format(current_fork_height + 1), self.nodes, DEBUG_MODE)
         self.check_block_fund_addresses(blocks[current_fork_height - 1], ["zrQWJd1fhtkQtrjbYPXfHFF1c61DUtiXcCD", "zrQG6x9j33DLbCfzAqu3qKMe7z1VDL1z2L7", "zrMasbhB1yyfQ5RBUm7NPcEjGWZdRneWCEx"])
-        self.check_block_fund_addresses(blocks[current_fork_height], ["zrGrtLkMLiGPeRtzDmHeRiAKjVcRYmGWddh", "zr8SmmBHw7ios52wx7UktF3NhejxmBTUAwM", "zr7hHLWwfQeFeDjWAy1NsimsKm5pra5snLG"])
-        self.check_block_fund_addresses(blocks[current_fork_height + 1], ["zrGrtLkMLiGPeRtzDmHeRiAKjVcRYmGWddh", "zr8SmmBHw7ios52wx7UktF3NhejxmBTUAwM", "zr7hHLWwfQeFeDjWAy1NsimsKm5pra5snLG"])
+        self.check_block_fund_addresses(blocks[current_fork_height], ["zrLaR63UYCHVvo5BJHoMUTuZFPmcUu866wB", "zrPaU1KWpNrg5fcLsSk17z7cc71FvnVnXxi", "zrMna8FbuTyrvFikAsmQMyAfufF3WoGksFu"])
+        self.check_block_fund_addresses(blocks[current_fork_height + 1], ["zrLaR63UYCHVvo5BJHoMUTuZFPmcUu866wB", "zrPaU1KWpNrg5fcLsSk17z7cc71FvnVnXxi", "zrMna8FbuTyrvFikAsmQMyAfufF3WoGksFu"])
 
 if __name__ == '__main__':
     FundAddressesTest().main()

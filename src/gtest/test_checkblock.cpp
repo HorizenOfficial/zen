@@ -872,7 +872,7 @@ TEST(ContextualCheckBlock, SidechainCreationVersion)
 {
     SelectParams(CBaseChainParams::MAIN);
 
-    int sidechainVersionForkHeight = 2000000;
+    int sidechainVersionForkHeight = 1127000;
 
     // Create a Sidechain Creation transaction with version 0
     CMutableTransaction mtx_v0 = txCreationUtils::createNewSidechainTxWith(CAmount(10));
