@@ -17,6 +17,7 @@
 #include <clientversion.h>
 #include <sc/proofverifier.h> // for MC_CRYPTO_LIB_MOCKED 
 
+#include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <fstream>
 
@@ -643,7 +644,8 @@ TEST(SidechainsField, CommitmentComputationFromSerializedBlock)
     const BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
 
     // Read hex string from file
-    std::ifstream t("./src/gtest/test-data/block_with_v0_and_v1_certificates.hex");
+    boost::filesystem::path blockPath = boost::dll::program_location().parent_path() / "/gtest/test-data/block_with_v0_and_v1_certificates.hex";
+    std::ifstream t(blockPath.string());
     std::stringstream buffer;
     buffer << t.rdbuf();
     std::string blockData = buffer.str();
