@@ -3,12 +3,10 @@
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-import time
 
 from test_framework.test_framework import SC_VERSION_FORK_HEIGHT, BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, start_nodes, mark_logs
 from test_framework.blockchainhelper import BlockchainHelper
-import os
 from test_framework.wsproxy import JSONWSException
 
 DEBUG_MODE = 1
@@ -16,7 +14,7 @@ NUMB_OF_NODES = 1
 
 class ws_messages(BitcoinTestFramework):
 
-    def setup_chain(self, split=False):
+    def setup_chain(self):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
 

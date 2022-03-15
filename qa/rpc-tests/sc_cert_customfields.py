@@ -5,18 +5,14 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_true, assert_equal, get_field_element_with_padding, initialize_chain_clean, \
-    start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
-    dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200, SC_VERSION_FORK_HEIGHT
+from test_framework.util import assert_true, assert_equal, bytes_to_hex_str, get_field_element_with_padding, hex_str_to_bytes, initialize_chain_clean, \
+    start_nodes, stop_nodes, wait_bitcoinds, connect_nodes_bi, mark_logs, get_epoch_data, get_spendable, swap_bytes
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, SC_VERSION_FORK_HEIGHT
 from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 import os
-import pprint
 from decimal import Decimal
-import json
 import bz2
 import resource
-import binascii
 
 NUMB_OF_NODES = 2
 DEBUG_MODE = 1
@@ -31,14 +27,10 @@ BIT_VECTOR_BUF_HUGE = "" # This buffer will be filled with data read from file
 BIT_VECTOR_FE  = "8a7d5229f440d4700d8b0343de4e14400d1cb87428abf83bd67153bf58871721"
 
 class sc_cert_customfields(BitcoinTestFramework):
-    alert_filename = None
 
-    def setup_chain(self, split=False):
+    def setup_chain(self):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
-        self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
-        with open(self.alert_filename, 'w'):
-            pass  # Just open then close to create zero-length file
 
     def setup_network(self, split=False):
 

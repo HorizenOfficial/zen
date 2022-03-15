@@ -8,7 +8,6 @@ from test_framework.test_framework import SC_VERSION_FORK_HEIGHT
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs
 from test_framework.blockchainhelper import BlockchainHelper
-import os
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
@@ -16,14 +15,9 @@ NUMB_OF_NODES = 2
 
 class sc_getscgenesisinfo(BitcoinTestFramework):
 
-    alert_filename = None
-
-    def setup_chain(self, split=False):
+    def setup_chain(self):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
-        self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
-        with open(self.alert_filename, 'w'):
-            pass  # Just open then close to create zero-length file
 
     def setup_network(self, split=False):
         self.nodes = []
