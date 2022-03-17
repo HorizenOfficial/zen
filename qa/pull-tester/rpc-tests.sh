@@ -133,6 +133,7 @@ testScripts=(
   'getblockexpanded.py'
   'sc_rpc_cmds_json_output.py'
   'sc_getscgenesisinfo.py'
+  'fundaddresses.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'
