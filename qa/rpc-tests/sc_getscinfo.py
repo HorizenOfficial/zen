@@ -139,7 +139,7 @@ class sc_getscinfo(BitcoinTestFramework):
 
         # Check that all the sidechains have the correct version
         for item in sc_info_all['items']:
-            assert_equal(item['sidechainVersion'], 0)
+            assert_equal(item['version'], 0)
 
         # check all of them have right block creation hash which is part of verbose output
         # and fill the ordered scids lists
@@ -331,16 +331,16 @@ class sc_getscinfo(BitcoinTestFramework):
         mark_logs("Check info for v0 and v1 sidechains (unconfirmed)", self.nodes, DEBUG_MODE)
         v0_sc_id = test_helper.get_sidechain_id("v0")
         v1_sc_id = test_helper.get_sidechain_id("v1")
-        assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['unconfSidechainVersion'], 0)
-        assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['unconfSidechainVersion'], 1)
+        assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['unconfVersion'], 0)
+        assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['unconfVersion'], 1)
 
         mark_logs("Node 0 generates a block to confirm the creation of sidechains v0 and v1", self.nodes, DEBUG_MODE);
         self.nodes[0].generate(1)
         self.sync_all()
 
         mark_logs("Check info for v0 and v1 sidechains (confirmed)", self.nodes, DEBUG_MODE)
-        assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['sidechainVersion'], 0)
-        assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['sidechainVersion'], 1)
+        assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['version'], 0)
+        assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['version'], 1)
 
         mark_logs("Checking persistance, stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
@@ -348,8 +348,8 @@ class sc_getscinfo(BitcoinTestFramework):
         self.setup_network(False)
 
         mark_logs("Check info persistance for v0 and v1 sidechains", self.nodes, DEBUG_MODE)
-        assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['sidechainVersion'], 0)
-        assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['sidechainVersion'], 1)
+        assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['version'], 0)
+        assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['version'], 1)
 
 if __name__ == '__main__':
     sc_getscinfo().main()
