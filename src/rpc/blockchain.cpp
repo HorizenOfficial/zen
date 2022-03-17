@@ -1600,7 +1600,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         // creation parameters
         sc.pushKV("mbtrRequestDataLength", info.fixedParams.mainchainBackwardTransferRequestDataLength);
         sc.pushKV("withdrawalEpochLength", info.fixedParams.withdrawalEpochLength);
-        sc.pushKV("sidechainVersion", info.fixedParams.version);
+        sc.pushKV("version", info.fixedParams.version);
         sc.pushKV("certSubmissionWindowLength", info.GetCertSubmissionWindowLength());
  
         if (bVerbose)
@@ -1707,7 +1707,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             sc.pushKV("state", CSidechain::stateToString(CSidechain::State::UNCONFIRMED));
             sc.pushKV("unconfCreatingTxHash", info.creationTxHash.GetHex());
             sc.pushKV("unconfWithdrawalEpochLength", info.fixedParams.withdrawalEpochLength);
-            sc.pushKV("unconfSidechainVersion", info.fixedParams.version);
+            sc.pushKV("unconfVersion", info.fixedParams.version);
             sc.pushKV("unconfCertSubmissionWindowLength", info.GetCertSubmissionWindowLength());
 
             if (bVerbose)
@@ -1912,7 +1912,7 @@ UniValue getscinfo(const UniValue& params, bool fHelp)
             "                                                              it can be either pastMbtrScFee or lastMbtrScFee value depending on the current block height, current epoch and last received top quality certificate\n"
             "     \"mbtrRequestDataLength\":              xxxxx,   (numeric) The size of the MBTR request data length\n"
             "     \"withdrawalEpochLength\":              xxxxx,   (numeric) length in blocks of the withdrawal epoch\n"
-            "     \"sidechainVersion\":                   xxxxx,   (numeric) version of the sidechain\n"
+            "     \"version\":                            xxxxx,   (numeric) version of the sidechain\n"
             "     \"certSubmissionWindowLength\":         xxxxx,   (numeric) length in blocks of the submission window for certificates\n"
             "     \"certProvingSystem\"                   xxxxx,   (numeric) The type of proving system used for certificate verification\n"
             "     \"wCertVk\":                            xxxxx,   (string)  The verification key needed to verify a Withdrawal Certificate Proof, set at sc creation\n"
