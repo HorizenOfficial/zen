@@ -84,8 +84,13 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
         fee = 0.000025
 
         cmdInput = {
-            'withdrawalEpochLength': EPOCH_LENGTH, 'amount': cr_amount, 'fee': fee,
-            'constant':constant , 'wCertVk': certVk, 'toaddress':"cdcd"
+            'version': 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'amount': cr_amount,
+            'fee': fee,
+            'constant':constant,
+            'wCertVk': certVk,
+            'toaddress':"cdcd"
         }
       
         tx, scid = create_sc(cmdInput, self.nodes[0])

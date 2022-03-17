@@ -83,7 +83,8 @@ using namespace txCreationUtils;
  */
 struct CTransactionCreationArguments
 {
-    int32_t nVersion;   /**< The version of the transaction. */
+    bool fGenerateValidInput = false;                             /**< Whether to include a valid input in the transaction (and a UTXO for it) */
+    int32_t nVersion;                                             /**< The version of the transaction. */
 
     std::vector<CTxCeasedSidechainWithdrawalInput> vcsw_ccin;     /**< The list of CSW inputs */
     std::vector<CTxScCreationOut>                  vsc_ccout;     /**< The list of sidechain creation outputs */
@@ -159,6 +160,9 @@ public:
         return instance;
     }
 
+    // BLOCK HELPERS
+    static CBlock GenerateValidBlock(int height);
+
     BlockchainTestManager(const BlockchainTestManager&) = delete;
     BlockchainTestManager& operator=(const BlockchainTestManager&) = delete;
 
@@ -174,7 +178,13 @@ public:
 
     // TRANSACTION HELPERS
     CTxCeasedSidechainWithdrawalInput CreateCswInput(uint256 scId, CAmount nValue, ProvingSystem provingSystem) const;
+    CTxScCreationOut CreateScCreationOut(uint8_t sidechainVersion, ProvingSystem provingSystem) const;
+    CTxForwardTransferOut CreateForwardTransferOut(uint256 scId) const;
+    CBwtRequestOut CreateBackwardTransferRequestOut(uint256 scId) const;
     CMutableTransaction CreateTransaction(const CTransactionCreationArguments& args) const;
+
+    // MEMPOOL HELPERS
+    MempoolReturnValue TestAcceptTxToMemoryPool(CValidationState &state, const CTransaction &tx) const;
 
     // SIDECHAIN HELPERS
     CScCertificate GenerateCertificate(uint256 scId, int epochNumber, int64_t quality, ProvingSystem provingSystem, CTransactionBase* inputTxBase = nullptr) const;
@@ -182,6 +192,7 @@ public:
     CScProof GenerateTestCertificateProof(CCertProofVerifierInput certificate, ProvingSystem provingSystem, TestCircuitType circuitType = TestCircuitType::Certificate) const;
     CScProof GenerateTestCswProof(CCswProofVerifierInput csw, ProvingSystem provingSystem, TestCircuitType circuitType = TestCircuitType::CSW) const;
     CScVKey GetTestVerificationKey(ProvingSystem provingSystem, TestCircuitType circuitType) const;
+    CSidechain GenerateSidechain(uint256 scId, uint8_t version) const;
     void StoreSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight) const;
     bool VerifyCertificateProof(CCertProofVerifierInput certificate) const;
     bool VerifyCswProof(CCswProofVerifierInput csw) const;

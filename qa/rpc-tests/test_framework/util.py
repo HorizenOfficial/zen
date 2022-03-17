@@ -627,3 +627,19 @@ def get_total_amount_from_listaddressgroupings(input_list):
 def to_satoshis(decimalAmount):
     return int(round(decimalAmount * COIN))
 
+"""
+    This function gets a Field Element hex string (typically shorter than 32 bytes)
+    and adds padding zeros to reach the length of 32 bytes.
+
+    Padding is prepended or appended depending on the sidechain version specified
+    (see fork 9 for more details).
+"""
+def get_field_element_with_padding(field_element, sidechain_version):
+    FIELD_ELEMENT_STRING_SIZE = 32 * 2
+
+    if sidechain_version == 0:
+        return field_element.rjust(FIELD_ELEMENT_STRING_SIZE, "0")
+    elif sidechain_version == 1:
+        return field_element.ljust(FIELD_ELEMENT_STRING_SIZE, "0")
+    else:
+        assert(False)

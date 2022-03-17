@@ -32,6 +32,7 @@ REQ_GET_NEW_BLOCK_HASHES = 2
 REQ_SEND_CERTIFICATE = 3
 REQ_GET_BLOCK_HEADERS = 4
 REQ_GET_TOP_QUALITY_CERTIFICATES = 5
+REQ_GET_SIDECHAIN_VERSIONS = 6
 REQ_UNDEFINED = 0xff
 
 MSG_EVENT = 0
@@ -182,6 +183,25 @@ def fill_ws_get_top_quality_certificates_output(jrsp):
     print "Json Received '%s'" % jrsp
     return jrsp['responsePayload']['mempoolTopQualityCert'], jrsp['responsePayload']['chainTopQualityCert']
 
+#----------------------------------------------------------------
+# args is expected to be a list of strings, one for each sidechain ID requested
+def fill_ws_get_sidechain_versions_input(args):
+    if len(args) != 1:
+        raise JSONWSException("{}(): wrong number of args {}".format(__func(), len(args)))
+
+    msg = {}
+    msg['msgType']     = MSG_REQUEST
+    msg['requestId']   = "req_" + str(time.time())
+    msg['requestType'] = REQ_GET_SIDECHAIN_VERSIONS
+
+    msg['requestPayload'] = {}
+    msg['requestPayload']['sidechainIds'] = args[0]
+    return json.dumps(msg, default=EncodeDecimal)
+
+def fill_ws_get_sidechain_versions_output(jrsp):
+    print("Json Received '%s'" % jrsp)
+    return jrsp['responsePayload']['sidechainVersions']
+
 # for negative tests
 #----------------------------------------------------------------
 def fill_ws_test_input(args):
@@ -211,6 +231,7 @@ def fill_ws_cmd_input(method, args):
     if method == "ws_get_new_block_hashes": return fill_ws_get_new_block_hashes_input(args)
     if method == "ws_get_block_headers": return fill_ws_get_block_headers_input(args)
     if method == "ws_get_top_quality_certificates": return fill_ws_get_top_quality_certificates_input(args)
+    if method == "ws_get_sidechain_versions": return fill_ws_get_sidechain_versions_input(args)
 
     if method == "ws_test": return fill_ws_test_input(args)
     # add specific method calls here
@@ -225,6 +246,7 @@ def fill_ws_cmd_output(method, jrsp):
     if method == "ws_get_new_block_hashes": return fill_ws_get_new_block_hashes_output(jrsp)
     if method == "ws_get_block_headers": return fill_ws_get_block_headers_output(jrsp)
     if method == "ws_get_top_quality_certificates": return fill_ws_get_top_quality_certificates_output(jrsp)
+    if method == "ws_get_sidechain_versions": return fill_ws_get_sidechain_versions_output(jrsp)
 
     if method == "ws_test": return fill_ws_test_output(jrsp)
     # add specific method calls here

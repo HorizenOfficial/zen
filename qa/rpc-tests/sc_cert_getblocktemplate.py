@@ -67,6 +67,7 @@ class sc_cert_base(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "dada",
             "amount": creation_amount,
@@ -198,6 +199,20 @@ class sc_cert_base(BitcoinTestFramework):
             assert(len(self.nodes[i].getblocktemplate()['certificates']) == 1)
             assert(len(self.nodes[i].getblocktemplate()['transactions']) == 1)
 
+        for i in range(0, NUMB_OF_NODES):
+            # Check that `getblocktemplate` doesn't include "merkleTree" and "scTxsCommitment" if not explicitly requested
+            gbt = self.nodes[i].getblocktemplate()
+            assert_false('merkleTree' in gbt)
+            assert_false('scTxsCommitment' in gbt)
+            gbt = self.nodes[i].getblocktemplate({}, False)
+            assert_false('merkleTree' in gbt)
+            assert_false('scTxsCommitment' in gbt)
+
+            # Check that `getblocktemplate` "merkleTree" and "scTxsCommitment" match `getblockmerkleroots`
+            gbt = self.nodes[i].getblocktemplate({}, True)
+            roots = self.nodes[i].getblockmerkleroots([gbt['coinbasetxn']['data']] + [x['data'] for x in gbt['transactions']], [x['data'] for x in gbt['certificates']])
+            assert_equal(gbt['merkleTree'], roots['merkleTree'])
+            assert_equal(gbt['scTxsCommitment'], roots['scTxsCommitment'])
 
 if __name__ == '__main__':
     sc_cert_base().main()

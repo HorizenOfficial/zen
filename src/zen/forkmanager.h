@@ -29,7 +29,12 @@ public:
      * @brief getInstance returns the ForkManager static instance.
      */
     static ForkManager& getInstance();
-    
+
+    /**
+     * @brief Get the fork that activates later than all the other ones.
+     */
+    const Fork* getHighestFork() const;
+
     /**
      * @brief selectNetwork is called by SelectParams in chainparams.cpp to select the current network
      */
@@ -110,6 +115,10 @@ public:
 	 */
 	bool isFutureTimeStampActive(int height) const;
 
+    /**
+     * @brief Get the maximum allowed sidechain version for a specific block height
+     */
+    uint8_t getMaxSidechainVersion(int height) const;
 
 private:
     

@@ -21,6 +21,7 @@ from util import assert_equal, check_json_precision, \
     sync_blocks, sync_mempools, wait_bitcoinds
 
 MINIMAL_SC_HEIGHT = 420
+SC_VERSION_FORK_HEIGHT = 450
 MINER_REWARD_POST_H200 = 7.50
 
 

@@ -17,6 +17,7 @@
 #include "utiltime.h"
 
 #include <stdarg.h>
+#include <stdio.h>
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread.h>
@@ -932,6 +933,26 @@ std::string LicenseInfo()
 int GetNumCores()
 {
     return boost::thread::physical_concurrency();
+}
+
+/**
+ * @brief Get the Leading Zero Bits in a byte
+ * (e.g 00000100 => 5 trailing zero bits).
+ * 
+ * @param inputByte the byte to be checked
+ * @return int The number of trailing zero bits found.
+ */
+int getLeadingZeroBitsInByte(unsigned char inputByte)
+{
+    int nonZeroBits = 0;
+
+    while (inputByte > 0)
+    {
+        inputByte >>= 1;
+        nonZeroBits++;
+    }
+
+    return CHAR_BIT - nonZeroBits;
 }
 
 int getTrailingZeroBitsInByte(unsigned char inputByte)

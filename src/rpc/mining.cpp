@@ -422,7 +422,7 @@ static UniValue BIP22ValidationResult(const CValidationState& state)
 
 UniValue getblocktemplate(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() > 1)
+    if (fHelp || params.size() > 2)
         throw runtime_error(
             "getblocktemplate ( \"jsonrequestobject\" )\n"
             "\nIf the request parameters include a 'mode' key, that is used to explicitly select between the default 'template' request or a 'proposal'.\n"
@@ -430,7 +430,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             "See https://en.bitcoin.it/wiki/BIP_0022 for full specification.\n"
 
             "\nArguments:\n"
-            "1. \"jsonrequestobject\"                   (string, optional) a json object in the following spec\n"
+            "1. \"jsonrequestobject\"                   (string, optional) a json object (it can also be empty) in the following spec\n"
             "     {\n"
             "       \"mode\":\"template\"               (string, optional) this must be set to \"template\" or omitted\n"
             "       \"capabilities\":[                  (array, optional) a list of strings\n"
@@ -439,10 +439,13 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
             "         ]\n"
             "     }\n"
             "\n"
+            "2. \"includeMerkleRoots\"                  (boolean, optional, default=false) If true, include \"merkleTree\" and \"scTxsCommitment\" fields in the result object. \n"
 
             "\nResult:\n"
             "{\n"
             "  \"version\" : n,                         (numeric) the block version\n"
+            "  \"merkleTree\" : \"xxxx\",               (string) Merkleroot calculated on transactions and certificates. (Note: If you construct coinbasetxn outside of zend please use \"getblockmerkleroots\" RPC to calculate \"merkleTree\" and \"scTxsCommitment\".)\n"
+            "  \"scTxsCommitment\" : \"xxxx\",          (string) scTxsCommitment calculated on certificates.\n"
             "  \"previousblockhash\" : \"xxxx\",        (string) the hash of current highest block\n"
             "  \"transactions\" : [                     (array) contents of non-coinbase transactions that should be included in the next block\n"
             "      {\n"
@@ -495,6 +498,8 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, "zend compiled without wallet and -mineraddress not set");
 #endif
     }
+
+    bool includeMerkleRoots = false;
 
     int nHeight = chainActive.Height() + 1;
     bool certSupported = ForkManager::getInstance().areSidechainsSupported(nHeight);
@@ -557,6 +562,11 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 
     if (IsInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Horizen is downloading blocks...");
+
+    if (params.size() > 1)
+    {
+        includeMerkleRoots = params[1].get_bool();
+    }
 
     static unsigned int nTransactionsUpdatedLast;
 
@@ -711,8 +721,23 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     }
 
     UniValue result(UniValue::VOBJ);
+
     result.pushKV("capabilities", aCaps);
     result.pushKV("version", pblock->nVersion);
+
+    if (includeMerkleRoots)
+    {
+        pblock->hashMerkleRoot = pblock->BuildMerkleTree();
+
+        if (certSupported) {
+            CCoinsViewCache view(pcoinsTip);
+            pblock->hashScTxsCommitment = pblock->BuildScTxsCommitment(view);
+        }
+
+        result.pushKV("merkleTree", pblock->hashMerkleRoot.ToString());
+        result.pushKV("scTxsCommitment", pblock->hashScTxsCommitment.ToString());
+    }
+
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
     result.pushKV("transactions", transactions);
     if (certSupported)

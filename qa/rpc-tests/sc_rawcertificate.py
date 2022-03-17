@@ -103,7 +103,14 @@ class sc_rawcert(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
         
-        sc_cr = [{"epoch_length": EPOCH_LENGTH, "amount": cr_amount, "address": sc_address, "wCertVk": vk, "constant": constant}]
+        sc_cr = [{
+            "version": 0,
+            "epoch_length": EPOCH_LENGTH,
+            "amount": cr_amount,
+            "address": sc_address,
+            "wCertVk": vk,
+            "constant": constant
+        }]
         sc_ft = []
         raw_tx = self.nodes[1].createrawtransaction([], {}, [], sc_cr, sc_ft)
         funded_tx = self.nodes[1].fundrawtransaction(raw_tx)

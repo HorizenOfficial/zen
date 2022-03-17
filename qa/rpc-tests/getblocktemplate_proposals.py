@@ -161,8 +161,15 @@ class GetBlockTemplateProposalTest(BitcoinTestFramework):
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
 
-        cmdInput = {'withdrawalEpochLength': SC_EPOCH_LENGTH, 'toaddress': "dada", 'amount': SC_CREATION_AMOUNT, 'wCertVk': vk,
-                    'customData': "bb" * 1024, 'constant': constant}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': SC_EPOCH_LENGTH,
+            'toaddress': "dada",
+            'amount': SC_CREATION_AMOUNT,
+            'wCertVk': vk,
+            'customData': "bb" * 1024,
+            'constant': constant
+        }
         ret = self.nodes[1].sc_create(cmdInput)
         creating_tx = ret['txid']
         scid = ret['scid']
