@@ -52,7 +52,7 @@ class FundAddressesTest(BitcoinTestFramework):
         self.sync_all()
 
         # Consider that blocks[0] is not the genesis block but the block at height 1 (second block)
-        # For this reason, all fork heights are must be decreased by 1
+        # For this reason, all fork heights must be decreased by 1
 
         current_fork_height = 1 - 1 # chainsplit fork
         mark_logs("Check chainsplit fork address [height = {}]".format(current_fork_height + 1), self.nodes, DEBUG_MODE)

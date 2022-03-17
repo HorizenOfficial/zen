@@ -420,7 +420,6 @@ TEST(ForkManager, SidechainForkMainnet) {
 TEST(ForkManager, SidechainVersionForkMainnet) {
     SelectParams(CBaseChainParams::MAIN);
 
-    // TODO: set proper fork height value.
     int sidechainVersionForkHeight = 1127000;
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(0), 0);
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight - 1), 0);
@@ -431,7 +430,6 @@ TEST(ForkManager, SidechainVersionForkMainnet) {
 TEST(ForkManager, SidechainVersionForkTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
 
-    // TODO: set proper fork height value.
     int sidechainVersionForkHeight = 1028900;
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(0), 0);
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight - 1), 0);
@@ -442,7 +440,6 @@ TEST(ForkManager, SidechainVersionForkTestnet) {
 TEST(ForkManager, SidechainVersionForkRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
 
-    // TODO: set proper fork height value.
     int sidechainVersionForkHeight = 450;
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(0), 0);
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight - 1), 0);
