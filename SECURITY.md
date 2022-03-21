@@ -1,0 +1,135 @@
+This page is posted in order to conform to this standard: https://github.com/RD-Crypto-Spec/Responsible-Disclosure/tree/d47a5a3dafa5942c8849a93441745fdd186731e6
+
+Copyright The Electric Coin Company, 2019
+
+Copyright Zen Blockchain Foundation, 2019
+
+# Security Disclosures
+## Receiving Disclosures
+
+The Zen Blockchain Foundation is committed to working with researchers who submit security vulnerability notifications to us to resolve those issues on an appropriate timeline and perform a coordinated release, giving credit to the reporter if they would like.
+
+Please submit sensitive issues through our [Hackerone Bug Bounty Program](https://hackerone.com/horizen) or email to security@horizen.io, using the following PGP key:
+
+```
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Comment: User-ID:	Horizen Security <security@horizen.io>
+Comment: a.k.a.:	Horizen Security <security@horizen.global>
+Comment: a.k.a.:	ZenCash Security <security@zencash.com>
+Comment: a.k.a.:	ZenCash Security <security@zensystem.io>
+Comment: Fingerprint:	5C6BF59288CDD4ECA4566F994D20583410704F2E
+
+
+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
+fN3A1NZmg39wSEzDO/s/HZbFjA==
+=JpkR
+-----END PGP PUBLIC KEY BLOCK-----
+```
+
+## Sending Disclosures
+
+In the case where we become aware of security issues affecting other projects that has never affected Horizen, our intention is to inform those projects of security issues on a best effort basis.
+
+In the case where we fix a security issue in Horizen that also affects the following neighboring projects, our intention is to engage in responsible disclosures with them as described in https://github.com/RD-Crypto-Spec/Responsible-Disclosure, subject to the deviations described in the section at the bottom of this document.
+
+## Bilateral Responsible Disclosure Agreements
+
+We have set up agreements with the following neighboring projects to share vulnerability information, subject to the deviations described in the next section.
+
+Specifically, we have agreed to engage in responsible disclosures for security issues affecting Horizen technology with the following contacts:
+
+- Zcash https://github.com/zcash/zcash/blob/master/SECURITY.md
+
+## Deviations from the Standard
+
+Horizen is a technology that provides strong privacy. Notes are encrypted to their destination, and then the monetary base is kept via zero-knowledge proofs intended to only be creatable by the real holder of Zen. If this fails, and a counterfeiting bug results, that counterfeiting bug might be exploited without any way for blockchain analyzers to identify the perpetrator or which data in the blockchain has been used to exploit the bug. Rollbacks before that point, such as have been executed in some other projects in such cases, are therefore impossible.
+
+The standard describes reporters of vulnerabilities including full details of an issue, in order to reproduce it. This is necessary for instance in the case of an external researcher both demonstrating and proving that there really is a security issue, and that security issue really has the impact that they say it has - allowing the development team to accurately prioritize and resolve the issue.
+
+In the case of a counterfeiting bug, however, just like in Zcash's CVE-2019-7167, we might decide not to include those details with our reports to partners ahead of coordinated release, so long as we are sure that they are vulnerable.
+
+
