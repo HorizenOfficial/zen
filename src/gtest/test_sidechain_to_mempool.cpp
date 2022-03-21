@@ -1928,6 +1928,7 @@ CTransaction SidechainsInMempoolTestSuite::GenerateScTx(const CAmount & creation
     scTx.vin[0].prevout = COutPoint(coinData.first, 0);
 
     scTx.vsc_ccout.resize(1);
+    scTx.vsc_ccout[0].version = 0;
     scTx.vsc_ccout[0].nValue = creationTxAmount;
     // do not check min/max range for epoch, for negative tests
     scTx.vsc_ccout[0].withdrawalEpochLength = (epochLenght < 0)?getScMinWithdrawalEpochLength(): epochLenght;

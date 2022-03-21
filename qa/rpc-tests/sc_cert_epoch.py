@@ -81,6 +81,7 @@ class sc_cert_epoch(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "dada",
             "amount": creation_amount,

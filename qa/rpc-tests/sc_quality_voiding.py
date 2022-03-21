@@ -79,6 +79,7 @@ class quality_voiding(BitcoinTestFramework):
         vk = mcTest.generate_params(vk_tag)
         constant = generate_random_field_element_hex()
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "dada",
             "amount": creation_amount,

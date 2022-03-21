@@ -99,6 +99,7 @@ testScripts=(
   'sc_bwt_request.py'
   'sc_cert_quality_wallet.py'
   'ws_messages.py'
+  'ws_getsidechainversions.py'
   'sc_cert_ceasing_split.py'
   'sc_async_proof_verifier.py'
   'sc_quality_blockchain.py'
@@ -131,6 +132,8 @@ testScripts=(
   'txindex.py'
   'getblockexpanded.py'
   'sc_rpc_cmds_json_output.py'
+  'sc_getscgenesisinfo.py'
+  'fundaddresses.py'
 );
 testScriptsExt=(
   'getblocktemplate_longpoll.py'

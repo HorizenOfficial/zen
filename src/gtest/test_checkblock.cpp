@@ -12,6 +12,9 @@
 #include "zen/forks/fork4_nulltransactionfork.h"
 #include "zen/forks/fork5_shieldfork.h"
 #include "zen/forks/fork8_sidechainfork.h"
+
+#include "tx_creation_utils.h"
+
 using namespace zen;
 
 TEST(CheckBlock, VersionTooLow) {
@@ -826,3 +829,102 @@ TEST(ContextualCheckBlock, CoinbaseCommunityRewardAddress) {
     EXPECT_TRUE(ContextualCheckBlock(block, state_5, &indexPrev));
 }
 
+/**
+ * @brief Tests if a list of transactions are valid or not at a specified height.
+ * 
+ * The check is performed in relation to the logic introduced by the SidechainVersionFork only.
+ * Please, note that the block forged to perform the test already includes a coinbase transaction.
+ * 
+ * @param blockHeight The height of the block in which the transactions are included
+ * @param transactions The transactions to be included in the block
+ * @param shouldSucceed True if the test must succeed, false otherwise
+ */
+void TestSidechainCreationVersion(int blockHeight, std::vector<CTransaction> transactions, bool shouldSucceed)
+{
+    CBlock prev;
+    CBlockIndex indexPrev {prev};
+    indexPrev.nHeight = blockHeight - 1;
+
+    CBlock block = blockchain_test_utils::BlockchainTestManager::GenerateValidBlock(blockHeight);
+
+    for (auto& tx : transactions)
+    {
+        block.vtx.push_back(tx);
+    }
+
+    CValidationState state;
+
+    if (shouldSucceed)
+    {
+        EXPECT_TRUE(ContextualCheckBlock(block, state, &indexPrev));
+    }
+    else
+    {
+        EXPECT_FALSE(ContextualCheckBlock(block, state, &indexPrev));
+        EXPECT_EQ(state.GetDoS(), 100);
+        EXPECT_EQ(state.GetRejectCode(), CValidationState::Code::INVALID);
+        EXPECT_EQ(state.GetRejectReason(), std::string("bad-tx-sc-creation-wrong-version"));
+        EXPECT_FALSE(state.CorruptionPossible());
+    }
+}
+
+TEST(ContextualCheckBlock, SidechainCreationVersion)
+{
+    SelectParams(CBaseChainParams::MAIN);
+
+    int sidechainVersionForkHeight = 1127000;
+
+    // Create a Sidechain Creation transaction with version 0
+    CMutableTransaction mtx_v0 = txCreationUtils::createNewSidechainTxWith(CAmount(10));
+
+    for (CTxScCreationOut& out : mtx_v0.vsc_ccout)
+    {
+        out.version = 0;
+    }
+
+    // Create a Sidechain Creation transaction with version 1
+    CMutableTransaction mtx_v1 = txCreationUtils::createNewSidechainTxWith(CAmount(10));
+
+    for (CTxScCreationOut& out : mtx_v1.vsc_ccout)
+    {
+        out.version = 1;
+    }
+
+    // Test a block immediately before the sidechain version fork point; SC version 0 must be accepted
+    TestSidechainCreationVersion(sidechainVersionForkHeight - 1, {mtx_v0, mtx_v0}, true);
+
+    // Create a block immediately before the sidechain version fork point; SC version 1 must be rejected
+    TestSidechainCreationVersion(sidechainVersionForkHeight - 1, {mtx_v1, mtx_v1}, false);
+
+    // Create a block immediately before the sidechain version fork point; SC version 1 must be rejected (even though the first transaction is OK)
+    TestSidechainCreationVersion(sidechainVersionForkHeight - 1, {mtx_v0, mtx_v1}, false);
+
+    // Create a block immediately before the sidechain version fork point; SC version 1 must be rejected (even though the second transaction is OK)
+    TestSidechainCreationVersion(sidechainVersionForkHeight - 1, {mtx_v1, mtx_v0}, false);
+
+
+    // Test a block exactly at the sidechain version fork point; SC version 0 must be accepted
+    TestSidechainCreationVersion(sidechainVersionForkHeight, {mtx_v0, mtx_v0}, true);
+
+    // Create a block exactly at the sidechain version fork point; SC version 1 must be accepted
+    TestSidechainCreationVersion(sidechainVersionForkHeight, {mtx_v1, mtx_v1}, true);
+
+    // Create a block exactly at the sidechain version fork point; SC version 0 and 1 must be accepted
+    TestSidechainCreationVersion(sidechainVersionForkHeight, {mtx_v0, mtx_v1}, true);
+
+    // Create a block exactly at the sidechain version fork point; SC version 0 and 1 must be accepted
+    TestSidechainCreationVersion(sidechainVersionForkHeight, {mtx_v1, mtx_v0}, true);
+
+
+    // Test a block after the sidechain version fork point; SC version 0 must be accepted
+    TestSidechainCreationVersion(sidechainVersionForkHeight + 1, {mtx_v0, mtx_v0}, true);
+
+    // Create a block after the sidechain version fork point; SC version 1 must be accepted
+    TestSidechainCreationVersion(sidechainVersionForkHeight + 1, {mtx_v1, mtx_v1}, true);
+
+    // Create a block after the sidechain version fork point; SC version 0 and 1 must be accepted
+    TestSidechainCreationVersion(sidechainVersionForkHeight + 1, {mtx_v0, mtx_v1}, true);
+
+    // Create a block after the sidechain version fork point; SC version 0 and 1 must be accepted
+    TestSidechainCreationVersion(sidechainVersionForkHeight + 1, {mtx_v1, mtx_v0}, true);
+}

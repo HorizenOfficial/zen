@@ -305,7 +305,7 @@ public:
     }
 
     friend std::ostream& operator<<(std::ostream& os, const FieldElementCertificateFieldConfig& r) {
-        os << r.nBits;
+        os << (int)r.nBits;
         return os;
     }
 };
@@ -369,7 +369,7 @@ protected:
     enum class VALIDATION_STATE {NOT_INITIALIZED, INVALID, VALID};
     mutable VALIDATION_STATE state;
     mutable CFieldElement fieldElement; // memory only, lazy-initialized
-    virtual const CFieldElement& GetFieldElement(const T& cfg) const = 0;
+    virtual const CFieldElement& GetFieldElement(const T& cfg, uint8_t sidechainVersion) const = 0;
 
 public:
     CustomCertificateField(): state(VALIDATION_STATE::NOT_INITIALIZED) {};
@@ -397,8 +397,8 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
-    const CFieldElement& GetFieldElement(const FieldElementCertificateFieldConfig& cfg) const override;
-    bool IsValid(const FieldElementCertificateFieldConfig& cfg) const;
+    const CFieldElement& GetFieldElement(const FieldElementCertificateFieldConfig& cfg, uint8_t sidechainVersion) const override;
+    bool IsValid(const FieldElementCertificateFieldConfig& cfg, uint8_t sidechainVersion) const;
 };
 
 class BitVectorCertificateField : public CustomCertificateField<BitVectorCertificateFieldConfig>
@@ -418,8 +418,8 @@ public:
         READWRITE(*const_cast<std::vector<unsigned char>*>(&vRawData));
     }
 
-    const CFieldElement& GetFieldElement(const BitVectorCertificateFieldConfig& cfg) const override;
-    bool IsValid(const BitVectorCertificateFieldConfig& cfg) const;
+    const CFieldElement& GetFieldElement(const BitVectorCertificateFieldConfig& cfg, uint8_t sidechainVersion) const override;
+    bool IsValid(const BitVectorCertificateFieldConfig& cfg, uint8_t sidechainVersion) const;
 };
 ////////////////////////// End of Custom Field types ///////////////////////////
 
@@ -439,6 +439,21 @@ typedef struct sPowRelatedData_tag
         READWRITE(b);
     }
 } ScPowRelatedData;
+
+// useful in sc rpc command for getting genesis info
+struct ScVersionInfo
+{
+    uint256 sidechainId;
+    uint8_t sidechainVersion;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(sidechainId);
+        READWRITE(sidechainVersion);
+    }
+};
 
 // useful in checking SC fees
 enum class ScFeeCheckFlag {
@@ -481,6 +496,7 @@ bool IsUndefinedProvingSystemType(const std::string& str);
 
 struct ScFixedParameters
 {
+    uint8_t version;
     int withdrawalEpochLength;
     // all creation data follows...
     std::vector<unsigned char> customData;
@@ -495,6 +511,7 @@ struct ScFixedParameters
     bool IsNull() const
     {
         return (
+            version == 0xff                                           &&
             withdrawalEpochLength == -1                               &&
             customData.empty()                                        &&
             constant == boost::none                                   &&
@@ -509,7 +526,28 @@ struct ScFixedParameters
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(withdrawalEpochLength);
+
+        // See CTxScCreationOut for details about the serialization of "version" field.
+        if (ser_action.ForRead())
+        {
+            int withdrawalEpochLengthAndVersion;
+            READWRITE(withdrawalEpochLengthAndVersion);
+            
+            // Get the most significant byte
+            version = withdrawalEpochLengthAndVersion >> 24;
+
+            // Get the least significant 3 bytes
+            withdrawalEpochLength = withdrawalEpochLengthAndVersion & 0x00FFFFFF;
+        }
+        else
+        {
+            // Check any possible inconsistency that would overwrite the "version" byte
+            assert(withdrawalEpochLength <= 0x00FFFFFF);
+
+            int withdrawalEpochLengthAndVersion = (version << 24) | withdrawalEpochLength;
+            READWRITE(withdrawalEpochLengthAndVersion);
+        }
+
         READWRITE(customData);
         READWRITE(constant);
         READWRITE(wCertVk);
@@ -519,12 +557,13 @@ struct ScFixedParameters
         READWRITE(mainchainBackwardTransferRequestDataLength);
     }
 
-    ScFixedParameters(): withdrawalEpochLength(-1), mainchainBackwardTransferRequestDataLength(0)
+    ScFixedParameters(): version(0xff), withdrawalEpochLength(-1), mainchainBackwardTransferRequestDataLength(0)
     {}
 
     inline bool operator==(const ScFixedParameters& rhs) const
     {
-        return (withdrawalEpochLength == rhs.withdrawalEpochLength)                                             &&
+        return (version == rhs.version)                                                                          &&
+               (withdrawalEpochLength == rhs.withdrawalEpochLength)                                             &&
                (customData == rhs.customData)                                                                   &&
                (constant == rhs.constant)                                                                       &&
                (wCertVk == rhs.wCertVk)                                                                         &&
@@ -536,6 +575,7 @@ struct ScFixedParameters
     inline bool operator!=(const ScFixedParameters& rhs) const { return !(*this == rhs); }
     inline ScFixedParameters& operator=(const ScFixedParameters& cp)
     {
+        version                                     = cp.version;
         withdrawalEpochLength                       = cp.withdrawalEpochLength;
         customData                                  = cp.customData;
         constant                                    = cp.constant;

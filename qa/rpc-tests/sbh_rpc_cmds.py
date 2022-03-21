@@ -110,6 +110,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         minconf = 1
         fee = Decimal("0.000025")
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "fromaddress": taddr_1,
             "toaddress": sc_toaddress,
