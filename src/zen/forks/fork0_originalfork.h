@@ -88,6 +88,11 @@ public:
      * @brief returns true if the contextualcheckblockheader uses the MAX_FUTURE_BLOCK_TIME_MTP check blocktime,
      */
     inline virtual bool isFutureTimeStampActive(int height, CBaseChainParams::Network network) const { return false; }
+
+    /**
+     * @brief Get the maximum allowed sidechain version for a specific block height
+     */
+    inline virtual uint8_t getMaxSidechainVersion() const { return 0; };
 };
 
 }

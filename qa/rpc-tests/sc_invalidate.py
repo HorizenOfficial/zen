@@ -129,6 +129,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         constant = generate_random_field_element_hex()
 
         sc = [{
+            "version": 0,
             "epoch_length": sc_epoch,
             "amount": sc_cr_amount,
             "address": sc_address,

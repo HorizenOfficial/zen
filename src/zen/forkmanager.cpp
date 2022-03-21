@@ -13,6 +13,7 @@
 #include "forks/fork6_timeblockfork.h"
 #include "forks/fork7_replayprotectionfixfork.h"
 #include "forks/fork8_sidechainfork.h"
+#include "forks/fork9_sidechainversionfork.h"
 
 namespace zen {
 
@@ -27,6 +28,11 @@ namespace zen {
 ForkManager& ForkManager::getInstance() {
     static ForkManager instance;
     return instance;
+}
+
+const Fork* ForkManager::getHighestFork() const
+{
+    return forks.back();
 }
 
 /**
@@ -169,6 +175,10 @@ bool ForkManager::isFutureTimeStampActive(int height) const {
 	return getForkAtHeight(height)->isFutureTimeStampActive(height, currentNetwork);
 }
 
+uint8_t ForkManager::getMaxSidechainVersion(int height) const {
+    return getForkAtHeight(height)->getMaxSidechainVersion();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// PRIVATE MEMBERS
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -188,6 +198,7 @@ ForkManager::ForkManager() {
     registerFork(new TimeBlockFork());
     registerFork(new ReplayProtectionFixFork());
     registerFork(new SidechainFork());
+    registerFork(new SidechainVersionFork());
 }
 
 /**

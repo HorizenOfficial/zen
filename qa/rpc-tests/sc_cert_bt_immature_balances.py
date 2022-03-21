@@ -113,11 +113,14 @@ class sc_cert_bt_immature_balances(BitcoinTestFramework):
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
         vk = mcTest.generate_params("sc1")
         constant = generate_random_field_element_hex()
-        cmdInput = {'withdrawalEpochLength': EPOCH_LENGTH,
-                    'toaddress': "dada",
-                    'amount': creation_amount,
-                    'wCertVk': vk,
-                    'constant': constant}
+        cmdInput = {
+            'version': 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'toaddress': "dada",
+            'amount': creation_amount,
+            'wCertVk': vk,
+            'constant': constant
+        }
 
         # Create a SC with a budget of 10 coins
         ret = self.nodes[0].sc_create(cmdInput)

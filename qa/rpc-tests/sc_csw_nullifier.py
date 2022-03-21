@@ -92,7 +92,7 @@ class CswNullifierTest(BitcoinTestFramework):
 
         sc_cr = []
         sc_cr.append({
-
+            "version": 0,
             "epoch_length": sc_epoch_len,
             "amount": sc_cr_amount,
             "address": sc_address,
@@ -513,6 +513,7 @@ class CswNullifierTest(BitcoinTestFramework):
         cswVk2 = cswMcTest.generate_params("sc2")
         constant2 = generate_random_field_element_hex()
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": sc_epoch_len,
             "toaddress": "dada",
             "amount": sc_cr_amount,

@@ -93,12 +93,13 @@ class sc_cert_ceasing(BitcoinTestFramework):
             tag = "sc"+str(i+1)
             vk = mcTest.generate_params(tag)
             cmdInput = {
+                "version": 0,
                 "withdrawalEpochLength": EPOCH_LENGTH,
                 "toaddress": "dada",
                 "amount": creation_amount[i],
                 "wCertVk": vk,
                 "constant": constant,
-                'customData': "abcdef"
+                "customData": "abcdef"
             }
 
             ret = self.nodes[0].sc_create(cmdInput)

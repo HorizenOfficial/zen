@@ -585,6 +585,20 @@ private:
     void GenerateScId(const uint256& txHash, unsigned int pos) const;
 
 public:
+    /**
+     * @brief  Version of the sidechain.
+     * The sidechain version has been introduced with hard fork 9 to increase the flexibility of the sidechain mechanism.
+     * Since the Sidechain Creation Output was at the beginning designed without the version, a single byte for such field
+     * has been taken from the WithdrawalEpochLength (before hard fork 9 its size was 4 bytes, after hard fork 9 it is 3 bytes).
+     * Due to the constraints of the consensus logic, we are sure that the most significant byte of the WithdrawalEpochLength was
+     * always zero before hard fork 9.
+     * 
+     * Version 0: due to a bug in the validation of the certificate custom fields, they had to be treated in a special way
+     *            (wrong endianness, see FieldElementCertificateField::GetFieldElement function for further details).
+     * 
+     * Version 1: the validation of custom fields has been fixed.
+     */
+    uint8_t version;
     int withdrawalEpochLength; 
     std::vector<unsigned char> customData;
     boost::optional<CFieldElement> constant;
@@ -596,7 +610,8 @@ public:
     CAmount mainchainBackwardTransferRequestScFee;
     uint8_t mainchainBackwardTransferRequestDataLength;
 
-    CTxScCreationOut(): withdrawalEpochLength(-1),
+    CTxScCreationOut(): version(0xff),
+                        withdrawalEpochLength(-1),
                         forwardTransferScFee(-1),
                         mainchainBackwardTransferRequestScFee(-1),
                         mainchainBackwardTransferRequestDataLength(0) { }
@@ -610,7 +625,30 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(withdrawalEpochLength);
+
+        // The first serialization field is a 4 bytes element containing the SC Creation version in the first byte
+        // and the withdrawalEpochLenght in the remaining 3 bytes. The first implementation didn't have the version
+        // field, but only the withdrawalEpochLenght, so the version was implicitly set to 0 anyway.
+        if (ser_action.ForRead())
+        {
+            int withdrawalEpochLengthAndVersion;
+            READWRITE(withdrawalEpochLengthAndVersion);
+            
+            // Get the most significant byte
+            version = withdrawalEpochLengthAndVersion >> 24;
+
+            // Get the least significant 3 bytes
+            withdrawalEpochLength = withdrawalEpochLengthAndVersion & 0x00FFFFFF;
+        }
+        else
+        {
+            // Check any possible inconsistency that would overwrite the "version" byte
+            assert(withdrawalEpochLength <= 0x00FFFFFF);
+
+            int withdrawalEpochLengthAndVersion = (version << 24) | withdrawalEpochLength;
+            READWRITE(withdrawalEpochLengthAndVersion);
+        }
+
         READWRITE(nValue);
         READWRITE(address);
         READWRITE(customData);

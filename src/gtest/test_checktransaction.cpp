@@ -58,6 +58,7 @@ CMutableTransaction GetValidTransaction(int txVersion) {
         mtx.vcsw_ccin.push_back(csw_ccin);
 
         CTxScCreationOut cr_ccout;
+        cr_ccout.version = 0;
         cr_ccout.nValue = 1.0 * COIN;
         cr_ccout.withdrawalEpochLength = 111;
         mtx.vsc_ccout.push_back(cr_ccout);

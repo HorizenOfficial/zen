@@ -1,9 +1,8 @@
 package=openssl
-$(package)_version=1.1.1l
+$(package)_version=1.1.1n
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=0b7a3e5e59c34827fe0c3a74b7ec8baef302b98fa80088d7f9153aa16fa76bd1
-$(package)_patches=0001-Darwin-platform-allows-to-build-on-releases-before-Y.patch
+$(package)_sha256_hash=40dceb51a4f6a5275bde0e6bf20ef4b91bfc32ed57c0552e2e8e15463372b17a
 
 define $(package)_set_vars
 $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
@@ -94,8 +93,7 @@ endef
 
 define $(package)_preprocess_cmds
   sed -i.old 's/built on: $$$$date/built on: date not available/' util/mkbuildinf.pl && \
-  sed -i.old "s|\"engines\", \"apps\", \"test\"|\"engines\"|" Configure && \
-  patch -p1 < $($(package)_patch_dir)/0001-Darwin-platform-allows-to-build-on-releases-before-Y.patch
+  sed -i.old "s|\"engines\", \"apps\", \"test\"|\"engines\"|" Configure
 endef
 
 define $(package)_config_cmds

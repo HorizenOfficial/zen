@@ -91,6 +91,7 @@ class quality_nodes(BitcoinTestFramework):
         vk_1 = mcTest.generate_params(vk_tag_1)
         constant = generate_random_field_element_hex()
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": EPOCH_LENGTH,
             "toaddress": "dada",
             "amount": creation_amount,

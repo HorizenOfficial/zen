@@ -61,6 +61,7 @@ void AddSidechainOutsToJSON(const CTransaction& tx, UniValue& parentObj)
         UniValue o(UniValue::VOBJ);
         o.pushKV("scid", out.GetScId().GetHex());
         o.pushKV("n", (int64_t)nIdx);
+        o.pushKV("version", out.version);
         o.pushKV("withdrawalEpochLength", (int)out.withdrawalEpochLength);
         o.pushKV("value", ValueFromAmount(out.nValue));
         o.pushKV("address", out.address.GetHex());
@@ -415,6 +416,14 @@ bool AddSidechainCreationOutputs(UniValue& sc_crs, CMutableTransaction& rawTx, s
 
         const UniValue& input = sc_crs[i];
         const UniValue& o = input.get_obj();
+
+        const UniValue& vv = find_value(o, "version");
+        if (vv.isNull() || !vv.isNum())
+        {
+            error = "Invalid or missing sidechain creation output parameter \"version\"";
+            return false;
+        }
+        sc.version = vv.get_int();
 
         const UniValue& elv = find_value(o, "epoch_length");
         if (elv.isNull() || !elv.isNum())

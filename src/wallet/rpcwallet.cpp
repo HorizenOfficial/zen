@@ -761,7 +761,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             "sc_create <argument_list>\n"
             "\nCreate a Sidechain and send funds to it.\n"
             "\nArguments:\n"
-            "{\n"                     
+            "{\n"
+            " \"version\":                      (numeric, required) The version of the sidechain \n"
             " \"withdrawalEpochLength\": epoch  (numeric, optional, default=" + strprintf("%d", SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH) +
                                                ") length of the withdrawal epochs. The minimum valid value in " + Params().NetworkIDString() +
                                                " is: " +  strprintf("%d", Params().ScMinWithdrawalEpochLength()) + "\n"
@@ -799,7 +800,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
     // valid input keywords
     static const std::set<std::string> validKeyArgs =
-        {"withdrawalEpochLength", "fromaddress", "changeaddress", "toaddress", "amount", "minconf", "fee",
+        {"version", "withdrawalEpochLength", "fromaddress", "changeaddress", "toaddress", "amount", "minconf", "fee",
          "wCertVk", "customData", "constant","wCeasedVk", "vFieldElementCertificateFieldConfig", "vBitVectorCertificateFieldConfig",
          "forwardTransferScFee", "mainchainBackwardTransferScFee", "mainchainBackwardTransferRequestDataLength" };
 
@@ -822,6 +823,20 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     }
 
     // ---------------------------------------------------------
+    int sidechainVersion;
+    if (setKeyArgs.count("version"))
+    {
+        sidechainVersion = find_value(inputObject, "version").get_int();
+
+        if (sidechainVersion < 0 || sidechainVersion > ForkManager::getInstance().getMaxSidechainVersion(chainActive.Height() + 1))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid sidechain version"));
+    }
+    else
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing mandatory parameter in input: \"version\"" );
+    }
+
+    // ---------------------------------------------------------
     char errBuf[256] = {};
     int withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
     if (setKeyArgs.count("withdrawalEpochLength"))
@@ -840,6 +855,7 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     }
 
     ScFixedParameters fixedParams;
+    fixedParams.version = sidechainVersion;
     fixedParams.withdrawalEpochLength = withdrawalEpochLength;
 
     // ---------------------------------------------------------

@@ -85,6 +85,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         ftFee = Decimal(-ftScFee)
         mbtrFee = Decimal(mbtrScFee)
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": withdrawalEpochLength,
             "toaddress": address,
             "amount": creation_amount,
@@ -117,6 +118,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         ftFee = Decimal(MAX_MONEY + 1)
         mbtrFee = Decimal(mbtrScFee)
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": withdrawalEpochLength,
             "toaddress": address,
             "amount": creation_amount,
@@ -148,6 +150,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         ftFee = Decimal(ftScFee)
         mbtrFee = Decimal(-mbtrScFee)
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": withdrawalEpochLength,
             "toaddress": address,
             "amount": creation_amount,
@@ -180,6 +183,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         ftFee = Decimal(ftScFee)
         mbtrFee = Decimal(MAX_MONEY + 1)
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": withdrawalEpochLength,
             "toaddress": address,
             "amount": creation_amount,
@@ -212,6 +216,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         ftFee = Decimal(ftScFee)
         mbtrFee = Decimal(mbtrScFee)
         cmdInput = {
+            "version": 0,
             "withdrawalEpochLength": withdrawalEpochLength,
             "toaddress": address,
             "amount": creation_amount,
@@ -500,9 +505,18 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         mark_logs("\nNode 0 creates a raw transaction with sidechain creation fees", self.nodes, DEBUG_MODE)
 
         sc_cr = [{
-            "epoch_length": withdrawalEpochLength, "amount": creation_amount, "address": address, "wCertVk": vk, "constant": constant,
-            "vFieldElementCertificateFieldConfig":[], "vBitVectorCertificateFieldConfig":[],
-            "forwardTransferScFee": ftFee, "mainchainBackwardTransferScFee": mbtrFee, "mainchainBackwardTransferRequestDataLength": mbtrRequestDataLength }]
+            "version": 0,
+            "epoch_length": withdrawalEpochLength,
+            "amount": creation_amount,
+            "address": address,
+            "wCertVk": vk,
+            "constant": constant,
+            "vFieldElementCertificateFieldConfig":[],
+            "vBitVectorCertificateFieldConfig":[],
+            "forwardTransferScFee": ftFee,
+            "mainchainBackwardTransferScFee": mbtrFee,
+            "mainchainBackwardTransferRequestDataLength": mbtrRequestDataLength
+        }]
 
         try:
             rawtx = self.nodes[0].createrawtransaction([],{},[],sc_cr)
@@ -527,9 +541,15 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         # Check that sc_create() sets fees and MBTR data length correctly
         mark_logs("\nNode 0 creates a new sidechain with sc_create()", self.nodes, DEBUG_MODE)
 
-        cmdInput = { "toaddress": address, "amount": creation_amount, 'wCertVk': vk,
-                    "forwardTransferScFee": ftFee, "mainchainBackwardTransferScFee": newMbtrFee,
-                    "mainchainBackwardTransferRequestDataLength": mbtrRequestDataLength }
+        cmdInput = {
+            "version": 0,
+            "toaddress": address,
+            "amount": creation_amount,
+            "wCertVk": vk,
+            "forwardTransferScFee": ftFee,
+            "mainchainBackwardTransferScFee": newMbtrFee,
+            "mainchainBackwardTransferRequestDataLength": mbtrRequestDataLength
+        }
         
         try:
             creating_tx = self.nodes[0].sc_create(cmdInput)['txid']

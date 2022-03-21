@@ -62,14 +62,14 @@ CCertProofVerifierInput CScProofVerifier::CertificateToVerifierItem(const CScCer
     for (int i = 0; i < certificate.vFieldElementCertificateField.size(); i++)
     {
         FieldElementCertificateField entry = certificate.vFieldElementCertificateField.at(i);
-        CFieldElement fe{entry.GetFieldElement(scFixedParams.vFieldElementCertificateFieldConfig.at(i))};
+        CFieldElement fe{entry.GetFieldElement(scFixedParams.vFieldElementCertificateFieldConfig.at(i), scFixedParams.version)};
         assert(fe.IsValid());
         certData.vCustomFields.push_back(fe);
     }
     for (int i = 0; i < certificate.vBitVectorCertificateField.size(); i++)
     {
         BitVectorCertificateField entry = certificate.vBitVectorCertificateField.at(i);
-        CFieldElement fe{entry.GetFieldElement(scFixedParams.vBitVectorCertificateFieldConfig.at(i))};
+        CFieldElement fe{entry.GetFieldElement(scFixedParams.vBitVectorCertificateFieldConfig.at(i), scFixedParams.version)};
         assert(fe.IsValid());
         certData.vCustomFields.push_back(fe);
     }

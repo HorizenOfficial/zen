@@ -351,6 +351,65 @@ TEST(Mempool, SproutNegativeVersionTx) {
     boost::filesystem::remove_all(pathTemp.string(), ec);
 }
 
+/**
+ * @brief Tests the mempool behavior in relation to the SidechainVersionFork.
+ */
+TEST(Mempool, SidechainVersionTest)
+{
+    SelectParams(CBaseChainParams::REGTEST);
+    int sidechainVersionForkHeight = 450;
+    blockchain_test_utils::BlockchainTestManager& testManager = blockchain_test_utils::BlockchainTestManager::GetInstance();
+
+    // Initialize the sidechain keys
+    testManager.GenerateSidechainTestParameters(ProvingSystem::CoboundaryMarlin, TestCircuitType::Certificate);
+
+    // Create a Sidechain Creation transaction with version 0
+    blockchain_test_utils::CTransactionCreationArguments args;
+    args.fGenerateValidInput = true;
+    args.nVersion = SC_TX_VERSION;
+    args.vsc_ccout.push_back(testManager.CreateScCreationOut(0, ProvingSystem::CoboundaryMarlin));
+    CMutableTransaction mtx_v0 = testManager.CreateTransaction(args);
+
+    // Create a Sidechain Creation transaction with version 1
+    args.vsc_ccout[0] = testManager.CreateScCreationOut(1, ProvingSystem::CoboundaryMarlin);
+    CMutableTransaction mtx_v1 = testManager.CreateTransaction(args);
+
+    // Go to the last block before the SidechainVersionFork
+    testManager.ExtendChainActiveToHeight(sidechainVersionForkHeight - 2);
+
+    // Check that a Sidechain Creation transaction with version 0 is accepted
+    CValidationState state;
+    EXPECT_EQ(MempoolReturnValue::VALID, testManager.TestAcceptTxToMemoryPool(state, mtx_v0));
+
+    // Check that a Sidechain Creation transaction with version 1 is rejected
+    state = CValidationState();
+    EXPECT_EQ(MempoolReturnValue::INVALID, testManager.TestAcceptTxToMemoryPool(state, mtx_v1));
+    EXPECT_EQ(state.GetRejectReason(), "bad-tx-sc-creation-wrong-version");
+
+    // Go to the block of the SidechainVersionFork
+    testManager.ExtendChainActiveToHeight(sidechainVersionForkHeight - 1);
+
+    // Check that a Sidechain Creation transaction with version 0 is accepted
+    state = CValidationState();
+    EXPECT_EQ(MempoolReturnValue::VALID, testManager.TestAcceptTxToMemoryPool(state, mtx_v0));
+
+    // Check that a Sidechain Creation transaction with version 1 is accepted
+    state = CValidationState();
+    EXPECT_EQ(MempoolReturnValue::VALID, testManager.TestAcceptTxToMemoryPool(state, mtx_v1));
+
+    // Go to the next block after the SidechainVersionFork
+    testManager.ExtendChainActiveToHeight(sidechainVersionForkHeight);
+
+    // Check that a Sidechain Creation transaction with version 0 is accepted
+    state = CValidationState();
+    EXPECT_EQ(MempoolReturnValue::VALID, testManager.TestAcceptTxToMemoryPool(state, mtx_v0));
+
+    // Check that a Sidechain Creation transaction with version 1 is accepted
+    state = CValidationState();
+    EXPECT_EQ(MempoolReturnValue::VALID, testManager.TestAcceptTxToMemoryPool(state, mtx_v1));
+}
+
+
 
 ///////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// ProcessMempoolMsg //////////////////////////////

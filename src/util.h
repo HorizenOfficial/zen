@@ -296,6 +296,7 @@ std::string dbg_blk_unlinked();
 std::string dbg_blk_candidates();
 std::string dbg_blk_global_tips();
 
+int getLeadingZeroBitsInByte(unsigned char inputByte);
 int getTrailingZeroBitsInByte(unsigned char inputByte);
 int getBytesFromBits(int nbits, int& reminder);
 

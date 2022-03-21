@@ -68,7 +68,13 @@ class ScCertListsinceblock(BitcoinTestFramework):
         # create SC
         #------------------------------------------------------------------------------------------------------------
         cmdInput = {
-            'toaddress': "abcd", 'amount': 20.0, 'wCertVk': vk, 'withdrawalEpochLength': EPOCH_LENGTH,'constant': constant}
+            'version':0,
+            'toaddress': "abcd",
+            'amount': 20.0,
+            'wCertVk': vk,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'constant': constant
+        }
 
         mark_logs("\nNode 1 create SC", self.nodes, DEBUG_MODE)
         try:

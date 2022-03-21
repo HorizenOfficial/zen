@@ -8,7 +8,8 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
-    dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes, advance_epoch
+    dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes, advance_epoch, \
+    get_field_element_with_padding
 from test_framework.mc_test.mc_test import *
 import os
 import pprint
@@ -160,9 +161,17 @@ class sc_big_block(BitcoinTestFramework):
         cmtCfg.append([[254*4, 151]])
 
         cmdInput = {
-            'withdrawalEpochLength': EPOCH_LENGTH, 'amount': amount, 'fee': fee,
-            'constant':constant , 'wCertVk': certVk, 'wCeasedVk': cswVk, 'toaddress':"cdcd",
-            'vFieldElementCertificateFieldConfig':feCfg[0], 'vBitVectorCertificateFieldConfig':cmtCfg[0] }
+            'version': 0,
+            'withdrawalEpochLength': EPOCH_LENGTH,
+            'amount': amount,
+            'fee': fee,
+            'constant':constant ,
+            'wCertVk': certVk,
+            'wCeasedVk': cswVk,
+            'toaddress':"cdcd",
+            'vFieldElementCertificateFieldConfig':feCfg[0],
+            'vBitVectorCertificateFieldConfig':cmtCfg[0]
+        }
       
         scids = []
         scc_txs = []
@@ -177,7 +186,7 @@ class sc_big_block(BitcoinTestFramework):
         vCfe = ["ab000100"]
         vCmt = [BIT_VECTOR_BUF]
 
-        fe1 = "00000000000000000000000000000000000000000000000000000000" + "ab000100"
+        fe1 = get_field_element_with_padding("ab000100", 0)
         fe2 = BIT_VECTOR_FE
 
         proofCfeArray = [fe1, fe2]
