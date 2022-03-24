@@ -43,6 +43,12 @@ def generate_random_field_element(bits_len):
 
     assert(bits_len <= MODULUS_BITS)
 
+    # Calculate the number of bytes needed to store the requested bits
+    bytes_len = bits_len // 8
+
+    if bits_len % 8 != 0:
+        bytes_len += 1
+
     # Get a random big integer of the given bits length
     field_element = random.getrandbits(bits_len)
 
@@ -59,9 +65,8 @@ def generate_random_field_element(bits_len):
     assert(field_element_hex.endswith("L"))
     field_element_hex = field_element_hex[2:-1]
 
-    # The field element hex string must contain an even number of characters
-    if len(field_element_hex) % 2 != 0:
-        field_element_hex = "0" + field_element_hex
+    # The field element hex string must contain exactly bytes_len * 2 characters
+    field_element_hex = field_element_hex.rjust(bytes_len * 2, "0")
 
     # Convert to little endian for usage in the blockchain
     field_element_hex = "".join(reversed([field_element_hex[i:i+2] for i in range(0, len(field_element_hex), 2)]))
