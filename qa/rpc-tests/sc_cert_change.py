@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -116,7 +116,7 @@ class sc_cert_change(BitcoinTestFramework):
             assert(len(cert_ep0) > 0)
             mark_logs("Certificate is {}".format(cert_ep0), self.nodes, DEBUG_MODE)
             self.sync_all()
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -142,7 +142,7 @@ class sc_cert_change(BitcoinTestFramework):
             assert(len(cert_ep1) > 0)
             mark_logs("Certificate is {}".format(cert_ep1), self.nodes, DEBUG_MODE)
             self.sync_all()
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -168,7 +168,7 @@ class sc_cert_change(BitcoinTestFramework):
             assert(len(cert_ep2) > 0)
             mark_logs("Certificate is {}".format(cert_ep2), self.nodes, DEBUG_MODE)
             self.sync_all()
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -198,7 +198,7 @@ class sc_cert_change(BitcoinTestFramework):
 
         try:
             res = self.nodes[3].gettransaction(cert_ep2)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Get transaction failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -215,7 +215,7 @@ class sc_cert_change(BitcoinTestFramework):
         try:
             # Specifically request also immature BT amounts
             res = self.nodes[3].gettransaction(cert_ep2, includeWatchonly, includeImmatureBTs)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Get transaction failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)

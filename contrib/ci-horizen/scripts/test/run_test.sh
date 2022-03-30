@@ -6,9 +6,6 @@ export CMD="$1"
 export ARGS="$2"
 
 if [ "${TRAVIS_OS_NAME}" = "osx" ]; then
-  # workaround until https://github.com/zcash/zcash/pull/3538 is pulled in from upstream
-  # or the work porting the test suite to python3 is pulled in
-  find "${TRAVIS_BUILD_DIR}/qa" "${TRAVIS_BUILD_DIR}/src/test" -type f -name '*.py' -print0 | LC_ALL=C xargs -0 sed -i '' 's/env python2/env python/'
   bash -c 'set -xeuo pipefail && export HOST=$(gcc -dumpmachine) && export MAKEFLAGS="${MAKEFLAGS:-} -j $(($(nproc)+1))" \
     && cd "${TRAVIS_BUILD_DIR}" && ./zcutil/fetch-params.sh && time "${CMD}" ${ARGS}'
 else

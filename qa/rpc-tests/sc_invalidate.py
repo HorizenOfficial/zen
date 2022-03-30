@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -179,7 +179,7 @@ class ScInvalidateTest(BitcoinTestFramework):
         try:
             mbtrTx = self.nodes[1].sc_request_transfer(outputs, cmdParms)
             mark_logs("  --> mbtrTx = {}.".format(mbtrTx), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)

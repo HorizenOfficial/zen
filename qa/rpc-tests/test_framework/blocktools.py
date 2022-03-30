@@ -4,12 +4,12 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #
 
-from mininode import CBlock, CTransaction, CTxIn, CTxOut, COutPoint, ToHex
-from script import CScript, OP_0, OP_EQUAL, OP_HASH160, OP_DUP, OP_CHECKBLOCKATHEIGHT, OP_EQUALVERIFY, OP_CHECKSIG
+from test_framework.mininode import CBlock, CTransaction, CTxIn, CTxOut, COutPoint, ToHex
+from test_framework.script import OP_TRUE, CScript, OP_0, OP_EQUAL, OP_HASH160, OP_DUP, OP_CHECKBLOCKATHEIGHT, OP_EQUALVERIFY, OP_CHECKSIG
 from decimal import Decimal
-from cStringIO import StringIO
+from io import BytesIO
 from binascii import unhexlify, hexlify
-from util import hex_str_to_bytes, swap_bytes
+from test_framework.util import bytes_to_hex_str, hex_str_to_bytes, hex_str_to_str, swap_bytes, to_satoshis
 
 # Create a block (with regtest difficulty)
 def create_block(hashprev, coinbase, nTime=None, nBits=None):
@@ -95,7 +95,7 @@ key_list = sorted(fork_points.keys())
 
 def get_coinbase_quotas(fork_height):
     found = False
-    for k in xrange(1, len(key_list)):
+    for k in range(1, len(key_list)):
         if fork_height < key_list[k]:
             found = True
             key = key_list[k-1] 
@@ -160,10 +160,10 @@ def create_coinbase(heightAdjust = 0, comm_quota=85):
                 CScript([counter+heightAdjust, OP_0]), 0xffffffff))
     counter += 1
     coinbaseoutput = CTxOut()
-    coinbaseoutput.nValue = int(12.5*100000000)
+    coinbaseoutput.nValue = to_satoshis(12.5)
     halvings = int((counter+heightAdjust)/2000) # regtest
     coinbaseoutput.nValue >>= halvings
-    coinbaseoutput.scriptPubKey = ""
+    coinbaseoutput.scriptPubKey = CScript([OP_TRUE])
     coinbase.vout = [ coinbaseoutput ]
     if halvings == 0: # regtest
         comm_output = CTxOut()
@@ -184,7 +184,7 @@ def create_transaction(prevtx, n, sig, value):
     tx = CTransaction()
     assert(n < len(prevtx.vout))
     tx.vin.append(CTxIn(COutPoint(prevtx.sha256, n), sig, 0xffffffff))
-    tx.vout.append(CTxOut(value, ""))
+    tx.vout.append(CTxOut(value, b""))
     tx.calc_sha256()
     return tx
 
@@ -214,12 +214,12 @@ def create_tampered_rawtx_cbh(node_from, node_to, tx_amount, fee, mode):
 
     # build an object from the raw Tx in order to be able to modify it
     tx_01 = CTransaction()
-    f = StringIO(unhexlify(rawTx))
+    f = BytesIO(unhexlify(rawTx))
     tx_01.deserialize(f)
 
     # corrupt vouts in this Tx
     for vout_idx in range(len(tx_01.vout)):
-        decodedScriptOrig = node_from.decodescript(hexlify(tx_01.vout[vout_idx].scriptPubKey))
+        decodedScriptOrig = node_from.decodescript(bytes_to_hex_str(tx_01.vout[vout_idx].scriptPubKey))
 
         scriptOrigAsm = decodedScriptOrig['asm']
         params = scriptOrigAsm.split()

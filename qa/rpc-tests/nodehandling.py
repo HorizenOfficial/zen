@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -69,10 +69,10 @@ class NodeHandlingTest (BitcoinTestFramework):
         ###########################
         url = urlparse.urlparse(self.nodes[0].url)
 
-        print "Connection to self stress test. " \
+        print("Connection to self stress test. " \
               "Constantly trying to connect to self every 0.5 sec. " \
-              "The whole test takes approx 5 mins"
-        for x in xrange(600):
+              "The whole test takes approx 5 mins")
+        for x in range(600):
             connect_nodes(self.nodes[0], 0)
             time.sleep(0.5)
             # self-connection should be disconnected during the version checking

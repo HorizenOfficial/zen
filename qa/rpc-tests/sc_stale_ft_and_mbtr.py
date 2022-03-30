@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -71,7 +71,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
             # there are a few coinbase utxo now matured
             listunspent = self.nodes[0].listunspent()
-            print "num of utxo: ", len(listunspent)
+            print("num of utxo: ", len(listunspent))
 
             while True:
                 if len(listunspent) <= tot_num_tx:
@@ -87,9 +87,9 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
                     raw_tx = self.nodes[0].createrawtransaction(raw_inputs, raw_outs)
                     signed_tx = self.nodes[0].signrawtransaction(raw_tx)
                     tx = self.nodes[0].sendrawtransaction(signed_tx['hex'])
-                except JSONRPCException, e:
+                except JSONRPCException as e:
                     errorString = e.error['message']
-                    print "Send raw tx failed with reason {}".format(errorString)
+                    print("Send raw tx failed with reason {}".format(errorString))
                     assert(False)
 
                 tot_num_tx += 1
@@ -101,7 +101,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
                     self.sync_all()
                     break
 
-            print "tot tx   = {}, tot sz = {} ".format(tot_num_tx, tot_tx_sz)
+            print("tot tx   = {}, tot sz = {} ".format(tot_num_tx, tot_tx_sz))
 
         def get_sc_fee_min_max_value(scFeesList):
             m_min = Decimal('1000000000.0')
@@ -200,7 +200,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         try:
             ret = self.nodes[1].sc_create(cmdInput)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -255,7 +255,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         try:
             txFT = self.nodes[2].sc_send(forwardTransferOuts, { "fee": 0.0})
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -274,7 +274,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         try:
             txMbtr = self.nodes[3].sc_request_transfer(mbtrOuts, { "fee": 0.0})
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -466,7 +466,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         try:
             txFT = self.nodes[2].sc_send(forwardTransferOuts, { "fee": 0.0})
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -485,7 +485,7 @@ class SCStaleFtAndMbtrTest(BitcoinTestFramework):
 
         try:
             txMbtr = self.nodes[3].sc_request_transfer(mbtrOuts, { "fee": 0.0})
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)

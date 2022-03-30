@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -138,7 +138,7 @@ class CswNullifierTest(BitcoinTestFramework):
         mark_logs("\nCheck we have expected cert data hashes", self.nodes, DEBUG_MODE)
         try:
             assert_true(self.nodes[0].getactivecertdatahash(scid)['certDataHash'])
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
@@ -166,7 +166,7 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_csw_amount = sc_bal/2
         null1 = generate_random_field_element_hex()
         actCertData = self.nodes[0].getactivecertdatahash(scid)['certDataHash']
-        print "Active Cert Data Hash: -------> ", actCertData
+        print("Active Cert Data Hash: -------> ", actCertData)
 
         ceasingCumScTxCommTree = self.nodes[0].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
 
@@ -271,7 +271,7 @@ class CswNullifierTest(BitcoinTestFramework):
         try:
             self.nodes[0].sendrawtransaction(sigRawtx['hex'])
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
 
@@ -303,7 +303,7 @@ class CswNullifierTest(BitcoinTestFramework):
             sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
             finalRawTx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
             mark_logs("sent csw 2 {} retrieving {} coins on Node2 behalf".format(finalRawtx, sc_csw_amount), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -352,7 +352,7 @@ class CswNullifierTest(BitcoinTestFramework):
             funded_tx = self.nodes[0].fundrawtransaction(rawtx)
             sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
             tx_n1 = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -417,7 +417,7 @@ class CswNullifierTest(BitcoinTestFramework):
             funded_tx = self.nodes[2].fundrawtransaction(rawtx)
             sigRawtx = self.nodes[2].signrawtransaction(funded_tx['hex'])
             tx_n2 = self.nodes[2].sendrawtransaction(sigRawtx['hex'])
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -594,7 +594,7 @@ class CswNullifierTest(BitcoinTestFramework):
             tx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
             pprint.pprint(self.nodes[0].getrawtransaction(tx, 1))
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send csw failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
 
@@ -602,7 +602,7 @@ class CswNullifierTest(BitcoinTestFramework):
         mark_logs("Check we have an active cert data hashe for sidechain 1", self.nodes, DEBUG_MODE)
         try:
             assert_true(self.nodes[1].getactivecertdatahash(scid)['certDataHash'])
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
@@ -613,7 +613,7 @@ class CswNullifierTest(BitcoinTestFramework):
 
         try:
             assert_true(self.nodes[1].getactivecertdatahash(scid2)['certDataHash'])
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)

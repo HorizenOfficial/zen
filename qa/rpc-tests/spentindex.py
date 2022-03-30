@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014-2015 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -36,7 +36,7 @@ class SpentIndexTest(BitcoinTestFramework):
         self.sync_all()
 
     def run_test(self):
-        print "Mining blocks..."
+        print("Mining blocks...")
         self.nodes[0].generate(105)
         self.sync_all()
 
@@ -44,7 +44,7 @@ class SpentIndexTest(BitcoinTestFramework):
         assert_equal(chain_height, 105)
 
         # Check that
-        print "Testing spent index..."
+        print("Testing spent index...")
 
         privkey = "cSdkPxkAjA4HDr5VHgsebAPDEh9Gyub4HK8UJr2DFGGqKKy4K5sG"
         address = "ztUB6YWTcj2uUe5Rbucnc7oFevn7wCKyN63"
@@ -58,7 +58,7 @@ class SpentIndexTest(BitcoinTestFramework):
         scriptPubKey = binascii.unhexlify(op_dup + op_hash160 + op_push_20_bytes_onto_the_stack + addressHash + op_equalverify + op_checksig + genesisCbah)
         unspent = self.nodes[0].listunspent()
         tx = CTransaction()
-        amount = unspent[0]["amount"] * 100000000
+        amount = to_satoshis(unspent[0]["amount"])
         tx.vin = [CTxIn(COutPoint(int(unspent[0]["txid"], 16), unspent[0]["vout"]))]
         tx.vout = [CTxOut(amount, scriptPubKey)]
         tx.rehash()
@@ -68,7 +68,7 @@ class SpentIndexTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        print "Testing getspentinfo method..."
+        print("Testing getspentinfo method...")
 
         # Check that the spentinfo works standalone
         info = self.nodes[1].getspentinfo({"txid": unspent[0]["txid"], "index": unspent[0]["vout"]})
@@ -76,7 +76,7 @@ class SpentIndexTest(BitcoinTestFramework):
         assert_equal(info["index"], 0)
         assert_equal(info["height"], 106)
 
-        print "Testing getrawtransaction method..."
+        print("Testing getrawtransaction method...")
 
         # Check that verbose raw transaction includes spent info
         txVerbose = self.nodes[3].getrawtransaction(unspent[0]["txid"], 1)
@@ -120,7 +120,7 @@ class SpentIndexTest(BitcoinTestFramework):
 
 
         # Check block deltas
-        print "Testing getblockdeltas..."
+        print("Testing getblockdeltas...")
 
         block = self.nodes[3].getblockdeltas(block_hash[0])
         assert_equal(len(block["deltas"]), 2)
@@ -138,7 +138,7 @@ class SpentIndexTest(BitcoinTestFramework):
         assert_equal(block["deltas"][1]["outputs"][0]["address"], "ztUB6YWTcj2uUe5Rbucnc7oFevn7wCKyN63")
         assert_equal(block["deltas"][1]["outputs"][0]["satoshis"], amount)
 
-        print "Passed\n"
+        print("Passed\n")
 
 
 if __name__ == '__main__':

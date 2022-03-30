@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -85,7 +85,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
         fwt_amount_many = fwt_amount_1 + fwt_amount_2 + fwt_amount_3
 
         # ---------------------------------------------------------------------------------------
-        print "Current height: ", self.nodes[2].getblockcount()
+        print("Current height: ", self.nodes[2].getblockcount())
 
         mark_logs("\nNode 1 creates SC 1 with " + str(creation_amount) + " coins", self.nodes, DEBUG_MODE)
         amounts = []
@@ -117,14 +117,14 @@ class sc_fwd_maturity(BitcoinTestFramework):
 
         # ----------------------------------------------------------------------------
         curh = self.nodes[2].getblockcount()
-        print "Current height: ", curh
+        print("Current height: ", curh)
         dump_sc_info_record(self.nodes[2].getscinfo(scid_1)['items'][0], 2)
-        print "Check that %f coins will be mature at h=%d" % (creation_amount, curh + 2)
+        print("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 2))
         ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + 2:
                 assert_equal(entry["amount"], creation_amount)
-            print "...OK"
+            print("...OK")
             print
 
         # raw_input("Press enter to send...")
@@ -200,12 +200,12 @@ class sc_fwd_maturity(BitcoinTestFramework):
 
         # ----------------------------------------------------------------------------
         curh = self.nodes[2].getblockcount()
-        print "Current height: ", curh
+        print("Current height: ", curh)
         dump_sc_info_record(self.nodes[2].getscinfo(scid_1)['items'][0], 2)
         dump_sc_info_record(self.nodes[2].getscinfo(scid_2)['items'][0], 2)
         count = 0
-        print "Check that %f coins will be mature at h=%d" % (creation_amount, curh + 1)
-        print "Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 2)
+        print("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 1))
+        print("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 2))
         ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             count += 1
@@ -215,7 +215,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
                 assert_equal(entry["amount"], creation_amount)
 
         assert_equal(count, 2)
-        print "...OK"
+        print("...OK")
         print
 
         mark_logs("\nNode 1 sends 2 amounts to SC 2 (tot: " + str(fwt_amount_2 + fwt_amount_3) + ")", self.nodes, DEBUG_MODE)
@@ -232,10 +232,10 @@ class sc_fwd_maturity(BitcoinTestFramework):
         dump_sc_info(self.nodes, NUMB_OF_NODES)
         # ----------------------------------------------------------------------------
         curh = self.nodes[2].getblockcount()
-        print "Current height: ", curh
+        print("Current height: ", curh)
         dump_sc_info_record(self.nodes[2].getscinfo(scid_1)['items'][0], 2)
         count = 0
-        print "Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 1)
+        print("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 1))
         ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + 1:
@@ -243,7 +243,7 @@ class sc_fwd_maturity(BitcoinTestFramework):
                 count += 1
 
         assert_equal(count, 1)
-        print "...OK"
+        print("...OK")
         print
 
         mark_logs("\n...Node0 generating 1 block", self.nodes, DEBUG_MODE)
@@ -252,29 +252,29 @@ class sc_fwd_maturity(BitcoinTestFramework):
 
         # ----------------------------------------------------------------------------
         curh = self.nodes[2].getblockcount()
-        print "Current height: ", curh
+        print("Current height: ", curh)
         dump_sc_info_record(self.nodes[2].getscinfo(scid_1)['items'][0], 2)
         count = 0
-        print "Check that there are no immature coins"
+        print("Check that there are no immature coins")
         ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         assert_equal(len(ia), 0)
-        print "...OK"
+        print("...OK")
         print
 
         mark_logs("\nNode 2 invalidates best block", self.nodes, DEBUG_MODE)
         try:
             self.nodes[2].invalidateblock(self.nodes[2].getbestblockhash())
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print errorString
+            print(errorString)
         time.sleep(1)
 
         # ----------------------------------------------------------------------------
         curh = self.nodes[2].getblockcount()
-        print "Current height: ", curh
+        print("Current height: ", curh)
         dump_sc_info_record(self.nodes[2].getscinfo(scid_1)['items'][0], 2)
         count = 0
-        print "Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 1)
+        print("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 1))
         ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + 1:
@@ -282,24 +282,24 @@ class sc_fwd_maturity(BitcoinTestFramework):
                 count += 1
 
         assert_equal(count, 1)
-        print "...OK"
+        print("...OK")
         print
 
         mark_logs("\nNode 2 invalidates best block", self.nodes, DEBUG_MODE)
         try:
             self.nodes[2].invalidateblock(self.nodes[2].getbestblockhash())
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print errorString
+            print(errorString)
         time.sleep(1)
 
         # ----------------------------------------------------------------------------
         curh = self.nodes[2].getblockcount()
-        print "Current height: ", curh
+        print("Current height: ", curh)
         dump_sc_info_record(self.nodes[2].getscinfo(scid_1)['items'][0], 2)
         count = 0
-        print "Check that %f coins will be mature at h=%d" % (creation_amount, curh + 1)
-        print "Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 2)
+        print("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 1))
+        print("Check that %f coins will be mature at h=%d" % (fwt_amount_many + fwt_amount_1, curh + 2))
         ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             count += 1
@@ -309,27 +309,27 @@ class sc_fwd_maturity(BitcoinTestFramework):
                 assert_equal(entry["amount"], creation_amount)
 
         assert_equal(count, 2)
-        print "...OK"
+        print("...OK")
         print
 
         mark_logs("\nNode 2 invalidates best block", self.nodes, DEBUG_MODE)
         try:
             self.nodes[2].invalidateblock(self.nodes[2].getbestblockhash())
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print errorString
+            print(errorString)
         time.sleep(1)
 
         # ----------------------------------------------------------------------------
         curh = self.nodes[2].getblockcount()
-        print "Current height: ", curh
+        print("Current height: ", curh)
         dump_sc_info(self.nodes, NUMB_OF_NODES)
-        print "Check that %f coins will be mature at h=%d" % (creation_amount, curh + 2)
+        print("Check that %f coins will be mature at h=%d" % (creation_amount, curh + 2))
         ia = self.nodes[2].getscinfo(scid_1)['items'][0]["immatureAmounts"]
         for entry in ia:
             if entry["maturityHeight"] == curh + 2:
                 assert_equal(entry["amount"], creation_amount)
-            print "...OK"
+            print("...OK")
             print
 
         creating_tx = self.nodes[2].getscinfo(scid_1)['items'][0]['creatingTxHash']
@@ -337,17 +337,17 @@ class sc_fwd_maturity(BitcoinTestFramework):
         mark_logs("\nNode 2 invalidates best block", self.nodes, DEBUG_MODE)
         try:
             self.nodes[2].invalidateblock(self.nodes[2].getbestblockhash())
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print errorString
+            print(errorString)
         time.sleep(1)
-        print "Current height: ", self.nodes[2].getblockcount()
-        print "Checking that sc info on Node2 is not available in blockchain (just in mempool)..."
+        print("Current height: ", self.nodes[2].getblockcount())
+        print("Checking that sc info on Node2 is not available in blockchain (just in mempool)...")
         scinfo = self.nodes[2].getscinfo(scid_1)['items'][0]
         assert_false('creatingTxHash' in scinfo)
         assert_true(scinfo['unconfCreatingTxHash'], creating_tx)
 
-        print "...OK"
+        print("...OK")
         print
         time.sleep(1)
 

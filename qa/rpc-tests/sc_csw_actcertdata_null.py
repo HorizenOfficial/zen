@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -126,7 +126,7 @@ class CswActCertDataTest(BitcoinTestFramework):
         try:
             actCertData = self.nodes[0].getactivecertdatahash(scid)['certDataHash']
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             actCertData = None
 

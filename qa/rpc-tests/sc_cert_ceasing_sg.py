@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -109,7 +109,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         mark_logs("Node0 generates {} blocks to achieve end of withdrawal epochs".format(EPOCH_LENGTH), self.nodes, DEBUG_MODE)
         self.nodes[0].generate(EPOCH_LENGTH)
         self.sync_all()
-        print "#### chain height=", self.nodes[0].getblockcount()
+        print("#### chain height=", self.nodes[0].getblockcount())
         print
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
@@ -134,7 +134,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
             cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -147,13 +147,13 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
-        print "ceasingHeight   =", ret['ceasingHeight']
-        print "endEpochHeight =", ret['endEpochHeight']
-        print "epoch number     =", ret['epoch']
+        print("ceasingHeight   =", ret['ceasingHeight'])
+        print("endEpochHeight =", ret['endEpochHeight'])
+        print("epoch number     =", ret['epoch'])
         assert_equal(ret['ceasingHeight'], MINIMAL_SC_HEIGHT+2*EPOCH_LENGTH+EPOCH_LENGTH/5) 
         assert_equal(ret['endEpochHeight'], MINIMAL_SC_HEIGHT+2*EPOCH_LENGTH)
         assert_equal(ret['epoch'], 1)
-        print "#### chain height=", self.nodes[0].getblockcount()
+        print("#### chain height=", self.nodes[0].getblockcount())
         print
 
 
@@ -167,7 +167,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
             cert_2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -180,27 +180,27 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
-        print "ceasingHeight   =", ret['ceasingHeight']
-        print "endEpochHeight =", ret['endEpochHeight']
-        print "epoch number     =", ret['epoch']
+        print("ceasingHeight   =", ret['ceasingHeight'])
+        print("endEpochHeight =", ret['endEpochHeight'])
+        print("epoch number     =", ret['epoch'])
         assert_equal(ret['ceasingHeight'], MINIMAL_SC_HEIGHT+3*EPOCH_LENGTH+EPOCH_LENGTH/5) 
         assert_equal(ret['endEpochHeight'], MINIMAL_SC_HEIGHT+3*EPOCH_LENGTH)
         assert_equal(ret['epoch'], 2)
-        print "#### chain height=", self.nodes[0].getblockcount()
+        print("#### chain height=", self.nodes[0].getblockcount())
         print
         mature_only = False
         utx_out1 = self.nodes[1].gettxout(cert_1, 1)
         utx_out2 = self.nodes[1].gettxout(cert_2, 1, True, mature_only)
-        print "BWT coins:     -------------------------"
+        print("BWT coins:     -------------------------")
         if utx_out1:
-            print "cert 1 has coins: {}, confirmations={}".format(utx_out1['value'], utx_out1['confirmations'])
+            print("cert 1 has coins: {}, confirmations={}".format(utx_out1['value'], utx_out1['confirmations']))
         if utx_out2:
-            print "cert 2 has coins: {}, confirmations={}".format(utx_out2['value'], utx_out2['confirmations'])
+            print("cert 2 has coins: {}, confirmations={}".format(utx_out2['value'], utx_out2['confirmations']))
         winfo = self.nodes[1].getwalletinfo()
         assert_equal(bwt_amount_1, winfo['balance'])
         assert_equal(bwt_amount_2, winfo['immature_balance']) 
         assert_equal(2, winfo['txcount']) 
-        print "----------------------------------------"
+        print("----------------------------------------")
         print
 
         mark_logs("Node0 generates 1 more blocks reaching the end of the cert submission window", self.nodes, DEBUG_MODE)
@@ -208,44 +208,44 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         self.sync_all()
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
-        print "ceasingHeight   =", ret['ceasingHeight']
-        print "endEpochHeight =", ret['endEpochHeight']
-        print "epoch number     =", ret['epoch']
-        print "#### chain height=", self.nodes[0].getblockcount()
+        print("ceasingHeight   =", ret['ceasingHeight'])
+        print("endEpochHeight =", ret['endEpochHeight'])
+        print("epoch number     =", ret['epoch'])
+        print("#### chain height=", self.nodes[0].getblockcount())
         print
 
         utx_out1 = self.nodes[1].gettxout(cert_1, 1)
         utx_out2 = self.nodes[1].gettxout(cert_2, 1)
-        print "BWT coins:     -------------------------"
+        print("BWT coins:     -------------------------")
         if utx_out1:
-            print "cert 1 has coins: {}, confirmations={}".format(utx_out1['value'], utx_out1['confirmations'])
+            print("cert 1 has coins: {}, confirmations={}".format(utx_out1['value'], utx_out1['confirmations']))
         if utx_out2:
-            print "cert 2 has coins: {}, confirmations={}".format(utx_out2['value'], utx_out2['confirmations'])
+            print("cert 2 has coins: {}, confirmations={}".format(utx_out2['value'], utx_out2['confirmations']))
         winfo = self.nodes[1].getwalletinfo()
         assert_equal(bwt_amount_1, winfo['balance'])
         assert_equal(bwt_amount_2, winfo['immature_balance']) 
         assert_equal(2, winfo['txcount']) 
-        print "----------------------------------------"
+        print("----------------------------------------")
         print
 
         mark_logs("Node0 generates 1 more blocks to achieve scs ceasing", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
-        print "#### chain height=", self.nodes[0].getblockcount()
+        print("#### chain height=", self.nodes[0].getblockcount())
         print
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
-        print "state  =", ret['state']
+        print("state  =", ret['state'])
         assert_equal(ret['state'], "CEASED")
 
         utx_out1 = self.nodes[1].gettxout(cert_1, 1)
         utx_out2 = self.nodes[1].gettxout(cert_2, 1)
-        print "BWT coins:     -------------------------"
+        print("BWT coins:     -------------------------")
         if utx_out1:
-            print "cert 1 has coins: {}, confirmations={}".format(utx_out1['value'], utx_out1['confirmations'])
+            print("cert 1 has coins: {}, confirmations={}".format(utx_out1['value'], utx_out1['confirmations']))
         if utx_out2:
             assert(False)
 
-        print "----------------------------------------"
+        print("----------------------------------------")
         winfo = self.nodes[1].getwalletinfo()
         assert_equal(bwt_amount_1, winfo['balance'])
         assert_equal(Decimal("0.0"), winfo['immature_balance']) 
@@ -262,7 +262,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("==> certificate is {}".format(cert_2), self.nodes, DEBUG_MODE)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
         self.sync_all()
@@ -278,7 +278,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         assert_equal(bwt_amount_1, winfo['balance'])
         assert_equal(Decimal("0.0"), winfo['immature_balance']) 
         assert_equal(2, winfo['txcount']) 
-        print "----------------------------------------"
+        print("----------------------------------------")
 
         mark_logs("Checking certificates persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
@@ -286,7 +286,7 @@ class sc_cert_ceasing_sg(BitcoinTestFramework):
         self.setup_network(False)
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
-        print "state  =", ret['state']
+        print("state  =", ret['state'])
         assert_equal(ret['state'], "CEASED")
 
         utx_out1 = self.nodes[1].gettxout(cert_1, 1)

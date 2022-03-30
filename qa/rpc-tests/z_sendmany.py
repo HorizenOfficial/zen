@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
@@ -30,7 +30,7 @@ class ZSendmanyTest(BitcoinTestFramework):
         status = None
         errormsg = None
         txid = None
-        for x in xrange(1, timeout):
+        for x in range(1, timeout):
             results = self.nodes[0].z_getoperationresult(opids)
             if len(results)==0:
                 time.sleep(1)
@@ -50,7 +50,7 @@ class ZSendmanyTest(BitcoinTestFramework):
         return txid
 
     def run_test (self):
-        print "Mining blocks..."
+        print("Mining blocks...")
 
         self.nodes[0].generate(110)
         self.sync_all()

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014-2015 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -37,18 +37,18 @@ class TxIndexTest(BitcoinTestFramework):
         self.sync_all()
 
     def run_test(self):
-        print "Mining blocks..."
+        print("Mining blocks...")
         blocks = self.nodes[0].generate(105)
         self.sync_all()
 
         chain_height = self.nodes[1].getblockcount()
         assert_equal(chain_height, 105)
 
-        print "Testing transaction index..."
+        print("Testing transaction index...")
 
         privkey = "cSdkPxkAjA4HDr5VHgsebAPDEh9Gyub4HK8UJr2DFGGqKKy4K5sG"
         address = "mgY65WSfEmsyYaYPQaXhmXMeBhwp4EcsQW"
-        addressHash = "0b2f0a0c31bfe0406b0ccc1381fdbe311946dadc".decode("hex")
+        addressHash = hex_str_to_bytes("0b2f0a0c31bfe0406b0ccc1381fdbe311946dadc")
         scriptPubKey = CScript([OP_DUP, OP_HASH160, addressHash, OP_EQUALVERIFY, OP_CHECKSIG, hex_str_to_bytes(swap_bytes(blocks[0])), 1, OP_CHECKBLOCKATHEIGHT])
         unspent = self.nodes[0].listunspent()
         print("####UNSPENT###")
@@ -73,7 +73,7 @@ class TxIndexTest(BitcoinTestFramework):
         assert_equal(verbose["vout"][0]["valueZat"], to_satoshis(amount));
         assert_equal(verbose["vout"][0]["value"], amount);
 
-        print "Passed\n"
+        print("Passed\n")
 
 
 if __name__ == '__main__':

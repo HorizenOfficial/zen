@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -73,9 +73,9 @@ class blockdelay_2(BitcoinTestFramework):
         c = 0
         for y in sorted_x:
             if (c == 0):
-                print y 
+                print(y)
             else:
-                print " ",y 
+                print(" ", y)
             c = 1
 
     def mark_logs(self, msg):
@@ -100,9 +100,9 @@ class blockdelay_2(BitcoinTestFramework):
     
     def printchaintips(self):
         for i in range(0, len(self.nodes)):
-            print "Node%d  ---" % i 
+            print("Node%d  ---" % i)
             self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
+            print("---")
             
     def run_test(self):
         blocks = []
@@ -113,12 +113,12 @@ class blockdelay_2(BitcoinTestFramework):
         print("\n\nGenesis block is: " + blocks[0])
         # raw_input("press enter to start..")
         try:
-            print "\nChecking finality of block (%d) [%s]" % (0, blocks[0])
-            print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(blocks[0])
+            print("\nChecking finality of block (%d) [%s]" % (0, blocks[0]))
+            print("  Node0 has: %d" % self.nodes[0].getblockfinalityindex(blocks[0]))
             print
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print errorString
+            print(errorString)
 
         print("\n\nNetwork topology:")
         print("\n0 <--> 1 ... 0 <--> 2 ... 1 <--> 2")
@@ -126,13 +126,13 @@ class blockdelay_2(BitcoinTestFramework):
 
         print("\n\nGenerating initial blockchain 3 blocks")
         blocks.extend(self.nodes[0].generate(1)) # block height 1
-        print blocks[len(blocks)-1]
+        print(blocks[len(blocks)-1])
         self.sync_all()
         blocks.extend(self.nodes[1].generate(1)) # block height 2
-        print blocks[len(blocks)-1]
+        print(blocks[len(blocks)-1])
         self.sync_all()
         blocks.extend(self.nodes[2].generate(1)) # block height 3
-        print blocks[len(blocks)-1]
+        print(blocks[len(blocks)-1])
         self.sync_all()
         print("Blocks generated\n")
 
@@ -161,16 +161,16 @@ class blockdelay_2(BitcoinTestFramework):
         
         finalities = []
 
-        print "\nChecking finality of first honest block [%s]" %  first_main_blockhash
+        print("\nChecking finality of first honest block [%s]" %  first_main_blockhash)
         for i in range(0, net_len):
-            print "  Node%d sees:"  % i
+            print("  Node%d sees:"  % i)
             try:
                 finalities.append(self.nodes[i].getblockfinalityindex(first_main_blockhash)) 
-                print "      finality: %d" % finalities[i]
+                print("      finality: %d" % finalities[i])
                 print
-            except JSONRPCException,e:
+            except JSONRPCException as e:
                 errorString = e.error['message']
-                print "      " + errorString
+                print("      " + errorString)
                 print
 
         assert finalities[0] == finalities[1]
@@ -190,7 +190,7 @@ class blockdelay_2(BitcoinTestFramework):
         for i in range (0, 6):
             blocks.extend(self.nodes[0].generate(1))
             bl.append(blocks[len(blocks)-1])
-            print bl[len(bl)-1]
+            print(bl[len(bl)-1])
 
         last_main_blockhash_node_0 = blocks[len(blocks)-1]
         
@@ -207,7 +207,7 @@ class blockdelay_2(BitcoinTestFramework):
         for i in range (0, 15):
             blocks.extend(self.nodes[1].generate(1))
             bl.append(blocks[len(blocks)-1])
-            print bl[len(bl)-1]
+            print(bl[len(bl)-1])
             
         print("\nSynch...")
         sync_blocks(self.nodes[1:3])
@@ -380,22 +380,22 @@ class blockdelay_2(BitcoinTestFramework):
         print("Assert best block hash of node 0 != best block hash of node 2")
         assert self.nodes[0].getbestblockhash() != self.nodes[2].getbestblockhash()
         
-        print "\nChecking finality of first honest block [%s]" %  blocks[first_main_blockhash_index+1]
+        print("\nChecking finality of first honest block [%s]" %  blocks[first_main_blockhash_index+1])
         for i in range(0, net_len):
-            print "  Node%d sees:"  % i
+            print("  Node%d sees:"  % i)
             try:
                 finalities[i]=self.nodes[i].getblockfinalityindex(blocks[first_main_blockhash_index+1])
-                print "      finality: %d" % finalities[i]
+                print("      finality: %d" % finalities[i])
                 print
-            except JSONRPCException,e:
+            except JSONRPCException as e:
                 errorString = e.error['message']
-                print "      " + errorString
+                print("      " + errorString)
                 print
          
-        print "\nFinality for node 0 must be 69"
+        print("\nFinality for node 0 must be 69")
         assert finalities[0] == 69
         
-        print "\nGenerating "+str(finalities[0]-1)+" blocks on node 1"
+        print("\nGenerating "+str(finalities[0]-1)+" blocks on node 1")
         self.nodes[1].generate(finalities[0]-1)
         sync_blocks(self.nodes[1:2])
         sync_mempools(self.nodes[1:2])
@@ -411,7 +411,7 @@ class blockdelay_2(BitcoinTestFramework):
         assert self.nodes[0].getbestblockhash() != self.nodes[2].getbestblockhash()
         
         
-        print "\nGenerating 1 blocks on node 1"
+        print("\nGenerating 1 blocks on node 1")
         self.nodes[1].generate(1)
         sync_blocks(self.nodes[1:2])
         sync_mempools(self.nodes[1:2])
@@ -492,7 +492,7 @@ class blockdelay_2(BitcoinTestFramework):
 #                 print "  Node%d sees:"  % i
 #                 print "      finality: %d" % finalities[i]
 #                 print
-#             except JSONRPCException,e:
+#             except JSONRPCException as e:
 #                 errorString = e.error['message']
 #                 print "      " + errorString
 #                 print
@@ -534,7 +534,7 @@ class blockdelay_2(BitcoinTestFramework):
 #                 print "  Node%d sees:"  % i
 #                 print "      finality: %d" % finalities[i]
 #                 print
-#             except JSONRPCException,e:
+#             except JSONRPCException as e:
 #                 errorString = e.error['message']
 #                 print "      " + errorString
 #                 print
@@ -623,22 +623,22 @@ class blockdelay_2(BitcoinTestFramework):
         print("Assert best block hash of node 0 != best block hash of node 2")
         assert self.nodes[0].getbestblockhash() != self.nodes[2].getbestblockhash()
         
-        print "\nChecking finality of first honest block [%s]" %  blocks[last_main_blockhash_node_1_index+1]
+        print("\nChecking finality of first honest block [%s]" %  blocks[last_main_blockhash_node_1_index+1])
         for i in range(0, net_len):
-            print "  Node%d sees:"  % i
+            print("  Node%d sees:"  % i)
             try:
                 finalities[i]=self.nodes[i].getblockfinalityindex(blocks[last_main_blockhash_node_1_index+1])
-                print "      finality: %d" % finalities[i]
+                print("      finality: %d" % finalities[i])
                 print
-            except JSONRPCException,e:
+            except JSONRPCException as e:
                 errorString = e.error['message']
-                print "      " + errorString
+                print("      " + errorString)
                 print
          
-        print "\nFinality for node 2 must be 26"
+        print("\nFinality for node 2 must be 26")
         assert finalities[2] == 26
         
-        print "\nGenerating "+str(finalities[2]-1)+" blocks on node 1"
+        print("\nGenerating "+str(finalities[2]-1)+" blocks on node 1")
         self.nodes[1].generate(finalities[2]-1)
         sync_blocks(self.nodes[2:3])
         sync_mempools(self.nodes[2:3])
@@ -653,7 +653,7 @@ class blockdelay_2(BitcoinTestFramework):
         assert self.nodes[0].getbestblockhash() != self.nodes[2].getbestblockhash()
         
         
-        print "\nGenerating 1 blocks on node 1"
+        print("\nGenerating 1 blocks on node 1")
         self.nodes[1].generate(1)
         sync_blocks(self.nodes[2:3])
         sync_mempools(self.nodes[2:3])

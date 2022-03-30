@@ -1,10 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from decimal import Decimal
 
-from authproxy import JSONRPCException
-from mc_test.mc_test import CertTestUtils, CSWTestUtils, generate_random_field_element_hex
-from util import mark_logs, swap_bytes
+from test_framework.authproxy import JSONRPCException
+from test_framework.mc_test.mc_test import CertTestUtils, CSWTestUtils, generate_random_field_element_hex
+from test_framework.util import mark_logs, swap_bytes
 
 # A helper class to accomplish some operations in a faster way
 # (e.g. sidechain creation).

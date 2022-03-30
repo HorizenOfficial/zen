@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -66,9 +66,9 @@ class headers(BitcoinTestFramework):
         c = 0
         for y in sorted_x:
             if (c == 0):
-                print y 
+                print(y)
             else:
-                print " ",y 
+                print(" ",y)
             c = 1
 
 
@@ -86,7 +86,7 @@ class headers(BitcoinTestFramework):
         self.nodes[1].dbg_log(s)
 
         blocks.extend(self.nodes[0].generate(1)) # block height 1
-        print blocks[len(blocks)-1]
+        print(blocks[len(blocks)-1])
 
         self.nodes[0].dbg_log("Before sync")
         self.nodes[1].dbg_log("Before sync")
@@ -101,7 +101,7 @@ class headers(BitcoinTestFramework):
 
         for i in range(0, 2):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
+            print("---")
 
 #        raw_input("press enter to go on..")
 
