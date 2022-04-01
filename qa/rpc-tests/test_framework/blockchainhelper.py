@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.mc_test.mc_test import CertTestUtils, CSWTestUtils
-from test_framework.util import mark_logs, swap_bytes
+from test_framework.util import get_field_element_with_padding, mark_logs, swap_bytes
 
 # A helper class to accomplish some operations in a faster way
 # (e.g. sidechain creation).
@@ -62,8 +62,7 @@ def generate_random_field_element(bits_len):
 
     # Remove the "0x" prefix and the "L" suffix
     assert(field_element_hex.startswith("0x"))
-    assert(field_element_hex.endswith("L"))
-    field_element_hex = field_element_hex[2:-1]
+    field_element_hex = field_element_hex[2:]
 
     # The field element hex string must contain exactly bytes_len * 2 characters
     field_element_hex = field_element_hex.rjust(bytes_len * 2, "0")
