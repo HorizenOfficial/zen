@@ -6159,7 +6159,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             }
 
             CTxDestination address;
-            if (!ExtractDestination(out.tx->vout[out.i].scriptPubKey, address)) {
+            if (!ExtractDestination(out.tx->getTxBase()->GetVout()[out.pos].scriptPubKey, address)) {
                 continue;
             }
             // If taddr is not wildcard "*", filter utxos
@@ -6168,7 +6168,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             }
 
             utxoCounter++;
-            CAmount nValue = out.tx->vout[out.i].nValue;
+            CAmount nValue = out.tx->getTxBase()->GetVout()[out.pos].nValue;
 
             if (!maxedOutUTXOsFlag) {
                 CBitcoinAddress ba(address);
@@ -6179,7 +6179,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
                     maxedOutUTXOsFlag = true;
                 } else {
                     estimatedTxSize += increase;
-                    COutPoint utxo(out.tx->GetHash(), out.i);
+                    COutPoint utxo(out.tx->getTxBase()->GetHash(), out.pos);
                     utxoInputs.emplace_back(utxo, nValue);
                     mergedUTXOValue += nValue;
                 }

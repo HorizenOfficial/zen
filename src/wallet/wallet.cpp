@@ -4726,10 +4726,10 @@ void CWallet::GetUnspentFilteredNotes(
     LOCK2(cs_main, cs_wallet);
 
     for (auto & p : mapWallet) {
-        CWalletTx wtx = p.second;
+        CWalletTransactionBase& wtx = *(p.second);
 
         // Filter the transactions before checking for notes
-        if (!CheckFinalTx(wtx) || wtx.GetBlocksToMaturity() > 0 || wtx.GetDepthInMainChain() < minDepth || wtx.GetDepthInMainChain() > maxDepth) {
+        if (!CheckFinalTx(*wtx.getTxBase()) || !wtx.HasMatureOutputs() || wtx.GetDepthInMainChain() < minDepth || wtx.GetDepthInMainChain() > maxDepth) {
             continue;
         }
 
@@ -4768,12 +4768,12 @@ void CWallet::GetUnspentFilteredNotes(
             }
 
             // determine amount of funds in the note
-            auto hSig = wtx.vjoinsplit[i].h_sig(*pzcashParams, wtx.joinSplitPubKey);
+            auto hSig = wtx.getTxBase()->GetVjoinsplit()[i].h_sig(*pzcashParams, wtx.getTxBase()->GetJoinSplitPubKey());
             try {
                 NotePlaintext plaintext = NotePlaintext::decrypt(
                         decryptor,
-                        wtx.vjoinsplit[i].ciphertexts[j],
-                        wtx.vjoinsplit[i].ephemeralKey,
+                        wtx.getTxBase()->GetVjoinsplit()[i].ciphertexts[j],
+                        wtx.getTxBase()->GetVjoinsplit()[i].ephemeralKey,
                         hSig,
                         (unsigned char) j);
 

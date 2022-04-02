@@ -1155,8 +1155,8 @@ TEST(wallet_tests, NoteLocking) {
     auto wtx = GetValidReceive(sk, 10, true);
     auto wtx2 = GetValidReceive(sk, 10, true);
 
-    JSOutPoint jsoutpt {wtx.GetHash(), 0, 0};
-    JSOutPoint jsoutpt2 {wtx2.GetHash(),0, 0};
+    JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 0};
+    JSOutPoint jsoutpt2 {wtx2.getWrappedTx().GetHash(),0, 0};
 
     // Test selective locking
     wallet.LockNote(jsoutpt);
