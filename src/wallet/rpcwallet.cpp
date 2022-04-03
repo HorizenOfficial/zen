@@ -6204,6 +6204,8 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             if (!maxedOutNotesFlag) {
                 // If we haven't added any notes yet and the merge is to a
                 // z-address, we have already accounted for the first JoinSplit.
+                // TODO size estimation doesn't work correctly leading to oversized tx with 114 JoinSplit when nNoteLimit == 0
+                // TODO max JoinSplit per transaction is 58 since Groth16, with one JS == 1698 bytes, IIRC size estimation is also broken for z_sendmany
                 size_t increase = (noteInputs.empty() && !isToZaddr) || (noteInputs.size() % 2 == 0) ? JOINSPLIT_SIZE : 0;
                 if (estimatedTxSize + increase >= MAX_TX_SIZE ||
                     (nNoteLimit > 0 && noteCounter > nNoteLimit))
