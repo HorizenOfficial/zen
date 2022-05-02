@@ -239,7 +239,7 @@ struct CMutableScCertificate : public CMutableTransactionBase
     CMutableScCertificate();
     CMutableScCertificate(const CScCertificate& tx);
     CMutableScCertificate(const CMutableScCertificate& tx) = default;
-    operator CScCertificate() { return CScCertificate(*this); }
+    operator CScCertificate() { return CScCertificate(static_cast<const CMutableScCertificate&>(*this)); }
     CMutableScCertificate& operator=(const CMutableScCertificate& tx);
     ~CMutableScCertificate() = default;
 
