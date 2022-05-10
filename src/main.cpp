@@ -4080,6 +4080,10 @@ void static UpdateTip(CBlockIndex *pindexNew) {
       DateTimeStrFormat("%Y-%m-%d %H:%M:%S", chainActive.Tip()->GetBlockTime()),
       syncProgress, pcoinsTip->DynamicMemoryUsage() * (1.0 / (1<<20)), pcoinsTip->GetCacheSize());
 
+    // Notify external listeners about the new tip.
+    GetMainSignals().UpdatedBlockTip(pindexNew);
+    uiInterface.NotifyBlockTip(pindexNew->GetBlockHash());
+
     cvBlockChange.notify_all();
 }
 
@@ -4498,9 +4502,6 @@ bool ActivateBestChain(CValidationState &state, CBlock *pblock, bool &postponeRe
                     hashNewTip.ToString());
             }
 
-            // Notify external listeners about the new tip.
-            GetMainSignals().UpdatedBlockTip(pindexNewTip);
-            uiInterface.NotifyBlockTip(hashNewTip);
         }
         else
         {
