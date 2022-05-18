@@ -42,10 +42,6 @@ public:
         GetRandBytes((unsigned char*)&nRand, sizeof(nRand));
         return nRand;
     }
-
-    double entropy() const noexcept {
-        return 0;
-    }
 };
 
 /**
