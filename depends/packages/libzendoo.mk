@@ -14,6 +14,14 @@ else
 $(package)_library_file=target/release/libzendoo_mc.a
 endif
 
+ifeq ($(host_os),linux)
+$(package)_cargo_cc=CC=$(CT_PREFIX)gcc
+$(package)_cargo_ld=RUSTC_LINKER=$(CT_PREFIX)gcc
+else
+$(package)_cargo_cc=
+$(package)_cargo_ld=
+endif
+
 ifeq ($(LIBZENDOO_LEGACY_CPU),true)
 $(package)_target_feature=
 else
@@ -31,7 +39,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_build_cmds
-  RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts)
+  $($(package)_cargo_ld) $($(package)_cargo_cc) RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts)
 endef
 
 

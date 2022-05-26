@@ -14,6 +14,14 @@ else
 $(package)_library_file=target/release/librustzcash.a
 endif
 
+ifeq ($(host_os),linux)
+$(package)_cargo_cc=CC=$(CT_PREFIX)gcc
+$(package)_cargo_ld=RUSTC_LINKER=$(CT_PREFIX)gcc
+else
+$(package)_cargo_cc=
+$(package)_cargo_ld=
+endif
+
 define $(package)_set_vars
 $(package)_build_opts=--frozen --release
 $(package)_build_opts_mingw32=--target=x86_64-pc-windows-gnu
@@ -28,7 +36,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_build_cmds
-  cargo build $($(package)_build_opts)
+  $($(package)_cargo_ld) $($(package)_cargo_cc) cargo build $($(package)_build_opts)
 endef
 
 define $(package)_stage_cmds
