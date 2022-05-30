@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -57,7 +57,8 @@ def run_allowip_test(tmpdir, allow_ips, rpchost, rpcport):
 
 
 def run_test(tmpdir):
-    assert(sys.platform == 'linux2') # due to OS-specific network stats queries, this test works only on Linux
+    # due to OS-specific network stats queries, this test works only on Linux
+    assert(sys.platform.startswith('linux'))
     # find the first non-loopback interface for testing
     non_loopback_ip = None
     for name,ip in all_interfaces():
@@ -131,9 +132,9 @@ def main():
         success = True
 
     except AssertionError as e:
-        print("Assertion failed: "+e.message)
+        print("Assertion failed: " + e)
     except Exception as e:
-        print("Unexpected exception caught during testing: "+str(e))
+        print("Unexpected exception caught during testing: " + str(e))
         traceback.print_tb(sys.exc_info()[2])
 
     if not options.nocleanup:

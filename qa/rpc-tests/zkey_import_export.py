@@ -1,9 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2017 The Zcash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 from decimal import Decimal
+from functools import reduce
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_greater_than, start_nodes, initialize_chain_clean, connect_nodes_bi
 
@@ -40,7 +41,7 @@ class ZkeyImportExportTest (BitcoinTestFramework):
         status = None
         errormsg = None
         txid = None
-        for x in xrange(1, timeout):
+        for x in range(1, timeout):
             results = node.z_getoperationresult(opids)
             if len(results)==0:
                 time.sleep(1)
@@ -79,11 +80,7 @@ class ZkeyImportExportTest (BitcoinTestFramework):
         def verify_utxos(node, amts, zaddr):
             amts.sort(reverse=True)
             txs = node.z_listreceivedbyaddress(zaddr)
-
-            def cmp_confirmations_high_to_low(a, b):
-                return cmp(b["amount"], a["amount"])
-
-            txs.sort(cmp_confirmations_high_to_low)
+            txs.sort(key=lambda x: x["amount"], reverse=True)
             print("Sorted txs", txs)
             print("amts", amts)
 
@@ -124,11 +121,11 @@ class ZkeyImportExportTest (BitcoinTestFramework):
         # verify_utxos(charlie, [])
 
         # the amounts of each txn embodied which generates a single UTXO:
-        amounts = map(Decimal, ['2.3', '3.7', '0.1', '0.5', '1.0', '0.19'])
+        amounts = list(map(Decimal, ['2.3', '3.7', '0.1', '0.5', '1.0', '0.19']))
 
         # Internal test consistency assertion:
         assert_greater_than(
-            get_private_balance(alice),
+            Decimal(get_private_balance(alice)),
             reduce(Decimal.__add__, amounts))
 
         logging.info("Sending pre-export txns...")

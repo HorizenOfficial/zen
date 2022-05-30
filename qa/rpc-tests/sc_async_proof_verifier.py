@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -94,11 +94,11 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         '''
 
         # Prepare some coins
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT/2+1)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT//2+1)
         self.sync_all()
 
         # Generate some coins on node 2
-        self.nodes[2].generate(MINIMAL_SC_HEIGHT/2+1)
+        self.nodes[2].generate(MINIMAL_SC_HEIGHT//2+1)
         self.sync_all()
 
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
@@ -176,9 +176,9 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
             # The send_certificate call must be ok since the proof verification is disabled on node 2
             invalid_cert = self.nodes[2].sc_send_certificate(scid, epoch_number, cert_quality, epoch_cum_tree_hash,
                                                           proof, [], ft_fee, mbtr_fee, cert_fee)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             error_string = e.error['message']
-            print "Send certificate failed with reason {}".format(error_string)
+            print("Send certificate failed with reason {}".format(error_string))
             assert(False)
 
         mark_logs("\n==> certificate for SC epoch {} {}".format(epoch_number, invalid_cert), self.nodes, DEBUG_MODE)
@@ -216,9 +216,9 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         try:
             cert2 = self.nodes[0].sc_send_certificate(scid, epoch_number, cert_quality, epoch_cum_tree_hash,
                                                    proof, [], ft_fee, mbtr_fee, cert_fee)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             error_string = e.error['message']
-            print "Send certificate failed with reason {}".format(error_string)
+            print("Send certificate failed with reason {}".format(error_string))
             assert(False)
 
         mark_logs("\n==> certificate for SC epoch {} {}".format(epoch_number, cert2), self.nodes, DEBUG_MODE)

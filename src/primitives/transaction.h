@@ -1091,7 +1091,7 @@ struct CMutableTransaction : public CMutableTransactionBase
 
     CMutableTransaction();
     CMutableTransaction(const CTransaction& tx);
-    operator CTransaction() { return CTransaction(*this); }
+    operator CTransaction() { return CTransaction(static_cast<const CMutableTransaction&>(*this)); }
 
     ADD_SERIALIZE_METHODS;
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -103,7 +103,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         try:
             ret = self.nodes[1].sc_create(cmdInput)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
 
@@ -136,7 +136,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         try:
             ret = self.nodes[1].sc_create(cmdInput)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
 
@@ -168,7 +168,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         try:
             ret = self.nodes[1].sc_create(cmdInput)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
 
@@ -201,7 +201,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         try:
             ret = self.nodes[1].sc_create(cmdInput)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
 
@@ -233,7 +233,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         try:
             ret = self.nodes[1].sc_create(cmdInput)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -278,7 +278,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         try:
             tx = self.nodes[1].sc_send(forwardTransferOuts)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
 
@@ -299,7 +299,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         try:
             self.nodes[1].sc_request_transfer(mbtrOuts, {})
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
 
@@ -318,7 +318,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         try:
             tx = self.nodes[1].sc_send(forwardTransferOuts)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
 
@@ -338,7 +338,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         
         try:
             self.nodes[1].sc_request_transfer(mbtrOuts, {})
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -356,7 +356,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         try:
             tx = self.nodes[1].sc_send(forwardTransferOuts)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             print(errorString)
             mark_logs(errorString,self.nodes,DEBUG_MODE)
@@ -377,7 +377,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         
         try:
             self.nodes[1].sc_request_transfer(mbtrOuts, {})
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -416,7 +416,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
             epoch_cum_tree_hash, proof, amount_cert_1, newFtFee, newMbtrFee)
 
         mark_logs("Certificate sent to mempool, node 1 generates " + str(EPOCH_LENGTH / 2) + " blocks", self.nodes, DEBUG_MODE)
-        self.nodes[1].generate(EPOCH_LENGTH / 2)
+        self.nodes[1].generate(EPOCH_LENGTH // 2)
 
         # Check that Node 1 has updated the sidechain fees
         mark_logs("\nCheck that node 1 has updated the sidechain fees", self.nodes, DEBUG_MODE)
@@ -447,7 +447,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
             time.sleep(2)
             ft_tx_2 = self.nodes[0].sc_send(forwardTransferOuts2)
             time.sleep(2)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
             assert_true(False)
@@ -461,7 +461,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
             time.sleep(2)
             mbtr_tx_2 = self.nodes[0].sc_request_transfer(mbtrOuts2, {})
             time.sleep(2)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -523,7 +523,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
             funded_tx = self.nodes[0].fundrawtransaction(rawtx)
             sigRawtx = self.nodes[0].signrawtransaction(funded_tx['hex'])
             creating_tx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -553,7 +553,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         
         try:
             creating_tx = self.nodes[0].sc_create(cmdInput)['txid']
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -577,7 +577,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         try:
             self.nodes[0].sc_send(forwardTransferOuts)
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
 
@@ -587,7 +587,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
 
         try:
             self.nodes[0].sc_send(forwardTransferOuts)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)

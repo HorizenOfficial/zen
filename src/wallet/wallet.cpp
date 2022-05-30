@@ -12,6 +12,7 @@
 #include "init.h"
 #include "main.h"
 #include "net.h"
+#include "random.h"
 #include "script/script.h"
 #include "script/sign.h"
 #include "timedata.h"
@@ -22,6 +23,7 @@
 #include "zen/forkmanager.h"
 using namespace zen;
 
+#include <algorithm>
 #include <assert.h>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -2991,7 +2993,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     vector<pair<CAmount, pair<const CWalletTransactionBase*,unsigned int> > > vValue;
     CAmount nTotalLower = 0;
 
-    random_shuffle(vCoins.begin(), vCoins.end(), GetRandInt);
+    std::shuffle(vCoins.begin(), vCoins.end(), ZcashRandomEngine());
 
     BOOST_FOREACH(const COutput &output, vCoins)
     {

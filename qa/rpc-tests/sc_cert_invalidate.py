@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -135,7 +135,7 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mc_return_address = self.nodes[0].getnewaddress()
         cmdInput = [{'toaddress': "abcd", 'amount': fwt_amount_1, "scid": scid, 'mcReturnAddress': mc_return_address}]
         fwd_tx = self.nodes[0].sc_send(cmdInput)
-        print "fwd_tx=" + fwd_tx
+        print("fwd_tx=" + fwd_tx)
         sc_txes.append(fwd_tx)
         self.sync_all()
 
@@ -259,9 +259,9 @@ class sc_cert_invalidate(BitcoinTestFramework):
             try:
                 ret = removekey(self.nodes[0].getscinfo(scid)['items'][0])
                 assert_equal(ret, sc_info[-1])
-            except JSONRPCException, e:
+            except JSONRPCException as e:
                 errorString = e.error['message']
-                print errorString
+                print(errorString)
                 if (inv_heigth > sc_creating_height):
                     assert(False)
                 assert_true(creating_tx in self.nodes[0].getrawmempool())
@@ -320,9 +320,9 @@ class sc_cert_invalidate(BitcoinTestFramework):
         mark_logs("check that sc balance is the amount we had in mempool at the end of invalidation phase", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], sc_amount)
 
-        print "Node0 balance before: ", old_bal
-        print "Node0 balance now   : ", self.nodes[0].getbalance()
-        print "            sc fee  : ", sc_fee
+        print("Node0 balance before: ", old_bal)
+        print("Node0 balance now   : ", self.nodes[0].getbalance())
+        print("            sc fee  : ", sc_fee)
 
 if __name__ == '__main__':
     sc_cert_invalidate().main()

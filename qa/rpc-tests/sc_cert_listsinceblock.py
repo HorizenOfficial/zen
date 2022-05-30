@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -164,7 +164,7 @@ class ScCertListsinceblock(BitcoinTestFramework):
 
             mark_logs("cert = {}".format(certs_d[i]), self.nodes, DEBUG_MODE)
             mat_height_d[i] = ch - 1 + (i+2)*elen + wlen
-            print ("mat height = {}".format(mat_height_d[i]))
+            print("mat height = {}".format(mat_height_d[i]))
   
             mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
             bl = self.nodes[0].generate(1)[-1]
@@ -175,7 +175,7 @@ class ScCertListsinceblock(BitcoinTestFramework):
  
         # the first of the 3 certificates has reached maturity and Node2 has a consistent balance
         bal = self.nodes[2].getbalance()
-        print ("Node2 balance = {}".format(bal))
+        print("Node2 balance = {}".format(bal))
         assert_equal(bal, Decimal('1.02') + Decimal('0.001') + Decimal('0.002') + Decimal('0.003'))
 
         mark_logs("Calling listsinceblock on Node2 for all transactions", self.nodes, DEBUG_MODE)
@@ -302,7 +302,7 @@ class ScCertListsinceblock(BitcoinTestFramework):
         mark_logs("Node 0 generates {} block".format(mat_height_d[1] - c),self.nodes,DEBUG_MODE)
         self.nodes[0].generate(mat_height_d[1] - c)
         self.sync_all()
-        print ("chain height = {}".format(self.nodes[0].getblockcount()))
+        print("chain height = {}".format(self.nodes[0].getblockcount()))
 
         mark_logs("Calling listsinceblock on Node2 for h={}, hash={}".format(block_heights_d[2], blocks_d[2]), self.nodes, DEBUG_MODE)
         ret = self.nodes[2].listsinceblock(blocks_d[2], 1, False, True)
@@ -369,7 +369,7 @@ class ScCertListsinceblock(BitcoinTestFramework):
         mark_logs("Node 0 generates {} block".format(mat_height_d[2] - c),self.nodes,DEBUG_MODE)
         self.nodes[0].generate(mat_height_d[2] - c)
         self.sync_all()
-        print ("chain height = {}".format(self.nodes[0].getblockcount()))
+        print("chain height = {}".format(self.nodes[0].getblockcount()))
 
         ret = self.nodes[0].getscinfo(scid, False, False)['items'][0]
         assert_equal(ret['ceasingHeight'], mat_height_d[2])

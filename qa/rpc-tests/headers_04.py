@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -68,9 +68,9 @@ class headers(BitcoinTestFramework):
         c = 0
         for y in sorted_x:
             if (c == 0):
-                print y 
+                print(y)
             else:
-                print " ",y 
+                print(" ",y)
             c = 1
 
     def run_test(self):
@@ -85,7 +85,7 @@ class headers(BitcoinTestFramework):
         self.mark_logs(s)
 
         blocks.extend(self.nodes[1].generate(1)) # block height 1
-        print blocks[1]
+        print(blocks[1])
         self.sync_all()
 
 # Node(0): [0]->[1]
@@ -103,19 +103,19 @@ class headers(BitcoinTestFramework):
         blocks.extend(self.nodes[1].generate(6)) # block height 2--7
         bl2 = blocks[2]
         for i in range(2, 8):
-            print blocks[i]
+            print(blocks[i])
         self.sync_all()
 
         print("\nNode2 generating 6 mal block")
         blocks.extend(self.nodes[2].generate(6)) # block height 2--7
         for i in range(8, 14):
-            print blocks[i]
+            print(blocks[i])
         self.sync_all()
 
         print
         for i in range(0, 3):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
+            print("---")
 
 # Node(0): [0]->[1]->..->[7h]
 #   |                   
@@ -125,13 +125,13 @@ class headers(BitcoinTestFramework):
 
 #        raw_input("press enter to go on..")
         try:
-            print "\nChecking finality of block[", bl2, "]"
-            print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl2)
-            print "  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl2)
+            print("\nChecking finality of block[", bl2, "]")
+            print("  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl2))
+            print("  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl2))
             print
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print errorString
+            print(errorString)
 
         print("\n\nJoin network")
 #        raw_input("press enter to join the netorks..")
@@ -145,7 +145,7 @@ class headers(BitcoinTestFramework):
         print
         for i in range(0, 3):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
+            print("---")
 
 #        raw_input("press enter to go on..")
 
@@ -163,22 +163,22 @@ class headers(BitcoinTestFramework):
 #                  +->..->[7h]    
 
         try:
-            print "\nChecking finality of block[", bl2, "]"
-            print "  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl2)
-            print "  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl2)
+            print("\nChecking finality of block[", bl2, "]")
+            print("  Node0 has: %d" % self.nodes[0].getblockfinalityindex(bl2))
+            print("  Node1 has: %d" % self.nodes[1].getblockfinalityindex(bl2))
             print
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print errorString
+            print(errorString)
 
         print
         for i in range(0, 3):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
+            print("---")
 
         print("\nNode2 generating 1 mal block")
         blocks.extend(self.nodes[2].generate(1)) # block height 8
-        print blocks[len(blocks)-1]
+        print(blocks[len(blocks)-1])
         print
         sync_blocks(self.nodes, 5, True)
 
@@ -198,7 +198,7 @@ class headers(BitcoinTestFramework):
         print
         for i in range(0, 3):
             self.dump_ordered_tips(self.nodes[i].getchaintips())
-            print "---"
+            print("---")
 
 #        raw_input("press enter to go on..")
 

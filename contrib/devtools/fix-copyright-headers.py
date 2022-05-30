@@ -28,26 +28,24 @@ listFilesCommand = "find . | grep %s"
 extensions = [".cpp",".h"]
 
 def getLastGitModifiedDate(filePath):
-  gitGetLastCommitDateCommand = "git log " + filePath +" | grep Date | head -n 1"
-  p = os.popen(gitGetLastCommitDateCommand)
-  result = ""
-  for l in p:
-    result = l
-    break
-  result = result.replace("\n","")
-  return result
+    gitGetLastCommitDateCommand = "git log " + filePath +" | grep Date | head -n 1"
+    p = os.popen(gitGetLastCommitDateCommand)
+    result = ""
+    for l in p:
+        result = l
+        break
+    result = result.replace("\n","")
+    return result
 
 n=1
 for extension in extensions:
-  foundFiles = os.popen(listFilesCommand % extension)
-  for filePath in foundFiles:
-    filePath = filePath[1:-1]
-    if filePath.endswith(extension):
-      filePath = os.getcwd() + filePath
-      modifiedTime = getLastGitModifiedDate(filePath)
-      if len(modifiedTime) > 0 and str(year) in modifiedTime:
-        print n,"Last Git Modified: ", modifiedTime, " - ", filePath
-        os.popen(command % (last_year,year,filePath))
-        n = n + 1
-
-
+    foundFiles = os.popen(listFilesCommand % extension)
+    for filePath in foundFiles:
+        filePath = filePath[1:-1]
+        if filePath.endswith(extension):
+            filePath = os.getcwd() + filePath
+            modifiedTime = getLastGitModifiedDate(filePath)
+            if len(modifiedTime) > 0 and str(year) in modifiedTime:
+                print(n,"Last Git Modified: ", modifiedTime, " - ", filePath)
+                os.popen(command % (last_year,year,filePath))
+                n = n + 1

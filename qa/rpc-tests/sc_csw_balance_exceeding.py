@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -155,7 +155,7 @@ class CswNullifierTest(BitcoinTestFramework):
         sc_csw_amount = sc_bal * Decimal("0.9")
         null1 = generate_random_field_element_hex()
         actCertData = self.nodes[0].getactivecertdatahash(scid)['certDataHash']
-        print "Active Cert Data Hash: -------> ", actCertData
+        print("Active Cert Data Hash: -------> ", actCertData)
 
         ceasingCumScTxCommTree = self.nodes[0].getceasingcumsccommtreehash(scid)['ceasingCumScTxCommTree']
 
@@ -221,7 +221,7 @@ class CswNullifierTest(BitcoinTestFramework):
         try:
             finalRawtx = self.nodes[0].sendrawtransaction(sigRawtx['hex'])
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             error_string = e.error['message']
             mark_logs("Failed sending csw 2 {} retrieving {} coins on Node2 behalf, error message: {}".format(finalRawtx, sc_csws[0]['amount'], error_string), self.nodes, DEBUG_MODE)
             assert_true("bad-sc-tx-not-applicable" in error_string)

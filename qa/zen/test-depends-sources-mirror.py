@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # This script tests that the package mirror at https://horizen.io/depends-sources/
 # contains all of the packages required to build this version of Zen.
@@ -28,23 +28,23 @@ def get_depends_sources_list():
 for filename in get_depends_sources_list():
     resp = requests.head(MIRROR_URL_DIR + filename.replace("+", "%2B"), allow_redirects=True)
 
-    print "Checking [" + MIRROR_URL_DIR + filename.replace("+", "%2B") + "] ..."
+    print("Checking [" + MIRROR_URL_DIR + filename.replace("+", "%2B") + "] ...")
 
     if resp.status_code != 200:
-        print "FAIL. File not found on server: " + filename
+        print("FAIL. File not found on server: " + filename)
         exit_code=1
         continue
 
     expected_size = os.path.getsize(os.path.join(DEPENDS_SOURCES_DIR, filename))
     server_size = int(resp.headers['Content-Length'])
     if expected_size != server_size:
-        print "FAIL. On the server, %s is %d bytes, but locally it is %d bytes." % (filename, server_size, expected_size)
+        print("FAIL. On the server, %s is %d bytes, but locally it is %d bytes." % (filename, server_size, expected_size))
         exit_code=1
 
 
 if exit_code:
-    print "FAIL."
+    print("FAIL.")
 else:
-    print "PASS."
+    print("PASS.")
 
 sys.exit(exit_code)

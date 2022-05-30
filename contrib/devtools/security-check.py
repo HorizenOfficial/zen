@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 '''
 Perform basic ELF security checks on a series of executables.
 Exit status will be 0 if successful, and the program will be silent.

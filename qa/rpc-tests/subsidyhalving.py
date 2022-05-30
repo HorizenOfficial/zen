@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -22,7 +22,7 @@ class subsidyhalving(BitcoinTestFramework):
     alert_filename = None
 
     def mark_logs(self, msg):
-        print msg
+        print(msg)
         for i in range(0, NUMB_OF_NODES):
             self.nodes[i].dbg_log(msg)
 
@@ -40,7 +40,7 @@ class subsidyhalving(BitcoinTestFramework):
         if mod_halving_interval:
             halving_interv = HALVING_INTERVAL + 10 
 
-        print "Node0 will start with -subsidyhalvinginterval={}".format(halving_interv)
+        print("Node0 will start with -subsidyhalvinginterval={}".format(halving_interv))
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir,
             extra_args = [
@@ -71,14 +71,14 @@ class subsidyhalving(BitcoinTestFramework):
         print("\n\nGenesis block is:\n" + gen + "\n")
         block = standalone_node.generate(1)[-1]
 
-        for x in xrange(32):
+        for x in range(32):
             coinbase_tx         = standalone_node.getblock(block, True)['tx'][0]
             decoded_coinbase_tx = standalone_node.getrawtransaction(coinbase_tx, 1)
             cb                  = sum(i['value'] for i in decoded_coinbase_tx['vout'])*100000000
-            print "Halving n. {:2d}  coinbase subsidy = {:10d} ZAT".format(x, int(cb))
+            print("Halving n. {:2d}  coinbase subsidy = {:10d} ZAT".format(x, int(cb)))
             block = standalone_node.generate(101)[-1]
 
-        print "Halving n. {:2d}  coinbase subsidy = {:10d} ZAT\n".format(x+1, int(cb))
+        print("Halving n. {:2d}  coinbase subsidy = {:10d} ZAT\n".format(x+1, int(cb)))
 
         # check there are no subsidy quotas in the coinbase tx 
         assert_equal(1, len(decoded_coinbase_tx['vout']))
@@ -127,24 +127,24 @@ class subsidyhalving(BitcoinTestFramework):
             assert_equal(miner_quota, reward_amount)
 
             tot = miner_quota
-            print "Height {:>5} ---> miner reward:       {:>12}".format(node.getblockcount(), miner_quota)
+            print("Height {:>5} ---> miner reward:       {:>12}".format(node.getblockcount(), miner_quota))
 
             if len(decoded_coinbase['vout']) > 1:
                 comm_quota        = decoded_coinbase['vout'][1]['value']
-                print "                  community quota:    {:>12}".format(comm_quota)
+                print("                  community quota:    {:>12}".format(comm_quota))
                 tot += comm_quota
             if len(decoded_coinbase['vout']) > 2:
                 supernodes_quota  = decoded_coinbase['vout'][2]['value']
-                print "                  super nodes quota:  {:>12}".format(supernodes_quota)
+                print("                  super nodes quota:  {:>12}".format(supernodes_quota))
                 tot += supernodes_quota
             if len(decoded_coinbase['vout']) > 3:
                 securenodes_quota = decoded_coinbase['vout'][3]['value']
-                print "                  secure nodes quota: {:>12}".format(securenodes_quota)
+                print("                  secure nodes quota: {:>12}".format(securenodes_quota))
                 tot += securenodes_quota
 
             assert_equal(tot, coinbase_amount)
-            print "                                      ------------"
-            print "               COINBASE TOT AMOUNT:   {:>12}".format(coinbase_amount)
+            print("                                      ------------")
+            print("               COINBASE TOT AMOUNT:   {:>12}".format(coinbase_amount))
             print
 
 

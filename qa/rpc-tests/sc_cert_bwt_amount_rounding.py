@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -51,7 +51,7 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
                 res = node.sc_create(cmdInput)
                 tx =   res['txid']
                 scid = res['scid']
-            except JSONRPCException, e:
+            except JSONRPCException as e:
                 errorString = e.error['message']
                 mark_logs(errorString,self.nodes,DEBUG_MODE)
                 assert_true(False)
@@ -97,7 +97,7 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
         mark_logs("Created SC with scid={} via tx={}".format(scid, tx), self.nodes,DEBUG_MODE)
         self.sync_all()
         hexTx = self.nodes[0].getrawtransaction(tx)
-        print "sz=", len(hexTx)//2
+        print("sz=", len(hexTx)//2)
 
         # advance epoch
         self.nodes[0].generate(EPOCH_LENGTH)
@@ -105,13 +105,13 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         NUM_OF_BWT = 1
-        print "==============================================================================================================================================================================="
-        print "Adding {} backward transfers to certificate".format(NUM_OF_BWT)
-        print "==============================================================================================================================================================================="
+        print("===============================================================================================================================================================================")
+        print("Adding {} backward transfers to certificate".format(NUM_OF_BWT))
+        print("===============================================================================================================================================================================")
 
         bwt_amount = Decimal('1.952929687000111')
 
-        print "bwt amount {}".format(bwt_amount)
+        print("bwt amount {}".format(bwt_amount))
         bwt_cert = []
         addr_array = []
         bwt_amount_array = []
@@ -127,35 +127,32 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
             bwt_cert.append(entry)
             pprint.pprint(entry)
 
-        print "Generating cert proof..."
+        print("Generating cert proof...")
         t0 = time.time()
         q = 10
         scid_swapped = str(swap_bytes(scid))
-        print "---------------------"
+        print("---------------------")
         proof = certMcTest.create_test_proof(
             "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, addr_array, bwt_amount_array)
         assert_true(proof != None)
         t1 = time.time()
-        print "...proof with sz={} generated: {} secs".format(len(proof)//2, t1-t0)
+        print("...proof with sz={} generated: {} secs".format(len(proof)//2, t1-t0))
         
         try:
             cert = self.nodes[0].sc_send_certificate(scid, epoch_number, q,
                 epoch_cum_tree_hash, proof, bwt_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
-            print "Send certificate failed with reason {}".format(errorString)
+            print("Send certificate failed with reason {}".format(errorString))
             assert(False)
         self.sync_all()
  
         mark_logs("cert={}".format(cert), self.nodes, DEBUG_MODE)
         hexCert = self.nodes[0].getrawtransaction(cert)
         tot_cert_sz = len(hexCert)//2
-        print "sz=", tot_cert_sz
+        print("sz=", tot_cert_sz)
 
         assert_true(cert in self.nodes[1].getrawmempool())
 
-
-        
 if __name__ == '__main__':
     sc_cert_bwt_amount_rounding().main()
-
