@@ -2072,9 +2072,10 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     return nSubsidy;
 }
 
-static std::atomic<bool> lockIBDState{false};
+
 bool IsInitialBlockDownload()
 {
+    static std::atomic<bool> lockIBDState{false};
     // Once this function has returned false, it must remain false.
     // Optimization: pre-test latch before taking the lock.
     if (lockIBDState.load(std::memory_order_relaxed))
@@ -2086,9 +2087,13 @@ bool IsInitialBlockDownload()
         return false;
     if (fImporting || fReindex || fReindexFast)
         return true;
+    if (pindexBestHeader == nullptr)
+        return true;
+    if (chainActive.Tip() == nullptr)
+        return true;
     if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
         return true;
-    if ((chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 || pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge()))
+    if ((chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 || pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge())) 
         return true;
     LogPrintf("Leaving InitialBlockDownload (latching to false)\n");
     lockIBDState.store(true, std::memory_order_relaxed);
