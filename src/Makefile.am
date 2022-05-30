@@ -1,7 +1,7 @@
 DIST_SUBDIRS = secp256k1 univalue
 
 AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS) $(SAN_LDFLAGS) $(HARDENED_LDFLAGS)
-AM_CXXFLAGS = $(SAN_CXXFLAGS) $(HARDENED_CXXFLAGS) $(ERROR_CXXFLAGS)
+AM_CXXFLAGS = $(SAN_CXXFLAGS) $(HARDENED_CXXFLAGS) $(ERROR_CXXFLAGS) -ffunction-sections -fdata-sections
 AM_CPPFLAGS = $(HARDENED_CPPFLAGS)
 EXTRA_LIBRARIES =
 
@@ -641,6 +641,7 @@ noinst_PROGRAMS += \
 # tool for testing sidechain
 zendoo_mcTest_SOURCES = \
     zendoo/mcTestCall.cpp \
+    base58.cpp \
     uint256.cpp \
     utilstrencodings.cpp
 

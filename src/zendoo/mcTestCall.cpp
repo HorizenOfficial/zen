@@ -1,12 +1,15 @@
 #include <zendoo/zendoo_mc.h>
 #include <utilstrencodings.h>
 #include <sc/sidechaintypes.h>
+#include "base58.h"
+
 #include <uint256.h>
 #include <iostream>
 #include <cassert>
 #include <string>
 
 // TODO: remove as soon we will be able to link base56.cpp
+/*
 static const char* pszBase58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 bool DecodeBase58(const char* psz, std::vector<unsigned char>& vch)
 {
@@ -53,6 +56,7 @@ bool DecodeBase58(const char* psz, std::vector<unsigned char>& vch)
         vch.push_back(*(it++));
     return true;
 }
+*/
 
 /*
  *  Usage:

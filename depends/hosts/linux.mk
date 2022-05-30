@@ -1,5 +1,6 @@
 linux_CFLAGS=-pipe
 linux_CXXFLAGS=$(linux_CFLAGS)
+linux_LDFLAGS=-Wl,--gc-sections
 
 linux_release_CFLAGS=-O1
 linux_release_CXXFLAGS=$(linux_release_CFLAGS)
