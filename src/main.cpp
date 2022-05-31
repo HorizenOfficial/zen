@@ -2072,7 +2072,6 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     return nSubsidy;
 }
 
-
 bool IsInitialBlockDownload()
 {
     static std::atomic<bool> lockIBDState{false};
