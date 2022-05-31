@@ -2087,11 +2087,11 @@ bool IsInitialBlockDownload()
         return false;
     if (fImporting || fReindex || fReindexFast)
         return true;
+    if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
+        return true;
     if (pindexBestHeader == nullptr)
         return true;
     if (chainActive.Tip() == nullptr)
-        return true;
-    if (fCheckpointsEnabled && chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()))
         return true;
     if ((chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 || pindexBestHeader->GetBlockTime() < GetTime() - chainParams.MaxTipAge())) 
         return true;

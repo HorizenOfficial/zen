@@ -5,29 +5,26 @@
 
 using namespace zen;
 
-void makeTemporaryMainChain(int trunk_size);
-
 // Checks IsInitialBlockDownload() conditions and lockIBDState latching to false
 TEST(initialblockdwnld, checkIBDState) {
     // Init
     auto originalTip = chainActive.Tip();
-    chainActive.SetTip(NULL);
+    chainActive.SetTip(nullptr);
     SelectParams(CBaseChainParams::MAIN);
     const CChainParams& chainParams = Params();
 
     // 1.
     // fImporting, fReindex and fReindexFast supposedly initialized as false
-    // Check each individual variable and restore its state
+    // Check that setting any of these variables allows IsInitialBlockDownload to return true
     fImporting   = true; EXPECT_TRUE(IsInitialBlockDownload()); fImporting   = false;
     fReindex     = true; EXPECT_TRUE(IsInitialBlockDownload()); fReindex     = false;
     fReindexFast = true; EXPECT_TRUE(IsInitialBlockDownload()); fReindexFast = false;
 
     // 2.
-    // Expecting that fImporting, fReindex and fReindexFast are false, check if:
-    // chainActive.Height() < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints())
+    // Check that if fCheckpointsEnabled is set and the tip of activeChain is lower than
+    // Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()) allows 
+    // IsInitialBlockDownload to return true
     fCheckpointsEnabled = true;
-    EXPECT_TRUE(IsInitialBlockDownload());
-
     // Setting tip of active chain lower than checkpoint
     CBlockIndex block1;
     for (size_t blockHeight = 0; blockHeight < Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()); ++blockHeight)
@@ -38,7 +35,8 @@ TEST(initialblockdwnld, checkIBDState) {
     }
 
     // 3a.
-    // increase tip height
+    // Checks that if the first time-related condition is met allows
+    // IsInitialBlockDownload to return true
     block1.nHeight = Checkpoints::GetTotalBlocksEstimate(chainParams.Checkpoints()) + 1;
     chainActive.SetTip(&block1);
     // Set pindexBestHeader as current tip and increase height to trigger condition
@@ -48,6 +46,8 @@ TEST(initialblockdwnld, checkIBDState) {
     EXPECT_TRUE(IsInitialBlockDownload());
 
     // 3b.
+    // Checks that if the second time-related condition is met allows
+    // IsInitialBlockDownload to return true
     // restore pindexBestHeader
     pindexBestHeader = chainActive.Tip();
     pindexBestHeader->nHeight -= 24 * 6 + 1;
@@ -64,14 +64,16 @@ TEST(initialblockdwnld, checkIBDState) {
 
     // 5.
     // chainTip nullptr check
+    fCheckpointsEnabled = false;
     auto tempTip = chainActive.Tip();
     chainActive.SetTip(nullptr);
     EXPECT_TRUE(IsInitialBlockDownload());
     chainActive.SetTip(tempTip);
 
-    //
-    // Set conditions so that all checks fail, and the end of function is reached so that:
-    // - lockIBDState set to true
+    ////////
+    // Set conditions so that all checks fail, and the the end of the function is reached.
+    // In this case:
+    // - lockIBDState is set to true
     // - function returns false
     pindexBestHeader->nTime = GetTime();
     EXPECT_FALSE(IsInitialBlockDownload());
