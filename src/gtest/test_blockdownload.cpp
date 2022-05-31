@@ -14,8 +14,6 @@ TEST(initialblockdwnld, checkIBDState) {
     chainActive.SetTip(NULL);
     SelectParams(CBaseChainParams::MAIN);
     const CChainParams& chainParams = Params();
-    constexpr int MAIN_CHAIN_TEST_SIZE = 150000;
-    makeTemporaryMainChain(MAIN_CHAIN_TEST_SIZE);
 
     // 1.
     // fImporting, fReindex and fReindexFast supposedly initialized as false
@@ -74,7 +72,7 @@ TEST(initialblockdwnld, checkIBDState) {
     //
     // Set conditions so that all checks fail, and the end of function is reached so that:
     // - lockIBDState set to true
-    // - funciton returns false
+    // - function returns false
     pindexBestHeader->nTime = GetTime();
     EXPECT_FALSE(IsInitialBlockDownload());
 
@@ -94,30 +92,4 @@ TEST(initialblockdwnld, checkIBDState) {
 
     // Restore active chain tip
     chainActive.SetTip(originalTip);
-}
-
-
-void makeTemporaryMainChain(int trunk_size)
-{
-    // Create genesis block
-    CBlock b = Params().GenesisBlock();
-    CBlockIndex* genesis = AddToBlockIndex(b);
-    auto hashOfPrevBlock = b.GetHash();
-
-    // create the main trunk, from which some forks will possibly stem
-    for (int i = 0; i < trunk_size; i++)
-    {
-        CBlock b;
-        b.nVersion = MIN_BLOCK_VERSION;
-        b.nNonce = uint256(GetRandHash());  
-        b.nBits = arith_uint256(uint256(GetRandHash()).ToString() ).GetCompact();
-        b.hashPrevBlock = hashOfPrevBlock;
-        hashOfPrevBlock = b.GetHash();
-
-        CBlockIndex *bi = AddToBlockIndex(b);
-
-        chainActive.SetTip(bi);
-    }
-
-    return;
 }
