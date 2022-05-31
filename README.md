@@ -41,6 +41,8 @@ Building from source
     autoconf libtool ncurses-dev unzip git python \
     zlib1g-dev bsdmainutils automake curl
     ```
+    For a detailed list of dependencies, please refer to the [dependencies section](doc/dependencies.md).
+
     2. Cross compilation for Windows target
     ```{r, engine='bash'}
     sudo apt-get install \
