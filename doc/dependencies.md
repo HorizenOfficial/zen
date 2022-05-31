@@ -15,4 +15,4 @@ These are the dependencies needed to build Zen on Linux.
 | [Automake](https://www.gnu.org/software/automake/) | [1.16.5] |
 | [Libtool](https://www.gnu.org/software/libtool/) | [2.4.6] |
 | [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) | [0.29.2] |
-| [hexdump](https://www.gnu.org/software/coreutils/) | [2.37.2] |
+| [hexdump](https://www.kernel.org/pub/linux/utils/util-linux/) | [2.37.2] |
