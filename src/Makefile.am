@@ -381,6 +381,7 @@ libbitcoin_common_a_SOURCES = \
   amount.cpp \
   arith_uint256.cpp \
   base58.cpp \
+  base58_codec.cpp \
   chainparams.cpp \
   sc/proofverifier.cpp \
   coins.cpp \
@@ -641,7 +642,8 @@ noinst_PROGRAMS += \
 # tool for testing sidechain
 zendoo_mcTest_SOURCES = \
     zendoo/mcTestCall.cpp \
-    base58.cpp \
+    base58_codec.cpp \
+    crypto/sha256.cpp \
     uint256.cpp \
     utilstrencodings.cpp
 
