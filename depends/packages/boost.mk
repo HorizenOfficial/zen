@@ -5,11 +5,11 @@ $(package)_file_name=$(package)_$($(package)_version).tar.bz2
 $(package)_sha256_hash=83bfc1507731a0906e387fc28b7ef5417d591429e51e788417fe9ff025e116b1
 $(package)_patches=signals2-noise.patch
 
-compiler = 
+$(package)_compiler=
 ifeq ($(CLANG_ARG),true)
-compiler = clang
+$(package)_compiler=clang
 else
-compiler = gcc
+$(package)_compiler=gcc
 endif
 
 define $(package)_set_vars
@@ -23,7 +23,7 @@ $(package)_config_opts_mingw32=binary-format=pe target-os=windows threadapi=win3
 $(package)_config_opts_x86_64_mingw32=address-model=64
 $(package)_config_opts_i686_mingw32=address-model=32
 $(package)_config_opts_i686_linux=address-model=32 architecture=x86
-$(package)_toolset_$(host_os)=$(compiler)
+$(package)_toolset_$(host_os)=$($(package)_compiler)
 $(package)_archiver_$(host_os)=$($(package)_ar)
 $(package)_toolset_darwin=darwin
 $(package)_archiver_darwin=$($(package)_libtool)
@@ -38,8 +38,8 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_config_cmds
-  ./bootstrap.sh --with-toolset=gcc --without-icu --with-libraries=$($(package)_config_libraries) && \
-  sed -i -e "s|using gcc ;|using $(boost_toolset_$(host_os)) : : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"$(boost_archiver_$(host_os))\" <striper>\"$(host_STRIP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" : ;|" project-config.jam
+  ./bootstrap.sh --with-toolset=$($(package)_compiler) --without-icu --with-libraries=$($(package)_config_libraries) && \
+  sed -i -e "s|using $($(package)_compiler) ;|using $($(package)_toolset_$(host_os)) : : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\"<archiver>\"$($(package)_archiver_$(host_os))\" <striper>\"$(host_STRIP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" : ;|" project-config.jam
 endef
 
 define $(package)_build_cmds

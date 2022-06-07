@@ -14,12 +14,11 @@ else
 $(package)_library_file=target/release/librustzcash.a
 endif
 
-ifeq ($(host_os),linux)
-$(package)_cargo_cc=CC=$(CT_PREFIX)gcc
-$(package)_cargo_ld=RUSTC_LINKER=$(CT_PREFIX)gcc
+$(package)_compiler=
+ifeq ($(CLANG_ARG),true)
+$(package)_compiler=$(CT_PREFIX)clang
 else
-$(package)_cargo_cc=
-$(package)_cargo_ld=
+$(package)_compiler=$(CT_PREFIX)gcc
 endif
 
 define $(package)_set_vars
@@ -29,14 +28,14 @@ endef
 
 define $(package)_preprocess_cmds
   mkdir .cargo && \
-  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' > .cargo/config && \
+  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' | sed 's|DUMMY_LINKER|$($(package)_compiler)|g'  > .cargo/config && \
   cat Cargo.toml | sed '/lto/d' | sed '/panic/d' > toml.temp && \
   cat toml.temp >  Cargo.toml && \
   rm toml.temp 
 endef
 
 define $(package)_build_cmds
-  $($(package)_cargo_ld) $($(package)_cargo_cc) cargo build $($(package)_build_opts)
+  cargo build $($(package)_build_opts)
 endef
 
 define $(package)_stage_cmds
