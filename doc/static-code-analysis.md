@@ -27,6 +27,8 @@ Clang
 -----------------
 By default Zen is compiled with GCC, but it's easy to switch to Clang by calling `zcutil/build.sh` with the flag `--use-clang`. Using Clang together with `wall` or `werror` tipically generates a different set of warnings compared with GCC.
 
+Please note that `--use-clang` is only available for Linux, MacOS uses Clang by default through a different build script.
+
 scan-build
 -----------------
 In addition to the standard compilation warnings, Clang brings some useful static analysis tools like `scan-build`. This tool must be invoked as a wrapper of the `make` command (basically in the same way as **Bear**) by changing the last line of the `zcutil/build.sh` script:
