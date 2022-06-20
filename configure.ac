@@ -201,6 +201,7 @@ AC_ARG_ENABLE([address-indexing],
     [enable_address_indexing=no])
 
 AC_LANG_PUSH([C++])
+AX_CHECK_COMPILE_FLAG([-Wall],[CXXFLAG_WALL="-Wall"],[CXXFLAG_WALL=""])
 AX_CHECK_COMPILE_FLAG([-Werror],[CXXFLAG_WERROR="-Werror"],[CXXFLAG_WERROR=""])
 
 if test "x$enable_debug" = xyes; then
@@ -217,7 +218,7 @@ fi
 ERROR_CXXFLAGS=
 
 if test "x$enable_wall" = "xyes"; then
-  if test "x$CXXFLAG_WERROR" = "x"; then
+  if test "x$CXXFLAG_WALL" = "x"; then
     AC_MSG_ERROR("enable-wall set but -Wall is not usable")
   fi
   ERROR_CXXFLAGS="$ERROR_CXXFLAGS -Wall"
