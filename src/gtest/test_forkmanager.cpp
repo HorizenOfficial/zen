@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "zen/forkmanager.h"
 #include "chainparams.h"
-#include "zen/forks/fork9_sidechainversionfork.h"   /// AP - to do: change to fork10_*.h
+#include "zen/forks/fork10_nonceasingsidechainfork.h"
 
 using namespace zen;
 
@@ -479,16 +479,14 @@ TEST(ForkManager, NonCeasingSCVersionForkTestnet) {
 TEST(ForkManager, NonCeasingSCVersionForkRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
 
-    int nonCeasingSCVersionForkHeight = 500;    // PLACEHOLDER!
+    int nonCeasingSCVersionForkHeight = 480;    // PLACEHOLDER!
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight - 1), 1);
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight), 2);
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight + 1), 2);
 }
 
-
-/// AP - todo: update with new Fork class instance
 TEST(ForkManager, HighestFork) {
     SelectParams(CBaseChainParams::MAIN);
     const Fork* highestFork = ForkManager::getInstance().getHighestFork();
-    EXPECT_EQ(typeid(*highestFork), typeid(SidechainVersionFork));
+    EXPECT_EQ(typeid(*highestFork), typeid(NonCeasingSidechainFork));
 }

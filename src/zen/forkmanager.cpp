@@ -14,6 +14,7 @@
 #include "forks/fork7_replayprotectionfixfork.h"
 #include "forks/fork8_sidechainfork.h"
 #include "forks/fork9_sidechainversionfork.h"
+#include "forks/fork10_nonceasingsidechainfork.h"
 
 namespace zen {
 
@@ -199,6 +200,7 @@ ForkManager::ForkManager() {
     registerFork(new ReplayProtectionFixFork());
     registerFork(new SidechainFork());
     registerFork(new SidechainVersionFork());
+    registerFork(new NonCeasingSidechainFork());
 }
 
 /**
