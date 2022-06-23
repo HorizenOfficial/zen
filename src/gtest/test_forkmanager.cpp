@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
 #include "zen/forkmanager.h"
 #include "chainparams.h"
-#include "zen/forks/fork9_sidechainversionfork.h"
+#include "zen/forks/fork9_sidechainversionfork.h"   /// AP - to do: change to fork10_*.h
 
 using namespace zen;
+
+/// AP - to do: add a test if changes in CommunityFundReward
 TEST(ForkManager, TestCommunityFundRewardTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
     CAmount fakeReward = (CAmount)1000L;
@@ -115,6 +117,7 @@ TEST(ForkManager, SelectNetworkAfterChainsplit) {
     EXPECT_TRUE(ForkManager::getInstance().isAfterChainsplit(110001));
 }
 
+/// AP - to do: add a test if changes in CommunityFundAddress / communityFundAddressMap
 TEST(ForkManager, GetCommunityFundAddressRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
     Fork::CommunityFundType foundation = Fork::CommunityFundType::FOUNDATION;
@@ -188,6 +191,8 @@ TEST(ForkManager, GetCommunityFundAddressMainnet) {
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::FOUNDATION),"zshX5BAgUvNgM1VoBVKZyFVVozTDjjJvRxJ");
 }
 
+
+/// AP - to do: add a test if changes in CommunityFundAddress / secureNodeFundAddressMap
 TEST(ForkManager, GetSecureNodeFundAddressRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
     Fork::CommunityFundType securenode = Fork::CommunityFundType::SECURENODE;
@@ -241,6 +246,8 @@ TEST(ForkManager, GetSecureNodeFundAddressMainnet) {
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::SECURENODE),"zsx68qSKMNoc1ZPQpGwNFZXVzgf27KN6a9u");
 }
 
+
+/// AP - to do: add a test if changes in CommunityFundAddress / superNodeFundAddressMap
 TEST(ForkManager, GetSuperNodeFundAddressRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
     Fork::CommunityFundType supernode = Fork::CommunityFundType::SUPERNODE;
@@ -417,6 +424,10 @@ TEST(ForkManager, SidechainForkMainnet) {
 	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047625), BLOCK_VERSION_SC_SUPPORT);
 }
 
+///
+/// AP: add here eventual non-ceasing SC tests
+///
+
 TEST(ForkManager, SidechainVersionForkMainnet) {
     SelectParams(CBaseChainParams::MAIN);
 
@@ -447,6 +458,35 @@ TEST(ForkManager, SidechainVersionForkRegtest) {
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight + 1), 1);
 }
 
+TEST(ForkManager, NonCeasingSCVersionForkMainnet) {
+    SelectParams(CBaseChainParams::MAIN);
+
+    int nonCeasingSCVersionForkHeight = 2500000;    // PLACEHOLDER!
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight - 1), 1);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight), 2);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight + 1), 2);
+}
+
+TEST(ForkManager, NonCeasingSCVersionForkTestnet) {
+    SelectParams(CBaseChainParams::TESTNET);
+
+    int nonCeasingSCVersionForkHeight = 2000000;    // PLACEHOLDER!
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight - 1), 1);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight), 2);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight + 1), 2);
+}
+
+TEST(ForkManager, NonCeasingSCVersionForkRegtest) {
+    SelectParams(CBaseChainParams::REGTEST);
+
+    int nonCeasingSCVersionForkHeight = 500;    // PLACEHOLDER!
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight - 1), 1);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight), 2);
+    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight + 1), 2);
+}
+
+
+/// AP - todo: update with new Fork class instance
 TEST(ForkManager, HighestFork) {
     SelectParams(CBaseChainParams::MAIN);
     const Fork* highestFork = ForkManager::getInstance().getHighestFork();
