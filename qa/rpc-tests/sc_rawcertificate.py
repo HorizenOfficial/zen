@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     get_epoch_data, swap_bytes, \
@@ -87,8 +87,8 @@ class sc_rawcert(BitcoinTestFramework):
         mark_logs("Node 0 generates 1 block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
-        mark_logs("Node 3 generates {} block".format(MINIMAL_SC_HEIGHT-1), self.nodes, DEBUG_MODE)
-        self.nodes[3].generate(MINIMAL_SC_HEIGHT - 1)
+        mark_logs("Node 3 generates {} block".format(ForkHeights['MINIMAL_SC']-1), self.nodes, DEBUG_MODE)
+        self.nodes[3].generate(ForkHeights['MINIMAL_SC'] - 1)
         self.sync_all()
 
         # node 1 has just the coinbase which is now mature
