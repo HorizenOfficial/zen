@@ -65,6 +65,24 @@ class sc_version(BitcoinTestFramework):
 
         self.sync_all()
 
+        # Generate more blocks to reach the sidechain version 2 fork point
+        mark_logs("Node 0 generates {} blocks (to reach height {})".format(ForkHeights['NON_CEASING_SC'] - ForkHeights['SC_VERSION'], ForkHeights['NON_CEASING_SC']), self.nodes,DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['NON_CEASING_SC'] - ForkHeights['SC_VERSION'])
+
+        mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("post_fork2_v0", 0, EXPECT_SUCCESS)
+
+        mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("post_fork2_v1", 1, EXPECT_SUCCESS)
+
+        mark_logs("Node 0 creates a v2 sidechain", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("post_fork2_v2", 2, EXPECT_SUCCESS)
+
+        mark_logs("Node 0 creates a v3 sidechain (expecting failure)", self.nodes, DEBUG_MODE)
+        assert("Invalid sidechain version" in test_helper.create_sidechain("post_fork2_v3", 3, EXPECT_FAILURE))
+
+        self.sync_all()
+
 
 if __name__ == '__main__':
     sc_version().main()
