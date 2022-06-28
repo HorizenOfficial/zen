@@ -1150,6 +1150,8 @@ void BlockchainTestManager::InitCoinGeneration()
 {
     coinsKey.MakeNewKey(true);
     keystore.AddKey(coinsKey);
+
+    coinsScript.clear();
     coinsScript << OP_DUP << OP_HASH160 << ToByteVector(coinsKey.GetPubKey().GetID()) << OP_EQUALVERIFY << OP_CHECKSIG;
 }
 
