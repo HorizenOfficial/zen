@@ -5,7 +5,6 @@
 
 using namespace zen;
 
-/// AP - to do: add a test if changes in CommunityFundReward
 TEST(ForkManager, TestCommunityFundRewardTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
     CAmount fakeReward = (CAmount)1000L;
@@ -117,7 +116,6 @@ TEST(ForkManager, SelectNetworkAfterChainsplit) {
     EXPECT_TRUE(ForkManager::getInstance().isAfterChainsplit(110001));
 }
 
-/// AP - to do: add a test if changes in CommunityFundAddress / communityFundAddressMap
 TEST(ForkManager, GetCommunityFundAddressRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
     Fork::CommunityFundType foundation = Fork::CommunityFundType::FOUNDATION;
@@ -192,7 +190,6 @@ TEST(ForkManager, GetCommunityFundAddressMainnet) {
 }
 
 
-/// AP - to do: add a test if changes in CommunityFundAddress / secureNodeFundAddressMap
 TEST(ForkManager, GetSecureNodeFundAddressRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
     Fork::CommunityFundType securenode = Fork::CommunityFundType::SECURENODE;
@@ -247,7 +244,6 @@ TEST(ForkManager, GetSecureNodeFundAddressMainnet) {
 }
 
 
-/// AP - to do: add a test if changes in CommunityFundAddress / superNodeFundAddressMap
 TEST(ForkManager, GetSuperNodeFundAddressRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
     Fork::CommunityFundType supernode = Fork::CommunityFundType::SUPERNODE;
@@ -423,10 +419,6 @@ TEST(ForkManager, SidechainForkMainnet) {
 	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047624), BLOCK_VERSION_SC_SUPPORT);
 	EXPECT_EQ(ForkManager::getInstance().getNewBlockVersion(1047625), BLOCK_VERSION_SC_SUPPORT);
 }
-
-///
-/// AP: add here eventual non-ceasing SC tests
-///
 
 TEST(ForkManager, SidechainVersionForkMainnet) {
     SelectParams(CBaseChainParams::MAIN);

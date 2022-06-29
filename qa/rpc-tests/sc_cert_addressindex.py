@@ -3,7 +3,7 @@
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-from test_framework.test_framework import BitcoinTestFramework, ForkHeights
+from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_false, initialize_chain_clean, assert_equal, \
     start_nodes, get_epoch_data, assert_true, \
     sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \

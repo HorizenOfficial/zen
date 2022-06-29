@@ -8,7 +8,6 @@
 #
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
