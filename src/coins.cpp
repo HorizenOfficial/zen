@@ -1057,7 +1057,10 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
         CSidechainsMap::iterator scIt = ModifySidechain(scId);
         int ceasingHeightToErase = scIt->second.sidechain.GetScheduledCeasingHeight();
-        if (!DecrementImmatureAmount(scId, scIt, entry.nValue, maturityHeight) )
+        if (scIt->second.sidechain.fixedParams.version == 2)
+        {
+            scIt->second.sidechain.balance -= entry.nValue;
+        } else if (!DecrementImmatureAmount(scId, scIt, entry.nValue, maturityHeight))
         {
             // should not happen
             LogPrintf("ERROR %s():%d - scId=%s could not handle immature balance at height%d\n",
@@ -1094,7 +1097,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
 
         // Cancel Ceasing Sidechains Event
-        if (!HaveSidechainEvents(ceasingHeightToErase)) {
+        if (scIt->second.sidechain.fixedParams.version != 2 && !HaveSidechainEvents(ceasingHeightToErase)) {
             return error("%s():%d - ERROR-SIDECHAIN-EVENT: scId[%s] misses current ceasing height; expected value was [%d]\n",
                 __func__, __LINE__, entry.GetScId().ToString(), ceasingHeightToErase);
         }
@@ -1863,7 +1866,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
 
         currentSc.pastEpochTopQualityCertView = currentSc.lastTopQualityCertView;
         currentSc.UpdateScFees(currentSc.pastEpochTopQualityCertView);
-    } else if (cert.epochNumber == currentSc.lastTopQualityCertReferencedEpoch)
+    } else if (currentSc.fixedParams.version != 2 && cert.epochNumber == currentSc.lastTopQualityCertReferencedEpoch)
     {
         if (cert.quality <= currentSc.lastTopQualityCertQuality) // should never happen
         {
@@ -1900,7 +1903,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
 
     scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
-    if(cert.epochNumber != scUndoData.prevTopCommittedCertReferencedEpoch)
+    if (currentSc.fixedParams.version != 2 && cert.epochNumber != scUndoData.prevTopCommittedCertReferencedEpoch)
     {
         int nextCeasingHeight = currentSc.GetScheduledCeasingHeight();
 
@@ -1952,6 +1955,7 @@ void CCoinsViewCache::NullifyBackwardTransfers(const uint256& certHash, std::vec
     }
 
     CCoinsModifier coins = this->ModifyCoins(certHash);
+    // sidechains v2 have maturity == 0, so this assert is expected to fail as intended
     assert(coins->nBwtMaturityHeight != 0);
 
     //null all bwt outputs and add related txundo in block
@@ -1984,6 +1988,8 @@ bool CCoinsViewCache::RestoreBackwardTransfers(const uint256& certHash, const st
     {
         if (outsToRestore.at(idx).nHeight != 0)
         {
+            // sidechains v2 have maturity == 0, so this assert is expected to fail as intended
+            assert(outsToRestore.at(idx).nBwtMaturityHeight != 0);
             coins->fCoinBase          = outsToRestore.at(idx).fCoinBase;
             coins->nHeight            = outsToRestore.at(idx).nHeight;
             coins->nVersion           = outsToRestore.at(idx).nVersion;
@@ -2089,7 +2095,7 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
         currentSc.scFees                      = sidechainUndo.scFees;
         currentSc.pastEpochTopQualityCertView = sidechainUndo.pastEpochTopQualityCertView;
     }
-    else if (certToRevert.epochNumber == sidechainUndo.prevTopCommittedCertReferencedEpoch)
+    else if (currentSc.fixedParams.version != 2 && certToRevert.epochNumber == sidechainUndo.prevTopCommittedCertReferencedEpoch)
     {
         // if we are restoring a cert for the same epoch it must have a lower quality than us
         assert(certToRevert.quality > sidechainUndo.prevTopCommittedCertQuality);
@@ -2113,7 +2119,7 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     LogPrint("cert", "%s():%d - updated sc state %s\n", __func__, __LINE__, currentSc.ToString());
 
     //we need to modify the ceasing height only if we removed the very first certificate of the epoch
-    if(certToRevert.epochNumber != currentSc.lastTopQualityCertReferencedEpoch)
+    if (currentSc.fixedParams.version != 2 && certToRevert.epochNumber != currentSc.lastTopQualityCertReferencedEpoch)
     {
         int ceasingHeightToRestore = currentSc.GetScheduledCeasingHeight();
 
