@@ -2365,14 +2365,20 @@ const CScCertificateView& CCoinsViewCache::GetActiveCertView(const uint256& scId
     if (this->GetSidechainState(scId) == CSidechain::State::UNCONFIRMED)
         return pSidechain->lastTopQualityCertView;
 
-    int certReferencedEpoch = pSidechain->EpochFor(this->GetHeight() + 1 - pSidechain->GetCertSubmissionWindowLength()) - 1;
-
-    if (pSidechain->lastTopQualityCertReferencedEpoch == certReferencedEpoch)
+    // For SC v2, we always return the last cert view
+    if (pSidechain->fixedParams.version >= 2)
+    {
         return pSidechain->lastTopQualityCertView;
-    else if (pSidechain->lastTopQualityCertReferencedEpoch - 1 == certReferencedEpoch)
-        return pSidechain->pastEpochTopQualityCertView;
-    else
-        assert(false);
+    } else {
+        int certReferencedEpoch = pSidechain->EpochFor(this->GetHeight() + 1 - pSidechain->GetCertSubmissionWindowLength()) - 1;
+
+        if (pSidechain->lastTopQualityCertReferencedEpoch == certReferencedEpoch)
+            return pSidechain->lastTopQualityCertView;
+        else if (pSidechain->lastTopQualityCertReferencedEpoch - 1 == certReferencedEpoch)
+            return pSidechain->pastEpochTopQualityCertView;
+        else
+            assert(false);
+    }
 
     // just for compiler warning, should never reach this line
     return nullView;
