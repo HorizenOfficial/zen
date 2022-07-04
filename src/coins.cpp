@@ -727,6 +727,11 @@ bool CCoinsViewCache::CheckQuality(const CScCertificate& cert) const
     CSidechain info;
     if (GetSidechain(cert.GetScId(), info))
     {
+        // Quality disabled in non-ceasing SC, hence always return true
+        if (info.fixedParams.version >= 2)
+        {
+            return true;
+        }
         if (info.lastTopQualityCertHash != cert.GetHash() &&
             info.lastTopQualityCertReferencedEpoch == cert.epochNumber &&
             info.lastTopQualityCertQuality >= cert.quality)
@@ -772,7 +777,9 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
     LogPrint("sc", "%s():%d - enter tx=%s\n", __func__, __LINE__, txHash.ToString() );
 
     static const int SC_COIN_MATURITY = getScCoinsMaturity();
-    const int maturityHeight = blockHeight + SC_COIN_MATURITY;
+    // maturityHeight is equal to the current block height for non-ceasing SC, otherwise must be increased
+    // by SC_COIN_MATURITY, depending on the chain type
+    // const int maturityHeight = blockHeight + SC_COIN_MATURITY;
 
     // ceased sidechain withdrawal ccin
     for (const CTxCeasedSidechainWithdrawalInput& csw: tx.GetVcswCcIn())
@@ -786,6 +793,9 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         }
 
         CSidechainsMap::iterator scIt = ModifySidechain(csw.scId);
+
+        // For non-ceasing SC we should not have any CSW
+        assert(scIt->second.sidechain.fixedParams.version < 2);
 
         // decrease SC balance
         scIt->second.sidechain.balance -= csw.nValue;
@@ -826,40 +836,48 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         scIt->second.sidechain.fixedParams.vBitVectorCertificateFieldConfig = cr.vBitVectorCertificateFieldConfig;
         scIt->second.sidechain.fixedParams.mainchainBackwardTransferRequestDataLength = cr.mainchainBackwardTransferRequestDataLength;
 
-        scIt->second.sidechain.mImmatureAmounts[maturityHeight] = cr.nValue;
         scIt->second.sidechain.InitScFees();
+
+        const int maturityHeight = blockHeight + ((scIt->second.sidechain.fixedParams.version < 2) ? SC_COIN_MATURITY : 0);
+
+        if (scIt->second.sidechain.fixedParams.version < 2)
+        {
+            scIt->second.sidechain.mImmatureAmounts[maturityHeight] = cr.nValue;
+            LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
+                    __func__, __LINE__, maturityHeight, FormatMoney(cr.nValue), scId.ToString());
+
+            CSidechainEventsMap::iterator scMaturingEventIt = ModifySidechainEvents(maturityHeight);
+            
+            if (scMaturingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
+                scMaturingEventIt->second.scEvents.maturingScs.insert(cr.GetScId());
+            } else {
+                scMaturingEventIt->second.scEvents.maturingScs.insert(cr.GetScId());
+                scMaturingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
+            }
+
+            LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: scCreation next maturing height [%d]\n",
+                    __func__, __LINE__, cr.GetScId().ToString(), maturityHeight);
+
+            // Schedule Ceasing Sidechains
+            int nextCeasingHeight = scIt->second.sidechain.GetScheduledCeasingHeight();
+
+            CSidechainEventsMap::iterator scCeasingEventIt = ModifySidechainEvents(nextCeasingHeight);
+                if (scCeasingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
+                scCeasingEventIt->second.scEvents.ceasingScs.insert(cr.GetScId());
+            } else {
+                scCeasingEventIt->second.scEvents.ceasingScs.insert(cr.GetScId());
+                scCeasingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
+            }
+
+            LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: scCreation next ceasing height [%d]\n",
+                __func__, __LINE__, cr.GetScId().ToString(), nextCeasingHeight);
+        } else {
+            scIt->second.sidechain.balance = cr.nValue;
+        }
 
         scIt->second.flag = CSidechainsCacheEntry::Flags::FRESH;
 
-        LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
-            __func__, __LINE__, maturityHeight, FormatMoney(cr.nValue), scId.ToString());
-
         LogPrint("sc", "%s():%d - scId[%s] added in scView\n", __func__, __LINE__, scId.ToString() );
-
-        CSidechainEventsMap::iterator scMaturingEventIt = ModifySidechainEvents(maturityHeight);
-        if (scMaturingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
-           scMaturingEventIt->second.scEvents.maturingScs.insert(cr.GetScId());
-        } else {
-           scMaturingEventIt->second.scEvents.maturingScs.insert(cr.GetScId());
-           scMaturingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
-        }
-
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: scCreation next maturing height [%d]\n",
-                __func__, __LINE__, cr.GetScId().ToString(), maturityHeight);
-
-        // Schedule Ceasing Sidechains
-        int nextCeasingHeight = scIt->second.sidechain.GetScheduledCeasingHeight();
-
-        CSidechainEventsMap::iterator scCeasingEventIt = ModifySidechainEvents(nextCeasingHeight);
-        if (scCeasingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
-           scCeasingEventIt->second.scEvents.ceasingScs.insert(cr.GetScId());
-        } else {
-           scCeasingEventIt->second.scEvents.ceasingScs.insert(cr.GetScId());
-           scCeasingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
-        }
-
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: scCreation next ceasing height [%d]\n",
-               __func__, __LINE__, cr.GetScId().ToString(), nextCeasingHeight);
     }
 
     // forward transfer ccout
@@ -874,24 +892,35 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         }
         CSidechainsMap::iterator scIt = ModifySidechain(ft.scId);
 
-        // add a new immature balance entry in sc info or increment it if already there
-        scIt->second.sidechain.mImmatureAmounts[maturityHeight] += ft.nValue;
-        if (scIt->second.flag != CSidechainsCacheEntry::Flags::FRESH)
-            scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
+        const int maturityHeight = blockHeight + ((scIt->second.sidechain.fixedParams.version < 2) ? SC_COIN_MATURITY : 0);
 
-        LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
-            __func__, __LINE__, maturityHeight, FormatMoney(ft.GetScValue()), ft.scId.ToString());
+        if (scIt->second.sidechain.fixedParams.version < 2)
+        {
+            // add a new immature balance entry in sc info or increment it if already there
+            scIt->second.sidechain.mImmatureAmounts[maturityHeight] += ft.nValue;
+            if (scIt->second.flag != CSidechainsCacheEntry::Flags::FRESH)
+                scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
-        CSidechainEventsMap::iterator scMaturingEventIt = ModifySidechainEvents(maturityHeight);
-        if (scMaturingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
-          scMaturingEventIt->second.scEvents.maturingScs.insert(ft.GetScId());
+            LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
+                __func__, __LINE__, maturityHeight, FormatMoney(ft.GetScValue()), ft.scId.ToString());
+
+            CSidechainEventsMap::iterator scMaturingEventIt = ModifySidechainEvents(maturityHeight);
+            if (scMaturingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
+                scMaturingEventIt->second.scEvents.maturingScs.insert(ft.GetScId());
+            } else {
+                scMaturingEventIt->second.scEvents.maturingScs.insert(ft.GetScId());
+                scMaturingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
+            }
+
+            LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: fwd Transfer next maturing height [%d]\n",
+                __func__, __LINE__, ft.GetScId().ToString(), maturityHeight);
         } else {
-          scMaturingEventIt->second.scEvents.maturingScs.insert(ft.GetScId());
-          scMaturingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
+            scIt->second.sidechain.balance += ft.nValue;
+            if (scIt->second.flag != CSidechainsCacheEntry::Flags::FRESH)
+                scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
+            LogPrint("sc", "%s():%d - balance added in scView (h=%d, amount=%s) %s\n",
+                __func__, __LINE__, maturityHeight, FormatMoney(ft.GetScValue()), ft.scId.ToString());
         }
-
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: fwd Transfer next maturing height [%d]\n",
-               __func__, __LINE__, ft.GetScId().ToString(), maturityHeight);
     }
 
     // mc backward transfer request ccout
@@ -906,24 +935,36 @@ bool CCoinsViewCache::UpdateSidechain(const CTransaction& tx, const CBlock& bloc
         }
         CSidechainsMap::iterator scIt = ModifySidechain(mbtr.scId);
 
-        // add a new immature balance entry in sc info or increment it if already there
-        scIt->second.sidechain.mImmatureAmounts[maturityHeight] += mbtr.GetScValue();
-        if (scIt->second.flag != CSidechainsCacheEntry::Flags::FRESH)
-            scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
+        const int maturityHeight = blockHeight + ((scIt->second.sidechain.fixedParams.version < 2) ? SC_COIN_MATURITY : 0);
 
-        LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
-            __func__, __LINE__, maturityHeight, FormatMoney(mbtr.GetScValue()), mbtr.scId.ToString());
+        if (scIt->second.sidechain.fixedParams.version < 2)
+        {
+            // add a new immature balance entry in sc info or increment it if already there
+            scIt->second.sidechain.mImmatureAmounts[maturityHeight] += mbtr.GetScValue();
+            if (scIt->second.flag != CSidechainsCacheEntry::Flags::FRESH)
+                scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
-        CSidechainEventsMap::iterator scMaturingEventIt = ModifySidechainEvents(maturityHeight);
-        if (scMaturingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
-          scMaturingEventIt->second.scEvents.maturingScs.insert(mbtr.scId);
+            LogPrint("sc", "%s():%d - immature balance added in scView (h=%d, amount=%s) %s\n",
+                __func__, __LINE__, maturityHeight, FormatMoney(mbtr.GetScValue()), mbtr.scId.ToString());
+
+            CSidechainEventsMap::iterator scMaturingEventIt = ModifySidechainEvents(maturityHeight);
+            if (scMaturingEventIt->second.flag == CSidechainEventsCacheEntry::Flags::FRESH) {
+                scMaturingEventIt->second.scEvents.maturingScs.insert(mbtr.scId);
+            } else {
+                scMaturingEventIt->second.scEvents.maturingScs.insert(mbtr.scId);
+                scMaturingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
+            }
+
+            LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: mbtr scFees next maturing height [%d]\n",
+                __func__, __LINE__, mbtr.scId.ToString(), maturityHeight);
         } else {
-          scMaturingEventIt->second.scEvents.maturingScs.insert(mbtr.scId);
-          scMaturingEventIt->second.flag = CSidechainEventsCacheEntry::Flags::DIRTY;
-        }
+            scIt->second.sidechain.balance += mbtr.GetScValue();
+            if (scIt->second.flag != CSidechainsCacheEntry::Flags::FRESH)
+                scIt->second.flag = CSidechainsCacheEntry::Flags::DIRTY;
 
-        LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId[%s]: mbtr scFees next maturing height [%d]\n",
-               __func__, __LINE__, mbtr.scId.ToString(), maturityHeight);
+            LogPrint("sc", "%s():%d - mature balance added in scView (h=%d, amount=%s) %s\n",
+                __func__, __LINE__, maturityHeight, FormatMoney(mbtr.GetScValue()), mbtr.scId.ToString());
+        }
     }
 
     return true;
@@ -1617,6 +1658,9 @@ void CCoinsViewCache::HandleTxIndexSidechainEvents(int height, CBlockTreeDB* pbl
         CSidechain sidechain;
         assert(GetSidechain(ceasingScId, sidechain));
 
+        // Temporary assert: for SC version 2 we should never be here
+        assert(sidechain.fixedParams.version < 2);
+
         if (sidechain.lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL) {
             assert(sidechain.lastTopQualityCertHash.IsNull());
             continue;
@@ -1646,6 +1690,9 @@ void CCoinsViewCache::RevertTxIndexSidechainEvents(int height, CBlockUndo& block
         const uint256& scId = it->first;
         const CSidechain* const pSidechain = AccessSidechain(scId);
 
+        // Temporary assert: for SC version 2 we should never be here
+        assert(pSidechain->fixedParams.version < 2);
+
         if (pSidechain->lastTopQualityCertReferencedEpoch != CScCertificate::EPOCH_NULL)
         {
             CTxIndexValue txIndexVal;
@@ -1673,6 +1720,9 @@ void CCoinsViewCache::HandleMaturityHeightIndexSidechainEvents(int height, CBloc
         CSidechain sidechain;
         assert(GetSidechain(ceasingScId, sidechain));
 
+        // Temporary assert: for SC version 2 we should never be here
+        assert(sidechain.fixedParams.version < 2);
+
         if (sidechain.lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL) {
             assert(sidechain.lastTopQualityCertHash.IsNull());
             continue;
@@ -1698,6 +1748,9 @@ void CCoinsViewCache::RevertMaturityHeightIndexSidechainEvents(int height, CBloc
 
         const uint256& scId = it->first;
         const CSidechain* const pSidechain = AccessSidechain(scId);
+
+        // Temporary assert: for SC version 2 we should never be here
+        assert(pSidechain->fixedParams.version < 2);
 
         if (pSidechain->lastTopQualityCertReferencedEpoch != CScCertificate::EPOCH_NULL)
         {
@@ -1725,6 +1778,9 @@ void CCoinsViewCache::HandleIndexesSidechainEvents(int height, CBlockTreeDB* pbl
     {
         CSidechain sidechain;
         assert(GetSidechain(ceasingScId, sidechain));
+
+        // Temporary assert: for SC version 2 we should never be here
+        assert(sidechain.fixedParams.version < 2);
 
         if (sidechain.lastTopQualityCertReferencedEpoch == CScCertificate::EPOCH_NULL) {
             assert(sidechain.lastTopQualityCertHash.IsNull());
@@ -1755,6 +1811,9 @@ void CCoinsViewCache::RevertIndexesSidechainEvents(int height, CBlockUndo& block
 
         const uint256& scId = it->first;
         const CSidechain* const pSidechain = AccessSidechain(scId);
+
+        // Temporary assert: for SC version 2 we should never be here
+        assert(pSidechain->fixedParams.version < 2);
 
         if (pSidechain->lastTopQualityCertReferencedEpoch != CScCertificate::EPOCH_NULL)
         {
@@ -2126,6 +2185,9 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
         CSidechainsMap::iterator scMaturingIt = ModifySidechain(maturingScId);
         assert(scMaturingIt->second.sidechain.mImmatureAmounts.count(height));
 
+        // Temporary assert: for SC version 2 we should never be here
+        assert(scMaturingIt->second.sidechain.fixedParams.version < 2);
+
         scMaturingIt->second.sidechain.balance += scMaturingIt->second.sidechain.mImmatureAmounts.at(height);
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: scId=%s balance updated to: %s\n",
             __func__, __LINE__, maturingScId.ToString(), FormatMoney(scMaturingIt->second.sidechain.balance));
@@ -2147,6 +2209,9 @@ bool CCoinsViewCache::HandleSidechainEvents(int height, CBlockUndo& blockUndo, s
 
         CSidechain sidechain;
         assert(GetSidechain(ceasingScId, sidechain));
+
+        // Temporary assert: for SC version 2 we should never be here
+        assert(sidechain.fixedParams.version < 2);
 
         LogPrint("sc", "%s():%d - SIDECHAIN-EVENT: lastCertEpoch [%d], lastCertHash [%s]\n",
                 __func__, __LINE__, sidechain.lastTopQualityCertReferencedEpoch, sidechain.lastTopQualityCertHash.ToString());
@@ -2202,6 +2267,10 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
 
         CAmount amountToRestore = it->second.appliedMaturedAmount;
         CSidechainsMap::iterator scIt = ModifySidechain(scId);
+
+        // Temporary assert: for SC version 2 we should never be here
+        assert(scIt->second.sidechain.fixedParams.version < 2);
+        
         if (amountToRestore > 0)
         {
             LogPrint("sc", "%s():%d - adding immature amount %s into sc view for scId=%s\n",
@@ -2234,6 +2303,9 @@ bool CCoinsViewCache::RevertSidechainEvents(const CBlockUndo& blockUndo, int hei
 
         const uint256& scId = it->first;
         const CSidechain* const pSidechain = AccessSidechain(scId);
+
+        // Temporary assert: for SC version 2 we should never be here
+        assert(pSidechain->fixedParams.version < 2);
 
         if (pSidechain->lastTopQualityCertReferencedEpoch != CScCertificate::EPOCH_NULL)
         {
