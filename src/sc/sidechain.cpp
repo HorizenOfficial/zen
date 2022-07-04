@@ -112,7 +112,7 @@ int CSidechain::GetCertMaturityHeight(int certEpoch) const
 
 int CSidechain::GetScheduledCeasingHeight() const
 {
-    return GetCertSubmissionWindowEnd(lastTopQualityCertReferencedEpoch+1);
+    return fixedParams.version == 2 ? INT_MAX : GetCertSubmissionWindowEnd(lastTopQualityCertReferencedEpoch+1);
 }
 
 std::string CSidechain::stateToString(State s)
