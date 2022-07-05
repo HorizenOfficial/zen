@@ -10,73 +10,6 @@
 #include <undo.h>
 #include <main.h>
 
-class CBlockUndo_OldVersion
-{
-    public:
-        std::vector<CTxUndo> vtxundo;
-        uint256 old_tree_root;
-
-        ADD_SERIALIZE_METHODS;
-
-        template <typename Stream, typename Operation>
-        inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-            READWRITE(vtxundo);
-            READWRITE(old_tree_root);
-        }   
-};
-
-class CInMemorySidechainDb final: public CCoinsView {
-public:
-    CInMemorySidechainDb()  = default;
-    virtual ~CInMemorySidechainDb() = default;
-
-    bool HaveSidechain(const uint256& scId) const override {
-        return sidechainsInMemoryMap.count(scId) && sidechainsInMemoryMap.at(scId).flag != CSidechainsCacheEntry::Flags::ERASED;
-    }
-    bool GetSidechain(const uint256& scId, CSidechain& info) const override {
-        if(!HaveSidechain(scId))
-            return false;
-        info = sidechainsInMemoryMap.at(scId).sidechain;
-        return true;
-    }
-
-    bool HaveSidechainEvents(int height)  const override {
-        return eventsInMemoryMap.count(height) && eventsInMemoryMap.at(height).flag != CSidechainEventsCacheEntry::Flags::ERASED;
-    }
-    bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override {
-        if(!HaveSidechainEvents(height))
-            return false;
-        scEvents = eventsInMemoryMap.at(height).scEvents;
-        return true;
-    }
-
-    virtual void GetScIds(std::set<uint256>& scIdsList) const override {
-        for (auto& entry : sidechainsInMemoryMap)
-            scIdsList.insert(entry.first);
-        return;
-    }
-
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
-                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap,
-                    CSidechainEventsMap& mapSidechainEvents, CCswNullifiersMap& cswNullifiers) override
-    {
-        for (auto& entryToWrite : sidechainMap)
-            WriteMutableEntry(entryToWrite.first, entryToWrite.second, sidechainsInMemoryMap);
-
-        for (auto& entryToWrite : mapSidechainEvents)
-            WriteMutableEntry(entryToWrite.first, entryToWrite.second, eventsInMemoryMap);
-
-        sidechainMap.clear();
-        mapSidechainEvents.clear();
-        return true;
-    }
-
-private:
-    mutable boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> sidechainsInMemoryMap;
-    mutable boost::unordered_map<int, CSidechainEventsCacheEntry> eventsInMemoryMap;
-};
-
 class SidechainsTestSuite: public ::testing::Test {
 
 public:
@@ -87,7 +20,7 @@ public:
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
 
-        fakeChainStateDb   = new CInMemorySidechainDb();
+        fakeChainStateDb   = new blockchain_test_utils::CInMemorySidechainDb();
         sidechainsView     = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
     };
 
@@ -102,7 +35,7 @@ public:
     };
 
 protected:
-    CInMemorySidechainDb  *fakeChainStateDb;
+    blockchain_test_utils::CInMemorySidechainDb  *fakeChainStateDb;
     txCreationUtils::CNakedCCoinsViewCache *sidechainsView;
 
     //Helpers
@@ -1703,7 +1636,7 @@ TEST_F(SidechainsTestSuite, CSidechainBlockUndoVersioning) {
 
     // write an old version undo block to the file
     //----------------------------------------------
-    CBlockUndo_OldVersion buov;
+    blockchain_test_utils::CBlockUndo_OldVersion buov;
     buov.vtxundo.reserve(1);
     buov.vtxundo.push_back(CTxUndo());
 
