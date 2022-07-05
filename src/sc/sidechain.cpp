@@ -108,6 +108,7 @@ int CSidechain::GetCertMaturityHeight(int certEpoch) const
         return -1;
 
     return GetCertSubmissionWindowEnd(certEpoch+1);
+    //return (fixedParams.version < 2) ? GetCertSubmissionWindowEnd(certEpoch+1) : -1;
 }
 
 int CSidechain::GetScheduledCeasingHeight() const
@@ -202,20 +203,24 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
 
     for (const auto& sc : tx.GetVscCcOut())
     {
-        if (sc.withdrawalEpochLength < SC_MIN_WITHDRAWAL_EPOCH_LENGTH)
+        // Checks on withdrawal epoch lenghts are meaningful only for v0 and v1 SCs
+        if (sc.version < 2)
         {
-            return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], sc creation withdrawalEpochLength %d is less than min value %d\n",
-                    __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength, SC_MIN_WITHDRAWAL_EPOCH_LENGTH),
-                    CValidationState::Code::INVALID, "sidechain-sc-creation-epoch-too-short");
-        }
+            if (sc.withdrawalEpochLength < SC_MIN_WITHDRAWAL_EPOCH_LENGTH)
+            {
+                return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], sc creation withdrawalEpochLength %d is less than min value %d\n",
+                        __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength, SC_MIN_WITHDRAWAL_EPOCH_LENGTH),
+                        CValidationState::Code::INVALID, "sidechain-sc-creation-epoch-too-short");
+            }
 
-        if (sc.withdrawalEpochLength > SC_MAX_WITHDRAWAL_EPOCH_LENGTH)
-        {
-            return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], sc creation withdrawalEpochLength %d is greater than max value %d\n",
-                    __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength, SC_MAX_WITHDRAWAL_EPOCH_LENGTH),
-                    CValidationState::Code::INVALID, "sidechain-sc-creation-epoch-too-long");
+            if (sc.withdrawalEpochLength > SC_MAX_WITHDRAWAL_EPOCH_LENGTH)
+            {
+                return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], sc creation withdrawalEpochLength %d is greater than max value %d\n",
+                        __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength, SC_MAX_WITHDRAWAL_EPOCH_LENGTH),
+                        CValidationState::Code::INVALID, "sidechain-sc-creation-epoch-too-long");
+            }
         }
 
         if (!sc.CheckAmountRange(cumulatedAmount) )
@@ -266,22 +271,32 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-constant");
         }
 
-        if (sc.wCeasedVk.is_initialized() )
+        if (sc.version < 2)
         {
-            if (!sc.wCeasedVk.get().IsValid())
+            if (sc.wCeasedVk.is_initialized())
             {
-                return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",
-                    __func__, __LINE__, txHash.ToString()),
-                    CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-vk");
+                if (!sc.wCeasedVk.get().IsValid())
+                {
+                    return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], invalid wCeasedVk verification key\n",
+                        __func__, __LINE__, txHash.ToString()),
+                        CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-vk");
+                }
+                if (!Sidechain::IsValidProvingSystemType(sc.wCeasedVk.get().getProvingSystemType()))
+                {
+                    return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], invalid csw proving system\n",
+                        __func__, __LINE__, txHash.ToString()),
+                        CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-provingsystype");
+                }
             }
-            if (!Sidechain::IsValidProvingSystemType(sc.wCeasedVk.get().getProvingSystemType()))
-            {
-                return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], invalid csw proving system\n",
-                    __func__, __LINE__, txHash.ToString()),
-                    CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-provingsystype");
-            }
+        }
+        else if ((sc.version >= 2) && (sc.wCeasedVk.is_initialized())) 
+        {
+            return state.DoS(100,
+                error("%s():%d - ERROR: Invalid tx[%s], wCeasedVk should not be initialized on v2 sidechains\n",
+                __func__, __LINE__, txHash.ToString()),
+                CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw");
         }
 
         if (!MoneyRange(sc.forwardTransferScFee))
@@ -300,12 +315,24 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     CValidationState::Code::INVALID, "bad-cert-mbtr-fee-out-of-range");
         }
 
-        if (sc.mainchainBackwardTransferRequestDataLength < 0 || sc.mainchainBackwardTransferRequestDataLength > MAX_SC_MBTR_DATA_LEN)
+        if (sc.version < 2)
         {
-            return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength out of range [%d, %d]\n",
-                    __func__, __LINE__, txHash.ToString(), 0, MAX_SC_MBTR_DATA_LEN),
-                    CValidationState::Code::INVALID, "bad-cert-mbtr-data-length-out-of-range");
+            if (sc.mainchainBackwardTransferRequestDataLength < 0 || sc.mainchainBackwardTransferRequestDataLength > MAX_SC_MBTR_DATA_LEN)
+            {
+                return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength out of range [%d, %d]\n",
+                        __func__, __LINE__, txHash.ToString(), 0, MAX_SC_MBTR_DATA_LEN),
+                        CValidationState::Code::INVALID, "bad-cert-mbtr-data-length-out-of-range");
+            }
+        }
+        else {
+            if (sc.mainchainBackwardTransferRequestDataLength > 0)
+            {
+                return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength should be 0 for v2 sidechains\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    CValidationState::Code::INVALID, "bad-cert-mbtr-data-length-not-zero");
+            }
         }
     }
 
