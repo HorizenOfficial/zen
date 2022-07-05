@@ -9,58 +9,6 @@
 #include <main.h>
 #include <consensus/validation.h>
 
-class CInMemorySidechainDb final: public CCoinsView {
-public:
-    CInMemorySidechainDb()  = default;
-    virtual ~CInMemorySidechainDb() = default;
-
-    bool HaveSidechain(const uint256& scId) const override {
-        return sidechainsInMemoryMap.count(scId) && sidechainsInMemoryMap.at(scId).flag != CSidechainsCacheEntry::Flags::ERASED;
-    }
-    bool GetSidechain(const uint256& scId, CSidechain& info) const override {
-        if(!HaveSidechain(scId))
-            return false;
-        info = sidechainsInMemoryMap.at(scId).sidechain;
-        return true;
-    }
-
-    bool HaveSidechainEvents(int height)  const override {
-        return eventsInMemoryMap.count(height) && eventsInMemoryMap.at(height).flag != CSidechainEventsCacheEntry::Flags::ERASED;
-    }
-    bool GetSidechainEvents(int height, CSidechainEvents& scEvents) const override {
-        if(!HaveSidechainEvents(height))
-            return false;
-        scEvents = eventsInMemoryMap.at(height).scEvents;
-        return true;
-    }
-
-    virtual void GetScIds(std::set<uint256>& scIdsList) const override {
-        for (auto& entry : sidechainsInMemoryMap)
-            scIdsList.insert(entry.first);
-        return;
-    }
-
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock,
-                    const uint256 &hashAnchor, CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers, CSidechainsMap& sidechainMap,
-                    CSidechainEventsMap& mapSidechainEvents, CCswNullifiersMap& cswNullifiers) override
-    {
-        for (auto& entryToWrite : sidechainMap)
-            WriteMutableEntry(entryToWrite.first, entryToWrite.second, sidechainsInMemoryMap);
-
-        for (auto& entryToWrite : mapSidechainEvents)
-            WriteMutableEntry(entryToWrite.first, entryToWrite.second, eventsInMemoryMap);
-
-        sidechainMap.clear();
-        mapSidechainEvents.clear();
-        return true;
-    }
-
-private:
-    mutable boost::unordered_map<uint256, CSidechainsCacheEntry, CCoinsKeyHasher> sidechainsInMemoryMap;
-    mutable boost::unordered_map<int, CSidechainEventsCacheEntry> eventsInMemoryMap;
-};
-
 class SidechainsMultipleCertsTestSuite : public ::testing::Test {
 public:
     SidechainsMultipleCertsTestSuite(): fakeChainStateDb(nullptr), sidechainsView(nullptr), dummyBlock(),
@@ -74,7 +22,7 @@ public:
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
 
-        fakeChainStateDb   = new CInMemorySidechainDb();
+        fakeChainStateDb   = new blockchain_test_utils::CInMemorySidechainDb();
         sidechainsView     = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
     };
 
@@ -86,7 +34,7 @@ public:
         fakeChainStateDb = nullptr;
     };
 protected:
-    CInMemorySidechainDb   *fakeChainStateDb;
+    blockchain_test_utils::CInMemorySidechainDb   *fakeChainStateDb;
     txCreationUtils::CNakedCCoinsViewCache  *sidechainsView;
 
     //helpers
