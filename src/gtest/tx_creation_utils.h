@@ -8,6 +8,7 @@
 #include "coins.h"
 #include "keystore.h"
 #include "sc/asyncproofverifier.h"
+#include "undo.h"
 
 class CTransaction;
 class CMutableTransaction;
@@ -90,6 +91,21 @@ struct CTransactionCreationArguments
     std::vector<CTxScCreationOut>                  vsc_ccout;     /**< The list of sidechain creation outputs */
     std::vector<CTxForwardTransferOut>             vft_ccout;     /**< The list of sidechain forward transfer outputs */
     std::vector<CBwtRequestOut>                    vmbtr_out;     /**< The list of sidechain backward transfer request outputs */
+};
+
+class CBlockUndo_OldVersion
+{
+    public:
+        std::vector<CTxUndo> vtxundo;
+        uint256 old_tree_root;
+
+        ADD_SERIALIZE_METHODS;
+
+        template <typename Stream, typename Operation>
+        inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+            READWRITE(vtxundo);
+            READWRITE(old_tree_root);
+        }   
 };
 
 class CInMemorySidechainDb final: public CCoinsView {
