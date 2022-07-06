@@ -39,14 +39,15 @@ public:
 CMutableTransaction populateTx(int txVersion,
                                const CAmount& creationTxAmount = CAmount(0),
                                int epochLength = 5,
+                               int sidechainVersion = 0,
                                const CAmount& ftScFee = CAmount(0),
                                const CAmount& mbtrScFee = CAmount(0),
                                int mbtrDataLength = 0);
 void signTx(CMutableTransaction& mtx);
 void signTx(CMutableScCertificate& mcert);
 
-CTransaction createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength = 15);
-CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount);
+CTransaction createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength = 15, int sidechainVersion = 0);
+CTransaction createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount, int sidechainVersion = 0);
 CTxCeasedSidechainWithdrawalInput CreateCSWInput(
     const uint256& scId, const std::string& nullifierHex, const std::string& actCertDataHex,
     const std::string& ceasingCumScTxCommTreeHex, CAmount amount);
@@ -56,7 +57,7 @@ CTransaction createCoinBase(const CAmount& amount);
 CTransaction createTransparentTx(bool ccIsNull = true); //ccIsNull = false allows generation of faulty tx with non-empty cross chain output
 CTransaction createSproutTx(bool ccIsNull = true);      //ccIsNull = false allows generation of faulty tx with non-empty cross chain output
 
-void addNewScCreationToTx(CTransaction& tx, const CAmount& scAmount);
+void addNewScCreationToTx(CTransaction& tx, const CAmount& scAmount, int sidechainVersion = 0);
 
 CScCertificate createCertificate(const uint256 & scId, int epochNum,
                                  const CFieldElement& endEpochCumScTxCommTreeRoot, CAmount changeTotalAmount/* = 0*/, unsigned int numChangeOut/* = 0*/,

@@ -18,6 +18,7 @@
 #include "txdb.h"
 
 CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & creationTxAmount, int epochLength,
+                                                int sidechainVersion,
                                                 const CAmount& ftScFee, const CAmount& mbtrScFee, int mbtrDataLength)
 {
     CMutableTransaction mtx;
@@ -43,7 +44,7 @@ CMutableTransaction txCreationUtils::populateTx(int txVersion, const CAmount & c
     mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("3");
 
     mtx.vsc_ccout.resize(1);
-    mtx.vsc_ccout[0].version = 0;
+    mtx.vsc_ccout[0].version = sidechainVersion;
     mtx.vsc_ccout[0].nValue = creationTxAmount;
     mtx.vsc_ccout[0].address = uint256S("bebe111222dada");
     mtx.vsc_ccout[0].withdrawalEpochLength = epochLength;
@@ -99,9 +100,9 @@ void txCreationUtils::signTx(CMutableScCertificate& mcert)
     // Add the signature
 }
 
-CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength)
+CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationTxAmount, int epochLength, int sidechainVersion)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, epochLength);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, creationTxAmount, epochLength, sidechainVersion);
 
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
@@ -111,9 +112,9 @@ CTransaction txCreationUtils::createNewSidechainTxWith(const CAmount & creationT
     return CTransaction(mtx);
 }
 
-CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount)
+CTransaction txCreationUtils::createFwdTransferTxWith(const uint256 & newScId, const CAmount & fwdTxAmount, int sidechainVersion)
 {
-    CMutableTransaction mtx = populateTx(SC_TX_VERSION, fwdTxAmount);
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, fwdTxAmount, 5, sidechainVersion);
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vsc_ccout.resize(0);
@@ -205,7 +206,7 @@ CTransaction txCreationUtils::createSproutTx(bool ccIsNull)
     return CTransaction(mtx);
 }
 
-void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount)
+void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & scAmount, int sidechainVersion)
 {
     CMutableTransaction mtx = tx;
 
@@ -214,6 +215,7 @@ void txCreationUtils::addNewScCreationToTx(CTransaction & tx, const CAmount & sc
     CTxScCreationOut aSidechainCreationTx;
     aSidechainCreationTx.nValue = scAmount;
     aSidechainCreationTx.withdrawalEpochLength = 100;
+    aSidechainCreationTx.version = sidechainVersion;
     mtx.vsc_ccout.push_back(aSidechainCreationTx);
 
     tx = mtx;
