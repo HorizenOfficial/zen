@@ -647,7 +647,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_MultipleScIds)
     storeSidechainWithCurrentHeight(*sidechainsView, scId_A, sidechain_A, allScsCreationBlockHeight);
 
     CSidechain sidechain_B;
-    sidechain_A.creationBlockHeight = allScsCreationBlockHeight;        //// AP: SISTEMARE!
+    sidechain_B.creationBlockHeight = allScsCreationBlockHeight;        //// AP: SISTEMARE!
     sidechain_B.lastTopQualityCertHash = uint256S("bbb");
     sidechain_B.lastTopQualityCertQuality = 2;
     sidechain_B.lastTopQualityCertReferencedEpoch = 200;
