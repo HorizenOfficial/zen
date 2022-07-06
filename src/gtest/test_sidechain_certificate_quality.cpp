@@ -69,6 +69,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
     // setup sidechain initial state...
     CSidechain initialScState;
     initialScState.fixedParams.withdrawalEpochLength = 10;
+    initialScState.fixedParams.version = 0;
     initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -112,6 +113,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
     // setup sidechain initial state...
     CSidechain initialScState;
     initialScState.fixedParams.withdrawalEpochLength = 10;
+    initialScState.fixedParams.version = 0;
     initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -154,6 +156,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_Sidech
     // setup sidechain initial state...
     CSidechain initialScState;
     initialScState.fixedParams.withdrawalEpochLength = 10;
+    initialScState.fixedParams.version = 0;
     initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -197,6 +200,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataCh
     // setup sidechain initial state...
     CSidechain initialScState;
     initialScState.fixedParams.withdrawalEpochLength = 10;
+    initialScState.fixedParams.version = 0;
     initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -240,6 +244,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDa
     // setup sidechain initial state...
     CSidechain initialScState;
     initialScState.fixedParams.withdrawalEpochLength = 10;
+    initialScState.fixedParams.version = 0;
     initialScState.creationBlockHeight = 400;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
@@ -285,6 +290,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckQualityRejectsLowerQualityCertsInS
     initialScState.lastTopQualityCertHash = uint256S("ddd");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
+    initialScState.fixedParams.version = 0;
     uint256 scId = uint256S("aaa");
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
@@ -303,6 +309,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckQualityRejectsEqualQualityCertsInS
     initialScState.lastTopQualityCertHash = uint256S("ddd");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
+    initialScState.fixedParams.version = 0;
     uint256 scId = uint256S("aaa");
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
@@ -321,6 +328,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckQualityAcceptsHigherQualityCertsIn
     initialScState.lastTopQualityCertHash = uint256S("ddd");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
+    initialScState.fixedParams.version = 0;
     uint256 scId = uint256S("aaa");
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
@@ -339,6 +347,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckAcceptsLowerQualityCertsInDifferen
     initialScState.lastTopQualityCertHash = uint256S("ddd");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
+    initialScState.fixedParams.version = 0;
     uint256 scId = uint256S("aaa");
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
@@ -360,6 +369,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CheckInMempoolDelegateToBackingView) {
     initialScState.lastTopQualityCertHash = uint256S("ddd");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
+    initialScState.fixedParams.version = 0;
     uint256 scId = uint256S("aaa");
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
@@ -397,6 +407,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, CertsInMempoolDoNotAffectCheckQuality) 
     initialScState.lastTopQualityCertHash = uint256S("ddd");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 12;
+    initialScState.fixedParams.version = 0;
     uint256 scId = uint256S("aaa");
     storeSidechainWithCurrentHeight(*sidechainsView, scId, initialScState, initialScState.creationBlockHeight);
 
@@ -534,6 +545,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, HighQualityCertData_EmptyBlock)
     sidechain.lastTopQualityCertQuality = 100;
     sidechain.lastTopQualityCertHash = uint256S("999");
     sidechain.lastTopQualityCertReferencedEpoch = 15;
+    sidechain.fixedParams.version = 0;
     uint256 scId = uint256S("aaa");
     storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
 
@@ -548,6 +560,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, HighQualityCertData_FirstCert)
     sidechain.lastTopQualityCertQuality = 100;
     sidechain.lastTopQualityCertHash = uint256S("aaa");
     sidechain.lastTopQualityCertReferencedEpoch = -1;
+    sidechain.fixedParams.version = 0;
     uint256 scId = uint256S("aaa");
     storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
 
@@ -569,6 +582,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_SameScId_DifferentEpoch
     sidechain.lastTopQualityCertQuality = 100;
     sidechain.lastTopQualityCertHash = uint256S("aaa");
     sidechain.lastTopQualityCertReferencedEpoch = 15;
+    sidechain.fixedParams.version = 0;
     uint256 scId = uint256S("aaa");
     storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
 
@@ -597,6 +611,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_SameScId_SameEpoch)
     sidechain.lastTopQualityCertQuality = 10;
     sidechain.lastTopQualityCertHash = uint256S("aaa");
     sidechain.lastTopQualityCertReferencedEpoch = 15;
+    sidechain.fixedParams.version = 0;
     uint256 scId = uint256S("aaa");
     storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
 
@@ -627,14 +642,16 @@ TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_MultipleScIds)
     sidechain_A.lastTopQualityCertHash = uint256S("aaa");
     sidechain_A.lastTopQualityCertQuality = 10;
     sidechain_A.lastTopQualityCertReferencedEpoch = 15;
+    sidechain_A.fixedParams.version = 0;
     uint256 scId_A = uint256S("aaa");
     storeSidechainWithCurrentHeight(*sidechainsView, scId_A, sidechain_A, allScsCreationBlockHeight);
 
     CSidechain sidechain_B;
-    sidechain_A.creationBlockHeight = allScsCreationBlockHeight;
+    sidechain_A.creationBlockHeight = allScsCreationBlockHeight;        //// AP: SISTEMARE!
     sidechain_B.lastTopQualityCertHash = uint256S("bbb");
     sidechain_B.lastTopQualityCertQuality = 2;
     sidechain_B.lastTopQualityCertReferencedEpoch = 200;
+    sidechain_B.fixedParams.version = 0;
     uint256 scId_B = uint256S("bbb");
     storeSidechainWithCurrentHeight(*sidechainsView, scId_B, sidechain_B, allScsCreationBlockHeight);
 
