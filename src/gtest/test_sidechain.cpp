@@ -494,6 +494,7 @@ TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyAlive) 
     uint256 scId = aTransaction.GetScIdFromScCcOut(0);
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
+    initialScState.fixedParams.version = 0;
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight() -1;
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
@@ -515,6 +516,7 @@ TEST_F(SidechainsTestSuite, ScCreationIsNotApplicableToStateIfScIsAlreadyCeased)
     uint256 scId = aTransaction.GetScIdFromScCcOut(0);
     initialScState.creationBlockHeight = 200;
     initialScState.fixedParams.withdrawalEpochLength = 10;
+    initialScState.fixedParams.version = 0;
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
@@ -571,6 +573,7 @@ TEST_F(SidechainsTestSuite, ForwardTransferToAliveSCsIsApplicableToState) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
+    initialScState.fixedParams.version = 0;
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight() -1;
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
@@ -592,6 +595,7 @@ TEST_F(SidechainsTestSuite, ForwardTransferToCeasedSCsIsNotApplicableToState) {
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
+    initialScState.fixedParams.version = 0;
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
@@ -614,6 +618,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithKeyIsApplicableToSta
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
     initialScState.fixedParams.mainchainBackwardTransferRequestDataLength = 1;
+    initialScState.fixedParams.version = 0;
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
@@ -693,6 +698,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToAliveSidechainWithoutKeyIsNotApplicabl
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
+    initialScState.fixedParams.version = 0;
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
@@ -757,6 +763,7 @@ TEST_F(SidechainsTestSuite, McBwtRequestToCeasedSidechainIsNotApplicableToState)
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
+    initialScState.fixedParams.version = 0;
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
@@ -784,6 +791,7 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainIsAccepted) {
     initialScState.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
     initialScState.balance = CAmount{1000};
     initialScState.pastEpochTopQualityCertView.certDataHash = CFieldElement{SAMPLE_FIELD};
+    initialScState.fixedParams.version = 0;
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereCeased);
@@ -807,6 +815,7 @@ TEST_F(SidechainsTestSuite, CSWsToCeasedSidechainWithWrongActiveCertDataIsRefuse
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
     initialScState.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    initialScState.fixedParams.version = 0;
     initialScState.balance = CAmount{1000};
 
     std::vector<unsigned char> badVec(size_t(CFieldElement::ByteSize()-2), 0xaa);
@@ -832,6 +841,7 @@ TEST_F(SidechainsTestSuite, ExcessiveAmountOfCSWsToCeasedSidechainIsRejected) {
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
     initialScState.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    initialScState.fixedParams.version = 0;
     initialScState.balance = CAmount{1000};
     int heightWhereCeased = initialScState.GetScheduledCeasingHeight();
 
@@ -852,6 +862,7 @@ TEST_F(SidechainsTestSuite, ValidCeasedCumTreeHashesForCeasedSidechain) {
     sc.creationBlockHeight = 1492;
     sc.fixedParams.withdrawalEpochLength = 14;
     sc.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    sc.fixedParams.version = 0;
     sc.balance = CAmount{1000};
     int heightWhereCeased = sc.GetScheduledCeasingHeight();
 
@@ -871,6 +882,7 @@ TEST_F(SidechainsTestSuite, InvalidCeasedCumTreeHashesForUnceasedSidechain) {
     sc.creationBlockHeight = 1492;
     sc.fixedParams.withdrawalEpochLength = 14;
     sc.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    sc.fixedParams.version = 0;
     sc.balance = CAmount{1000};
     int heightWhereCeased = sc.GetScheduledCeasingHeight();
 
@@ -888,6 +900,7 @@ TEST_F(SidechainsTestSuite, InvalidCeasedCumTreeHashesForJustStartedSidechain) {
     sc.creationBlockHeight = 1492;
     sc.fixedParams.withdrawalEpochLength = 14;
     sc.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    sc.fixedParams.version = 0;
     sc.balance = CAmount{1000};
 
     storeSidechainWithCurrentHeight(scId, sc, sc.creationBlockHeight+1);
@@ -915,6 +928,7 @@ TEST_F(SidechainsTestSuite, CSWsToActiveSidechainIsRefused) {
     initialScState.creationBlockHeight = 1492;
     initialScState.fixedParams.withdrawalEpochLength = 14;
     initialScState.fixedParams.wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    initialScState.fixedParams.version = 0;
     initialScState.balance = CAmount{1000};
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight()-1;
 
@@ -927,6 +941,7 @@ TEST_F(SidechainsTestSuite, CSWsToActiveSidechainIsRefused) {
 
     EXPECT_TRUE(sidechainsView->IsScTxApplicableToState(cswTx, Sidechain::ScFeeCheckFlag::LATEST_VALUE) == CValidationState::Code::INVALID);
 }
+
 /////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// RevertTxOutputs ///////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////
@@ -1494,12 +1509,14 @@ TEST_F(SidechainsTestSuite, GetScIdsOnChainstateDbSelectOnlySidechains) {
     sidechain1.flag = CSidechainsCacheEntry::Flags::FRESH;
     sidechain1.sidechain.balance = CAmount(100);
     sidechain1.sidechain.creationBlockHeight = 1985;
+    sidechain1.sidechain.fixedParams.version = 0;
     uint256 scId1 = uint256S("123456789AAA");
 
     CSidechainsCacheEntry sidechain2;
     sidechain2.flag = CSidechainsCacheEntry::Flags::FRESH;
     sidechain2.sidechain.balance = CAmount(100);
     sidechain2.sidechain.creationBlockHeight = 1985;
+    sidechain2.sidechain.fixedParams.version = 0;
     uint256 scId2 = uint256S("987654321BBB");
 
     CSidechainsMap mapSidechains;
@@ -1737,6 +1754,7 @@ CTransaction SidechainsTestSuite::createNewSidechainTx(const Sidechain::ScFixedP
     mtx.vsc_ccout[0].forwardTransferScFee = ftScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = mbtrScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = params.mainchainBackwardTransferRequestDataLength;
+    mtx.vsc_ccout[0].version = 0;
 
     txCreationUtils::signTx(mtx);
 
@@ -1759,6 +1777,7 @@ uint256 SidechainsTestSuite::createAndStoreSidechain(CAmount ftScFee, CAmount mb
     initialScState.lastTopQualityCertView.forwardTransferScFee = ftScFee;
     initialScState.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = mbtrScFee;
     initialScState.fixedParams.mainchainBackwardTransferRequestDataLength = mbtrScDataLength;
+    initialScState.fixedParams.version = 0;
     int heightWhereAlive = initialScState.GetScheduledCeasingHeight() - 1;
 
     storeSidechainWithCurrentHeight(scId, initialScState, heightWhereAlive);
@@ -1832,6 +1851,8 @@ TEST_F(SidechainsTestSuite, CTxScCreationOutHashComputation)
     EXPECT_EQ(originalOut.mainchainBackwardTransferRequestScFee, -1);
     EXPECT_EQ(originalOut.mainchainBackwardTransferRequestDataLength, 0);
 
+    originalOut.version = 0;
+
     CTxScCreationOut newOut = CTxScCreationOut(originalOut);
     EXPECT_EQ(originalOut.GetHash(), newOut.GetHash());
 
@@ -1885,6 +1906,7 @@ TEST_F(SidechainsTestSuite, NewCertificateUpdatesFeesAndDataLength)
     // Forge a sidechain creation transaction
     Sidechain::ScFixedParameters params;
     params.mainchainBackwardTransferRequestDataLength = 0;
+    params.version = 0;
     CAmount forwardTransferScFee(0);
     CAmount mainchainBackwardTransferRequestScFee(0);
 

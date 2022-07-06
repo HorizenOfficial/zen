@@ -91,6 +91,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -167,6 +168,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_DifferentEp
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -243,6 +245,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_SameEpoc
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -335,6 +338,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_MultipleCerts_Differen
     uint256 scId = uint256S("aaaa");
     initialScState.creationBlockHeight = 300;
     initialScState.fixedParams.withdrawalEpochLength = 20;
+    initialScState.fixedParams.version = 0;
     initialScState.lastTopQualityCertHash = uint256S("cccc");
     initialScState.lastTopQualityCertQuality = 100;
     initialScState.lastTopQualityCertReferencedEpoch = 7;
@@ -450,6 +454,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_ScCreation_then_Mbtr_I
     scCreation.vsc_ccout[0].mainchainBackwardTransferRequestScFee = CAmount(0);
     scCreation.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = 1; // The size of mcBwtReq.vScRequestData
     scCreation.vsc_ccout[0].wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    scCreation.vsc_ccout[0].version = 0;
 
     CMutableTransaction mbtrTx;
     mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
@@ -511,6 +516,7 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_Mbtr_then_ScCreation_I
     scCreation.vsc_ccout[0].nValue = CAmount(1);
     scCreation.vsc_ccout[0].withdrawalEpochLength = 15;
     scCreation.vsc_ccout[0].wCertVk = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    scCreation.vsc_ccout[0].version = 0;
 
     CMutableTransaction mbtrTx;
     mbtrTx.vin.push_back(CTxIn(inputMbtrHash, 0, CScript(), 0));
