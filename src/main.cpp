@@ -2773,6 +2773,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         uint256 hash = cert.GetHash();
         bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
 
+        CSidechain sidechain;
+        assert(view.GetSidechain(cert.GetScId(), sidechain));
+        if (sidechain.fixedParams.withdrawalEpochLength == 0)   // For non-ceasing SC cert should always be top quality
+        {
+            assert(isBlockTopQualityCert);
+        }
+
         LogPrint("cert", "%s():%d - reverting outs of cert[%s]\n", __func__, __LINE__, hash.ToString());
 
         if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
@@ -2849,6 +2856,13 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
             //Used only if fMaturityHeightIndex == true
             int certMaturityHeight = -1;
+
+            // prevBlockTopQualityCertHash should always be null in v2 non-ceasing sc
+            if (!prevBlockTopQualityCertHash.IsNull()) {
+                CSidechain sidechain;
+                assert(view.GetSidechain(cert.GetScId(), sidechain));
+                assert(sidechain.fixedParams.withdrawalEpochLength != 0);
+            }
 
             //Remove the current certificate from the MaturityHeight DB
             if (fMaturityHeightIndex && explorerIndexesWrite == flagLevelDBIndexesWrite::ON) {
@@ -3629,12 +3643,17 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 #endif // ENABLE_ADDRESS_INDEXING
 
-        blockundo.vtxundo.push_back(CTxUndo());
-        bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
-        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight, isBlockTopQualityCert);
-
         CSidechain sidechain;
         assert(view.GetSidechain(cert.GetScId(), sidechain));
+
+        blockundo.vtxundo.push_back(CTxUndo());
+        bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
+        if (sidechain.fixedParams.withdrawalEpochLength == 0)   // For non-ceasing SC cert should always be top quality
+        {
+            assert(isBlockTopQualityCert);
+        }
+        UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight, isBlockTopQualityCert);
+        
         int certMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber);
 
         if (!isBlockTopQualityCert) {
@@ -3658,8 +3677,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             const uint256& prevBlockTopQualityCertHash = highQualityCertData.at(cert.GetHash());
             if (!prevBlockTopQualityCertHash.IsNull())
             {
-                // if prevBlockTopQualityCertHash is not null, it has same scId/epochNumber as cert
+                // prevBlockTopQualityCertHash should always be null in v2 non-ceasing sc
+                CSidechain sidechain;
+                assert(view.GetSidechain(cert.GetScId(), sidechain));
+                assert(sidechain.fixedParams.withdrawalEpochLength != 0);
 
+                // if prevBlockTopQualityCertHash is not null, it has same scId/epochNumber as cert
                 if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
                 {
                     if (fTxIndex)
