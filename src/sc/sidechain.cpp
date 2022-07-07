@@ -565,14 +565,17 @@ int CSidechain::getNumBlocksForScFeeCheck()
 int CSidechain::getMaxSizeOfScFeesContainers()
 {
     int epochLength = fixedParams.withdrawalEpochLength;
-
-    assert(epochLength > 0);
-    
     int numBlocks = getNumBlocksForScFeeCheck();
-    maxSizeOfScFeesContainers = numBlocks / epochLength;
-    if (maxSizeOfScFeesContainers == 0 || (numBlocks % epochLength != 0) )
-    {
-        maxSizeOfScFeesContainers++;
+
+    //assert(epochLength > 0);
+    if (epochLength == 0) {
+        maxSizeOfScFeesContainers = 1;
+    } else {
+        maxSizeOfScFeesContainers = numBlocks / epochLength;
+        if (maxSizeOfScFeesContainers == 0 || (numBlocks % epochLength != 0) )
+        {
+            maxSizeOfScFeesContainers++;
+        }
     }
 
     return maxSizeOfScFeesContainers;
