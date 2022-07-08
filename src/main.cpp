@@ -2775,7 +2775,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
         CSidechain sidechain;
         assert(view.GetSidechain(cert.GetScId(), sidechain));
-        if (sidechain.fixedParams.withdrawalEpochLength == 0)   // For non-ceasing SC cert should always be top quality
+        if (sidechain.isNonCeasing())   // For non-ceasing SC cert should always be top quality
         {
             assert(isBlockTopQualityCert);
         }
@@ -2861,7 +2861,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             if (!prevBlockTopQualityCertHash.IsNull()) {
                 CSidechain sidechain;
                 assert(view.GetSidechain(cert.GetScId(), sidechain));
-                assert(sidechain.fixedParams.withdrawalEpochLength != 0);
+                assert(!sidechain.isNonCeasing());
             }
 
             //Remove the current certificate from the MaturityHeight DB
@@ -3648,7 +3648,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         blockundo.vtxundo.push_back(CTxUndo());
         bool isBlockTopQualityCert = highQualityCertData.count(cert.GetHash()) != 0;
-        if (sidechain.fixedParams.withdrawalEpochLength == 0)   // For non-ceasing SC cert should always be top quality
+        if (sidechain.isNonCeasing())   // For non-ceasing SC cert should always be top quality
         {
             assert(isBlockTopQualityCert);
         }
@@ -3680,7 +3680,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 // prevBlockTopQualityCertHash should always be null in v2 non-ceasing sc
                 CSidechain sidechain;
                 assert(view.GetSidechain(cert.GetScId(), sidechain));
-                assert(sidechain.fixedParams.withdrawalEpochLength != 0);
+                assert(!sidechain.isNonCeasing());
 
                 // if prevBlockTopQualityCertHash is not null, it has same scId/epochNumber as cert
                 if (explorerIndexesWrite == flagLevelDBIndexesWrite::ON)
