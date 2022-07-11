@@ -2123,7 +2123,9 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     }
     else
     {
-        return false;  //Inconsistent data
+        //return false;  //Inconsistent data
+        return error("%s():%d - ERROR: bad epoch value when restoring sidechain: %d (previous top committed cert epoch is %d) in cert %s\n",
+            __func__, __LINE__, certToRevert.epochNumber, sidechainUndo.prevTopCommittedCertReferencedEpoch, certHash.ToString());
     }
 
     assert(sidechainUndo.contentBitMask & CSidechainUndoData::AvailableSections::ANY_EPOCH_CERT_DATA);
