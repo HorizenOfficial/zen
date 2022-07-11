@@ -62,6 +62,8 @@ int CSidechain::EpochFor(int targetHeight) const
     if (!isCreationConfirmed()) //default value
         return CScCertificate::EPOCH_NULL;
 
+    assert(!isNonCeasing());
+
     return (targetHeight - creationBlockHeight) / fixedParams.withdrawalEpochLength;
 }
 
@@ -205,8 +207,8 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
     {
         if (sc.withdrawalEpochLength < SC_MIN_WITHDRAWAL_EPOCH_LENGTH)
         {
-            if (!(sc.version == 2 && sc.withdrawalEpochLength == 0))
-            {
+            // This handles the special case when we requested a non-ceasing sc with version != 2
+            if (!CSidechain::isNonCeasingSidechain(sc.version, sc.withdrawalEpochLength)) {
                 return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], sc creation withdrawalEpochLength %d is less than min value %d\n",
                     __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength, SC_MIN_WITHDRAWAL_EPOCH_LENGTH),
