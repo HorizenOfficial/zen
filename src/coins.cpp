@@ -1226,9 +1226,12 @@ bool CCoinsViewCache::CheckCertTiming(const uint256& scId, int certEpoch) const
     if ((sidechain.isNonCeasing() || certEpoch != sidechain.lastTopQualityCertReferencedEpoch) &&
         certEpoch != sidechain.lastTopQualityCertReferencedEpoch + 1)
     {
-        return error("%s():%d - ERROR: certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d or %d)\n",
+        return error("%s():%d - ERROR: certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d (if ceasing), or %d)\n",
             __func__, __LINE__, certEpoch, sidechain.lastTopQualityCertReferencedEpoch, sidechain.lastTopQualityCertReferencedEpoch+1);
     }
+
+    if (sidechain.isNonCeasing())
+        return true;
 
     int certWindowStartHeight = sidechain.GetCertSubmissionWindowStart(certEpoch);
     int certWindowEndHeight   = sidechain.GetCertSubmissionWindowEnd(certEpoch);
@@ -1272,7 +1275,7 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         return CValidationState::Code::INVALID;
     }
 
-    if (!Sidechain::checkCertCustomFields(sidechain, cert) )
+    if (!Sidechain::checkCertCustomFields(sidechain, cert))
     {
         LogPrintf("%s():%d - ERROR: invalid cert[%s], scId[%s] invalid custom data cfg\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
@@ -1286,7 +1289,7 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
 
     if (ret != CValidationState::Code::OK )
     {
-        LogPrintf("%s():%d - ERROR: cert[%s], scId[%s], faild checking sc cum commitment tree hash\n",
+        LogPrintf("%s():%d - ERROR: cert[%s], scId[%s], failed checking sc cum commitment tree hash\n",
             __func__, __LINE__, certHash.ToString(), cert.GetScId().ToString());
         return ret;
     }
@@ -1314,7 +1317,7 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
     }
 
     size_t proof_plus_vk_size = sidechain.fixedParams.wCertVk.GetByteArray().size() + cert.scProof.GetByteArray().size();
-    if(proof_plus_vk_size > Sidechain::MAX_PROOF_PLUS_VK_SIZE)
+    if (proof_plus_vk_size > Sidechain::MAX_PROOF_PLUS_VK_SIZE)
     {
         LogPrintf("%s():%d - ERROR: Cert [%s]\n proof plus vk size (%d) exceeded the limit %d\n",
             __func__, __LINE__, certHash.ToString(), proof_plus_vk_size, Sidechain::MAX_PROOF_PLUS_VK_SIZE);
@@ -1326,7 +1329,7 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
     LogPrint("sc", "%s():%d - ok, balance in scId[%s]: balance[%s], cert amount[%s]\n",
         __func__, __LINE__, cert.GetScId().ToString(), FormatMoney(scBalance), FormatMoney(bwtTotalAmount) );
 
-    return  CValidationState::Code::OK;
+    return CValidationState::Code::OK;
 }
 
 CValidationState::Code CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
