@@ -850,7 +850,8 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     if (setKeyArgs.count("withdrawalEpochLength"))
     {
         withdrawalEpochLength = find_value(inputObject, "withdrawalEpochLength").get_int();
-        if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
+        if (!CSidechain::isNonCeasingSidechain(sidechainVersion, withdrawalEpochLength)
+            && withdrawalEpochLength < getScMinWithdrawalEpochLength())
         {
             sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d\n", getScMinWithdrawalEpochLength());
             throw JSONRPCError(RPC_TYPE_ERROR, errBuf);

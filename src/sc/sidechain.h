@@ -193,11 +193,14 @@ public:
         return this->creationBlockHeight != -1;
     }
 
-    bool isNonCeasing() const {
+    static bool isNonCeasingSidechain(int version, int withdrawalEpochLength) {
         // SC v2 can be either ceasing (as v0 and v1), or non-ceasing.
         // Non ceasing sidechains are identified by fixedParams.withdrawalEpochLength == 0, which is not allowed for
         // other sidechain versions.
-        return fixedParams.version == 2 && fixedParams.withdrawalEpochLength == 0;
+        return version == 2 && withdrawalEpochLength == 0;
+    }
+    bool isNonCeasing() const {
+        return isNonCeasingSidechain(fixedParams.version, fixedParams.withdrawalEpochLength);
     }
 
     void InitScFees();
