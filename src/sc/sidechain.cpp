@@ -205,13 +205,8 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
     {
         if (sc.withdrawalEpochLength < SC_MIN_WITHDRAWAL_EPOCH_LENGTH)
         {
-            // This handles the special case when we requested a non-ceasing sc with version != 2
-            if ((sc.version != 2) && (sc.withdrawalEpochLength == 0)) {
-                return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], requesting a non-ceasing sidechain with version = %d\n",
-                    __func__, __LINE__, txHash.ToString(), sc.version),
-                    CValidationState::Code::INVALID, "sidechain-sc-creation-epoch-too-short");
-            } else {
+            if (!(sc.version == 2 && sc.withdrawalEpochLength == 0))
+            {
                 return state.DoS(100,
                     error("%s():%d - ERROR: Invalid tx[%s], sc creation withdrawalEpochLength %d is less than min value %d\n",
                     __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength, SC_MIN_WITHDRAWAL_EPOCH_LENGTH),
@@ -300,7 +295,7 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
             return state.DoS(100,
                 error("%s():%d - ERROR: Invalid tx[%s], wCeasedVk should not be initialized on non-ceasing sidechains\n",
                 __func__, __LINE__, txHash.ToString()),
-                CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw");
+                CValidationState::Code::INVALID, "sidechain-sc-creation-wcvk-is-initialized");
         }
 
         if (!MoneyRange(sc.forwardTransferScFee))
