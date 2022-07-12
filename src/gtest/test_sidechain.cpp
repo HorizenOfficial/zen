@@ -40,10 +40,12 @@ protected:
 
     //Helpers
     CBlockUndo createBlockUndoWith(const uint256 & scId, int height, CAmount amount, uint256 lastCertHash = uint256());
-    CTransaction createNewSidechainTx(const Sidechain::ScFixedParameters& params, const CAmount& ftScFee, const CAmount& mbtrScFee);
+    CTransaction createNewSidechainTx(const Sidechain::ScFixedParameters& params, const CAmount& ftScFee, const CAmount& mbtrScFee,
+            const bool initWCeasedVk = true);
     void storeSidechainWithCurrentHeight(const uint256& scId, const CSidechain& sidechain, int chainActiveHeight);
     uint256 createAndStoreSidechain(CAmount ftScFee = CAmount(0), CAmount mbtrScFee = CAmount(0), size_t mbtrScDataLength = 0);
     CMutableTransaction createMtbtrTx(uint256 scId, CAmount scFee);
+    CMutableTransaction populateTx(int txVersion, const CAmount & creationTxAmount, const bool initWCeasedVk);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -218,6 +220,8 @@ TEST_F(SidechainsTestSuite, SidechainCreationsWithValidFeesAreSemanticallyValid)
 
     Sidechain::ScFixedParameters params;
     params.mainchainBackwardTransferRequestDataLength = 1;
+    params.withdrawalEpochLength = 10;
+    params.version = 0;
     CAmount forwardTransferScFee(0);
     CAmount mainchainBackwardTransferRequestScFee(0);
 
@@ -245,6 +249,9 @@ TEST_F(SidechainsTestSuite, SidechainCreationsWithOutOfRangeFeesAreNotSemantical
     Sidechain::ScFixedParameters params;
     CAmount forwardTransferScFee(-1);
     CAmount mainchainBackwardTransferRequestScFee(0);
+    params.mainchainBackwardTransferRequestDataLength = 1;
+    params.withdrawalEpochLength = 10;
+    params.version = 0;
 
     CTransaction aTransaction = createNewSidechainTx(params, forwardTransferScFee, mainchainBackwardTransferRequestScFee);
     CValidationState txState;
@@ -392,6 +399,64 @@ TEST_F(SidechainsTestSuite, CSWTxInvalidActCertData) {
     EXPECT_FALSE(txState.IsValid());
     EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
         <<"wrong reject code. Value returned: "<<CValidationState::CodeToChar(txState.GetRejectCode());
+}
+
+TEST_F(SidechainsTestSuite, V2CreationWithNonZeroWithdrawalEpochLen) {
+    Sidechain::ScFixedParameters params;
+    params.version = 2;
+    params.withdrawalEpochLength = 15;
+    params.mainchainBackwardTransferRequestDataLength = 0;
+
+    CTransaction aTransaction = createNewSidechainTx(params, CAmount(100), CAmount(20), false);
+    CValidationState txState;
+
+    //test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    //checks
+    EXPECT_TRUE(res);
+    EXPECT_TRUE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::OK);
+}
+
+TEST_F(SidechainsTestSuite, V2CreationWithNonZeroMBTRDataLen) {
+    Sidechain::ScFixedParameters params;
+    params.version = 2;
+    params.withdrawalEpochLength = 0;
+    params.mainchainBackwardTransferRequestDataLength = 10;
+
+    CTransaction aTransaction = createNewSidechainTx(params, CAmount(100), CAmount(20), false);
+    CValidationState txState;
+
+    //test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    //checks
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
+        << "wrong reject code. Value returned: " << CValidationState::CodeToChar(txState.GetRejectCode());
+    EXPECT_TRUE(txState.GetRejectReason() == "bad-cert-mbtr-data-length-not-zero");
+}
+
+TEST_F(SidechainsTestSuite, V2CreationWithVCeasedVKInited) {
+    Sidechain::ScFixedParameters params;
+    params.version = 2;
+    params.withdrawalEpochLength = 0;
+    params.mainchainBackwardTransferRequestDataLength = 0;
+
+    CTransaction aTransaction = createNewSidechainTx(params, CAmount(100), CAmount(20), true);
+    CValidationState txState;
+
+    //test
+    bool res = Sidechain::checkTxSemanticValidity(aTransaction, txState);
+
+    //checks
+    EXPECT_FALSE(res);
+    EXPECT_FALSE(txState.IsValid());
+    EXPECT_TRUE(txState.GetRejectCode() == CValidationState::Code::INVALID)
+        <<"wrong reject code. Value returned: " << CValidationState::CodeToChar(txState.GetRejectCode());
+    EXPECT_TRUE(txState.GetRejectReason() == "sidechain-sc-creation-wcvk-is-initialized");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1744,9 +1809,51 @@ CBlockUndo SidechainsTestSuite::createBlockUndoWith(const uint256 & scId, int he
     return retVal;
 }
 
-CTransaction SidechainsTestSuite::createNewSidechainTx(const Sidechain::ScFixedParameters& params, const CAmount& ftScFee, const CAmount& mbtrScFee)
+CMutableTransaction SidechainsTestSuite::populateTx(int txVersion, const CAmount & creationTxAmount, const bool initWCeasedVk)
 {
-    CMutableTransaction mtx = txCreationUtils::populateTx(SC_TX_VERSION, CAmount(1000));
+    CMutableTransaction mtx;
+    mtx.nVersion = txVersion;
+
+    mtx.vin.resize(2);
+    mtx.vin[0].prevout.hash = uint256S("1");
+    mtx.vin[0].prevout.n = 0;
+    mtx.vin[1].prevout.hash = uint256S("2");
+    mtx.vin[1].prevout.n = 0;
+
+    mtx.resizeOut(2);
+    mtx.getOut(0).nValue = 0;
+    mtx.getOut(1).nValue = 0;
+
+    mtx.vjoinsplit.push_back(
+            JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+    mtx.vjoinsplit.push_back(
+            JSDescription::getNewInstance(txVersion == GROTH_TX_VERSION));
+    mtx.vjoinsplit[0].nullifiers.at(0) = uint256S("0");
+    mtx.vjoinsplit[0].nullifiers.at(1) = uint256S("1");
+    mtx.vjoinsplit[1].nullifiers.at(0) = uint256S("2");
+    mtx.vjoinsplit[1].nullifiers.at(1) = uint256S("3");
+
+    mtx.vsc_ccout.resize(1);
+    mtx.vsc_ccout[0].nValue = creationTxAmount;
+    mtx.vsc_ccout[0].address = uint256S("bebe111222dada");
+    mtx.vsc_ccout[0].wCertVk   = CScVKey{SAMPLE_CERT_DARLIN_VK};
+    if (initWCeasedVk)
+        mtx.vsc_ccout[0].wCeasedVk = CScVKey{SAMPLE_CSW_DARLIN_VK};
+    mtx.vsc_ccout[0].vFieldElementCertificateFieldConfig.push_back(0x4);
+    mtx.vsc_ccout[0].vFieldElementCertificateFieldConfig.push_back(0x7);
+    mtx.vsc_ccout[0].vBitVectorCertificateFieldConfig.push_back({254*8, 33});
+    mtx.vsc_ccout[0].vBitVectorCertificateFieldConfig.push_back({254*8*2, 55});
+    mtx.vsc_ccout[0].customData.push_back(0x66);
+    mtx.vsc_ccout[0].customData.push_back(0x77);
+    mtx.vsc_ccout[0].customData.push_back(0xfe);
+
+    return mtx;
+}
+
+CTransaction SidechainsTestSuite::createNewSidechainTx(const Sidechain::ScFixedParameters& params, const CAmount& ftScFee,
+                const CAmount& mbtrScFee, const bool initWCeasedVk)
+{
+    CMutableTransaction mtx = populateTx(SC_TX_VERSION, CAmount(1000), initWCeasedVk);
     mtx.resizeOut(0);
     mtx.vjoinsplit.resize(0);
     mtx.vft_ccout.resize(0);
@@ -1754,7 +1861,8 @@ CTransaction SidechainsTestSuite::createNewSidechainTx(const Sidechain::ScFixedP
     mtx.vsc_ccout[0].forwardTransferScFee = ftScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestScFee = mbtrScFee;
     mtx.vsc_ccout[0].mainchainBackwardTransferRequestDataLength = params.mainchainBackwardTransferRequestDataLength;
-    mtx.vsc_ccout[0].version = 0;
+    mtx.vsc_ccout[0].version = params.version;
+    mtx.vsc_ccout[0].withdrawalEpochLength = params.withdrawalEpochLength;
 
     txCreationUtils::signTx(mtx);
 
@@ -1877,6 +1985,8 @@ TEST_F(SidechainsTestSuite, CTxScCreationOutSetsFeesAndDataLength)
     CAmount forwardTransferScFee(5);
     CAmount mainchainBackwardTransferRequestScFee(7);
     params.mainchainBackwardTransferRequestDataLength = 9;
+    params.withdrawalEpochLength = 10;
+    params.version = 0;
     CTransaction scCreationTx = createNewSidechainTx(params, forwardTransferScFee, mainchainBackwardTransferRequestScFee);
     uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
 
@@ -1893,6 +2003,34 @@ TEST_F(SidechainsTestSuite, CTxScCreationOutSetsFeesAndDataLength)
     ASSERT_EQ(sc.fixedParams.mainchainBackwardTransferRequestDataLength, params.mainchainBackwardTransferRequestDataLength);
 }
 
+TEST_F(SidechainsTestSuite, V2CTxScCreationOutSetsFeesButNotDataLength)
+{
+    CCoinsViewCache dummyView(nullptr);
+
+    // Forge a sidechain creation transaction
+    Sidechain::ScFixedParameters params;
+    params.version = 2;
+    params.withdrawalEpochLength = 0;
+    params.mainchainBackwardTransferRequestDataLength = 0;
+    CAmount forwardTransferScFee(5);
+    CAmount mainchainBackwardTransferRequestScFee(0);
+
+    CTransaction scCreationTx = createNewSidechainTx(params, forwardTransferScFee, mainchainBackwardTransferRequestScFee, false);
+    uint256 scId = scCreationTx.GetScIdFromScCcOut(0);
+
+    // Update the sidechains view adding the new sidechain
+    int dummyHeight {1};
+    CBlock dummyBlock;
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(scCreationTx, dummyBlock, dummyHeight));
+
+    // Check that the parameters have been set correctly
+    CSidechain sc;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId, sc));
+    ASSERT_EQ(sc.lastTopQualityCertView.forwardTransferScFee, forwardTransferScFee);
+    ASSERT_EQ(sc.lastTopQualityCertView.mainchainBackwardTransferRequestScFee, mainchainBackwardTransferRequestScFee);
+    ASSERT_EQ(sc.fixedParams.mainchainBackwardTransferRequestDataLength, 0);
+}
+
 
 //////////////////////////////////////////////////////////
 /////////////////// Certificate update ///////////////////
@@ -1906,6 +2044,7 @@ TEST_F(SidechainsTestSuite, NewCertificateUpdatesFeesAndDataLength)
     // Forge a sidechain creation transaction
     Sidechain::ScFixedParameters params;
     params.mainchainBackwardTransferRequestDataLength = 0;
+    params.withdrawalEpochLength = 10;
     params.version = 0;
     CAmount forwardTransferScFee(0);
     CAmount mainchainBackwardTransferRequestScFee(0);
