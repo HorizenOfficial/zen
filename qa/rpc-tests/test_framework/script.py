@@ -26,6 +26,7 @@ if sys.version > '3':
 
 import struct
 import hashlib
+from Crypto.Hash import RIPEMD160
 
 from test_framework import bignum
 
@@ -36,7 +37,10 @@ MAX_SCRIPT_OPCODES = 201
 OPCODE_NAMES = {}
 
 def hash160(s):
-    return hashlib.new('ripemd160', sha256(s)).digest()
+    return RIPEMD160.new(sha256(s)).digest()
+
+# def hash160(s):
+#     return hashlib.new('ripemd160', sha256(s)).digest()
 
 _opcode_instances = []
 class CScriptOp(int):
