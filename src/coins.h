@@ -697,7 +697,6 @@ public:
 
     bool UpdateSidechain(const CTransaction& tx, const CBlock&, int nHeight);
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
-    int getScCoinsMaturity();
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
     CValidationState::Code IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode = nullptr) const;

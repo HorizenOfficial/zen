@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "base58.h"
+#include "chain.h"
 #include "clientversion.h"
 #include "coins.h"
 #include "consensus/consensus.h"
@@ -23,6 +24,7 @@
 
 using namespace std;
 
+CCoinsViewCache *pcoinsTip = nullptr;
 static bool fCreateBlank;
 static map<string,UniValue> registers;
 

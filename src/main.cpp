@@ -66,6 +66,7 @@ BlockSet sGlobalForkTips;
 BlockTimeMap mGlobalForkTips;
 
 BlockMap mapBlockIndex;
+ScCumTreeRootMap mapCumtreeHeight;
 CChain chainActive;
 CBlockIndex *pindexBestHeader = NULL;
 int64_t nTimeBestReceived = 0;
@@ -4774,12 +4775,13 @@ CBlockIndex* AddToBlockIndex(const CBlockHeader& block)
         LogPrintf("%s: Block belong to a chain under punishment Delay VAL: %i BLOCKHEIGHT: %d\n",__func__, pindexNew->nChainDelay, pindexNew->nHeight);
     }
 
-    if (pindexNew->pprev && pindexNew->nVersion == BLOCK_VERSION_SC_SUPPORT )
+    if (pindexNew->pprev && pindexNew->nVersion == BLOCK_VERSION_SC_SUPPORT)
     {
         const CFieldElement& prevScCumTreeHash =
                 (pindexNew->pprev->nVersion == BLOCK_VERSION_SC_SUPPORT) ?
                         pindexNew->pprev->scCumTreeHash : CBlockIndex::defaultScCumTreeHash;
         pindexNew->scCumTreeHash = CFieldElement::ComputeHash(prevScCumTreeHash, CFieldElement{block.hashScTxsCommitment});
+        mapCumtreeHeight.insert(std::make_pair(pindexNew->scCumTreeHash.GetLegacyHash(), pindexNew->nHeight));
     }
 
     pindexNew->RaiseValidity(BLOCK_VALID_TREE);
