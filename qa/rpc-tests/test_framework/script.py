@@ -25,7 +25,6 @@ if sys.version > '3':
     bord = lambda x: x
 
 import struct
-import hashlib
 from Crypto.Hash import RIPEMD160
 
 from test_framework import bignum
@@ -38,9 +37,6 @@ OPCODE_NAMES = {}
 
 def hash160(s):
     return RIPEMD160.new(sha256(s)).digest()
-
-# def hash160(s):
-#     return hashlib.new('ripemd160', sha256(s)).digest()
 
 _opcode_instances = []
 class CScriptOp(int):
