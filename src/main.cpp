@@ -1024,6 +1024,13 @@ std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToDisconnect, 
     return res;
 }
 
+// With the introduction of non-ceasing sidechains we modified this function to perform less strict checks
+// on certificate ordering.
+// This functions now checks that, for every sc, certificates in a block are ordered by increasing epochs,
+// and for each epoch, certificates are ordered by increasing quality. Originally, it also checked that
+// a block did not contain 2 or more certs referring to different epochs (invalid only for v0/v1) and that
+// for each epoch, certs were stricly ordered by quality (it was not possible to include certs with the
+// same quality)
 bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CValidationState& state)
 {
     std::map<uint256, std::pair<int32_t, int64_t>> mBestCertDataByScId;
@@ -1033,23 +1040,24 @@ bool CheckCertificatesOrdering(const std::vector<CScCertificate>& certList, CVal
         const uint256& scid = cert.GetScId();
         if (mBestCertDataByScId.count(scid))
         {
-            if (mBestCertDataByScId.at(scid).first != cert.epochNumber)
+            if (mBestCertDataByScId.at(scid).first > cert.epochNumber)
             {
-                LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an invalid epoch in block for scid = %s\n",
+                LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect epoch order in block for scid = %s\n",
                     __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
-                return state.DoS(100, error("%s: certificate for the same scid with different epochs",
-                    __func__), CValidationState::Code::INVALID, "bad-cert-epoch");
+                return state.DoS(100, error("%s: incorrect certificate epoch order in block",
+                    __func__), CValidationState::Code::INVALID, "bad-cert-epoch-ordering-in-block");
             }
-            if (mBestCertDataByScId.at(scid).second >= cert.quality)
+            if (mBestCertDataByScId.at(scid).second > cert.quality)
             {
-                LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect order in block for scid = %s\n",
+                LogPrint("cert", "%s():%d - cert %s / q=%d / epoch=%d has an incorrect quality order in block for scid = %s\n",
                     __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
-                return state.DoS(100, error("%s: certificate with quality not ordered in block",
+                return state.DoS(100, error("%s: incorrect certificate quality order in block",
                     __func__), CValidationState::Code::INVALID, "bad-cert-quality-in-block");
             }
         }
         LogPrint("cert", "%s():%d - setting cert %s / q=%d / epoch=%d as current best in block for scid = %s\n",
             __func__, __LINE__, cert.GetHash().ToString(), cert.quality, cert.epochNumber, scid.ToString());
+        // As we iterate over certs, we only keep the current max combination of epoch / quality for a given sc
         mBestCertDataByScId[scid] = std::make_pair(cert.epochNumber, cert.quality);
     }
 
