@@ -134,6 +134,8 @@ extern CCriticalSection cs_main;
 extern CTxMemPool mempool;
 typedef boost::unordered_map<uint256, CBlockIndex*, ObjectHasher> BlockMap;
 extern BlockMap mapBlockIndex;
+typedef boost::unordered_map<uint256, int, ObjectHasher> ScCumTreeRootMap;
+extern ScCumTreeRootMap mapCumtreeHeight;
 extern uint64_t nLastBlockTx;
 extern uint64_t nLastBlockCert;
 extern uint64_t nLastBlockSize;

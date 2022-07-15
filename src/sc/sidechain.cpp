@@ -57,6 +57,127 @@ void Sidechain::ClearSidechainsFolder()
     }
 }
 
+CSidechain::State CSidechain::GetState() const
+{
+    if (!isCreationConfirmed())
+        return State::UNCONFIRMED;
+
+    if (pcoinsTip->GetHeight() >= GetScheduledCeasingHeight())
+        return State::CEASED;
+
+    return State::ALIVE;
+}
+
+const CScCertificateView& CSidechain::GetActiveCertView() const
+{
+    // For SC v2, we always return the last cert view
+    if (isNonCeasing())
+        return lastTopQualityCertView;
+
+    if (GetState() == State::CEASED)
+        return pastEpochTopQualityCertView;
+
+    if (GetState() == State::UNCONFIRMED)
+        return lastTopQualityCertView;
+
+    int certReferencedEpoch = EpochFor(pcoinsTip->GetHeight() + 1 - GetCertSubmissionWindowLength()) - 1;
+
+    if (lastTopQualityCertReferencedEpoch == certReferencedEpoch)
+        return lastTopQualityCertView;
+
+    if (lastTopQualityCertReferencedEpoch - 1 == certReferencedEpoch)
+        return pastEpochTopQualityCertView;
+
+    assert(false);
+}
+
+int CSidechain::getInitScCoinsMaturity()
+{
+    // TODO (dr): check static init fiasco!
+    if (Params().NetworkIDString() == "regtest")
+    {
+        int val = (int)(GetArg("-sccoinsmaturity", Params().ScCoinsMaturity()));
+        LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+        return val;
+    }
+    return Params().ScCoinsMaturity();
+}
+
+int CSidechain::getScCoinsMaturity()
+{
+    // gets constructed just one time
+    static int retVal(getInitScCoinsMaturity());
+    return isNonCeasing() ? 0 : retVal;
+}
+
+bool CSidechain::CheckQuality(const CScCertificate& cert) const
+{
+    // Quality disabled in non-ceasing SC, hence always return true if quality is 0
+    if (isNonCeasing())
+    {
+        if (cert.quality != 0) {
+            LogPrint("cert", "%s.%s():%d - NOK, cert %s for non-ceasing sidechain, but quality is non zero (q=%d).\n",
+                __FILE__, __func__, __LINE__, cert.GetHash().ToString(), cert.quality);
+            return false;
+        }
+        return true;
+    }
+
+    if (lastTopQualityCertHash != cert.GetHash() &&
+        lastTopQualityCertReferencedEpoch == cert.epochNumber &&
+        lastTopQualityCertQuality >= cert.quality)
+    {
+        LogPrint("cert", "%s.%s():%d - NOK, cert %s q=%d : a cert q=%d for same sc/epoch is already in blockchain\n",
+            __FILE__, __func__, __LINE__, cert.GetHash().ToString(), cert.quality, lastTopQualityCertQuality);
+        return false;
+    }
+
+    return true;
+}
+
+bool CSidechain::CheckCertTiming(int certEpoch) const {
+    if (GetState() != State::ALIVE)
+    {
+        return error("%s():%d - ERROR: certificate cannot be accepted, sidechain already ceased\n",
+            __func__, __LINE__);
+    }
+
+    // Adding handling of quality, we can have also certificates for the same epoch of the last certificate
+    // The epoch number must be consistent with the sc certificate history (no old epoch allowed)
+    if ((isNonCeasing() || certEpoch != lastTopQualityCertReferencedEpoch) &&
+        certEpoch != lastTopQualityCertReferencedEpoch + 1)
+    {
+        return error("%s():%d - ERROR: certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d (if ceasing), or %d)\n",
+            __func__, __LINE__, certEpoch, lastTopQualityCertReferencedEpoch, lastTopQualityCertReferencedEpoch+1);
+    }
+
+    if (isNonCeasing())
+        return true;
+
+    int certWindowStartHeight = GetCertSubmissionWindowStart(certEpoch);
+    int certWindowEndHeight   = GetCertSubmissionWindowEnd(certEpoch);
+
+    int inclusionHeight = pcoinsTip->GetHeight() + 1;
+
+    if (inclusionHeight < certWindowStartHeight || inclusionHeight > certWindowEndHeight)
+    {
+        return error("%s():%d - ERROR: certificate cannot be accepted, cert received outside safeguard\n",
+            __func__, __LINE__);
+    }
+
+    return true;
+}
+
+int CSidechain::GetCurrentEpoch() const
+{
+    if (isNonCeasing())
+        return lastTopQualityCertReferencedEpoch;
+
+    return (GetState() == State::ALIVE) ?
+        EpochFor(pcoinsTip->GetHeight()) :
+        EpochFor(GetScheduledCeasingHeight());
+}
+
 int CSidechain::EpochFor(int targetHeight) const
 {
     if (!isCreationConfirmed()) //default value

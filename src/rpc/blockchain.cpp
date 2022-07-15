@@ -1572,9 +1572,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
     sc.pushKV("scid", scId.GetHex());
     if (!info.IsNull() )
     {
-        int currentEpoch = (scState == CSidechain::State::ALIVE)?
-                info.EpochFor(chainActive.Height()):
-                info.EpochFor(info.GetScheduledCeasingHeight());
+        int currentEpoch = info.GetCurrentEpoch();
  
         sc.pushKV("balance", ValueFromAmount(info.balance));
         sc.pushKV("epoch", currentEpoch);
@@ -1766,7 +1764,7 @@ bool FillScRecord(const uint256& scId, UniValue& scRecord, bool bOnlyAlive, bool
     if (!scView.GetSidechain(scId, sidechain)) {
         LogPrint("sc", "%s():%d - scid[%s] not yet created\n", __func__, __LINE__, scId.ToString() );
     }
-    CSidechain::State scState = scView.GetSidechainState(scId);
+    CSidechain::State scState = sidechain.GetState();
 
     return FillScRecordFromInfo(scId, sidechain, scState, scView, scRecord, bOnlyAlive, bVerbose);
 }
