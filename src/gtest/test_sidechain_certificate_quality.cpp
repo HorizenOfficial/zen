@@ -652,7 +652,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, V2CheckQualityAlwaysReturnsTrueForCerts
 /////////////////////////////////////////////////////////////////////////////////
 /////////////////////////// CheckCertificatesOrdering //////////////////////////
 /////////////////////////////////////////////////////////////////////////////////
-TEST(SidechainsMultipleCerts, BlocksWithCertsOfDifferentEpochsAreRejected) {
+TEST(SidechainsMultipleCerts, BlocksWithCertsOfEqualOrIncreasingEpochsAreAccepted) {
     CMutableScCertificate cert_1;
     cert_1.scId = uint256S("aaa");
     cert_1.quality = 100;
@@ -661,85 +661,149 @@ TEST(SidechainsMultipleCerts, BlocksWithCertsOfDifferentEpochsAreRejected) {
     CMutableScCertificate cert_2;
     cert_2.scId = cert_1.scId;
     cert_2.quality = cert_1.quality;
-    cert_2.epochNumber = cert_1.epochNumber+1;
+    cert_2.epochNumber = cert_1.epochNumber;
 
     CBlock aBlock;
     aBlock.vcert = {cert_1, cert_2};
-
-    CValidationState dummyState;
-    EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
-}
-
-TEST(SidechainsMultipleCerts, BlocksWithCertsWithEqualQualitiesAreRejected) {
-    CMutableScCertificate cert_1;
-    cert_1.scId = uint256S("aaa");
-    cert_1.epochNumber = 12;
-    cert_1.quality = 100;
-
-    CMutableScCertificate cert_2;
-    cert_2.scId = cert_1.scId;
-    cert_2.epochNumber = cert_1.epochNumber;
-    cert_2.quality = cert_1.quality * 2;
-
-    CMutableScCertificate cert_3;
-    cert_3.scId = cert_1.scId;
-    cert_3.epochNumber = cert_1.epochNumber;
-    cert_3.quality = cert_1.quality;
-
-    CBlock aBlock;
-    aBlock.vcert = {cert_1, cert_2, cert_3};
-
-    CValidationState dummyState;
-    EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
-}
-
-TEST(SidechainsMultipleCerts, BlocksWithCertsOrderedByDecreasingQualitiesAreRejected) {
-    CMutableScCertificate cert_1;
-    cert_1.scId = uint256S("aaa");
-    cert_1.epochNumber = 12;
-    cert_1.quality = 100;
-
-    CMutableScCertificate cert_2;
-    cert_2.scId = cert_1.scId;
-    cert_2.epochNumber = cert_1.epochNumber;
-    cert_2.quality = cert_1.quality/2;
-
-    CBlock aBlock;
-    aBlock.vcert = {cert_1, cert_2};
-
-    CValidationState dummyState;
-    EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
-}
-
-TEST(SidechainsMultipleCerts, BlocksWithSameEpochCertssOrderedByIncreasingQualityAreAccepted) {
-    CMutableScCertificate cert_A_1, cert_A_2, cert_A_3;
-    cert_A_1.scId = uint256S("aaa");
-    cert_A_1.epochNumber = 12;
-    cert_A_1.quality = 100;
-
-    cert_A_2.scId = cert_A_1.scId;
-    cert_A_2.epochNumber = cert_A_1.epochNumber;
-    cert_A_2.quality = cert_A_1.quality * 2;
-
-    cert_A_3.scId = cert_A_2.scId;
-    cert_A_3.epochNumber = cert_A_2.epochNumber;
-    cert_A_3.quality = cert_A_2.quality + 1;
-
-    CMutableScCertificate cert_B_1, cert_B_2;
-    cert_B_1.scId = uint256S("bbb");
-    cert_B_1.epochNumber = 90;
-    cert_B_1.quality = 20;
-
-    cert_B_2.scId = cert_B_1.scId;
-    cert_B_2.epochNumber = cert_B_1.epochNumber;
-    cert_B_2.quality = 2000;
-
-    CBlock aBlock;
-    aBlock.vcert = {cert_B_1, cert_A_1, cert_A_2, cert_B_2, cert_A_3};
 
     CValidationState dummyState;
     EXPECT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+
+    cert_2.epochNumber = cert_1.epochNumber + 1;
+    aBlock.vcert = {cert_1, cert_2};
+    EXPECT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 }
+
+TEST(SidechainsMultipleCerts, BlocksWithCertsOfDecreasingEpochsAreRejected) {
+    CMutableScCertificate cert_1;
+    cert_1.scId = uint256S("aaa");
+    cert_1.quality = 100;
+    cert_1.epochNumber = 12;
+
+    CMutableScCertificate cert_2;
+    cert_2.scId = cert_1.scId;
+    cert_2.quality = cert_1.quality;
+    cert_2.epochNumber = cert_1.epochNumber - 1;
+
+    CBlock aBlock;
+    aBlock.vcert = {cert_1, cert_2};
+
+    CValidationState dummyState;
+    EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+
+    CMutableScCertificate cert_3;
+    cert_3.scId = cert_1.scId;
+    cert_3.quality = cert_1.quality;
+    cert_3.epochNumber = cert_1.epochNumber + 1;
+
+    CBlock bBlock;
+    bBlock.vcert = {cert_1, cert_2, cert_3};
+
+    EXPECT_FALSE(CheckCertificatesOrdering(bBlock.vcert, dummyState));
+}
+
+TEST(SidechainsMultipleCerts, BlocksWithCertsOfSameOrIncreasingEpochsAndIncreasingOrEqualQualityAreAccepted) {
+    CMutableScCertificate cert_1;
+    cert_1.scId = uint256S("aaa");
+    cert_1.quality = 100;
+    cert_1.epochNumber = 12;
+
+    CMutableScCertificate cert_2;
+    cert_2.scId = cert_1.scId;
+    cert_2.quality = cert_1.quality;
+    cert_2.epochNumber = cert_1.epochNumber;
+
+    CBlock aBlock;
+    aBlock.vcert = {cert_1, cert_2};
+
+    CValidationState dummyState;
+    EXPECT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+
+    cert_2.quality = cert_1.quality + 1;
+    aBlock.vcert = {cert_1, cert_2};
+    EXPECT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+
+    cert_2.epochNumber = cert_1.epochNumber + 1;
+    cert_2.quality = cert_1.quality + 1;
+    aBlock.vcert = {cert_1, cert_2};
+    EXPECT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+}
+
+TEST(SidechainsMultipleCerts, BlocksWithCertsOfSameOrIncreasingEpochsAndDecreasingQualityAreRejected) {
+    CMutableScCertificate cert_1;
+    cert_1.scId = uint256S("aaa");
+    cert_1.quality = 100;
+    cert_1.epochNumber = 12;
+
+    CMutableScCertificate cert_2;
+    cert_2.scId = cert_1.scId;
+    cert_2.quality = cert_1.quality - 1;
+    cert_2.epochNumber = cert_1.epochNumber;
+
+    CBlock aBlock;
+    aBlock.vcert = {cert_1, cert_2};
+
+    CValidationState dummyState;
+    EXPECT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+
+    CMutableScCertificate cert_3;
+    cert_3.scId = cert_1.scId;
+    cert_3.quality = cert_1.quality;
+    cert_3.epochNumber = cert_1.epochNumber + 1;
+
+    CBlock bBlock;
+    bBlock.vcert = {cert_1, cert_2, cert_3};
+
+    EXPECT_FALSE(CheckCertificatesOrdering(bBlock.vcert, dummyState));
+
+    cert_2.quality = cert_1.quality + 1;
+    cert_2.epochNumber = cert_1.epochNumber;
+    cert_3.quality = cert_1.quality - 1;
+    cert_3.epochNumber = cert_1.epochNumber;
+    bBlock.vcert = {cert_1, cert_2, cert_3};
+
+    EXPECT_FALSE(CheckCertificatesOrdering(bBlock.vcert, dummyState));
+
+    cert_2.quality = cert_1.quality + 1;
+    cert_2.epochNumber = cert_1.epochNumber;
+    cert_3.quality = cert_1.quality - 1;
+    cert_3.epochNumber = cert_1.epochNumber + 1;
+    bBlock.vcert = {cert_1, cert_2, cert_3};
+
+    EXPECT_FALSE(CheckCertificatesOrdering(bBlock.vcert, dummyState));
+}
+
+TEST(SidechainsMultipleCerts, MultScBlocksWithCertsOfEqualOrIncreasingEpochsAreAccepted) {
+    CMutableScCertificate cert_A1;
+    cert_A1.scId = uint256S("aaa");
+    cert_A1.quality = 100;
+    cert_A1.epochNumber = 12;
+
+    CMutableScCertificate cert_A2;
+    cert_A2.scId = cert_A1.scId;
+    cert_A2.quality = cert_A1.quality;
+    cert_A2.epochNumber = cert_A1.epochNumber + 1;
+
+    CMutableScCertificate cert_B1;
+    cert_B1.scId = uint256S("aba");
+    cert_B1.quality = 200;
+    cert_B1.epochNumber = 13;
+
+    CMutableScCertificate cert_B2;
+    cert_B2.scId = cert_B1.scId;
+    cert_B2.quality = cert_B1.quality;
+    cert_B2.epochNumber = cert_B1.epochNumber + 3;
+
+    CBlock aBlock;
+    aBlock.vcert = {cert_A1, cert_A2, cert_B1, cert_B2};
+
+    CValidationState dummyState;
+    EXPECT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+
+    aBlock.vcert = {cert_A1, cert_B1, cert_A2, cert_B2};
+    EXPECT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
+}
+
 
 /////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// HighQualityCertData /////////////////////////////
@@ -895,159 +959,6 @@ TEST_F(SidechainsMultipleCertsTestSuite, LowQualityCerts_MultipleScIds)
     ASSERT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
 
     EXPECT_TRUE(HighQualityCertData(aBlock, *sidechainsView).at(cert_A_3.GetHash()) == sidechain_A.lastTopQualityCertHash);
-    EXPECT_TRUE(HighQualityCertData(aBlock, *sidechainsView).at(cert_B_2.GetHash()).IsNull());
-}
-
-TEST_F(SidechainsMultipleCertsTestSuite, V2HighQualityCertData_EmptyBlock)
-{
-    CSidechain sidechain;
-    sidechain.fixedParams.withdrawalEpochLength = 0;
-    sidechain.fixedParams.version = 2;
-    sidechain.creationBlockHeight = 10;
-    sidechain.lastTopQualityCertQuality = 0;
-    sidechain.lastTopQualityCertHash = uint256S("999");
-    sidechain.lastTopQualityCertReferencedEpoch = 15;
-    uint256 scId = uint256S("aaa");
-    storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
-
-    CBlock emptyBlock;
-    EXPECT_TRUE(HighQualityCertData(emptyBlock, *sidechainsView).empty());
-}
-
-TEST_F(SidechainsMultipleCertsTestSuite, V2HighQualityCertData_FirstCert)
-{
-    CSidechain sidechain;
-    sidechain.fixedParams.withdrawalEpochLength = 0;
-    sidechain.fixedParams.version = 2;
-    sidechain.creationBlockHeight = 11;
-    sidechain.lastTopQualityCertQuality = 0;
-    sidechain.lastTopQualityCertHash = uint256S("aaa");
-    sidechain.lastTopQualityCertReferencedEpoch = -1;
-    uint256 scId = uint256S("aaa");
-    storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
-
-    CMutableScCertificate firstCert;
-    firstCert.scId = scId;
-    firstCert.epochNumber = 0;
-    firstCert.quality = 0;
-
-    CBlock aBlock;
-    aBlock.vcert.push_back(firstCert);
-
-    EXPECT_TRUE(HighQualityCertData(aBlock, *sidechainsView).at(firstCert.GetHash()).IsNull());
-}
-
-TEST_F(SidechainsMultipleCertsTestSuite, V2LowQualityCerts_SameScId_DifferentEpoch)
-{
-    CSidechain sidechain;
-    sidechain.fixedParams.withdrawalEpochLength = 0;
-    sidechain.fixedParams.version = 2;
-    sidechain.creationBlockHeight = 1;
-    sidechain.lastTopQualityCertQuality = 0;
-    sidechain.lastTopQualityCertHash = uint256S("aaa");
-    sidechain.lastTopQualityCertReferencedEpoch = 15;
-    uint256 scId = uint256S("aaa");
-    storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
-
-    CMutableScCertificate lowQualityCert;
-    lowQualityCert.scId = scId;
-    lowQualityCert.epochNumber = sidechain.lastTopQualityCertReferencedEpoch;
-    lowQualityCert.quality = 0;
-
-    CMutableScCertificate highQualityCert;
-    highQualityCert.scId = scId;
-    highQualityCert.epochNumber = lowQualityCert.epochNumber + 1;
-    highQualityCert.quality = 0;
-
-    CBlock aBlock;
-    aBlock.vcert.push_back(lowQualityCert);
-    aBlock.vcert.push_back(highQualityCert);
-    ASSERT_TRUE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
-
-    EXPECT_TRUE(HighQualityCertData(aBlock, *sidechainsView).at(highQualityCert.GetHash()).IsNull());
-}
-
-TEST_F(SidechainsMultipleCertsTestSuite, V2LowQualityCerts_SameScId_SameEpoch)
-{
-    CSidechain sidechain;
-    sidechain.fixedParams.withdrawalEpochLength = 0;
-    sidechain.fixedParams.version = 2;
-    sidechain.creationBlockHeight = 5;
-    sidechain.lastTopQualityCertQuality = 0;
-    sidechain.lastTopQualityCertHash = uint256S("aaa");
-    sidechain.lastTopQualityCertReferencedEpoch = 15;
-    uint256 scId = uint256S("aaa");
-    storeSidechainWithCurrentHeight(*sidechainsView, scId, sidechain, sidechain.creationBlockHeight);
-
-    CMutableScCertificate lowQualityCert;
-    lowQualityCert.scId = scId;
-    lowQualityCert.epochNumber = sidechain.lastTopQualityCertReferencedEpoch;
-    lowQualityCert.quality = 0;
-
-    CMutableScCertificate highQualityCert;
-    highQualityCert.scId = scId;
-    highQualityCert.epochNumber = lowQualityCert.epochNumber;
-    highQualityCert.quality = 0;
-
-    CBlock aBlock;
-    aBlock.vcert.push_back(lowQualityCert);
-    aBlock.vcert.push_back(highQualityCert);
-    ASSERT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
-
-    EXPECT_TRUE(HighQualityCertData(aBlock, *sidechainsView).at(highQualityCert.GetHash()) == sidechain.lastTopQualityCertHash);
-}
-
-TEST_F(SidechainsMultipleCertsTestSuite, V2LowQualityCerts_MultipleScIds)
-{
-    int allScsCreationBlockHeight = 22;
-
-    CSidechain sidechain_A;
-    sidechain_A.fixedParams.withdrawalEpochLength = 0;
-    sidechain_A.fixedParams.version = 2;
-    sidechain_A.creationBlockHeight = allScsCreationBlockHeight;
-    sidechain_A.lastTopQualityCertHash = uint256S("aaa");
-    sidechain_A.lastTopQualityCertQuality = 0;
-    sidechain_A.lastTopQualityCertReferencedEpoch = 15;
-    uint256 scId_A = uint256S("aaa");
-    storeSidechainWithCurrentHeight(*sidechainsView, scId_A, sidechain_A, allScsCreationBlockHeight);
-
-    CSidechain sidechain_B;
-    sidechain_B.fixedParams.withdrawalEpochLength = 0;
-    sidechain_B.fixedParams.version = 2;
-    sidechain_B.creationBlockHeight = allScsCreationBlockHeight;
-    sidechain_B.lastTopQualityCertHash = uint256S("bbb");
-    sidechain_B.lastTopQualityCertQuality = 0;
-    sidechain_B.lastTopQualityCertReferencedEpoch = 200;
-    uint256 scId_B = uint256S("bbb");
-    storeSidechainWithCurrentHeight(*sidechainsView, scId_B, sidechain_B, allScsCreationBlockHeight);
-
-    CMutableScCertificate cert_A_1;
-    cert_A_1.scId = scId_A;
-    cert_A_1.epochNumber = sidechain_A.lastTopQualityCertReferencedEpoch;
-    cert_A_1.quality = 0;
-
-    CMutableScCertificate cert_A_2;
-    cert_A_2.scId = scId_A;
-    cert_A_2.epochNumber = sidechain_A.lastTopQualityCertReferencedEpoch;
-    cert_A_2.quality = 0;
-
-    CMutableScCertificate cert_B_1;
-    cert_B_1.scId = scId_B;
-    cert_B_1.epochNumber = sidechain_B.lastTopQualityCertReferencedEpoch + 1;
-    cert_B_1.quality = 0;
-
-    CMutableScCertificate cert_B_2;
-    cert_B_2.scId = scId_B;
-    cert_B_2.epochNumber = sidechain_B.lastTopQualityCertReferencedEpoch + 1;
-    cert_B_2.quality = 0;
-
-    CBlock aBlock;
-    aBlock.vcert.push_back(cert_A_1);
-    aBlock.vcert.push_back(cert_B_1);
-    aBlock.vcert.push_back(cert_A_2);
-    aBlock.vcert.push_back(cert_B_2);
-    ASSERT_FALSE(CheckCertificatesOrdering(aBlock.vcert, dummyState));
-
     EXPECT_TRUE(HighQualityCertData(aBlock, *sidechainsView).at(cert_B_2.GetHash()).IsNull());
 }
 
