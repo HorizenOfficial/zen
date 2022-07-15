@@ -217,6 +217,9 @@ wrappedFieldPtr CFieldElement::GetFieldElement() const
 
 uint256 CFieldElement::GetLegacyHash() const
 {
+    if (this->byteVector.size() < 32)
+        return uint256();
+
     std::vector<unsigned char> tmp(this->byteVector.begin(), this->byteVector.begin()+32);
     return uint256(tmp);
 }

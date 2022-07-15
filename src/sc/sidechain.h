@@ -50,6 +50,10 @@ public:
 };
 
 class CSidechain {
+private:
+    int getInitScCoinsMaturity();
+    int EpochFor(int targetHeight) const;
+
 public:
     CSidechain():
         creationBlockHeight(-1), creationTxHash(),
@@ -121,6 +125,13 @@ public:
         CEASED
     };
 
+    State GetState() const;
+    int getScCoinsMaturity();
+    const CScCertificateView& GetActiveCertView() const;
+    int GetCurrentEpoch() const;
+    bool CheckQuality(const CScCertificate& cert) const;
+    bool CheckCertTiming(int certEpoch) const;
+
     static std::string stateToString(State s);
 
     std::string ToString() const;
@@ -179,7 +190,6 @@ public:
     }
     inline bool operator!=(const CSidechain& rhs) const { return !(*this == rhs); }
 
-    int EpochFor(int targetHeight) const;
     int GetStartHeightForEpoch(int targetEpoch) const;
     int GetEndHeightForEpoch(int targetEpoch) const;
     int GetCertSubmissionWindowStart(int certEpoch) const;
@@ -190,7 +200,7 @@ public:
     bool GetCeasingCumTreeHash(CFieldElement& ceasedBlockCum) const;
 
     bool isCreationConfirmed() const {
-        return this->creationBlockHeight != -1;
+        return creationBlockHeight != -1;
     }
 
     static bool isNonCeasingSidechain(int version, int withdrawalEpochLength) {
@@ -199,6 +209,7 @@ public:
         // other sidechain versions.
         return version == 2 && withdrawalEpochLength == 0;
     }
+
     bool isNonCeasing() const {
         return isNonCeasingSidechain(fixedParams.version, fixedParams.withdrawalEpochLength);
     }

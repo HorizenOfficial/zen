@@ -303,10 +303,11 @@ void chainSettingUtils::ExtendChainActiveToHeight(int targetHeight)
         BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
         pNewBlockIdx->phashBlock = &(mi->first);
 
-        if (pNewBlockIdx->pprev && pNewBlockIdx->nVersion == BLOCK_VERSION_SC_SUPPORT )
+        if (pNewBlockIdx->pprev && pNewBlockIdx->nVersion == BLOCK_VERSION_SC_SUPPORT)
         {
             // don't do a real cumulative poseidon hash if it is not necessary
             pNewBlockIdx->scCumTreeHash = CFieldElement{SAMPLE_FIELD};
+            mapCumtreeHeight.insert(std::make_pair(pNewBlockIdx->scCumTreeHash.GetLegacyHash(), height));
         }
 
         chainActive.SetTip(mapBlockIndex.at(currBlockHash));
@@ -474,10 +475,11 @@ void BlockchainTestManager::ExtendChainActiveToHeight(int targetHeight) const
         BlockMap::iterator mi = mapBlockIndex.insert(std::make_pair(currBlockHash, pNewBlockIdx)).first;
         pNewBlockIdx->phashBlock = &(mi->first);
 
-        if (pNewBlockIdx->pprev && pNewBlockIdx->nVersion == BLOCK_VERSION_SC_SUPPORT )
+        if (pNewBlockIdx->pprev && pNewBlockIdx->nVersion == BLOCK_VERSION_SC_SUPPORT)
         {
             // don't do a real cumulative poseidon hash if it is not necessary
             pNewBlockIdx->scCumTreeHash = CFieldElement{SAMPLE_FIELD};
+            mapCumtreeHeight.insert(std::make_pair(pNewBlockIdx->scCumTreeHash.GetLegacyHash(), height));
         }
 
         chainActive.SetTip(mapBlockIndex.at(currBlockHash));
