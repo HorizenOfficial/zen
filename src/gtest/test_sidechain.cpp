@@ -20,8 +20,8 @@ public:
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
 
-        fakeChainStateDb   = new blockchain_test_utils::CInMemorySidechainDb();
-        sidechainsView     = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
+        fakeChainStateDb           = new blockchain_test_utils::CInMemorySidechainDb();
+        pcoinsTip = sidechainsView = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
     };
 
     void TearDown() override {
@@ -1039,7 +1039,7 @@ TEST_F(SidechainsTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance)
     ASSERT_TRUE(sidechainsView->UpdateSidechain(fwdTx, dummyBlock, fwdTxHeight));
     CSidechain fwdTxSc;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, fwdTxSc));
-    ASSERT_TRUE(fwdTxSc.mImmatureAmounts.count(fwdTxHeight + sidechainsView->getScCoinsMaturity()));
+    ASSERT_TRUE(fwdTxSc.mImmatureAmounts.count(fwdTxHeight + fwdTxSc.getScCoinsMaturity()));
 
     //test
     bool res = sidechainsView->RevertTxOutputs(fwdTx, fwdTxHeight);
@@ -1048,7 +1048,7 @@ TEST_F(SidechainsTestSuite, RevertingFwdTransferRemovesCoinsFromImmatureBalance)
     EXPECT_TRUE(res);
     CSidechain revertedSc;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, revertedSc));
-    EXPECT_FALSE(revertedSc.mImmatureAmounts.count(fwdTxHeight + sidechainsView->getScCoinsMaturity()));
+    EXPECT_FALSE(revertedSc.mImmatureAmounts.count(fwdTxHeight + revertedSc.getScCoinsMaturity()));
 }
 
 TEST_F(SidechainsTestSuite, ScCreationTxCannotBeRevertedIfScIsNotPreviouslyCreated) {
@@ -1092,7 +1092,7 @@ TEST_F(SidechainsTestSuite, RevertingAFwdTransferOnTheWrongHeightHasNoEffect) {
     ASSERT_TRUE(sidechainsView->UpdateSidechain(fwdTx, dummyBlock, fwdTxHeight));
     CSidechain fwdTxSc;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, fwdTxSc));
-    ASSERT_TRUE(fwdTxSc.mImmatureAmounts.count(fwdTxHeight + sidechainsView->getScCoinsMaturity()));
+    ASSERT_TRUE(fwdTxSc.mImmatureAmounts.count(fwdTxHeight + fwdTxSc.getScCoinsMaturity()));
 
     //test
     int faultyHeight = fwdTxHeight -1;
@@ -1118,7 +1118,7 @@ TEST_F(SidechainsTestSuite, RestoreSidechainRestoresLastCertHash) {
 
     CBlockUndo dummyBlockUndo(IncludeScAttributes::ON);
     std::vector<CScCertificateStatusUpdateInfo> dummy;
-    ASSERT_TRUE(sidechainsView->HandleSidechainEvents(scCreationHeight + sidechainsView->getScCoinsMaturity(), dummyBlockUndo, &dummy));
+    ASSERT_TRUE(sidechainsView->HandleSidechainEvents(scCreationHeight + sidechainAtCreation.getScCoinsMaturity(), dummyBlockUndo, &dummy));
 
     //Update sc with cert and create the associate blockUndo
     int certEpoch = 0;
@@ -1206,7 +1206,7 @@ TEST_F(SidechainsTestSuite, CertificateUpdatesTopCommittedCertHash) {
     ASSERT_TRUE(sidechain.lastTopQualityCertHash.IsNull());
 
     //Fully mature initial Sc balance
-    int coinMaturityHeight = scCreationHeight + sidechainsView->getScCoinsMaturity();
+    int coinMaturityHeight = scCreationHeight + sidechain.getScCoinsMaturity();
     CBlockUndo dummyBlockUndo(IncludeScAttributes::ON);
     std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
@@ -1643,7 +1643,9 @@ TEST_F(SidechainsTestSuite, GetSidechainForFwdTransfersInMempool) {
     ASSERT_TRUE(sidechainsView->Flush());
 
     //Fully mature initial Sc balance
-    int coinMaturityHeight = scCreationHeight + sidechainsView->getScCoinsMaturity();
+    CSidechain sc;
+    ASSERT_TRUE(sidechainsView->GetSidechain(scId ,sc));
+    int coinMaturityHeight = scCreationHeight + sc.getScCoinsMaturity();
     CBlockUndo dummyBlockUndo(IncludeScAttributes::ON);
     std::vector<CScCertificateStatusUpdateInfo> dummy;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummy));
@@ -2065,7 +2067,7 @@ TEST_F(SidechainsTestSuite, NewCertificateUpdatesFeesAndDataLength)
     ASSERT_EQ(sc.fixedParams.mainchainBackwardTransferRequestDataLength, 0);
 
     //Fully mature initial Sc balance
-    int coinMaturityHeight = scCreationHeight + sidechainsView->getScCoinsMaturity();
+    int coinMaturityHeight = scCreationHeight + sc.getScCoinsMaturity();
     CBlockUndo dummyBlockUndo(IncludeScAttributes::ON);
     std::vector<CScCertificateStatusUpdateInfo> dummyInfo;
     ASSERT_TRUE(sidechainsView->HandleSidechainEvents(coinMaturityHeight, dummyBlockUndo, &dummyInfo));

@@ -2128,10 +2128,10 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
         pcoinsTip->GetScIds(allScIds);
         for(const auto& scId: allScIds)
         {
-            if (pcoinsTip->GetSidechainState(scId) != CSidechain::State::ALIVE)
+            CSidechain sidechain;
+            assert(pcoinsTip->GetSidechain(scId, sidechain));
+            if (sidechain.GetState() != CSidechain::State::ALIVE)
             {
-                CSidechain sidechain;
-                assert(pcoinsTip->GetSidechain(scId, sidechain));
                 if (fUpdate)
                     SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.lastTopQualityCertHash,
                                                                       sidechain.lastTopQualityCertReferencedEpoch,
