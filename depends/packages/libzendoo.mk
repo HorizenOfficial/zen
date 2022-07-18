@@ -8,8 +8,18 @@ $(package)_git_commit=7a96af9aee9adbcb43666251590425d98124ee94
 $(package)_dependencies=rust $(rust_crates_z)
 $(package)_patches=cargo.config
 
+ifeq ($(CLANG_ARG),true)
+$(package)_compiler=$(CT_PREFIX)clang
+RUST_CC=CC=$($(package)_compiler)
+else
+$(package)_compiler=$(CT_PREFIX)gcc
+RUST_CC=CC=$($(package)_compiler)
+endif
+
 ifeq ($(host_os),mingw32)
 $(package)_library_file=target/x86_64-pc-windows-gnu/release/libzendoo_mc.a
+# Unset custom CC
+RUST_CC=
 else
 $(package)_library_file=target/release/libzendoo_mc.a
 endif
@@ -27,11 +37,11 @@ endef
 
 define $(package)_preprocess_cmds
   mkdir .cargo && \
-  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' > .cargo/config
+  cat $($(package)_patch_dir)/cargo.config | sed 's|CRATE_REGISTRY|$(host_prefix)/$(CRATE_REGISTRY)|' | sed 's|DUMMY_LINKER|$($(package)_compiler)|g' > .cargo/config
 endef
 
 define $(package)_build_cmds
-  RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts)
+  $(RUST_CC) RUSTFLAGS="$($(package)_target_feature)" cargo build $($(package)_build_opts)
 endef
 
 
