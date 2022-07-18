@@ -701,7 +701,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
                         if (nRet != SSL_ERROR_WANT_READ && nRet != SSL_ERROR_WANT_WRITE) // SSL_read() operation has to be repeated because of SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE (https://wiki.openssl.org/index.php/Manual:SSL_read(3)#NOTES)
                         {
                             if (!pnode->fDisconnect)
-                                LogPrintf("TSL: ERROR: SSL_read %s\n", ERR_error_string(nRet, NULL));
+                                LogPrintf("TLS: ERROR: SSL_read %s\n", ERR_error_string(nRet, NULL));
                             pnode->CloseSocketDisconnect();
 
                             unsigned long error = ERR_get_error();
@@ -717,7 +717,7 @@ int TLSManager::threadSocketHandler(CNode* pnode, fd_set& fdsetRecv, fd_set& fds
                     } else {
                         if (nRet != WSAEWOULDBLOCK && nRet != WSAEMSGSIZE && nRet != WSAEINTR && nRet != WSAEINPROGRESS) {
                             if (!pnode->fDisconnect)
-                                LogPrintf("TSL: ERROR: socket recv %s\n", NetworkErrorString(nRet));
+                                LogPrintf("TLS: ERROR: socket recv %s\n", NetworkErrorString(nRet));
                             pnode->CloseSocketDisconnect();
                         }
                     }
