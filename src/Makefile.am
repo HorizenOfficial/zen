@@ -1,7 +1,7 @@
 DIST_SUBDIRS = secp256k1 univalue
 
 AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS) $(SAN_LDFLAGS) $(HARDENED_LDFLAGS)
-AM_CXXFLAGS = $(SAN_CXXFLAGS) $(HARDENED_CXXFLAGS) $(ERROR_CXXFLAGS)
+AM_CXXFLAGS = $(SAN_CXXFLAGS) $(HARDENED_CXXFLAGS) $(ERROR_CXXFLAGS) -ffunction-sections -fdata-sections
 AM_CPPFLAGS = $(HARDENED_CPPFLAGS)
 EXTRA_LIBRARIES =
 
@@ -381,6 +381,7 @@ libbitcoin_common_a_SOURCES = \
   amount.cpp \
   arith_uint256.cpp \
   base58.cpp \
+  base58_codec.cpp \
   chainparams.cpp \
   sc/proofverifier.cpp \
   coins.cpp \
@@ -641,6 +642,8 @@ noinst_PROGRAMS += \
 # tool for testing sidechain
 zendoo_mcTest_SOURCES = \
     zendoo/mcTestCall.cpp \
+    base58_codec.cpp \
+    crypto/sha256.cpp \
     uint256.cpp \
     utilstrencodings.cpp
 
