@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, SC_VERSION_FORK_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, get_epoch_data, \
@@ -50,11 +50,11 @@ class sc_getscinfo(BitcoinTestFramework):
 
         creation_amount = Decimal("1.0")
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT//2), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT//2)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']//2), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC']//2)
         self.sync_all()
-        mark_logs("Node 1 generates {} block".format(MINIMAL_SC_HEIGHT//2), self.nodes, DEBUG_MODE)
-        self.nodes[1].generate(MINIMAL_SC_HEIGHT//2)
+        mark_logs("Node 1 generates {} block".format(ForkHeights['MINIMAL_SC']//2), self.nodes, DEBUG_MODE)
+        self.nodes[1].generate(ForkHeights['MINIMAL_SC']//2)
         self.sync_all()
 
         #generate wCertVk and constant
@@ -305,7 +305,7 @@ class sc_getscinfo(BitcoinTestFramework):
 
         # Reach the sidechain version fork point
         test_helper = BlockchainHelper(self)
-        self.nodes[0].generate(SC_VERSION_FORK_HEIGHT - MINIMAL_SC_HEIGHT)
+        self.nodes[0].generate(ForkHeights['SC_VERSION'] - ForkHeights['MINIMAL_SC'])
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
         test_helper.create_sidechain("v0", 0)

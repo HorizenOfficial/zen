@@ -8,7 +8,7 @@ from test_framework.util import assert_false, initialize_chain_clean, assert_equ
     start_nodes, get_epoch_data, assert_true, \
     sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     swap_bytes, to_satoshis, disconnect_nodes
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
+from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import generate_random_field_element_hex, CertTestUtils
 import os
 from decimal import Decimal
@@ -24,7 +24,6 @@ TX_FEE = Decimal("0.000567")
 FT_SC_FEE = Decimal('0')
 MBTR_SC_FEE = Decimal('0')
 SC_COINS_MAT = 2
-MINIMAL_SC_HEIGHT = 420
 
 ORDINARY_OUTPUT = 0
 TOP_QUALITY_CERT_BACKWARD_TRANSFER = 1
@@ -79,10 +78,10 @@ class sc_cert_addressindex(BitcoinTestFramework):
         tAddr1 = self.nodes[1].getnewaddress()
         node1Addr = self.nodes[1].validateaddress(tAddr1)['address']
 
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
         self.sync_all()    
         
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
 
         #generate wCertVk and constant
         mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)

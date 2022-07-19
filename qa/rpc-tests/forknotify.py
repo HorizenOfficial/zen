@@ -8,7 +8,7 @@
 #
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.util import start_node, connect_nodes, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     dump_sc_info_record
@@ -87,7 +87,7 @@ class ForkNotifyTest(BitcoinTestFramework):
             mark_logs(errorString + " ===> Ok, Can not generate blocks with version = 2", self.nodes, DEBUG_MODE)
 
         # reach sidechain fork height
-        fork_height = MINIMAL_SC_HEIGHT
+        fork_height = ForkHeights['MINIMAL_SC']
         active_height =  self.nodes[2].getblockcount()
         delta = fork_height - active_height
 

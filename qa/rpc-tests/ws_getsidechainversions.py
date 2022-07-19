@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-from test_framework.test_framework import SC_VERSION_FORK_HEIGHT, BitcoinTestFramework
+from test_framework.test_framework import ForkHeights, BitcoinTestFramework
 from test_framework.util import assert_equal, initialize_chain_clean, start_nodes, mark_logs
 from test_framework.blockchainhelper import BlockchainHelper
 from test_framework.wsproxy import JSONWSException
@@ -41,8 +41,8 @@ class ws_messages(BitcoinTestFramework):
         test_helper = BlockchainHelper(self)
 
         # Node 0 generates blocks to reach the sidechain version fork point
-        mark_logs("Node 1 generates {} block".format(SC_VERSION_FORK_HEIGHT), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(SC_VERSION_FORK_HEIGHT)
+        mark_logs("Node 1 generates {} block".format(ForkHeights['SC_VERSION']), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['SC_VERSION'])
         self.sync_all()
 
         mark_logs("Node 0 creates sidechain 1 with version 0", self.nodes, DEBUG_MODE)

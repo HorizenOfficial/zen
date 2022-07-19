@@ -10,7 +10,7 @@ from decimal import Decimal
 import time
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT
+from test_framework.test_framework import ForkHeights
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_false, assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, start_node, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
@@ -65,8 +65,8 @@ class ScCertDust(BitcoinTestFramework):
         self.nodes[1].generate(2)
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT-2),self.nodes,DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT-2)
+        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']-2),self.nodes,DEBUG_MODE)
+        self.nodes[0].generate(ForkHeights['MINIMAL_SC']-2)
         self.sync_all()
 
         #generate wCertVk and constant
