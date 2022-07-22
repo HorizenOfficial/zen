@@ -60,7 +60,8 @@ public:
         pastEpochTopQualityCertView(), lastTopQualityCertView(), lastTopQualityCertHash(),
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
-        balance(0), maxSizeOfScFeesContainers(-1) {}
+        balance(0), maxSizeOfScFeesContainers(-1),
+        lastReferencedHeight(-1), lastInclusionHeight(-1) {}
 
     bool IsNull() const
     {
@@ -94,6 +95,9 @@ public:
     int32_t lastTopQualityCertReferencedEpoch;
     int64_t lastTopQualityCertQuality;
     CAmount lastTopQualityCertBwtAmount;
+
+    int lastReferencedHeight;
+    int lastInclusionHeight;
 
     // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
@@ -130,7 +134,7 @@ public:
     const CScCertificateView& GetActiveCertView() const;
     int GetCurrentEpoch() const;
     bool CheckQuality(const CScCertificate& cert) const;
-    bool CheckCertTiming(int certEpoch) const;
+    bool CheckCertTiming(int certEpoch, int referencedHeight) const;
 
     static std::string stateToString(State s);
 
@@ -170,6 +174,10 @@ public:
             {
                 maxSizeOfScFeesContainers = getMaxSizeOfScFeesContainers();
             }
+        }
+        if (isNonCeasing()) {
+            READWRITE(VARINT(lastInclusionHeight));
+            READWRITE(VARINT(lastReferencedHeight));
         }
     }
 

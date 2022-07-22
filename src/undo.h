@@ -138,7 +138,8 @@ struct CSidechainUndoData
         CROSS_EPOCH_CERT_DATA   = 2,
         ANY_EPOCH_CERT_DATA     = 4,
         SUPERSEDED_CERT_DATA    = 8,
-        CEASED_CERT_DATA        = 16
+        CEASED_CERT_DATA        = 16,
+        NONCEASING_CERT_DATA    = 32
     };
     uint8_t contentBitMask;
 
@@ -161,6 +162,11 @@ struct CSidechainUndoData
 
     // CEASED_CERTIFICATE_DATA
     std::vector<CTxInUndo> ceasedBwts;
+
+    // NONCEASING_CERT_DATA
+    int prevInclusionHeight;
+    int prevReferencedHeight;
+    CAmount deltaBalance;
 
     CSidechainUndoData(): sidechainUndoDataVersion(0), contentBitMask(AvailableSections::UNDEFINED),
         appliedMaturedAmount(0), pastEpochTopQualityCertView(), scFees(), 
@@ -196,6 +202,12 @@ struct CSidechainUndoData
         {
             totalSize += ::GetSerializeSize(ceasedBwts, nType, nVersion);
         }
+        if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA)
+        {
+            totalSize += ::GetSerializeSize(prevInclusionHeight,  nType, nVersion);
+            totalSize += ::GetSerializeSize(prevReferencedHeight, nType, nVersion);
+            totalSize += ::GetSerializeSize(deltaBalance,         nType, nVersion);
+        }
         return totalSize;
     }
 
@@ -229,6 +241,12 @@ struct CSidechainUndoData
         {
             ::Serialize(s, ceasedBwts, nType, nVersion);
         }
+        if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA)
+        {
+            ::Serialize(s, prevInclusionHeight, nType, nVersion);
+            ::Serialize(s, prevReferencedHeight, nType, nVersion);
+            ::Serialize(s, deltaBalance, nType, nVersion);
+        }
         return;
     }
 
@@ -261,6 +279,12 @@ struct CSidechainUndoData
         if (contentBitMask & AvailableSections::CEASED_CERT_DATA)
         {
             ::Unserialize(s, ceasedBwts, nType, nVersion);
+        }
+        if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA)
+        {
+            ::Unserialize(s, prevInclusionHeight, nType, nVersion);
+            ::Unserialize(s, prevReferencedHeight, nType, nVersion);
+            ::Unserialize(s, deltaBalance, nType, nVersion);
         }
         return;
     }
