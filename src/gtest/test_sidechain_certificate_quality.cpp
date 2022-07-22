@@ -24,7 +24,8 @@ public:
         SelectParams(CBaseChainParams::REGTEST);
 
         fakeChainStateDb   = new blockchain_test_utils::CInMemorySidechainDb();
-        sidechainsView     = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
+        pcoinsTip = sidechainsView = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
+        mapCumtreeHeight.insert(std::make_pair(uint256(), -1));
     };
 
     void TearDown() override {
