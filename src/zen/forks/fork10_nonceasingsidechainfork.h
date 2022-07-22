@@ -14,6 +14,7 @@ public:
      * @brief Get the maximum allowed sidechain version for a specific block height
      */
     inline virtual uint8_t getMaxSidechainVersion() const { return 2; }
+    inline virtual bool isNonCeasingSidechainActive() const { return true; }
 };
 
 }
