@@ -97,7 +97,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
             vk = mcTest.generate_params(tag)
             cmdInput = {
                 "version": 0 if i < 3 else 2,
-                "withdrawalEpochLength": EPOCH_LENGTH,
+                "withdrawalEpochLength": EPOCH_LENGTH if i < 3 else 0,
                 "toaddress": "dada",
                 "amount": creation_amount[i],
                 "wCertVk": vk,
