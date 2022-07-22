@@ -979,11 +979,11 @@ std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToConnect, con
     std::map<uint256, uint256> res;
     for(auto itCert = blockToConnect.vcert.rbegin(); itCert != blockToConnect.vcert.rend(); ++itCert)
     {
-        if (visitedScIds.count(itCert->GetScId()) != 0)
+        CSidechain sidechain;
+        if (!view.GetSidechain(itCert->GetScId(), sidechain))
             continue;
 
-        CSidechain sidechain;
-        if(!view.GetSidechain(itCert->GetScId(), sidechain))
+        if (visitedScIds.count(itCert->GetScId()) != 0 && !sidechain.isNonCeasing())
             continue;
 
         if (itCert->epochNumber == sidechain.lastTopQualityCertReferencedEpoch)
@@ -997,7 +997,7 @@ std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToConnect, con
     return res;
 }
 
-std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToDisconnect, const CBlockUndo& blockUndo)
+std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToDisconnect, const CBlockUndo& blockUndo, const CCoinsViewCache& view, std::map<uint256, uint256>& lowEpoch)
 {
     // The function assumes that certs of given scId are ordered by increasing quality and
     // reference all the same epoch as CheckBlock() guarantees.
@@ -1009,7 +1009,11 @@ std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToDisconnect, 
     for (int certPos = blockToDisconnect.vcert.size() - 1; certPos >= 0; certPos--)
     {
         const CScCertificate& cert = blockToDisconnect.vcert.at(certPos);
-        if (visitedScIds.count(cert.GetScId()) != 0)
+        CSidechain sidechain;
+        if (!view.GetSidechain(cert.GetScId(), sidechain))
+            continue;
+
+        if (visitedScIds.count(cert.GetScId()) != 0 && !sidechain.isNonCeasing())
             continue;
 
         if (cert.epochNumber == blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertReferencedEpoch)
@@ -1018,6 +1022,7 @@ std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToDisconnect, 
             res[cert.GetHash()] = uint256();
 
         visitedScIds.insert(cert.GetScId());
+        lowEpoch[cert.GetScId()] = cert.GetHash();
     }
 
     return res;
@@ -1217,6 +1222,12 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
         return MempoolReturnValue::INVALID;
     }
 
+    if (!pool.checkReferencedHeight(cert))
+    {
+        LogPrintf("%s(): certificate references a too old block in mempool\n", __func__);
+        return MempoolReturnValue::INVALID;
+    }
+
     if (!pool.checkIncomingCertConflicts(cert))
     {
         LogPrintf("%s(): certificate has conflicts in mempool\n", __func__);
@@ -1224,7 +1235,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
     }
 
     // Check if cert is already in mempool or if there are conflicts with in-memory certs
-    std::pair<uint256, CAmount> conflictingCertData = pool.FindCertWithQuality(cert.GetScId(), cert.quality);
+    std::pair<uint256, CAmount> conflictingCertData = pool.FindCertWithQualityInEpoch(cert.GetScId(), cert.quality, cert.epochNumber);
 
     {
         uint256 certHash = cert.GetHash();
@@ -1286,13 +1297,24 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             view.GetBestBlock();
             nFees = cert.GetFeeAmount(view.GetValueIn(cert));
 
-            if (!conflictingCertData.first.IsNull() && conflictingCertData.second >= nFees)
+            if (!conflictingCertData.first.IsNull())
             {
-                state.Invalid(
-                    error("%s():%d - Dropping cert %s : low fee and same quality as other cert in mempool\n",
-                        __func__, __LINE__, certHash.ToString()),
-                    CValidationState::Code::INVALID, "bad-sc-cert-quality");
-                return MempoolReturnValue::INVALID;
+                CSidechain sc;
+                if (view.GetSidechain(cert.GetScId(), sc) && sc.isNonCeasing())
+                {
+                    state.Invalid(
+                        error("%s():%d - Dropping cert %s : conflicting with another cert in mempool for non ceasing SC\n",
+                            __func__, __LINE__, certHash.ToString()),
+                        CValidationState::Code::INVALID, "bad-sc-cert-quality");
+                    return MempoolReturnValue::INVALID;
+                } else if (conflictingCertData.second >= nFees)
+                {
+                    state.Invalid(
+                        error("%s():%d - Dropping cert %s : low fee and same quality as other cert in mempool\n",
+                            __func__, __LINE__, certHash.ToString()),
+                        CValidationState::Code::INVALID, "bad-sc-cert-quality");
+                    return MempoolReturnValue::INVALID;
+                }
             }
 
             // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -2771,7 +2793,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
     // not including coinbase
     const int certOffset = block.vtx.size() - 1;
-    std::map<uint256, uint256> highQualityCertData = HighQualityCertData(block, blockUndo);
+    std::map<uint256, uint256> lowEpochCertData;
+    std::map<uint256, uint256> highQualityCertData = HighQualityCertData(block, blockUndo, view, lowEpochCertData);
     // key: current block top quality cert for given sc --> value: prev block superseeded cert hash (possibly null)
 
     // undo certificates in reverse order
@@ -2919,7 +2942,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                                            CScCertificateStatusUpdateInfo::BwtState::BWT_ON));
             }
 
-            if (!view.RestoreSidechain(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())) )
+            if (lowEpochCertData.at(cert.GetScId()) == cert.GetHash() && !view.RestoreSidechain(cert, blockUndo.scUndoDatabyScId.at(cert.GetScId())))
             {
                 LogPrint("sc", "%s():%d - ERROR undoing certificate\n", __func__, __LINE__);
                 return error("DisconnectBlock(): certificate can not be reverted: data inconsistent");
@@ -3675,7 +3698,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 maturityHeightValues.push_back(std::make_pair(maturityHeightKey, CMaturityHeightValue(static_cast<char>(1))));
             }
 
-            if (!view.UpdateSidechain(cert, blockundo) )
+            if (!view.UpdateSidechain(cert, blockundo, pindex->nHeight) )
             {
                 return state.DoS(100, error("%s():%d: could not add in scView: cert[%s]",__func__, __LINE__, cert.GetHash().ToString()),
                                  CValidationState::Code::INVALID, "bad-sc-cert-not-updated");

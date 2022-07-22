@@ -116,13 +116,13 @@ bool VerifyCertificatesDependencies(const CScCertificate& cert)
         return false;
     }
 
-    if (mempool.mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(cert.quality) == 0)
+    if (mempool.mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(std::make_pair(cert.quality, cert.epochNumber)) == 0)
     {
         if (fDebug) assert("cert is in mempool but not duly registered  in mapSidechains." == 0);
         return false;
     }
 
-    if (mempool.mapSidechains.at(cert.GetScId()).mBackwardCertificates.at(cert.quality) != cert.GetHash())
+    if (mempool.mapSidechains.at(cert.GetScId()).mBackwardCertificates.at(std::make_pair(cert.quality, cert.epochNumber)) != cert.GetHash())
     {
         if (fDebug) assert("a different cert with the same scId and quality is in mempool" == 0);
         return false;
@@ -137,7 +137,7 @@ bool VerifyCertificatesDependencies(const CScCertificate& cert)
         const CScCertificate& depCert = mempool.mapCertificate.at(dep).GetCertificate();
         if (depCert.GetScId() != cert.GetScId())
             continue;
-        if (depCert.quality >= cert.quality)
+        if (depCert.quality >= cert.quality && depCert.epochNumber == cert.epochNumber)
         {
             if (fDebug) assert("cert spends outputs of an higher quality cert of same scId" == 0);
             return false;

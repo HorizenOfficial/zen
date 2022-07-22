@@ -5358,8 +5358,9 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
     }
 
     // sanity check of the endEpochCumScTxCommTreeRoot: it must correspond to the end-epoch block hash 
+    int referencedHeight = -1;
     CValidationState::Code ret_code =
-        scView.CheckEndEpochCumScTxCommTreeRoot(sidechain, epochNumber, cert.endEpochCumScTxCommTreeRoot);
+        scView.CheckEndEpochCumScTxCommTreeRoot(sidechain, epochNumber, cert.endEpochCumScTxCommTreeRoot, referencedHeight);
 
     if (ret_code != CValidationState::Code::OK)
     {
