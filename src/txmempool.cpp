@@ -78,7 +78,7 @@ double CCertificateMemPoolEntry::GetPriority(unsigned int currentHeight) const
     return dResult;
 }
 
-const std::map<int64_t, uint256>::const_reverse_iterator CSidechainMemPoolEntry::GetTopQualityCert() const
+const std::map<std::pair<int64_t, int>, uint256>::const_reverse_iterator CSidechainMemPoolEntry::GetTopQualityCert() const
 {
     return mBackwardCertificates.crbegin();
 }
@@ -98,11 +98,11 @@ void CSidechainMemPoolEntry::EraseCert(const uint256& hash)
     }
 }
 
-const std::map<int64_t, uint256>::const_iterator CSidechainMemPoolEntry::GetCert(const uint256& hash) const
+const std::map<std::pair<int64_t, int>, uint256>::const_iterator CSidechainMemPoolEntry::GetCert(const uint256& hash) const
 {
     // Find certificate with given hash in mapSidechains
     return std::find_if(mBackwardCertificates.begin( ), mBackwardCertificates.end(),
-        [&hash](const std::map<int64_t, uint256>::value_type& item) { return hash == item.second; });
+        [&hash](const std::map<std::pair<int64_t, int>, uint256>::value_type& item) { return hash == item.second; });
 }
 
 bool CSidechainMemPoolEntry::HasCert(const uint256& hash) const
@@ -222,12 +222,21 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
         cert.GetHash().ToString(), cert.quality);
 
     if (mapSidechains.count(cert.GetScId())!= 0)
-        assert(mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(cert.quality) == 0);
-    mapSidechains[cert.GetScId()].mBackwardCertificates[cert.quality] = hash;
-           
+    {
+        assert(mapSidechains.at(cert.GetScId()).mBackwardCertificates.count(std::make_pair(cert.quality, cert.epochNumber)) == 0);
+    }
+    mapSidechains[cert.GetScId()].mBackwardCertificates[std::make_pair(cert.quality, cert.epochNumber)] = hash;
+
     nCertificatesUpdated++;
     totalCertificateSize += entry.GetCertificateSize();
     cachedInnerUsage += entry.DynamicMemoryUsage();
+    int& prevMaxHeight = mapSidechains[cert.GetScId()].maxReferencedHeight;
+    auto const& height_it = mapCumtreeHeight.find(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+    if (height_it == mapCumtreeHeight.end())
+        return false;
+    int height = height_it->second;
+    assert(height >= prevMaxHeight);
+    prevMaxHeight = height;
     // TODO cert: for the time being skip the part on policy estimator, certificates currently have maximum priority
     // minerPolicyEstimator->processTransaction(entry, fCurrentEstimate);
     LogPrint("mempool", "%s():%d - cert [%s] added in mempool\n", __func__, __LINE__, hash.ToString() );
@@ -284,7 +293,7 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
         if ( (mapSidechains.at(cert->GetScId()).mBackwardCertificates.size() > 1) && isTopQualityCert)
         {
             // Entries are ordered by quality, therefore the former top-quality is the second starting from the bottom
-            std::map<int64_t, uint256>::const_reverse_iterator mempoolCertEntryIt =
+            std::map<std::pair<int64_t, int>, uint256>::const_reverse_iterator mempoolCertEntryIt =
                 mapSidechains.at(cert->GetScId()).mBackwardCertificates.crbegin();
 
             const uint256& certSuperseededHash = (++mempoolCertEntryIt)->second;
@@ -845,7 +854,11 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
             continue;
         }
 
-        if (!pCoinsView->CheckCertTiming(cert.GetScId(), cert.epochNumber))
+        CSidechain sc;
+        auto const& height_it = mapCumtreeHeight.find(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+        if (height_it == mapCumtreeHeight.end() ||
+            !pCoinsView->GetSidechain(cert.GetScId(), sc) ||
+            !sc.CheckCertTiming(cert.epochNumber, height_it->second))
         {
             certsToRemove.insert(cert.GetHash());
             continue;
@@ -1556,6 +1569,33 @@ bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
     return true;
 }
 
+bool CTxMemPool::certificateExists(const uint256& scId, int epochNumber) const
+{
+    if (epochNumber < 0)
+        return false;
+
+    for (const auto& cert_it: mapCertificate) {
+        const CScCertificate& cert = cert_it.second.GetCertificate();
+        if (cert.GetScId() == scId && cert.epochNumber == epochNumber)
+            return true;
+    }
+    return false;
+}
+
+bool CTxMemPool::checkReferencedHeight(const CScCertificate& incomingCert) const
+{
+    LOCK(cs);
+
+    const uint256& hash = incomingCert.GetHash();
+    const uint256& scId = incomingCert.GetScId();
+    auto const& sc_it = mapSidechains.find(scId);
+    if (sc_it == mapSidechains.end())
+        return true;
+
+    int height = mapCumtreeHeight.at(incomingCert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+    return height > sc_it->second.maxReferencedHeight;
+}
+
 bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) const
 {
     LOCK(cs);
@@ -1595,7 +1635,10 @@ bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) 
         const CScCertificate& certDep = mapCertificate.at(dep).GetCertificate();
         if (certDep.GetScId() != incomingCert.GetScId())
             continue; //no certs conflicts with certs of other sidechains
-        if (certDep.quality >= incomingCert.quality)
+
+        // Non ceasing SCs can have certificates with different epochs in the mempool at the same time.
+        // We know already that such certificates have quality == 0.
+        if (certDep.quality >= incomingCert.quality && certDep.epochNumber == incomingCert.epochNumber)
         {
             return error("%s():%d - cert %s depends on better-quality ancestorCert %s\n", __func__, __LINE__,
                     incomingCert.GetHash().ToString(), certDep.GetHash().ToString());
@@ -1901,7 +1944,7 @@ size_t CTxMemPool::DynamicMemoryUsage() const {
           cachedInnerUsage);
 }
 
-std::pair<uint256, CAmount> CTxMemPool::FindCertWithQuality(const uint256& scId, int64_t certQuality)
+std::pair<uint256, CAmount> CTxMemPool::FindCertWithQualityInEpoch(const uint256& scId, int64_t certQuality, int epochNumber)
 {
     LOCK(cs);
     std::pair<uint256, CAmount> res = std::make_pair(uint256(),CAmount(-1));
@@ -1912,7 +1955,7 @@ std::pair<uint256, CAmount> CTxMemPool::FindCertWithQuality(const uint256& scId,
     for(const auto& mempoolCertEntry : mapSidechains.at(scId).mBackwardCertificates)
     {
         const CScCertificate& mempoolCert = mapCertificate.at(mempoolCertEntry.second).GetCertificate();
-        if (mempoolCert.quality == certQuality) {
+        if (mempoolCert.quality == certQuality && mempoolCert.epochNumber == epochNumber) {
             res.first  = mempoolCert.GetHash();
             res.second = mapCertificate.at(mempoolCertEntry.second).GetFee();
             break;
