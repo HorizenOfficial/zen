@@ -135,7 +135,7 @@ bool CSidechain::CheckQuality(const CScCertificate& cert) const
     return true;
 }
 
-bool CSidechain::CheckCertTiming(int certEpoch) const {
+bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight) const {
     if (GetState() != State::ALIVE)
     {
         return error("%s():%d - ERROR: certificate cannot be accepted, sidechain already ceased\n",
@@ -147,22 +147,25 @@ bool CSidechain::CheckCertTiming(int certEpoch) const {
     if ((isNonCeasing() || certEpoch != lastTopQualityCertReferencedEpoch) &&
         certEpoch != lastTopQualityCertReferencedEpoch + 1)
     {
-        return error("%s():%d - ERROR: certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d (if ceasing), or %d)\n",
+        return error("%s():%d - ERROR: ceasing sidechain certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d, or %d)\n",
             __func__, __LINE__, certEpoch, lastTopQualityCertReferencedEpoch, lastTopQualityCertReferencedEpoch+1);
     }
 
-    if (isNonCeasing())
-        return true;
-
-    int certWindowStartHeight = GetCertSubmissionWindowStart(certEpoch);
-    int certWindowEndHeight   = GetCertSubmissionWindowEnd(certEpoch);
-
     int inclusionHeight = pcoinsTip->GetHeight() + 1;
+
+    int certWindowStartHeight = isNonCeasing() ? lastInclusionHeight : GetCertSubmissionWindowStart(certEpoch);
+    int certWindowEndHeight   = isNonCeasing() ? INT_MAX : GetCertSubmissionWindowEnd(certEpoch);
 
     if (inclusionHeight < certWindowStartHeight || inclusionHeight > certWindowEndHeight)
     {
         return error("%s():%d - ERROR: certificate cannot be accepted, cert received outside safeguard\n",
             __func__, __LINE__);
+    }
+
+    // Check ordering of references
+    if (isNonCeasing()) {
+        if (referencedHeight < lastReferencedHeight)
+            return false;
     }
 
     return true;

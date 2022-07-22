@@ -702,10 +702,9 @@ public:
     CValidationState::Code IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode = nullptr) const;
 
     CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(
-        const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot) const;
+        const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot, int &referencedHeight) const;
 
-    bool CheckCertTiming(const uint256& scId, int certEpoch) const;
-    bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo);
+    bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo, int nHeight = -1);
     bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
     bool CheckQuality(const CScCertificate& cert)  const override;
     void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);
