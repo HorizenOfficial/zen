@@ -145,6 +145,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
     int conf = tx.GetDepthInMainChain();
     int64_t timestamp = tx.GetTxTime();
     bool hasBlockTime = false;
+    int includingBlockHeight = -1;
 
     if (!tx.hashBlock.IsNull()) {
         BlockMap::iterator mi = mapBlockIndex.find(tx.hashBlock);
@@ -153,6 +154,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
             if (chainActive.Contains(pindex)) {
                 timestamp = pindex->GetBlockTime();
                 hasBlockTime = true;
+                includingBlockHeight = pindex->nHeight;
             } else {
                 timestamp = tx.GetTxTime();
             }
@@ -167,7 +169,7 @@ void TxExpandedToJSON(const CWalletTransactionBase& tx,  UniValue& entry)
         if (conf >= 0) {
             CSidechain sidechain;
             assert(pcoinsTip->GetSidechain(scid, sidechain));
-            bwtMaturityHeight = sidechain.GetCertMaturityHeight(dynamic_cast<const CScCertificate*>(tx.getTxBase())->epochNumber);
+            bwtMaturityHeight = sidechain.GetCertMaturityHeight(dynamic_cast<const CScCertificate*>(tx.getTxBase())->epochNumber, includingBlockHeight);
         }
     }
 
