@@ -203,7 +203,7 @@ public:
     int GetCertSubmissionWindowStart(int certEpoch) const;
     int GetCertSubmissionWindowEnd(int certEpoch) const;
     int GetCertSubmissionWindowLength() const;
-    int GetCertMaturityHeight(int certEpoch) const;
+    int GetCertMaturityHeight(int certEpoch, int includingBlockHeight) const;
     int GetScheduledCeasingHeight() const;
     bool GetCeasingCumTreeHash(CFieldElement& ceasedBlockCum) const;
 

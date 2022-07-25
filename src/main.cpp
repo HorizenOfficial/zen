@@ -2370,7 +2370,7 @@ void UpdateCoins(const CScCertificate& cert, CCoinsViewCache &inputs, CTxUndo &t
     // add outputs
     CSidechain sidechain;
     assert(inputs.GetSidechain(cert.GetScId(), sidechain));
-    int bwtMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber);
+    int bwtMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber, nHeight);
     inputs.ModifyCoins(cert.GetHash())->From(cert, nHeight, bwtMaturityHeight, isBlockTopQualityCert);
     return;
 }
@@ -2856,7 +2856,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
             CSidechain sidechain;
             assert(view.GetSidechain(cert.GetScId(), sidechain));
-            int bwtMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber);
+            int bwtMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber, pindex->nHeight);
             CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight, isBlockTopQualityCert);
 
             // The CCoins serialization does not serialize negative numbers.
@@ -2898,7 +2898,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             if (fMaturityHeightIndex && explorerIndexesWrite == flagLevelDBIndexesWrite::ON) {
                 CSidechain sidechain;
                 assert(view.GetSidechain(cert.GetScId(), sidechain));
-                certMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber);
+                certMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber, pindex->nHeight);
                 CMaturityHeightKey maturityHeightKey = CMaturityHeightKey(certMaturityHeight, cert.GetHash());
                 maturityHeightValues.push_back(make_pair(maturityHeightKey, CMaturityHeightValue()));
             }
@@ -3684,7 +3684,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         UpdateCoins(cert, view, blockundo.vtxundo.back(), pindex->nHeight, isBlockTopQualityCert);
         
-        int certMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber);
+        int certMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber, pindex->nHeight);
 
         if (!isBlockTopQualityCert) {
             certMaturityHeight *= -1;   // A negative maturity height indicates that the certificate is superseded
@@ -4325,7 +4325,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     for(const CScCertificate &cert: pblock->vcert) {
         CSidechain sidechain;
         assert(pcoinsTip->GetSidechain(cert.GetScId(), sidechain));
-        int bwtMaturityDepth = sidechain.GetCertMaturityHeight(cert.epochNumber) - chainActive.Height();
+        int bwtMaturityDepth = sidechain.GetCertMaturityHeight(cert.epochNumber, pindexNew->nHeight) - chainActive.Height();
         LogPrint("cert", "%s():%d - sync with wallet confirmed cert[%s], bwtMaturityDepth[%d]\n",
             __func__, __LINE__, cert.GetHash().ToString(), bwtMaturityDepth);
         SyncWithWallets(cert, pblock, bwtMaturityDepth);
