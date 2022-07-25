@@ -72,7 +72,7 @@ def generate_random_field_element(bits_len):
 
     return field_element_hex
 
-class SidechainCreationInput(object):
+class SidechainCreationInput:
 
     def __init__(self, blockchainHelper, name):
         self.name = name
@@ -85,6 +85,54 @@ class SidechainCreationInput(object):
         self.constant = get_field_element_with_padding(generate_random_field_element(MODULUS_BITS), 1)
         self.customFieldsConfig = [MODULUS_BITS, MODULUS_BITS]
         self.bitvectorConfig = [[254*4, 151]]
+
+    def from_rpc_args(blockchainHelper, name, args):
+
+        # Check that optional_parameters contains only valid keys
+        for key in args:
+            if key not in [
+                "version",
+                "withdrawalEpochLength",
+                "toAddress",
+                "amount",
+                "wCertVk",
+                "wCeasedVk",
+                "constant",
+                "vFieldElementCertificateFieldConfig",
+                "vBitVectorCertificateFieldConfig"
+            ]:
+                raise JSONRPCException("Invalid key in args: " + key)
+
+        creation_input = SidechainCreationInput(blockchainHelper, name)
+
+        if "version" in args:
+            creation_input.version = args["version"]
+
+        if "withdrawalEpochLength" in args:
+            creation_input.withdrawalEpochLength = args["withdrawalEpochLength"]
+
+        if "toAddress" in args:
+            creation_input.toAddress = args["toAddress"]
+
+        if "amount" in args:
+            creation_input.amount = Decimal(args["amount"])
+
+        if "wCertVk" in args:
+            creation_input.certificateVerificationKey = args["wCertVk"]
+
+        if "wCeasedVk" in args:
+            creation_input.cswVerificationKey = args["wCeasedVk"]
+
+        if "constant" in args:
+            creation_input.constant = args["constant"]
+
+        if "vFieldElementCertificateFieldConfig" in args:
+            creation_input.customFieldsConfig = args["vFieldElementCertificateFieldConfig"]
+
+        if "vBitVectorCertificateFieldConfig" in args:
+            creation_input.bitvectorConfig = args["vBitVectorCertificateFieldConfig"]
+
+        return creation_input
 
     def to_rpc_args(self):
         return {
@@ -99,7 +147,7 @@ class SidechainCreationInput(object):
             "vBitVectorCertificateFieldConfig": self.bitvectorConfig
         }
 
-class BlockchainHelper(object):
+class BlockchainHelper:
 
     def __init__(self, bitcoin_test_framework):
         self.sidechain_map = {}
@@ -114,12 +162,15 @@ class BlockchainHelper(object):
     # but an identifier used to:
     # 1) search for the sidechain in the sidechain map
     # 2) generate the certificate and CSW verification keys
-    def create_sidechain(self, sc_name, sidechain_version, should_fail = False):
+    def create_sidechain(self, sc_name, sidechain_version, optional_parameters = {}, should_fail = False):
         """
-        Creates a sidechain with default parameters, only the name (used to
-        store it locally in a map) and the version are required.
+        Creates a sidechain with the optional parameters
+        (or the default ones if not provided),
+        only the name (used to store it locally in a map)
+        and the version are mandatory.
         """
-        sc_input = SidechainCreationInput(self, sc_name)
+
+        sc_input = SidechainCreationInput.from_rpc_args(self, sc_name, optional_parameters)
         sc_input.version = sidechain_version
 
         return self.create_sidechain_from_args(sc_input, should_fail)
@@ -155,6 +206,7 @@ class BlockchainHelper(object):
         self.sidechain_map[sc_input.name] = {
             "creation_args": sc_input,
             "creation_tx_id": creation_response["txid"],
+            "last_certificate_epoch": -1,
             "sc_id": creation_response["scid"]
         }
 
@@ -176,9 +228,21 @@ class BlockchainHelper(object):
 
         sc_creation_height = self.nodes[0].getscinfo(scid)['items'][0]['createdAtBlockHeight']
         current_height = self.nodes[0].getblockcount()
-        epoch_number = (current_height - sc_creation_height + 1) // withdrawalEpochLength - 1
+
+        # If this is a ceasing sidechain, compute the epoch, otherwise it's the next after the last one
+        is_non_ceasing_sidechain = sc_info["creation_args"].version == 2 and sc_info["creation_args"].withdrawalEpochLength == 0
+
+        if not is_non_ceasing_sidechain:
+            epoch_number = (current_height - sc_creation_height + 1) // withdrawalEpochLength - 1
+        else:
+            epoch_number = sc_info["last_certificate_epoch"] + 1
+
         end_epoch_block_hash = self.nodes[0].getblockhash(sc_creation_height - 1 + ((epoch_number + 1) * withdrawalEpochLength))
-        epoch_cum_tree_hash = self.nodes[0].getblock(end_epoch_block_hash)['scCumTreeHash']
+
+        if not is_non_ceasing_sidechain:
+            epoch_cum_tree_hash = self.nodes[0].getblock(end_epoch_block_hash)['scCumTreeHash']
+        else:
+            epoch_cum_tree_hash = self.nodes[0].getblock(str(self.nodes[0].getblockcount()))['scCumTreeHash']
         scid_swapped = str(swap_bytes(scid))
 
         custom_fields = []
@@ -228,5 +292,7 @@ class BlockchainHelper(object):
             "",
             custom_fields,
             [RANDOM_BITVECTOR])
+
+        sc_info["last_certificate_epoch"] = epoch_number
 
         return certificate_id
