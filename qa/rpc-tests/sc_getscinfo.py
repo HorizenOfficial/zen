@@ -303,9 +303,9 @@ class sc_getscinfo(BitcoinTestFramework):
         wlen_calc = max(2, int(elen//5))
         assert_equal(wlen, wlen_calc)
 
-        # Reach the sidechain version fork point
+        # Reach the sidechain version fork point to test all sidechain versions
         test_helper = BlockchainHelper(self)
-        self.nodes[0].generate(ForkHeights['SC_VERSION'] - ForkHeights['MINIMAL_SC'])
+        self.nodes[0].generate(ForkHeights['NON_CEASING_SC'] - self.nodes[0].getblockcount())
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
         test_helper.create_sidechain("v0", 0)
@@ -313,30 +313,87 @@ class sc_getscinfo(BitcoinTestFramework):
         mark_logs("Node 0 creates a v1 sidechain", self.nodes, DEBUG_MODE)
         test_helper.create_sidechain("v1", 1)
 
+        mark_logs("Node 0 creates a v2 sidechain (ceasing)", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("v2-ceasing", 2)
+
+        mark_logs("Node 0 creates a v2 sidechain (non-ceasing)", self.nodes, DEBUG_MODE)
+        test_helper.create_sidechain("v2-non-ceasing", 2, { "withdrawalEpochLength": 0, "wCeasedVk": "" })
+
         self.sync_all()
+
+        default_epoch_length: int = 10
+        default_submission_window_length: int = default_epoch_length // 5
 
         mark_logs("Check info for v0 and v1 sidechains (unconfirmed)", self.nodes, DEBUG_MODE)
         v0_sc_id = test_helper.get_sidechain_id("v0")
         v1_sc_id = test_helper.get_sidechain_id("v1")
+        v2_ceasing_sc_id = test_helper.get_sidechain_id("v2-ceasing")
+        v2_non_ceasing_sc_id = test_helper.get_sidechain_id("v2-non-ceasing")
+
         assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['unconfVersion'], 0)
         assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['unconfVersion'], 1)
 
-        mark_logs("Node 0 generates a block to confirm the creation of sidechains v0 and v1", self.nodes, DEBUG_MODE)
+        for sc_id in [v2_ceasing_sc_id, v2_non_ceasing_sc_id]:
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['unconfVersion'], 2)
+
+        for sc_id in [v0_sc_id, v1_sc_id, v2_ceasing_sc_id]:
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['unconfWithdrawalEpochLength'], default_epoch_length)
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['unconfCertSubmissionWindowLength'], default_epoch_length // 5)
+
+        assert_equal(self.nodes[0].getscinfo(v2_non_ceasing_sc_id)['items'][0]['unconfWithdrawalEpochLength'], 0)
+        assert_equal(self.nodes[0].getscinfo(v2_non_ceasing_sc_id)['items'][0]['unconfCertSubmissionWindowLength'], 0)
+
+        mark_logs("Node 0 generates a block to confirm the creation of sidechains", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
 
-        mark_logs("Check info for v0 and v1 sidechains (confirmed)", self.nodes, DEBUG_MODE)
+        current_height: int = self.nodes[0].getblockcount()
+
+        mark_logs("Check info for confirmed sidechains", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['version'], 0)
         assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['version'], 1)
+
+        for sc_id in [v2_ceasing_sc_id, v2_non_ceasing_sc_id]:
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['version'], 2)
+
+        for sc_id in [v0_sc_id, v1_sc_id, v2_ceasing_sc_id, v2_non_ceasing_sc_id]:
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['ceasingHeight'],
+                         current_height + default_epoch_length + default_submission_window_length)
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['createdAtBlockHeight'], current_height)
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['endEpochHeight'], current_height + default_epoch_length)
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['epoch'], 0)
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['state'], "ALIVE")
+
+        for sc_id in [v0_sc_id, v1_sc_id, v2_ceasing_sc_id]:
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['withdrawalEpochLength'], 10)
+
+        assert_equal(self.nodes[0].getscinfo(v2_non_ceasing_sc_id)['items'][0]['withdrawalEpochLength'], 0)
 
         mark_logs("Checking persistance, stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
         wait_bitcoinds()
         self.setup_network(False)
 
-        mark_logs("Check info persistance for v0 and v1 sidechains", self.nodes, DEBUG_MODE)
+        mark_logs("Check info persistance for all sidechains", self.nodes, DEBUG_MODE)
         assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['version'], 0)
         assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['version'], 1)
+
+        for sc_id in [v2_ceasing_sc_id, v2_non_ceasing_sc_id]:
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['version'], 2)
+
+        for sc_id in [v0_sc_id, v1_sc_id, v2_ceasing_sc_id, v2_non_ceasing_sc_id]:
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['ceasingHeight'],
+                         current_height + default_epoch_length + default_submission_window_length)
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['createdAtBlockHeight'], current_height)
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['endEpochHeight'], current_height + default_epoch_length)
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['epoch'], 0)
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['state'], "ALIVE")
+
+        for sc_id in [v0_sc_id, v1_sc_id, v2_ceasing_sc_id]:
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['withdrawalEpochLength'], 10)
+
+        assert_equal(self.nodes[0].getscinfo(v2_non_ceasing_sc_id)['items'][0]['withdrawalEpochLength'], 0)
+
 
 if __name__ == '__main__':
     sc_getscinfo().main()

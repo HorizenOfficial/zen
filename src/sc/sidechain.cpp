@@ -174,7 +174,8 @@ bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight) const {
 int CSidechain::GetCurrentEpoch() const
 {
     if (isNonCeasing())
-        return lastTopQualityCertReferencedEpoch;
+        // Before the first certificate arrives, lastTopQualityCertReferencedEpoch is set to -1
+        return std::max(lastTopQualityCertReferencedEpoch, 0);
 
     return (GetState() == State::ALIVE) ?
         EpochFor(pcoinsTip->GetHeight()) :
@@ -201,7 +202,7 @@ int CSidechain::GetStartHeightForEpoch(int targetEpoch) const
 
 int CSidechain::GetEndHeightForEpoch(int targetEpoch) const
 {
-    if (!isCreationConfirmed()) //default value
+    if (!isCreationConfirmed() || isNonCeasing()) //default value
         return -1;
 
     return GetStartHeightForEpoch(targetEpoch) + fixedParams.withdrawalEpochLength - 1;
@@ -225,16 +226,19 @@ int CSidechain::GetCertSubmissionWindowEnd(int certEpoch) const
 
 int CSidechain::GetCertSubmissionWindowLength() const
 {
-    return std::max(2,fixedParams.withdrawalEpochLength/5);
-}
+    if (isNonCeasing())
+        return 0;
 
-int CSidechain::GetCertMaturityHeight(int certEpoch) const
+    return std::max(2,fixedParams.withdrawalEpochLength/5);
+} 
+
+int CSidechain::GetCertMaturityHeight(int certEpoch, int includingBlockHeight) const
 {
     if (!isCreationConfirmed()) //default value
         return -1;
 
     //return GetCertSubmissionWindowEnd(certEpoch+1);
-    return isNonCeasing() ? 0 : GetCertSubmissionWindowEnd(certEpoch+1);
+    return isNonCeasing() ? includingBlockHeight : GetCertSubmissionWindowEnd(certEpoch + 1);
 }
 
 int CSidechain::GetScheduledCeasingHeight() const

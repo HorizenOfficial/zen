@@ -1165,7 +1165,7 @@ int CCoinsViewCache::GetHeight() const
     LOCK(cs_main);
     BlockMap::const_iterator itBlockIdx = mapBlockIndex.find(this->GetBestBlock());
     CBlockIndex* pindexPrev = (itBlockIdx == mapBlockIndex.end()) ? nullptr : itBlockIdx->second;
-    return pindexPrev->nHeight;
+    return pindexPrev != nullptr ? pindexPrev->nHeight : 0;
 }
 
 CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode) const

@@ -74,17 +74,26 @@ class sc_getscgenesisinfo(BitcoinTestFramework):
 
         ''' 
         This test is intended to test that the getscgenesisinfo RPC command works properly.
-        For doing this, we create a couple of sidechains, then after few blocks we publish
-        two certificates for them and at the same time create another sidechain.
+        For doing this, we create the following sidechains:
+
+         - sc1 with version 0
+         - sc2 with version 1
+         - sc3 with version 2 (ceasing)
+         - sc4 with version 2 (non-ceasing)
+
+        Then after few blocks we publish certificates for them and at the same time we create:
+
+         - sc5 with version 1
+         - sc6 with version 2 (non-ceasing)
 
         In this way, the getscgenesisinfo RPC command should return the list of versions for
-        the sidechains (sc1 and sc2) that published the certificates in the same block used
-        for the creation of sidechain 3.
+        the sidechains (sc1, sc2, sc3, and sc4) that published the certificates in the same
+        block used for the creation of sidechain 5 and 6.
         '''
 
         # Reach the sidechain version fork point
         test_helper = BlockchainHelper(self)
-        self.nodes[0].generate(ForkHeights['SC_VERSION'])
+        self.nodes[0].generate(ForkHeights['NON_CEASING_SC'])
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
         v0_sc1_name = "v0_sc1"
@@ -94,43 +103,64 @@ class sc_getscgenesisinfo(BitcoinTestFramework):
         v1_sc2_name = "v1_sc2"
         test_helper.create_sidechain(v1_sc2_name, 1)
 
+        mark_logs("Node 0 creates a v2 ceasing sidechain", self.nodes, DEBUG_MODE)
+        v2_sc3_name = "v2_sc3_ceasing"
+        test_helper.create_sidechain(v2_sc3_name, 2)
+
+        mark_logs("Node 0 creates a v2 non-ceasing sidechain", self.nodes, DEBUG_MODE)
+        v2_sc4_name = "v2_sc4_non_ceasing"
+        test_helper.create_sidechain(v2_sc4_name, 2, { "withdrawalEpochLength": 0, "wCeasedVk": "" })
+
         self.sync_all()
 
-        mark_logs("Node 0 generates a block to confirm the creation of sidechains v0 and v1", self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 generates a block to confirm the creation of sidechains", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
 
         epoch_length = test_helper.sidechain_map[v0_sc1_name]["creation_args"].withdrawalEpochLength
 
-        mark_logs("Node 0 generates {} blocks to reach end of epoch".format(epoch_length - 1), self.nodes, DEBUG_MODE)
+        mark_logs(f"Node 0 generates {epoch_length - 1} blocks to reach end of epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(epoch_length - 1)
         self.sync_all()
 
-        mark_logs("Node 0 creates a third sidechain", self.nodes, DEBUG_MODE)
-        v1_sc3_name = "v1_sc3"
-        test_helper.create_sidechain(v1_sc3_name, 1)
+        mark_logs("Node 0 creates a fifth sidechain (v1)", self.nodes, DEBUG_MODE)
+        v1_sc5_name = "v1_sc5"
+        test_helper.create_sidechain(v1_sc5_name, 1)
         self.sync_all()
 
-        mark_logs("Node 0 creates a certificate for sidechain 1 and 2", self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 creates a sixth sidechain (v2 non-ceasing)", self.nodes, DEBUG_MODE)
+        v2_sc6_name = "v2_sc6_non_ceasing"
+        test_helper.create_sidechain(v2_sc6_name, 2, { "withdrawalEpochLength": 0, "wCeasedVk": "" })
+        self.sync_all()
+
+        mark_logs("Node 0 creates a certificate for sidechain 1, 2, and 3", self.nodes, DEBUG_MODE)
         test_helper.send_certificate(v0_sc1_name, 10)
         test_helper.send_certificate(v1_sc2_name, 10)
+        test_helper.send_certificate(v2_sc3_name, 10)
+        test_helper.send_certificate(v2_sc4_name, 0) # Non-ceasing sidechain
         self.sync_all()
 
         mark_logs("Node 0 generates a block including the creation of sidechain 3 and the cerficates", self.nodes, DEBUG_MODE)
         last_block_hash = self.nodes[0].generate(1)[0]
         self.sync_all()
 
-        mark_logs("Check correctness of the genesis sidechain info", self.nodes, DEBUG_MODE)
-        versions = self.get_genesis_sidechain_versions(test_helper.sidechain_map[v1_sc3_name]["sc_id"], last_block_hash)
+        mark_logs("Check correctness of the genesis sidechain info for sc5", self.nodes, DEBUG_MODE)
+        versions = self.get_genesis_sidechain_versions(test_helper.sidechain_map[v1_sc5_name]["sc_id"], last_block_hash)
 
         # Check that the genesis sidechain info contains exactly two sidechain version entries
-        assert_equal(len(versions), 2)
+        assert_equal(len(versions), 4)
 
         # Check that the genesis sidechain info contains the correct sidechain version for sidechain 1
         assert_equal(versions[test_helper.sidechain_map[v0_sc1_name]["sc_id"]], 0)
 
         # Check that the genesis sidechain info contains the correct sidechain version for sidechain 2
         assert_equal(versions[test_helper.sidechain_map[v1_sc2_name]["sc_id"]], 1)
+
+        # Check that the genesis sidechain info contains the correct sidechain version for sidechain 3
+        assert_equal(versions[test_helper.sidechain_map[v2_sc3_name]["sc_id"]], 2)
+
+        # Check that the genesis sidechain info contains the correct sidechain version for sidechain 4 (non-ceasing)
+        assert_equal(versions[test_helper.sidechain_map[v2_sc4_name]["sc_id"]], 2)
 
         # The test is over, the following lines are only intended to be used as reference for SDK tests
         mark_logs("Print raw block and sidechain commitment root for cross checks with SDK", self.nodes, DEBUG_MODE)
@@ -143,9 +173,13 @@ class sc_getscgenesisinfo(BitcoinTestFramework):
         print("")
         print("Block sc txs commitment tree root: {}".format(sc_txs_commitment_tree_root))
 
-        print("ID sidechain 1: {}".format(test_helper.sidechain_map[v0_sc1_name]["sc_id"]))
-        print("ID sidechain 2: {}".format(test_helper.sidechain_map[v1_sc2_name]["sc_id"]))
-        print("ID sidechain 3: {}".format(test_helper.sidechain_map[v1_sc3_name]["sc_id"]))
+        print(f"ID sidechain 1: { test_helper.sidechain_map[v0_sc1_name]['sc_id'] }")
+        print(f"ID sidechain 2: { test_helper.sidechain_map[v1_sc2_name]['sc_id'] }")
+        print(f"ID sidechain 3: { test_helper.sidechain_map[v2_sc3_name]['sc_id'] }")
+        print(f"ID sidechain 4: { test_helper.sidechain_map[v2_sc4_name]['sc_id'] }")
+        print(f"ID sidechain 5: { test_helper.sidechain_map[v1_sc5_name]['sc_id'] }")
+        print(f"ID sidechain 6: { test_helper.sidechain_map[v2_sc6_name]['sc_id'] }")
+
 
 if __name__ == '__main__':
     sc_getscgenesisinfo().main()
