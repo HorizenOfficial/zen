@@ -1262,13 +1262,6 @@ CValidationState::Code CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
 {
     LOCK(cs_main);
     assert(!endEpochCumScTxCommTreeRoot.IsNull());
-    const auto map_it = mapCumtreeHeight.find(endEpochCumScTxCommTreeRoot.GetLegacyHash());
-    if (map_it == mapCumtreeHeight.end()) {
-        LogPrintf("%s():%d - ERROR: cannot find commTreeRoot for certificate epoch %d (height %d)\n",
-            __func__, __LINE__, epochNumber, chainActive.Height());
-        return CValidationState::Code::INVALID;
-    }
-    referencedHeight = map_it->second;
 
     // This breaks gtests where CumScTxCommTreeRoot values are fake!
     //if (!sidechain.isNonCeasing() && referencedHeight != sidechain.GetEndHeightForEpoch(epochNumber)) {
@@ -1277,11 +1270,26 @@ CValidationState::Code CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
     //    return CValidationState::Code::INVALID;
     //}
 
-    if (sidechain.isNonCeasing() && referencedHeight <= sidechain.lastReferencedHeight)
+    if (sidechain.isNonCeasing())
     {
-        LogPrintf("%s():%d - ERROR: end height %d for certificate epoch %d is not greater than last referenced height (%d)\n",
-            __func__, __LINE__, referencedHeight, epochNumber, sidechain.lastReferencedHeight);
-        return CValidationState::Code::INVALID;
+        const auto map_it = mapCumtreeHeight.find(endEpochCumScTxCommTreeRoot.GetLegacyHash());
+        if (map_it == mapCumtreeHeight.end()) {
+            LogPrintf("%s():%d - ERROR: cannot find commTreeRoot for certificate epoch %d (height %d)\n",
+                __func__, __LINE__, epochNumber, chainActive.Height());
+            return CValidationState::Code::INVALID;
+        }
+        referencedHeight = map_it->second;
+
+        if (referencedHeight <= sidechain.lastReferencedHeight)
+        {
+            LogPrintf("%s():%d - ERROR: end height %d for certificate epoch %d is not greater than last referenced height (%d)\n",
+                __func__, __LINE__, referencedHeight, epochNumber, sidechain.lastReferencedHeight);
+            return CValidationState::Code::INVALID;
+        }
+    }
+    else
+    {
+        referencedHeight = sidechain.GetEndHeightForEpoch(epochNumber);
     }
 
     CBlockIndex* pblockindex = chainActive[referencedHeight];
