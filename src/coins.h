@@ -699,7 +699,7 @@ public:
     bool RevertTxOutputs(const CTransaction& tx, int nHeight);
 
     //CERTIFICATES RELATED PUBLIC MEMBERS
-    CValidationState::Code IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode = nullptr) const;
+    CValidationState::Code IsCertApplicableToState(const CScCertificate& cert, bool checkMempool, bool* banSenderNode = nullptr) const;
 
     CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(
         const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot, int &referencedHeight) const;
