@@ -1259,7 +1259,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             bool banSenderNode = false;
             int nDoS = 0;
 
-            CValidationState::Code ret_code = view.IsCertApplicableToState(cert, &banSenderNode);
+            CValidationState::Code ret_code = view.IsCertApplicableToState(cert, true, &banSenderNode);
             if (ret_code != CValidationState::Code::OK)
             {
                 if (banSenderNode)
@@ -3635,7 +3635,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
-        CValidationState::Code ret_code = view.IsCertApplicableToState(cert);
+        CValidationState::Code ret_code = view.IsCertApplicableToState(cert, false);
         if (ret_code != CValidationState::Code::OK)
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s], ret_code[0x%x]",
