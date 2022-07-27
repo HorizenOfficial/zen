@@ -10,8 +10,6 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, mark_logs
 from test_framework.blockchainhelper import BlockchainHelper
 
-import pprint
-
 DEBUG_MODE = 1
 NUMB_OF_NODES = 1
 
@@ -28,13 +26,12 @@ class sc_getcertmaturityinfo(BitcoinTestFramework):
         self.is_network_split = split
         self.sync_all()
 
-    '''
+    def check_certificate_maturity_info(self, certificate_hash: str, blocks_to_maturity: int, certificate_state: str, maturity_height: int):
+        '''
         Check that the certificate maturity info for the given certificate hash have the expected values
         (blocksToMaturity, certificateState, and maturityHeight).
-    '''
-    def check_certificate_maturity_info(self, certificate_hash: str, blocks_to_maturity: int, certificate_state: str, maturity_height: int):
+        '''
         maturity_info: dict = self.nodes[0].getcertmaturityinfo(certificate_hash)
-        pprint.pprint(maturity_info)
         assert_equal(maturity_info["blocksToMaturity"], blocks_to_maturity)
         assert_equal(maturity_info["certificateState"], certificate_state)
         assert_equal(maturity_info["maturityHeight"], maturity_height)
