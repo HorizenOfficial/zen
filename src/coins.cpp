@@ -1884,6 +1884,8 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
         if (currentSc.isNonCeasing())
         {
             scUndoData.deltaBalance = bwtTotalAmount;
+            scUndoData.prevInclusionHeight = currentSc.lastInclusionHeight;
+            scUndoData.prevReferencedHeight = currentSc.lastReferencedHeight;
             scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::NONCEASING_CERT_DATA;
         }
     } else
@@ -1899,12 +1901,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     currentSc.lastTopQualityCertView            = CScCertificateView(cert, currentSc.fixedParams);
 
     if (currentSc.isNonCeasing()) {
-        if (blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertHash.IsNull()) { // only for first epoch cert in mempool for this sc
-            scUndoData.prevInclusionHeight = currentSc.lastInclusionHeight;
-            scUndoData.prevReferencedHeight = currentSc.lastReferencedHeight;
-            scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::NONCEASING_CERT_DATA;
-        }
-        currentSc.lastInclusionHeight = blockHeight != -1 ? blockHeight : pcoinsTip->GetHeight()+1;
+        currentSc.lastInclusionHeight = blockHeight != -1 ? blockHeight : GetHeight()+1;
         currentSc.lastReferencedHeight = mapCumtreeHeight.at(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
     }
 
