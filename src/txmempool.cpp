@@ -230,13 +230,6 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CCertificateMemPoolEntr
     nCertificatesUpdated++;
     totalCertificateSize += entry.GetCertificateSize();
     cachedInnerUsage += entry.DynamicMemoryUsage();
-    int& prevMaxHeight = mapSidechains[cert.GetScId()].maxReferencedHeight;
-    auto const& height_it = mapCumtreeHeight.find(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
-    if (height_it == mapCumtreeHeight.end())
-        return false;
-    int height = height_it->second;
-    assert(height >= prevMaxHeight);
-    prevMaxHeight = height;
     // TODO cert: for the time being skip the part on policy estimator, certificates currently have maximum priority
     // minerPolicyEstimator->processTransaction(entry, fCurrentEstimate);
     LogPrint("mempool", "%s():%d - cert [%s] added in mempool\n", __func__, __LINE__, hash.ToString() );
@@ -1571,6 +1564,8 @@ bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
 
 bool CTxMemPool::certificateExists(const uint256& scId, int epochNumber) const
 {
+    LOCK(cs); // TODO: check this
+
     if (epochNumber < 0)
         return false;
 
@@ -1584,16 +1579,66 @@ bool CTxMemPool::certificateExists(const uint256& scId, int epochNumber) const
 
 bool CTxMemPool::checkReferencedHeight(const CScCertificate& incomingCert) const
 {
-    LOCK(cs);
+    // If quality !=0, then for sure isNonCeasing() sidechain is false, so we do not need
+    // to perform any check.
+    if (incomingCert.quality != 0)
+        return true;
+
+    auto const& iheight_it = mapCumtreeHeight.find(incomingCert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+    // if we do not have this info, this must be a pre-v2 sc, hence ceasing
+    if (iheight_it == mapCumtreeHeight.end())
+        return true;
+
+    int icertHeight = iheight_it->second;
+    bool inserted = false;
+
+    LOCK(cs); // TODO: check this
 
     const uint256& hash = incomingCert.GetHash();
     const uint256& scId = incomingCert.GetScId();
     auto const& sc_it = mapSidechains.find(scId);
+
     if (sc_it == mapSidechains.end())
         return true;
 
-    int height = mapCumtreeHeight.at(incomingCert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
-    return height > sc_it->second.maxReferencedHeight;
+    int64_t prevEpoch = -1;
+    int prevHeight = -1;
+
+    for (auto const& cert_it: sc_it->second.mBackwardCertificates)
+    {
+        // std::pair<int x, int y> is ordered as
+        // (x1,y1) > (x2,y2) if x1==x2 and y1 > y2
+
+        // retrieve referencedHeight
+        const CScCertificate& mapCert = mapCertificate.at(cert_it.second).GetCertificate();
+        if (mapCert.quality != 0)
+            return true; // isNonCeasing() == false
+
+        assert(mapCert.epochNumber > prevEpoch);
+
+        int mcertHeight = mapCumtreeHeight.at(mapCert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+
+        // this check is superfluous, as the order is checked at every insertion.
+        // Still, it's cheap and does not hurt.
+        if (prevHeight >= mcertHeight)
+            return false;
+
+        if (mapCert.epochNumber > incomingCert.epochNumber && !inserted)
+        {
+            // if we are here, we have to check the slot for incomingCert
+            if (icertHeight <= prevHeight || icertHeight >= mcertHeight)
+                return false;
+            inserted = true;
+        }
+
+        prevEpoch = mapCert.epochNumber;
+        prevHeight = mcertHeight;
+    }
+
+    if (!inserted && prevHeight >= icertHeight)
+        return false;
+
+    return true;
 }
 
 bool CTxMemPool::checkIncomingCertConflicts(const CScCertificate& incomingCert) const
