@@ -18,7 +18,7 @@ from random import randrange
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
-
+MAX_CEASING_HEIGHT = 2147483647 # This is the default ceasing height set for non-ceasing sidechain (it's INT_MAX)
 
 class sc_getscinfo(BitcoinTestFramework):
 
@@ -50,10 +50,10 @@ class sc_getscinfo(BitcoinTestFramework):
 
         creation_amount = Decimal("1.0")
 
-        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']//2), self.nodes, DEBUG_MODE)
+        mark_logs(f"Node 0 generates {ForkHeights['MINIMAL_SC']//2} block", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(ForkHeights['MINIMAL_SC']//2)
         self.sync_all()
-        mark_logs("Node 1 generates {} block".format(ForkHeights['MINIMAL_SC']//2), self.nodes, DEBUG_MODE)
+        mark_logs(f"Node 1 generates {ForkHeights['MINIMAL_SC']//2} block", self.nodes, DEBUG_MODE)
         self.nodes[1].generate(ForkHeights['MINIMAL_SC']//2)
         self.sync_all()
 
@@ -77,7 +77,7 @@ class sc_getscinfo(BitcoinTestFramework):
         scids_alive = []
 
         # SCs creation
-        mark_logs("Creating {} sidechains".format(NUM_OF_SIDECHAINS), self.nodes, DEBUG_MODE)
+        mark_logs(f"Creating {NUM_OF_SIDECHAINS} sidechains", self.nodes, DEBUG_MODE)
         for i in range(0, NUM_OF_SIDECHAINS):
             tag = "sc"+str(i+1)
             vk = mcTest.generate_params(tag)
@@ -96,7 +96,7 @@ class sc_getscinfo(BitcoinTestFramework):
             ret = self.nodes[int(idx)].sc_create(cmdInput)
             creating_tx = ret['txid']
             scid = self.nodes[idx].getrawtransaction(creating_tx, 1)['vsc_ccout'][0]['scid']
-            mark_logs("Node {} created SC {}".format(idx, scid), self.nodes, DEBUG_MODE)
+            mark_logs(f"Node {idx} created SC {scid}", self.nodes, DEBUG_MODE)
             if i == NUM_OF_SIDECHAINS-SUBSET_ALIVE:
                 scid_0 = scid
                 tag_0 = tag
@@ -109,7 +109,7 @@ class sc_getscinfo(BitcoinTestFramework):
         self.sync_all()
         
 
-        mark_logs("Node0 generates {} more blocks to achieve end of some withdrawal epochs".format(NUM_GEN), self.nodes, DEBUG_MODE)
+        mark_logs(f"Node0 generates {NUM_GEN} more blocks to achieve end of some withdrawal epochs", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(NUM_GEN)
         self.sync_all()
 
@@ -159,7 +159,7 @@ class sc_getscinfo(BitcoinTestFramework):
         assert_equal(sc_info['from'], 0)
         assert_equal(sc_info['to'], 2)
 
-        mark_logs("tot {}".format(sc_info['totalItems']), self.nodes, DEBUG_MODE)
+        mark_logs(f"tot {sc_info['totalItems']}", self.nodes, DEBUG_MODE)
 
         count = 0
         for item in sc_info['items']:
@@ -177,7 +177,7 @@ class sc_getscinfo(BitcoinTestFramework):
         sz_subset = 3
         from_par = 5
         to_par = from_par + sz_subset
-        mark_logs("Get only a subset of {} sidechains in verbose mode".format(sz_subset), self.nodes, DEBUG_MODE)
+        mark_logs(f"Get only a subset of {sz_subset} sidechains in verbose mode", self.nodes, DEBUG_MODE)
         sc_info = self.nodes[1].getscinfo("*", False, True, from_par, to_par)
         assert_equal(len(sc_info['items']), sz_subset)
         assert_equal(sc_info['totalItems'], NUM_OF_SIDECHAINS)
@@ -203,7 +203,7 @@ class sc_getscinfo(BitcoinTestFramework):
             count += 1
 
         #------------------------------------------------------------------------------------------
-        mark_logs("Get last {} alive sidechains with verbose output".format(SUBSET_ALIVE), self.nodes, DEBUG_MODE)
+        mark_logs(f"Get last {SUBSET_ALIVE} alive sidechains with verbose output", self.nodes, DEBUG_MODE)
         from_par = NUM_ALIVE - SUBSET_ALIVE
         sc_info_sub_alive = self.nodes[1].getscinfo("*", True, True, from_par, -1)
         assert_equal(sc_info_sub_alive['totalItems'], NUM_ALIVE)
@@ -286,10 +286,10 @@ class sc_getscinfo(BitcoinTestFramework):
             cert_1_epoch_0 = self.nodes[0].sc_send_certificate(scid_0, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
-            mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
+            mark_logs(f"Certificate is {cert_1_epoch_0}", self.nodes, DEBUG_MODE)
         except JSONRPCException as e:
             errorString = e.error['message']
-            mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
+            mark_logs(f"Send certificate failed with reason {errorString}", self.nodes, DEBUG_MODE)
             assert(False)
 
         self.sync_all()
@@ -357,17 +357,19 @@ class sc_getscinfo(BitcoinTestFramework):
             assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['version'], 2)
 
         for sc_id in [v0_sc_id, v1_sc_id, v2_ceasing_sc_id, v2_non_ceasing_sc_id]:
-            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['ceasingHeight'],
-                         current_height + default_epoch_length + default_submission_window_length)
             assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['createdAtBlockHeight'], current_height)
-            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['endEpochHeight'], current_height + default_epoch_length)
             assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['epoch'], 0)
             assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['state'], "ALIVE")
 
         for sc_id in [v0_sc_id, v1_sc_id, v2_ceasing_sc_id]:
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['ceasingHeight'],
+                         current_height + default_epoch_length + default_submission_window_length - 1)
             assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['withdrawalEpochLength'], 10)
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['endEpochHeight'], current_height + default_epoch_length - 1)
 
+        assert_equal(self.nodes[0].getscinfo(v2_non_ceasing_sc_id)['items'][0]['ceasingHeight'], MAX_CEASING_HEIGHT)
         assert_equal(self.nodes[0].getscinfo(v2_non_ceasing_sc_id)['items'][0]['withdrawalEpochLength'], 0)
+        assert_equal(self.nodes[0].getscinfo(v2_non_ceasing_sc_id)['items'][0]['endEpochHeight'], -1)
 
         mark_logs("Checking persistance, stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
@@ -382,17 +384,19 @@ class sc_getscinfo(BitcoinTestFramework):
             assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['version'], 2)
 
         for sc_id in [v0_sc_id, v1_sc_id, v2_ceasing_sc_id, v2_non_ceasing_sc_id]:
-            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['ceasingHeight'],
-                         current_height + default_epoch_length + default_submission_window_length)
             assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['createdAtBlockHeight'], current_height)
-            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['endEpochHeight'], current_height + default_epoch_length)
             assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['epoch'], 0)
             assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['state'], "ALIVE")
 
         for sc_id in [v0_sc_id, v1_sc_id, v2_ceasing_sc_id]:
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['ceasingHeight'],
+                         current_height + default_epoch_length + default_submission_window_length - 1)
             assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['withdrawalEpochLength'], 10)
+            assert_equal(self.nodes[0].getscinfo(sc_id)['items'][0]['endEpochHeight'], current_height + default_epoch_length - 1)
 
+        assert_equal(self.nodes[0].getscinfo(v2_non_ceasing_sc_id)['items'][0]['ceasingHeight'], MAX_CEASING_HEIGHT)
         assert_equal(self.nodes[0].getscinfo(v2_non_ceasing_sc_id)['items'][0]['withdrawalEpochLength'], 0)
+        assert_equal(self.nodes[0].getscinfo(v2_non_ceasing_sc_id)['items'][0]['endEpochHeight'], -1)
 
 
 if __name__ == '__main__':
