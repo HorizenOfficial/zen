@@ -123,7 +123,6 @@ struct CSidechainMemPoolEntry
     std::set<uint256> mcBtrsTxHashes;
     std::map<CFieldElement, uint256> cswNullifiers; // csw nullifier -> containing Tx hash
     CAmount cswTotalAmount;
-    int maxReferencedHeight = -1;
 
     // Note: in fwdTxHashes and mcBtrsTxHashes, a tx is registered only once,
     // even if sends multiple fwts/btrs founds to a sidechain.
@@ -134,8 +133,7 @@ struct CSidechainMemPoolEntry
                 mBackwardCertificates.empty() &&
                 mcBtrsTxHashes.empty()        &&
                 cswNullifiers.empty()         &&
-                cswTotalAmount == 0           &&
-                maxReferencedHeight == -1;
+                cswTotalAmount == 0;
     }
 
     const std::map<std::pair<int64_t, int>, uint256>::const_reverse_iterator GetTopQualityCert() const;
