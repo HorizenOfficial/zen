@@ -851,7 +851,7 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
         auto const& height_it = mapCumtreeHeight.find(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
         if (height_it == mapCumtreeHeight.end() ||
             !pCoinsView->GetSidechain(cert.GetScId(), sc) ||
-            !sc.CheckCertTiming(cert.epochNumber, height_it->second))
+            !sc.CheckCertTiming(cert.epochNumber, height_it->second, *pCoinsView))
         {
             certsToRemove.insert(cert.GetHash());
             continue;

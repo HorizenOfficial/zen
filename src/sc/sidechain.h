@@ -7,6 +7,7 @@
 
 class CValidationState;
 class CTransaction;
+class CCoinsViewCache;
 
 namespace Sidechain
 {
@@ -129,12 +130,12 @@ public:
         CEASED
     };
 
-    State GetState() const;
+    State GetState(const CCoinsViewCache& view) const;
     int getScCoinsMaturity();
-    const CScCertificateView& GetActiveCertView() const;
-    int GetCurrentEpoch() const;
+    const CScCertificateView& GetActiveCertView(const CCoinsViewCache& view) const;
+    int GetCurrentEpoch(const CCoinsViewCache& view) const;
     bool CheckQuality(const CScCertificate& cert) const;
-    bool CheckCertTiming(int certEpoch, int referencedHeight) const;
+    bool CheckCertTiming(int certEpoch, int referencedHeight, const CCoinsViewCache& view) const;
 
     static std::string stateToString(State s);
 

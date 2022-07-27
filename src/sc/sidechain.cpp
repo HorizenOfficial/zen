@@ -57,30 +57,30 @@ void Sidechain::ClearSidechainsFolder()
     }
 }
 
-CSidechain::State CSidechain::GetState() const
+CSidechain::State CSidechain::GetState(const CCoinsViewCache& view) const
 {
     if (!isCreationConfirmed())
         return State::UNCONFIRMED;
 
-    if (pcoinsTip->GetHeight() >= GetScheduledCeasingHeight())
+    if (view.GetHeight() >= GetScheduledCeasingHeight())
         return State::CEASED;
 
     return State::ALIVE;
 }
 
-const CScCertificateView& CSidechain::GetActiveCertView() const
+const CScCertificateView& CSidechain::GetActiveCertView(const CCoinsViewCache& view) const
 {
     // For SC v2, we always return the last cert view
     if (isNonCeasing())
         return lastTopQualityCertView;
 
-    if (GetState() == State::CEASED)
+    if (GetState(view) == State::CEASED)
         return pastEpochTopQualityCertView;
 
-    if (GetState() == State::UNCONFIRMED)
+    if (GetState(view) == State::UNCONFIRMED)
         return lastTopQualityCertView;
 
-    int certReferencedEpoch = EpochFor(pcoinsTip->GetHeight() + 1 - GetCertSubmissionWindowLength()) - 1;
+    int certReferencedEpoch = EpochFor(view.GetHeight() + 1 - GetCertSubmissionWindowLength()) - 1;
 
     if (lastTopQualityCertReferencedEpoch == certReferencedEpoch)
         return lastTopQualityCertView;
@@ -135,8 +135,8 @@ bool CSidechain::CheckQuality(const CScCertificate& cert) const
     return true;
 }
 
-bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight) const {
-    if (GetState() != State::ALIVE)
+bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight, const CCoinsViewCache& view) const {
+    if (GetState(view) != State::ALIVE)
     {
         return error("%s():%d - ERROR: certificate cannot be accepted, sidechain already ceased\n",
             __func__, __LINE__);
@@ -151,7 +151,7 @@ bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight) const {
             __func__, __LINE__, certEpoch, lastTopQualityCertReferencedEpoch, lastTopQualityCertReferencedEpoch+1);
     }
 
-    int inclusionHeight = pcoinsTip->GetHeight() + 1;
+    int inclusionHeight = view.GetHeight() + 1;
 
     int certWindowStartHeight = isNonCeasing() ? lastInclusionHeight : GetCertSubmissionWindowStart(certEpoch);
     int certWindowEndHeight   = isNonCeasing() ? INT_MAX : GetCertSubmissionWindowEnd(certEpoch);
@@ -171,13 +171,13 @@ bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight) const {
     return true;
 }
 
-int CSidechain::GetCurrentEpoch() const
+int CSidechain::GetCurrentEpoch(const CCoinsViewCache& view) const
 {
     if (isNonCeasing())
         // Before the first certificate arrives, lastTopQualityCertReferencedEpoch is set to -1
         return std::max(lastTopQualityCertReferencedEpoch, 0);
 
-    return (GetState() == State::ALIVE) ?
+    return (GetState(view) == State::ALIVE) ?
         EpochFor(pcoinsTip->GetHeight()) :
         EpochFor(GetScheduledCeasingHeight());
 }

@@ -1210,7 +1210,7 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         return ret;
     }
 
-    if (!sidechain.CheckCertTiming(cert.epochNumber, referencedHeight))
+    if (!sidechain.CheckCertTiming(cert.epochNumber, referencedHeight, *this))
     {
         if (checkMempool && sidechain.isNonCeasing() && mempool.certificateExists(cert.GetScId(), cert.epochNumber-1))
         {
@@ -1347,7 +1347,7 @@ bool CCoinsViewCache::CheckMinimumFtScFee(const CTxForwardTransferOut& ftOutput,
 
     if (pSidechain == nullptr)
         return false;
-    if (pSidechain->GetState() != CSidechain::State::ALIVE)
+    if (pSidechain->GetState(*this) != CSidechain::State::ALIVE)
         return false;
 
     CAmount minVal = pSidechain->GetMinFtScFee();
@@ -1379,7 +1379,7 @@ bool CCoinsViewCache::CheckMinimumMbtrScFee(const CBwtRequestOut& mbtrOutput, CA
 
     if (pSidechain == nullptr)
         return false;
-    if (pSidechain->GetState() != CSidechain::State::ALIVE)
+    if (pSidechain->GetState(*this) != CSidechain::State::ALIVE)
         return false;
 
     CAmount minVal = pSidechain->GetMinMbtrScFee();
@@ -1567,7 +1567,7 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
             return CValidationState::Code::SCID_NOT_FOUND;
         }
 
-        auto s = sidechain.GetState();
+        auto s = sidechain.GetState(*this);
         if (s != CSidechain::State::CEASED)
         {
             LogPrintf("%s():%d - ERROR: Tx[%s] CSW input [%s]\n cannot be accepted, sidechain is not ceased\n",
@@ -2364,7 +2364,7 @@ CSidechain::State CCoinsViewCache::GetSidechainState(const uint256& scId) const
     if (!GetSidechain(scId, sidechain))
         return CSidechain::State::NOT_APPLICABLE;
 
-    return sidechain.GetState();
+    return sidechain.GetState(*this);
 }
 
 
@@ -2377,7 +2377,7 @@ const CScCertificateView& CCoinsViewCache::GetActiveCertView(const uint256& scId
     if (pSidechain == nullptr)
         return nullView;
 
-    return pSidechain->GetActiveCertView();
+    return pSidechain->GetActiveCertView(*this);
 }
 
 CFieldElement CCoinsViewCache::GetCeasingCumTreeHash(const uint256& scId) const
