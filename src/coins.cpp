@@ -1115,7 +1115,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
 #ifdef BITCOIN_TX
 int CCoinsViewCache::GetHeight() const {return -1;}
-CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode) const {return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool checkMempool, bool* banSenderNode) const {return CValidationState::Code::OK;}
 CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scFeeCheckType, bool* banSenderNode) const { return CValidationState::Code::OK;}
 
 void CCoinsViewCache::HandleTxIndexSidechainEvents(int height, CBlockTreeDB* pblocktree,
@@ -1168,7 +1168,7 @@ int CCoinsViewCache::GetHeight() const
     return pindexPrev != nullptr ? pindexPrev->nHeight : 0;
 }
 
-CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool* banSenderNode) const
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool checkMempool, bool* banSenderNode) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -1212,7 +1212,11 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
 
     if (!sidechain.CheckCertTiming(cert.epochNumber, referencedHeight))
     {
-        if (!sidechain.isNonCeasing() || !mempool.certificateExists(cert.GetScId(), cert.epochNumber-1))
+        if (checkMempool && sidechain.isNonCeasing() && mempool.certificateExists(cert.GetScId(), cert.epochNumber-1))
+        {
+            LogPrintf("%s():%d: found correct sequence in mempool for cert %s\n", __func__, __LINE__, certHash.ToString());
+        }
+        else
         {
             LogPrintf("%s():%d - ERROR: cert %s timing is not valid\n", __func__, __LINE__, certHash.ToString());
             return CValidationState::Code::INVALID;
