@@ -850,12 +850,28 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
         CSidechain sc;
         auto const& height_it = mapCumtreeHeight.find(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
         if (height_it == mapCumtreeHeight.end() ||
-            !pCoinsView->GetSidechain(cert.GetScId(), sc) ||
-            !sc.CheckCertTiming(cert.epochNumber, height_it->second, *pCoinsView))
+            !pCoinsView->GetSidechain(cert.GetScId(), sc))
         {
             certsToRemove.insert(cert.GetHash());
             continue;
         }
+
+        // TODO: this part should be changed as soon as we implement have a way to retrieve the
+        // timing information from the CCoinsViewMemPool (the same things that applies to the 
+        // function AcceptCertificateToMemoryPool()).
+        if (!sc.CheckCertTiming(cert.epochNumber, height_it->second, *pCoinsView))
+        {
+            if (sc.isNonCeasing() && mempool.certificateExists(cert.GetScId(), cert.epochNumber - 1))
+            {
+                LogPrintf("%s():%d: found correct sequence in mempool for cert %s\n", __func__, __LINE__, cert.GetHash().ToString());
+            }
+            else
+            {
+                certsToRemove.insert(cert.GetHash());
+                continue;
+            }
+        }
+
     }
 
     std::list<CTransaction> dummyTxs;
@@ -1953,9 +1969,36 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
     } else if (!base->GetSidechain(scId, info))
         return false;
 
-    // Consider mempool Tx CSW amount for sidechain balance
-    if(mempool.mapSidechains.count(scId) > 0 && mempool.mapSidechains.at(scId).cswTotalAmount > 0)
-        info.balance -= mempool.mapSidechains.at(scId).cswTotalAmount;
+    // Check if there is any unconfirmed tx or certificate in the mempool
+    if(mempool.mapSidechains.count(scId) > 0)
+    {
+        // Consider mempool Tx CSW amount for sidechain balance
+        if (mempool.mapSidechains.at(scId).cswTotalAmount > 0)
+        {
+            info.balance -= mempool.mapSidechains.at(scId).cswTotalAmount;
+        }
+
+        // Update sidechain info with data from the unconfirmed certificates
+        // This is useful for non-ceasing sidechains only as they can have
+        // certificates of later epochs.
+        if (info.isNonCeasing() && mempool.mapSidechains.at(scId).mBackwardCertificates.size() > 0)
+        {
+            const uint256& topQualHash = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
+            const CScCertificate& certTopQual = mempool.mapCertificate[topQualHash].GetCertificate();
+            const auto map_it = mapCumtreeHeight.find(certTopQual.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+            
+            if (map_it == mapCumtreeHeight.end())
+            {
+                // TODO: should we set an invalid height or return false?
+            }
+            else
+            {
+                info.lastReferencedHeight = map_it->second;
+            }
+
+            info.lastTopQualityCertReferencedEpoch = certTopQual.epochNumber;
+        }
+    }
 
     return true;
 }
