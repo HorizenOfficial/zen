@@ -987,7 +987,10 @@ std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToConnect, con
             continue;
 
         if (itCert->epochNumber == sidechain.lastTopQualityCertReferencedEpoch)
+        {
+            assert(!sidechain.isNonCeasing());
             res[itCert->GetHash()] = sidechain.lastTopQualityCertHash;
+        }
         else
             res[itCert->GetHash()] = uint256();
 
@@ -1017,7 +1020,10 @@ std::map<uint256, uint256> HighQualityCertData(const CBlock& blockToDisconnect, 
             continue;
 
         if (cert.epochNumber == blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertReferencedEpoch)
+        {
+            assert(!sidechain.isNonCeasing());
             res[cert.GetHash()] = blockUndo.scUndoDatabyScId.at(cert.GetScId()).prevTopCommittedCertHash;
+        }
         else
             res[cert.GetHash()] = uint256();
 
