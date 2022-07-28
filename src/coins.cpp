@@ -1832,6 +1832,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
 
     CSidechainsMap::iterator scIt = ModifySidechain(scId);
     CSidechain& currentSc = scIt->second.sidechain;
+    bool isFirstCertInBlock = blockUndo.scUndoDatabyScId.count(scId) == 0;
     CSidechainUndoData& scUndoData = blockUndo.scUndoDatabyScId[scId];
 
     // For ceasing sc, UpdateSidechain must be called only once per block and scId, with top qualiy cert only
@@ -1846,7 +1847,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     if (cert.epochNumber == (currentSc.lastTopQualityCertReferencedEpoch+1))
     {
         //Lazy update of pastEpochTopQualityCertView
-        if (blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertHash.IsNull()) {
+        if (isFirstCertInBlock) {
             scUndoData.pastEpochTopQualityCertView = currentSc.pastEpochTopQualityCertView;
             scUndoData.scFees                      = currentSc.scFees;
             scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::CROSS_EPOCH_CERT_DATA;
@@ -1874,7 +1875,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
     }
     currentSc.balance                          -= bwtTotalAmount;
 
-    if (blockUndo.scUndoDatabyScId[scId].prevTopCommittedCertHash.IsNull()) { // only for first epoch cert in mempool for this sc
+    if (isFirstCertInBlock) { // only for first epoch cert in mempool for this sc
         scUndoData.prevTopCommittedCertHash            = currentSc.lastTopQualityCertHash;
         scUndoData.prevTopCommittedCertReferencedEpoch = currentSc.lastTopQualityCertReferencedEpoch;
         scUndoData.prevTopCommittedCertQuality         = currentSc.lastTopQualityCertQuality;
@@ -1883,6 +1884,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
         scUndoData.contentBitMask |= CSidechainUndoData::AvailableSections::ANY_EPOCH_CERT_DATA;
         if (currentSc.isNonCeasing())
         {
+            assert(scUndoData.prevTopCommittedCertReferencedEpoch != cert.epochNumber);
             scUndoData.deltaBalance = bwtTotalAmount;
             scUndoData.prevInclusionHeight = currentSc.lastInclusionHeight;
             scUndoData.prevReferencedHeight = currentSc.lastReferencedHeight;
