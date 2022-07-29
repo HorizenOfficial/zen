@@ -263,7 +263,8 @@ class sc_cert_addressindex(BitcoinTestFramework):
         assert_equal(addressmempool[0]['txid'], cert2)
         assert_equal(addressmempool[0]['satoshis'], float(bwt_amount2) * 1e8)
         assert_equal(addressmempool[0]['address'], tAddr1)
-        assert_equal(addressmempool[0]['outstatus'], LOW_QUALITY_CERT_BACKWARD_TRANSFER) # TODO: check this, it seems wrong for non-ceasing sidechains
+        assert_equal(addressmempool[0]['outstatus'],
+                     TOP_QUALITY_CERT_BACKWARD_TRANSFER if is_non_ceasing else LOW_QUALITY_CERT_BACKWARD_TRANSFER)
 
         assert_equal(addressmempool[1]['txid'], cert3)
         assert_equal(addressmempool[1]['satoshis'], float(bwt_amount3) * 1e8)
@@ -480,7 +481,8 @@ class sc_cert_addressindex(BitcoinTestFramework):
                 assert_equal(address_mempool_entry['txid'], cert4)
                 assert_equal(address_mempool_entry['satoshis'], float(bwt_amount4) * 1e8)
                 assert_equal(address_mempool_entry['address'], tAddr1)
-                assert_equal(address_mempool_entry['outstatus'], LOW_QUALITY_CERT_BACKWARD_TRANSFER)
+                assert_equal(address_mempool_entry['outstatus'],
+                             TOP_QUALITY_CERT_BACKWARD_TRANSFER if is_non_ceasing else LOW_QUALITY_CERT_BACKWARD_TRANSFER)
             else:
                 assert_equal(address_mempool_entry['txid'], cert5)
                 assert_equal(address_mempool_entry['satoshis'], float(bwt_amount5) * 1e8)
