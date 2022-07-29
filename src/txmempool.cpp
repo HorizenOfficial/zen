@@ -270,8 +270,14 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
         const uint256& topQualHash = mapSidechains.at(cert->GetScId()).GetTopQualityCert()->second;
         bool isTopQualityCert = (topQualHash == cert->GetHash());
 
+        CSidechain sidechain;
+        // At this point we have a view that is NOT backed by the mempool, but we must find the sidechain
+        // in the normal chain view as no certificate can be published until the sidechain creation is
+        // included in a block (also for non-ceasing sidechains, due to the lastReferencedHeightcset at creation).
+        assert(view.GetSidechain(cert->GetScId(), sidechain));
+
         // set certificate bwts status
-        certBwtStatus = isTopQualityCert ?
+        certBwtStatus = isTopQualityCert || sidechain.isNonCeasing() ?
             CMempoolAddressDelta::OutputStatus::TOP_QUALITY_CERT_BACKWARD_TRANSFER :
                 CMempoolAddressDelta::OutputStatus::LOW_QUALITY_CERT_BACKWARD_TRANSFER;
 
@@ -283,7 +289,7 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
 
         // if we have also other certificates for this sidechain and this is the top quality, we must modify the entry which was the
         // previous top quality cert
-        if ( (mapSidechains.at(cert->GetScId()).mBackwardCertificates.size() > 1) && isTopQualityCert)
+        if ( (mapSidechains.at(cert->GetScId()).mBackwardCertificates.size() > 1) && isTopQualityCert && !sidechain.isNonCeasing())
         {
             // Entries are ordered by quality, therefore the former top-quality is the second starting from the bottom
             std::map<std::pair<int64_t, int>, uint256>::const_reverse_iterator mempoolCertEntryIt =
@@ -1953,6 +1959,7 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 //info.creationBlockHash doesn't exist here!
                 info.creationBlockHeight = -1; //default null value for creationBlockHeight
                 info.creationTxHash = scCreationHash;
+                info.fixedParams.version = scCreation.version;
                 info.fixedParams.withdrawalEpochLength = scCreation.withdrawalEpochLength;
                 info.fixedParams.customData = scCreation.customData;
                 info.fixedParams.constant = scCreation.constant;
