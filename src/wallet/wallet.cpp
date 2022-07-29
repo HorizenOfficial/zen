@@ -2072,33 +2072,31 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                      prevScDataAvailable = true;
                 }
 
-                bool bTopQualityCert = visitedScIds.count(itCert->GetScId()) == 0;
-                visitedScIds.insert(itCert->GetScId());
-
                 int nHeight = pindex->nHeight;
                 CSidechain sidechain;
                 assert(pcoinsTip->GetSidechain(itCert->GetScId(), sidechain));
+
+                bool bTopQualityCert = visitedScIds.count(itCert->GetScId()) == 0 || sidechain.isNonCeasing();
+                visitedScIds.insert(itCert->GetScId());
+
                 int bwtMaxDepth = sidechain.GetCertMaturityHeight(itCert->epochNumber, pindex->nHeight) - nHeight;
 
                 if (AddToWalletIfInvolvingMe(*itCert, &block, bwtMaxDepth, fUpdate))
                 {
                     ret++;
-                    if (fUpdate)
-                    {
-                        // this call will add sc data into the wallet
-                        SyncCertStatusInfo(CScCertificateStatusUpdateInfo(itCert->GetScId(), itCert->GetHash(),
-                                                                          itCert->epochNumber, itCert->quality,
-                                                                          bTopQualityCert? CScCertificateStatusUpdateInfo::BwtState::BWT_ON:
-                                                                                           CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
+                    // this call will add sc data into the wallet
+                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(itCert->GetScId(), itCert->GetHash(),
+                                                                        itCert->epochNumber, itCert->quality,
+                                                                        bTopQualityCert ? CScCertificateStatusUpdateInfo::BwtState::BWT_ON:
+                                                                                                            CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
 
-                        if (prevScDataAvailable)
+                    if (prevScDataAvailable)
+                    {
+                        if (bTopQualityCert && (prevScData.certEpoch == itCert->epochNumber) && (prevScData.certQuality < itCert->quality))
                         {
-                            if (bTopQualityCert && (prevScData.certEpoch == itCert->epochNumber) && (prevScData.certQuality < itCert->quality))
-                            {
-                                SyncCertStatusInfo(CScCertificateStatusUpdateInfo(prevScData.scId, prevScData.certHash,
-                                                                              prevScData.certEpoch, prevScData.certQuality,
-                                                                              CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
-                            }
+                            SyncCertStatusInfo(CScCertificateStatusUpdateInfo(prevScData.scId, prevScData.certHash,
+                                                                            prevScData.certEpoch, prevScData.certQuality,
+                                                                            CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
                         }
                     }
                 }
@@ -2132,11 +2130,10 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             assert(pcoinsTip->GetSidechain(scId, sidechain));
             if (sidechain.GetState(pcoinsTip) != CSidechain::State::ALIVE)
             {
-                if (fUpdate)
-                    SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.lastTopQualityCertHash,
-                                                                      sidechain.lastTopQualityCertReferencedEpoch,
-                                                                      sidechain.lastTopQualityCertQuality,
-                                                                      CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
+                SyncCertStatusInfo(CScCertificateStatusUpdateInfo(scId, sidechain.lastTopQualityCertHash,
+                                                                    sidechain.lastTopQualityCertReferencedEpoch,
+                                                                    sidechain.lastTopQualityCertQuality,
+                                                                    CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
             }
         }
 
