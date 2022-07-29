@@ -267,17 +267,17 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
         const CScCertificate* cert = dynamic_cast<const CScCertificate*>(&txBase);
         assert(cert != nullptr);
 
-        const uint256& topQualHash = mapSidechains.at(cert->GetScId()).GetTopQualityCert()->second;
-        bool isTopQualityCert = (topQualHash == cert->GetHash());
-
         CSidechain sidechain;
         // At this point we have a view that is NOT backed by the mempool, but we must find the sidechain
         // in the normal chain view as no certificate can be published until the sidechain creation is
         // included in a block (also for non-ceasing sidechains, due to the lastReferencedHeightcset at creation).
         assert(view.GetSidechain(cert->GetScId(), sidechain));
 
+        const uint256& topQualHash = mapSidechains.at(cert->GetScId()).GetTopQualityCert()->second;
+        bool isTopQualityCert = (topQualHash == cert->GetHash()) || sidechain.isNonCeasing();
+
         // set certificate bwts status
-        certBwtStatus = isTopQualityCert || sidechain.isNonCeasing() ?
+        certBwtStatus = isTopQualityCert ?
             CMempoolAddressDelta::OutputStatus::TOP_QUALITY_CERT_BACKWARD_TRANSFER :
                 CMempoolAddressDelta::OutputStatus::LOW_QUALITY_CERT_BACKWARD_TRANSFER;
 
@@ -288,8 +288,8 @@ void CTxMemPool::addAddressIndex(const CTransactionBase &txBase, int64_t nTime, 
             __func__, __LINE__, cert->GetHash().ToString(), isTopQualityCert?"Y":"N", (int)certBwtStatus, certFirstBwtPos);
 
         // if we have also other certificates for this sidechain and this is the top quality, we must modify the entry which was the
-        // previous top quality cert
-        if ( (mapSidechains.at(cert->GetScId()).mBackwardCertificates.size() > 1) && isTopQualityCert && !sidechain.isNonCeasing())
+        // previous top quality cert (but not for non-ceasing sidechains)
+        if (!sidechain.isNonCeasing() && (mapSidechains.at(cert->GetScId()).mBackwardCertificates.size() > 1) && isTopQualityCert)
         {
             // Entries are ordered by quality, therefore the former top-quality is the second starting from the bottom
             std::map<std::pair<int64_t, int>, uint256>::const_reverse_iterator mempoolCertEntryIt =
@@ -691,7 +691,9 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
 #ifdef ENABLE_ADDRESS_INDEXING
             // are we removing a top-quality cert?
             const uint256& topQualHash = mapSidechains.at(scid).GetTopQualityCert()->second;
-            bool isTopQualityCert = (topQualHash == hash);
+            CSidechain sidechain;
+            assert(pcoinsTip->GetSidechain(scid, sidechain));
+            bool isTopQualityCert = (topQualHash == hash) || sidechain.isNonCeasing();
 #endif // ENABLE_ADDRESS_INDEXING
 
             // remove certificate hash from list
@@ -717,7 +719,7 @@ void CTxMemPool::remove(const CTransactionBase& origTx, std::list<CTransaction>&
             if (fAddressIndex)
             {
                 removeAddressIndex(hash);
-                if (isTopQualityCert)
+                if (isTopQualityCert && !sidechain.isNonCeasing())
                 {
                     // we have removed a top quality cert, if another one is promoted to be the next top quality, we have to
                     // set the status properly in the address index data
