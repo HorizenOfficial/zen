@@ -6,12 +6,13 @@
 from test_framework.test_framework import BitcoinTestFramework, ForkHeights
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_node, connect_nodes_bi, assert_true, assert_false, get_epoch_data, \
-    swap_bytes
+    swap_bytes, mark_logs
 from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
 from test_framework.authproxy import JSONRPCException
 
 from decimal import Decimal
 
+DEBUG_MODE = 1
 EPOCH_LENGTH = 100
 CERT_FEE = Decimal("0.000123")
 SC_FEE = Decimal("0.000345")
@@ -27,9 +28,12 @@ class getblockexpanded(BitcoinTestFramework):
     def setup_chain(self):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 2)
+        self.first_round = True
+        self.first_maturityHeight = 1000000
+        self.second_maturityHeight = 1000000
 
     def setup_network(self, split=False):
-        self.nodes=[]
+        self.nodes = []
         self.nodes += [start_node(0, self.options.tmpdir,extra_args=['-txindex=1','-maturityheightindex=1'])]
         self.nodes += [start_node(1, self.options.tmpdir)]
 
@@ -38,30 +42,44 @@ class getblockexpanded(BitcoinTestFramework):
         self.is_network_split=False
         self.sync_all()
 
-    def run_test(self):
+    def check_equal(self, a, b):
+        for x in a:
+            if x not in b:
+                return False
+        return True
+
+    def run_test_ceasable(self, scversion):
+
+        # sc name
+        sc_name = "sc" + str(scversion)
 
         #amounts
         creation_amount = Decimal("50")
         bwt_amount = Decimal("5")
         tAddr1 = self.nodes[1].getnewaddress()
         node1Addr = self.nodes[1].validateaddress(tAddr1)['address']
-        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
-        self.sync_all()
-        
+        if self.first_round:
+            self.nodes[0].generate(ForkHeights['NON_CEASING_SC'])
+            self.sync_all()
+            self.first_round = False
+            self.cert3dict = dict()
+            self.round_number = 0
+            self.blck_h = []
+            self.mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+
         ########### Create the sidechain ##################
-        print("########### Create the sidechain ##################")
-        
-        mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk = mcTest.generate_params("sc1")
-        constant = generate_random_field_element_hex()
+        mark_logs("########### Create the sidechain ##################", self.nodes, DEBUG_MODE)
+
+        vk = self.mcTest.generate_params(sc_name)
+        self.constant = generate_random_field_element_hex()
 
         cmdInput = {
-            "version": 0,
+            "version": scversion,
             'withdrawalEpochLength': EPOCH_LENGTH,
             'toaddress': "dada",
             'amount': creation_amount,
             'wCertVk': vk,
-            'constant': constant
+            'constant': self.constant
         }
 
         ret = self.nodes[0].sc_create(cmdInput)
@@ -82,26 +100,27 @@ class getblockexpanded(BitcoinTestFramework):
         self.sync_all()
 
         ########### Mine Certificate 1 with quality = 5 ##################
-        print("########### Mine Certificate 1 with quality = 5 ##################")
+        mark_logs("########### Mine Certificate 1 with quality = 5 ##################", self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         quality = 5
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [node1Addr], [bwt_amount])
+        proof = self.mcTest.create_test_proof(
+            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, self.constant, [node1Addr], [bwt_amount])
 
         amount_cert_1 = [{"address": node1Addr, "amount": bwt_amount}]
 
         self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         self.sync_all()
-        maturityHeight = sc_creation_block["height"]+(EPOCH_LENGTH*2)+EPOCH_LENGTH*0.2 - 1
+        cert3_maturityHeight = sc_creation_block["height"]+(EPOCH_LENGTH*2)+EPOCH_LENGTH*0.2 - 1
 
         #Add to mempool Certificate 2 with quality = 7
-        print("########### Add to mempool Certificate 2 with quality = 7 ##################")
+        mark_logs("########### Add to mempool Certificate 2 with quality = 7 ##################", self.nodes, DEBUG_MODE)
         quality = 7  
-        bwt_amount2 = Decimal("7")      
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [node1Addr], [bwt_amount2])
+        bwt_amount2 = Decimal("7")
+        proof = self.mcTest.create_test_proof(
+            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, self.constant, [node1Addr], [bwt_amount2])
 
         amount_cert_2 = [{"address": node1Addr, "amount": bwt_amount2}]
 
@@ -110,15 +129,15 @@ class getblockexpanded(BitcoinTestFramework):
         self.sync_all()
 
         #Mine a block
-        self.nodes[0].generate(1)
+        cert2_block = self.nodes[0].generate(1)
         self.sync_all()
 
         #Mine a block with a new Certificate 3 with quality = 8
-        print("########### Mine a block with a new Certificate 3 with quality = 8 ##################")
+        mark_logs("########### Mine a block with a new Certificate 3 with quality = 8 ##################", self.nodes, DEBUG_MODE)
         quality = 8
-        bwt_amount3 = Decimal("7")      
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [node1Addr], [bwt_amount3])
+        bwt_amount3 = Decimal("7")
+        proof = self.mcTest.create_test_proof(
+            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, self.constant, [node1Addr], [bwt_amount3])
 
         amount_cert_3 = [{"address": node1Addr, "amount": bwt_amount3}]
 
@@ -129,15 +148,16 @@ class getblockexpanded(BitcoinTestFramework):
         self.sync_all()
 
         #Advance of 1 epoch
-        print("########### Advance of 1 epoch ##################")
+        mark_logs("########### Advance of 1 epoch ##################", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(116)
         self.sync_all()
 
+        mark_logs("########### Add to mempool Certificate 4 with quality = 9 ##################", self.nodes, DEBUG_MODE)
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         quality = 9
         bwt_amount4 = Decimal("9")
-        proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [node1Addr], [bwt_amount4])
+        proof = self.mcTest.create_test_proof(
+            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, self.constant, [node1Addr], [bwt_amount4])
 
         amount_cert_4 = [{"address": node1Addr, "amount": bwt_amount4}]
 
@@ -159,13 +179,17 @@ class getblockexpanded(BitcoinTestFramework):
         assert_true(cert_3_json != {})
         tipHeight = self.nodes[0].getblockcount()
 
+        # Add infos about cert3 of this round
+        self.cert3dict[int(cert3_maturityHeight)] = {"cert": [cert3], "cert_json": [cert_3_json], "number": 1} #len(self.cert3dict) + 
+        self.blck_h.append(int(cert3_maturityHeight) - 1)
+
         #Test that we require -maturityheightindex=1 to run the getblockexpanded
         try:
-            self.nodes[1].getblockexpanded("640")
+            self.nodes[1].getblockexpanded("700")
             assert(False)
         except JSONRPCException as e:
             errorString = e.error['message']
-            print(errorString)
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
             assert("maturityHeightIndex option not set: can not retrieve info" in errorString)
 
         #Test that we see the certificate 3 but non the certificate 2 and 1
@@ -174,21 +198,29 @@ class getblockexpanded(BitcoinTestFramework):
             rpcDataByHeightVerbosity = self.nodes[0].getblockexpanded(str(i), 2)
             rpcDataByHash = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'])
             rpcDataByHashVerbosity = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'],2)
-         
+
             if (rpcDataByHash['height'] >= ForkHeights['MINIMAL_SC']):
                 assert_true('matureCertificate' in rpcDataByHash)
                 assert_true('matureCertificate' in rpcDataByHeight)
                 assert_true('matureCertificate' in rpcDataByHashVerbosity)
                 assert_true('matureCertificate' in rpcDataByHeightVerbosity)
-                if (rpcDataByHash['height'] == int(maturityHeight)):
-                    assert_equal(len(rpcDataByHash['matureCertificate']), 1)
-                    assert_equal(len(rpcDataByHeight['matureCertificate']), 1)
-                    assert_equal(rpcDataByHash['matureCertificate'][0], cert3)
-                    assert_equal(rpcDataByHeight['matureCertificate'][0], cert3)
-                    assert_equal(len(rpcDataByHashVerbosity['matureCertificate']), 1)
-                    assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']), 1)
-                    assert_equal(rpcDataByHashVerbosity['matureCertificate'][0], cert_3_json)
-                    assert_equal(rpcDataByHeightVerbosity['matureCertificate'][0], cert_3_json)
+                if (rpcDataByHash['height'] in self.cert3dict):
+                    # assert_equal(len(rpcDataByHash['matureCertificate']),            1)
+                    # assert_equal(len(rpcDataByHeight['matureCertificate']),          1)
+                    # assert_equal(rpcDataByHash['matureCertificate'][0],              self.cert3dict[rpcDataByHash['height']]["cert"])
+                    # assert_equal(rpcDataByHeight['matureCertificate'][0],            self.cert3dict[rpcDataByHash['height']]["cert"])
+                    # assert_equal(len(rpcDataByHashVerbosity['matureCertificate']),   1)
+                    # assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']), 1)
+                    # assert_equal(rpcDataByHashVerbosity['matureCertificate'][0],     self.cert3dict[rpcDataByHash['height']]["cert_json"])
+                    # assert_equal(rpcDataByHeightVerbosity['matureCertificate'][0],   self.cert3dict[rpcDataByHash['height']]["cert_json"])
+                    assert_equal(len(rpcDataByHash['matureCertificate']),                       self.cert3dict[rpcDataByHash['height']]["number"])
+                    assert_equal(len(rpcDataByHeight['matureCertificate']),                     self.cert3dict[rpcDataByHash['height']]["number"])
+                    assert_true(self.check_equal(rpcDataByHash['matureCertificate'],            self.cert3dict[rpcDataByHash['height']]["cert"]))
+                    assert_true(self.check_equal(rpcDataByHeight['matureCertificate'],          self.cert3dict[rpcDataByHash['height']]["cert"]))
+                    assert_equal(len(rpcDataByHashVerbosity['matureCertificate']),              self.cert3dict[rpcDataByHash['height']]["number"])
+                    assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']),            self.cert3dict[rpcDataByHash['height']]["number"])
+                    assert_true(self.check_equal(rpcDataByHashVerbosity['matureCertificate'],   self.cert3dict[rpcDataByHash['height']]["cert_json"]))
+                    assert_true(self.check_equal(rpcDataByHeightVerbosity['matureCertificate'], self.cert3dict[rpcDataByHash['height']]["cert_json"]))
                 else:
                     assert_equal(len(rpcDataByHash['matureCertificate']), 0)
                     assert_equal(len(rpcDataByHeight['matureCertificate']), 0)
@@ -199,13 +231,13 @@ class getblockexpanded(BitcoinTestFramework):
                 assert_false('matureCertificate' in rpcDataByHeight)
                 assert_false('matureCertificate' in rpcDataByHashVerbosity)
                 assert_false('matureCertificate' in rpcDataByHeightVerbosity)
-    
+
         self.nodes[0].invalidateblock(new_epoch_block)
         self.nodes[0].invalidateblock(cert4_block)
         self.nodes[1].invalidateblock(new_epoch_block)
         self.nodes[1].invalidateblock(cert4_block)
-        assert_equal(self.nodes[0].getblockcount(), 639)
-        assert_equal(self.nodes[1].getblockcount(), 639)
+        assert_equal(self.nodes[0].getblockcount(), self.blck_h[self.round_number])
+        assert_equal(self.nodes[1].getblockcount(), self.blck_h[self.round_number])
 
         self.nodes[0].clearmempool()
         self.nodes[1].clearmempool()
@@ -216,8 +248,10 @@ class getblockexpanded(BitcoinTestFramework):
         fake_block = self.nodes[0].generate(1)[0]
         self.sync_all()
 
-        rpcDataByHeight = self.nodes[0].getblockexpanded("640")
-        rpcDataByHeightVerbosity = self.nodes[0].getblockexpanded("640", 2)
+        blcknum = str(int(self.blck_h[self.round_number]) + 1) # "700", "1051"
+
+        rpcDataByHeight = self.nodes[0].getblockexpanded(blcknum)
+        rpcDataByHeightVerbosity = self.nodes[0].getblockexpanded(blcknum, 2)
         rpcDataByHash = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'])
         rpcDataByHashVerbosity = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'],2)
         assert_equal(len(rpcDataByHash['matureCertificate']), 0)
@@ -233,8 +267,8 @@ class getblockexpanded(BitcoinTestFramework):
         self.nodes[0].generate(2)
         self.sync_all()
 
-        rpcDataByHeight = self.nodes[0].getblockexpanded("640")
-        rpcDataByHeightVerbosity = self.nodes[0].getblockexpanded("640", 2)
+        rpcDataByHeight = self.nodes[0].getblockexpanded(blcknum)
+        rpcDataByHeightVerbosity = self.nodes[0].getblockexpanded(blcknum, 2)
         rpcDataByHash = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'])
         rpcDataByHashVerbosity = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'],2)
         assert_equal(len(rpcDataByHash['matureCertificate']), 1)
@@ -256,12 +290,294 @@ class getblockexpanded(BitcoinTestFramework):
             rpcDataByHeight = self.nodes[0].getblockexpanded(str(i))
             rpcDataByHeightVerbosity = self.nodes[0].getblockexpanded(str(i), 2)
             rpcDataByHash = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'])
-            rpcDataByHashVerbosity = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'],2)      
+            rpcDataByHashVerbosity = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'],2)
 
             assert_equal(len(rpcDataByHash['matureCertificate']), 0)
             assert_equal(len(rpcDataByHeight['matureCertificate']), 0)
             assert_equal(len(rpcDataByHashVerbosity['matureCertificate']), 0)
-            assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']), 0)              
+            assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']), 0)
+
+        self.round_number = self.round_number + 1
+        self.sync_all()
+
+    def run_test_non_ceasable(self, scversion):
+
+        # sc name
+        sc_name = "sc" + str(scversion) + "nonceas"
+
+        #amounts
+        creation_amount = Decimal("50")
+        bwt_amount = Decimal("5")
+        tAddr1 = self.nodes[1].getnewaddress()
+        node1Addr = self.nodes[1].validateaddress(tAddr1)['address']
+        if self.first_round:
+            self.nodes[0].generate(ForkHeights['NON_CEASING_SC'])
+            self.sync_all()
+            self.first_round = False
+            self.cert3dict = dict()
+            self.round_number = 0
+            self.blck_h = []
+            self.mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
+
+        ########### Create the sidechain ##################
+        mark_logs("########### Create the sidechain ##################", self.nodes, DEBUG_MODE)
+
+        vk = self.mcTest.generate_params(sc_name)
+        self.constant = generate_random_field_element_hex()
+
+        cmdInput = {
+            "version": scversion,
+            'withdrawalEpochLength': 0,
+            'toaddress': "dada",
+            'amount': creation_amount,
+            'wCertVk': vk,
+            'constant': self.constant
+        }
+
+        ret = self.nodes[0].sc_create(cmdInput)
+        creating_tx = ret['txid']
+        scid = ret['scid']
+        scid_swapped = str(swap_bytes(scid))
+        self.sync_all()
+
+        decoded_tx = self.nodes[0].getrawtransaction(creating_tx, 1)
+        assert_equal(scid, decoded_tx['vsc_ccout'][0]['scid'])
+
+        # Mine a block to validate sc creation
+        sc_creation_block_hash = self.nodes[0].generate(1)[0]
+        sc_creation_block = self.nodes[0].getblock(sc_creation_block_hash)
+        sc_creation_height = self.nodes[0].getblockcount()
+        self.sync_all()
+
+        # Advance for 5 blocks
+        self.nodes[0].generate(5)
+        self.sync_all()
+
+        # Add to mempool cert1 referring to (current block - 3)
+        mark_logs("########### Add Certificate 1 to mempool ##################", self.nodes, DEBUG_MODE)
+        curr_height = self.nodes[0].getblockcount()
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 3)
+        quality = 0
+        proof = self.mcTest.create_test_proof(
+            sc_name, scid_swapped, epoch_number - 1, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, self.constant, [node1Addr], [bwt_amount])
+
+        amount_cert_1 = [{"address": node1Addr, "amount": bwt_amount}]
+
+        cert1 = self.nodes[0].sc_send_certificate(scid, epoch_number - 1, quality,
+            epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        self.sync_all()
+
+        # Add to mempool cert2 referring to (current block - 2)
+        mark_logs("########### Add Certificate 2 to mempool ##################", self.nodes, DEBUG_MODE)
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 2)
+        bwt_amount2 = Decimal("7")
+        proof = self.mcTest.create_test_proof(
+            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, self.constant, [node1Addr], [bwt_amount2])
+
+        amount_cert_2 = [{"address": node1Addr, "amount": bwt_amount2}]
+
+        cert2 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
+            epoch_cum_tree_hash, proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        self.sync_all()
+
+        # Mine 3 blocks, the first one containing cert1 and cert2
+        mark_logs("########### Mine 3 blocks ##################", self.nodes, DEBUG_MODE)
+        cert1_2_block = self.nodes[0].generate(1)[0]
+        self.sync_all()
+        cert1_2_maturityHeight = self.nodes[0].getblockcount()
+        self.nodes[0].generate(2)
+        self.sync_all()
+
+        # Add to mempool cert3 referring to (current block - 1)
+        mark_logs("########### Add Certificate 3 to mempool ##################", self.nodes, DEBUG_MODE)
+        curr_height = self.nodes[0].getblockcount()
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 1)
+        bwt_amount3 = Decimal("8")
+        proof = self.mcTest.create_test_proof(
+            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, self.constant, [node1Addr], [bwt_amount3])
+
+        amount_cert_3 = [{"address": node1Addr, "amount": bwt_amount3}]
+
+        cert3 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
+            epoch_cum_tree_hash, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        self.sync_all()
+
+        # Mine 3 blocks, the first one containing cert3
+        mark_logs("########### Mine 3 blocks ##################", self.nodes, DEBUG_MODE)
+        cert3_block = self.nodes[0].generate(1)[0]
+        self.sync_all()
+        cert3_maturityHeight = self.nodes[0].getblockcount()
+        self.nodes[0].generate(2)
+        self.sync_all()
+
+        # Add to mempool cert4 referring to (current block - 1)
+        mark_logs("########### Add Certificate 4 to mempool ##################", self.nodes, DEBUG_MODE)
+        curr_height = self.nodes[0].getblockcount()
+        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 1)
+        bwt_amount4 = Decimal("9")
+        proof = self.mcTest.create_test_proof(
+            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, self.constant, [node1Addr], [bwt_amount4])
+
+        amount_cert_4 = [{"address": node1Addr, "amount": bwt_amount4}]
+
+        cert4 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
+            epoch_cum_tree_hash, proof, amount_cert_4, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        self.sync_all()
+
+        # Mine 1 block containing cert4
+        mark_logs("########### Mine 2 blocks ##################", self.nodes, DEBUG_MODE)
+        cert4_block = self.nodes[0].generate(1)[0]
+        self.sync_all()
+        cert4_maturityHeight = self.nodes[0].getblockcount()
+        new_epoch_block = self.nodes[0].generate(1)[0]
+        self.sync_all()
+
+        #### Start tests
+        rpcCertBlock = self.nodes[0].getblock(cert3_block, 2)
+        cert_3_json = {}
+        for cert in rpcCertBlock['cert']:
+            if (cert['txid'] == cert3):
+                cert_3_json = cert
+        assert_true(cert_3_json != {})
+        rpcCertBlock = self.nodes[0].getblock(cert4_block, 2)
+        cert_4_json = {}
+        for cert in rpcCertBlock['cert']:
+            if (cert['txid'] == cert4):
+                cert_4_json = cert
+        rpcCertBlock = self.nodes[0].getblock(cert1_2_block, 2)
+        cert_1_json = {}
+        cert_2_json = {}
+        for cert in rpcCertBlock['cert']:
+            if (cert['txid'] == cert2):
+                cert_2_json = cert
+            if (cert['txid'] == cert1):
+                cert_1_json = cert
+
+        tipHeight = self.nodes[0].getblockcount()
+
+        # Add infos about certs to the dict
+        self.cert3dict[int(cert1_2_maturityHeight)] = {"cert": [cert1, cert2], "cert_json": [cert_2_json, cert_1_json], "number": 2}
+        self.blck_h.append(int(cert1_2_maturityHeight) - 1)
+        self.cert3dict[int(cert3_maturityHeight)] = {"cert":[cert3], "cert_json": [cert_3_json], "number": 1}
+        self.blck_h.append(int(cert3_maturityHeight) - 1)
+        self.cert3dict[int(cert4_maturityHeight)] = {"cert":[cert4], "cert_json": [cert_4_json], "number": 1}
+        self.blck_h.append(int(cert4_maturityHeight) - 1)
+
+        #Test that we require -maturityheightindex=1 to run the getblockexpanded
+        try:
+            self.nodes[1].getblockexpanded("700")
+            assert(False)
+        except JSONRPCException as e:
+            errorString = e.error['message']
+            mark_logs(errorString, self.nodes, DEBUG_MODE)
+            assert("maturityHeightIndex option not set: can not retrieve info" in errorString)
+
+        #Test that we see the certificate all the certificates
+        for i in range (1,tipHeight+1):
+            rpcDataByHeight = self.nodes[0].getblockexpanded(str(i))
+            rpcDataByHeightVerbosity = self.nodes[0].getblockexpanded(str(i), 2)
+            rpcDataByHash = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'])
+            rpcDataByHashVerbosity = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'],2)
+
+            if (rpcDataByHash['height'] >= ForkHeights['MINIMAL_SC']):
+                assert_true('matureCertificate' in rpcDataByHash)
+                assert_true('matureCertificate' in rpcDataByHeight)
+                assert_true('matureCertificate' in rpcDataByHashVerbosity)
+                assert_true('matureCertificate' in rpcDataByHeightVerbosity)
+                if (rpcDataByHash['height'] in self.cert3dict):
+                    assert_equal(len(rpcDataByHash['matureCertificate']),                       self.cert3dict[rpcDataByHash['height']]["number"])
+                    assert_equal(len(rpcDataByHeight['matureCertificate']),                     self.cert3dict[rpcDataByHash['height']]["number"])
+                    assert_true(self.check_equal(rpcDataByHash['matureCertificate'],            self.cert3dict[rpcDataByHash['height']]["cert"]))
+                    assert_true(self.check_equal(rpcDataByHeight['matureCertificate'],          self.cert3dict[rpcDataByHash['height']]["cert"]))
+                    assert_equal(len(rpcDataByHashVerbosity['matureCertificate']),              self.cert3dict[rpcDataByHash['height']]["number"])
+                    assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']),            self.cert3dict[rpcDataByHash['height']]["number"])
+                    assert_true(self.check_equal(rpcDataByHashVerbosity['matureCertificate'],   self.cert3dict[rpcDataByHash['height']]["cert_json"]))
+                    assert_true(self.check_equal(rpcDataByHeightVerbosity['matureCertificate'], self.cert3dict[rpcDataByHash['height']]["cert_json"]))
+                else:
+                    assert_equal(len(rpcDataByHash['matureCertificate']), 0)
+                    assert_equal(len(rpcDataByHeight['matureCertificate']), 0)
+                    assert_equal(len(rpcDataByHashVerbosity['matureCertificate']), 0)
+                    assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']), 0)
+            else:
+                assert_false('matureCertificate' in rpcDataByHash)
+                assert_false('matureCertificate' in rpcDataByHeight)
+                assert_false('matureCertificate' in rpcDataByHashVerbosity)
+                assert_false('matureCertificate' in rpcDataByHeightVerbosity)
+
+        self.nodes[0].invalidateblock(new_epoch_block)
+        self.nodes[0].invalidateblock(cert4_block)
+        self.nodes[1].invalidateblock(new_epoch_block)
+        self.nodes[1].invalidateblock(cert4_block)
+        assert_equal(self.nodes[0].getblockcount(), self.blck_h[-1])
+        assert_equal(self.nodes[1].getblockcount(), self.blck_h[-1])
+
+        self.nodes[0].clearmempool()
+        self.nodes[1].clearmempool()
+        assert_equal(len(self.nodes[0].getrawmempool()),0)
+        assert_equal(len(self.nodes[1].getrawmempool()),0)
+        self.sync_all()
+
+        fake_block = self.nodes[0].generate(1)[0]
+        self.sync_all()
+
+        blcknum = str(int(self.blck_h[-1]) + 1)
+
+        rpcDataByHeight = self.nodes[0].getblockexpanded(blcknum)
+        rpcDataByHeightVerbosity = self.nodes[0].getblockexpanded(blcknum, 2)
+        rpcDataByHash = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'])
+        rpcDataByHashVerbosity = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'],2)
+        assert_equal(len(rpcDataByHash['matureCertificate']), 0)
+        assert_equal(len(rpcDataByHeight['matureCertificate']), 0)
+        assert_equal(len(rpcDataByHashVerbosity['matureCertificate']), 0)
+        assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']), 0)
+
+        self.nodes[0].invalidateblock(fake_block)
+        self.nodes[1].invalidateblock(fake_block)
+
+        self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
+            epoch_cum_tree_hash, proof, amount_cert_4, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
+        self.nodes[0].generate(2)
+        self.sync_all()
+
+        rpcDataByHeight = self.nodes[0].getblockexpanded(blcknum)
+        rpcDataByHeightVerbosity = self.nodes[0].getblockexpanded(blcknum, 2)
+        rpcDataByHash = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'])
+        rpcDataByHashVerbosity = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'],2)
+        assert_equal(len(rpcDataByHash['matureCertificate']), 1)
+        assert_equal(len(rpcDataByHeight['matureCertificate']), 1)
+        assert_equal(len(rpcDataByHashVerbosity['matureCertificate']), 1)
+        assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']), 1)
+        assert_equal(rpcDataByHashVerbosity['matureCertificate'][0], cert_4_json)
+        assert_equal(rpcDataByHeightVerbosity['matureCertificate'][0], cert_4_json)
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['state'], "ALIVE")
+
+        #Verify that SC does not cease
+        self.nodes[0].generate(130)
+        self.sync_all()
+
+        assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['state'], "ALIVE")
+        tipHeightCeased = self.nodes[0].getblockcount()
+
+        for i in range (tipHeight, tipHeightCeased+1):
+            rpcDataByHeight = self.nodes[0].getblockexpanded(str(i))
+            rpcDataByHeightVerbosity = self.nodes[0].getblockexpanded(str(i), 2)
+            rpcDataByHash = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'])
+            rpcDataByHashVerbosity = self.nodes[0].getblockexpanded(rpcDataByHeight['hash'],2)
+
+            assert_equal(len(rpcDataByHash['matureCertificate']), 0)
+            assert_equal(len(rpcDataByHeight['matureCertificate']), 0)
+            assert_equal(len(rpcDataByHashVerbosity['matureCertificate']), 0)
+            assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']), 0)
+
+        self.round_number = self.round_number + 1
+
+    def run_test(self):
+        mark_logs("\n**SC version 0", self.nodes, DEBUG_MODE)
+        self.run_test_ceasable(0)
+        mark_logs("\n**SC version 2 - ceasable SC", self.nodes, DEBUG_MODE)
+        self.run_test_ceasable(2)
+        mark_logs("\n**SC version 2 - non-ceasable SC", self.nodes, DEBUG_MODE)
+        self.run_test_non_ceasable(2)
 
 if __name__ == '__main__':
     getblockexpanded().main()
