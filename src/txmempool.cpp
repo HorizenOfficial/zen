@@ -1998,7 +1998,8 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
             
             if (map_it == mapCumtreeHeight.end())
             {
-                // TODO: should we set an invalid height or return false?
+                // this is a pre-v2 sidechain, so it must be ceasing
+                info.lastReferencedHeight = info.GetEndHeightForEpoch(certTopQual.epochNumber);
             }
             else
             {
