@@ -5359,15 +5359,20 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid end cum commitment tree root field element");
     }
 
-    // sanity check of the endEpochCumScTxCommTreeRoot: it must correspond to the end-epoch block hash 
+    // Sanity check of the endEpochCumScTxCommTreeRoot: it must correspond to the end-epoch block hash.
+    // Also, for non ceasing sidechains, it must correspond to a block whose height is greater than the height of the block referenced by the last certificate.
     int referencedHeight = -1;
     CValidationState::Code ret_code =
         scView.CheckEndEpochCumScTxCommTreeRoot(sidechain, epochNumber, cert.endEpochCumScTxCommTreeRoot, referencedHeight);
 
     if (ret_code != CValidationState::Code::OK)
     {
-        LogPrintf("%s():%d - ERROR: endEpochCumScTxCommTreeRoot[%s]/epochNumber[%d] are not legal, ret_code[0x%x]\n",
-            __func__, __LINE__, cert.endEpochCumScTxCommTreeRoot.GetHexRepr(), epochNumber, CValidationState::CodeToChar(ret_code));
+        LogPrintf("%s():%d - ERROR: endEpochCumScTxCommTreeRoot[%s]/epochNumber[%d]/refHeight[%d] are not legal, ret_code[0x%x]\n",
+            __func__, __LINE__, cert.endEpochCumScTxCommTreeRoot.GetHexRepr(), epochNumber, referencedHeight, CValidationState::CodeToChar(ret_code));
+
+        if (ret_code == CValidationState::Code::SC_CERT_REFERENCED_HEIGHT)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid referenced height for certificate"));
+
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid end cum commitment tree root"));
     }
 

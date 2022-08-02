@@ -1288,7 +1288,7 @@ CValidationState::Code CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
         {
             LogPrintf("%s():%d - ERROR: end height %d for certificate epoch %d is not greater than last referenced height (%d)\n",
                 __func__, __LINE__, referencedHeight, epochNumber, sidechain.lastReferencedHeight);
-            return CValidationState::Code::INVALID;
+            return CValidationState::Code::SC_CERT_REFERENCED_HEIGHT;
         }
     }
     else
