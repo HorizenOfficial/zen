@@ -569,10 +569,10 @@ def get_epoch_data(scid, node, epochLen, is_non_ceasing = False, reference_heigh
 
     # For non-ceasing sidechains
     if is_non_ceasing:
-        current_epoch = sc_info['epoch']
+        current_epoch = sc_info['unconfTopQualityCertificateEpoch'] + 1 if 'unconfTopQualityCertificateEpoch' in sc_info else sc_info['epoch']
         current_reference_height = node.getblockcount() if reference_height is None else reference_height
         sc_cum_comm_tree_hash = node.getblock(str(current_reference_height))['scCumTreeHash']
-        return current_epoch + 1, sc_cum_comm_tree_hash
+        return current_epoch, sc_cum_comm_tree_hash
 
     # For ceasing sidechains
     sc_creating_height = sc_info['createdAtBlockHeight']
