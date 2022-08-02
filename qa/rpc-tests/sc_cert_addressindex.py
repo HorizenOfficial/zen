@@ -242,8 +242,6 @@ class sc_cert_addressindex(BitcoinTestFramework):
         mark_logs(f"Add to mempool Certificate 3 with quality = {quality}...", self.nodes, DEBUG_MODE)
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing, self.nodes[0].getblockcount())
-        if is_non_ceasing:
-            epoch_number += 1 # TODO: how to handle unconfirmed epoch due to certificates in the mempool? Maybe with an "unconfEpoch" field...
 
         proof = mcTest.create_test_proof(
             sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [node1Addr], [bwt_amount3])
@@ -367,8 +365,6 @@ class sc_cert_addressindex(BitcoinTestFramework):
         total_bwt_amount += bwt_amount4
 
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing, current_height)
-        if is_non_ceasing:
-            epoch_number += 1
         quality = 0 if is_non_ceasing else 13
         bwt_amount5 = Decimal("13")
         mark_logs(f"Create a Certificate 5 with quality = {quality}...", self.nodes, DEBUG_MODE)
