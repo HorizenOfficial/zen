@@ -175,7 +175,7 @@ int CSidechain::GetCurrentEpoch(const CCoinsViewCache& view) const
 {
     if (isNonCeasing())
         // Before the first certificate arrives, lastTopQualityCertReferencedEpoch is set to -1
-        return std::max(lastTopQualityCertReferencedEpoch, 0);
+        return lastTopQualityCertReferencedEpoch + 1;
 
     return (GetState(view) == State::ALIVE) ?
         EpochFor(view.GetHeight()) :

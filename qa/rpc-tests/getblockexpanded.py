@@ -100,8 +100,6 @@ class getblockexpanded(BitcoinTestFramework):
         ########### Mine Certificate 1 with quality = 5 ##################
         mark_logs("########### Mine Certificate 1 with quality = 5 ##################", self.nodes, DEBUG_MODE)
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
-
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         quality = 5
         proof = self.mcTest.create_test_proof(
             sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, self.constant, [node1Addr], [bwt_amount])
@@ -349,11 +347,11 @@ class getblockexpanded(BitcoinTestFramework):
         epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH, is_non_ceasing = True, reference_height = curr_height - 3)
         quality = 0
         proof = self.mcTest.create_test_proof(
-            sc_name, scid_swapped, epoch_number - 1, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, self.constant, [node1Addr], [bwt_amount])
+            sc_name, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, self.constant, [node1Addr], [bwt_amount])
 
         amount_cert_1 = [{"address": node1Addr, "amount": bwt_amount}]
 
-        cert1 = self.nodes[0].sc_send_certificate(scid, epoch_number - 1, quality,
+        cert1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
         self.sync_all()
 
