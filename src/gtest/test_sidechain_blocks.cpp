@@ -145,7 +145,6 @@ TEST_F(SidechainsConnectCertsBlockTestSuite, ConnectBlock_SingleCert_SameEpoch_C
     CreateCheckpointAfter(certBlockIndex);
 
     // test
-    pcoinsTip = sidechainsView;
     bool res = ConnectBlock(certBlock, dummyState, certBlockIndex, *sidechainsView, dummyChain,
                             flagBlockProcessingType::CHECK_ONLY, flagScRelatedChecks::OFF,
                             flagScProofVerification::ON, flagLevelDBIndexesWrite::OFF,
