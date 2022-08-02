@@ -178,7 +178,7 @@ int CSidechain::GetCurrentEpoch(const CCoinsViewCache& view) const
         return std::max(lastTopQualityCertReferencedEpoch, 0);
 
     return (GetState(view) == State::ALIVE) ?
-        EpochFor(pcoinsTip->GetHeight()) :
+        EpochFor(view.GetHeight()) :
         EpochFor(GetScheduledCeasingHeight());
 }
 

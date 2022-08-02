@@ -20,7 +20,7 @@ public:
         SelectParams(CBaseChainParams::REGTEST);
 
         dummyBackingView = new CCoinsView();
-        pcoinsTip = view = new txCreationUtils::CNakedCCoinsViewCache(dummyBackingView);
+        view = new txCreationUtils::CNakedCCoinsViewCache(dummyBackingView);
     };
 
     void TearDown() override {
