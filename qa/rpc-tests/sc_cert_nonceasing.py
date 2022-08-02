@@ -143,7 +143,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         quality = 0
         ref_height = self.nodes[0].getblockcount()-1
         amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
-        self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE_HIGH, FT_SC_FEE, amount_cert_1, True, "invalid end cum commitment tree root")
+        self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE_HIGH, FT_SC_FEE, amount_cert_1, True, "invalid referenced height for certificate")
 
         #------------------------------------------------
         mark_logs("## Generating blocks and checking info ##", self.nodes, DEBUG_MODE)
@@ -201,7 +201,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
             epoch_number = 3
             quality = 0
             amount_cert_4 = {"address": addr_node2, "amount": bwt_amount_4}
-            self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_4, True, "invalid end cum commitment tree root") #TODO: should we update this msg?
+            self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_4, True, "invalid referenced height for certificate")
 
         #------------------------------------------------
         mark_logs("## Generating 1 block ##", self.nodes, DEBUG_MODE)
@@ -242,7 +242,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
             epoch_number = 3
             quality = 0
             amount_cert_4 = {"address": addr_node2, "amount": bwt_amount_4}
-            self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_4, True, "invalid end cum commitment tree root")
+            self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_4, True, "invalid referenced height for certificate")
 
         self.sync_all()
 
@@ -261,7 +261,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         quality = 0
         ref_height = self.nodes[0].getblockcount()-2
         amount_cert_4 = {"address": addr_node2, "amount": bwt_amount_4}
-        self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_4, True, "invalid end cum commitment tree root")
+        self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_4, True, "invalid referenced height for certificate")
 
 
 if __name__ == '__main__':
