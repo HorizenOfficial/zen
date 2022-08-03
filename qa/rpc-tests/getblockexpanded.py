@@ -29,8 +29,6 @@ class getblockexpanded(BitcoinTestFramework):
         print("Initializing test directory "+self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, 2)
         self.first_round = True
-        self.first_maturityHeight = 1000000
-        self.second_maturityHeight = 1000000
 
     def setup_network(self, split=False):
         self.nodes = []
@@ -62,7 +60,7 @@ class getblockexpanded(BitcoinTestFramework):
             self.nodes[0].generate(ForkHeights['NON_CEASING_SC'])
             self.sync_all()
             self.first_round = False
-            self.cert3dict = dict()
+            self.cert_dict = dict()
             self.round_number = 0
             self.blck_h = []
             self.mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
@@ -180,7 +178,7 @@ class getblockexpanded(BitcoinTestFramework):
         tipHeight = self.nodes[0].getblockcount()
 
         # Add infos about cert3 of this round
-        self.cert3dict[int(cert3_maturityHeight)] = {"cert": [cert3], "cert_json": [cert_3_json], "number": 1} #len(self.cert3dict) + 
+        self.cert_dict[int(cert3_maturityHeight)] = {"cert": [cert3], "cert_json": [cert_3_json], "number": 1}
         self.blck_h.append(int(cert3_maturityHeight) - 1)
 
         #Test that we require -maturityheightindex=1 to run the getblockexpanded
@@ -204,23 +202,15 @@ class getblockexpanded(BitcoinTestFramework):
                 assert_true('matureCertificate' in rpcDataByHeight)
                 assert_true('matureCertificate' in rpcDataByHashVerbosity)
                 assert_true('matureCertificate' in rpcDataByHeightVerbosity)
-                if (rpcDataByHash['height'] in self.cert3dict):
-                    # assert_equal(len(rpcDataByHash['matureCertificate']),            1)
-                    # assert_equal(len(rpcDataByHeight['matureCertificate']),          1)
-                    # assert_equal(rpcDataByHash['matureCertificate'][0],              self.cert3dict[rpcDataByHash['height']]["cert"])
-                    # assert_equal(rpcDataByHeight['matureCertificate'][0],            self.cert3dict[rpcDataByHash['height']]["cert"])
-                    # assert_equal(len(rpcDataByHashVerbosity['matureCertificate']),   1)
-                    # assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']), 1)
-                    # assert_equal(rpcDataByHashVerbosity['matureCertificate'][0],     self.cert3dict[rpcDataByHash['height']]["cert_json"])
-                    # assert_equal(rpcDataByHeightVerbosity['matureCertificate'][0],   self.cert3dict[rpcDataByHash['height']]["cert_json"])
-                    assert_equal(len(rpcDataByHash['matureCertificate']),                       self.cert3dict[rpcDataByHash['height']]["number"])
-                    assert_equal(len(rpcDataByHeight['matureCertificate']),                     self.cert3dict[rpcDataByHash['height']]["number"])
-                    assert_true(self.check_equal(rpcDataByHash['matureCertificate'],            self.cert3dict[rpcDataByHash['height']]["cert"]))
-                    assert_true(self.check_equal(rpcDataByHeight['matureCertificate'],          self.cert3dict[rpcDataByHash['height']]["cert"]))
-                    assert_equal(len(rpcDataByHashVerbosity['matureCertificate']),              self.cert3dict[rpcDataByHash['height']]["number"])
-                    assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']),            self.cert3dict[rpcDataByHash['height']]["number"])
-                    assert_true(self.check_equal(rpcDataByHashVerbosity['matureCertificate'],   self.cert3dict[rpcDataByHash['height']]["cert_json"]))
-                    assert_true(self.check_equal(rpcDataByHeightVerbosity['matureCertificate'], self.cert3dict[rpcDataByHash['height']]["cert_json"]))
+                if (rpcDataByHash['height'] in self.cert_dict):
+                    assert_equal(len(rpcDataByHash['matureCertificate']),                       self.cert_dict[rpcDataByHash['height']]["number"])
+                    assert_equal(len(rpcDataByHeight['matureCertificate']),                     self.cert_dict[rpcDataByHash['height']]["number"])
+                    assert_true(self.check_equal(rpcDataByHash['matureCertificate'],            self.cert_dict[rpcDataByHash['height']]["cert"]))
+                    assert_true(self.check_equal(rpcDataByHeight['matureCertificate'],          self.cert_dict[rpcDataByHash['height']]["cert"]))
+                    assert_equal(len(rpcDataByHashVerbosity['matureCertificate']),              self.cert_dict[rpcDataByHash['height']]["number"])
+                    assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']),            self.cert_dict[rpcDataByHash['height']]["number"])
+                    assert_true(self.check_equal(rpcDataByHashVerbosity['matureCertificate'],   self.cert_dict[rpcDataByHash['height']]["cert_json"]))
+                    assert_true(self.check_equal(rpcDataByHeightVerbosity['matureCertificate'], self.cert_dict[rpcDataByHash['height']]["cert_json"]))
                 else:
                     assert_equal(len(rpcDataByHash['matureCertificate']), 0)
                     assert_equal(len(rpcDataByHeight['matureCertificate']), 0)
@@ -314,7 +304,7 @@ class getblockexpanded(BitcoinTestFramework):
             self.nodes[0].generate(ForkHeights['NON_CEASING_SC'])
             self.sync_all()
             self.first_round = False
-            self.cert3dict = dict()
+            self.cert_dict = dict()
             self.round_number = 0
             self.blck_h = []
             self.mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
@@ -456,11 +446,11 @@ class getblockexpanded(BitcoinTestFramework):
         tipHeight = self.nodes[0].getblockcount()
 
         # Add infos about certs to the dict
-        self.cert3dict[int(cert1_2_maturityHeight)] = {"cert": [cert1, cert2], "cert_json": [cert_2_json, cert_1_json], "number": 2}
+        self.cert_dict[int(cert1_2_maturityHeight)] = {"cert": [cert1, cert2], "cert_json": [cert_2_json, cert_1_json], "number": 2}
         self.blck_h.append(int(cert1_2_maturityHeight) - 1)
-        self.cert3dict[int(cert3_maturityHeight)] = {"cert":[cert3], "cert_json": [cert_3_json], "number": 1}
+        self.cert_dict[int(cert3_maturityHeight)] = {"cert":[cert3], "cert_json": [cert_3_json], "number": 1}
         self.blck_h.append(int(cert3_maturityHeight) - 1)
-        self.cert3dict[int(cert4_maturityHeight)] = {"cert":[cert4], "cert_json": [cert_4_json], "number": 1}
+        self.cert_dict[int(cert4_maturityHeight)] = {"cert":[cert4], "cert_json": [cert_4_json], "number": 1}
         self.blck_h.append(int(cert4_maturityHeight) - 1)
 
         #Test that we require -maturityheightindex=1 to run the getblockexpanded
@@ -484,15 +474,15 @@ class getblockexpanded(BitcoinTestFramework):
                 assert_true('matureCertificate' in rpcDataByHeight)
                 assert_true('matureCertificate' in rpcDataByHashVerbosity)
                 assert_true('matureCertificate' in rpcDataByHeightVerbosity)
-                if (rpcDataByHash['height'] in self.cert3dict):
-                    assert_equal(len(rpcDataByHash['matureCertificate']),                       self.cert3dict[rpcDataByHash['height']]["number"])
-                    assert_equal(len(rpcDataByHeight['matureCertificate']),                     self.cert3dict[rpcDataByHash['height']]["number"])
-                    assert_true(self.check_equal(rpcDataByHash['matureCertificate'],            self.cert3dict[rpcDataByHash['height']]["cert"]))
-                    assert_true(self.check_equal(rpcDataByHeight['matureCertificate'],          self.cert3dict[rpcDataByHash['height']]["cert"]))
-                    assert_equal(len(rpcDataByHashVerbosity['matureCertificate']),              self.cert3dict[rpcDataByHash['height']]["number"])
-                    assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']),            self.cert3dict[rpcDataByHash['height']]["number"])
-                    assert_true(self.check_equal(rpcDataByHashVerbosity['matureCertificate'],   self.cert3dict[rpcDataByHash['height']]["cert_json"]))
-                    assert_true(self.check_equal(rpcDataByHeightVerbosity['matureCertificate'], self.cert3dict[rpcDataByHash['height']]["cert_json"]))
+                if (rpcDataByHash['height'] in self.cert_dict):
+                    assert_equal(len(rpcDataByHash['matureCertificate']),                       self.cert_dict[rpcDataByHash['height']]["number"])
+                    assert_equal(len(rpcDataByHeight['matureCertificate']),                     self.cert_dict[rpcDataByHash['height']]["number"])
+                    assert_true(self.check_equal(rpcDataByHash['matureCertificate'],            self.cert_dict[rpcDataByHash['height']]["cert"]))
+                    assert_true(self.check_equal(rpcDataByHeight['matureCertificate'],          self.cert_dict[rpcDataByHash['height']]["cert"]))
+                    assert_equal(len(rpcDataByHashVerbosity['matureCertificate']),              self.cert_dict[rpcDataByHash['height']]["number"])
+                    assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']),            self.cert_dict[rpcDataByHash['height']]["number"])
+                    assert_true(self.check_equal(rpcDataByHashVerbosity['matureCertificate'],   self.cert_dict[rpcDataByHash['height']]["cert_json"]))
+                    assert_true(self.check_equal(rpcDataByHeightVerbosity['matureCertificate'], self.cert_dict[rpcDataByHash['height']]["cert_json"]))
                 else:
                     assert_equal(len(rpcDataByHash['matureCertificate']), 0)
                     assert_equal(len(rpcDataByHeight['matureCertificate']), 0)
