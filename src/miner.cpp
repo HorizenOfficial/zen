@@ -59,9 +59,11 @@ uint64_t nLastBlockTxPartitionSize = 0;
 
 bool TxPriorityCompare::operator()(const TxPriority& a, const TxPriority& b)
 {
-    // first of all, if we are comparing two certs, we must be sure they are ordered by
-    // quality if they refer to the same scid and epoch; this criterion is a consensus rule
-    // and overrides the others two
+    // When comparing two certificates we have to order them by epoch
+    // and then by quality.
+    // Before the introduction of non-ceasable sidechains, we only had
+    // to order by quality.
+    // This criterion is a consensus rule and overrides the others two
     if (a.get<2>()->IsCertificate() && b.get<2>()->IsCertificate() )
     {
         // dynamic casting throws an exception upon failure
@@ -71,7 +73,16 @@ bool TxPriorityCompare::operator()(const TxPriority& a, const TxPriority& b)
 
             if (aCert.GetScId() == bCert.GetScId() )
             {
-                return aCert.quality > bCert.quality;
+                if (aCert.epochNumber != bCert.epochNumber )
+                {
+                    // First order by epoch number
+                    return aCert.epochNumber > bCert.epochNumber;
+                }
+                else
+                {
+                    // Then order by quality
+                    return aCert.quality > bCert.quality;
+                }
             }
         } catch (...) {
             LogPrintf("%s():%d - ERROR: cast error\n", __func__, __LINE__ );
@@ -618,6 +629,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlo
         int nBlockSigOps = 100;
         bool fSortedByFee = (nBlockPrioritySize <= 0);
 
+        // Order transactions and certificates.
+        // Note that vecPriority might not contain all the transactions/certificates in mempool as there might be input dependencies
+        // in which case the depending transactions/certificates are placed in mapDependers to be sorted later according to input spending.
         TxPriorityCompare comparer(fSortedByFee);
         std::make_heap(vecPriority.begin(), vecPriority.end(), comparer);
 
