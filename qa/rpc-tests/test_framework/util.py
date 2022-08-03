@@ -550,12 +550,49 @@ def dump_sc_info(nodes,nNodes,scId="",debug=0):
             for info in x:
                 dump_sc_info_record(info, i,nNodes)
 
-def mark_logs(msg,nodes,debug=0):
+def colorize(color: str, text: str) -> str:
+    """
+    given an input string "text", returns the same string decorated with
+    ANSI escape sequences for colored printing on *nix terminals.
+    'color' is a single char used to select the color among:
+        'e'     grey
+        'r'     red
+        'g'     green
+        'y'     yellow
+        'b'     blue
+        'p'     purple
+        'c'     cyan
+        'n'     no color (white)
+    """
+    # As now, coloring is disabled on Windows systems
+    if os.name == 'nt':
+        return text
+
+    if os.getenv('ANSI_COLORS_DISABLED') is not None:
+        return text
+
+    N_C = "\033[0m"
+    colorshortcuts = ['e', 'r', 'g', 'y', 'b', 'p', 'c', 'n']
+    color = color[:1]   # just get the first char of 'color' input param
+
+    if color not in colorshortcuts:
+        return text
+
+    COLORS = dict(zip(colorshortcuts, list(range(90, 97)) + [0]))
+    return "\033[%d;1m" % COLORS[color] + text + N_C
+
+def mark_logs(msg, nodes, debug = 0, strip_escape = True):
     if debug == 0:
         return
     print(msg)
+    # This regex removes all the escape sequences introduced by the colorize function
+    if strip_escape:
+        ansi_escape = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
+        msg_clean = ansi_escape.sub('', msg)
+    else:
+        msg_clean = msg
     for node in nodes:
-        node.dbg_log(msg)
+        node.dbg_log(msg_clean)
 
 def get_end_epoch_height(scid, node, epochLen):
     sc_creating_height = node.getscinfo(scid)['items'][0]['createdAtBlockHeight']
