@@ -443,7 +443,7 @@ def random_transaction(nodes, amount, min_fee, fee_increment, fee_variants):
 
     return (txid, signresult["hex"], fee)
 
-def assert_equal(expected, actual, message = ""):
+def assert_equal(actual, expected, message = ""):
     if expected != actual:
         if message:
             message = "%s; " % message 
