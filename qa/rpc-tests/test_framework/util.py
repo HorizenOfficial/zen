@@ -572,27 +572,28 @@ def colorize(color: str, text: str) -> str:
         return text
 
     N_C = "\033[0m"
-    colorshortcuts = ['e', 'r', 'g', 'y', 'b', 'p', 'c', 'n']
+    colorshortcuts = ['e', 'r', 'g', 'y', 'b', 'p', 'c']
     color = color[:1]   # just get the first char of 'color' input param
 
-    if color not in colorshortcuts:
+    if (color == 'n') or (color not in colorshortcuts):
         return text
 
-    COLORS = dict(zip(colorshortcuts, list(range(90, 97)) + [0]))
+    COLORS = dict(zip(colorshortcuts, range(90, 97)))
     return "\033[%d;1m" % COLORS[color] + text + N_C
 
-def mark_logs(msg, nodes, debug = 0, strip_escape = True):
+def strip_escape_seq(text: str) -> str:
+    """
+    Returns the string 'text' stripped from the escape sequences added by colorize()
+    """
+    ansi_escape = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
+    return ansi_escape.sub('', text)
+
+def mark_logs(msg, nodes, debug = 0, color = 'n'):
     if debug == 0:
         return
-    print(msg)
-    # This regex removes all the escape sequences introduced by the colorize function
-    if strip_escape:
-        ansi_escape = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
-        msg_clean = ansi_escape.sub('', msg)
-    else:
-        msg_clean = msg
+    print(colorize(color, msg))
     for node in nodes:
-        node.dbg_log(msg_clean)
+        node.dbg_log(msg)
 
 def get_end_epoch_height(scid, node, epochLen):
     sc_creating_height = node.getscinfo(scid)['items'][0]['createdAtBlockHeight']
