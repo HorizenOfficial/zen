@@ -41,6 +41,8 @@ class getblockexpanded(BitcoinTestFramework):
         self.sync_all()
 
     def check_equal(self, a, b):
+        if len(a) != len(b):
+            return False
         for x in a:
             if x not in b:
                 return False
@@ -61,6 +63,7 @@ class getblockexpanded(BitcoinTestFramework):
             self.sync_all()
             self.first_round = False
             self.cert_dict = dict()
+            self.cert_dict_non_ceasing = dict()
             self.round_number = 0
             self.blck_h = []
             self.mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
@@ -303,6 +306,7 @@ class getblockexpanded(BitcoinTestFramework):
             self.sync_all()
             self.first_round = False
             self.cert_dict = dict()
+            self.cert_dict_non_ceasing = dict()
             self.round_number = 0
             self.blck_h = []
             self.mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
@@ -444,11 +448,14 @@ class getblockexpanded(BitcoinTestFramework):
         tipHeight = self.nodes[0].getblockcount()
 
         # Add infos about certs to the dict
-        self.cert_dict[int(cert1_2_maturityHeight)] = {"cert": [cert1, cert2], "cert_json": [cert_2_json, cert_1_json], "number": 2}
+        self.cert_dict[int(cert1_2_maturityHeight)]             = {"cert": [cert1, cert2], "cert_json": [cert_2_json, cert_1_json], "number": 2}
+        self.cert_dict_non_ceasing[int(cert1_2_maturityHeight)] = {"cert": [cert1, cert2], "cert_json": [cert_2_json, cert_1_json], "number": 2}
         self.blck_h.append(int(cert1_2_maturityHeight) - 1)
-        self.cert_dict[int(cert3_maturityHeight)] = {"cert":[cert3], "cert_json": [cert_3_json], "number": 1}
+        self.cert_dict[int(cert3_maturityHeight)]               = {"cert":[cert3], "cert_json": [cert_3_json], "number": 1}
+        self.cert_dict_non_ceasing[int(cert3_maturityHeight)]   = {"cert":[cert3], "cert_json": [cert_3_json], "number": 1}
         self.blck_h.append(int(cert3_maturityHeight) - 1)
-        self.cert_dict[int(cert4_maturityHeight)] = {"cert":[cert4], "cert_json": [cert_4_json], "number": 1}
+        self.cert_dict[int(cert4_maturityHeight)]               = {"cert":[cert4], "cert_json": [cert_4_json], "number": 1}
+        self.cert_dict_non_ceasing[int(cert4_maturityHeight)]   = {"cert":[cert4], "cert_json": [cert_4_json], "number": 1}
         self.blck_h.append(int(cert4_maturityHeight) - 1)
 
         #Test that we require -maturityheightindex=1 to run the getblockexpanded
@@ -486,6 +493,14 @@ class getblockexpanded(BitcoinTestFramework):
                     assert_equal(len(rpcDataByHeight['matureCertificate']), 0)
                     assert_equal(len(rpcDataByHashVerbosity['matureCertificate']), 0)
                     assert_equal(len(rpcDataByHeightVerbosity['matureCertificate']), 0)
+                # Assert that for every block the list of certificates is equal to the list of MATURE certificates
+                # That checks that certificates immediately mature once they are included in a block
+                # (Only for v2 non-ceasable sc)
+                if (rpcDataByHash['height'] in self.cert_dict_non_ceasing):
+                    assert_true(self.check_equal(rpcDataByHash['matureCertificate'],               rpcDataByHash['cert']))
+                    assert_true(self.check_equal(rpcDataByHeight['matureCertificate'],             rpcDataByHeight['cert']))
+                    assert_true(self.check_equal(rpcDataByHashVerbosity['matureCertificate'],      rpcDataByHashVerbosity['cert']))
+                    assert_true(self.check_equal(rpcDataByHeightVerbosity['matureCertificate'],    rpcDataByHeightVerbosity['cert']))
             else:
                 assert_false('matureCertificate' in rpcDataByHash)
                 assert_false('matureCertificate' in rpcDataByHeight)
