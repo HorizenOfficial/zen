@@ -841,19 +841,32 @@ UniValue sc_create(const UniValue& params, bool fHelp)
     // ---------------------------------------------------------
     char errBuf[256] = {};
     int withdrawalEpochLength = SC_RPC_OPERATION_DEFAULT_EPOCH_LENGTH;
+    bool isCeasable = true;
     if (setKeyArgs.count("withdrawalEpochLength"))
     {
         withdrawalEpochLength = find_value(inputObject, "withdrawalEpochLength").get_int();
-        if (!CSidechain::isNonCeasingSidechain(sidechainVersion, withdrawalEpochLength)
-            && withdrawalEpochLength < getScMinWithdrawalEpochLength())
+        isCeasable = !CSidechain::isNonCeasingSidechain(sidechainVersion, withdrawalEpochLength);
+
+        if (isCeasable)
         {
-            sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d\n", getScMinWithdrawalEpochLength());
-            throw JSONRPCError(RPC_TYPE_ERROR, errBuf);
+            if (withdrawalEpochLength < getScMinWithdrawalEpochLength())
+            {
+                sprintf(errBuf, "Invalid withdrawalEpochLength: minimum value allowed=%d", getScMinWithdrawalEpochLength());
+                throw JSONRPCError(RPC_INVALID_PARAMETER, errBuf);
+            }
+            if (withdrawalEpochLength > getScMaxWithdrawalEpochLength())
+            {
+                sprintf(errBuf, "Invalid withdrawalEpochLength: maximum value allowed=%d", getScMaxWithdrawalEpochLength());
+                throw JSONRPCError(RPC_INVALID_PARAMETER, errBuf);
+            }
         }
-        if (withdrawalEpochLength > getScMaxWithdrawalEpochLength())
+        else
         {
-            sprintf(errBuf, "Invalid withdrawalEpochLength: maximum value allowed=%d\n", getScMaxWithdrawalEpochLength());
-            throw JSONRPCError(RPC_TYPE_ERROR, errBuf);
+            if (withdrawalEpochLength != 0)
+            {
+                sprintf(errBuf, "Invalid withdrawalEpochLength: non-ceasing sidechains must have 0\n");
+                throw JSONRPCError(RPC_INVALID_PARAMETER, errBuf);
+            }
         }
     }
 
@@ -1005,6 +1018,13 @@ UniValue sc_create(const UniValue& params, bool fHelp)
 
         if (!inputString.empty())
         {
+            // Setting a CSW verification key is not allowed for non-ceasable sidechains
+            // as such mechanism is disabled for them.
+            if (!isCeasable)
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "wCeasedVk is not allowed for non-ceasable sidechains");
+            }
+
             std::vector<unsigned char> wCeasedVkVec;
             if (!Sidechain::AddScData(inputString, wCeasedVkVec, CScVKey::MaxByteSize(), Sidechain::CheckSizeMode::CHECK_UPPER_LIMIT, error))
             {
@@ -1104,6 +1124,11 @@ UniValue sc_create(const UniValue& params, bool fHelp)
             if (mbtrDataLength < 0 || mbtrDataLength > MAX_SC_MBTR_DATA_LEN)
             {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid mainchainBackwardTransferRequestDataLength: out of range [%d, %d]", 0, MAX_SC_MBTR_DATA_LEN));
+            }
+
+            if (!isCeasable && mbtrDataLength != 0)
+            {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "mainchainBackwardTransferRequestDataLength is not allowed for non-ceasable sidechains");
             }
         }
     }
