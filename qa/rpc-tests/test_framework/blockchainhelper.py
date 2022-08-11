@@ -86,6 +86,9 @@ class SidechainCreationInput:
         self.customFieldsConfig = [MODULUS_BITS, MODULUS_BITS]
         self.bitvectorConfig = [[254*4, 151]]
 
+    def is_non_ceasable(self) -> bool:
+        return self.version == 2 and self.withdrawalEpochLength == 0
+
     def from_rpc_args(blockchainHelper, name, args):
 
         # Check that optional_parameters contains only valid keys
@@ -199,7 +202,7 @@ class BlockchainHelper:
 
         return error_message
 
-    def store_sidechain(self, sc_input, creation_response):
+    def store_sidechain(self, sc_input: SidechainCreationInput, creation_response):
         """
         Stores a sidechain into a local map using the sidechain name as key.
         """
@@ -210,16 +213,23 @@ class BlockchainHelper:
             "sc_id": creation_response["scid"]
         }
 
+        # For non-ceasable sidechains it is useful to store the last referenced height.
+        # Given that we are storing the sidechain before the related transaction is mined,
+        # the last referenced height is the current_height + 1.
+        if sc_input.is_non_ceasable():
+            self.sidechain_map[sc_input.name]["last_referenced_height"] = self.nodes[0].getblockcount() + 1
+
     def get_sidechain_id(self, sc_name):
         """
         Returns the ID of the sidechain with the given name.
         """
         return self.sidechain_map[sc_name]["sc_id"]
 
-    def send_certificate(self, sc_name, quality):
+    def send_certificate(self, sc_name, quality, referenced_height = None):
         """
         Sends a randomly generated certificate for the given sidechain (name).
         Only quality is required as a parameter.
+        referenced_height is optional and is used for non-ceasable sidechains only
         """
         sc_info = self.sidechain_map[sc_name]
         scid = sc_info["sc_id"]
@@ -242,7 +252,8 @@ class BlockchainHelper:
         if not is_non_ceasing_sidechain:
             epoch_cum_tree_hash = self.nodes[0].getblock(end_epoch_block_hash)['scCumTreeHash']
         else:
-            epoch_cum_tree_hash = self.nodes[0].getblock(str(self.nodes[0].getblockcount()))['scCumTreeHash']
+            ref_height = referenced_height if referenced_height is not None else sc_info["last_referenced_height"] + 1
+            epoch_cum_tree_hash = self.nodes[0].getblock(str(ref_height))['scCumTreeHash']
         scid_swapped = str(swap_bytes(scid))
 
         custom_fields = []
@@ -294,5 +305,8 @@ class BlockchainHelper:
             [RANDOM_BITVECTOR])
 
         sc_info["last_certificate_epoch"] = epoch_number
+
+        if is_non_ceasing_sidechain:
+            sc_info["last_referenced_height"] = ref_height
 
         return certificate_id
