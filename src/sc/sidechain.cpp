@@ -142,13 +142,33 @@ bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight, const CCoi
             __func__, __LINE__);
     }
 
-    // Adding handling of quality, we can have also certificates for the same epoch of the last certificate
+    // Adding handling of quality, we can have also certificates for the same epoch of the last certificate.
     // The epoch number must be consistent with the sc certificate history (no old epoch allowed)
-    if ((isNonCeasing() || certEpoch != lastTopQualityCertReferencedEpoch) &&
-        certEpoch != lastTopQualityCertReferencedEpoch + 1)
+    if (isNonCeasing())
     {
-        return error("%s():%d - ERROR: ceasing sidechain certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d, or %d)\n",
-            __func__, __LINE__, certEpoch, lastTopQualityCertReferencedEpoch, lastTopQualityCertReferencedEpoch+1);
+        if (certEpoch != lastTopQualityCertReferencedEpoch + 1
+            && certEpoch != lastUnconfirmedReferencedEpoch + 1)
+        {
+                return error("%s():%d - ERROR: non ceasing sidechain certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d, or %d)\n",
+                    __func__, __LINE__, certEpoch, lastTopQualityCertReferencedEpoch + 1, lastUnconfirmedReferencedEpoch + 1);
+        }
+
+        // Check ordering of references
+        if (referencedHeight <= lastReferencedHeight
+            || (lastUnconfirmedReferencedHeight != -1 && referencedHeight <= lastUnconfirmedReferencedHeight))
+        {
+            return error("%s():%d - ERROR: certificate cannot be accepted, cert height (%d) not greater than last(%d - %d)\n",
+                __func__, __LINE__, referencedHeight, lastReferencedHeight, lastUnconfirmedReferencedHeight);
+        }
+    }
+    else
+    {
+        if (certEpoch != lastTopQualityCertReferencedEpoch &&
+            certEpoch != lastTopQualityCertReferencedEpoch + 1)
+        {
+            return error("%s():%d - ERROR: sidechain certificate cannot be accepted, wrong epoch. Certificate Epoch %d (expected: %d, or %d)\n",
+                __func__, __LINE__, certEpoch, lastTopQualityCertReferencedEpoch, lastTopQualityCertReferencedEpoch+1);
+        }
     }
 
     int inclusionHeight = view.GetHeight() + 1;
@@ -160,12 +180,6 @@ bool CSidechain::CheckCertTiming(int certEpoch, int referencedHeight, const CCoi
     {
         return error("%s():%d - ERROR: certificate cannot be accepted, cert received outside safeguard\n",
             __func__, __LINE__);
-    }
-
-    // Check ordering of references
-    if (isNonCeasing()) {
-        if (referencedHeight < lastReferencedHeight)
-            return false;
     }
 
     return true;
@@ -264,7 +278,9 @@ std::string CSidechain::ToString() const
                       " creationTxHash=%s\n pastEpochTopQualityCertView=%s\n"
                       " lastTopQualityCertView=%s\n"
                       " lastTopQualityCertHash=%s\n lastTopQualityCertReferencedEpoch=%d\n"
-                      " lastTopQualityCertQuality=%d\n lastTopQualityCertBwtAmount=%s\n balance=%s\n"
+                      " lastTopQualityCertQuality=%d\n"
+                      " lastReferencedHeight=%d\n lastInclusionHeight=%d lastUnconfirmedReferencedHeight=%d\n"
+                      " lastTopQualityCertBwtAmount=%s\n balance=%s\n"
                       " fixedParams=[NOT PRINTED CURRENTLY]\n mImmatureAmounts=[NOT PRINTED CURRENTLY])",
         fixedParams.version
         , creationBlockHeight
@@ -274,6 +290,9 @@ std::string CSidechain::ToString() const
         , lastTopQualityCertHash.ToString()
         , lastTopQualityCertReferencedEpoch
         , lastTopQualityCertQuality
+        , lastReferencedHeight
+        , lastInclusionHeight
+        , lastUnconfirmedReferencedHeight
         , FormatMoney(lastTopQualityCertBwtAmount)
         , FormatMoney(balance)
     );

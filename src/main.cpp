@@ -1191,7 +1191,7 @@ void RejectMemoryPoolTxBase(const CValidationState& state, const CTransactionBas
 }
 
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom)
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, SkipTimingCheckFlag fSkipTimingCheck, CNode* pfrom)
 {
     AssertLockHeld(cs_main);
 
@@ -1265,7 +1265,7 @@ MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationSt
             bool banSenderNode = false;
             int nDoS = 0;
 
-            CValidationState::Code ret_code = view.IsCertApplicableToState(cert, true, &banSenderNode);
+            CValidationState::Code ret_code = view.IsCertApplicableToState(cert, fSkipTimingCheck == SkipTimingCheckFlag::ON, &banSenderNode);
             if (ret_code != CValidationState::Code::OK)
             {
                 if (banSenderNode)
@@ -1798,7 +1798,7 @@ MempoolReturnValue AcceptTxBaseToMemoryPool(CTxMemPool& pool, CValidationState &
         if (txBase.IsCertificate())
         {
             return AcceptCertificateToMemoryPool(pool, state, dynamic_cast<const CScCertificate&>(txBase), fLimitFree,
-                                                 fRejectAbsurdFee, fProofVerification, pfrom);
+                                                 fRejectAbsurdFee, fProofVerification, SkipTimingCheckFlag::OFF, pfrom);
         }
         else
         {
@@ -3641,7 +3641,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         control.Add(vChecks);
 
-        CValidationState::Code ret_code = view.IsCertApplicableToState(cert, false);
+        CValidationState::Code ret_code = view.IsCertApplicableToState(cert, false); // false means do not skip timing checks
         if (ret_code != CValidationState::Code::OK)
         {
             return state.DoS(100, error("%s():%d: invalid sc certificate [%s], ret_code[0x%x]",
@@ -4202,7 +4202,7 @@ bool static DisconnectTip(CValidationState &state) {
         LogPrint("sc", "%s():%d - resurrecting certificate [%s] to mempool\n", __func__, __LINE__, cert.GetHash().ToString());
         CValidationState stateDummy;
         if (MempoolReturnValue::VALID != AcceptCertificateToMemoryPool(mempool, stateDummy, cert,
-                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::DISABLED))
+                LimitFreeFlag::OFF, RejectAbsurdFeeFlag::OFF, MempoolProofVerificationFlag::DISABLED, SkipTimingCheckFlag::ON, nullptr))
         {
             LogPrint("sc", "%s():%d - removing certificate [%s] from mempool\n[%s]\n",
                 __func__, __LINE__, cert.GetHash().ToString(), cert.ToString());
