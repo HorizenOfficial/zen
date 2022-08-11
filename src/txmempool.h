@@ -119,7 +119,7 @@ struct CSidechainMemPoolEntry
 {
     uint256 scCreationTxHash;
     std::set<uint256> fwdTxHashes; 
-    std::map<std::pair<int64_t, int>, uint256> mBackwardCertificates; //quality -> certHash
+    std::map<std::pair<int64_t, int>, uint256> mBackwardCertificates; // (quality, epoch) -> certHash
     std::set<uint256> mcBtrsTxHashes;
     std::map<CFieldElement, uint256> cswNullifiers; // csw nullifier -> containing Tx hash
     CAmount cswTotalAmount;
