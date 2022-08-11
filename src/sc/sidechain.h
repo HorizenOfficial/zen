@@ -62,7 +62,7 @@ public:
         lastTopQualityCertReferencedEpoch(CScCertificate::EPOCH_NULL),
         lastTopQualityCertQuality(CScCertificate::QUALITY_NULL), lastTopQualityCertBwtAmount(0),
         balance(0), maxSizeOfScFeesContainers(-1),
-        lastReferencedHeight(-1), lastInclusionHeight(-1) {}
+        lastReferencedHeight(-1), lastInclusionHeight(-1), lastUnconfirmedReferencedEpoch(-1), lastUnconfirmedReferencedHeight(-1) {}
 
     bool IsNull() const
     {
@@ -99,6 +99,8 @@ public:
 
     int lastReferencedHeight;
     int lastInclusionHeight;
+    int lastUnconfirmedReferencedHeight;
+    int lastUnconfirmedReferencedEpoch;
 
     // total amount given by sum(fw transfer)-sum(bkw transfer)
     CAmount balance;
@@ -179,6 +181,7 @@ public:
         if (isNonCeasing()) {
             READWRITE(VARINT(lastInclusionHeight));
             READWRITE(VARINT(lastReferencedHeight));
+            // no need to write unconfirmed info to storage
         }
     }
 

@@ -354,7 +354,8 @@ void PruneAndFlush();
 // Accept Tx/Cert ToMempool parameters types and signature
 enum class LimitFreeFlag       { ON, OFF };
 enum class RejectAbsurdFeeFlag { ON, OFF };
-enum class MempoolReturnValue { INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
+enum class SkipTimingCheckFlag { ON, OFF };
+enum class MempoolReturnValue  { INVALID, MISSING_INPUT, VALID, PARTIALLY_VALIDATED };
 
 /**
  * @brief The enumeration of possible states of the sidechain proof verification
@@ -364,7 +365,7 @@ enum class MempoolProofVerificationFlag
 {
     DISABLED,   /**< The proof verification is not required. */
     SYNC,       /**< The proof verification is enabled and will be performed synchronously on the calling thread. */
-    ASYNC       /**< The proof verification is enabled and will pe performed asynchronously on a separate thread. */
+    ASYNC       /**< The proof verification is enabled and will be performed asynchronously on a separate thread. */
 };
 
 /**
@@ -387,7 +388,7 @@ MempoolReturnValue AcceptTxToMemoryPool(CTxMemPool& pool, CValidationState &stat
     LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
 
 MempoolReturnValue AcceptCertificateToMemoryPool(CTxMemPool& pool, CValidationState &state, const CScCertificate &cert,
-    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, CNode* pfrom = nullptr);
+    LimitFreeFlag fLimitFree, RejectAbsurdFeeFlag fRejectAbsurdFee, MempoolProofVerificationFlag fProofVerification, SkipTimingCheckFlag fSkipTiming, CNode* pfrom = nullptr);
 
 struct CNodeStateStats {
     int nMisbehavior;
