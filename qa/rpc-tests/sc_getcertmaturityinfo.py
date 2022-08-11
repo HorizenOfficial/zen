@@ -82,14 +82,13 @@ class sc_getcertmaturityinfo(BitcoinTestFramework):
         mark_logs("Node 0 generates another certificate for each sidechain", self.nodes, DEBUG_MODE)
         cert2_sc1: str = test_helper.send_certificate(v1_sc1_name, 20) # Higher quality, same epoch 0
         cert2_sc2: str = test_helper.send_certificate(v2_ceasing_sc2_name, 20) # Higher quality, same epoch 0
-        # TODO: restore certificate when the mempool changes are ready
-        #cert2_sc3: str = test_helper.send_certificate(v2_non_ceasing_sc3_name, 0) # Same 0 quality, epoch 1
+        cert2_sc3: str = test_helper.send_certificate(v2_non_ceasing_sc3_name, 0) # Same 0 quality, epoch 1
 
         mark_logs("Check maturity info for the low quality certificates in the mempool (they should be not confirmed)", self.nodes, DEBUG_MODE)
         for cert in [cert1_sc1, cert1_sc2]:
             self.check_certificate_maturity_info(cert, -1, "LOW_QUALITY_MEMPOOL", -1)
 
-        for cert in [cert1_sc3, cert2_sc1, cert2_sc2]:#, cert2_sc3]:
+        for cert in [cert1_sc3, cert2_sc1, cert2_sc2, cert2_sc3]:
             self.check_certificate_maturity_info(cert, -1, "TOP_QUALITY_MEMPOOL", -1)
 
         mark_logs("Node 0 generates a block to confirm the creation of the certificates", self.nodes, DEBUG_MODE)
@@ -120,9 +119,8 @@ class sc_getcertmaturityinfo(BitcoinTestFramework):
                 self.check_certificate_maturity_info(cert, blocks_to_maturity, "IMMATURE", current_block + blocks_to_maturity)
 
             # Check mature certificates (for non-ceasing sidechain)
-            # TODO: extend certs list when the mempool changes are ready
-            for cert in [cert1_sc3]:#, cert2_sc3]:
-                self.check_certificate_maturity_info(cert1_sc3, 0, "MATURE", certificate_including_block_height)
+            for cert in [cert1_sc3, cert2_sc3]:
+                self.check_certificate_maturity_info(cert, 0, "MATURE", certificate_including_block_height)
 
             self.nodes[0].generate(1)
             blocks_to_maturity -= 1
@@ -136,8 +134,7 @@ class sc_getcertmaturityinfo(BitcoinTestFramework):
             self.check_certificate_maturity_info(cert, -1, "SUPERSEDED", (current_block + blocks_to_maturity) * (-1))
 
         mark_logs("Check that the non-ceasing sidechain (sc3) certificates are still MATURE", self.nodes, DEBUG_MODE)
-        # TODO: extend certs list when the mempool changes are ready
-        for cert in [cert1_sc3]:#, cert2_sc3]:
+        for cert in [cert1_sc3, cert2_sc3]:
             self.check_certificate_maturity_info(cert, 0, "MATURE", certificate_including_block_height)
 
         mark_logs("Revert all blocks until all certificates are sent back to mempool", self.nodes, DEBUG_MODE)
@@ -157,9 +154,8 @@ class sc_getcertmaturityinfo(BitcoinTestFramework):
                 self.check_certificate_maturity_info(cert, blocks_to_maturity, "IMMATURE", current_block + blocks_to_maturity)
 
             # Check mature certificates (for non-ceasing sidechain)
-            # TODO: extend certs list when the mempool changes are ready
-            for cert in [cert1_sc3]:#, cert2_sc3]:
-                self.check_certificate_maturity_info(cert1_sc3, 0, "MATURE", certificate_including_block_height)
+            for cert in [cert1_sc3, cert2_sc3]:
+                self.check_certificate_maturity_info(cert, 0, "MATURE", certificate_including_block_height)
 
         mark_logs("Revert one more block to send all the certificates to mempool", self.nodes, DEBUG_MODE)
         reverting_block_hash = self.nodes[0].getbestblockhash()
@@ -168,7 +164,7 @@ class sc_getcertmaturityinfo(BitcoinTestFramework):
         for cert in [cert1_sc1, cert1_sc2]:
             self.check_certificate_maturity_info(cert, -1, "LOW_QUALITY_MEMPOOL", -1)
 
-        for cert in [cert1_sc3, cert2_sc1, cert2_sc2]:#, cert2_sc3]:
+        for cert in [cert1_sc3, cert2_sc1, cert2_sc2, cert2_sc3]:
             self.check_certificate_maturity_info(cert, -1, "TOP_QUALITY_MEMPOOL", -1)
 
         mark_logs("Node 0 generates blocks to include certificates and reach the end of submission window", self.nodes, DEBUG_MODE)
@@ -180,8 +176,11 @@ class sc_getcertmaturityinfo(BitcoinTestFramework):
         cert3_sc3: str = test_helper.send_certificate(v2_non_ceasing_sc3_name, 0) # Epoch 3
 
         mark_logs("Check that the certificates for sc1 and sc2 are maturing in the next block", self.nodes, DEBUG_MODE)
-        for cert in [cert2_sc1, cert2_sc2]:#, cert2_sc3]:
+        for cert in [cert2_sc1, cert2_sc2]:
             self.check_certificate_maturity_info(cert, 1, "IMMATURE", current_block + blocks_to_maturity)
+
+        mark_logs("Check that the certificate for sc3 is still MATURE", self.nodes, DEBUG_MODE)
+        self.check_certificate_maturity_info(cert2_sc3, 0, "MATURE", certificate_including_block_height)
 
         mark_logs("Check that the certificates in the mempool are not confirmed yet", self.nodes, DEBUG_MODE)
         for cert in [cert3_sc1, cert3_sc2, cert3_sc3]:
@@ -210,7 +209,7 @@ class sc_getcertmaturityinfo(BitcoinTestFramework):
             self.check_certificate_maturity_info(cert, blocks_to_maturity, "IMMATURE", epoch_1_maturity_height)
 
         mark_logs("Check that all the certificates for sc3 (non-ceasing) are mature", self.nodes, DEBUG_MODE)
-        for cert in [cert1_sc3]:#, cert2_sc3]:
+        for cert in [cert1_sc3, cert2_sc3]:
             self.check_certificate_maturity_info(cert, 0, "MATURE", certificate_including_block_height)
         
         self.check_certificate_maturity_info(cert3_sc3, 0, "MATURE", current_height)

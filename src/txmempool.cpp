@@ -1767,7 +1767,11 @@ void CTxMemPool::CertQualityStatusString(const CScCertificate& cert, std::string
         return;
     }
 
-    if (mapSidechains.at(scid).GetTopQualityCert()->second == cert.GetHash())
+    // If any certificate is in the mempool, the sidechain must be available in the CoinsView.
+    CSidechain sidechain;
+    assert(pcoinsTip->GetSidechain(scid, sidechain));
+
+    if (sidechain.isNonCeasing() || mapSidechains.at(scid).GetTopQualityCert()->second == cert.GetHash())
     {
         statusString = "TOP_QUALITY_MEMPOOL";
     }
