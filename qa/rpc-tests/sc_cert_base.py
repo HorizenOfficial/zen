@@ -517,7 +517,7 @@ class sc_cert_base(BitcoinTestFramework):
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
 
-        assert_equal("bad-sc-cert-not-applicable" in errorString, True)
+        assert_equal("invalid timing for certificate" in errorString, True)
         self.sync_all()
         
         mark_logs("Check block coinbase contains the certificate fee", self.nodes, DEBUG_MODE)
@@ -688,7 +688,7 @@ class sc_cert_base(BitcoinTestFramework):
         except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
-        assert_equal("bad-sc-cert-not-applicable" in errorString, True)
+        assert_equal("invalid timing for certificate" in errorString, True)
 
         mark_logs("Default proof constant test", self.nodes, DEBUG_MODE)
         mark_logs("Node0 creates new sidechain", self.nodes, DEBUG_MODE)

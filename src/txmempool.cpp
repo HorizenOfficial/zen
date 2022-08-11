@@ -856,20 +856,31 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
         }
 
         CSidechain sc;
-        auto const& height_it = mapCumtreeHeight.find(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
-        if (height_it == mapCumtreeHeight.end() ||
-            !pCoinsView->GetSidechain(cert.GetScId(), sc))
+        if (!pCoinsView->GetSidechain(cert.GetScId(), sc))
         {
             certsToRemove.insert(cert.GetHash());
             continue;
         }
+        int referencedHeight;
 
-        // TODO: this part should be changed as soon as we implement have a way to retrieve the
-        // timing information from the CCoinsViewMemPool (the same things that applies to the 
-        // function AcceptCertificateToMemoryPool()).
-        if (!sc.CheckCertTiming(cert.epochNumber, height_it->second, *pCoinsView))
+        if (sc.isNonCeasing()) {
+            const auto map_it = mapCumtreeHeight.find(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+            if (map_it == mapCumtreeHeight.end()) {
+                certsToRemove.insert(cert.GetHash());
+                continue;
+            }
+            referencedHeight = map_it->second;
+        }
+        else
         {
-            if (sc.isNonCeasing() && mempool.certificateExists(cert.GetScId(), cert.epochNumber - 1))
+            referencedHeight = sc.GetEndHeightForEpoch(cert.epochNumber);
+        }
+
+        // A certificate for a non ceasing sidechain should be kept if either it is in
+        // the correct order wrt the blochain, or with another certificate in the mempool
+        if (!sc.CheckCertTiming(cert.epochNumber, referencedHeight, *pCoinsView))
+        {
+            if (sc.isNonCeasing() && certificateExists(cert.GetScId(), cert.epochNumber - 1))
             {
                 LogPrintf("%s():%d: found correct sequence in mempool for cert %s\n", __func__, __LINE__, cert.GetHash().ToString());
             }
@@ -1976,6 +1987,12 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
                 info.lastTopQualityCertView.forwardTransferScFee = scCreation.forwardTransferScFee;
                 info.lastTopQualityCertView.mainchainBackwardTransferRequestScFee = scCreation.mainchainBackwardTransferRequestScFee;
                 info.fixedParams.mainchainBackwardTransferRequestDataLength = scCreation.mainchainBackwardTransferRequestDataLength;
+                // This sidechain does not appear in a block yet, use default null values
+                info.lastReferencedHeight              = -1;
+                info.lastUnconfirmedReferencedHeight   = -1;
+                info.lastUnconfirmedReferencedEpoch    = -1;
+                info.lastInclusionHeight               = -1;
+                info.lastTopQualityCertReferencedEpoch = -1;
                 break;
             }
         }
@@ -2003,14 +2020,14 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
             if (map_it == mapCumtreeHeight.end())
             {
                 // this is a pre-v2 sidechain, so it must be ceasing
-                info.lastReferencedHeight = info.GetEndHeightForEpoch(certTopQual.epochNumber);
+                info.lastUnconfirmedReferencedHeight = info.GetEndHeightForEpoch(certTopQual.epochNumber);
             }
             else
             {
-                info.lastReferencedHeight = map_it->second;
+                info.lastUnconfirmedReferencedHeight = map_it->second;
             }
 
-            info.lastTopQualityCertReferencedEpoch = certTopQual.epochNumber;
+            info.lastUnconfirmedReferencedEpoch = certTopQual.epochNumber;
         }
     }
 

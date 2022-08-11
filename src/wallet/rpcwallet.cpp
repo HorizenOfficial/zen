@@ -5395,10 +5395,12 @@ UniValue sc_send_certificate(const UniValue& params, bool fHelp)
         LogPrintf("%s():%d - ERROR: endEpochCumScTxCommTreeRoot[%s]/epochNumber[%d]/refHeight[%d] are not legal, ret_code[0x%x]\n",
             __func__, __LINE__, cert.endEpochCumScTxCommTreeRoot.GetHexRepr(), epochNumber, referencedHeight, CValidationState::CodeToChar(ret_code));
 
-        if (ret_code == CValidationState::Code::SC_CERT_REFERENCED_HEIGHT)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid referenced height for certificate"));
-
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid end cum commitment tree root"));
+    }
+
+    if (!sidechain.CheckCertTiming(epochNumber, referencedHeight, scView))
+    {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("invalid timing for certificate"));
     }
 
     //--------------------------------------------------------------------------
