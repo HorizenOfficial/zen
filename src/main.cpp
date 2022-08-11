@@ -2860,8 +2860,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
             CCoinsModifier outs = view.ModifyCoins(hash);
             outs->ClearUnspendable();
 
-            CSidechain sidechain;
-            assert(view.GetSidechain(cert.GetScId(), sidechain));
             int bwtMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber, pindex->nHeight);
             CCoins outsBlock(cert, pindex->nHeight, bwtMaturityHeight, isBlockTopQualityCert);
 
@@ -2895,15 +2893,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
             // prevBlockTopQualityCertHash should always be null in v2 non-ceasing sc
             if (!prevBlockTopQualityCertHash.IsNull()) {
-                CSidechain sidechain;
-                assert(view.GetSidechain(cert.GetScId(), sidechain));
                 assert(!sidechain.isNonCeasing());
             }
 
             //Remove the current certificate from the MaturityHeight DB
             if (fMaturityHeightIndex && explorerIndexesWrite == flagLevelDBIndexesWrite::ON) {
-                CSidechain sidechain;
-                assert(view.GetSidechain(cert.GetScId(), sidechain));
                 certMaturityHeight = sidechain.GetCertMaturityHeight(cert.epochNumber, pindex->nHeight);
                 CMaturityHeightKey maturityHeightKey = CMaturityHeightKey(certMaturityHeight, cert.GetHash());
                 maturityHeightValues.push_back(make_pair(maturityHeightKey, CMaturityHeightValue()));
@@ -3704,7 +3698,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 maturityHeightValues.push_back(std::make_pair(maturityHeightKey, CMaturityHeightValue(static_cast<char>(1))));
             }
 
-            if (!view.UpdateSidechain(cert, blockundo, pindex->nHeight) )
+            if (!view.UpdateSidechain(cert, blockundo, pindex->nHeight))
             {
                 return state.DoS(100, error("%s():%d: could not add in scView: cert[%s]",__func__, __LINE__, cert.GetHash().ToString()),
                                  CValidationState::Code::INVALID, "bad-sc-cert-not-updated");
@@ -3714,8 +3708,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (!prevBlockTopQualityCertHash.IsNull())
             {
                 // prevBlockTopQualityCertHash should always be null in v2 non-ceasing sc
-                CSidechain sidechain;
-                assert(view.GetSidechain(cert.GetScId(), sidechain));
                 assert(!sidechain.isNonCeasing());
 
                 // if prevBlockTopQualityCertHash is not null, it has same scId/epochNumber as cert

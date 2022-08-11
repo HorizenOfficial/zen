@@ -1599,10 +1599,10 @@ bool CTxMemPool::checkIncomingTxConflicts(const CTransaction& incomingTx) const
 
 bool CTxMemPool::certificateExists(const uint256& scId, int epochNumber) const
 {
-    LOCK(cs); // TODO: check this
-
     if (epochNumber < 0)
         return false;
+
+    LOCK(cs);
 
     for (const auto& cert_it: mapCertificate) {
         const CScCertificate& cert = cert_it.second.GetCertificate();
@@ -1627,10 +1627,10 @@ bool CTxMemPool::checkReferencedHeight(const CScCertificate& incomingCert) const
     int icertHeight = iheight_it->second;
     bool inserted = false;
 
-    LOCK(cs); // TODO: check this
-
     const uint256& hash = incomingCert.GetHash();
     const uint256& scId = incomingCert.GetScId();
+
+    LOCK(cs);
     auto const& sc_it = mapSidechains.find(scId);
 
     if (sc_it == mapSidechains.end())

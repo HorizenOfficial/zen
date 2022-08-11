@@ -243,9 +243,9 @@ struct CSidechainUndoData
         }
         if (contentBitMask & AvailableSections::NONCEASING_CERT_DATA)
         {
-            ::Serialize(s, prevInclusionHeight, nType, nVersion);
+            ::Serialize(s, prevInclusionHeight,  nType, nVersion);
             ::Serialize(s, prevReferencedHeight, nType, nVersion);
-            ::Serialize(s, deltaBalance, nType, nVersion);
+            ::Serialize(s, deltaBalance,         nType, nVersion);
         }
         return;
     }

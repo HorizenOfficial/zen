@@ -695,11 +695,13 @@ bool CCoinsViewCache::GetSidechain(const uint256 & scId, CSidechain& targetSidec
 {
     CSidechainsMap::const_iterator it = FetchSidechains(scId);
     if (it != cacheSidechains.end())
+    {
         LogPrint("sc", "%s():%d - FetchedSidechain: scId[%s]\n", __func__, __LINE__, scId.ToString());
 
-    if (it != cacheSidechains.end() && it->second.flag != CSidechainsCacheEntry::Flags::ERASED) {
-        targetSidechain = it->second.sidechain;
-        return true;
+        if (it->second.flag != CSidechainsCacheEntry::Flags::ERASED) {
+            targetSidechain = it->second.sidechain;
+            return true;
+        }
     }
     return false;
 }
@@ -1260,13 +1262,6 @@ CValidationState::Code CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
     LOCK(cs_main);
     assert(!endEpochCumScTxCommTreeRoot.IsNull());
 
-    // This breaks gtests where CumScTxCommTreeRoot values are fake!
-    //if (!sidechain.isNonCeasing() && referencedHeight != sidechain.GetEndHeightForEpoch(epochNumber)) {
-    //    LogPrintf("%s():%d - ERROR: referenced height %d does not match end epoch height %d for epoch %d\n",
-    //        __func__, __LINE__, referencedHeight, sidechain.GetEndHeightForEpoch(epochNumber), epochNumber);
-    //    return CValidationState::Code::INVALID;
-    //}
-
     if (sidechain.isNonCeasing())
     {
         const auto map_it = mapCumtreeHeight.find(endEpochCumScTxCommTreeRoot.GetLegacyHash());
@@ -1279,6 +1274,7 @@ CValidationState::Code CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
     }
     else
     {
+        // blocks before v2 sidechains do not have an entry in mapCumtreeHeight, so we rely solely on GetEndHeightForEpoch
         referencedHeight = sidechain.GetEndHeightForEpoch(epochNumber);
     }
 
@@ -1396,8 +1392,8 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
             return CValidationState::Code::INVALID;
         }
 
-        if ((sc.version != 2) && (sc.withdrawalEpochLength == 0)) {
-            LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : requested a non-v2 sidechain with withdrawal epoch lenght == 0 \n",
+        if (sc.version != 2 && sc.withdrawalEpochLength == 0) {
+            LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : requested a non-v2 sidechain with withdrawal epoch length == 0 \n",
                 __func__, __LINE__, txHash.ToString());
             return CValidationState::Code::INVALID;
         }
@@ -1859,9 +1855,10 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
         return error("%s():%d - ERROR: Can not update balance %s with amount[%s] for scId=%s, would be negative\n",
             __func__, __LINE__, FormatMoney(currentSc.balance), FormatMoney(bwtTotalAmount), scId.ToString());
     }
-    currentSc.balance                          -= bwtTotalAmount;
+    currentSc.balance -= bwtTotalAmount;
 
-    if (isFirstCertInBlock) { // only for first epoch cert in mempool for this sc
+    // Only for first epoch cert in block for non ceasing sidechains. For ceasing sidechains, this is always true
+    if (isFirstCertInBlock) {
         scUndoData.prevTopCommittedCertHash            = currentSc.lastTopQualityCertHash;
         scUndoData.prevTopCommittedCertReferencedEpoch = currentSc.lastTopQualityCertReferencedEpoch;
         scUndoData.prevTopCommittedCertQuality         = currentSc.lastTopQualityCertQuality;
@@ -2103,7 +2100,6 @@ bool CCoinsViewCache::RestoreSidechain(const CScCertificate& certToRevert, const
     }
     else
     {
-        //return false;  //Inconsistent data
         return error("%s():%d - ERROR: bad epoch value when restoring sidechain: %d (previous top committed cert epoch is %d) in cert %s\n",
             __func__, __LINE__, certToRevert.epochNumber, sidechainUndo.prevTopCommittedCertReferencedEpoch, certHash.ToString());
     }
