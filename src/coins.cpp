@@ -1115,7 +1115,7 @@ bool CCoinsViewCache::RevertTxOutputs(const CTransaction& tx, int nHeight)
 
 #ifdef BITCOIN_TX
 int CCoinsViewCache::GetHeight() const {return -1;}
-CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool checkMempool, bool* banSenderNode) const {return CValidationState::Code::OK;}
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool skipTiming, bool* banSenderNode) const {return CValidationState::Code::OK;}
 CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransaction& tx, Sidechain::ScFeeCheckFlag scFeeCheckType, bool* banSenderNode) const { return CValidationState::Code::OK;}
 
 void CCoinsViewCache::HandleTxIndexSidechainEvents(int height, CBlockTreeDB* pblocktree,
@@ -1168,7 +1168,7 @@ int CCoinsViewCache::GetHeight() const
     return pindexPrev != nullptr ? pindexPrev->nHeight : 0;
 }
 
-CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool checkMempool, bool* banSenderNode) const
+CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertificate& cert, bool skipTiming, bool* banSenderNode) const
 {
     const uint256& certHash = cert.GetHash();
 
@@ -1210,17 +1210,10 @@ CValidationState::Code CCoinsViewCache::IsCertApplicableToState(const CScCertifi
         return ret;
     }
 
-    if (!sidechain.CheckCertTiming(cert.epochNumber, referencedHeight, *this))
+    if (!skipTiming && !sidechain.CheckCertTiming(cert.epochNumber, referencedHeight, *this))
     {
-        if (checkMempool && sidechain.isNonCeasing() && mempool.certificateExists(cert.GetScId(), cert.epochNumber-1))
-        {
-            LogPrintf("%s():%d: found correct sequence in mempool for cert %s\n", __func__, __LINE__, certHash.ToString());
-        }
-        else
-        {
-            LogPrintf("%s():%d - ERROR: cert %s timing is not valid\n", __func__, __LINE__, certHash.ToString());
-            return CValidationState::Code::INVALID;
-        }
+        LogPrintf("%s():%d - ERROR: cert %s timing is not valid\n", __func__, __LINE__, certHash.ToString());
+        return CValidationState::Code::INVALID;
     }
 
     if (!CheckQuality(cert))
@@ -1278,18 +1271,11 @@ CValidationState::Code CCoinsViewCache::CheckEndEpochCumScTxCommTreeRoot(
     {
         const auto map_it = mapCumtreeHeight.find(endEpochCumScTxCommTreeRoot.GetLegacyHash());
         if (map_it == mapCumtreeHeight.end()) {
-            LogPrintf("%s():%d - ERROR: cannot find commTreeRoot for certificate epoch %d (height %d)\n",
+            LogPrintf("%s():%d - ERROR: cannot find commTreeRoot for certificate epoch %d (current height %d)\n",
                 __func__, __LINE__, epochNumber, chainActive.Height());
             return CValidationState::Code::INVALID;
         }
         referencedHeight = map_it->second;
-
-        if (referencedHeight <= sidechain.lastReferencedHeight)
-        {
-            LogPrintf("%s():%d - ERROR: end height %d for certificate epoch %d is not greater than last referenced height (%d)\n",
-                __func__, __LINE__, referencedHeight, epochNumber, sidechain.lastReferencedHeight);
-            return CValidationState::Code::SC_CERT_REFERENCED_HEIGHT;
-        }
     }
     else
     {
