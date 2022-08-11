@@ -20,8 +20,8 @@ public:
     void SetUp() override {
         SelectParams(CBaseChainParams::REGTEST);
 
-        fakeChainStateDb           = new blockchain_test_utils::CInMemorySidechainDb();
-        pcoinsTip = sidechainsView = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
+        fakeChainStateDb = new blockchain_test_utils::CInMemorySidechainDb();
+        sidechainsView   = new txCreationUtils::CNakedCCoinsViewCache(fakeChainStateDb);
     };
 
     void TearDown() override {

@@ -93,11 +93,10 @@ const CScCertificateView& CSidechain::GetActiveCertView(const CCoinsViewCache& v
 
 int CSidechain::getInitScCoinsMaturity()
 {
-    // TODO (dr): check static init fiasco!
     if (Params().NetworkIDString() == "regtest")
     {
         int val = (int)(GetArg("-sccoinsmaturity", Params().ScCoinsMaturity()));
-        LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+        LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString().c_str(), val);
         return val;
     }
     return Params().ScCoinsMaturity();
@@ -697,11 +696,11 @@ int CSidechain::getNumBlocksForScFeeCheck()
         int val = (int)(GetArg("-blocksforscfeecheck", Params().ScNumBlocksForScFeeCheck() ));
         if (val >= 0)
         {
-            LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString(), val);
+            LogPrint("sc", "%s():%d - %s: using val %d \n", __func__, __LINE__, Params().NetworkIDString().c_str(), val);
             return val;
         }
         LogPrint("sc", "%s():%d - %s: val %d is negative, using default %d\n",
-            __func__, __LINE__, Params().NetworkIDString(), val, Params().ScNumBlocksForScFeeCheck());
+            __func__, __LINE__, Params().NetworkIDString().c_str(), val, Params().ScNumBlocksForScFeeCheck());
     }
     return Params().ScNumBlocksForScFeeCheck();
 }
