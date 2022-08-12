@@ -704,7 +704,7 @@ public:
     CValidationState::Code CheckEndEpochCumScTxCommTreeRoot(
         const CSidechain& sidechain, int epochNumber, const CFieldElement& endCumScTxCommTreeRoot, int &referencedHeight) const;
 
-    bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo, int nHeight = -1);
+    bool UpdateSidechain(const CScCertificate& cert, CBlockUndo& blockUndo, int nHeight);
     bool RestoreSidechain(const CScCertificate& certToRevert, const CSidechainUndoData& sidechainUndo);
     bool CheckQuality(const CScCertificate& cert)  const override;
     void NullifyBackwardTransfers(const uint256& certHash, std::vector<CTxInUndo>& nullifiedOuts);

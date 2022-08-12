@@ -306,6 +306,8 @@ struct CSidechainUndoData
             res += strprintf("prevTopCommittedCertQuality=%d\n", prevTopCommittedCertQuality);
             res += strprintf("prevTopCommittedCertBwtAmount=%d.%08d\n", prevTopCommittedCertBwtAmount / COIN, prevTopCommittedCertBwtAmount % COIN);
             res += strprintf("lastTopQualityCertView=%s\n", lastTopQualityCertView.ToString());
+            res += strprintf("prevReferencedHeight=%d\n", prevReferencedHeight);
+            res += strprintf("prevInclusionHeight=%d\n", prevInclusionHeight);
         }
 
         res += strprintf("scFees.size()=%u\n", scFees.size());

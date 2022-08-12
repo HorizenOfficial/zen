@@ -1126,7 +1126,7 @@ TEST_F(SidechainsTestSuite, RestoreSidechainRestoresLastCertHash) {
         /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
     CBlockUndo blockUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(cert, blockUndo));
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(cert, blockUndo, sidechainsView->GetHeight()+1));
     CSidechain sidechainPostCert;
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, sidechainPostCert));
     EXPECT_TRUE(sidechainPostCert.lastTopQualityCertReferencedEpoch == certEpoch);
@@ -1216,7 +1216,7 @@ TEST_F(SidechainsTestSuite, CertificateUpdatesTopCommittedCertHash) {
     CScCertificate aCertificate = txCreationUtils::createCertificate(scId, /*epochNum*/0,
         dummyCumTree, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(2), /*numBwt*/2,
         /*ftScFee*/0, /*mbtrScFee*/0);
-    EXPECT_TRUE(sidechainsView->UpdateSidechain(aCertificate, blockUndo));
+    EXPECT_TRUE(sidechainsView->UpdateSidechain(aCertificate, blockUndo, sidechainsView->GetHeight()+1));
 
     //check
     ASSERT_TRUE(sidechainsView->GetSidechain(scId,sidechain));
@@ -2080,7 +2080,7 @@ TEST_F(SidechainsTestSuite, NewCertificateUpdatesFeesAndDataLength)
         /*ftScFee*/ftFee, /*mbtrScFee*/mbtrFee);
 
     // Update the sidechains view with the new certificate
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(cert, dummyBlockUndo));
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(cert, dummyBlockUndo, sidechainsView->GetHeight()+1));
     ASSERT_TRUE(sidechainsView->GetSidechain(scId, sc));
     ASSERT_EQ(sc.lastTopQualityCertView.forwardTransferScFee, ftFee);
     ASSERT_EQ(sc.lastTopQualityCertView.mainchainBackwardTransferRequestScFee, mbtrFee);

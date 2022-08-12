@@ -425,8 +425,27 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-constant");
         }
 
-        if (sc.withdrawalEpochLength != 0)
+        if (CSidechain::isNonCeasingSidechain(sc.version, sc.withdrawalEpochLength))
         {
+            // Non ceasing sidechain
+            if (sc.wCeasedVk.is_initialized())
+            {
+                return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], wCeasedVk should not be initialized on non-ceasing sidechains\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    CValidationState::Code::INVALID, "sidechain-sc-creation-wcvk-is-initialized");
+            }
+            if (sc.mainchainBackwardTransferRequestDataLength > 0)
+            {
+                return state.DoS(100,
+                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength should be 0 for non-ceasing sidechains\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    CValidationState::Code::INVALID, "bad-cert-mbtr-data-length-not-zero");
+            }
+        }
+        else
+        {
+            // Ceasing sidechain
             if (sc.wCeasedVk.is_initialized())
             {
                 if (!sc.wCeasedVk.get().IsValid())
@@ -444,13 +463,13 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                         CValidationState::Code::INVALID, "sidechain-sc-creation-invalid-wcsw-provingsystype");
                 }
             }
-        }
-        else if (sc.withdrawalEpochLength == 0 && sc.wCeasedVk.is_initialized())
-        {
-            return state.DoS(100,
-                error("%s():%d - ERROR: Invalid tx[%s], wCeasedVk should not be initialized on non-ceasing sidechains\n",
-                __func__, __LINE__, txHash.ToString()),
-                CValidationState::Code::INVALID, "sidechain-sc-creation-wcvk-is-initialized");
+            if (sc.mainchainBackwardTransferRequestDataLength < 0 || sc.mainchainBackwardTransferRequestDataLength > MAX_SC_MBTR_DATA_LEN)
+            {
+                return state.DoS(100,
+                        error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength out of range [%d, %d]\n",
+                        __func__, __LINE__, txHash.ToString(), 0, MAX_SC_MBTR_DATA_LEN),
+                        CValidationState::Code::INVALID, "bad-cert-mbtr-data-length-out-of-range");
+            }
         }
 
         if (!MoneyRange(sc.forwardTransferScFee))
@@ -467,26 +486,6 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestScFee out of range [%d, %d]\n",
                     __func__, __LINE__, txHash.ToString(), 0, MAX_MONEY),
                     CValidationState::Code::INVALID, "bad-cert-mbtr-fee-out-of-range");
-        }
-
-        if (sc.withdrawalEpochLength != 0)
-        {
-            if (sc.mainchainBackwardTransferRequestDataLength < 0 || sc.mainchainBackwardTransferRequestDataLength > MAX_SC_MBTR_DATA_LEN)
-            {
-                return state.DoS(100,
-                        error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength out of range [%d, %d]\n",
-                        __func__, __LINE__, txHash.ToString(), 0, MAX_SC_MBTR_DATA_LEN),
-                        CValidationState::Code::INVALID, "bad-cert-mbtr-data-length-out-of-range");
-            }
-        }
-        else {
-            if (sc.mainchainBackwardTransferRequestDataLength > 0)
-            {
-                return state.DoS(100,
-                    error("%s():%d - ERROR: Invalid tx[%s], mainchainBackwardTransferRequestDataLength should be 0 for non-ceasing sidechains\n",
-                    __func__, __LINE__, txHash.ToString()),
-                    CValidationState::Code::INVALID, "bad-cert-mbtr-data-length-not-zero");
-            }
         }
     }
 
