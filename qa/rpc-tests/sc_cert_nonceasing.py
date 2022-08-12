@@ -12,7 +12,6 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     assert_false, assert_true, swap_bytes
 from test_framework.mc_test.mc_test import *
 import os
-import pprint
 import time
 from decimal import Decimal
 
@@ -60,6 +59,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
             cert = self.nodes[node_idx].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, [bt], ft_fee, mbtr_fee, CERT_FEE)
             assert(not expect_failure)
+            mark_logs("Sent certificate {}".format(cert), self.nodes, DEBUG_MODE)
             return cert 
         except JSONRPCException as e:
             errorString = e.error['message']
@@ -116,14 +116,14 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         self.sync_all()
         sc_creating_height = self.nodes[0].getblockcount()
         mark_logs("Node0 confirms sc creation generating 2 blocks", self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(2)
+        self.nodes[0].generate(3)
 
         #------------------------------------------------
         mark_logs("## Test nok, wrong quality ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         epoch_number = 0
         quality = 10
-        ref_height = self.nodes[0].getblockcount()-1
+        ref_height = self.nodes[0].getblockcount()-2
         amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
         self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, True, "bad-sc-cert-not-applicable")
 
@@ -132,30 +132,31 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         epoch_number = 0
         quality = 0
-        ref_height = self.nodes[0].getblockcount()-1
+        ref_height = self.nodes[0].getblockcount()-2
         amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
-        cert_0 = self.try_send_certificate(0, scid, epoch_number, quality, self.nodes[0].getblockcount()-1, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, False)
+        cert_1 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_1, False)
 
         #------------------------------------------------
         mark_logs("## Test nok, trying to overwrite ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
         epoch_number = 0
         quality = 0
-        ref_height = self.nodes[0].getblockcount()-1
+        ref_height = self.nodes[0].getblockcount()-2
         amount_cert_1 = {"address": addr_node2, "amount": bwt_amount_1}
         self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE_HIGH, FT_SC_FEE, amount_cert_1, True, "invalid timing for certificate")
 
         #------------------------------------------------
         mark_logs("## Generating blocks and checking info ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        assert_equal(True, cert_0 in self.nodes[0].getrawmempool())
-        bl = self.nodes[0].generate(3)[0]
+        assert_equal(True, cert_1 in self.nodes[0].getrawmempool())
+        inv_bl_height = self.nodes[0].getblockcount()
+        inv_bl_hash = self.nodes[0].generate(3)[0]
         self.sync_all()
 
         scinfo = self.nodes[2].getscinfo(scid, False, False)
         assert_equal(bwt_amount_1, creation_amount - scinfo['items'][0]['balance'])
         assert_equal(bwt_amount_1, scinfo['items'][0]['lastCertificateAmount'])
-        assert_equal(cert_0, scinfo['items'][0]['lastCertificateHash'])
+        assert_equal(cert_1, scinfo['items'][0]['lastCertificateHash'])
         assert_equal(quality, scinfo['items'][0]['lastCertificateQuality'])
 
         winfo = self.nodes[2].getwalletinfo()
@@ -168,7 +169,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         epoch_number = 2
         quality = 0
-        ref_height = self.nodes[0].getblockcount()-2
+        ref_height = self.nodes[0].getblockcount()-4
         amount_cert_2 = {"address": addr_node2, "amount": bwt_amount_2}
         self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE_HIGH, FT_SC_FEE, amount_cert_2, True, "invalid timing for certificate")
 
@@ -179,9 +180,9 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         #------------------------------------------------
         epoch_number = 1
         quality = 0
-        ref_height = self.nodes[0].getblockcount()-2
+        ref_height = self.nodes[0].getblockcount()-4
         amount_cert_2 = {"address": addr_node2, "amount": bwt_amount_2}
-        self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_2, False)
+        cert_2 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_2, False)
 
 
         #------------------------------------------------
@@ -227,7 +228,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         scinfo = self.nodes[0].getscinfo(scid, False, False)
         assert_equal(bwt_amount_1, creation_amount - scinfo['items'][0]['balance'])
         assert_equal(bwt_amount_1, scinfo['items'][0]['lastCertificateAmount'])
-        assert_equal(cert_0, scinfo['items'][0]['lastCertificateHash'])
+        assert_equal(cert_1, scinfo['items'][0]['lastCertificateHash'])
         assert_equal(quality, scinfo['items'][0]['lastCertificateQuality'])
 
         txmem = self.nodes[0].getrawmempool()
@@ -267,12 +268,15 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_4, True, "invalid timing for certificate")
 
         #------------------------------------------------
-        mark_logs("## Test invalidate and reconsider multiple blocks ##", self.nodes, DEBUG_MODE)
+        mark_logs("## Test invalidate and reconsider multiple blocks (h {})##".format(inv_bl_height), self.nodes, DEBUG_MODE)
         #------------------------------------------------
-        self.nodes[0].invalidateblock(bl)
-        assert_equal(3, len(self.nodes[0].getrawmempool())) # all the certificates are in the mempool
-        self.nodes[0].reconsiderblock(bl)
-        assert_equal(0, len(self.nodes[0].getrawmempool())) # all the certificates are in the mempool
+        self.nodes[0].invalidateblock(inv_bl_hash)
+        cpool = self.nodes[0].getrawmempool()
+        assert_equal(2, len(cpool)) # the last certificate has no reference anymore, so it's gone
+        assert(cert_1 in cpool)
+        assert(cert_2 in cpool)
+        self.nodes[0].reconsiderblock(inv_bl_hash)
+        assert_equal(0, len(self.nodes[0].getrawmempool())) # all the certificates are in the blockchain again
 
 if __name__ == '__main__':
     ncsc_cert_epochs().main()
