@@ -1606,7 +1606,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempoolOnFirstCe
         /*ftScFee*/ftScFee + 1, /*mbtrScFee*/CAmount(0), /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
     CBlockUndo aBlock(IncludeScAttributes::ON);
-    sidechainsView.UpdateSidechain(certificate, aBlock);
+    sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
     // No transactions should be be removed.
@@ -1682,7 +1682,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeRemovesTxFromMempool)
  
             CBlockUndo aBlock(IncludeScAttributes::ON);
  
-            sidechainsView.UpdateSidechain(certificate, aBlock);
+            sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
             moveSidechainToNextEpoch(scId, sidechainsView);
  
             // the FT transaction must be removed as soon as the cert for target epoch arrives
@@ -1725,7 +1725,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewFtFeeDoesNotRemoveTxFromMempool)
         /*numBwt*/2, /*ftScFee*/ftScFee - 1, /*mbtrScFee*/CAmount(0), /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
     CBlockUndo aBlock(IncludeScAttributes::ON);
-    sidechainsView.UpdateSidechain(certificate, aBlock);
+    sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
     // No transaction must be removed.
@@ -1762,7 +1762,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempoolOnFirst
         /*ftScFee*/CAmount(0), /*mbtrScFee*/mbtrScFee + 1, /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
     CBlockUndo aBlock(IncludeScAttributes::ON);
-    sidechainsView.UpdateSidechain(certificate, aBlock);
+    sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
     // No transactions should be be removed.
@@ -1838,7 +1838,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeRemovesTxFromMempool)
  
             CBlockUndo aBlock(IncludeScAttributes::ON);
  
-            sidechainsView.UpdateSidechain(certificate, aBlock);
+            sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
             moveSidechainToNextEpoch(scId, sidechainsView);
  
             // the FT transaction must be removed as soon as the cert for target epoch arrives
@@ -1881,7 +1881,7 @@ TEST_F(SidechainsInMempoolTestSuite, NewMbtrFeeDoesNotRemoveTxFromMempool)
         /*ftScFee*/CAmount(0), /*mbtrScFee*/mbtrScFee - 1, /*quality*/certQuality);
     CCoinsViewCache sidechainsView(pcoinsTip);
     CBlockUndo aBlock(IncludeScAttributes::ON);
-    sidechainsView.UpdateSidechain(certificate, aBlock);
+    sidechainsView.UpdateSidechain(certificate, aBlock, sidechainsView.GetHeight()+1);
     moveSidechainToNextEpoch(scId, sidechainsView);
 
     // No transaction must be removed.

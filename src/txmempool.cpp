@@ -1647,6 +1647,9 @@ bool CTxMemPool::checkReferencedHeight(const CScCertificate& incomingCert) const
 
         // retrieve referencedHeight
         const CScCertificate& mapCert = mapCertificate.at(cert_it.second).GetCertificate();
+        assert(mapCert.quality == cert_it.first.first);
+        assert(mapCert.epochNumber == cert_it.first.second);
+
         if (mapCert.quality != 0)
             return true; // isNonCeasing() == false
 

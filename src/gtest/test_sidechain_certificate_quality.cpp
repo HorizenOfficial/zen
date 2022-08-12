@@ -101,7 +101,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
     CAmount highQualityCert_TotalBwtAmount = CScCertificate(highQualityCert).GetValueOfBackwardTransfers();
 
     //test
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(highQualityCert, dummyUndo));
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(highQualityCert, dummyUndo, sidechainsView->GetHeight()+1));
 
     //check
     CSidechain sidechain;
@@ -144,7 +144,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_SidechainI
     lowQualityCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
 
     //test
-    EXPECT_FALSE(sidechainsView->UpdateSidechain(lowQualityCert, dummyUndo));
+    EXPECT_FALSE(sidechainsView->UpdateSidechain(lowQualityCert, dummyUndo, sidechainsView->GetHeight()+1));
 
     //check
     CSidechain sidechain;
@@ -188,7 +188,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_Sidech
     CAmount nextEpochCert_TotalBwtAmount = CScCertificate(nextEpochCert).GetValueOfBackwardTransfers();
 
     //test
-    EXPECT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, dummyUndo));
+    EXPECT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, dummyUndo, sidechainsView->GetHeight()+1));
 
     //check
     CSidechain sidechain;
@@ -232,7 +232,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_HigherQuality_SameEpoch_UndoDataCh
     CAmount highQualityCert_TotalBwtAmount = CScCertificate(highQualityCert).GetValueOfBackwardTransfers();
 
     CBlockUndo blockUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(highQualityCert, blockUndo));
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(highQualityCert, blockUndo, sidechainsView->GetHeight()+1));
 
     //test
     EXPECT_TRUE(sidechainsView->RestoreSidechain(highQualityCert, blockUndo.scUndoDatabyScId.at(scId)));
@@ -276,7 +276,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, Cert_LowerQuality_DifferentEpoch_UndoDa
     nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
 
     CBlockUndo blockUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, blockUndo));
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, blockUndo, sidechainsView->GetHeight()+1));
 
     //test
     EXPECT_TRUE(sidechainsView->RestoreSidechain(nextEpochCert, blockUndo.scUndoDatabyScId.at(scId)));
@@ -312,7 +312,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_HigherQuality_SameEpoch_Sidechai
 
     //test
     //sidechainsView->UpdateSidechain(highQualityCert, dummyUndo);
-    ASSERT_FALSE(sidechainsView->UpdateSidechain(highQualityCert, dummyUndo));
+    ASSERT_FALSE(sidechainsView->UpdateSidechain(highQualityCert, dummyUndo, sidechainsView->GetHeight()+1));
 
     //check
     CSidechain sidechain;
@@ -347,7 +347,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_LowerQuality_SameEpoch_Sidechain
     lowQualityCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
 
     //test
-    EXPECT_FALSE(sidechainsView->UpdateSidechain(lowQualityCert, dummyUndo));
+    EXPECT_FALSE(sidechainsView->UpdateSidechain(lowQualityCert, dummyUndo, sidechainsView->GetHeight()+1));
 
     //check
     CSidechain sidechain;
@@ -383,7 +383,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_LowerQuality_DifferentEpoch_Side
     CAmount nextEpochCert_TotalBwtAmount = CScCertificate(nextEpochCert).GetValueOfBackwardTransfers();
 
     //test
-    EXPECT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, dummyUndo));
+    EXPECT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, dummyUndo, sidechainsView->GetHeight()+1));
 
     //check
     CSidechain sidechain;
@@ -420,7 +420,7 @@ TEST_F(SidechainsMultipleCertsTestSuite, V2Cert_LowerQuality_DifferentEpoch_Undo
     nextEpochCert.addBwt(CTxOut(CAmount(90), dummyScriptPubKey));
 
     CBlockUndo blockUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, blockUndo));
+    ASSERT_TRUE(sidechainsView->UpdateSidechain(nextEpochCert, blockUndo, sidechainsView->GetHeight()+1));
 
     //test
     EXPECT_TRUE(sidechainsView->RestoreSidechain(nextEpochCert, blockUndo.scUndoDatabyScId.at(scId)));
