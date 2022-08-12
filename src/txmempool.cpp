@@ -2032,8 +2032,8 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
             
             if (map_it == mapCumtreeHeight.end())
             {
-                // this is a pre-v2 sidechain, so it must be ceasing
-                info.lastUnconfirmedReferencedHeight = info.GetEndHeightForEpoch(certTopQual.epochNumber);
+                LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s\n", __func__, __LINE__, certTopQual.GetHash().ToString());
+                info.lastUnconfirmedReferencedHeight = -1; // -1 stands for no valid values in mempool
             }
             else
             {
