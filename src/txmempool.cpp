@@ -866,6 +866,7 @@ void CTxMemPool::removeStaleCertificates(const CCoinsViewCache * const pCoinsVie
         if (sc.isNonCeasing()) {
             const auto map_it = mapCumtreeHeight.find(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
             if (map_it == mapCumtreeHeight.end()) {
+                LogPrintf("%s():%d: cannot find reference block for cert %s, removing\n", __func__, __LINE__, cert.GetHash().ToString());
                 certsToRemove.insert(cert.GetHash());
                 continue;
             }
@@ -1649,10 +1650,19 @@ bool CTxMemPool::checkReferencedHeight(const CScCertificate& incomingCert) const
         if (mapCert.quality != 0)
             return true; // isNonCeasing() == false
 
+        // if we are here, this is a non ceasing sc.
         assert(mapCert.epochNumber > prevEpoch);
 
-        int mcertHeight = mapCumtreeHeight.at(mapCert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+        auto const& height_it = mapCumtreeHeight.find(mapCert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
 
+        if (height_it == mapCumtreeHeight.end())
+        {
+            LogPrint("mempool", "%s():%d - cert %s does not have reference block anymore, skipping check on ref height\n",
+                __func__, __LINE__, mapCert.GetHash().ToString());
+            continue;
+        }
+
+        int mcertHeight = height_it->second;
         // this check is superfluous, as the order is checked at every insertion.
         // Still, it's cheap and does not hurt.
         if (prevHeight >= mcertHeight)

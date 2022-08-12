@@ -1881,6 +1881,7 @@ bool CCoinsViewCache::UpdateSidechain(const CScCertificate& cert, CBlockUndo& bl
 
     if (currentSc.isNonCeasing()) {
         currentSc.lastInclusionHeight = blockHeight != -1 ? blockHeight : GetHeight()+1;
+        // We might just assert that this key in mapCumtreeHeight is available, so let it throw if not.
         currentSc.lastReferencedHeight = mapCumtreeHeight.at(cert.endEpochCumScTxCommTreeRoot.GetLegacyHash());
     }
 
