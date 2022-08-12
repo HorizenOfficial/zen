@@ -360,6 +360,13 @@ bool Sidechain::checkTxSemanticValidity(const CTransaction& tx, CValidationState
                     __func__, __LINE__, txHash.ToString(), sc.withdrawalEpochLength, SC_MIN_WITHDRAWAL_EPOCH_LENGTH),
                     CValidationState::Code::INVALID, "sidechain-sc-creation-epoch-too-short");
             }
+            else if (sc.version != 2 && sc.withdrawalEpochLength == 0)
+            {
+                return state.DoS(100,
+                    error("%s():%d -  ERROR: Invalid tx[%s] : requested a non-v2 sidechain with withdrawal epoch length == 0\n",
+                    __func__, __LINE__, txHash.ToString()),
+                    CValidationState::Code::INVALID, "sidechain-sc-creation-bad-version");
+            }
         }
 
         if (sc.withdrawalEpochLength > SC_MAX_WITHDRAWAL_EPOCH_LENGTH)
