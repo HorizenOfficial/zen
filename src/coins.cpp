@@ -1392,12 +1392,6 @@ CValidationState::Code CCoinsViewCache::IsScTxApplicableToState(const CTransacti
             return CValidationState::Code::INVALID;
         }
 
-        if (sc.version != 2 && sc.withdrawalEpochLength == 0) {
-            LogPrint("sc", "%s():%d - ERROR: Invalid tx[%s] : requested a non-v2 sidechain with withdrawal epoch length == 0 \n",
-                __func__, __LINE__, txHash.ToString());
-            return CValidationState::Code::INVALID;
-        }
-
         LogPrint("sc", "%s():%d - OK: tx[%s] is creating scId[%s]\n",
             __func__, __LINE__, txHash.ToString(), scId.ToString());
     }
