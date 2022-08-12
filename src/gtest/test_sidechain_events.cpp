@@ -269,7 +269,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertMovesSidechainTerminationToNextEpochSa
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0),
         /*numBwt*/2, /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -312,7 +312,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCertificateMovesSidechainTerminationToN
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
         CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(10), /*numBwt*/1,
         /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -354,7 +354,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificateMovesSidechainTerminationToNex
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
              CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(10),/*numChangeOut*/1, /*bwtAmount*/CAmount(0), /*numBwt*/0,
              /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -396,7 +396,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificateMovesSidechainTerminationToNex
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0),/*numChangeOut*/0, /*bwtAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -459,7 +459,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForFullCert) {
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(4),/*numChangeOut*/2, /*bwtAmount*/CAmount(0), /*numBwt*/2,
             /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -496,7 +496,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForPureBwtCert) {
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/4,
             /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -532,7 +532,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForNoBwtCert) {
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(3), /*numChangeOut*/3,/*bwtAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -568,7 +568,7 @@ TEST_F(SidechainsEventsTestSuite, CeasingHeightUpdateForEmptyCertificate) {
     CScCertificate cert = txCreationUtils::createCertificate(scId, certEpoch,
             CFieldElement{SAMPLE_FIELD}, /*changeTotalAmount*/CAmount(0), /*numChangeOut*/0,/*bwtAmount*/CAmount(0), /*numBwt*/0,
             /*ftScFee*/0, /*mbtrScFee*/0);
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     CSidechain sidechainAfterCert;
     ASSERT_TRUE(view->GetSidechain(scId, sidechainAfterCert));
@@ -612,7 +612,7 @@ TEST_F(SidechainsEventsTestSuite, FullCertCoinsHaveBwtStrippedOutWhenSidechainCe
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -670,7 +670,7 @@ TEST_F(SidechainsEventsTestSuite, PureBwtCoinsAreRemovedWhenSidechainCeases) {
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -737,7 +737,7 @@ TEST_F(SidechainsEventsTestSuite, NoBwtCertificatesCoinsAreNotAffectedByCeasedSi
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -794,7 +794,7 @@ TEST_F(SidechainsEventsTestSuite, EmptyCertificatesCoinsAreNotAffectedByCeasedSi
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -851,7 +851,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreFullCertCeasedCoins) {
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -915,7 +915,7 @@ TEST_F(SidechainsEventsTestSuite, RestorePureBwtCeasedCoins) {
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -978,7 +978,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreNoBwtCeasedCoins) {
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -1041,7 +1041,7 @@ TEST_F(SidechainsEventsTestSuite, RestoreEmptyCertCeasedCoins) {
     mutCert.vin.push_back(CTxIn(inputCoinHash, 0));
     CScCertificate cert(mutCert);
 
-    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, dummyUndo, view->GetHeight()+1));
 
     //Generate coin from certificate
     EXPECT_FALSE(view->HaveCoins(cert.GetHash()));
@@ -1122,7 +1122,7 @@ TEST_F(SidechainsEventsTestSuite, UndoFullCertUpdatesToCeasingScs) {
 
     // update sidechain with the certificate
     CBlockUndo certUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo, view->GetHeight()+1));
     CSidechain postCertSidechain;
     ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
     int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();
@@ -1174,7 +1174,7 @@ TEST_F(SidechainsEventsTestSuite, UndoPureBwtCertUpdatesToCeasingScs) {
 
     // update sidechain with the certificate
     CBlockUndo certUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo, view->GetHeight()+1));
     CSidechain postCertSidechain;
     ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
     int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();
@@ -1225,7 +1225,7 @@ TEST_F(SidechainsEventsTestSuite, UndoNoBwtCertUpdatesToCeasingScs) {
 
     // update sidechain with the certificate
     CBlockUndo certUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo, view->GetHeight()+1));
     CSidechain postCertSidechain;
     ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
     int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();
@@ -1276,7 +1276,7 @@ TEST_F(SidechainsEventsTestSuite, UndoEmptyCertUpdatesToCeasingScs) {
 
     // update sidechain with the certificate
     CBlockUndo certUndo(IncludeScAttributes::ON);
-    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo));
+    ASSERT_TRUE(view->UpdateSidechain(cert, certUndo, view->GetHeight()+1));
     CSidechain postCertSidechain;
     ASSERT_TRUE(view->GetSidechain(scId, postCertSidechain));
     int postCertCeasingHeight = postCertSidechain.GetScheduledCeasingHeight();
