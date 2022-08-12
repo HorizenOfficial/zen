@@ -40,7 +40,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         self.nodes = []
 
         self.nodes = start_nodes(NUMB_OF_NODES, self.options.tmpdir, extra_args=
-            [['-debug=rpc', '-debug=ws', '-debug=py', '-debug=sc', '-debug=mempool', '-debug=net', '-debug=cert','-scproofqueuesize=0', '-logtimemicros=1', '-rescan']] * NUMB_OF_NODES)
+            [['-debug=1','-scproofqueuesize=0', '-logtimemicros=1', '-rescan', '-zapwallettxes=2']] * NUMB_OF_NODES)
 
         for k in range(0, NUMB_OF_NODES-1):
             connect_nodes_bi(self.nodes, k, k+1)
@@ -245,6 +245,11 @@ class sc_cert_ceasing(BitcoinTestFramework):
             assert(False)
             errorString = e.error['message']
             mark_logs(errorString, self.nodes, DEBUG_MODE)
+
+        self.sync_all()
+        # For restarting the nodes we need the startup parameter "-zapwallettxes=2" to remove the forward transfer tx
+        # from the wallet, otherwise, after the restart, it would be added to mempool of node 0 but not relayed to node 1
+        # causing the wait_bitcoinds() function to hang.
 
         mark_logs("Checking certificates persistance stopping and restarting nodes", self.nodes, DEBUG_MODE)
         stop_nodes(self.nodes)
