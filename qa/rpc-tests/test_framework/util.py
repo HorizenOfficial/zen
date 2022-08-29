@@ -447,7 +447,7 @@ def assert_equal(actual, expected, message = ""):
     if expected != actual:
         if message:
             message = "%s; " % message 
-        raise AssertionError("%sexpected: <%s> but was: <%s>" % (message, str(expected), str(actual)))
+        raise AssertionError("%scurrent value [left]: <%s>, expected [right]: <%s>" % (message, str(actual), str(expected)))
 
 def assert_true(condition, message = ""):
     if not condition:
@@ -592,8 +592,9 @@ def mark_logs(msg, nodes, debug = 0, color = 'n'):
     if debug == 0:
         return
     print(colorize(color, msg))
+    stripped_msg = strip_escape_seq(msg)
     for node in nodes:
-        node.dbg_log(msg)
+        node.dbg_log(stripped_msg)
 
 def get_end_epoch_height(scid, node, epochLen):
     sc_creating_height = node.getscinfo(scid)['items'][0]['createdAtBlockHeight']
