@@ -443,11 +443,11 @@ def random_transaction(nodes, amount, min_fee, fee_increment, fee_variants):
 
     return (txid, signresult["hex"], fee)
 
-def assert_equal(expected, actual, message = ""):
+def assert_equal(actual, expected, message = ""):
     if expected != actual:
         if message:
             message = "%s; " % message 
-        raise AssertionError("%sexpected: <%s> but was: <%s>" % (message, str(expected), str(actual)))
+        raise AssertionError("%scurrent value [left]: <%s>, expected [right]: <%s>" % (message, str(actual), str(expected)))
 
 def assert_true(condition, message = ""):
     if not condition:
@@ -550,12 +550,51 @@ def dump_sc_info(nodes,nNodes,scId="",debug=0):
             for info in x:
                 dump_sc_info_record(info, i,nNodes)
 
-def mark_logs(msg,nodes,debug=0):
+def colorize(color: str, text: str) -> str:
+    """
+    given an input string "text", returns the same string decorated with
+    ANSI escape sequences for colored printing on *nix terminals.
+    'color' is a single char used to select the color among:
+        'e'     grey
+        'r'     red
+        'g'     green
+        'y'     yellow
+        'b'     blue
+        'p'     purple
+        'c'     cyan
+        'n'     no color (white)
+    """
+    # As now, coloring is disabled on Windows systems
+    if os.name == 'nt':
+        return text
+
+    if os.getenv('ANSI_COLORS_DISABLED') is not None:
+        return text
+
+    N_C = "\033[0m"
+    colorshortcuts = ['e', 'r', 'g', 'y', 'b', 'p', 'c']
+    color = color[:1]   # just get the first char of 'color' input param
+
+    if (color == 'n') or (color not in colorshortcuts):
+        return text
+
+    COLORS = dict(zip(colorshortcuts, range(90, 97)))
+    return "\033[%d;1m" % COLORS[color] + text + N_C
+
+def strip_escape_seq(text: str) -> str:
+    """
+    Returns the string 'text' stripped from the escape sequences added by colorize()
+    """
+    ansi_escape = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
+    return ansi_escape.sub('', text)
+
+def mark_logs(msg, nodes, debug = 0, color = 'n'):
     if debug == 0:
         return
-    print(msg)
+    print(colorize(color, msg))
+    stripped_msg = strip_escape_seq(msg)
     for node in nodes:
-        node.dbg_log(msg)
+        node.dbg_log(stripped_msg)
 
 def get_end_epoch_height(scid, node, epochLen):
     sc_creating_height = node.getscinfo(scid)['items'][0]['createdAtBlockHeight']
