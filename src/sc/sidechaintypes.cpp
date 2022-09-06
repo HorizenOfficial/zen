@@ -163,8 +163,13 @@ void CFieldElement::SetByteArray(const std::vector<unsigned char>& byteArrayIn)
 
 CFieldElement::CFieldElement(const uint256& value)
 {
-    this->byteVector.resize(CFieldElement::ByteSize(),0x0);
-    std::copy(value.begin(), value.end(), this->byteVector.begin());
+    if (value.IsNull()) {
+        SetNull();
+    }
+    else {
+        this->byteVector.resize(CFieldElement::ByteSize(),0x0);
+        std::copy(value.begin(), value.end(), this->byteVector.begin());
+    }
     fieldData.reset();
 }
 
@@ -218,7 +223,7 @@ wrappedFieldPtr CFieldElement::GetFieldElement() const
 uint256 CFieldElement::GetLegacyHash() const
 {
     if (this->byteVector.size() < Sidechain::SC_FE_SIZE_IN_BYTES)
-        return uint256();
+        return uint256(); // zero
 
     std::vector<unsigned char> tmp(this->byteVector.begin(), this->byteVector.begin()+Sidechain::SC_FE_SIZE_IN_BYTES);
     return uint256(tmp);
@@ -273,10 +278,13 @@ CFieldElement CFieldElement::ComputeHash(const CFieldElement& lhs, const CFieldE
 
 const CFieldElement& CFieldElement::GetPhantomHash()
 {
-    // TODO call an utility method to retrieve from zendoo_mc_cryptolib a constant phantom hash
-    // field element and use it everywhere it is needed a constant value whose preimage has to
-    // be unknown
-    static CFieldElement ret{std::vector<unsigned char>(CFieldElement::ByteSize(), 0x00)};
+    // zendoo_mc_cryptolib allocates a new buffer with static lifetime on each call to zendoo_get_phantom_cert_data_hash().
+    static field_t* phantom_ptr = zendoo_get_phantom_cert_data_hash();
+    size_t size = (int)CFieldElement::ByteSize() / sizeof(unsigned char);
+    unsigned char phantom_buf[size];
+    CctpErrorCode err_code;
+    zendoo_serialize_field(phantom_ptr, phantom_buf, &err_code);
+    static CFieldElement ret{std::vector<unsigned char>(phantom_buf, phantom_buf + size)};
     return ret;
 }
 #endif
@@ -953,5 +961,5 @@ void dumpBt(const backward_transfer_t& bt, const std::string& name)
         ptr++;
     }
     printf("] -- ");
-    printf("amount:  %llu\n", bt.amount);
+    printf("amount:  %lu\n", bt.amount);
 }

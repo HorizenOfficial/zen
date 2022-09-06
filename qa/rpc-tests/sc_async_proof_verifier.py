@@ -159,7 +159,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         assert_false(cert1 in self.nodes[0].getrawmempool())
         assert_false(cert1 in self.nodes[1].getrawmempool())
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], sc_epoch_len)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], sc_epoch_len)
         cert_quality = 1
         cert_fee = Decimal("0.00001")
         ft_fee = 0
@@ -170,7 +170,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
 
         # Create an invalid proof by providing the wrong epoch_number
         proof = cert_mc_test.create_test_proof(
-            "sc", scid_swapped, epoch_number + 1, cert_quality, mbtr_fee, ft_fee, epoch_cum_tree_hash, constant, [], [])
+            "sc", scid_swapped, epoch_number + 1, cert_quality, mbtr_fee, ft_fee, epoch_cum_tree_hash, constant = constant)
 
         try:
             # The send_certificate call must be ok since the proof verification is disabled on node 2
@@ -211,7 +211,7 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
 
         # Create the valid proof
         proof = cert_mc_test.create_test_proof(
-            "sc", scid_swapped, epoch_number, cert_quality, mbtr_fee, ft_fee, epoch_cum_tree_hash, constant, [], [])
+            "sc", scid_swapped, epoch_number, cert_quality, mbtr_fee, ft_fee, epoch_cum_tree_hash, constant = constant)
 
         try:
             cert2 = self.nodes[0].sc_send_certificate(scid, epoch_number, cert_quality, epoch_cum_tree_hash,

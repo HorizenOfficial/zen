@@ -2024,23 +2024,27 @@ bool CCoinsViewMemPool::GetSidechain(const uint256& scId, CSidechain& info) cons
         // Update sidechain info with data from the unconfirmed certificates
         // This is useful for non-ceasing sidechains only as they can have
         // certificates of later epochs.
-        if (info.isNonCeasing() && mempool.mapSidechains.at(scId).mBackwardCertificates.size() > 0)
-        {
-            const uint256& topQualHash = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
-            const CScCertificate& certTopQual = mempool.mapCertificate[topQualHash].GetCertificate();
-            const auto map_it = mapCumtreeHeight.find(certTopQual.endEpochCumScTxCommTreeRoot.GetLegacyHash());
-            
-            if (map_it == mapCumtreeHeight.end())
-            {
-                LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s\n", __func__, __LINE__, certTopQual.GetHash().ToString());
-                info.lastUnconfirmedReferencedHeight = -1; // -1 stands for no valid values in mempool
-            }
-            else
-            {
-                info.lastUnconfirmedReferencedHeight = map_it->second;
-            }
+        if (!mempool.mapSidechains.at(scId).mBackwardCertificates.empty()) {
 
-            info.lastUnconfirmedReferencedEpoch = certTopQual.epochNumber;
+            if (info.isNonCeasing())
+            {
+                const uint256& topQualHash = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
+                const CScCertificate& certTopQual = mempool.mapCertificate[topQualHash].GetCertificate();
+                info.lastTopQualityCertView.certDataHash = certTopQual.GetDataHash(info.fixedParams);
+
+                const auto map_it = mapCumtreeHeight.find(certTopQual.endEpochCumScTxCommTreeRoot.GetLegacyHash());
+                if (map_it == mapCumtreeHeight.end())
+                {
+                    LogPrint("mempool", "%s():%d - could not find referenced block for certTopQual %s\n", __func__, __LINE__, certTopQual.GetHash().ToString());
+                    info.lastUnconfirmedReferencedHeight = -1; // -1 stands for no valid values in mempool
+                }
+                else
+                {
+                    info.lastUnconfirmedReferencedHeight = map_it->second;
+                }
+
+                info.lastUnconfirmedReferencedEpoch = certTopQual.epochNumber;
+            }
         }
     }
 

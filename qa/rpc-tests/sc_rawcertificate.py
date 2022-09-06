@@ -129,7 +129,7 @@ class sc_rawcert(BitcoinTestFramework):
         self.nodes[3].generate(EPOCH_LENGTH)
         self.sync_all()
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         # save them for the last test
         epn_0 = epoch_number
@@ -148,7 +148,8 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 0
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node2], [bt_amount])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant, pks = [addr_node2], amounts = [bt_amount])
 
         utx, change = get_spendable(0, CERT_FEE)
         raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
@@ -207,7 +208,7 @@ class sc_rawcert(BitcoinTestFramework):
         minedBlock = self.nodes[0].getblock(mined)
         #epoch_number = 1
         self.nodes[0].generate(3)
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         self.sync_all()
 
         # -------------------------- end epoch
@@ -258,7 +259,8 @@ class sc_rawcert(BitcoinTestFramework):
         # create wCert proof
         quality = 1
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant)
 
         raw_params = {
             "scid": scid,
@@ -344,7 +346,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node0 generating 4 block reaching next epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(4)
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         self.sync_all()
 
         # -------------------------- end epoch
@@ -400,7 +402,8 @@ class sc_rawcert(BitcoinTestFramework):
             amounts.append(entry["amount"])
 
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, addresses, amounts)
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant, pks = addresses, amounts = amounts)
 
         raw_params = {
             "scid": scid,
@@ -437,7 +440,7 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node0 generating 5 block reaching next epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(5)
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         self.sync_all()
         
         '''
@@ -458,7 +461,8 @@ class sc_rawcert(BitcoinTestFramework):
         quality = 3
 
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant)
 
         raw_inputs   = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         raw_outs     = { self.nodes[0].getnewaddress() : change }
@@ -559,14 +563,15 @@ class sc_rawcert(BitcoinTestFramework):
 
         mark_logs("Node0 generating 4 block reaching next epoch", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(4)
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         self.sync_all()
         
         # create wCert proof
         quality = 1
 
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant)
 
         raw_params = {
             "scid": scid,

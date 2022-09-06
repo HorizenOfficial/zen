@@ -62,6 +62,7 @@ struct CCertProofVerifierInput : CBaseProofVerifierInput
     std::vector<backward_transfer_t> bt_list;
     std::vector<CFieldElement> vCustomFields;
     CFieldElement endEpochCumScTxCommTreeRoot;
+    CFieldElement lastCertHash; // The hash of the last certificate for the sidechain whose proof(s) have to be verified.
     uint64_t mainchainBackwardTransferRequestScFee;
     uint64_t forwardTransferScFee;
 };
@@ -101,7 +102,7 @@ public:
         High       /**< High priority. Verification will pause low priority verification threads if running. */
     };
 
-    static CCertProofVerifierInput CertificateToVerifierItem(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom);
+    static CCertProofVerifierInput CertificateToVerifierItem(const CScCertificate& certificate, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom, const CCoinsViewCache* view = nullptr);
     static CCswProofVerifierInput CswInputToVerifierItem(const CTxCeasedSidechainWithdrawalInput& cswInput, const CTransaction* cswTransaction, const Sidechain::ScFixedParameters& scFixedParams, CNode* pfrom);
 
     CScProofVerifier(Verification mode, Priority priority) :

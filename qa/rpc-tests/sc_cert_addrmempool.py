@@ -147,7 +147,7 @@ class AddresMempool(BitcoinTestFramework):
         assert_equal(len(utxos_2), 1)
         assert_equal(utxos_2[0]['confirmations'], 101)
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         taddr0 = self.nodes[0].getnewaddress()
         taddr1 = self.nodes[1].getnewaddress()
@@ -166,7 +166,8 @@ class AddresMempool(BitcoinTestFramework):
             quality = 1
             amounts = [{"address": node0Addr, "amount": bwt_amount0}]
             proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality,
-                MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [node0Addr], [bwt_amount0])
+                MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+                constant = constant, pks = [node0Addr], amounts = [bwt_amount0])
 
             mark_logs("Node 0 sends a cert with a bwd transfers of {} coins to Node0 taddr {}".format(bwt_amount0, taddr0), self.nodes, DEBUG_MODE)
             cert_0_top = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
@@ -177,7 +178,8 @@ class AddresMempool(BitcoinTestFramework):
             quality = 2
             amounts = [{"address": node1Addr, "amount": bwt_amount1}]
             proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality,
-                MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [node1Addr], [bwt_amount1])
+                MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+                constant = constant, pks = [node1Addr], amounts = [bwt_amount1])
 
             mark_logs("Node 1 sends a cert with a bwd transfers of {} coins to Node1 taddr {}".format(bwt_amount1, taddr1), self.nodes, DEBUG_MODE)
             cert_1_top = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
@@ -189,7 +191,8 @@ class AddresMempool(BitcoinTestFramework):
             quality = 3
             amounts = [{"address": node2Addr, "amount": bwt_amount2}]
             proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality,
-                MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [node2Addr], [bwt_amount2])
+                MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+                constant = constant, pks = [node2Addr], amounts = [bwt_amount2])
 
             mark_logs("Node 2 sends a cert with a bwd transfers of {} coins to Node2 taddr {}".format(bwt_amount2, taddr2), self.nodes, DEBUG_MODE)
             cert_2_top = self.nodes[2].sc_send_certificate(scid, epoch_number, quality,
@@ -378,8 +381,8 @@ class AddresMempool(BitcoinTestFramework):
             am_bwt_arr.append(entry["amount"])
  
         proof = mcTest.create_test_proof(
-            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant,
-            pkh_arr, am_bwt_arr)
+            "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant, pks = pkh_arr, amounts = am_bwt_arr)
         
         utx, change = get_spendable(self.nodes[0], CERT_FEE + am_out)
         raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]

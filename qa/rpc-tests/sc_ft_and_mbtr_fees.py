@@ -399,7 +399,7 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         self.is_network_split = True
 
         quality = 1
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[1], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[1], EPOCH_LENGTH)
         addr_node1 = self.nodes[1].getnewaddress()
         cert_amount = Decimal("10.0")
         amount_cert_1 = [{"address": addr_node1, "amount": cert_amount}]
@@ -411,7 +411,8 @@ class SCFtAndMbtrFeesTest(BitcoinTestFramework):
         scid_swapped = str(swap_bytes(scid))
 
         proof = mcTest.create_test_proof(
-            vk_tag, scid_swapped, epoch_number, quality, newMbtrFee, newFtFee, epoch_cum_tree_hash, constant, [addr_node1], [cert_amount])
+            vk_tag, scid_swapped, epoch_number, quality, newMbtrFee, newFtFee, epoch_cum_tree_hash,
+            constant = constant, pks = [addr_node1], amounts = [cert_amount])
         cert_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
             epoch_cum_tree_hash, proof, amount_cert_1, newFtFee, newMbtrFee)
 
