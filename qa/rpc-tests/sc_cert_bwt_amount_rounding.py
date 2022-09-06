@@ -102,7 +102,7 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
         # advance epoch
         self.nodes[0].generate(EPOCH_LENGTH)
         self.sync_all()
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         NUM_OF_BWT = 1
         print("===============================================================================================================================================================================")
@@ -133,7 +133,8 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
         scid_swapped = str(swap_bytes(scid))
         print("---------------------")
         proof = certMcTest.create_test_proof(
-            "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, addr_array, bwt_amount_array)
+            "scs", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant, pks = addr_array, amounts = bwt_amount_array)
         assert_true(proof != None)
         t1 = time.time()
         print("...proof with sz={} generated: {} secs".format(len(proof)//2, t1-t0))

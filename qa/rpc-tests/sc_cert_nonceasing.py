@@ -46,13 +46,13 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         connect_nodes_bi(self.nodes, 1, 2)
         sync_blocks(self.nodes[1:NUMB_OF_NODES])
         sync_mempools(self.nodes[1:NUMB_OF_NODES])
-        self.is_network_split = split
         self.sync_all()
 
     def try_send_certificate(self, node_idx, scid, epoch_number, quality, ref_height, mbtr_fee, ft_fee, bt, expect_failure, failure_reason=None):
         scid_swapped = str(swap_bytes(scid))
-        ep, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[node_idx], 0, True, ref_height)
-        proof = self.mcTest.create_test_proof(PARAMS_NAME, scid_swapped, epoch_number, quality, mbtr_fee, ft_fee, epoch_cum_tree_hash, self.constant, [bt["address"]], [bt["amount"]])
+        ep, epoch_cum_tree_hash, prev_cert_hash = get_epoch_data(scid, self.nodes[node_idx], 0, True, ref_height)
+        proof = self.mcTest.create_test_proof(PARAMS_NAME, scid_swapped, epoch_number, quality, mbtr_fee, ft_fee, epoch_cum_tree_hash, prev_cert_hash,
+            constant = self.constant, pks = [bt["address"]], amounts = [bt["amount"]])
 
         mark_logs("Node {} sends cert of quality {} epoch {} ref {} with bwt of {}, expecting {}".format(node_idx, quality, epoch_number, ref_height, bt["amount"], "failure" if expect_failure else "success"), self.nodes, DEBUG_MODE)
         try:
@@ -93,7 +93,7 @@ class ncsc_cert_epochs(BitcoinTestFramework):
 
         # generate wCertVk and constant
         self.mcTest = CertTestUtils(self.options.tmpdir, self.options.srcdir)
-        vk = self.mcTest.generate_params(PARAMS_NAME)
+        vk = self.mcTest.generate_params(PARAMS_NAME, keyrot=True)
         self.constant = generate_random_field_element_hex()
 
         # generate sidechain
@@ -194,7 +194,10 @@ class ncsc_cert_epochs(BitcoinTestFramework):
         amount_cert_3 = {"address": addr_node2, "amount": bwt_amount_3}
         cert_3 = self.try_send_certificate(0, scid, epoch_number, quality, ref_height, MBTR_SC_FEE, FT_SC_FEE, amount_cert_3, False)
 
-
+        # FIXME(dr): this causes a stall because of the known issue with async batched proof verification for V2.
+        # To help replicate, use '-scproofqueuesize=10' and '-scproofverificationdelay=100000' 
+        #mark_logs("## Waiting for proof verification ##", self.nodes, DEBUG_MODE)
+        #self.sync_all()
         #------------------------------------------------
         mark_logs("## Test nok, epoch 3 with old reference height (mempool) ##", self.nodes, DEBUG_MODE)
         #------------------------------------------------

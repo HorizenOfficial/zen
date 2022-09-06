@@ -70,7 +70,7 @@ CSidechain::State CSidechain::GetState(const CCoinsViewCache& view) const
 
 const CScCertificateView& CSidechain::GetActiveCertView(const CCoinsViewCache& view) const
 {
-    // For SC v2, we always return the last cert view
+    // For SC v2 non-ceaseable, we always return the last cert view
     if (isNonCeasing())
         return lastTopQualityCertView;
 
@@ -85,6 +85,7 @@ const CScCertificateView& CSidechain::GetActiveCertView(const CCoinsViewCache& v
     if (lastTopQualityCertReferencedEpoch == certReferencedEpoch)
         return lastTopQualityCertView;
 
+    // We are in the submission window and no cert for EpochFor(currentHeight) epoch was recv yet
     if (lastTopQualityCertReferencedEpoch - 1 == certReferencedEpoch)
         return pastEpochTopQualityCertView;
 

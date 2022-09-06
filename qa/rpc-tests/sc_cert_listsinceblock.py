@@ -118,7 +118,7 @@ class ScCertListsinceblock(BitcoinTestFramework):
             mark_logs("Advance epoch...", self.nodes, DEBUG_MODE)
             self.nodes[0].generate(EPOCH_LENGTH - 1)
             self.sync_all()
-            epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+            epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
  
             mark_logs("Node 1 sends a cert", self.nodes, DEBUG_MODE)
             #==============================================================
@@ -133,8 +133,8 @@ class ScCertListsinceblock(BitcoinTestFramework):
                 am_bwt_arr.append(entry["amount"])
  
             proof = mcTest.create_test_proof(
-                "sc1", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant,
-                pkh_arr, am_bwt_arr)
+                "sc1", scid_swapped, epoch_number, q, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+                constant = constant, pks =  pkh_arr, amounts = am_bwt_arr)
             
             utx, change = get_spendable(self.nodes[1], CERT_FEE + am_out)
             raw_inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]

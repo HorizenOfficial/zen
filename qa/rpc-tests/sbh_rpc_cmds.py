@@ -194,7 +194,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
         self.nodes[0].generate(5)
         self.sync_all()
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("\nepoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         # node0 create a cert_1 for funding node1 
@@ -207,7 +207,8 @@ class sbh_rpc_cmds(BitcoinTestFramework):
             scid_swapped = str(swap_bytes(scid))
             
             proof = certMcTest.create_test_proof(
-                "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [bwt_address], [bwt_amount1])
+                "sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+                constant = constant, pks = [bwt_address], amounts = [bwt_amount1])
 
             #----------------------------------------------------------------------------------------------
             cert_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
