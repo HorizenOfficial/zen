@@ -109,7 +109,7 @@ class sc_cert_base(BitcoinTestFramework):
 
         mark_logs("Sc {} state: {}".format(scid, self.nodes[0].getscinfo(scid)['items'][0]), self.nodes, DEBUG_MODE)
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         addr_node2 = self.nodes[2].getnewaddress()
@@ -118,7 +118,8 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 1
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node2], [bwt_amount])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant, pks = [addr_node2], amounts = [bwt_amount])
         
         mark_logs("Node 1 performs a bwd transfer of {} coins to Node2 address {}".format(bwt_amount, addr_node2), self.nodes, DEBUG_MODE)
         try:
@@ -190,7 +191,7 @@ class sc_cert_base(BitcoinTestFramework):
         self.nodes[0].generate(4)
         self.sync_all()
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         bal3 = self.nodes[3].getbalance()
@@ -199,7 +200,8 @@ class sc_cert_base(BitcoinTestFramework):
 
         #Create proof for WCert
         quality = 2
-        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node2], [bwt_amount_2])
+        proof = mcTest.create_test_proof("sc1", scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant, pks = [addr_node2], amounts = [bwt_amount_2])
         
         mark_logs("Node 3 performs a bwd transfer of {} coins to Node2 address {}".format(bwt_amount_2, addr_node2), self.nodes, DEBUG_MODE)
         try:

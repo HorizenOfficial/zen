@@ -122,7 +122,7 @@ class sc_cert_ceasing(BitcoinTestFramework):
         assert_equal(get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH), get_epoch_data(scids[1], self.nodes[0], EPOCH_LENGTH))
         assert_equal(get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH), get_epoch_data(scids[2], self.nodes[0], EPOCH_LENGTH))
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scids[0], self.nodes[0], EPOCH_LENGTH)
         mark_logs("epoch_number = {}, epoch_cum_tree_hash = {}".format(epoch_number, epoch_cum_tree_hash), self.nodes, DEBUG_MODE)
 
         last_cert_epochs = []
@@ -138,7 +138,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
         try:
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof("sc1", scids_swapped[0], epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount[0]])
+            proof = mcTest.create_test_proof("sc1", scids_swapped[0], epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+                constant = constant, pks = [addr_node1], amounts = [bwt_amount[0]])
 
             cert_1 = self.nodes[0].sc_send_certificate(scids[0], epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -155,7 +156,8 @@ class sc_cert_ceasing(BitcoinTestFramework):
         try:
             #Create proof for WCert
             quality = 1
-            proof = mcTest.create_test_proof("sc2", scids_swapped[1], epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [], [])
+            proof = mcTest.create_test_proof("sc2", scids_swapped[1], epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+                constant = constant)
 
             cert_2 = self.nodes[0].sc_send_certificate(scids[1], epoch_number, quality,
                 epoch_cum_tree_hash, proof, [], FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

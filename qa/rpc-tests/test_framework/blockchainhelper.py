@@ -280,10 +280,10 @@ class BlockchainHelper:
             0,
             0,
             epoch_cum_tree_hash,
-            constant,
-            [],
-            [],
-            custom_fields_with_padding + bitvectors)
+            constant = constant,
+            pks = [],
+            amounts = [],
+            custom_fields = custom_fields_with_padding + bitvectors)
 
         if proof is None:
             print("Unable to create proof")
