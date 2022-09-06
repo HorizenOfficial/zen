@@ -135,7 +135,7 @@ class CswActCertDataTest(BitcoinTestFramework):
         scid1_swapped = swap_bytes(scid)
         sc_proof = cswMcTest.create_test_proof(
                 "sc", sc_csw_amount, str(scid1_swapped), nullifier, csw_mc_address, ceasingCumScTxCommTree,
-                actCertData, constant1)
+                cert_data_hash = actCertData, constant = constant1)
         
         sc_csws = [
         {

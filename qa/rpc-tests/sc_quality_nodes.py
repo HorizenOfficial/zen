@@ -163,7 +163,7 @@ class quality_nodes(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(scid)['items'][0]['balance'], creation_amount + fwt_amount) # Sc balance has matured
         assert_equal(len(self.nodes[0].getscinfo(scid)['items'][0]['immatureAmounts']), 0)
 
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
 
         addr_node0 = self.nodes[0].getnewaddress()
         self.sync_all()
@@ -180,7 +180,8 @@ class quality_nodes(BitcoinTestFramework):
         mark_logs("Create Cert1 with quality 100 and place it in node0", self.nodes, DEBUG_MODE)
         quality = 100
         proof = mcTest.create_test_proof(
-            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node0], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant, pks = [addr_node0], amounts = [bwt_amount])
         try:
             cert_1_epoch_0 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_0, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -204,7 +205,8 @@ class quality_nodes(BitcoinTestFramework):
         amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
         quality = 100
         proof = mcTest.create_test_proof(
-            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant, pks = [addr_node1], amounts = [bwt_amount])
         try:
             cert_2_epoch_0 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -244,14 +246,15 @@ class quality_nodes(BitcoinTestFramework):
         #----------------------Network Part 1
 
         # Create Cert3 with quality 100 and place it in node0
-        epoch_number, epoch_cum_tree_hash = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
+        epoch_number, epoch_cum_tree_hash, _ = get_epoch_data(scid, self.nodes[0], EPOCH_LENGTH)
         mark_logs("Height: {}. creation height {}".format(self.nodes[0].getblockcount(), sc_creating_height), self.nodes, DEBUG_MODE)
         mark_logs("Height: {}. Epoch {}".format(self.nodes[0].getblockcount(), epoch_number), self.nodes, DEBUG_MODE)
         mark_logs("Create Cert1 with quality 100 and place it in node0", self.nodes, DEBUG_MODE)
         quality = 100
         amount_cert_0 = [{"address": addr_node0, "amount": bwt_amount}]
         proof = mcTest.create_test_proof(
-            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node0], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant, pks = [addr_node0], amounts = [bwt_amount])
         try:
             cert_1_epoch_1 = self.nodes[0].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_0, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
@@ -288,7 +291,8 @@ class quality_nodes(BitcoinTestFramework):
         amount_cert_1 = [{"address": addr_node1, "amount": bwt_amount}]
         quality = 110
         proof = mcTest.create_test_proof(
-            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash, constant, [addr_node1], [bwt_amount])
+            vk_tag_1, scid_swapped, epoch_number, quality, MBTR_SC_FEE, FT_SC_FEE, epoch_cum_tree_hash,
+            constant = constant, pks = [addr_node1], amounts = [bwt_amount])
         try:
             cert_2_epoch_1 = self.nodes[1].sc_send_certificate(scid, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)

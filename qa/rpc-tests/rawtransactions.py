@@ -62,7 +62,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         nullifier              = generate_random_field_element_hex()
 
         sc_proof = self.cswMcTest.create_test_proof(
-            tag, sc_csw_amount, scid_swapped, nullifier, csw_mc_address, ceasingCumScTxCommTree, actCertData, constant)
+            tag, sc_csw_amount, scid_swapped, nullifier, csw_mc_address, ceasingCumScTxCommTree,
+            cert_data_hash = actCertData, constant = constant)
         assert_true(sc_proof is not None)
         
         sc_csws = [{

@@ -1570,7 +1570,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         return false;
 
     sc.pushKV("scid", scId.GetHex());
-    if (!info.IsNull() )
+    if (!info.IsNull())
     {
         int currentEpoch = info.GetCurrentEpoch(scView);
  
@@ -1588,6 +1588,7 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
         sc.pushKV("createdAtBlockHeight", info.creationBlockHeight);
         sc.pushKV("lastCertificateEpoch", info.lastTopQualityCertReferencedEpoch);
         sc.pushKV("lastCertificateHash", info.lastTopQualityCertHash.GetHex());
+        sc.pushKV("lastCertificateDataHash", info.GetActiveCertView(scView).certDataHash.GetHexRepr());
         sc.pushKV("lastCertificateQuality", info.lastTopQualityCertQuality);
         sc.pushKV("lastCertificateAmount", ValueFromAmount(info.lastTopQualityCertBwtAmount));
 
@@ -1669,10 +1670,11 @@ bool FillScRecordFromInfo(const uint256& scId, const CSidechain& info, CSidechai
             const uint256& topQualCertHash    = mempool.mapSidechains.at(scId).GetTopQualityCert()->second;
             const CScCertificate& topQualCert = mempool.mapCertificate.at(topQualCertHash).GetCertificate();
  
-            sc.pushKV("unconfTopQualityCertificateEpoch",   topQualCert.epochNumber);
-            sc.pushKV("unconfTopQualityCertificateHash",    topQualCertHash.GetHex());
-            sc.pushKV("unconfTopQualityCertificateQuality", topQualCert.quality);
-            sc.pushKV("unconfTopQualityCertificateAmount",  ValueFromAmount(topQualCert.GetValueOfBackwardTransfers()));
+            sc.pushKV("unconfTopQualityCertificateEpoch",    topQualCert.epochNumber);
+            sc.pushKV("unconfTopQualityCertificateHash",     topQualCertHash.GetHex());
+            sc.pushKV("unconfTopQualityCertificateQuality",  topQualCert.quality);
+            sc.pushKV("unconfTopQualityCertificateAmount",   ValueFromAmount(topQualCert.GetValueOfBackwardTransfers()));
+            sc.pushKV("unconfTopQualityCertificateDataHash", topQualCert.GetDataHash(info.fixedParams).GetHexRepr());
         }
 
         addScUnconfCcData(scId, sc);
