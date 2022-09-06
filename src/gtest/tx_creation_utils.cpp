@@ -753,7 +753,7 @@ void BlockchainTestManager::GenerateSidechainTestParameters(ProvingSystem provin
 {
     CctpErrorCode errorCode;
     zendoo_generate_mc_test_params(
-        circuitType, provingSystem, 1 << 10,
+        circuitType, provingSystem, 1 << 10, false, //FIXME?
         (path_char_t*)tempFolderPath.string().c_str(), strlen(tempFolderPath.string().c_str()), &errorCode);
 }
 
@@ -822,6 +822,7 @@ CScProof BlockchainTestManager::GenerateTestCertificateProof(
                                   (path_char_t*)certProofPath.c_str(),
                                   strlen(certProofPath.c_str()),
                                   1 << 10,
+                                  nullptr, // prev_cert_hash
                                   &errorCode);
 
     zendoo_sc_pk_free(provingKey);
@@ -987,7 +988,9 @@ bool BlockchainTestManager::VerifyCertificateProof(CCertProofVerifierInput certi
                                            certificate.forwardTransferScFee,
                                            sptrProof.get(),
                                            sptrCertVk.get(),
-                                           &errorCode);
+                                           nullptr, // TODO: check this
+                                           &errorCode
+                                           );
 }
 
 /**
