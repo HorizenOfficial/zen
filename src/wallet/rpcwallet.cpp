@@ -4853,6 +4853,8 @@ UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp)
             "  \"txid\": xxxxx,     (string) the transaction id\n"
             "  \"amount\": xxxxx,   (numeric) the amount of value in the note\n"
             "  \"memo\": xxxxx,     (string) hexademical string representation of memo field\n"
+            "  \"jsindex\": n       (numeric) the joinsplit index\n"
+            "  \"jsoutindex\": n    (numeric) the output index of the joinsplit\n"
             "}\n"
             
             "\nExamples:\n"
