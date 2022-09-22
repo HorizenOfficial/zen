@@ -13,7 +13,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
      start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
      get_epoch_data, advance_epoch, swap_bytes, stop_node
 from test_framework.mc_test.mc_test import CertTestUtils, CSWTestUtils, generate_random_field_element_hex
-from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 
 NUMB_OF_NODES = 3
 DEBUG_MODE = 1
@@ -94,11 +94,11 @@ class AsyncProofVerifierTest(BitcoinTestFramework):
         '''
 
         # Prepare some coins
-        self.nodes[0].generate(ForkHeights['MINIMAL_SC']//2+1)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT//2+1)
         self.sync_all()
 
         # Generate some coins on node 2
-        self.nodes[2].generate(ForkHeights['MINIMAL_SC']//2+1)
+        self.nodes[2].generate(MINIMAL_SC_HEIGHT//2+1)
         self.sync_all()
 
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"

@@ -34,7 +34,7 @@ and confirm again balances are correct.
 """
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     sync_blocks, sync_mempools, wait_bitcoinds, mark_logs, \
@@ -240,7 +240,7 @@ class WalletBackupTest(BitcoinTestFramework):
 
         # reach sidechain fork
         nb = int(self.nodes[0].getblockcount())
-        nb_to_gen = ForkHeights['MINIMAL_SC'] - nb
+        nb_to_gen = MINIMAL_SC_HEIGHT - nb
         if nb_to_gen > 0:
             mark_logs("Node 0 generates {} block".format(nb_to_gen), self.nodes, DEBUG_MODE)
             self.nodes[0].generate(nb_to_gen)

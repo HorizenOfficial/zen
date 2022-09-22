@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import ForkHeights
+from test_framework.test_framework import SC_VERSION_FORK_HEIGHT
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs
 from test_framework.blockchainhelper import BlockchainHelper
@@ -84,7 +84,7 @@ class sc_getscgenesisinfo(BitcoinTestFramework):
 
         # Reach the sidechain version fork point
         test_helper = BlockchainHelper(self)
-        self.nodes[0].generate(ForkHeights['SC_VERSION'])
+        self.nodes[0].generate(SC_VERSION_FORK_HEIGHT)
 
         mark_logs("Node 0 creates a v0 sidechain", self.nodes, DEBUG_MODE)
         v0_sc1_name = "v0_sc1"

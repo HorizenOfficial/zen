@@ -13,7 +13,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, assert_true, assert_false, mark_logs, \
     wait_bitcoinds, stop_nodes, get_epoch_data, sync_mempools, sync_blocks, \
     disconnect_nodes, advance_epoch, swap_bytes
-from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.mc_test.mc_test import CertTestUtils, CSWTestUtils, generate_random_field_element_hex
 
 from decimal import Decimal
@@ -73,7 +73,7 @@ class CswNullifierTest(BitcoinTestFramework):
         '''
 
         # prepare some coins 
-        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
         self.sync_all()
 
         sc_address = "0000000000000000000000000000000000000000000000000000000000000abc"
