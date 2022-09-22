@@ -104,9 +104,7 @@ CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 CTxMemPool mempool(::minRelayTxFee);
 
 map<uint256, COrphanTx> mapOrphanTransactions GUARDED_BY(cs_main);
-;
 map<uint256, set<uint256>> mapOrphanTransactionsByPrev GUARDED_BY(cs_main);
-;
 
 void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
