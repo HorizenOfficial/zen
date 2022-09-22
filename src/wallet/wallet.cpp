@@ -2031,7 +2031,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
     const CChainParams& chainParams = Params();
 
     CBlockIndex* pindex = pindexStart;
-    CBlockIndex* pindexPrev;
+    CBlockIndex* pindexLast = pindexStart;
     {
         LOCK2(cs_main, cs_wallet);
 
@@ -2112,7 +2112,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             IncrementNoteWitnesses(pindex, &block, tree);
 
             // will be the pindex of last rescanned block once rescan is finished
-            pindexPrev = pindex;
+            pindexLast = pindex;
             pindex = chainActive.Next(pindex);
             if (pindex)
             {
@@ -2152,7 +2152,8 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
          * This leads to unspendable notes "z_sendmany finished (status=failed, error=Witness for note commitment is null)", see https://github.com/zcash/zcash/issues/2524.
          * The fix is to call SetBestChain() at the end of the rescan, so that witnessed notes are flushed to wallet.dat.
          */
-        SetBestChain(chainActive.GetLocator(pindexPrev));
+        if (pindexLast != pindexStart)
+            SetBestChain(chainActive.GetLocator(pindexLast));
 
         ShowProgress(_("Rescanning..."), 100); // hide progress dialog in GUI
     }
