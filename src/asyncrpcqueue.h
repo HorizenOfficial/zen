@@ -7,22 +7,23 @@
 
 #include "asyncrpcoperation.h"
 
-#include <iostream>
-#include <string>
 #include <chrono>
-#include <queue>
-#include <unordered_map>
-#include <vector>
 #include <future>
-#include <thread>
-#include <utility>
+#include <iostream>
 #include <memory>
+#include <queue>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 
-typedef std::unordered_map<AsyncRPCOperationId, std::shared_ptr<AsyncRPCOperation> > AsyncRPCOperationMap; 
+typedef std::unordered_map<AsyncRPCOperationId, std::shared_ptr<AsyncRPCOperation>> AsyncRPCOperationMap;
 
 
-class AsyncRPCQueue {
+class AsyncRPCQueue
+{
 public:
     static shared_ptr<AsyncRPCQueue> sharedInstance();
 
@@ -30,24 +31,24 @@ public:
     virtual ~AsyncRPCQueue();
 
     // We don't want queue to be copied or moved around
-    AsyncRPCQueue(AsyncRPCQueue const&) = delete;             // Copy construct
-    AsyncRPCQueue(AsyncRPCQueue&&) = delete;                  // Move construct
-    AsyncRPCQueue& operator=(AsyncRPCQueue const&) = delete;  // Copy assign
-    AsyncRPCQueue& operator=(AsyncRPCQueue &&) = delete;      // Move assign
+    AsyncRPCQueue(AsyncRPCQueue const&) = delete;            // Copy construct
+    AsyncRPCQueue(AsyncRPCQueue&&) = delete;                 // Move construct
+    AsyncRPCQueue& operator=(AsyncRPCQueue const&) = delete; // Copy assign
+    AsyncRPCQueue& operator=(AsyncRPCQueue&&) = delete;      // Move assign
 
     void addWorker();
     size_t getNumberOfWorkers() const;
     bool isClosed() const;
     bool isFinishing() const;
-    void close(); // close queue and cancel all operations
-    void finish(); // close queue but finishing existing operations
-    void closeAndWait(); // block thread until all threads have terminated.
-    void finishAndWait(); // block thread until existing operations have finished, threads terminated
+    void close();               // close queue and cancel all operations
+    void finish();              // close queue but finishing existing operations
+    void closeAndWait();        // block thread until all threads have terminated.
+    void finishAndWait();       // block thread until existing operations have finished, threads terminated
     void cancelAllOperations(); // mark all operations in the queue as cancelled
     size_t getOperationCount() const;
     std::shared_ptr<AsyncRPCOperation> getOperationForId(AsyncRPCOperationId) const;
     std::shared_ptr<AsyncRPCOperation> popOperationForId(AsyncRPCOperationId);
-    void addOperation(const std::shared_ptr<AsyncRPCOperation> &ptrOperation);
+    void addOperation(const std::shared_ptr<AsyncRPCOperation>& ptrOperation);
     std::vector<AsyncRPCOperationId> getAllOperationIds() const;
 
 private:
@@ -61,10 +62,8 @@ private:
     std::atomic<bool> closed_;
     std::atomic<bool> finish_;
     AsyncRPCOperationMap operation_map_;
-    std::queue <AsyncRPCOperationId> operation_id_queue_;
+    std::queue<AsyncRPCOperationId> operation_id_queue_;
     std::vector<std::thread> workers_;
 };
 
 #endif
-
-

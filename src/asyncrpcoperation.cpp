@@ -8,9 +8,9 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
-#include <string>
-#include <ctime>
 #include <chrono>
+#include <ctime>
+#include <string>
 
 using namespace std;
 
@@ -21,13 +21,13 @@ std::map<OperationStatus, std::string> OperationStatusMap = {
     {OperationStatus::EXECUTING, "executing"},
     {OperationStatus::CANCELLED, "cancelled"},
     {OperationStatus::FAILED, "failed"},
-    {OperationStatus::SUCCESS, "success"}
-};
+    {OperationStatus::SUCCESS, "success"}};
 
 /**
  * Every operation instance should have a globally unique id
  */
-AsyncRPCOperation::AsyncRPCOperation() : error_code_(0), error_message_() {
+AsyncRPCOperation::AsyncRPCOperation() : error_code_(0), error_message_()
+{
     // Set a unique reference for each operation
     boost::uuids::uuid uuid = uuidgen();
     id_ = "opid-" + boost::uuids::to_string(uuid);
@@ -35,15 +35,15 @@ AsyncRPCOperation::AsyncRPCOperation() : error_code_(0), error_message_() {
     set_state(OperationStatus::READY);
 }
 
-AsyncRPCOperation::AsyncRPCOperation(const AsyncRPCOperation& o) :
-        id_(o.id_), creation_time_(o.creation_time_), state_(o.state_.load()),
-        start_time_(o.start_time_), end_time_(o.end_time_),
-        error_code_(o.error_code_), error_message_(o.error_message_),
-        result_(o.result_)
+AsyncRPCOperation::AsyncRPCOperation(const AsyncRPCOperation& o) : id_(o.id_), creation_time_(o.creation_time_), state_(o.state_.load()),
+                                                                   start_time_(o.start_time_), end_time_(o.end_time_),
+                                                                   error_code_(o.error_code_), error_message_(o.error_message_),
+                                                                   result_(o.result_)
 {
 }
 
-AsyncRPCOperation& AsyncRPCOperation::operator=( const AsyncRPCOperation& other ) {
+AsyncRPCOperation& AsyncRPCOperation::operator=(const AsyncRPCOperation& other)
+{
     this->id_ = other.id_;
     this->creation_time_ = other.creation_time_;
     this->state_.store(other.state_.load());
@@ -56,13 +56,15 @@ AsyncRPCOperation& AsyncRPCOperation::operator=( const AsyncRPCOperation& other 
 }
 
 
-AsyncRPCOperation::~AsyncRPCOperation() {
+AsyncRPCOperation::~AsyncRPCOperation()
+{
 }
 
 /**
  * Override this cancel() method if you can interrupt main() when executing.
  */
-void AsyncRPCOperation::cancel() {
+void AsyncRPCOperation::cancel()
+{
     if (isReady()) {
         set_state(OperationStatus::CANCELLED);
     }
@@ -71,7 +73,8 @@ void AsyncRPCOperation::cancel() {
 /**
  * Start timing the execution run of the code you're interested in
  */
-void AsyncRPCOperation::start_execution_clock() {
+void AsyncRPCOperation::start_execution_clock()
+{
     std::lock_guard<std::mutex> guard(lock_);
     start_time_ = std::chrono::system_clock::now();
 }
@@ -79,7 +82,8 @@ void AsyncRPCOperation::start_execution_clock() {
 /**
  * Stop timing the execution run
  */
-void AsyncRPCOperation::stop_execution_clock() {
+void AsyncRPCOperation::stop_execution_clock()
+{
     std::lock_guard<std::mutex> guard(lock_);
     end_time_ = std::chrono::system_clock::now();
 }
@@ -87,11 +91,12 @@ void AsyncRPCOperation::stop_execution_clock() {
 /**
  * Implement this virtual method in any subclass.  This is just an example implementation.
  */
-void AsyncRPCOperation::main() {
+void AsyncRPCOperation::main()
+{
     if (isCancelled()) {
         return;
     }
-    
+
     set_state(OperationStatus::EXECUTING);
 
     start_execution_clock();
@@ -117,7 +122,8 @@ void AsyncRPCOperation::main() {
  * Return the error of the completed operation as a UniValue object.
  * If there is no error, return null UniValue.
  */
-UniValue AsyncRPCOperation::getError() const {
+UniValue AsyncRPCOperation::getError() const
+{
     if (!isFailed()) {
         return NullUniValue;
     }
@@ -133,7 +139,8 @@ UniValue AsyncRPCOperation::getError() const {
  * Return the result of the completed operation as a UniValue object.
  * If the operation did not succeed, return null UniValue.
  */
-UniValue AsyncRPCOperation::getResult() const {
+UniValue AsyncRPCOperation::getResult() const
+{
     if (!isSuccess()) {
         return NullUniValue;
     }
@@ -149,7 +156,8 @@ UniValue AsyncRPCOperation::getResult() const {
  * If the operation has succeeded, it will include the result value.
  * If the operation was cancelled, there will be no error object or result value.
  */
-UniValue AsyncRPCOperation::getStatus() const {
+UniValue AsyncRPCOperation::getStatus() const
+{
     OperationStatus status = this->getState();
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("id", this->id_);
@@ -167,7 +175,6 @@ UniValue AsyncRPCOperation::getStatus() const {
         // Include execution time for successful operation
         std::chrono::duration<double> elapsed_seconds = end_time_ - start_time_;
         obj.pushKV("execution_secs", elapsed_seconds.count());
-
     }
     return obj;
 }
@@ -175,7 +182,8 @@ UniValue AsyncRPCOperation::getStatus() const {
 /**
  * Return the operation state in human readable form.
  */
-std::string AsyncRPCOperation::getStateAsString() const {
+std::string AsyncRPCOperation::getStateAsString() const
+{
     OperationStatus status = this->getState();
     return OperationStatusMap[status];
 }

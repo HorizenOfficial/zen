@@ -5,23 +5,27 @@
 #ifndef BITCOIN_CORE_MEMUSAGE_H
 #define BITCOIN_CORE_MEMUSAGE_H
 
-#include "primitives/transaction.h"
-#include "primitives/block.h"
 #include "memusage.h"
+#include "primitives/block.h"
+#include "primitives/transaction.h"
 
-static inline size_t RecursiveDynamicUsage(const CScript& script) {
+static inline size_t RecursiveDynamicUsage(const CScript& script)
+{
     return memusage::DynamicUsage(*static_cast<const std::vector<unsigned char>*>(&script));
 }
 
-static inline size_t RecursiveDynamicUsage(const COutPoint& out) {
+static inline size_t RecursiveDynamicUsage(const COutPoint& out)
+{
     return 0;
 }
 
-static inline size_t RecursiveDynamicUsage(const CTxIn& in) {
+static inline size_t RecursiveDynamicUsage(const CTxIn& in)
+{
     return RecursiveDynamicUsage(in.scriptSig) + RecursiveDynamicUsage(in.prevout);
 }
 
-static inline size_t RecursiveDynamicUsage(const CTxOut& out) {
+static inline size_t RecursiveDynamicUsage(const CTxOut& out)
+{
     return RecursiveDynamicUsage(out.scriptPubKey);
 }
 
@@ -41,7 +45,8 @@ static inline size_t RecursiveDynamicUsage(const CTxScCreationOut& ccout)
 static inline size_t RecursiveDynamicUsage(const CTxForwardTransferOut& ccout) { return 0; }
 static inline size_t RecursiveDynamicUsage(const CBwtRequestOut& ccout) { return 0; }
 
-static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
+static inline size_t RecursiveDynamicUsage(const CTransaction& tx)
+{
     size_t mem = 0;
     mem += memusage::DynamicUsage(tx.GetVin());
     for (std::vector<CTxIn>::const_iterator it = tx.GetVin().begin(); it != tx.GetVin().end(); it++) {
@@ -51,7 +56,7 @@ static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
     for (std::vector<CTxOut>::const_iterator it = tx.GetVout().begin(); it != tx.GetVout().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
     }
-// what about shielded components???
+    // what about shielded components???
     mem += memusage::DynamicUsage(tx.GetVcswCcIn());
     for (std::vector<CTxCeasedSidechainWithdrawalInput>::const_iterator it = tx.GetVcswCcIn().begin(); it != tx.GetVcswCcIn().end(); it++) {
         mem += RecursiveDynamicUsage(*it);
@@ -68,7 +73,8 @@ static inline size_t RecursiveDynamicUsage(const CTransaction& tx) {
     return mem;
 }
 
-static inline size_t RecursiveDynamicUsage(const CScCertificate& cert) {
+static inline size_t RecursiveDynamicUsage(const CScCertificate& cert)
+{
     size_t mem = 0;
     mem += memusage::DynamicUsage(cert.GetVin());
     for (std::vector<CTxIn>::const_iterator it = cert.GetVin().begin(); it != cert.GetVin().end(); it++) {
@@ -81,7 +87,8 @@ static inline size_t RecursiveDynamicUsage(const CScCertificate& cert) {
     return mem;
 }
 
-static inline size_t RecursiveDynamicUsage(const CBlock& block) {
+static inline size_t RecursiveDynamicUsage(const CBlock& block)
+{
     size_t mem =
         memusage::DynamicUsage(block.vtx) +
         memusage::DynamicUsage(block.vcert) +
@@ -95,7 +102,8 @@ static inline size_t RecursiveDynamicUsage(const CBlock& block) {
     return mem;
 }
 
-static inline size_t RecursiveDynamicUsage(const CBlockLocator& locator) {
+static inline size_t RecursiveDynamicUsage(const CBlockLocator& locator)
+{
     return memusage::DynamicUsage(locator.vHave);
 }
 

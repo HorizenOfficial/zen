@@ -6,10 +6,10 @@
 #ifndef BITCOIN_MERKLEBLOCK_H
 #define BITCOIN_MERKLEBLOCK_H
 
+#include "bloom.h"
+#include "primitives/block.h"
 #include "serialize.h"
 #include "uint256.h"
-#include "primitives/block.h"
-#include "bloom.h"
 
 #include <vector>
 
@@ -63,41 +63,42 @@ protected:
     bool fBad;
 
     /** helper function to efficiently calculate the number of nodes at given height in the merkle tree */
-    unsigned int CalcTreeWidth(int height) {
-        return (nTransactions+(1 << height)-1) >> height;
+    unsigned int CalcTreeWidth(int height)
+    {
+        return (nTransactions + (1 << height) - 1) >> height;
     }
 
     /** calculate the hash of a node in the merkle tree (at leaf level: the txid's themselves) */
-    uint256 CalcHash(int height, unsigned int pos, const std::vector<uint256> &vTxid);
+    uint256 CalcHash(int height, unsigned int pos, const std::vector<uint256>& vTxid);
 
     /** recursive function that traverses tree nodes, storing the data as bits and hashes */
-    void TraverseAndBuild(int height, unsigned int pos, const std::vector<uint256> &vTxid, const std::vector<bool> &vMatch);
+    void TraverseAndBuild(int height, unsigned int pos, const std::vector<uint256>& vTxid, const std::vector<bool>& vMatch);
 
     /**
      * recursive function that traverses tree nodes, consuming the bits and hashes produced by TraverseAndBuild.
      * it returns the hash of the respective node.
      */
-    uint256 TraverseAndExtract(int height, unsigned int pos, unsigned int &nBitsUsed, unsigned int &nHashUsed, std::vector<uint256> &vMatch);
+    uint256 TraverseAndExtract(int height, unsigned int pos, unsigned int& nBitsUsed, unsigned int& nHashUsed, std::vector<uint256>& vMatch);
 
 public:
-
     /** serialization implementation */
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
         READWRITE(nTransactions);
         READWRITE(vHash);
         std::vector<unsigned char> vBytes;
         if (ser_action.ForRead()) {
             READWRITE(vBytes);
-            CPartialMerkleTree &us = *(const_cast<CPartialMerkleTree*>(this));
+            CPartialMerkleTree& us = *(const_cast<CPartialMerkleTree*>(this));
             us.vBits.resize(vBytes.size() * 8);
             for (unsigned int p = 0; p < us.vBits.size(); p++)
                 us.vBits[p] = (vBytes[p / 8] & (1 << (p % 8))) != 0;
             us.fBad = false;
         } else {
-            vBytes.resize((vBits.size()+7)/8);
+            vBytes.resize((vBits.size() + 7) / 8);
             for (unsigned int p = 0; p < vBits.size(); p++)
                 vBytes[p / 8] |= vBits[p] << (p % 8);
             READWRITE(vBytes);
@@ -105,7 +106,7 @@ public:
     }
 
     /** Construct a partial merkle tree from a list of transaction ids, and a mask that selects a subset of them */
-    CPartialMerkleTree(const std::vector<uint256> &vTxid, const std::vector<bool> &vMatch);
+    CPartialMerkleTree(const std::vector<uint256>& vTxid, const std::vector<bool>& vMatch);
 
     CPartialMerkleTree();
 
@@ -113,7 +114,7 @@ public:
      * extract the matching txid's represented by this partial merkle tree.
      * returns the merkle root, or 0 in case of failure
      */
-    uint256 ExtractMatches(std::vector<uint256> &vMatch);
+    uint256 ExtractMatches(std::vector<uint256>& vMatch);
 };
 
 
@@ -130,7 +131,7 @@ public:
 
 public:
     /** Public only for unit testing and relay testing (not relayed) */
-    std::vector<std::pair<unsigned int, uint256> > vMatchedTxn;
+    std::vector<std::pair<unsigned int, uint256>> vMatchedTxn;
 
     /**
      * Create from a CBlock, filtering transactions according to filter
@@ -147,7 +148,8 @@ public:
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
         READWRITE(header);
         READWRITE(txn);
     }

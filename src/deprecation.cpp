@@ -11,7 +11,8 @@
 
 static const std::string CLIENT_VERSION_STR = FormatVersion(CLIENT_VERSION);
 
-void EnforceNodeDeprecation(int nHeight, bool forceLogging) {
+void EnforceNodeDeprecation(int nHeight, bool forceLogging)
+{
     int blocksToDeprecation = DEPRECATION_HEIGHT - nHeight;
     bool disableDeprecation = (GetArg("-disabledeprecation", "") == CLIENT_VERSION_STR);
     if (blocksToDeprecation <= 0) {
@@ -23,7 +24,8 @@ void EnforceNodeDeprecation(int nHeight, bool forceLogging) {
         // - The node is starting
         if (blocksToDeprecation == 0 || forceLogging) {
             auto msg = strprintf(_("This version has been deprecated as of block height %d."),
-                                 DEPRECATION_HEIGHT) + " " +
+                                 DEPRECATION_HEIGHT) +
+                       " " +
                        _("You should upgrade to the latest version of Zen.");
             if (!disableDeprecation) {
                 msg += " " + strprintf(_("To disable deprecation for this version, set %s%s."),
@@ -40,11 +42,13 @@ void EnforceNodeDeprecation(int nHeight, bool forceLogging) {
         std::string msg;
         if (disableDeprecation) {
             msg = strprintf(_("This version will be deprecated at block height %d."),
-                            DEPRECATION_HEIGHT) + " " +
+                            DEPRECATION_HEIGHT) +
+                  " " +
                   _("You should upgrade to the latest version of Zen.");
         } else {
             msg = strprintf(_("This version will be deprecated at block height %d, and will automatically shut down."),
-                            DEPRECATION_HEIGHT) + " " +
+                            DEPRECATION_HEIGHT) +
+                  " " +
                   _("You should upgrade to the latest version of Zen.") + " " +
                   strprintf(_("To disable deprecation for this version, set %s%s."),
                             "-disabledeprecation=", CLIENT_VERSION_STR);

@@ -17,10 +17,10 @@
 /** 
  * secp256k1:
  */
-const unsigned int PUBLIC_KEY_SIZE             = 65;
-const unsigned int COMPRESSED_PUBLIC_KEY_SIZE  = 33;
-const unsigned int SIGNATURE_SIZE              = 72;
-const unsigned int COMPACT_SIGNATURE_SIZE      = 65;
+const unsigned int PUBLIC_KEY_SIZE = 65;
+const unsigned int COMPRESSED_PUBLIC_KEY_SIZE = 33;
+const unsigned int SIGNATURE_SIZE = 72;
+const unsigned int COMPACT_SIGNATURE_SIZE = 65;
 /**
  * see www.keylength.com
  * script supports up to 75 for single byte push
@@ -40,7 +40,6 @@ typedef uint256 ChainCode;
 class CPubKey
 {
 private:
-
     /**
      * Just store the serialized data.
      * Its length can very cheaply be computed from the first byte.
@@ -195,7 +194,7 @@ public:
     bool Decompress();
 
     //! Derive BIP32 child pubkey.
-    bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc) const;
+    bool Derive(CPubKey& pubkeyChild, ChainCode& ccChild, unsigned int nChild, const ChainCode& cc) const;
 };
 
 struct CExtPubKey {
@@ -205,7 +204,7 @@ struct CExtPubKey {
     ChainCode chaincode;
     CPubKey pubkey;
 
-    friend bool operator==(const CExtPubKey &a, const CExtPubKey &b)
+    friend bool operator==(const CExtPubKey& a, const CExtPubKey& b)
     {
         return a.nDepth == b.nDepth && memcmp(&a.vchFingerprint[0], &b.vchFingerprint[0], 4) == 0 && a.nChild == b.nChild &&
                a.chaincode == b.chaincode && a.pubkey == b.pubkey;

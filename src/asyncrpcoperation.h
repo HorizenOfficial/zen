@@ -6,14 +6,14 @@
 #ifndef ASYNCRPCOPERATION_H
 #define ASYNCRPCOPERATION_H
 
-#include <string>
 #include <atomic>
-#include <map>
 #include <chrono>
+#include <future>
+#include <map>
 #include <memory>
+#include <string>
 #include <thread>
 #include <utility>
-#include <future>
 
 #include <univalue.h>
 
@@ -37,7 +37,8 @@ typedef enum class operationStateEnum {
     SUCCESS
 } OperationStatus;
 
-class AsyncRPCOperation {
+class AsyncRPCOperation
+{
 public:
     AsyncRPCOperation();
     virtual ~AsyncRPCOperation();
@@ -47,18 +48,21 @@ public:
 
     // Override this method if you can interrupt execution of main() in your subclass.
     void cancel();
-    
+
     // Getters and setters
 
-    OperationStatus getState() const {
+    OperationStatus getState() const
+    {
         return state_.load();
     }
-        
-    AsyncRPCOperationId getId() const {
+
+    AsyncRPCOperationId getId() const
+    {
         return id_;
     }
-   
-    int64_t getCreationTime() const {
+
+    int64_t getCreationTime() const
+    {
         return creation_time_;
     }
 
@@ -66,38 +70,45 @@ public:
     virtual UniValue getStatus() const;
 
     UniValue getError() const;
-    
+
     UniValue getResult() const;
 
     std::string getStateAsString() const;
-    
-    int getErrorCode() const {
+
+    int getErrorCode() const
+    {
         std::lock_guard<std::mutex> guard(lock_);
         return error_code_;
     }
 
-    std::string getErrorMessage() const {
+    std::string getErrorMessage() const
+    {
         std::lock_guard<std::mutex> guard(lock_);
         return error_message_;
     }
 
-    bool isCancelled() const {
+    bool isCancelled() const
+    {
         return OperationStatus::CANCELLED == getState();
     }
 
-    bool isExecuting() const {
+    bool isExecuting() const
+    {
         return OperationStatus::EXECUTING == getState();
     }
 
-    bool isReady() const {
+    bool isReady() const
+    {
         return OperationStatus::READY == getState();
     }
 
-    bool isFailed() const {
+    bool isFailed() const
+    {
         return OperationStatus::FAILED == getState();
     }
-    
-    bool isSuccess() const {
+
+    bool isSuccess() const
+    {
         return OperationStatus::SUCCESS == getState();
     }
 
@@ -109,40 +120,43 @@ protected:
     // allow subclasses of AsyncRPCOperation the ability to access and update
     // internal state.  Currently, all operations are executed in a single-thread
     // by a single worker.
-    mutable std::mutex lock_;   // lock on this when read/writing non-atomics
+    mutable std::mutex lock_; // lock on this when read/writing non-atomics
     UniValue result_;
     int error_code_;
     std::string error_message_;
     std::atomic<OperationStatus> state_;
-    std::chrono::time_point<std::chrono::system_clock> start_time_, end_time_;  
+    std::chrono::time_point<std::chrono::system_clock> start_time_, end_time_;
 
     void start_execution_clock();
     void stop_execution_clock();
 
-    void set_state(OperationStatus state) {
+    void set_state(OperationStatus state)
+    {
         this->state_.store(state);
     }
 
-    void set_error_code(int errorCode) {
+    void set_error_code(int errorCode)
+    {
         std::lock_guard<std::mutex> guard(lock_);
         this->error_code_ = errorCode;
     }
 
-    void set_error_message(std::string errorMessage) {
+    void set_error_message(std::string errorMessage)
+    {
         std::lock_guard<std::mutex> guard(lock_);
         this->error_message_ = errorMessage;
     }
-    
-    void set_result(UniValue v) {
+
+    void set_result(UniValue v)
+    {
         std::lock_guard<std::mutex> guard(lock_);
         this->result_ = v;
     }
-    
-private:
 
+private:
     // Derived classes should write their own copy constructor and assignment operators
     AsyncRPCOperation(const AsyncRPCOperation& orig);
-    AsyncRPCOperation& operator=( const AsyncRPCOperation& other );
+    AsyncRPCOperation& operator=(const AsyncRPCOperation& other);
 
     // Initialized in the operation constructor, never to be modified again.
     AsyncRPCOperationId id_;
@@ -150,4 +164,3 @@ private:
 };
 
 #endif /* ASYNCRPCOPERATION_H */
-

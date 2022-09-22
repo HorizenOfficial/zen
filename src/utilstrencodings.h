@@ -13,14 +13,14 @@
 #include <string>
 #include <vector>
 
-#define BEGIN(a)            ((char*)&(a))
-#define END(a)              ((char*)&((&(a))[1]))
-#define UBEGIN(a)           ((unsigned char*)&(a))
-#define UEND(a)             ((unsigned char*)&((&(a))[1]))
-#define ARRAYLEN(array)     (sizeof(array)/sizeof((array)[0]))
+#define BEGIN(a) ((char*)&(a))
+#define END(a) ((char*)&((&(a))[1]))
+#define UBEGIN(a) ((unsigned char*)&(a))
+#define UEND(a) ((unsigned char*)&((&(a))[1]))
+#define ARRAYLEN(array) (sizeof(array) / sizeof((array)[0]))
 
 /** This is needed because the foreach macro can't get over the comma in pair<t1, t2> */
-#define PAIRTYPE(t1, t2)    std::pair<t1, t2>
+#define PAIRTYPE(t1, t2) std::pair<t1, t2>
 
 std::string SanitizeFilename(const std::string& str);
 std::string SanitizeString(const std::string& str);
@@ -48,43 +48,42 @@ int atoi(const std::string& str);
  * @returns true if the entire string could be parsed as valid integer,
  *   false if not the entire string could be parsed or when overflow or underflow occurred.
  */
-bool ParseInt32(const std::string& str, int32_t *out);
+bool ParseInt32(const std::string& str, int32_t* out);
 
 /**
  * Convert string to signed 64-bit integer with strict parse error feedback.
  * @returns true if the entire string could be parsed as valid integer,
  *   false if not the entire string could be parsed or when overflow or underflow occurred.
  */
-bool ParseInt64(const std::string& str, int64_t *out);
+bool ParseInt64(const std::string& str, int64_t* out);
 
 /**
  * Convert string to double with strict parse error feedback.
  * @returns true if the entire string could be parsed as valid double,
  *   false if not the entire string could be parsed or when overflow or underflow occurred.
  */
-bool ParseDouble(const std::string& str, double *out);
+bool ParseDouble(const std::string& str, double* out);
 
-template<typename T>
-std::string HexStr(const T itbegin, const T itend, bool fSpaces=false)
+template <typename T>
+std::string HexStr(const T itbegin, const T itend, bool fSpaces = false)
 {
     std::string rv;
-    static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
-                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-    rv.reserve((itend-itbegin)*3);
-    for(T it = itbegin; it < itend; ++it)
-    {
+    static const char hexmap[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                                    '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+    rv.reserve((itend - itbegin) * 3);
+    for (T it = itbegin; it < itend; ++it) {
         unsigned char val = (unsigned char)(*it);
-        if(fSpaces && it != itbegin)
+        if (fSpaces && it != itbegin)
             rv.push_back(' ');
-        rv.push_back(hexmap[val>>4]);
-        rv.push_back(hexmap[val&15]);
+        rv.push_back(hexmap[val >> 4]);
+        rv.push_back(hexmap[val & 15]);
     }
 
     return rv;
 }
 
-template<typename T>
-inline std::string HexStr(const T& vch, bool fSpaces=false)
+template <typename T>
+inline std::string HexStr(const T& vch, bool fSpaces = false)
 {
     return HexStr(vch.begin(), vch.end(), fSpaces);
 }
@@ -103,10 +102,11 @@ std::string FormatParagraph(const std::string& in, size_t width = 79, size_t ind
 template <typename T>
 bool TimingResistantEqual(const T& a, const T& b)
 {
-    if (b.size() == 0) return a.size() == 0;
+    if (b.size() == 0)
+        return a.size() == 0;
     size_t accumulator = a.size() ^ b.size();
     for (size_t i = 0; i < a.size(); i++)
-        accumulator |= a[i] ^ b[i%b.size()];
+        accumulator |= a[i] ^ b[i % b.size()];
     return accumulator == 0;
 }
 
@@ -115,6 +115,6 @@ bool TimingResistantEqual(const T& a, const T& b)
  * @returns true on success, false on error.
  * @note The result must be in the range (-10^18,10^18), otherwise an overflow error will trigger.
  */
-bool ParseFixedPoint(const std::string &val, int decimals, int64_t *amount_out);
+bool ParseFixedPoint(const std::string& val, int decimals, int64_t* amount_out);
 
 #endif // BITCOIN_UTILSTRENCODINGS_H

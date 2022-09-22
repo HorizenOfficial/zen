@@ -15,7 +15,8 @@ using namespace std;
 
 const CFieldElement CBlockIndex::defaultScCumTreeHash = CFieldElement::GetPhantomHash();
 
-CBlockLocator CChain::GetLocator(const CBlockIndex *pindex) const {
+CBlockLocator CChain::GetLocator(const CBlockIndex* pindex) const
+{
     int nStep = 1;
     std::vector<uint256> vHave;
     vHave.reserve(32);
@@ -43,7 +44,8 @@ CBlockLocator CChain::GetLocator(const CBlockIndex *pindex) const {
     return CBlockLocator(vHave);
 }
 
-const CBlockIndex *CChain::FindFork(const CBlockIndex *pindex) const {
+const CBlockIndex* CChain::FindFork(const CBlockIndex* pindex) const
+{
     if (pindex->nHeight > Height())
         pindex = pindex->GetAncestor(Height());
     while (pindex && !Contains(pindex))
@@ -55,7 +57,8 @@ const CBlockIndex *CChain::FindFork(const CBlockIndex *pindex) const {
 int static inline InvertLowestOne(int n) { return n & (n - 1); }
 
 /** Compute what height to jump back to with the CBlockIndex::pskip pointer. */
-int static inline GetSkipHeight(int height) {
+int static inline GetSkipHeight(int height)
+{
     if (height < 2)
         return 0;
 
@@ -109,7 +112,7 @@ void CHistoricalChain::SetHeight(const int nHeight)
     my_height = nHeight;
 }
 
-void CHistoricalChain::SetTip(CBlockIndex *pindex)
+void CHistoricalChain::SetTip(CBlockIndex* pindex)
 {
     throw std::runtime_error("Cannot SetTip of a CHistoricalChain!");
 }

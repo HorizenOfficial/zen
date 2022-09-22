@@ -11,10 +11,13 @@
 
 class CScheduler;
 class CWallet;
-namespace boost { class thread_group; }
+namespace boost
+{
+class thread_group;
+}
 
-extern CWallet*      pwalletMain;
-extern ZCJoinSplit*  pzcashParams;
+extern CWallet* pwalletMain;
+extern ZCJoinSplit* pzcashParams;
 
 void StartShutdown();
 bool ShutdownRequested();

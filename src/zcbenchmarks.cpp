@@ -1,34 +1,34 @@
+#include <boost/filesystem.hpp>
 #include <cstdio>
 #include <future>
 #include <map>
 #include <thread>
 #include <unistd.h>
-#include <boost/filesystem.hpp>
 
-#include "coins.h"
-#include "util.h"
-#include "init.h"
-#include "primitives/transaction.h"
 #include "base58.h"
-#include "crypto/equihash.h"
 #include "chain.h"
 #include "chainparams.h"
+#include "coins.h"
 #include "consensus/validation.h"
+#include "crypto/equihash.h"
+#include "init.h"
 #include "main.h"
 #include "miner.h"
 #include "pow.h"
+#include "primitives/transaction.h"
 #include "rpc/server.h"
 #include "script/sign.h"
 #include "sodium.h"
 #include "streams.h"
 #include "txdb.h"
+#include "util.h"
 #include "utiltest.h"
 #include "wallet/wallet.h"
 
 #include "zcbenchmarks.h"
 
-#include "zcash/Zcash.h"
 #include "zcash/IncrementalMerkleTree.hpp"
+#include "zcash/Zcash.h"
 
 using namespace libzcash;
 // This method is based on Shutdown from init.cpp
@@ -55,7 +55,8 @@ void pre_wallet_load()
     LogPrintf("%s: done\n", __func__);
 }
 
-void post_wallet_load(){
+void post_wallet_load()
+{
     RegisterValidationInterface(pwalletMain);
 #ifdef ENABLE_MINING
     // Generate coins in the background
@@ -65,18 +66,18 @@ void post_wallet_load(){
 }
 
 
-void timer_start(timeval &tv_start)
+void timer_start(timeval& tv_start)
 {
     gettimeofday(&tv_start, 0);
 }
 
-double timer_stop(timeval &tv_start)
+double timer_stop(timeval& tv_start)
 {
     double elapsed;
     struct timeval tv_end;
     gettimeofday(&tv_end, 0);
-    elapsed = double(tv_end.tv_sec-tv_start.tv_sec) +
-        (tv_end.tv_usec-tv_start.tv_usec)/double(1000000);
+    elapsed = double(tv_end.tv_sec - tv_start.tv_sec) +
+              (tv_end.tv_usec - tv_start.tv_usec) / double(1000000);
     return elapsed;
 }
 
@@ -151,7 +152,7 @@ std::vector<double> benchmark_create_joinsplit_threaded(int nThreads)
     return ret;
 }
 
-double benchmark_verify_joinsplit(const JSDescription &joinsplit)
+double benchmark_verify_joinsplit(const JSDescription& joinsplit)
 {
     struct timeval tv_start;
     timer_start(tv_start);
@@ -178,8 +179,8 @@ double benchmark_solve_equihash()
     uint256 nonce;
     randombytes_buf(nonce.begin(), 32);
     crypto_generichash_blake2b_update(&eh_state,
-                                    nonce.begin(),
-                                    nonce.size());
+                                      nonce.begin(),
+                                      nonce.size());
 
     struct timeval tv_start;
     timer_start(tv_start);
@@ -315,8 +316,8 @@ double benchmark_increment_note_witnesses(size_t nTxs)
         auto nullifier = note.nullifier(sk);
 
         mapNoteData_t noteData;
-        JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
-        CNoteData nd {sk.address(), nullifier};
+        JSOutPoint jsoutpt{wtx.getWrappedTx().GetHash(), 0, 1};
+        CNoteData nd{sk.address(), nullifier};
         noteData[jsoutpt] = nd;
 
         wtx.SetNoteData(noteData);
@@ -338,8 +339,8 @@ double benchmark_increment_note_witnesses(size_t nTxs)
         auto nullifier = note.nullifier(sk);
 
         mapNoteData_t noteData;
-        JSOutPoint jsoutpt {wtx.getWrappedTx().GetHash(), 0, 1};
-        CNoteData nd {sk.address(), nullifier};
+        JSOutPoint jsoutpt{wtx.getWrappedTx().GetHash(), 0, 1};
+        CNoteData nd{sk.address(), nullifier};
         noteData[jsoutpt] = nd;
 
         wtx.SetNoteData(noteData);
@@ -356,14 +357,16 @@ double benchmark_increment_note_witnesses(size_t nTxs)
 }
 
 // Fake the input of a given block
-class FakeCoinsViewDB : public CCoinsViewDB {
+class FakeCoinsViewDB : public CCoinsViewDB
+{
     uint256 hash;
     ZCIncrementalMerkleTree t;
 
 public:
     FakeCoinsViewDB(std::string dbName, uint256& hash) : CCoinsViewDB(dbName, 100, false, false), hash(hash) {}
 
-    bool GetAnchorAt(const uint256 &rt, ZCIncrementalMerkleTree &tree) const override {
+    bool GetAnchorAt(const uint256& rt, ZCIncrementalMerkleTree& tree) const override
+    {
         if (rt == t.root()) {
             tree = t;
             return true;
@@ -371,23 +374,26 @@ public:
         return false;
     }
 
-    bool GetNullifier(const uint256 &nf) const override {
+    bool GetNullifier(const uint256& nf) const override
+    {
         return false;
     }
 
-    uint256 GetBestBlock() const override {
+    uint256 GetBestBlock() const override
+    {
         return hash;
     }
 
-    uint256 GetBestAnchor() const override {
+    uint256 GetBestAnchor() const override
+    {
         return t.root();
     }
 
-    bool BatchWrite(CCoinsMap &mapCoins,
-                    const uint256 &hashBlock,
-                    const uint256 &hashAnchor,
-                    CAnchorsMap &mapAnchors,
-                    CNullifiersMap &mapNullifiers,
+    bool BatchWrite(CCoinsMap& mapCoins,
+                    const uint256& hashBlock,
+                    const uint256& hashAnchor,
+                    CAnchorsMap& mapAnchors,
+                    CNullifiersMap& mapNullifiers,
                     CSidechainsMap& mapSidechains,
                     CSidechainEventsMap& mapSidechainEvents,
                     CCswNullifiersMap& cswNullifiers) override
@@ -395,7 +401,8 @@ public:
         return false;
     }
 
-    bool GetStats(CCoinsStats &stats) const override {
+    bool GetStats(CCoinsStats& stats) const override
+    {
         return false;
     }
 };
@@ -406,7 +413,8 @@ double benchmark_connectblock_slow()
     SelectParams(CBaseChainParams::MAIN);
     CBlock block;
     FILE* fp = fopen((GetDataDir() / "benchmark/block-107134.dat").string().c_str(), "rb");
-    if (!fp) throw new std::runtime_error("Failed to open block data file");
+    if (!fp)
+        throw new std::runtime_error("Failed to open block data file");
     CAutoFile blkFile(fp, SER_DISK, CLIENT_VERSION);
     blkFile >> block;
     blkFile.fclose();
@@ -461,7 +469,7 @@ double benchmark_loadwallet()
 {
     pre_wallet_load();
     struct timeval tv_start;
-    bool fFirstRunRet=true;
+    bool fFirstRunRet = true;
     timer_start(tv_start);
     pwalletMain = new CWallet("wallet.dat");
     DBErrors nLoadWalletRet = pwalletMain->LoadWallet(fFirstRunRet);

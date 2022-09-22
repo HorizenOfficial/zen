@@ -6,8 +6,8 @@
 #define BITCOIN_MRUSET_H
 
 #include <set>
-#include <vector>
 #include <utility>
+#include <vector>
 
 /** STL-like set container that only keeps the most recent N elements. */
 template <typename T>
@@ -52,10 +52,12 @@ public:
             if (set.size() == nMaxSize + 1) {
                 set.erase(order[first_used]);
                 order[first_used] = set.end();
-                if (++first_used == nMaxSize) first_used = 0;
+                if (++first_used == nMaxSize)
+                    first_used = 0;
             }
             order[first_unused] = ret.first;
-            if (++first_unused == nMaxSize) first_unused = 0;
+            if (++first_unused == nMaxSize)
+                first_unused = 0;
         }
         return ret;
     }

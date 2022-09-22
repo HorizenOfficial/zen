@@ -7,10 +7,11 @@
 #include <array>
 
 CMutableTransaction GetValidReceiveTransaction(ZCJoinSplit& params,
-                                const libzcash::SpendingKey& sk,
-                                CAmount value,
-                                bool randomInputs,
-                                int32_t version /* = 2 */) {
+                                               const libzcash::SpendingKey& sk,
+                                               CAmount value,
+                                               bool randomInputs,
+                                               int32_t version /* = 2 */)
+{
     CMutableTransaction mtx;
     mtx.nVersion = 2; // Enable JoinSplits
     mtx.vin.resize(2);
@@ -32,18 +33,17 @@ CMutableTransaction GetValidReceiveTransaction(ZCJoinSplit& params,
 
     std::array<libzcash::JSInput, 2> inputs = {
         libzcash::JSInput(), // dummy input
-        libzcash::JSInput() // dummy input
+        libzcash::JSInput()  // dummy input
     };
 
     std::array<libzcash::JSOutput, 2> outputs = {
         libzcash::JSOutput(sk.address(), value),
-        libzcash::JSOutput(sk.address(), value)
-    };
+        libzcash::JSOutput(sk.address(), value)};
 
     // Prepare JoinSplits
     uint256 rt;
-    JSDescription jsdesc {false, params, mtx.joinSplitPubKey, rt,
-                          inputs, outputs, 2*value, 0, false};
+    JSDescription jsdesc{false, params, mtx.joinSplitPubKey, rt,
+                         inputs, outputs, 2 * value, 0, false};
     mtx.vjoinsplit.push_back(jsdesc);
 
     // Empty output script.
@@ -54,62 +54,64 @@ CMutableTransaction GetValidReceiveTransaction(ZCJoinSplit& params,
     // Add the signature
     assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL,
                                 dataToBeSigned.begin(), 32,
-                                joinSplitPrivKey
-                               ) == 0);
+                                joinSplitPrivKey) == 0);
 
     return mtx;
 }
 
 CWalletTx GetValidReceive(ZCJoinSplit& params,
-                                const libzcash::SpendingKey& sk,
-                                CAmount value,
-                                bool randomInputs,
-                                int32_t version /* = 2 */)
+                          const libzcash::SpendingKey& sk,
+                          CAmount value,
+                          bool randomInputs,
+                          int32_t version /* = 2 */)
 {
     CMutableTransaction mtx = GetValidReceiveTransaction(
-        params, sk, value, randomInputs, version
-    );
-    CTransaction tx {mtx};
-    CWalletTx wtx {NULL, tx};
+        params, sk, value, randomInputs, version);
+    CTransaction tx{mtx};
+    CWalletTx wtx{NULL, tx};
     return wtx;
 }
 
 CWalletTx GetInvalidCommitmentReceive(ZCJoinSplit& params,
-                                const libzcash::SpendingKey& sk,
-                                CAmount value,
-                                bool randomInputs,
-                                int32_t version /* = 2 */)
+                                      const libzcash::SpendingKey& sk,
+                                      CAmount value,
+                                      bool randomInputs,
+                                      int32_t version /* = 2 */)
 {
     CMutableTransaction mtx = GetValidReceiveTransaction(
-        params, sk, value, randomInputs, version
-    );
+        params, sk, value, randomInputs, version);
     mtx.vjoinsplit[0].commitments[0] = uint256();
     mtx.vjoinsplit[0].commitments[1] = uint256();
-    CTransaction tx {mtx};
-    CWalletTx wtx {NULL, tx};
+    CTransaction tx{mtx};
+    CWalletTx wtx{NULL, tx};
     return wtx;
 }
 
 libzcash::Note GetNote(ZCJoinSplit& params,
                        const libzcash::SpendingKey& sk,
-                       const CTransaction& tx, size_t js, size_t n) {
-    ZCNoteDecryption decryptor {sk.receiving_key()};
+                       const CTransaction& tx,
+                       size_t js,
+                       size_t n)
+{
+    ZCNoteDecryption decryptor{sk.receiving_key()};
     auto hSig = tx.GetVjoinsplit()[js].h_sig(params, tx.joinSplitPubKey);
     auto note_pt = libzcash::NotePlaintext::decrypt(
         decryptor,
         tx.GetVjoinsplit()[js].ciphertexts[n],
         tx.GetVjoinsplit()[js].ephemeralKey,
         hSig,
-        (unsigned char) n);
+        (unsigned char)n);
     return note_pt.note(sk.address());
 }
 
 CWalletTx GetValidSpend(ZCJoinSplit& params,
                         const libzcash::SpendingKey& sk,
-                        const libzcash::Note& note, CAmount value) {
+                        const libzcash::Note& note,
+                        CAmount value)
+{
     CMutableTransaction mtx;
-    mtx.addOut(CTxOut(value,CScript()));
-    mtx.addOut(CTxOut(0,CScript()));
+    mtx.addOut(CTxOut(value, CScript()));
+    mtx.addOut(CTxOut(0, CScript()));
 
     // Generate an ephemeral keypair.
     uint256 joinSplitPubKey;
@@ -141,18 +143,17 @@ CWalletTx GetValidSpend(ZCJoinSplit& params,
 
     std::array<libzcash::JSInput, 2> inputs = {
         libzcash::JSInput(tree.witness(), note, sk),
-        dummyin
-    };
+        dummyin};
 
     std::array<libzcash::JSOutput, 2> outputs = {
-        dummyout, // dummy output
+        dummyout,            // dummy output
         libzcash::JSOutput() // dummy output
     };
 
     // Prepare JoinSplits
     uint256 rt = tree.root();
-    JSDescription jsdesc {false, params, mtx.joinSplitPubKey, rt,
-                          inputs, outputs, 0, value, false};
+    JSDescription jsdesc{false, params, mtx.joinSplitPubKey, rt,
+                         inputs, outputs, 0, value, false};
     mtx.vjoinsplit.push_back(jsdesc);
 
     // Empty output script.
@@ -163,9 +164,8 @@ CWalletTx GetValidSpend(ZCJoinSplit& params,
     // Add the signature
     assert(crypto_sign_detached(&mtx.joinSplitSig[0], NULL,
                                 dataToBeSigned.begin(), 32,
-                                joinSplitPrivKey
-                               ) == 0);
-    CTransaction tx {mtx};
-    CWalletTx wtx {NULL, tx};
+                                joinSplitPrivKey) == 0);
+    CTransaction tx{mtx};
+    CWalletTx wtx{NULL, tx};
     return wtx;
 }

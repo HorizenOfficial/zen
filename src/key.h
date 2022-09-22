@@ -19,7 +19,7 @@
 /** 
  * secp256k1:
  */
-const unsigned int PRIVATE_KEY_SIZE            = 279;
+const unsigned int PRIVATE_KEY_SIZE = 279;
 const unsigned int COMPRESSED_PRIVATE_KEY_SIZE = 214;
 /**
  * see www.keylength.com
@@ -31,7 +31,7 @@ const unsigned int COMPRESSED_PRIVATE_KEY_SIZE = 214;
  * CPrivKey is a serialized private key, with all parameters included
  * (PRIVATE_KEY_SIZE bytes)
  */
-typedef std::vector<unsigned char, secure_allocator<unsigned char> > CPrivKey;
+typedef std::vector<unsigned char, secure_allocator<unsigned char>> CPrivKey;
 
 /** An encapsulated private key. */
 class CKey
@@ -138,7 +138,7 @@ public:
     bool SignCompact(const uint256& hash, std::vector<unsigned char>& vchSig) const;
 
     //! Derive BIP32 child key.
-    bool Derive(CKey& keyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc) const;
+    bool Derive(CKey& keyChild, ChainCode& ccChild, unsigned int nChild, const ChainCode& cc) const;
 
     /**
      * Verify thoroughly whether a private key and a public key match.

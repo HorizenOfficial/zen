@@ -36,7 +36,8 @@ private:
      */
     static const unsigned int nSpecialScripts = 6;
 
-    CScript &script;
+    CScript& script;
+
 protected:
     /**
      * These check for scripts for which a special case with a shorter encoding is defined.
@@ -45,17 +46,19 @@ protected:
      * whether the public key is valid (as invalid ones cannot be represented in compressed
      * form).
      */
-    bool IsToKeyID(CKeyID &hash) const;
-    bool IsToScriptID(CScriptID &hash) const;
-    bool IsToPubKey(CPubKey &pubkey) const;
+    bool IsToKeyID(CKeyID& hash) const;
+    bool IsToScriptID(CScriptID& hash) const;
+    bool IsToPubKey(CPubKey& pubkey) const;
 
-    bool Compress(std::vector<unsigned char> &out) const;
+    bool Compress(std::vector<unsigned char>& out) const;
     unsigned int GetSpecialSize(unsigned int nSize) const;
-    bool Decompress(unsigned int nSize, const std::vector<unsigned char> &out);
-public:
-    CScriptCompressor(CScript &scriptIn) : script(scriptIn) { }
+    bool Decompress(unsigned int nSize, const std::vector<unsigned char>& out);
 
-    unsigned int GetSerializeSize(int nType, int nVersion) const {
+public:
+    CScriptCompressor(CScript& scriptIn) : script(scriptIn) {}
+
+    unsigned int GetSerializeSize(int nType, int nVersion) const
+    {
         std::vector<unsigned char> compr;
         if (Compress(compr))
             return compr.size();
@@ -63,8 +66,9 @@ public:
         return script.size() + VARINT(nSize).GetSerializeSize(nType, nVersion);
     }
 
-    template<typename Stream>
-    void Serialize(Stream &s, int nType, int nVersion) const {
+    template <typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
         std::vector<unsigned char> compr;
         if (Compress(compr)) {
             s << CFlatData(compr);
@@ -75,8 +79,9 @@ public:
         s << CFlatData(script);
     }
 
-    template<typename Stream>
-    void Unserialize(Stream &s, int nType, int nVersion) {
+    template <typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
+    {
         unsigned int nSize = 0;
         s >> VARINT(nSize);
         if (nSize < nSpecialScripts) {
@@ -101,18 +106,19 @@ public:
 class CTxOutCompressor
 {
 private:
-    CTxOut &txout;
+    CTxOut& txout;
 
 public:
     static uint64_t CompressAmount(uint64_t nAmount);
     static uint64_t DecompressAmount(uint64_t nAmount);
 
-    CTxOutCompressor(CTxOut &txoutIn) : txout(txoutIn) { }
+    CTxOutCompressor(CTxOut& txoutIn) : txout(txoutIn) {}
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
         if (!ser_action.ForRead()) {
             uint64_t nVal = CompressAmount(txout.nValue);
             READWRITE(VARINT(nVal));

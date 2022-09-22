@@ -21,31 +21,31 @@ CTimeWarning timeWarning;
 
 int64_t CTimeWarning::AddTimeData(const CNetAddr& ip, int64_t nTime, int64_t now)
 {
-	assert(now >= 0 && now <= INT64_MAX - TIMEDATA_IGNORE_THRESHOLD);
-	if (nTime <= now - TIMEDATA_IGNORE_THRESHOLD || nTime >= now + TIMEDATA_IGNORE_THRESHOLD) {
-		return 0;
-	}
-	int64_t nTimeOffset = nTime - now;
-	LOCK(cs);
-	// Ignore duplicate IPs.
-	if (setKnown.size() == TIMEDATA_MAX_SAMPLES || !setKnown.insert(ip).second) {
-		return nTimeOffset;
-	}
-	LogPrintf("Added time data, samples %d, offset %+d (%+d minutes)\n", setKnown.size(), nTimeOffset, nTimeOffset/60);
+    assert(now >= 0 && now <= INT64_MAX - TIMEDATA_IGNORE_THRESHOLD);
+    if (nTime <= now - TIMEDATA_IGNORE_THRESHOLD || nTime >= now + TIMEDATA_IGNORE_THRESHOLD) {
+        return 0;
+    }
+    int64_t nTimeOffset = nTime - now;
+    LOCK(cs);
+    // Ignore duplicate IPs.
+    if (setKnown.size() == TIMEDATA_MAX_SAMPLES || !setKnown.insert(ip).second) {
+        return nTimeOffset;
+    }
+    LogPrintf("Added time data, samples %d, offset %+d (%+d minutes)\n", setKnown.size(), nTimeOffset, nTimeOffset / 60);
 
-	if (nPeersBehind + nPeersAhead < TIMEDATA_WARNING_SAMPLES) {
-		if (nTimeOffset < -TIMEDATA_WARNING_THRESHOLD) {
-			nPeersBehind++;
-		 } else if (nTimeOffset > TIMEDATA_WARNING_THRESHOLD) {
-			 nPeersAhead++;
-		 }
-	}
+    if (nPeersBehind + nPeersAhead < TIMEDATA_WARNING_SAMPLES) {
+        if (nTimeOffset < -TIMEDATA_WARNING_THRESHOLD) {
+            nPeersBehind++;
+        } else if (nTimeOffset > TIMEDATA_WARNING_THRESHOLD) {
+            nPeersAhead++;
+        }
+    }
 
-	if (nPeersBehind + nPeersAhead == TIMEDATA_WARNING_SAMPLES) {
-		Warn(nPeersAhead, nPeersBehind);
-	}
+    if (nPeersBehind + nPeersAhead == TIMEDATA_WARNING_SAMPLES) {
+        Warn(nPeersAhead, nPeersBehind);
+    }
 
-	return nTimeOffset;
+    return nTimeOffset;
 }
 
 void CTimeWarning::Warn(size_t peersAhead, size_t peersBehind)
@@ -58,8 +58,7 @@ void CTimeWarning::Warn(size_t peersAhead, size_t peersBehind)
     } else {
         strMessage = _("Warning: Please check that your computer's date and time are correct! If your clock is wrong Zen will not work properly.");
     }
-	// SetMiscWarning(strMessage);
-	LogPrintf("*** %s\n", strMessage);
-	uiInterface.ThreadSafeMessageBox(strMessage, "", CClientUIInterface::MSG_WARNING);
+    // SetMiscWarning(strMessage);
+    LogPrintf("*** %s\n", strMessage);
+    uiInterface.ThreadSafeMessageBox(strMessage, "", CClientUIInterface::MSG_WARNING);
 }
-

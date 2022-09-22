@@ -5,8 +5,8 @@
 #ifndef BITCOIN_HTTPRPC_H
 #define BITCOIN_HTTPRPC_H
 
-#include <string>
 #include <map>
+#include <string>
 
 /** Start HTTP RPC subsystem.
  * Precondition; HTTP and RPC has been started.

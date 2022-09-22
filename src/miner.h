@@ -18,11 +18,13 @@ class CScript;
 class CReserveKey;
 class CWallet;
 #endif
-namespace Consensus { struct Params; };
+namespace Consensus
+{
+struct Params;
+};
 class CCoinsViewCache;
 
-struct CBlockTemplate
-{
+struct CBlockTemplate {
     CBlock block;
     std::vector<CAmount> vTxFees;
     std::vector<int64_t> vTxSigOps;
@@ -60,18 +62,15 @@ public:
 };
 
 /** Retrieve mempool transactions priority info */
-void GetBlockTxPriorityData(const CCoinsViewCache& view, int nHeight, int64_t nLockTimeCutoff,
-                               std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*> >& mapDependers);
+void GetBlockTxPriorityData(const CCoinsViewCache& view, int nHeight, int64_t nLockTimeCutoff, std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*>>& mapDependers);
 /** DEPRECATED. Retrieve mempool transactions priority info */
-void GetBlockTxPriorityDataOld(const CCoinsViewCache& view, int nHeight, int64_t nLockTimeCutoff,
-                               std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*> >& mapDependers);
+void GetBlockTxPriorityDataOld(const CCoinsViewCache& view, int nHeight, int64_t nLockTimeCutoff, std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*>>& mapDependers);
 
-void GetBlockCertPriorityData(const CCoinsViewCache& view, int nHeight,
-                              std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*> >& mapDependers);
+void GetBlockCertPriorityData(const CCoinsViewCache& view, int nHeight, std::vector<TxPriority>& vecPriority, std::list<COrphan>& vOrphan, std::map<uint256, std::vector<COrphan*>>& mapDependers);
 
 /** Generate a new block, without valid proof-of-work */
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn);
-CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn,  unsigned int nBlockMaxComplexitySize);
+CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, unsigned int nBlockMaxComplexitySize);
 #ifdef ENABLE_WALLET
 boost::optional<CScript> GetMinerScriptPubKey(CReserveKey& reservekey);
 CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey);
@@ -80,17 +79,17 @@ boost::optional<CScript> GetMinerScriptPubKey();
 CBlockTemplate* CreateNewBlockWithKey();
 #endif
 
-CMutableTransaction createCoinbase(const CScript &scriptPubKeyIn, CAmount fees, const int nHeight);
+CMutableTransaction createCoinbase(const CScript& scriptPubKeyIn, CAmount fees, const int nHeight);
 
 #ifdef ENABLE_MINING
 /** Modify the extranonce in a block */
 void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
 /** Run the miner threads */
- #ifdef ENABLE_WALLET
+#ifdef ENABLE_WALLET
 void GenerateBitcoins(bool fGenerate, CWallet* pwallet, int nThreads);
- #else
+#else
 void GenerateBitcoins(bool fGenerate, int nThreads);
- #endif
+#endif
 #endif
 
 void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev);

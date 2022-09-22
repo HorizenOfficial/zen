@@ -36,18 +36,19 @@ void SyncWithWallets(const CScCertificate& cert, const CBlock* pblock = NULL, in
 /** Push to wallets updates about bwt state and related sidechain information */
 void SyncCertStatusUpdate(const CScCertificateStatusUpdateInfo& certStatusInfo);
 
-class CValidationInterface {
+class CValidationInterface
+{
 protected:
     virtual ~CValidationInterface() {}
-    virtual void UpdatedBlockTip(const CBlockIndex *pindex) {}
-    virtual void SyncTransaction(const CTransaction &tx, const CBlock *pblock) {}
-    virtual void SyncCertificate(const CScCertificate &tx, const CBlock *pblock, int bwtMaturityDepth) {}
+    virtual void UpdatedBlockTip(const CBlockIndex* pindex) {}
+    virtual void SyncTransaction(const CTransaction& tx, const CBlock* pblock) {}
+    virtual void SyncCertificate(const CScCertificate& tx, const CBlock* pblock, int bwtMaturityDepth) {}
     virtual void SyncCertStatusInfo(const CScCertificateStatusUpdateInfo& certStatusInfo) {}
-    virtual void EraseFromWallet(const uint256 &hash) {}
-    virtual void ChainTip(const CBlockIndex *pindex, const CBlock *pblock, ZCIncrementalMerkleTree tree, bool added) {}
-    virtual void SetBestChain(const CBlockLocator &locator) {}
-    virtual void UpdatedTransaction(const uint256 &hash) {}
-    virtual void Inventory(const uint256 &hash) {}
+    virtual void EraseFromWallet(const uint256& hash) {}
+    virtual void ChainTip(const CBlockIndex* pindex, const CBlock* pblock, ZCIncrementalMerkleTree tree, bool added) {}
+    virtual void SetBestChain(const CBlockLocator& locator) {}
+    virtual void UpdatedTransaction(const uint256& hash) {}
+    virtual void Inventory(const uint256& hash) {}
     virtual void ResendWalletTransactions(int64_t nBestBlockTime) {}
     virtual void BlockChecked(const CBlock&, const CValidationState&) {}
     friend void ::RegisterValidationInterface(CValidationInterface*);
@@ -57,27 +58,27 @@ protected:
 
 struct CMainSignals {
     /** Notifies listeners of updated block chain tip */
-    boost::signals2::signal<void (const CBlockIndex *)> UpdatedBlockTip;
+    boost::signals2::signal<void(const CBlockIndex*)> UpdatedBlockTip;
     /** Notifies listeners of updated transaction data (transaction, and optionally the block it is found in. */
-    boost::signals2::signal<void (const CTransaction &, const CBlock *)> SyncTransaction;
+    boost::signals2::signal<void(const CTransaction&, const CBlock*)> SyncTransaction;
     /** Notifies listeners of an erased transaction (currently disabled, requires transaction replacement). */
-    boost::signals2::signal<void (const uint256 &)> EraseTransaction;
+    boost::signals2::signal<void(const uint256&)> EraseTransaction;
     /** Notifies listeners of an updated transaction without new data (for now: a coinbase potentially becoming visible). */
-    boost::signals2::signal<void (const uint256 &)> UpdatedTransaction;
+    boost::signals2::signal<void(const uint256&)> UpdatedTransaction;
     /** Notifies listeners of a change to the tip of the active block chain. */
-    boost::signals2::signal<void (const CBlockIndex *, const CBlock *, ZCIncrementalMerkleTree, bool)> ChainTip;
+    boost::signals2::signal<void(const CBlockIndex*, const CBlock*, ZCIncrementalMerkleTree, bool)> ChainTip;
     /** Notifies listeners of a new active block chain. */
-    boost::signals2::signal<void (const CBlockLocator &)> SetBestChain;
+    boost::signals2::signal<void(const CBlockLocator&)> SetBestChain;
     /** Notifies listeners about an inventory item being seen on the network. */
-    boost::signals2::signal<void (const uint256 &)> Inventory;
+    boost::signals2::signal<void(const uint256&)> Inventory;
     /** Tells listeners to broadcast their data. */
-    boost::signals2::signal<void (int64_t nBestBlockTime)> Broadcast;
+    boost::signals2::signal<void(int64_t nBestBlockTime)> Broadcast;
     /** Notifies listeners of a block validation result */
-    boost::signals2::signal<void (const CBlock&, const CValidationState&)> BlockChecked;
+    boost::signals2::signal<void(const CBlock&, const CValidationState&)> BlockChecked;
     /** Notifies listeners of updated certificate data (certificate, and optionally the block it is found in. */
-    boost::signals2::signal<void (const CScCertificate &, const CBlock *, int bwtMaturityDepth)> SyncCertificate;
+    boost::signals2::signal<void(const CScCertificate&, const CBlock*, int bwtMaturityDepth)> SyncCertificate;
     /** Notifies listeners of updated bwts for given certificate.*/
-    boost::signals2::signal<void (const CScCertificateStatusUpdateInfo& certStatusInfo)> SyncCertStatus;
+    boost::signals2::signal<void(const CScCertificateStatusUpdateInfo& certStatusInfo)> SyncCertStatus;
 };
 
 CMainSignals& GetMainSignals();

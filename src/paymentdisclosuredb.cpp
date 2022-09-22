@@ -4,8 +4,8 @@
 
 #include "paymentdisclosuredb.h"
 
-#include "util.h"
 #include "leveldbwrapper.h"
+#include "util.h"
 
 #include <boost/filesystem.hpp>
 
@@ -16,17 +16,20 @@ static boost::filesystem::path emptyPath;
 /**
  * Static method to return the shared/default payment disclosure database.
  */
-shared_ptr<PaymentDisclosureDB> PaymentDisclosureDB::sharedInstance() {
+shared_ptr<PaymentDisclosureDB> PaymentDisclosureDB::sharedInstance()
+{
     // Thread-safe in C++11 and gcc 4.3
     static shared_ptr<PaymentDisclosureDB> ptr = std::make_shared<PaymentDisclosureDB>();
     return ptr;
 }
 
 // C++11 delegated constructor
-PaymentDisclosureDB::PaymentDisclosureDB() : PaymentDisclosureDB(emptyPath) {
+PaymentDisclosureDB::PaymentDisclosureDB() : PaymentDisclosureDB(emptyPath)
+{
 }
 
-PaymentDisclosureDB::PaymentDisclosureDB(const boost::filesystem::path& dbPath) {
+PaymentDisclosureDB::PaymentDisclosureDB(const boost::filesystem::path& dbPath)
+{
     boost::filesystem::path path(dbPath);
     if (path.empty()) {
         path = GetDataDir() / "paymentdisclosure";
@@ -42,7 +45,8 @@ PaymentDisclosureDB::PaymentDisclosureDB(const boost::filesystem::path& dbPath) 
     LogPrintf("PaymentDisclosure: Opened LevelDB successfully\n");
 }
 
-PaymentDisclosureDB::~PaymentDisclosureDB() {
+PaymentDisclosureDB::~PaymentDisclosureDB()
+{
     if (db != nullptr) {
         delete db;
     }

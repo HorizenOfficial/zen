@@ -86,5 +86,5 @@ void seed_insecure_rand(bool fDeterministic)
 
 int GenIdentity(int n)
 {
-    return n-1;
+    return n - 1;
 }

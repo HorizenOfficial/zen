@@ -20,7 +20,7 @@ using namespace zen;
 
 struct CDNSSeedData {
     std::string name, host;
-    CDNSSeedData(const std::string &strName, const std::string &strHost) : name(strName), host(strHost) {}
+    CDNSSeedData(const std::string& strName, const std::string& strHost) : name(strName), host(strHost) {}
 };
 
 struct SeedSpec6 {
@@ -95,7 +95,8 @@ public:
     /** Enforce coinbase consensus rule in regtest mode */
     void SetRegTestCoinbaseMustBeProtected() { consensus.fCoinbaseMustBeProtected = true; }
 
-    void SetSubsidyHalvingInterval(int val) { consensus.nSubsidyHalvingInterval = val;}
+    void SetSubsidyHalvingInterval(int val) { consensus.nSubsidyHalvingInterval = val; }
+
 protected:
     CChainParams() {}
 
@@ -119,13 +120,13 @@ protected:
     bool fRequireStandard = false;
     bool fMineBlocksOnDemand = false;
     bool fTestnetToBeDeprecatedFieldRPC = false;
-    int  nCbhMinimumAge = 0;
-    int  nCbhSafeDepth = 0;
-    int  nScCoinsMaturity = 0;
-    int  nScNumBlocksForScFeeCheck = 0;
-    int  nScMinWithdrawalEpochLength = 0;
-    int  nScMaxWithdrawalEpochLength = 0;
-    int  nScMaxNumberOfCswInputsInMempool = 0;
+    int nCbhMinimumAge = 0;
+    int nCbhSafeDepth = 0;
+    int nScCoinsMaturity = 0;
+    int nScNumBlocksForScFeeCheck = 0;
+    int nScMinWithdrawalEpochLength = 0;
+    int nScMaxWithdrawalEpochLength = 0;
+    int nScMaxNumberOfCswInputsInMempool = 0;
     Checkpoints::CCheckpointData checkpointData;
 };
 
@@ -133,10 +134,10 @@ protected:
  * Return the currently selected parameters. This won't change after app
  * startup, except for unit tests.
  */
-const CChainParams &Params();
+const CChainParams& Params();
 
 /** Return parameters for the given network. */
-CChainParams &Params(CBaseChainParams::Network network);
+CChainParams& Params(CBaseChainParams::Network network);
 
 /** Sets the params returned by Params() to those for the given network. */
 void SelectParams(CBaseChainParams::Network network);

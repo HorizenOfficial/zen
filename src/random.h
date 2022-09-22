@@ -30,14 +30,17 @@ public:
 
     explicit ZcashRandomEngine() {}
 
-    static constexpr result_type min() {
+    static constexpr result_type min()
+    {
         return std::numeric_limits<result_type>::min();
     }
-    static constexpr result_type max() {
+    static constexpr result_type max()
+    {
         return std::numeric_limits<result_type>::max();
     }
 
-    result_type operator()() {
+    result_type operator()()
+    {
         result_type nRand = 0;
         GetRandBytes((unsigned char*)&nRand, sizeof(nRand));
         return nRand;
@@ -47,7 +50,7 @@ public:
 /**
  * Identity function for MappedShuffle, so that elements retain their original order.
  */
- int GenIdentity(int n);
+int GenIdentity(int n);
 
 /**
  * Rearranges the elements in the range [first,first+len) randomly, assuming
@@ -65,8 +68,8 @@ void MappedShuffle(RandomAccessIterator first,
                    size_t len,
                    std::function<int(int)> gen)
 {
-    for (size_t i = len-1; i > 0; --i) {
-        auto r = gen(i+1);
+    for (size_t i = len - 1; i > 0; --i) {
+        auto r = gen(i + 1);
         assert(r >= 0);
         assert(r <= i);
         std::swap(first[i], first[r]);

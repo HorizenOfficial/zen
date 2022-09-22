@@ -56,7 +56,7 @@ void CScheduler::serviceQueue()
             {
                 // Unlock before calling f, so it can reschedule itself or another task
                 // without deadlocking:
-                reverse_lock<boost::unique_lock<boost::mutex> > rlock(lock);
+                reverse_lock<boost::unique_lock<boost::mutex>> rlock(lock);
                 f();
             }
         } catch (...) {
@@ -104,8 +104,8 @@ void CScheduler::scheduleEvery(CScheduler::Function f, int64_t deltaSeconds)
     scheduleFromNow(boost::bind(&Repeat, this, f, deltaSeconds), deltaSeconds);
 }
 
-size_t CScheduler::getQueueInfo(boost::chrono::system_clock::time_point &first,
-                             boost::chrono::system_clock::time_point &last) const
+size_t CScheduler::getQueueInfo(boost::chrono::system_clock::time_point& first,
+                                boost::chrono::system_clock::time_point& last) const
 {
     boost::unique_lock<boost::mutex> lock(newTaskMutex);
     size_t result = taskQueue.size();

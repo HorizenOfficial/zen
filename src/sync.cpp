@@ -49,13 +49,14 @@ struct CLockLocation {
     std::string MutexName() const { return mutexName; }
 
     bool fTry;
+
 private:
     std::string mutexName;
     std::string sourceFile;
     int sourceLine;
 };
 
-typedef std::vector<std::pair<void*, CLockLocation> > LockStack;
+typedef std::vector<std::pair<void*, CLockLocation>> LockStack;
 
 static boost::mutex dd_mutex;
 static std::map<std::pair<void*, void*>, LockStack> lockorders;

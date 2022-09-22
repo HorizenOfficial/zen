@@ -38,16 +38,16 @@ the bad alert.
 
 */
 
-#include "main.h"
-#include "net.h"
 #include "alert.h"
 #include "init.h"
+#include "main.h"
+#include "net.h"
 
+#include "chainparams.h"
+#include "clientversion.h"
+#include "key.h"
 #include "util.h"
 #include "utiltime.h"
-#include "key.h"
-#include "clientversion.h"
-#include "chainparams.h"
 
 #include "alertkeys.h"
 
@@ -59,7 +59,7 @@ void ThreadSendAlert()
     if (!mapArgs.count("-sendalert") && !mapArgs.count("-printalert"))
         return;
 
-    MilliSleep(60*1000); // Wait a minute so we get connected
+    MilliSleep(60 * 1000); // Wait a minute so we get connected
 
     //
     // Alerts are relayed around the network until nRelayUntil, flood
@@ -70,15 +70,15 @@ void ThreadSendAlert()
     // Nodes never save alerts to disk, they are in-memory-only.
     //
     CAlert alert;
-    alert.nRelayUntil   = GetTime() + 15 * 60;
-    alert.nExpiration   = GetTime() + 12 * 30 * 24 * 60 * 60;
-    alert.nID           = 1004;  // use https://github.com/zcash/zcash/wiki/specification#assigned-numbers to keep track of alert IDs
-    alert.nCancel       = 1001;  // cancels previous messages up to this ID number
+    alert.nRelayUntil = GetTime() + 15 * 60;
+    alert.nExpiration = GetTime() + 12 * 30 * 24 * 60 * 60;
+    alert.nID = 1004;     // use https://github.com/zcash/zcash/wiki/specification#assigned-numbers to keep track of alert IDs
+    alert.nCancel = 1001; // cancels previous messages up to this ID number
 
     // These versions are protocol versions
     // 170002 : 1.0.0
-    alert.nMinVer       = 170002;
-    alert.nMaxVer       = 170002;
+    alert.nMinVer = 170002;
+    alert.nMaxVer = 170002;
 
     //
     // main.cpp:
@@ -86,17 +86,17 @@ void ThreadSendAlert()
     //  2000 for longer invalid proof-of-work chain
     //  Higher numbers mean higher priority
     //  4000 or higher will put the RPC into safe mode
-    alert.nPriority     = 4000;
-    alert.strComment    = "";
-    alert.strStatusBar  = "Your client version 1.0.10 has degraded networking behavior. Please update to the most recent version of Zcash (1.0.10-1 or later).";
-    alert.strRPCError   = alert.strStatusBar;
+    alert.nPriority = 4000;
+    alert.strComment = "";
+    alert.strStatusBar = "Your client version 1.0.10 has degraded networking behavior. Please update to the most recent version of Zcash (1.0.10-1 or later).";
+    alert.strRPCError = alert.strStatusBar;
 
     // Set specific client version/versions here. If setSubVer is empty, no filtering on subver is done:
     // alert.setSubVer.insert(std::string("/MagicBean:0.7.2/"));
     const std::vector<std::string> useragents = {"MagicBean", "BeanStalk", "AppleSeed", "EleosZcash"};
 
-    BOOST_FOREACH(const std::string& useragent, useragents) {
-        alert.setSubVer.insert(std::string("/"+useragent+":1.0.10/"));
+    BOOST_FOREACH (const std::string& useragent, useragents) {
+        alert.setSubVer.insert(std::string("/" + useragent + ":1.0.10/"));
     }
 
     // Sanity check
@@ -115,13 +115,11 @@ void ThreadSendAlert()
     sMsg << *(CUnsignedAlert*)&alert;
     alert.vchMsg = std::vector<unsigned char>(sMsg.begin(), sMsg.end());
     CKey key;
-    if (!key.SetPrivKey(vchPrivKey, false))
-    {
+    if (!key.SetPrivKey(vchPrivKey, false)) {
         printf("ThreadSendAlert() : key.SetPrivKey failed\n");
         return;
     }
-    if (!key.Sign(Hash(alert.vchMsg.begin(), alert.vchMsg.end()), alert.vchSig))
-    {
+    if (!key.Sign(Hash(alert.vchMsg.begin(), alert.vchMsg.end()), alert.vchSig)) {
         printf("ThreadSendAlert() : key.Sign failed\n");
         return;
     }
@@ -131,8 +129,7 @@ void ThreadSendAlert()
     sBuffer << alert;
     CAlert alert2;
     sBuffer >> alert2;
-    if (!alert2.CheckSignature(chainparams.AlertKey()))
-    {
+    if (!alert2.CheckSignature(chainparams.AlertKey())) {
         printf("ThreadSendAlert() : CheckSignature failed\n");
         return;
     }
@@ -158,10 +155,8 @@ void ThreadSendAlert()
     int nSent = 0;
     {
         LOCK(cs_vNodes);
-        BOOST_FOREACH(CNode* pnode, vNodes)
-        {
-            if (alert2.RelayTo(pnode))
-            {
+        BOOST_FOREACH (CNode* pnode, vNodes) {
+            if (alert2.RelayTo(pnode)) {
                 printf("ThreadSendAlert() : Sent alert to %s\n", pnode->addr.ToString().c_str());
                 nSent++;
             }

@@ -4,16 +4,16 @@
 
 #include "base58.h"
 
-#include "version.h"
 #include "streams.h"
+#include "version.h"
 
 #include <assert.h>
-#include <stdint.h>
-#include <string.h>
-#include <vector>
-#include <string>
 #include <boost/variant/apply_visitor.hpp>
 #include <boost/variant/static_visitor.hpp>
+#include <stdint.h>
+#include <string.h>
+#include <string>
+#include <vector>
 
 CBase58Data::CBase58Data()
 {
@@ -91,20 +91,20 @@ public:
     bool operator()(const CNoDestination& no) const { return false; }
 };
 
-} // anon namespace
+} // namespace
 
 bool CBitcoinAddress::Set(const CKeyID& id)
 {
-	//TODO: Is the check regarding the id address created before or after chainsplit needed?
-	// Now old addresses will receive new prefixes. Seems like that is not a problem but additional QA is needed.
+    //TODO: Is the check regarding the id address created before or after chainsplit needed?
+    // Now old addresses will receive new prefixes. Seems like that is not a problem but additional QA is needed.
     SetData(Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS), &id, 20);
     return true;
 }
 
 bool CBitcoinAddress::Set(const CScriptID& id)
 {
-	//TODO: Is the check regarding the id address created before or after chainsplit needed?
-	// Now old addresses will receive new prefixes. Seems like that is not a problem but additional QA is needed.
+    //TODO: Is the check regarding the id address created before or after chainsplit needed?
+    // Now old addresses will receive new prefixes. Seems like that is not a problem but additional QA is needed.
     SetData(Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS), &id, 20);
     return true;
 }
@@ -145,11 +145,9 @@ CTxDestination CBitcoinAddress::Get() const
         return CNoDestination();
     uint160 id;
     memcpy(&id, &vchData[0], 20);
-    if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS)
-    	|| vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD))
+    if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS) || vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD))
         return CKeyID(id);
-    else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS)
-    		|| vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD))
+    else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS) || vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD))
         return CScriptID(id);
     else
         return CNoDestination();
@@ -185,15 +183,13 @@ bool CBitcoinAddress::GetKeyID(CKeyID& keyID) const
 bool CBitcoinAddress::IsPubKey() const
 {
     return IsValid() &&
-    		(vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS)
-    		|| vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD));
+           (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS) || vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS_OLD));
 }
 
 bool CBitcoinAddress::IsScript() const
 {
     return IsValid() &&
-    		(vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS)
-    		|| vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD));
+           (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS) || vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS_OLD));
 }
 
 void CBitcoinSecret::SetKey(const CKey& vchSecret)
@@ -229,7 +225,7 @@ bool CBitcoinSecret::SetString(const std::string& strSecret)
     return SetString(strSecret.c_str());
 }
 
-template<class DATA_TYPE, CChainParams::Base58Type PREFIX, size_t SER_SIZE>
+template <class DATA_TYPE, CChainParams::Base58Type PREFIX, size_t SER_SIZE>
 bool CZCEncoding<DATA_TYPE, PREFIX, SER_SIZE>::Set(const DATA_TYPE& addr)
 {
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
@@ -240,19 +236,17 @@ bool CZCEncoding<DATA_TYPE, PREFIX, SER_SIZE>::Set(const DATA_TYPE& addr)
     return true;
 }
 
-template<class DATA_TYPE, CChainParams::Base58Type PREFIX, size_t SER_SIZE>
+template <class DATA_TYPE, CChainParams::Base58Type PREFIX, size_t SER_SIZE>
 DATA_TYPE CZCEncoding<DATA_TYPE, PREFIX, SER_SIZE>::Get() const
 {
     if (vchData.size() != SER_SIZE) {
         throw std::runtime_error(
-            PrependName(" is invalid")
-        );
+            PrependName(" is invalid"));
     }
 
     if (vchVersion != Params().Base58Prefix(PREFIX)) {
         throw std::runtime_error(
-            PrependName(" is for wrong network type")
-        );
+            PrependName(" is for wrong network type"));
     }
 
     std::vector<unsigned char> serialized(vchData.begin(), vchData.end());

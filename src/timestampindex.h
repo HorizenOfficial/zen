@@ -11,27 +11,33 @@
 struct CTimestampIndexIteratorKey {
     unsigned int timestamp;
 
-    size_t GetSerializeSize(int nType, int nVersion) const {
+    size_t GetSerializeSize(int nType, int nVersion) const
+    {
         return 4;
     }
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const {
+    template <typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
         ser_writedata32be(s, timestamp);
     }
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion) {
+    template <typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
+    {
         timestamp = ser_readdata32be(s);
     }
 
-    CTimestampIndexIteratorKey(unsigned int time) {
+    CTimestampIndexIteratorKey(unsigned int time)
+    {
         timestamp = time;
     }
 
-    CTimestampIndexIteratorKey() {
+    CTimestampIndexIteratorKey()
+    {
         SetNull();
     }
 
-    void SetNull() {
+    void SetNull()
+    {
         timestamp = 0;
     }
 };
@@ -40,30 +46,36 @@ struct CTimestampIndexKey {
     unsigned int timestamp;
     uint256 blockHash;
 
-    size_t GetSerializeSize(int nType, int nVersion) const {
+    size_t GetSerializeSize(int nType, int nVersion) const
+    {
         return 36;
     }
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const {
+    template <typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
         ser_writedata32be(s, timestamp);
         blockHash.Serialize(s, nType, nVersion);
     }
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion) {
+    template <typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
+    {
         timestamp = ser_readdata32be(s);
         blockHash.Unserialize(s, nType, nVersion);
     }
 
-    CTimestampIndexKey(unsigned int time, uint256 hash) {
+    CTimestampIndexKey(unsigned int time, uint256 hash)
+    {
         timestamp = time;
         blockHash = hash;
     }
 
-    CTimestampIndexKey() {
+    CTimestampIndexKey()
+    {
         SetNull();
     }
 
-    void SetNull() {
+    void SetNull()
+    {
         timestamp = 0;
         blockHash.SetNull();
     }
@@ -72,58 +84,70 @@ struct CTimestampIndexKey {
 struct CTimestampBlockIndexKey {
     uint256 blockHash;
 
-    size_t GetSerializeSize(int nType, int nVersion) const {
+    size_t GetSerializeSize(int nType, int nVersion) const
+    {
         return 32;
     }
 
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const {
+    template <typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
         blockHash.Serialize(s, nType, nVersion);
     }
 
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion) {
+    template <typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
+    {
         blockHash.Unserialize(s, nType, nVersion);
     }
 
-    CTimestampBlockIndexKey(uint256 hash) {
+    CTimestampBlockIndexKey(uint256 hash)
+    {
         blockHash = hash;
     }
 
-    CTimestampBlockIndexKey() {
+    CTimestampBlockIndexKey()
+    {
         SetNull();
     }
 
-    void SetNull() {
+    void SetNull()
+    {
         blockHash.SetNull();
     }
 };
 
 struct CTimestampBlockIndexValue {
     unsigned int ltimestamp;
-    size_t GetSerializeSize(int nType, int nVersion) const {
+    size_t GetSerializeSize(int nType, int nVersion) const
+    {
         return 4;
     }
 
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const {
+    template <typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
         ser_writedata32be(s, ltimestamp);
     }
 
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion) {
+    template <typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
+    {
         ltimestamp = ser_readdata32be(s);
     }
 
-    CTimestampBlockIndexValue (unsigned int time) {
+    CTimestampBlockIndexValue(unsigned int time)
+    {
         ltimestamp = time;
     }
 
-    CTimestampBlockIndexValue() {
+    CTimestampBlockIndexValue()
+    {
         SetNull();
     }
 
-    void SetNull() {
+    void SetNull()
+    {
         ltimestamp = 0;
     }
 };

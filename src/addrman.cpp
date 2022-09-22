@@ -23,7 +23,7 @@ int CAddrInfo::GetNewBucket(const uint256& nKey, const CNetAddr& src) const
     return hash2 % ADDRMAN_NEW_BUCKET_COUNT;
 }
 
-int CAddrInfo::GetBucketPosition(const uint256 &nKey, bool fNew, int nBucket) const
+int CAddrInfo::GetBucketPosition(const uint256& nKey, bool fNew, int nBucket) const
 {
     uint64_t hash1 = (CHashWriter(SER_GETHASH, 0) << nKey << (fNew ? 'N' : 'K') << nBucket << GetKey()).GetHash().GetCheapHash();
     return hash1 % ADDRMAN_BUCKET_SIZE;
@@ -329,16 +329,16 @@ CAddrInfo CAddrMan::Select_(bool newOnly)
         return CAddrInfo();
 
     // Track number of attempts to find a table entry, before giving up to avoid infinite loop
-    const int kMaxRetries = 200000;         // magic number so unit tests can pass
+    const int kMaxRetries = 200000; // magic number so unit tests can pass
     const int kRetriesBetweenSleep = 1000;
-    const int kRetrySleepInterval = 100;    // milliseconds
+    const int kRetrySleepInterval = 100; // milliseconds
 
     if (newOnly && nNew == 0)
         return CAddrInfo();
 
     // Use a 50% chance for choosing between tried and new table entries.
     if (!newOnly &&
-       (nTried > 0 && (nNew == 0 || RandomInt(2) == 0))) { 
+        (nTried > 0 && (nNew == 0 || RandomInt(2) == 0))) {
         // use a tried node
         double fChanceFactor = 1.0;
         while (1) {
@@ -383,7 +383,7 @@ CAddrInfo CAddrMan::Select_(bool newOnly)
             fChanceFactor *= 1.2;
         }
     }
-    
+
     return CAddrInfo();
 }
 
@@ -429,15 +429,15 @@ int CAddrMan::Check_()
 
     for (int n = 0; n < ADDRMAN_TRIED_BUCKET_COUNT; n++) {
         for (int i = 0; i < ADDRMAN_BUCKET_SIZE; i++) {
-             if (vvTried[n][i] != -1) {
-                 if (!setTried.count(vvTried[n][i]))
-                     return -11;
-                 if (mapInfo[vvTried[n][i]].GetTriedBucket(nKey) != n)
-                     return -17;
-                 if (mapInfo[vvTried[n][i]].GetBucketPosition(nKey, false, n) != i)
-                     return -18;
-                 setTried.erase(vvTried[n][i]);
-             }
+            if (vvTried[n][i] != -1) {
+                if (!setTried.count(vvTried[n][i]))
+                    return -11;
+                if (mapInfo[vvTried[n][i]].GetTriedBucket(nKey) != n)
+                    return -17;
+                if (mapInfo[vvTried[n][i]].GetBucketPosition(nKey, false, n) != i)
+                    return -18;
+                setTried.erase(vvTried[n][i]);
+            }
         }
     }
 
@@ -506,6 +506,7 @@ void CAddrMan::Connected_(const CService& addr, int64_t nTime)
         info.nTime = nTime;
 }
 
-int CAddrMan::RandomInt(int nMax){
+int CAddrMan::RandomInt(int nMax)
+{
     return GetRandInt(nMax);
 }

@@ -166,7 +166,6 @@ public:
         boost::unique_lock<boost::mutex> lock(mutex);
         return (nTotal == nIdle && nTodo == 0 && fAllOk == true);
     }
-
 };
 
 /** 

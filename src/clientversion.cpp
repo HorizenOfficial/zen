@@ -62,16 +62,16 @@ const std::string CLIENT_NAME("zen");
 #define RENDER_RC_STRING(num) "-rc" DO_STRINGIZE(num)
 #define RENDER_DEV_STRING(num) "-" DO_STRINGIZE(num)
 
-#define RENDER_BUILD(build) \
-    BOOST_PP_IF( \
-        BOOST_PP_LESS(build, 25), \
-        RENDER_BETA_STRING(BOOST_PP_ADD(build, 1)), \
-        BOOST_PP_IF( \
-            BOOST_PP_LESS(build, 50), \
+#define RENDER_BUILD(build)                            \
+    BOOST_PP_IF(                                       \
+        BOOST_PP_LESS(build, 25),                      \
+        RENDER_BETA_STRING(BOOST_PP_ADD(build, 1)),    \
+        BOOST_PP_IF(                                   \
+            BOOST_PP_LESS(build, 50),                  \
             RENDER_RC_STRING(BOOST_PP_SUB(build, 24)), \
-            BOOST_PP_IF( \
-                BOOST_PP_EQUAL(build, 50), \
-                "", \
+            BOOST_PP_IF(                               \
+                BOOST_PP_EQUAL(build, 50),             \
+                "",                                    \
                 RENDER_DEV_STRING(BOOST_PP_SUB(build, 50)))))
 
 #define BUILD_DESC_WITH_SUFFIX(maj, min, rev, build, suffix) \
@@ -107,13 +107,13 @@ const std::string CLIENT_DATE(BUILD_DATE);
 std::string FormatVersion(int nVersion)
 {
     if (nVersion % 100 < 25)
-        return strprintf("%d.%d.%d-beta%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100)+1);
+        return strprintf("%d.%d.%d-beta%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100) + 1);
     if (nVersion % 100 < 50)
-        return strprintf("%d.%d.%d-rc%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100)-24);
+        return strprintf("%d.%d.%d-rc%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100) - 24);
     else if (nVersion % 100 == 50)
         return strprintf("%d.%d.%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100);
     else
-        return strprintf("%d.%d.%d-%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100)-50);
+        return strprintf("%d.%d.%d-%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100) - 50);
 }
 
 std::string FormatFullVersion()
@@ -129,11 +129,10 @@ std::string FormatSubVersion(const std::string& name, int nClientVersion, const 
     std::ostringstream ss;
     ss << "/";
     ss << name << ":" << FormatVersion(nClientVersion);
-    if (!comments.empty())
-    {
+    if (!comments.empty()) {
         std::vector<std::string>::const_iterator it(comments.begin());
         ss << "(" << *it;
-        for(++it; it != comments.end(); ++it)
+        for (++it; it != comments.end(); ++it)
             ss << "; " << *it;
         ss << ")";
     }

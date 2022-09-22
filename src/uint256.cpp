@@ -125,8 +125,8 @@ static void inline HashFinal(uint32_t& a, uint32_t& b, uint32_t& c)
 uint64_t uint256::GetHash(const uint256& salt) const
 {
     uint32_t a, b, c;
-    const uint32_t *pn = (const uint32_t*)data;
-    const uint32_t *salt_pn = (const uint32_t*)salt.data;
+    const uint32_t* pn = (const uint32_t*)data;
+    const uint32_t* salt_pn = (const uint32_t*)salt.data;
     a = b = c = 0xdeadbeef + WIDTH;
 
     a += pn[0] ^ salt_pn[0];
@@ -148,12 +148,12 @@ uint64_t CalculateHash(const uint32_t* const src, size_t length, const uint32_t*
 {
     // Taken from lookup3, by Bob Jenkins.
     uint32_t a, b, c;
-    const uint32_t *pn = (const uint32_t*)src;
-    const uint32_t *salt_pn = (const uint32_t*)salt;
+    const uint32_t* pn = (const uint32_t*)src;
+    const uint32_t* salt_pn = (const uint32_t*)salt;
     size_t width = length * sizeof(uint32_t); // length of uint32_t to bytes length
     a = b = c = 0xdeadbeef + width;
 
-    while(length > 3 ) {
+    while (length > 3) {
         a += pn[0] ^ salt_pn[0];
         b += pn[1] ^ salt_pn[1];
         c += pn[2] ^ salt_pn[2];
@@ -164,13 +164,16 @@ uint64_t CalculateHash(const uint32_t* const src, size_t length, const uint32_t*
         salt_pn += 3;
     }
 
-    switch(length) {
-        case 3 : c += pn[2] ^ salt_pn[2];
-        case 2 : b += pn[1] ^ salt_pn[1];
-        case 1 : a += pn[0] ^ salt_pn[0];
-            HashFinal(a, b, c);
-        case 0:
-            break;
+    switch (length) {
+    case 3:
+        c += pn[2] ^ salt_pn[2];
+    case 2:
+        b += pn[1] ^ salt_pn[1];
+    case 1:
+        a += pn[0] ^ salt_pn[0];
+        HashFinal(a, b, c);
+    case 0:
+        break;
     }
 
     return ((((uint64_t)b) << 32) | c);

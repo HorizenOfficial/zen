@@ -17,6 +17,6 @@ static const int DEPRECATION_WARN_LIMIT = 14 * 24 * 24; // 2 weeks
  * shuts down the node with an error if so (and deprecation is not disabled for
  * the current client version).
  */
-void EnforceNodeDeprecation(int nHeight, bool forceLogging=false);
+void EnforceNodeDeprecation(int nHeight, bool forceLogging = false);
 
 #endif // ZCASH_DEPRECATION_H

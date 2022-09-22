@@ -11,10 +11,10 @@
 #include "primitives/transaction.h"
 #include "script/script.h"
 #include "script/sign.h"
-#include <univalue.h>
 #include "util.h"
 #include "utilmoneystr.h"
 #include "utilstrencodings.h"
+#include <univalue.h>
 
 #include <stdio.h>
 
@@ -24,7 +24,7 @@
 using namespace std;
 
 static bool fCreateBlank;
-static map<string,UniValue> registers;
+static map<string, UniValue> registers;
 
 static bool AppInitRawTx(int argc, char* argv[])
 {
@@ -41,14 +41,13 @@ static bool AppInitRawTx(int argc, char* argv[])
 
     fCreateBlank = GetBoolArg("-create", false);
 
-    if (argc<2 || mapArgs.count("-?") || mapArgs.count("-h") || mapArgs.count("-help"))
-    {
+    if (argc < 2 || mapArgs.count("-?") || mapArgs.count("-h") || mapArgs.count("-help")) {
         // First part of help message is specific to this utility
         std::string strUsage = _("Horizen zen-tx utility version") + " " + FormatFullVersion() + "\n\n" +
-            _("Usage:") + "\n" +
-              "  zen-tx [options] <hex-tx> [commands]  " + _("Update hex-encoded zencash transaction") + "\n" +
-              "  zen-tx [options] -create [commands]   " + _("Create hex-encoded zencash transaction") + "\n" +
-              "\n";
+                               _("Usage:") + "\n" +
+                               "  zen-tx [options] <hex-tx> [commands]  " + _("Update hex-encoded zencash transaction") + "\n" +
+                               "  zen-tx [options] -create [commands]   " + _("Create hex-encoded zencash transaction") + "\n" +
+                               "\n";
 
         fprintf(stdout, "%s", strUsage.c_str());
 
@@ -71,10 +70,10 @@ static bool AppInitRawTx(int argc, char* argv[])
         strUsage += HelpMessageOpt("outaddr=VALUE:ADDRESS", _("Add address-based output to TX"));
         strUsage += HelpMessageOpt("outscript=VALUE:SCRIPT", _("Add raw script output to TX"));
         strUsage += HelpMessageOpt("sign=SIGHASH-FLAGS", _("Add zero or more signatures to transaction") + ". " +
-            _("This command requires JSON registers:") +
-            _("prevtxs=JSON object") + ", " +
-            _("privatekeys=JSON object") + ". " +
-            _("See signrawtransaction docs for format of sighash flags, JSON objects."));
+                                                             _("This command requires JSON registers:") +
+                                                             _("prevtxs=JSON object") + ", " +
+                                                             _("privatekeys=JSON object") + ". " +
+                                                             _("See signrawtransaction docs for format of sighash flags, JSON objects."));
         fprintf(stdout, "%s", strUsage.c_str());
 
         strUsage = HelpMessageGroup(_("Register Commands:"));
@@ -125,7 +124,7 @@ static void RegisterLoad(const string& strInput)
     string key = strInput.substr(0, pos);
     string filename = strInput.substr(pos + 1, string::npos);
 
-    FILE *f = fopen(filename.c_str(), "r");
+    FILE* f = fopen(filename.c_str(), "r");
     if (!f) {
         string strErr = "Cannot open file " + filename;
         throw runtime_error(strErr);
@@ -161,7 +160,7 @@ static void MutateTxVersion(CMutableTransaction& tx, const string& cmdVal)
     if ((newVersion < CTransaction::MIN_OLD_VERSION && newVersion != GROTH_TX_VERSION)) // || newVersion > CTransaction::MAX_CURRENT_VERSION)
         throw runtime_error("Invalid TX version requested");
 
-    tx.nVersion = (int) newVersion;
+    tx.nVersion = (int)newVersion;
 }
 
 static void MutateTxLocktime(CMutableTransaction& tx, const string& cmdVal)
@@ -170,7 +169,7 @@ static void MutateTxLocktime(CMutableTransaction& tx, const string& cmdVal)
     if (newLocktime < 0LL || newLocktime > 0xffffffffLL)
         throw runtime_error("Invalid TX locktime requested");
 
-    tx.nLockTime = (unsigned int) newLocktime;
+    tx.nLockTime = (unsigned int)newLocktime;
 }
 
 static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
@@ -280,15 +279,15 @@ static void MutateTxDelOutput(CMutableTransaction& tx, const string& strOutIdx)
 
 static const unsigned int N_SIGHASH_OPTS = 6;
 static const struct {
-    const char *flagStr;
+    const char* flagStr;
     int flags;
 } sighashOptions[N_SIGHASH_OPTS] = {
     {"ALL", SIGHASH_ALL},
     {"NONE", SIGHASH_NONE},
     {"SINGLE", SIGHASH_SINGLE},
-    {"ALL|ANYONECANPAY", SIGHASH_ALL|SIGHASH_ANYONECANPAY},
-    {"NONE|ANYONECANPAY", SIGHASH_NONE|SIGHASH_ANYONECANPAY},
-    {"SINGLE|ANYONECANPAY", SIGHASH_SINGLE|SIGHASH_ANYONECANPAY},
+    {"ALL|ANYONECANPAY", SIGHASH_ALL | SIGHASH_ANYONECANPAY},
+    {"NONE|ANYONECANPAY", SIGHASH_NONE | SIGHASH_ANYONECANPAY},
+    {"SINGLE|ANYONECANPAY", SIGHASH_SINGLE | SIGHASH_ANYONECANPAY},
 };
 
 static bool findSighashFlags(int& flags, const string& flagStr)
@@ -305,14 +304,14 @@ static bool findSighashFlags(int& flags, const string& flagStr)
     return false;
 }
 
-uint256 ParseHashUO(map<string,UniValue>& o, string strKey)
+uint256 ParseHashUO(map<string, UniValue>& o, string strKey)
 {
     if (!o.count(strKey))
         return uint256();
     return ParseHashUV(o[strKey], strKey);
 }
 
-vector<unsigned char> ParseHexUO(map<string,UniValue>& o, string strKey)
+vector<unsigned char> ParseHexUO(map<string, UniValue>& o, string strKey)
 {
     if (!o.count(strKey)) {
         vector<unsigned char> emptyVec;
@@ -368,7 +367,7 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
             if (!prevOut.isObject())
                 throw runtime_error("expected prevtxs internal object");
 
-            map<string,UniValue::VType> types = boost::assign::map_list_of("txid", UniValue::VSTR)("vout",UniValue::VNUM)("scriptPubKey",UniValue::VSTR);
+            map<string, UniValue::VType> types = boost::assign::map_list_of("txid", UniValue::VSTR)("vout", UniValue::VNUM)("scriptPubKey", UniValue::VSTR);
             if (!prevOut.checkObject(types))
                 throw runtime_error("prevtxs internal object typecheck fail");
 
@@ -385,12 +384,12 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
                 CCoinsModifier coins = view.ModifyCoins(txid);
                 if (coins->IsAvailable(nOut) && coins->vout[nOut].scriptPubKey != scriptPubKey) {
                     string err("Previous output scriptPubKey mismatch:\n");
-                    err = err + coins->vout[nOut].scriptPubKey.ToString() + "\nvs:\n"+
-                        scriptPubKey.ToString();
+                    err = err + coins->vout[nOut].scriptPubKey.ToString() + "\nvs:\n" +
+                          scriptPubKey.ToString();
                     throw runtime_error(err);
                 }
                 if ((unsigned int)nOut >= coins->vout.size())
-                    coins->vout.resize(nOut+1);
+                    coins->vout.resize(nOut + 1);
                 coins->vout[nOut].scriptPubKey = scriptPubKey;
                 coins->vout[nOut].nValue = 0; // we don't know the actual output value
             }
@@ -427,7 +426,7 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
             SignSignature(keystore, prevPubKey, mergedTx, i, nHashType);
 
         // ... and merge in other signatures:
-        BOOST_FOREACH(const CTransaction& txv, txVariants) {
+        BOOST_FOREACH (const CTransaction& txv, txVariants) {
             txin.scriptSig = CombineSignatures(prevPubKey, mergedTx, i, txin.scriptSig, txv.GetVin()[i].scriptSig);
         }
         if (!VerifyScript(txin.scriptSig, prevPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker(&mergedTx, i)))
@@ -435,41 +434,41 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
     }
 
     // NOTE: Since no other sidechains features were imported in this module, it was decided to keep CSW code commented
-//    if(mergedTx.IsScVersion())
-//    {
-//        // Try to sign CeasedSidechainWithdrawal inputs:
-//        unsigned int nAllInputsIndex = mergedTx.vin.size();
-//        for (unsigned int i = 0; i < mergedTx.vcsw_ccin.size(); i++, nAllInputsIndex++)
-//        {
-//            CTxCeasedSidechainWithdrawalInput& txCswIn = mergedTx.vcsw_ccin[i];
+    //    if(mergedTx.IsScVersion())
+    //    {
+    //        // Try to sign CeasedSidechainWithdrawal inputs:
+    //        unsigned int nAllInputsIndex = mergedTx.vin.size();
+    //        for (unsigned int i = 0; i < mergedTx.vcsw_ccin.size(); i++, nAllInputsIndex++)
+    //        {
+    //            CTxCeasedSidechainWithdrawalInput& txCswIn = mergedTx.vcsw_ccin[i];
 
-//            const CScript& prevPubKey = txCswIn.scriptPubKey();
+    //            const CScript& prevPubKey = txCswIn.scriptPubKey();
 
-//            txCswIn.redeemScript.clear();
-//            // Only sign SIGHASH_SINGLE if there's a corresponding output:
-//            // Note: we should consider the regular inputs as well.
-//            if (!fHashSingle || (nAllInputsIndex < mergedTx.getVout().size()))
-//                SignSignature(keystore, prevPubKey, mergedTx, nAllInputsIndex, nHashType);
+    //            txCswIn.redeemScript.clear();
+    //            // Only sign SIGHASH_SINGLE if there's a corresponding output:
+    //            // Note: we should consider the regular inputs as well.
+    //            if (!fHashSingle || (nAllInputsIndex < mergedTx.getVout().size()))
+    //                SignSignature(keystore, prevPubKey, mergedTx, nAllInputsIndex, nHashType);
 
-//            // ... and merge in other signatures:
-//            /* Note:
-//             * For CTxCeasedSidechainWithdrawalInput currently only P2PKH is allowed.
-//             * SignSignature can return true and set `txCswIn.redeemScript` value in case there is a proper private key in the keystore.
-//             * It can return false and leave `txCswIn.redeemScript` empty in case of any error occurs.
-//             * CombineSignatures will try to get the most recent signature:
-//             * 1) if SignSignature operation was successful -> leave `txCswIn.redeemScript value as is.
-//             * 2) if SignSignature operation was unsuccessful -> set `txCswIn.redeemScript value equal to the origin `txv` csw input script.
-//             * Later the signature will be checked, so in case no origin signature and no new one exist -> verification will fail.
-//             */
-//            for(const CMutableTransaction& txv : txVariants)
-//                txCswIn.redeemScript = CombineSignatures(prevPubKey, mergedTx, nAllInputsIndex, txCswIn.redeemScript, txv.vcsw_ccin[i].redeemScript);
+    //            // ... and merge in other signatures:
+    //            /* Note:
+    //             * For CTxCeasedSidechainWithdrawalInput currently only P2PKH is allowed.
+    //             * SignSignature can return true and set `txCswIn.redeemScript` value in case there is a proper private key in the keystore.
+    //             * It can return false and leave `txCswIn.redeemScript` empty in case of any error occurs.
+    //             * CombineSignatures will try to get the most recent signature:
+    //             * 1) if SignSignature operation was successful -> leave `txCswIn.redeemScript value as is.
+    //             * 2) if SignSignature operation was unsuccessful -> set `txCswIn.redeemScript value equal to the origin `txv` csw input script.
+    //             * Later the signature will be checked, so in case no origin signature and no new one exist -> verification will fail.
+    //             */
+    //            for(const CMutableTransaction& txv : txVariants)
+    //                txCswIn.redeemScript = CombineSignatures(prevPubKey, mergedTx, nAllInputsIndex, txCswIn.redeemScript, txv.vcsw_ccin[i].redeemScript);
 
-//            ScriptError serror = SCRIPT_ERR_OK;
-//            if (!VerifyScript(txCswIn.redeemScript, prevPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
-//                              MutableTransactionSignatureChecker(&mergedTx, nAllInputsIndex), &serror))
-//                 fComplete = false;
-//        }
-//    }
+    //            ScriptError serror = SCRIPT_ERR_OK;
+    //            if (!VerifyScript(txCswIn.redeemScript, prevPubKey, STANDARD_NONCONTEXTUAL_SCRIPT_VERIFY_FLAGS,
+    //                              MutableTransactionSignatureChecker(&mergedTx, nAllInputsIndex), &serror))
+    //                 fComplete = false;
+    //        }
+    //    }
 
     if (fComplete) {
         // do nothing... for now
@@ -484,17 +483,18 @@ class Secp256k1Init
     ECCVerifyHandle globalVerifyHandle;
 
 public:
-    Secp256k1Init() {
+    Secp256k1Init()
+    {
         ECC_Start();
     }
-    ~Secp256k1Init() {
+    ~Secp256k1Init()
+    {
         ECC_Stop();
     }
 };
 
 // TODO: do we need to have prossibility to add CSW inputs and CC outputs?
-static void MutateTx(CMutableTransaction& tx, const string& command,
-                     const string& commandVal)
+static void MutateTx(CMutableTransaction& tx, const string& command, const string& commandVal)
 {
     boost::scoped_ptr<Secp256k1Init> ecc;
 
@@ -516,7 +516,9 @@ static void MutateTx(CMutableTransaction& tx, const string& command,
         MutateTxAddOutScript(tx, commandVal);
 
     else if (command == "sign") {
-        if (!ecc) { ecc.reset(new Secp256k1Init()); }
+        if (!ecc) {
+            ecc.reset(new Secp256k1Init());
+        }
         MutateTxSign(tx, commandVal);
     }
 
@@ -605,7 +607,7 @@ static int CommandLineRawTx(int argc, char* argv[])
 
             // param: hex-encoded bitcoin transaction
             string strHexTx(argv[1]);
-            if (strHexTx == "-")                 // "-" implies standard input
+            if (strHexTx == "-") // "-" implies standard input
                 strHexTx = readStdin();
 
             if (!DecodeHexTx(txDecodeTmp, strHexTx))
@@ -636,12 +638,10 @@ static int CommandLineRawTx(int argc, char* argv[])
 
     catch (const boost::thread_interrupted&) {
         throw;
-    }
-    catch (const std::exception& e) {
+    } catch (const std::exception& e) {
         strPrint = string("error: ") + e.what();
         nRet = EXIT_FAILURE;
-    }
-    catch (...) {
+    } catch (...) {
         PrintExceptionContinue(NULL, "CommandLineRawTx()");
         throw;
     }
@@ -657,10 +657,9 @@ int main(int argc, char* argv[])
     SetupEnvironment();
 
     try {
-        if(!AppInitRawTx(argc, argv))
+        if (!AppInitRawTx(argc, argv))
             return EXIT_FAILURE;
-    }
-    catch (const std::exception& e) {
+    } catch (const std::exception& e) {
         PrintExceptionContinue(&e, "AppInitRawTx()");
         return EXIT_FAILURE;
     } catch (...) {
@@ -671,8 +670,7 @@ int main(int argc, char* argv[])
     int ret = EXIT_FAILURE;
     try {
         ret = CommandLineRawTx(argc, argv);
-    }
-    catch (const std::exception& e) {
+    } catch (const std::exception& e) {
         PrintExceptionContinue(&e, "CommandLineRawTx()");
     } catch (...) {
         PrintExceptionContinue(NULL, "CommandLineRawTx()");

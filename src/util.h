@@ -30,7 +30,7 @@
 #include <boost/thread/exceptions.hpp>
 
 static const bool DEFAULT_LOGTIMEMICROS = false;
-static const bool DEFAULT_LOGIPS        = false;
+static const bool DEFAULT_LOGIPS = false;
 static const bool DEFAULT_LOGTIMESTAMPS = true;
 
 /** Signals for translation. */
@@ -38,11 +38,11 @@ class CTranslationInterface
 {
 public:
     /** Translate a message to the native language of the user. */
-    boost::signals2::signal<std::string (const char* psz)> Translate;
+    boost::signals2::signal<std::string(const char* psz)> Translate;
 };
 
 extern std::map<std::string, std::string> mapArgs;
-extern std::map<std::string, std::vector<std::string> > mapMultiArgs;
+extern std::map<std::string, std::vector<std::string>> mapMultiArgs;
 extern bool fDebug;
 extern bool fPrintToConsole;
 extern bool fPrintToDebugLog;
@@ -71,7 +71,7 @@ bool SetupNetworking();
 /** Return true if log accepts specified category */
 bool LogAcceptCategory(const char* category);
 /** Send a string to the log output */
-int LogPrintStr(const std::string &str);
+int LogPrintStr(const std::string& str);
 
 #define LogPrintf(...) LogPrint(NULL, __VA_ARGS__)
 
@@ -79,20 +79,21 @@ int LogPrintStr(const std::string &str);
  * When we switch to C++11, this can be switched to variadic templates instead
  * of this macro-based construction (see tinyformat.h).
  */
-#define MAKE_ERROR_AND_LOG_FUNC(n)                                        \
-    /**   Print to debug.log if -debug=category switch is given OR category is NULL. */ \
-    template<TINYFORMAT_ARGTYPES(n)>                                          \
-    static inline int LogPrint(const char* category, const char* format, TINYFORMAT_VARARGS(n))  \
-    {                                                                         \
-        if(!LogAcceptCategory(category)) return 0;                            \
-        return LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n))); \
-    }                                                                         \
-    /**   Log error and return false */                                        \
-    template<TINYFORMAT_ARGTYPES(n)>                                          \
-    static inline bool error(const char* format, TINYFORMAT_VARARGS(n))                     \
-    {                                                                         \
-        LogPrintStr("ERROR: " + tfm::format(format, TINYFORMAT_PASSARGS(n)) + "\n"); \
-        return false;                                                         \
+#define MAKE_ERROR_AND_LOG_FUNC(n)                                                              \
+    /**   Print to debug.log if -debug=category switch is given OR category is NULL. */         \
+    template <TINYFORMAT_ARGTYPES(n)>                                                           \
+    static inline int LogPrint(const char* category, const char* format, TINYFORMAT_VARARGS(n)) \
+    {                                                                                           \
+        if (!LogAcceptCategory(category))                                                       \
+            return 0;                                                                           \
+        return LogPrintStr(tfm::format(format, TINYFORMAT_PASSARGS(n)));                        \
+    }                                                                                           \
+    /**   Log error and return false */                                                         \
+    template <TINYFORMAT_ARGTYPES(n)>                                                           \
+    static inline bool error(const char* format, TINYFORMAT_VARARGS(n))                         \
+    {                                                                                           \
+        LogPrintStr("ERROR: " + tfm::format(format, TINYFORMAT_PASSARGS(n)) + "\n");            \
+        return false;                                                                           \
     }
 
 TINYFORMAT_FOREACH_ARGNUM(MAKE_ERROR_AND_LOG_FUNC)
@@ -103,7 +104,8 @@ TINYFORMAT_FOREACH_ARGNUM(MAKE_ERROR_AND_LOG_FUNC)
  */
 static inline int LogPrint(const char* category, const char* format)
 {
-    if(!LogAcceptCategory(category)) return 0;
+    if (!LogAcceptCategory(category))
+        return 0;
     return LogPrintStr(format);
 }
 static inline bool error(const char* format)
@@ -112,30 +114,31 @@ static inline bool error(const char* format)
     return false;
 }
 
-const boost::filesystem::path &ZC_GetParamsDir();
-const boost::filesystem::path &SC_GetParamsDir();
+const boost::filesystem::path& ZC_GetParamsDir();
+const boost::filesystem::path& SC_GetParamsDir();
 
-void PrintExceptionContinue(const std::exception *pex, const char* pszThread);
-void ParseParameters(int argc, const char*const argv[]);
-void FileCommit(FILE *fileout);
-bool TruncateFile(FILE *file, unsigned int length);
+void PrintExceptionContinue(const std::exception* pex, const char* pszThread);
+void ParseParameters(int argc, const char* const argv[]);
+void FileCommit(FILE* fileout);
+bool TruncateFile(FILE* file, unsigned int length);
 int RaiseFileDescriptorLimit(int nMinFD);
-void AllocateFileRange(FILE *file, unsigned int offset, unsigned int length);
+void AllocateFileRange(FILE* file, unsigned int offset, unsigned int length);
 bool RenameOver(boost::filesystem::path src, boost::filesystem::path dest);
 bool TryCreateDirectory(const boost::filesystem::path& p);
 boost::filesystem::path GetDefaultDataDir();
-const boost::filesystem::path &GetDataDir(bool fNetSpecific = true);
+const boost::filesystem::path& GetDataDir(bool fNetSpecific = true);
 void ClearDatadirCache();
 boost::filesystem::path GetConfigFile();
 #ifndef WIN32
 boost::filesystem::path GetPidFile();
-void CreatePidFile(const boost::filesystem::path &path, pid_t pid);
+void CreatePidFile(const boost::filesystem::path& path, pid_t pid);
 #endif
-class missing_zcash_conf : public std::runtime_error {
+class missing_zcash_conf : public std::runtime_error
+{
 public:
-    missing_zcash_conf() : std::runtime_error("Missing zen.conf") { }
+    missing_zcash_conf() : std::runtime_error("Missing zen.conf") {}
 };
-void ReadConfigFile(std::map<std::string, std::string>& mapSettingsRet, std::map<std::string, std::vector<std::string> >& mapMultiSettingsRet);
+void ReadConfigFile(std::map<std::string, std::string>& mapSettingsRet, std::map<std::string, std::vector<std::string>>& mapMultiSettingsRet);
 #ifdef WIN32
 boost::filesystem::path GetSpecialFolderPath(int nFolder, bool fCreate = true);
 #endif
@@ -235,26 +238,22 @@ void RenameThread(const char* name);
 /**
  * .. and a wrapper that just calls func once
  */
-template <typename Callable> void TraceThread(const char* name,  Callable func)
+template <typename Callable>
+void TraceThread(const char* name, Callable func)
 {
     std::string s = strprintf("zen-%s", name);
     RenameThread(s.c_str());
-    try
-    {
+    try {
         LogPrintf("%s thread start\n", name);
         func();
         LogPrintf("%s thread exit\n", name);
-    }
-    catch (const boost::thread_interrupted&)
-    {
+    } catch (const boost::thread_interrupted&) {
         LogPrintf("%s thread interrupt\n", name);
         throw;
-    }
-    catch (const std::exception& e) {
+    } catch (const std::exception& e) {
         PrintExceptionContinue(&e, name);
         throw;
-    }
-    catch (...) {
+    } catch (...) {
         PrintExceptionContinue(NULL, name);
         throw;
     }
@@ -266,8 +265,8 @@ std::string VecToStr(const std::vector<T>& vIn)
     std::stringstream ss;
     std::copy(vIn.begin(), vIn.end(), std::ostream_iterator<T>(ss, " "));
     std::string s = ss.str();
-    // get rid of the trailing space (safe if s.empty) 
-    return s.substr(0, s.length()-1).c_str();
+    // get rid of the trailing space (safe if s.empty)
+    return s.substr(0, s.length() - 1).c_str();
 }
 
 template <typename T>

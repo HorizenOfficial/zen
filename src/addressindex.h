@@ -6,9 +6,9 @@
 #ifndef BITCOIN_ADDRESSINDEX_H
 #define BITCOIN_ADDRESSINDEX_H
 
-#include "uint256.h"
 #include "amount.h"
 #include "script/script.h"
+#include "uint256.h"
 
 struct CAddressUnspentKey {
     unsigned int type;
@@ -16,36 +16,42 @@ struct CAddressUnspentKey {
     uint256 txhash;
     size_t index;
 
-    size_t GetSerializeSize(int nType, int nVersion) const {
+    size_t GetSerializeSize(int nType, int nVersion) const
+    {
         return 57;
     }
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const {
+    template <typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
         ser_writedata8(s, type);
         hashBytes.Serialize(s, nType, nVersion);
         txhash.Serialize(s, nType, nVersion);
         ser_writedata32(s, index);
     }
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion) {
+    template <typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
+    {
         type = ser_readdata8(s);
         hashBytes.Unserialize(s, nType, nVersion);
         txhash.Unserialize(s, nType, nVersion);
         index = ser_readdata32(s);
     }
 
-    CAddressUnspentKey(unsigned int addressType, uint160 addressHash, uint256 txid, size_t indexValue) {
+    CAddressUnspentKey(unsigned int addressType, uint160 addressHash, uint256 txid, size_t indexValue)
+    {
         type = addressType;
         hashBytes = addressHash;
         txhash = txid;
         index = indexValue;
     }
 
-    CAddressUnspentKey() {
+    CAddressUnspentKey()
+    {
         SetNull();
     }
 
-    void SetNull() {
+    void SetNull()
+    {
         type = 0;
         hashBytes.SetNull();
         txhash.SetNull();
@@ -62,34 +68,39 @@ struct CAddressUnspentValue {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
         READWRITE(satoshis);
         READWRITE(script);
         READWRITE(blockHeight);
-        
+
         // Since the maturity can be negative, we have to manipulate it to store the sign bit in a VARINT
         READWRITE_VARINT_WITH_SIGN(maturityHeight);
     }
 
-    CAddressUnspentValue(CAmount sats, CScript scriptPubKey, int height, int maturity) {
+    CAddressUnspentValue(CAmount sats, CScript scriptPubKey, int height, int maturity)
+    {
         satoshis = sats;
         script = scriptPubKey;
         blockHeight = height;
         maturityHeight = maturity;
     }
 
-    CAddressUnspentValue() {
+    CAddressUnspentValue()
+    {
         SetNull();
     }
 
-    void SetNull() {
+    void SetNull()
+    {
         satoshis = -1;
         script.clear();
         blockHeight = 0;
         maturityHeight = 0;
     }
 
-    bool IsNull() const {
+    bool IsNull() const
+    {
         return (satoshis == -1);
     }
 };
@@ -103,11 +114,13 @@ struct CAddressIndexKey {
     size_t index;
     bool spending;
 
-    size_t GetSerializeSize(int nType, int nVersion) const {
+    size_t GetSerializeSize(int nType, int nVersion) const
+    {
         return 66;
     }
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const {
+    template <typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
         ser_writedata8(s, type);
         hashBytes.Serialize(s, nType, nVersion);
         // Heights are stored big-endian for key sorting in LevelDB
@@ -118,8 +131,9 @@ struct CAddressIndexKey {
         char f = spending;
         ser_writedata8(s, f);
     }
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion) {
+    template <typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
+    {
         type = ser_readdata8(s);
         hashBytes.Unserialize(s, nType, nVersion);
         blockHeight = ser_readdata32be(s);
@@ -130,8 +144,8 @@ struct CAddressIndexKey {
         spending = f;
     }
 
-    CAddressIndexKey(unsigned int addressType, uint160 addressHash, int height, int blockindex,
-                     uint256 txid, size_t indexValue, bool isSpending) {
+    CAddressIndexKey(unsigned int addressType, uint160 addressHash, int height, int blockindex, uint256 txid, size_t indexValue, bool isSpending)
+    {
         type = addressType;
         hashBytes = addressHash;
         blockHeight = height;
@@ -141,11 +155,13 @@ struct CAddressIndexKey {
         spending = isSpending;
     }
 
-    CAddressIndexKey() {
+    CAddressIndexKey()
+    {
         SetNull();
     }
 
-    void SetNull() {
+    void SetNull()
+    {
         type = 0;
         hashBytes.SetNull();
         blockHeight = 0;
@@ -154,38 +170,42 @@ struct CAddressIndexKey {
         index = 0;
         spending = false;
     }
-
 };
 
 struct CAddressIndexValue {
     CAmount satoshis;
-    int maturityHeight;     // It can contain negative numbers
+    int maturityHeight; // It can contain negative numbers
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
         READWRITE(satoshis);
 
         // Since the maturity can be negative, we have to manipulate it to store the sign bit in a VARINT
         READWRITE_VARINT_WITH_SIGN(maturityHeight);
     }
 
-    CAddressIndexValue(CAmount sats, int height) {
+    CAddressIndexValue(CAmount sats, int height)
+    {
         satoshis = sats;
         maturityHeight = height;
     }
 
-    CAddressIndexValue() {
+    CAddressIndexValue()
+    {
         SetNull();
     }
 
-    void SetNull() {
+    void SetNull()
+    {
         satoshis = -1;
         maturityHeight = 0;
     }
 
-    bool IsNull() const {
+    bool IsNull() const
+    {
         return satoshis == -1 && maturityHeight == 0;
     }
 };
@@ -194,30 +214,36 @@ struct CAddressIndexIteratorKey {
     unsigned int type;
     uint160 hashBytes;
 
-    size_t GetSerializeSize(int nType, int nVersion) const {
+    size_t GetSerializeSize(int nType, int nVersion) const
+    {
         return 21;
     }
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const {
+    template <typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
         ser_writedata8(s, type);
         hashBytes.Serialize(s, nType, nVersion);
     }
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion) {
+    template <typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
+    {
         type = ser_readdata8(s);
         hashBytes.Unserialize(s, nType, nVersion);
     }
 
-    CAddressIndexIteratorKey(unsigned int addressType, uint160 addressHash) {
+    CAddressIndexIteratorKey(unsigned int addressType, uint160 addressHash)
+    {
         type = addressType;
         hashBytes = addressHash;
     }
 
-    CAddressIndexIteratorKey() {
+    CAddressIndexIteratorKey()
+    {
         SetNull();
     }
 
-    void SetNull() {
+    void SetNull()
+    {
         type = 0;
         hashBytes.SetNull();
     }
@@ -228,46 +254,50 @@ struct CAddressIndexIteratorHeightKey {
     uint160 hashBytes;
     int blockHeight;
 
-    size_t GetSerializeSize(int nType, int nVersion) const {
+    size_t GetSerializeSize(int nType, int nVersion) const
+    {
         return 25;
     }
-    template<typename Stream>
-    void Serialize(Stream& s, int nType, int nVersion) const {
+    template <typename Stream>
+    void Serialize(Stream& s, int nType, int nVersion) const
+    {
         ser_writedata8(s, type);
         hashBytes.Serialize(s, nType, nVersion);
         ser_writedata32be(s, blockHeight);
     }
-    template<typename Stream>
-    void Unserialize(Stream& s, int nType, int nVersion) {
+    template <typename Stream>
+    void Unserialize(Stream& s, int nType, int nVersion)
+    {
         type = ser_readdata8(s);
         hashBytes.Unserialize(s, nType, nVersion);
         blockHeight = ser_readdata32be(s);
     }
 
-    CAddressIndexIteratorHeightKey(unsigned int addressType, uint160 addressHash, int height) {
+    CAddressIndexIteratorHeightKey(unsigned int addressType, uint160 addressHash, int height)
+    {
         type = addressType;
         hashBytes = addressHash;
         blockHeight = height;
     }
 
-    CAddressIndexIteratorHeightKey() {
+    CAddressIndexIteratorHeightKey()
+    {
         SetNull();
     }
 
-    void SetNull() {
+    void SetNull()
+    {
         type = 0;
         hashBytes.SetNull();
         blockHeight = 0;
     }
 };
 
-struct CMempoolAddressDelta
-{
-    enum OutputStatus
-    {
-        // do not change order or values, rpc clients might relay on that 
+struct CMempoolAddressDelta {
+    enum OutputStatus {
+        // do not change order or values, rpc clients might relay on that
         // --
-        ORDINARY_OUTPUT = 0,                    /**< the output of an ordnary tx or a non-bwt output of a certificate (e.g. change) */ 
+        ORDINARY_OUTPUT = 0,                    /**< the output of an ordnary tx or a non-bwt output of a certificate (e.g. change) */
         TOP_QUALITY_CERT_BACKWARD_TRANSFER = 1, /**< top quality certificate, it has a possibility to reach maturity one day*/
         LOW_QUALITY_CERT_BACKWARD_TRANSFER = 2, /**< low quality compared to another cert for the same scid in the mempool */
         NOT_APPLICABLE = 0xFF                   /**< not an output: the mempool map refer to both inputs and outputs */
@@ -275,11 +305,15 @@ struct CMempoolAddressDelta
 
     static std::string OutputStatusToString(enum OutputStatus s)
     {
-        switch(s) {
-            case ORDINARY_OUTPUT:                    return "ORDINARY";
-            case TOP_QUALITY_CERT_BACKWARD_TRANSFER: return "TOP_QUALITY_MEMPOOL";
-            case LOW_QUALITY_CERT_BACKWARD_TRANSFER: return "LOW_QUALITY_MEMPOOL";
-            default: break;
+        switch (s) {
+        case ORDINARY_OUTPUT:
+            return "ORDINARY";
+        case TOP_QUALITY_CERT_BACKWARD_TRANSFER:
+            return "TOP_QUALITY_MEMPOOL";
+        case LOW_QUALITY_CERT_BACKWARD_TRANSFER:
+            return "LOW_QUALITY_MEMPOOL";
+        default:
+            break;
         }
         return "UNKNOWN";
     };
@@ -291,7 +325,8 @@ struct CMempoolAddressDelta
     OutputStatus outStatus;
 
     // used for inputs
-    CMempoolAddressDelta(int64_t t, CAmount a, uint256 hash, unsigned int out) {
+    CMempoolAddressDelta(int64_t t, CAmount a, uint256 hash, unsigned int out)
+    {
         time = t;
         amount = a;
         prevhash = hash;
@@ -300,7 +335,8 @@ struct CMempoolAddressDelta
     }
 
     // used for outputs
-    CMempoolAddressDelta(int64_t t, CAmount a, OutputStatus status = ORDINARY_OUTPUT) {
+    CMempoolAddressDelta(int64_t t, CAmount a, OutputStatus status = ORDINARY_OUTPUT)
+    {
         time = t;
         amount = a;
         prevhash.SetNull();
@@ -309,25 +345,25 @@ struct CMempoolAddressDelta
     }
 
     // default ctor
-    CMempoolAddressDelta() {
+    CMempoolAddressDelta()
+    {
         time = 0;
         amount = 0;
         prevhash.SetNull();
         prevout = 0;
         outStatus = NOT_APPLICABLE;
     }
-
 };
 
-struct CMempoolAddressDeltaKey
-{
+struct CMempoolAddressDeltaKey {
     int type;
     uint160 addressBytes;
     uint256 txhash;
     unsigned int index;
     int spending;
 
-    CMempoolAddressDeltaKey(int addressType, uint160 addressHash, uint256 hash, unsigned int i, int s) {
+    CMempoolAddressDeltaKey(int addressType, uint160 addressHash, uint256 hash, unsigned int i, int s)
+    {
         type = addressType;
         addressBytes = addressHash;
         txhash = hash;
@@ -335,7 +371,8 @@ struct CMempoolAddressDeltaKey
         spending = s;
     }
 
-    CMempoolAddressDeltaKey(int addressType, uint160 addressHash) {
+    CMempoolAddressDeltaKey(int addressType, uint160 addressHash)
+    {
         type = addressType;
         addressBytes = addressHash;
         txhash.SetNull();
@@ -344,9 +381,9 @@ struct CMempoolAddressDeltaKey
     }
 };
 
-struct CMempoolAddressDeltaKeyCompare
-{
-    bool operator()(const CMempoolAddressDeltaKey& a, const CMempoolAddressDeltaKey& b) const {
+struct CMempoolAddressDeltaKeyCompare {
+    bool operator()(const CMempoolAddressDeltaKey& a, const CMempoolAddressDeltaKey& b) const
+    {
         if (a.type == b.type) {
             if (a.addressBytes == b.addressBytes) {
                 if (a.txhash == b.txhash) {
