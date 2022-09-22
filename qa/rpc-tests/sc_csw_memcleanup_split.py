@@ -16,7 +16,7 @@ from test_framework.util import assert_equal, initialize_chain_clean, \
     wait_bitcoinds, stop_nodes, get_epoch_data, sync_mempools, sync_blocks, \
     disconnect_nodes, advance_epoch, swap_bytes
 
-from test_framework.test_framework import ForkHeights
+from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.mc_test.mc_test import CertTestUtils, CSWTestUtils, generate_random_field_element_hex
 
 from decimal import Decimal
@@ -83,7 +83,7 @@ class CertMempoolCleanupSplit(BitcoinTestFramework):
         self.sync_all()
         self.nodes[1].generate(1)
         self.sync_all()
-        self.nodes[0].generate(ForkHeights['MINIMAL_SC']-3)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT-3)
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()

@@ -1,10 +1,9 @@
 #include <gtest/gtest.h>
 #include "zen/forkmanager.h"
 #include "chainparams.h"
-#include "zen/forks/fork10_nonceasingsidechainfork.h"
+#include "zen/forks/fork9_sidechainversionfork.h"
 
 using namespace zen;
-
 TEST(ForkManager, TestCommunityFundRewardTestnet) {
     SelectParams(CBaseChainParams::TESTNET);
     CAmount fakeReward = (CAmount)1000L;
@@ -189,7 +188,6 @@ TEST(ForkManager, GetCommunityFundAddressMainnet) {
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::FOUNDATION),"zshX5BAgUvNgM1VoBVKZyFVVozTDjjJvRxJ");
 }
 
-
 TEST(ForkManager, GetSecureNodeFundAddressRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
     Fork::CommunityFundType securenode = Fork::CommunityFundType::SECURENODE;
@@ -242,7 +240,6 @@ TEST(ForkManager, GetSecureNodeFundAddressMainnet) {
     // Test the highest possible block (for spotting potential regressions)
     EXPECT_EQ(ForkManager::getInstance().getCommunityFundAddress(INT_MAX, 0, Fork::CommunityFundType::SECURENODE),"zsx68qSKMNoc1ZPQpGwNFZXVzgf27KN6a9u");
 }
-
 
 TEST(ForkManager, GetSuperNodeFundAddressRegtest) {
     SelectParams(CBaseChainParams::REGTEST);
@@ -450,35 +447,8 @@ TEST(ForkManager, SidechainVersionForkRegtest) {
     EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(sidechainVersionForkHeight + 1), 1);
 }
 
-TEST(ForkManager, NonCeasingSCVersionForkMainnet) {
-    SelectParams(CBaseChainParams::MAIN);
-
-    int nonCeasingSCVersionForkHeight = 2500000;    // PLACEHOLDER!
-    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight - 1), 1);
-    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight), 2);
-    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight + 1), 2);
-}
-
-TEST(ForkManager, NonCeasingSCVersionForkTestnet) {
-    SelectParams(CBaseChainParams::TESTNET);
-
-    int nonCeasingSCVersionForkHeight = 2000000;    // PLACEHOLDER!
-    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight - 1), 1);
-    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight), 2);
-    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight + 1), 2);
-}
-
-TEST(ForkManager, NonCeasingSCVersionForkRegtest) {
-    SelectParams(CBaseChainParams::REGTEST);
-
-    int nonCeasingSCVersionForkHeight = 480;    // PLACEHOLDER!
-    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight - 1), 1);
-    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight), 2);
-    EXPECT_EQ(ForkManager::getInstance().getMaxSidechainVersion(nonCeasingSCVersionForkHeight + 1), 2);
-}
-
 TEST(ForkManager, HighestFork) {
     SelectParams(CBaseChainParams::MAIN);
     const Fork* highestFork = ForkManager::getInstance().getHighestFork();
-    EXPECT_EQ(typeid(*highestFork), typeid(NonCeasingSidechainFork));
+    EXPECT_EQ(typeid(*highestFork), typeid(SidechainVersionFork));
 }

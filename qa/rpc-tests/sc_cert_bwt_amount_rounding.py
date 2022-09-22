@@ -5,7 +5,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.test_framework import ForkHeights
+from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.util import assert_true, assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, wait_bitcoinds, sync_blocks, sync_mempools, connect_nodes_bi, mark_logs, \
     dump_sc_info, dump_sc_info_record, get_epoch_data, get_spendable, swap_bytes, advance_epoch
@@ -69,8 +69,8 @@ class sc_cert_bwt_amount_rounding(BitcoinTestFramework):
         self.nodes[1].generate(2)
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(ForkHeights['MINIMAL_SC']-2)
+        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT-2)
         self.sync_all()
 
         #generate Vks and constant

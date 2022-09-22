@@ -4,7 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import ForkHeights, MINER_REWARD_POST_H200
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_true, assert_false, assert_equal, initialize_chain_clean, \
     start_nodes, sync_blocks, sync_mempools, connect_nodes_bi, \
@@ -80,9 +80,9 @@ class ScSplitTest(BitcoinTestFramework):
         blocks.extend(self.nodes[1].generate(1))
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
+        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
 
-        blocks.extend(self.nodes[0].generate(ForkHeights['MINIMAL_SC']))
+        blocks.extend(self.nodes[0].generate(MINIMAL_SC_HEIGHT))
         self.sync_all()
 
         # Split the network: (0)--(1) / (2)

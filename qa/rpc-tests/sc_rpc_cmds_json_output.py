@@ -9,7 +9,7 @@ from test_framework.util import assert_true, initialize_chain_clean, \
     start_nodes, connect_nodes_bi, mark_logs, \
     get_epoch_data, get_spendable, swap_bytes, advance_epoch, \
     get_field_element_with_padding
-from test_framework.test_framework import ForkHeights
+from test_framework.test_framework import MINIMAL_SC_HEIGHT
 from test_framework.mc_test.mc_test import CSWTestUtils, CertTestUtils, generate_random_field_element_hex
 import os
 from decimal import Decimal
@@ -122,8 +122,8 @@ class scRpcCmdsJsonOutput(BitcoinTestFramework):
         self.nodes[1].generate(2)
         self.sync_all()
 
-        mark_logs("Node 0 generates {} block".format(ForkHeights['MINIMAL_SC']), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(ForkHeights['MINIMAL_SC'])
+        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT)
         self.sync_all()
 
         #generate wCertVk and constant
