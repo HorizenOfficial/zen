@@ -15,7 +15,7 @@ from decimal import Decimal
 class WalletMergeToAddressTest (BitcoinTestFramework):
     def setup_chain(self):
         print("Initializing test directory "+self.options.tmpdir)
-        initialize_chain_clean(self.options.tmpdir, 4)
+        initialize_chain_clean(self.options.tmpdir, 3)
 
     def setup_network(self, split=False):
         args = ['-debug=zrpcunsafe', '-experimentalfeatures', '-zmergetoaddress']
@@ -308,6 +308,8 @@ class WalletMergeToAddressTest (BitcoinTestFramework):
         # Remaining notes are only counted if we are trying to merge any notes
         assert_equal(result["remainingNotes"], Decimal('0'))
         wait_and_assert_operationid_status(self.nodes[0], result['opid'])
+        sync_blocks(self.nodes[:2])
+        sync_mempools(self.nodes[:2])
 
         # Verify maximum number of UTXOs which node 0 can shield can be set by the limit parameter
         result = self.nodes[0].z_mergetoaddress([mytaddr], myzaddr, Decimal('0.0001'), 33)
