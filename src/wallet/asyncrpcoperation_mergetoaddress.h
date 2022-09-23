@@ -54,8 +54,8 @@ class AsyncRPCOperation_mergetoaddress : public AsyncRPCOperation
 public:
     AsyncRPCOperation_mergetoaddress(
         CMutableTransaction contextualTx,
-        std::vector<MergeToAddressInputUTXO> utxoInputs,
-        std::vector<MergeToAddressInputNote> noteInputs,
+        const std::vector<MergeToAddressInputUTXO>& utxoInputs,
+        const std::vector<MergeToAddressInputNote>& noteInputs,
         MergeToAddressRecipient recipient,
         CAmount fee = MERGE_TO_ADDRESS_OPERATION_DEFAULT_MINERS_FEE,
         UniValue contextInfo = NullUniValue);
@@ -100,7 +100,7 @@ private:
 
     CTransaction tx_;
 
-    std::array<unsigned char, ZC_MEMO_SIZE> get_memo_from_hex_string(std::string s);
+    std::array<unsigned char, ZC_MEMO_SIZE> get_memo_from_hex_string(const std::string& s);
     bool main_impl();
 
     // JoinSplit without any input notes to spend
@@ -115,7 +115,7 @@ private:
         std::vector<boost::optional<ZCIncrementalWitness>> witnesses,
         uint256 anchor);
 
-    void sign_send_raw_transaction(UniValue obj); // throws exception if there was an error
+    void sign_send_raw_transaction(const UniValue& obj); // throws exception if there was an error
 
     void lock_utxos();
 

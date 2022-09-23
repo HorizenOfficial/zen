@@ -4093,7 +4093,7 @@ UniValue z_listunspent(const UniValue& params, bool fHelp)
 
     // User has supplied zaddrs to filter on
     if (params.size() > 3) {
-        UniValue addresses = params[3].get_array();
+        const UniValue& addresses = params[3].get_array();
         if (addresses.size()==0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, addresses array is empty.");
 
@@ -4105,7 +4105,7 @@ UniValue z_listunspent(const UniValue& params, bool fHelp)
             if (!o.isStr()) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected string");
             }
-            string address = o.get_str();
+            const std::string& address = o.get_str();
             try {
                 CZCPaymentAddress zaddr(address);
                 libzcash::PaymentAddress addr = zaddr.Get();
@@ -6030,7 +6030,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     std::set<CBitcoinAddress> taddrs = {};
     std::set<libzcash::PaymentAddress> zaddrs = {};
 
-    UniValue addresses = params[0].get_array();
+    const UniValue& addresses = params[0].get_array();
     if (addresses.size()==0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, fromaddresses array is empty.");
 
@@ -6042,7 +6042,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
         if (!o.isStr())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected string");
 
-        std::string address = o.get_str();
+        const std::string& address = o.get_str();
         if (address == "*") {
             useAny = true;
         } else if (address == "ANY_TADDR") {
@@ -6054,7 +6054,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             if (taddr.IsValid()) {
                 // Ignore any listed t-addrs if we are using all of them
                 if (!(useAny || useAnyUTXO)) {
-                    taddrs.insert(taddr);
+                    taddrs.insert(std::move(taddr));
                 }
             } else {
                 try {
@@ -6077,7 +6077,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
     }
 
     // Validate the destination address
-    auto destaddress = params[1].get_str();
+    const std::string& destaddress = params[1].get_str();
     bool isToZaddr = false;
     CBitcoinAddress taddr(destaddress);
     if (!taddr.IsValid()) {
@@ -6125,7 +6125,7 @@ UniValue z_mergetoaddress(const UniValue& params, bool fHelp)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, expected memo data in hexadecimal format.");
         }
         if (memo.length() > ZC_MEMO_SIZE*2) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER,  strprintf("Invalid parameter, size of memo is larger than maximum allowed %d", ZC_MEMO_SIZE ));
+            throw JSONRPCError(RPC_INVALID_PARAMETER,  strprintf("Invalid parameter, size of memo is larger than maximum allowed %d bytes", ZC_MEMO_SIZE ));
         }
     }
 

@@ -4455,6 +4455,7 @@ void CWallet::GetFilteredNotes(std::vector<CNotePlaintextEntry> & outEntries, st
 /**
  * Find notes in the wallet filtered by payment addresses, min depth and ability to spend.
  * These notes are decrypted and added to the output parameter vector, outEntries.
+ * If filterAddresses set is empty, returns notes from all the addresses.
  */
 void CWallet::GetFilteredNotes(
     std::vector<CNotePlaintextEntry>& outEntries,
@@ -4472,18 +4473,15 @@ void CWallet::GetFilteredNotes(
             continue;
         }
 
-        if (wtx.mapNoteData.size() == 0) {
-            continue;
-        }
-
-        for (auto & pair : wtx.mapNoteData) {
-            JSOutPoint jsop = pair.first;
-            CNoteData nd = pair.second;
+        for (const auto & [/*JSOutPoint*/ jsop, /*CNoteData*/ nd] : wtx.mapNoteData) {
             PaymentAddress pa = nd.address;
 
-            // skip notes which belong to a different payment address in the wallet
-            if (!(filterAddresses.empty() || filterAddresses.count(pa))) {
-                continue;
+            // If filterAddresses is not empty, it is used as a whitelist
+            if (!filterAddresses.empty()) {
+                // Skip notes if the address is not contained in the filter
+                if (!filterAddresses.count(pa)) {
+                    continue;
+                }
             }
 
             // skip note which has been spent

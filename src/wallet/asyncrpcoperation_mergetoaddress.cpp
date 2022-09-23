@@ -41,7 +41,7 @@ int mta_find_output(UniValue obj, int n)
         throw JSONRPCError(RPC_WALLET_ERROR, "Missing outputmap for JoinSplit operation");
     }
 
-    UniValue outputMap = outputMapValue.get_array();
+    const UniValue& outputMap = outputMapValue.get_array();
     assert(outputMap.size() == ZC_NUM_JS_OUTPUTS);
     for (size_t i = 0; i < outputMap.size(); i++) {
         if (outputMap[i].get_int() == n) {
@@ -54,8 +54,8 @@ int mta_find_output(UniValue obj, int n)
 
 AsyncRPCOperation_mergetoaddress::AsyncRPCOperation_mergetoaddress(
     CMutableTransaction contextualTx,
-    std::vector<MergeToAddressInputUTXO> utxoInputs,
-    std::vector<MergeToAddressInputNote> noteInputs,
+    const std::vector<MergeToAddressInputUTXO>& utxoInputs,
+    const std::vector<MergeToAddressInputNote>& noteInputs,
     MergeToAddressRecipient recipient,
     CAmount fee,
     UniValue contextInfo) :
@@ -123,6 +123,7 @@ void AsyncRPCOperation_mergetoaddress::main()
     bool success = false;
 
 #ifdef ENABLE_MINING
+// Stop mining to have more CPU for shielded transactions
 #ifdef ENABLE_WALLET
     GenerateBitcoins(false, NULL, 0);
 #else
@@ -152,6 +153,7 @@ void AsyncRPCOperation_mergetoaddress::main()
     }
 
 #ifdef ENABLE_MINING
+// Resume mining (if needed)
 #ifdef ENABLE_WALLET
     GenerateBitcoins(GetBoolArg("-gen", false), pwalletMain, GetArg("-genproclimit", 1));
 #else
@@ -314,10 +316,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
 
 
     // Copy zinputs to more flexible containers
-    std::deque<MergeToAddressInputNote> zInputsDeque;
-    for (auto o : noteInputs_) {
-        zInputsDeque.push_back(o);
-    }
+    std::deque<MergeToAddressInputNote> zInputsDeque(noteInputs_.begin(), noteInputs_.end());
 
     // When spending notes, take a snapshot of note witnesses and anchors as the treestate will
     // change upon arrival of new blocks which contain joinsplit transactions.  This is likely
@@ -613,7 +612,7 @@ bool AsyncRPCOperation_mergetoaddress::main_impl()
  * Sign and send a raw transaction.
  * Raw transaction as hex string should be in object field "rawtxn"
  */
-void AsyncRPCOperation_mergetoaddress::sign_send_raw_transaction(UniValue obj)
+void AsyncRPCOperation_mergetoaddress::sign_send_raw_transaction(const UniValue& obj)
 {
     // Sign the raw transaction
     UniValue rawtxnValue = find_value(obj, "rawtxn");
@@ -748,8 +747,8 @@ UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(
     // Generate the proof, this can take over a minute.
     std::array<libzcash::JSInput, ZC_NUM_JS_INPUTS> inputs{info.vjsin[0], info.vjsin[1]};
     std::array<libzcash::JSOutput, ZC_NUM_JS_OUTPUTS> outputs{info.vjsout[0], info.vjsout[1]};
-    std::array<size_t, ZC_NUM_JS_INPUTS> inputMap;
-    std::array<size_t, ZC_NUM_JS_OUTPUTS> outputMap;
+    std::array<uint64_t, ZC_NUM_JS_INPUTS> inputMap;
+    std::array<uint64_t, ZC_NUM_JS_OUTPUTS> outputMap;
 
     uint256 esk; // payment disclosure - secret
 
@@ -832,9 +831,7 @@ UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(
 
 
     // !!! Payment disclosure START
-    unsigned char buffer[32] = {0};
-    memcpy(&buffer[0], &joinSplitPrivKey_[0], 32); // private key in first half of 64 byte buffer
-    std::vector<unsigned char> vch(&buffer[0], &buffer[0] + 32);
+    std::vector<unsigned char> vch(joinSplitPrivKey_, joinSplitPrivKey_ + 32);
     uint256 joinSplitPrivKey = uint256(vch);
     size_t js_index = tx_.GetVjoinsplit().size() - 1;
     uint256 placeholder;
@@ -861,7 +858,7 @@ UniValue AsyncRPCOperation_mergetoaddress::perform_joinsplit(
     return obj;
 }
 
-std::array<unsigned char, ZC_MEMO_SIZE> AsyncRPCOperation_mergetoaddress::get_memo_from_hex_string(std::string s)
+std::array<unsigned char, ZC_MEMO_SIZE> AsyncRPCOperation_mergetoaddress::get_memo_from_hex_string(const std::string& s)
 {
     std::array<unsigned char, ZC_MEMO_SIZE> memo = {{0x00}};
 
