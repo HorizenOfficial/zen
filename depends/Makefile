@@ -139,9 +139,9 @@ define check_or_remove_sources
 endef
 
 check-packages:
-	@$(foreach package,$(all_packages),$(call check_or_remove_cached,$(package));)
+	@$(foreach package,$(all_packages),$($(call check_or_remove_cached,$(package));))
 check-sources:
-	@$(foreach package,$(all_packages),$(call check_or_remove_sources,$(package));)
+	@$(foreach package,$(all_packages),$($(call check_or_remove_sources,$(package));))
 
 $(host_prefix)/share/config.site: check-packages
 
