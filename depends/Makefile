@@ -125,23 +125,26 @@ $(host_prefix)/share/config.site : config.site.in $(host_prefix)/.stamp_$(final_
 
 
 define check_or_remove_cached
-  mkdir -p $(BASE_CACHE)/$(host)/$(package) && cd $(BASE_CACHE)/$(host)/$(package); \
-  $(build_SHA256SUM) -c $($(package)_cached_checksum) >/dev/null 2>/dev/null || \
-  ( rm -f $($(package)_cached_checksum); \
-    if test -f "$($(package)_cached)"; then echo "Checksum mismatch for $(package). Forcing rebuild.."; rm -f $($(package)_cached_checksum) $($(package)_cached); fi )
+mkdir -p $(BASE_CACHE)/$(host)/$(package) && cd $(BASE_CACHE)/$(host)/$(package); \
+$(build_SHA256SUM) -c $($(package)_cached_checksum) >/dev/null 2>/dev/null || \
+(rm -f $($(package)_cached_checksum); \
+if test -f "$($(package)_cached)"; then echo ""; rm -f $($(package)_cached_checksum) $($(package)_cached); fi)
 endef
 
 define check_or_remove_sources
-  mkdir -p $($(package)_source_dir); cd $($(package)_source_dir); \
-  $(build_SHA256SUM) -c $($(package)_fetched) >/dev/null 2>/dev/null || \
-    ( if test -f $($(package)_all_sources); then echo "Checksum missing or mismatched for $(package) source. Forcing re-download."; fi; \
-      rm -f $($(package)_all_sources) $($(1)_fetched))
+mkdir -p $($(package)_source_dir); cd $($(package)_source_dir); \
+$(build_SHA256SUM) -c $($(package)_fetched) >/dev/null 2>/dev/null || \
+(if test -f $($(package)_all_sources); then echo ""; fi; \
+rm -f $($(package)_all_sources) $($(1)_fetched))
 endef
 
+
 check-packages:
-	@$(foreach package,$(all_packages),$(call check_or_remove_cached,$(package));)
+	@$(foreach package,$(packages),$(call check_or_remove_cached,$(package));)
+	@$(foreach package,$(native_packages),$(call check_or_remove_cached,$(package));)
 check-sources:
-	@$(foreach package,$(all_packages),$(call check_or_remove_sources,$(package));)
+	@$(foreach package,$(packages),$(call check_or_remove_sources,$(package));)
+	@$(foreach package,$(native_packages),$(call check_or_remove_sources,$(package));)
 
 $(host_prefix)/share/config.site: check-packages
 
