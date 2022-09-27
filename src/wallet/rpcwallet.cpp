@@ -5235,9 +5235,6 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
     if (outputs.size()==0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, amounts array is empty.");
 
-    // Keep track of addresses to spot duplicates
-    set<std::string> setAddress;
-
     // Recipients
     std::vector<SendManyRecipient> taddrRecipients;
     std::vector<SendManyRecipient> zaddrRecipients;
@@ -5273,10 +5270,6 @@ UniValue z_sendmany(const UniValue& params, bool fHelp)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, unknown address format: ")+address );
             }
         }
-
-        if (setAddress.count(address))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+address);
-        setAddress.insert(address);
 
         UniValue memoValue = find_value(o, "memo");
         string memo;
