@@ -309,8 +309,10 @@ extern UniValue z_listaddresses(const UniValue& params, bool fHelp); // in rpcwa
 extern UniValue z_exportwallet(const UniValue& params, bool fHelp); // in rpcdump.cpp
 extern UniValue z_importwallet(const UniValue& params, bool fHelp); // in rpcdump.cpp
 extern UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+extern UniValue z_listunspent(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_getbalance(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_gettotalbalance(const UniValue& params, bool fHelp); // in rpcwallet.cpp
+extern UniValue z_mergetoaddress(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue z_sendmany(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue sc_create(const UniValue& params, bool fHelp); // in rpcwallet.cpp
 extern UniValue sc_send(const UniValue& params, bool fHelp); // in rpcwallet.cpp
