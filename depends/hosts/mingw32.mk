@@ -1,5 +1,6 @@
 mingw32_CFLAGS=-pipe
 mingw32_CXXFLAGS=$(mingw32_CFLAGS)
+mingw32_LDFLAGS=-Wl,--gc-sections
 
 mingw32_release_CFLAGS=-O2
 mingw32_release_CXXFLAGS=$(mingw32_release_CFLAGS)

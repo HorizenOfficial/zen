@@ -179,6 +179,13 @@ AC_ARG_ENABLE([debug],
     [enable_debug=$enableval],
     [enable_debug=no])
 
+# Turn on all compiler warnings
+AC_ARG_ENABLE([wall],
+    [AS_HELP_STRING([--enable-wall],
+                    [Enable all compiler warnings (default is no)])],
+    [enable_wall=$enableval],
+    [enable_wall=no])
+
 # Turn warnings into errors
 AC_ARG_ENABLE([werror],
     [AS_HELP_STRING([--enable-werror],
@@ -194,6 +201,7 @@ AC_ARG_ENABLE([address-indexing],
     [enable_address_indexing=no])
 
 AC_LANG_PUSH([C++])
+AX_CHECK_COMPILE_FLAG([-Wall],[CXXFLAG_WALL="-Wall"],[CXXFLAG_WALL=""])
 AX_CHECK_COMPILE_FLAG([-Werror],[CXXFLAG_WERROR="-Werror"],[CXXFLAG_WERROR=""])
 
 if test "x$enable_debug" = xyes; then
@@ -208,6 +216,14 @@ if test "x$enable_debug" = xyes; then
 fi
 
 ERROR_CXXFLAGS=
+
+if test "x$enable_wall" = "xyes"; then
+  if test "x$CXXFLAG_WALL" = "x"; then
+    AC_MSG_ERROR("enable-wall set but -Wall is not usable")
+  fi
+  ERROR_CXXFLAGS="$ERROR_CXXFLAGS -Wall"
+fi
+
 if test "x$enable_werror" = "xyes"; then
   if test "x$CXXFLAG_WERROR" = "x"; then
     AC_MSG_ERROR("enable-werror set but -Werror is not usable")
@@ -219,6 +235,7 @@ if test "x$CXXFLAGS_overridden" = "xno"; then
   AX_CHECK_COMPILE_FLAG([-Wall],[CXXFLAGS="$CXXFLAGS -Wall"],,[[$CXXFLAG_WERROR]])
   AX_CHECK_COMPILE_FLAG([-Wextra],[CXXFLAGS="$CXXFLAGS -Wextra"],,[[$CXXFLAG_WERROR]])
   AX_CHECK_COMPILE_FLAG([-Wformat],[CXXFLAGS="$CXXFLAGS -Wformat"],,[[$CXXFLAG_WERROR]])
+  AX_CHECK_COMPILE_FLAG([-Wno-nonnull],[CXXFLAGS="$CXXFLAGS -Wno-nonnull"],,[[$CXXFLAG_WERROR]])
   AX_CHECK_COMPILE_FLAG([-Wvla],[CXXFLAGS="$CXXFLAGS -Wvla"],,[[$CXXFLAG_WERROR]])
   AX_CHECK_COMPILE_FLAG([-Wformat-security],[CXXFLAGS="$CXXFLAGS -Wformat-security"],,[[$CXXFLAG_WERROR]])
 
@@ -489,6 +506,7 @@ if test x$use_tsan == xyes; then
 fi
 
 if test x$use_hardening != xno; then
+  AX_CHECK_COMPILE_FLAG([-Wno-nonnull],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -Wno-nonnull"],[AC_MSG_ERROR(Cannot enable -Wno-nonnull)])
   AX_CHECK_COMPILE_FLAG([-Wformat],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -Wformat"],[AC_MSG_ERROR(Cannot enable -Wformat)])
   AX_CHECK_COMPILE_FLAG([-Wformat-security],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -Wformat-security"],[AC_MSG_ERROR(Cannot enable -Wformat-security)],[-Wformat])
   AX_CHECK_COMPILE_FLAG([-Wstack-protector],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -Wstack-protector"],[AC_MSG_ERROR(Cannot enable -Wstack-protector)])
@@ -1018,6 +1036,7 @@ echo "  with proton   = $use_proton"
 echo "  with zmq      = $use_zmq"
 echo "  with test     = $use_tests"
 echo "  debug enabled = $enable_debug"
+echo "  wall          = $enable_wall"
 echo "  werror        = $enable_werror"
 echo "  addr index    = $enable_address_indexing"
 echo 

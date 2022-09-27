@@ -4,7 +4,7 @@ set -euo pipefail
 
 if [ -z "${TRAVIS_TAG}" ]; then
   echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-  for image in $(docker image ls --filter=reference="${IMAGE_NAME}" --format "{{.Repository}}:{{.Tag}}"); do
+  for image in $(docker image ls --filter=reference="${IMAGE_NAME}:${IMAGE_TAG}" --format "{{.Repository}}:{{.Tag}}"); do
     echo "Pushing $image to registry"
     docker push "$image"
   done
