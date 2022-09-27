@@ -425,6 +425,7 @@ void CWallet::ChainTip(const CBlockIndex *pindex, const CBlock *pblock,
 
 void CWallet::SetBestChain(const CBlockLocator& loc)
 {
+    LogPrint("db", "%s():%d - called\n", __func__, __LINE__);
     LOCK(cs_wallet);
     CWalletDB walletdb(strWalletFile);
     SetBestChainINTERNAL(walletdb, loc);
@@ -2030,6 +2031,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
     const CChainParams& chainParams = Params();
 
     CBlockIndex* pindex = pindexStart;
+    CBlockIndex* pindexLast = pindexStart;
     {
         LOCK2(cs_main, cs_wallet);
 
@@ -2109,6 +2111,8 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             // Increment note witness caches
             IncrementNoteWitnesses(pindex, &block, tree);
 
+            // will be the pindex of last rescanned block once rescan is finished
+            pindexLast = pindex;
             pindex = chainActive.Next(pindex);
             if (pindex)
             {
@@ -2135,6 +2139,21 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                                                                       CScCertificateStatusUpdateInfo::BwtState::BWT_OFF));
             }
         }
+
+        /**
+         * The witness cache is only written out to disk by CWallet::SetBestChain(),
+         * which in turn is only called by FlushStateToDisk(state, FLUSH_STATE_ALWAYS || FLUSH_STATE_PERIODIC) in main.cpp.
+         * The only place FlushStateToDisk(state, FLUSH_STATE_PERIODIC) is called after initilization is ActivateBestChain(),
+         * so only when chainActive.Tip() changes and 60 minutes have passed since the last flush.
+         * That leaves open an edge case where the witness cache is not updated in wallet.dat:
+         * 1. When we rescan/import a z-address and increment note witnesses
+         * 2. Shut down the node before a periodic flush is performed
+         * 3. Start the node again and try to spend one of our witnessed notes that haven't been flushed
+         * This leads to unspendable notes "z_sendmany finished (status=failed, error=Witness for note commitment is null)", see https://github.com/zcash/zcash/issues/2524.
+         * The fix is to call SetBestChain() at the end of the rescan, so that witnessed notes are flushed to wallet.dat.
+         */
+        if (pindexLast != pindexStart)
+            SetBestChain(chainActive.GetLocator(pindexLast));
 
         ShowProgress(_("Rescanning..."), 100); // hide progress dialog in GUI
     }
