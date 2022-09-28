@@ -9,7 +9,7 @@ import subprocess
 import traceback
 import unittest
 import random
-from cStringIO import StringIO
+from io import StringIO
 from functools import wraps
 
 

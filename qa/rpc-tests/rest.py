@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -14,8 +14,9 @@ from test_framework.util import assert_equal, assert_greater_than, \
 import struct
 import binascii
 import json
-import StringIO
+from io import BytesIO
 from decimal import Decimal
+from codecs import encode
 
 try:
     import http.client as httplib
@@ -70,7 +71,7 @@ class RESTTest (BitcoinTestFramework):
 
     def run_test(self):
         url = urlparse.urlparse(self.nodes[0].url)
-        print "Mining blocks..."
+        print("Mining blocks...")
 
         self.nodes[0].generate(1)
         self.sync_all()
@@ -149,11 +150,11 @@ class RESTTest (BitcoinTestFramework):
         binaryRequest += struct.pack("i", 0);
 
         bin_response = http_post_call(url.hostname, url.port, '/rest/getutxos'+self.FORMAT_SEPARATOR+'bin', binaryRequest)
-        output = StringIO.StringIO()
+        output = BytesIO()
         output.write(bin_response)
         output.seek(0)
         chainHeight = struct.unpack("i", output.read(4))[0]
-        hashFromBinResponse = hex(deser_uint256(output))[2:].zfill(65).rstrip("L")
+        hashFromBinResponse = hex(deser_uint256(output))[2:].zfill(64)
 
         assert_equal(bb_hash, hashFromBinResponse) # check if getutxo's chaintip during calculation was fine
         assert_equal(chainHeight, 102) # chain height must be 102
@@ -248,7 +249,7 @@ class RESTTest (BitcoinTestFramework):
         assert_equal(response_hex.status, 200)
         assert_greater_than(int(response_hex.getheader('content-length')), BLOCK_HEADER_HEX_LENGTH)
         response_hex_str = response_hex.read()
-        assert_equal(response_str.encode("hex")[0:BLOCK_HEADER_HEX_LENGTH], response_hex_str[0:BLOCK_HEADER_HEX_LENGTH])
+        assert_equal(encode(response_str, "hex_codec")[0:BLOCK_HEADER_HEX_LENGTH], response_hex_str[0:BLOCK_HEADER_HEX_LENGTH])
 
         # compare with hex block header
         response_header_hex = http_get_call(url.hostname, url.port, '/rest/headers/1/'+bb_hash+self.FORMAT_SEPARATOR+"hex", True)
@@ -256,7 +257,7 @@ class RESTTest (BitcoinTestFramework):
         assert_greater_than(int(response_header_hex.getheader('content-length')), BLOCK_HEADER_HEX_LENGTH)
         response_header_hex_str = response_header_hex.read()
         assert_equal(response_hex_str[0:BLOCK_HEADER_HEX_LENGTH], response_header_hex_str[0:BLOCK_HEADER_HEX_LENGTH])
-        assert_equal(response_header_str.encode("hex")[0:BLOCK_HEADER_HEX_LENGTH], response_header_hex_str[0:BLOCK_HEADER_HEX_LENGTH])
+        assert_equal(encode(response_header_str, "hex_codec")[0:BLOCK_HEADER_HEX_LENGTH], response_header_hex_str[0:BLOCK_HEADER_HEX_LENGTH])
 
         # check json format
         block_json_string = http_get_call(url.hostname, url.port, '/rest/block/'+bb_hash+self.FORMAT_SEPARATOR+'json')

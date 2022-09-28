@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -82,7 +82,7 @@ class ForkNotifyTest(BitcoinTestFramework):
         try:
             self.nodes[0].generate(1)
             raise AssertionError("Can not generate blocks with version = 2")
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString + " ===> Ok, Can not generate blocks with version = 2", self.nodes, DEBUG_MODE)
 
@@ -108,7 +108,7 @@ class ForkNotifyTest(BitcoinTestFramework):
         try:
             self.nodes[1].generate(1)
             raise AssertionError("Can not generate blocks with version = 211")
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString + " ===> Ok, Can not generate blocks with version = 211", self.nodes, DEBUG_MODE)
 

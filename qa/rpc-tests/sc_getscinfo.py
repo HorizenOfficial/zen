@@ -1,23 +1,20 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.test_framework import MINIMAL_SC_HEIGHT, MINER_REWARD_POST_H200, SC_VERSION_FORK_HEIGHT
+from test_framework.test_framework import MINIMAL_SC_HEIGHT, SC_VERSION_FORK_HEIGHT
 from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, initialize_chain_clean, \
     start_nodes, stop_nodes, get_epoch_data, \
     sync_blocks, sync_mempools, connect_nodes_bi, wait_bitcoinds, mark_logs, \
-    assert_false, assert_true, swap_bytes
-from test_framework.mc_test.mc_test import *
-from test_framework.blockchainhelper import BlockchainHelper, EXPECT_SUCCESS, EXPECT_FAILURE
-import os
+    assert_true, swap_bytes
+from test_framework.mc_test.mc_test import CertTestUtils, generate_random_field_element_hex
+from test_framework.blockchainhelper import BlockchainHelper
 import pprint
-import time
 from decimal import Decimal
 from random import randrange
-import math 
 
 DEBUG_MODE = 1
 NUMB_OF_NODES = 2
@@ -25,14 +22,9 @@ NUMB_OF_NODES = 2
 
 class sc_getscinfo(BitcoinTestFramework):
 
-    alert_filename = None
-
-    def setup_chain(self, split=False):
+    def setup_chain(self):
         print("Initializing test directory " + self.options.tmpdir)
         initialize_chain_clean(self.options.tmpdir, NUMB_OF_NODES)
-        self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
-        with open(self.alert_filename, 'w'):
-            pass  # Just open then close to create zero-length file
 
     def setup_network(self, split=False):
         self.nodes = []
@@ -58,11 +50,11 @@ class sc_getscinfo(BitcoinTestFramework):
 
         creation_amount = Decimal("1.0")
 
-        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT/2), self.nodes, DEBUG_MODE)
-        self.nodes[0].generate(MINIMAL_SC_HEIGHT/2)
+        mark_logs("Node 0 generates {} block".format(MINIMAL_SC_HEIGHT//2), self.nodes, DEBUG_MODE)
+        self.nodes[0].generate(MINIMAL_SC_HEIGHT//2)
         self.sync_all()
-        mark_logs("Node 1 generates {} block".format(MINIMAL_SC_HEIGHT/2), self.nodes, DEBUG_MODE)
-        self.nodes[1].generate(MINIMAL_SC_HEIGHT/2)
+        mark_logs("Node 1 generates {} block".format(MINIMAL_SC_HEIGHT//2), self.nodes, DEBUG_MODE)
+        self.nodes[1].generate(MINIMAL_SC_HEIGHT//2)
         self.sync_all()
 
         #generate wCertVk and constant
@@ -112,7 +104,7 @@ class sc_getscinfo(BitcoinTestFramework):
         self.sync_all()
 
         # add created scs to the mainchain
-        cr_block_hash = self.nodes[0].generate(1)[-1]
+        self.nodes[0].generate(1)
         sc_creating_height = self.nodes[0].getblockcount()
         self.sync_all()
         
@@ -174,7 +166,7 @@ class sc_getscinfo(BitcoinTestFramework):
             try:
                 assert_equal(item['createdAtBlockHeight'], sc_creating_height)
                 assert_true(False)
-            except Exception, e:
+            except AssertionError:
                 # it is ok, we expected it
                 pass
 
@@ -230,43 +222,38 @@ class sc_getscinfo(BitcoinTestFramework):
         try:
             self.nodes[1].getscinfo("*", False, True, -2, 5)
             assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
-            pass
+        except JSONRPCException as e:
+            print(e.error['message'])
 
         try:
             self.nodes[1].getscinfo("*", False, True, 5, 5)
             assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
-            pass
+        except JSONRPCException as e:
+            print(e.error['message'])
 
         try:
             self.nodes[1].getscinfo("*", True, True, 6, 5)
             assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
-            pass
+        except JSONRPCException as e:
+            print(e.error['message'])
 
         try:
             self.nodes[1].getscinfo("*", True, True, 1, -5)
             assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
-            pass
+        except JSONRPCException as e:
+            print(e.error['message'])
 
         try:
             self.nodes[1].getscinfo("*", False, True, NUM_OF_SIDECHAINS+2, -1)
             assert_true(False)
-        except JSONRPCException, e:
-            print e.error['message']
-            pass
+        except JSONRPCException as e:
+            print(e.error['message'])
 
         try:
             # this is ok because the interval is legal
             self.nodes[1].getscinfo("*", False, True, NUM_ALIVE, 100)
-        except JSONRPCException, e:
-            print e.error['message']
+        except JSONRPCException as e:
+            print(e.error['message'])
             assert_true(False)
 
         # get a ceased sc info filtering on active state
@@ -300,7 +287,7 @@ class sc_getscinfo(BitcoinTestFramework):
                 epoch_cum_tree_hash_1, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -313,7 +300,7 @@ class sc_getscinfo(BitcoinTestFramework):
 
         elen = item['withdrawalEpochLength']
         wlen = item['certSubmissionWindowLength']
-        wlen_calc = max(2, int(elen/5))
+        wlen_calc = max(2, int(elen//5))
         assert_equal(wlen, wlen_calc)
 
         # Reach the sidechain version fork point
@@ -334,7 +321,7 @@ class sc_getscinfo(BitcoinTestFramework):
         assert_equal(self.nodes[0].getscinfo(v0_sc_id)['items'][0]['unconfVersion'], 0)
         assert_equal(self.nodes[0].getscinfo(v1_sc_id)['items'][0]['unconfVersion'], 1)
 
-        mark_logs("Node 0 generates a block to confirm the creation of sidechains v0 and v1", self.nodes, DEBUG_MODE);
+        mark_logs("Node 0 generates a block to confirm the creation of sidechains v0 and v1", self.nodes, DEBUG_MODE)
         self.nodes[0].generate(1)
         self.sync_all()
 

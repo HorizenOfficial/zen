@@ -16,6 +16,21 @@ os: linux
       - DOCKER_FROM=ubuntu_bionic
       - DOCKER_IS_DEB=true
       - MAKEFLAGS="--legacy-cpu"
+
+  - &docker_amd64_linux_ubuntu_jammy
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+  - &docker_amd64_linux_ubuntu_jammy_legacy_cpu
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - MAKEFLAGS="--legacy-cpu"
+
   - &docker_amd64_windows_ubuntu_bionic
     env:
       - DOCKER_ARCH=amd64
@@ -82,6 +97,55 @@ os: linux
       - DOCKER_FROM=ubuntu_bionic
       - DOCKER_IS_DEB=true
       - TEST_CMD="./qa/zen/test-fetch-params.sh"
+
+  - &docker_amd64_linux_ubuntu_jammy_unit-tests
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="btest gtest sec-hard no-dot-so util-test secp256k1 libsnark univalue"
+  - &docker_amd64_linux_ubuntu_jammy_rpc-tests_1
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:1"
+  - &docker_amd64_linux_ubuntu_jammy_rpc-tests_2
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:2"
+  - &docker_amd64_linux_ubuntu_jammy_rpc-tests_3
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:3"
+  - &docker_amd64_linux_ubuntu_jammy_rpc-tests_4
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zcash/full_test_suite.py"
+      - TEST_ARGS="rpc --rpc-extended --rpc-split=4:4"
+  - &docker_amd64_linux_ubuntu_jammy_test-fetch-params
+    env:
+      - DOCKER_ARCH=amd64
+      - DOCKER_TARGET_OS=linux
+      - DOCKER_FROM=ubuntu_jammy
+      - DOCKER_IS_DEB=true
+      - TEST_CMD="./qa/zen/test-fetch-params.sh"
+
   - &docker_amd64_linux_ubuntu_focal_unit-tests
     env:
       - DOCKER_ARCH=amd64
@@ -252,10 +316,14 @@ jobs:
       <<: *docker_amd64_linux_ubuntu_bionic
     - stage: Prepare
       <<: *prepare_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_jammy
+    - stage: Prepare
+      <<: *prepare_docker_amd64
       <<: *docker_amd64_linux_ubuntu_focal
     - stage: Prepare
       <<: *prepare_docker_amd64
       <<: *docker_amd64_windows_ubuntu_bionic
+
     # build zencash-apple toolchain
     - stage: Prepare
       if: env(SKIP_OSX) != true
@@ -265,6 +333,7 @@ jobs:
       script:
         - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/prepare/build_zencash-apple.sh"
         - bash -c "${TRAVIS_BUILD_DIR}/contrib/ci-horizen/scripts/common/push_archive.sh ${B2_UL_COMPRESS_FOLDER} ${B2_UL_FILENAME}"
+
     # Docker based builds
     - stage: Build
       <<: *build_docker_amd64_x-large
@@ -272,6 +341,12 @@ jobs:
     - stage: Build
       <<: *build_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_bionic_legacy_cpu
+    - stage: Build
+      <<: *build_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy
+    - stage: Build
+      <<: *build_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_legacy_cpu
     - stage: Build
       <<: *build_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_focal
@@ -317,6 +392,24 @@ jobs:
       <<: *docker_amd64_linux_ubuntu_bionic_test-fetch-params
     - stage: Test
       <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_unit-tests
+    - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_1
+    - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_2
+    - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_3
+    - stage: Test
+      <<: *test_docker_amd64_x-large
+      <<: *docker_amd64_linux_ubuntu_jammy_rpc-tests_4
+    - stage: Test
+      <<: *test_docker_amd64
+      <<: *docker_amd64_linux_ubuntu_jammy_test-fetch-params
+    - stage: Test
+      <<: *test_docker_amd64_x-large
       <<: *docker_amd64_linux_ubuntu_focal_unit-tests
     - stage: Test
       <<: *test_docker_amd64_x-large
@@ -332,36 +425,47 @@ jobs:
       <<: *docker_amd64_linux_ubuntu_focal_rpc-tests_4
     # osx based tests
     - stage: Test
+      if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_unit-tests
     - stage: Test
+      if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_1
     - stage: Test
+      if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_2
     - stage: Test
+      if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_3
     - stage: Test
+      if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_4
     - stage: Test
+      if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_5
     - stage: Test
+      if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_6
     - stage: Test
+      if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_7
     - stage: Test
+      if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_8
     - stage: Test
+      if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_9
     - stage: Test
+      if: env(SKIP_OSX) != true
       <<: *test_osx_xcode9_4
       <<: *amd64_osx_xcode9_4_rpc-tests_10
 

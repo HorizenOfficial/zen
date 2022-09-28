@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -127,7 +127,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
             tx =   res['txid']
             scid = res['scid']
             txs_node1.append(tx)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False);
@@ -168,7 +168,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
             self.sync_all()
             txs_node1.append(tx)
             mark_logs("\n===> Node 1 sent {} coins to fund the sc".format(sc_fwd_amount), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs(errorString,self.nodes,DEBUG_MODE)
             assert_true(False)
@@ -215,7 +215,7 @@ class sbh_rpc_cmds(BitcoinTestFramework):
             mark_logs("\n===> Node 0 sent a cert for scid {} with bwd transfer of {} coins to Node1 pkh (addr {})".format(scid, bwt_amount1, bwt_address), self.nodes, DEBUG_MODE)
             #mark_logs("==> certificate is {}".format(cert_1), self.nodes, DEBUG_MODE)
             self.sync_all()
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)

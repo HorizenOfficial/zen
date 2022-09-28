@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -51,7 +51,7 @@ class InvalidBlockRequestTest(ComparisonTestFramework):
 
     def get_tests(self):
         if self.tip is None:
-            self.tip = int ("0x" + self.nodes[0].getbestblockhash() + "L", 0)
+            self.tip = int ("0x" + self.nodes[0].getbestblockhash(), 0)
         self.block_time = int(time.time())+1
 
         chainHeight = 0
@@ -72,7 +72,7 @@ class InvalidBlockRequestTest(ComparisonTestFramework):
         Now we need that block to mature so we can spend the coinbase.
         '''
         test = TestInstance(sync_every_block=False)
-        for i in xrange(100):
+        for i in range(100):
             block = create_block(self.tip, create_coinbase_h(chainHeight+1), self.block_time, get_nBits(chainHeight))
             chainHeight += 1
             block.solve()
@@ -92,9 +92,9 @@ class InvalidBlockRequestTest(ComparisonTestFramework):
         chainHeight += 1
         self.block_time += 1
 
-        # chr(81) is OP_TRUE
-        tx1 = create_transaction(self.block1.vtx[0], 0, chr(81), 4*100000000)
-        tx2 = create_transaction(tx1, 0, chr(81), 4*100000000)
+        # b'\x51' is b'\x51'
+        tx1 = create_transaction(self.block1.vtx[0], 0, b'\x51', 4*100000000)
+        tx2 = create_transaction(tx1, 0, b'\x51', 4*100000000)
 
         block2.vtx.extend([tx1, tx2])
         block2.hashMerkleRoot = block2.calc_merkle_root()

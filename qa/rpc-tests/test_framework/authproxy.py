@@ -47,7 +47,7 @@ try:
 except ImportError:
     import urlparse
 
-from wsproxy import WsServiceProxy
+from test_framework.wsproxy import WsServiceProxy
 
 USER_AGENT = "AuthServiceProxy/0.1"
 
@@ -63,7 +63,7 @@ class JSONRPCException(Exception):
 
 def EncodeDecimal(o):
     if isinstance(o, decimal.Decimal):
-        return round(o, 8)
+        return float(round(o, 8))
     raise TypeError(repr(o) + " is not JSON serializable")
 
 class AuthServiceProxy(object):
@@ -94,11 +94,9 @@ class AuthServiceProxy(object):
             self.__conn = connection
         elif self.__url.scheme == 'https':
             self.__conn = httplib.HTTPSConnection(self.__url.hostname, port,
-                                                  None, None, False,
-                                                  timeout)
+                                                  None, None, timeout)
         else:
-            self.__conn = httplib.HTTPConnection(self.__url.hostname, port,
-                                                 False, timeout)
+            self.__conn = httplib.HTTPConnection(self.__url.hostname, port, timeout)
 
         self.__ws_proxy = WsServiceProxy(ws_url, self.__service_name)
 

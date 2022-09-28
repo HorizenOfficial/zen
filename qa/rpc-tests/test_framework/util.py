@@ -22,7 +22,7 @@ import subprocess
 import time
 import re
 import codecs
-from authproxy import AuthServiceProxy, JSONRPCException
+from test_framework.authproxy import AuthServiceProxy, JSONRPCException
 
 COIN = 100000000 # 1 zec in zatoshis
 
@@ -54,7 +54,7 @@ def get_ws_url(extra_args, i):
             wsport_arg = '-wsport=%d' % wsp
 
         ws_url = "ws://localhost:%d" % wsp
-        print "######### WEBSOCKET URL: ", ws_url
+        print("######### WEBSOCKET URL: ", ws_url)
 
     return ws_url, wsport_arg
 
@@ -71,6 +71,12 @@ def bytes_to_hex_str(byte_str):
 
 def hex_str_to_bytes(hex_str):
     return unhexlify(hex_str.encode('ascii'))
+
+def str_to_hex_str(str):
+    return hexlify(str.encode('ascii')).decode('ascii')
+
+def hex_str_to_str(hex_str):
+    return unhexlify(hex_str.encode('ascii')).decode('ascii')
 
 def str_to_b64str(string):
     return b64encode(string.encode('utf-8')).decode('ascii')
@@ -90,7 +96,7 @@ def sync_blocks(rpc_connections, wait=1, p=False, limit_loop=0):
                 break
         counts = [ x.getblockcount() for x in rpc_connections ]
         if p :
-            print counts
+            print(counts)
         if counts == [ counts[0] ]*len(counts):
             break
         time.sleep(wait)
@@ -143,6 +149,17 @@ def initialize_datadir(dirname, n):
 #        f.write("logtimemicros=1\n");
     return datadir
 
+def rpc_url(i, rpchost=None):
+    host = '127.0.0.1'
+    port = rpc_port(i)
+    if rpchost:
+        parts = rpchost.split(':')
+        if len(parts) == 2:
+            host, port = parts
+        else:
+            host = rpchost
+    return "http://rt:rt@%s:%d" % (host, int(port))
+
 def initialize_chain(test_dir):
     """
     Create (or copy from cache) a 200-block-long chain and
@@ -164,11 +181,11 @@ def initialize_chain(test_dir):
                 args.append("-connect=127.0.0.1:"+str(p2p_port(0)))
             bitcoind_processes[i] = subprocess.Popen(args)
             if os.getenv("PYTHON_DEBUG", ""):
-                print "initialize_chain: zend started, calling zen-cli -rpcwait getblockcount"
+                print("initialize_chain: zend started, calling zen-cli -rpcwait getblockcount")
             subprocess.check_call([ os.getenv("BITCOINCLI", "zen-cli"), "-datadir="+datadir,
                                     "-rpcwait", "getblockcount"], stdout=devnull)
             if os.getenv("PYTHON_DEBUG", ""):
-                print "initialize_chain: zen-cli -rpcwait getblockcount completed"
+                print("initialize_chain: zen-cli -rpcwait getblockcount completed")
         devnull.close()
         rpcs = []
         for i in range(4):
@@ -256,14 +273,14 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
     bitcoind_processes[i] = subprocess.Popen(args)
     devnull = open("/dev/null", "w+")
     if os.getenv("PYTHON_DEBUG", ""):
-        print "start_node: zend started, calling zen-cli -rpcwait getblockcount"
+        print("start_node: zend started, calling zen-cli -rpcwait getblockcount")
     subprocess.check_call([ os.getenv("BITCOINCLI", "zen-cli"), "-datadir="+datadir] +
                           _rpchost_to_args(rpchost)  +
                           ["-rpcwait", "getblockcount"], stdout=devnull)
     if os.getenv("PYTHON_DEBUG", ""):
-        print "start_node: calling zen-cli -rpcwait getblockcount returned"
+        print("start_node: calling zen-cli -rpcwait getblockcount returned")
     devnull.close()
-    url = "http://rt:rt@%s:%d" % (rpchost or '127.0.0.1', rpc_port(i))
+    url = rpc_url(i, rpchost)
     if timewait is not None:
         proxy = AuthServiceProxy(url, ws_url=ws_url, timeout=timewait)
     else:
@@ -426,11 +443,11 @@ def random_transaction(nodes, amount, min_fee, fee_increment, fee_variants):
 
     return (txid, signresult["hex"], fee)
 
-def assert_equal(expected, actual, message = ""):
+def assert_equal(actual, expected, message = ""):
     if expected != actual:
         if message:
             message = "%s; " % message 
-        raise AssertionError("%sexpected: <%s> but was: <%s>" % (message, str(expected), str(actual)))
+        raise AssertionError("%scurrent value [left]: <%s>, expected [right]: <%s>" % (message, str(actual), str(expected)))
 
 def assert_true(condition, message = ""):
     if not condition:
@@ -457,7 +474,7 @@ def assert_raises(exc, fun, *args, **kwds):
 def wait_and_assert_operationid_status(node, myopid, in_status='success', in_errormsg=None, timeout=300):
     print('waiting for async operation {}'.format(myopid))
     result = None
-    for _ in xrange(1, timeout):
+    for _ in range(1, timeout):
         results = node.z_getoperationresult([myopid])
         if len(results) > 0:
             result = results[0]
@@ -503,42 +520,81 @@ def dump_ordered_tips(tip_list,debug=0):
     c = 0
     for y in sorted_x:
         if (c == 0):
-            print (y)
+            print(y)
         else:
-            print (" ", y)
+            print(" ", y)
         c = 1
 
 def dump_sc_info_record(info, i, debug=0):
     if debug == 0:
         return
-    print "  Node %d - balance: %f" % (i, info["balance"])
-    print "    created at block: %s (%d)" % (info["createdAtBlockHeight"], info["createdAtBlockHeight"])
-    print "    created in tx:    %s" % info["creatingTxHash"]
-    print "    immatureAmounts: %s" % info["immatureAmounts"]
+    print("  Node %d - balance: %f" % (i, info["balance"]))
+    print("    created at block: %s (%d)" % (info["createdAtBlockHeight"], info["createdAtBlockHeight"]))
+    print("    created in tx:    %s" % info["creatingTxHash"])
+    print("    immatureAmounts: %s" % info["immatureAmounts"])
 
 def dump_sc_info(nodes,nNodes,scId="",debug=0):
     if debug == 0:
         return
     if scId != "*":
-        print ("scid: " + scId)
-        print ("-------------------------------------------------------------------------------------")
+        print("scid: " + scId)
+        print("-------------------------------------------------------------------------------------")
         for i in range(0, nNodes):
             try:
                 dump_sc_info_record(nodes[i].getscinfo(scId)['items'][0], i,debug)
-            except JSONRPCException, e:
-                print "  Node %d: ### [no such scid: %s]" % (i, scId)
+            except JSONRPCException as e:
+                print("  Node %d: ### [no such scid: %s]" % (i, scId))
     else:
         for i in range(0, nNodes):
             x = nodes[i].getscinfo("*")['items']
             for info in x:
                 dump_sc_info_record(info, i,nNodes)
 
-def mark_logs(msg,nodes,debug=0):
+def colorize(color: str, text: str) -> str:
+    """
+    given an input string "text", returns the same string decorated with
+    ANSI escape sequences for colored printing on *nix terminals.
+    'color' is a single char used to select the color among:
+        'e'     grey
+        'r'     red
+        'g'     green
+        'y'     yellow
+        'b'     blue
+        'p'     purple
+        'c'     cyan
+        'n'     no color (white)
+    """
+    # As now, coloring is disabled on Windows systems
+    if os.name == 'nt':
+        return text
+
+    if os.getenv('ANSI_COLORS_DISABLED') is not None:
+        return text
+
+    N_C = "\033[0m"
+    colorshortcuts = ['e', 'r', 'g', 'y', 'b', 'p', 'c']
+    color = color[:1]   # just get the first char of 'color' input param
+
+    if (color == 'n') or (color not in colorshortcuts):
+        return text
+
+    COLORS = dict(zip(colorshortcuts, range(90, 97)))
+    return "\033[%d;1m" % COLORS[color] + text + N_C
+
+def strip_escape_seq(text: str) -> str:
+    """
+    Returns the string 'text' stripped from the escape sequences added by colorize()
+    """
+    ansi_escape = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
+    return ansi_escape.sub('', text)
+
+def mark_logs(msg, nodes, debug = 0, color = 'n'):
     if debug == 0:
         return
-    print (msg)
+    print(colorize(color, msg))
+    stripped_msg = strip_escape_seq(msg)
     for node in nodes:
-        node.dbg_log(msg)
+        node.dbg_log(stripped_msg)
 
 def get_end_epoch_height(scid, node, epochLen):
     sc_creating_height = node.getscinfo(scid)['items'][0]['createdAtBlockHeight']
@@ -592,15 +648,15 @@ def advance_epoch(mcTest, node, sync_call,
         sc_tag, scid_swapped, epoch_number, cert_quality, mbtrScFee, ftScFee, epoch_cum_tree_hash, constant, [], [], proofCfeArray)
 
     if proof == None:
-        print "could not create proof"
+        print("could not create proof")
         assert(False)
 
     try:
         cert = node.sc_send_certificate(scid, epoch_number, cert_quality,
             epoch_cum_tree_hash, proof, [], ftScFee, mbtrScFee, cert_fee, "", vCfe, vCmt)
-    except JSONRPCException, e:
+    except JSONRPCException as e:
         errorString = e.error['message']
-        print "Send certificate failed with reason {}".format(errorString)
+        print("Send certificate failed with reason {}".format(errorString))
         assert(False)
     sync_call()
 

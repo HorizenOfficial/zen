@@ -17,7 +17,9 @@
 #include <clientversion.h>
 #include <sc/proofverifier.h> // for MC_CRYPTO_LIB_MOCKED 
 
+#include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/dynamic_bitset.hpp>
+#include <fstream>
 
 extern unsigned char ReverseBitsInByte(unsigned char input);
 
@@ -623,6 +625,72 @@ TEST(SidechainsField, NakedZendooFeatures_EmptyTreeCommitmentCalculation)
     uint256 scTxCommitmentHash = builder.getCommitment();
     EXPECT_TRUE(SidechainTxsCommitmentBuilder::getEmptyCommitment() == emptySha);
     EXPECT_TRUE(scTxCommitmentHash == emptySha) <<scTxCommitmentHash.ToString() << "\n" << emptySha.ToString();
+}
+
+/**
+ * @brief This test checks the computation of the commitment tree of a known block.
+ * The block is read from a raw byte string stored in a file.
+ * This same check is performed on the SDK side to spot any possible difference.
+ * 
+ * Please, see the unit test blockWithCertificateWithCustomFieldAndBitvectorMixedScVersions
+ * on the SDK side for further details and the Python test sc_getscgenesisinfo.py for the
+ * generation of the test block.
+ * 
+ * https://github.com/HorizenOfficial/Sidechains-SDK/commit/460ad1f0984e96925e20be8e6c434d2acda439d4
+ */
+TEST(SidechainsField, CommitmentComputationFromSerializedBlock)
+{
+    SelectParams(CBaseChainParams::REGTEST);
+    const BlockchainTestManager& testManager = BlockchainTestManager::GetInstance();
+
+    // Read hex string from file
+    boost::filesystem::path blockPath = boost::dll::program_location().parent_path() / "/gtest/test-data/block_with_v0_and_v1_certificates.hex";
+    std::ifstream t(blockPath.string());
+    std::stringstream buffer;
+    buffer << t.rdbuf();
+    std::string blockData = buffer.str();
+
+    // Convert hex string to byte array
+    std::vector<unsigned char> blockDataBytes = ParseHex(blockData);
+
+    // The first raw byte must contain the block version 
+    assert(blockDataBytes.front() == BLOCK_VERSION_SC_SUPPORT);
+
+    // Create the data stream from the byte array
+    CDataStream dsBlock(SER_DISK, PROTOCOL_VERSION);
+    dsBlock << blockDataBytes;
+
+    // Since we are filling the datastream with a byte array (and not an object),
+    // the first bytes contain the size of the array itself.
+    dsBlock.erase(dsBlock.begin(), dsBlock.begin() + 3);
+
+    // Deserialize the block
+    CBlock block;
+    dsBlock >> block;
+
+    // Add the information about the sidechains publishing a certificate to the CoinsViewCache
+    for (CScCertificate cert : block.vcert)
+    {
+        CSidechain sidechain;
+        uint256 sidechainId = cert.GetScId();
+
+        // 255 bit is the fixed field element configuration used at block generation
+        FieldElementCertificateFieldConfig fieldConfig = {255};
+        sidechain.fixedParams.vFieldElementCertificateFieldConfig.push_back(fieldConfig);
+        sidechain.fixedParams.vFieldElementCertificateFieldConfig.push_back(fieldConfig);
+
+        // (254*4, 151) is the fixed bitvector configuration used at block generation
+        BitVectorCertificateFieldConfig bitvectorConfig = {254*4, 151};
+        sidechain.fixedParams.vBitVectorCertificateFieldConfig.push_back(bitvectorConfig);
+
+        testManager.StoreSidechainWithCurrentHeight(sidechainId, sidechain, 0);
+    }
+
+    // Check the commitment tree
+    uint256 scTxCommitmentHash = block.BuildScTxsCommitment(testManager.CoinsViewCache().get());
+
+    EXPECT_TRUE(scTxCommitmentHash == uint256S("2a94ae04f2dcb25b274510a4611e1443b088ed2eac9211535105b35cfbd1c543"))
+        << scTxCommitmentHash.ToString();
 }
 
 TEST(CctpLibrary, BitVectorUncompressed)

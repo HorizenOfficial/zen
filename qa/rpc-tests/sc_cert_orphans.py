@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -146,7 +146,7 @@ class sc_cert_orphans(BitcoinTestFramework):
             cert1 = self.nodes[1].sc_send_certificate(scid_1, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("======> cert1 = {}".format(cert1), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -170,7 +170,7 @@ class sc_cert_orphans(BitcoinTestFramework):
         try:
             tx2 = self.nodes[1].sendtoaddress(taddr2, amount2)
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
             assert_true("The transaction was rejected" in errorString)
@@ -185,7 +185,7 @@ class sc_cert_orphans(BitcoinTestFramework):
             rawtx = self.nodes[1].signrawtransaction(rawtx)
             self.nodes[1].sendrawtransaction(rawtx['hex'])
             assert(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
 
@@ -202,7 +202,7 @@ class sc_cert_orphans(BitcoinTestFramework):
             cert2 = self.nodes[1].sc_send_certificate(scid_2, epoch_number, quality,
                 epoch_cum_tree_hash, proof, amounts, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             mark_logs("======> cert2 = {}".format(cert2), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -221,7 +221,7 @@ class sc_cert_orphans(BitcoinTestFramework):
             #pprint.pprint(self.nodes[1].decoderawtransaction(signed_cert['hex']))
             rawcert = self.nodes[1].sendrawtransaction(signed_cert['hex'])
             assert_true(False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             mark_logs("Send certificate failed as expected", self.nodes, DEBUG_MODE)
 
         self.sync_all()
@@ -257,7 +257,7 @@ class sc_cert_orphans(BitcoinTestFramework):
             rawtx = self.nodes[1].signrawtransaction(rawtx)
             tx2 = self.nodes[1].sendrawtransaction(rawtx['hex'])
             mark_logs("======> tx2 = {}".format(tx2), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("{}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)

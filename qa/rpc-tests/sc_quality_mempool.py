@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018 The Zencash developers
 # Distributed under the MIT software license, see the accompanying
@@ -203,7 +203,7 @@ class quality_mempool(BitcoinTestFramework):
                 epoch_cum_tree_hash_1, proof, amount_cert, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_1_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -246,7 +246,7 @@ class quality_mempool(BitcoinTestFramework):
             signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert2 = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
 
@@ -264,7 +264,7 @@ class quality_mempool(BitcoinTestFramework):
                 epoch_cum_tree_hash_1, low_quality_proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_2_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_2_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
@@ -284,7 +284,7 @@ class quality_mempool(BitcoinTestFramework):
             cert_3_epoch_0 = self.nodes[0].sc_send_certificate(scid_1, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, cert3_proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, LOW_CERT_FEE)
             assert (False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
 
@@ -302,7 +302,7 @@ class quality_mempool(BitcoinTestFramework):
             cert_3_epoch_0 = self.nodes[1].sc_send_certificate(scid_1, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, cert3_proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert (False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
 
@@ -342,7 +342,7 @@ class quality_mempool(BitcoinTestFramework):
             signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert_3_epoch_0 = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             assert (False)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
 
@@ -357,7 +357,7 @@ class quality_mempool(BitcoinTestFramework):
             cert_3_epoch_0 = self.nodes[2].sc_send_certificate(scid_1, epoch_number_1, quality,
                 epoch_cum_tree_hash_1, normal_quality_proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, HIGH_CERT_FEE)
             mark_logs("Certificate is {}".format(cert_3_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
@@ -380,7 +380,7 @@ class quality_mempool(BitcoinTestFramework):
             sync_mempools(self.nodes[1:3])
             assert(len(cert_4_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_4_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
@@ -421,7 +421,7 @@ class quality_mempool(BitcoinTestFramework):
                 epoch_cum_tree_hash_1, proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_1_sc1) > 0)
             mark_logs("Certificate is {}".format(cert_1_sc1), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -438,7 +438,7 @@ class quality_mempool(BitcoinTestFramework):
                 epoch_cum_tree_hash_2, proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_2_sc2) > 0)
             mark_logs("Certificate is {}".format(cert_2_sc2), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -459,7 +459,7 @@ class quality_mempool(BitcoinTestFramework):
                 epoch_cum_tree_hash_2, proof, amount_cert_3, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_3_sc2) > 0)
             mark_logs("Certificate is {}".format(cert_3_sc2), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert(False)
@@ -494,7 +494,7 @@ class quality_mempool(BitcoinTestFramework):
                 epoch_cum_tree_hash_1, quality_proof, amount_cert_1, FT_SC_FEE, MBTR_SC_FEE, CERT_FEE)
             assert(len(cert_5_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_5_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
@@ -533,7 +533,7 @@ class quality_mempool(BitcoinTestFramework):
             signed_cert = self.nodes[0].signrawtransaction(rawcert)
             cert_6_epoch_0 = self.nodes[0].sendrawtransaction(signed_cert['hex'])
             mark_logs("Certificate is {}".format(cert_6_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)
@@ -554,7 +554,7 @@ class quality_mempool(BitcoinTestFramework):
                 epoch_cum_tree_hash_1, quality_proof, amount_cert_2, FT_SC_FEE, MBTR_SC_FEE, HIGH_CERT_FEE)
             assert(len(cert_7_epoch_0) > 0)
             mark_logs("Certificate is {}".format(cert_7_epoch_0), self.nodes, DEBUG_MODE)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             errorString = e.error['message']
             mark_logs("Send certificate failed with reason {}".format(errorString), self.nodes, DEBUG_MODE)
             assert (False)

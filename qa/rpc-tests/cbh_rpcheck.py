@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
@@ -53,7 +53,7 @@ class cbh_doscpu(BitcoinTestFramework):
         self.sync_all()
 
     def mark_logs(self, msg):
-        print msg
+        print(msg)
         self.nodes[0].dbg_log(msg)
         self.nodes[1].dbg_log(msg)
         self.nodes[2].dbg_log(msg)
@@ -80,8 +80,8 @@ class cbh_doscpu(BitcoinTestFramework):
             self.mark_logs("Node1 sending tx2 with tampered cbh script to Node2")
             tx_2 = self.nodes[1].sendrawtransaction(raw_tx_2['hex'])
             self.sync_all()
-        except JSONRPCException,e:
-            print " ==> Tx has been rejected! {}".format(e.error['message'])
+        except JSONRPCException as e:
+            print(" ==> Tx has been rejected! {}".format(e.error['message']))
             # before rp fix fork this is expected to succeed
             assert_true(False)
 
@@ -127,7 +127,7 @@ class cbh_doscpu(BitcoinTestFramework):
             self.nodes[2].sendrawtransaction(signedRawTx['hex'])
             # after rp fix fork this is expected to fail
             assert_true(False)
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             self.mark_logs("==> Node2 tx has not been accepted in mempool! {}".format(e.error['message']))
             # this has been rejected by the verifier thread
             assert_true("non-mandatory-script-verify-flag" in e.error['message'])
@@ -143,7 +143,7 @@ class cbh_doscpu(BitcoinTestFramework):
             self.nodes[2].sendrawtransaction(signedRawTx['hex'])
             # after rp fix fork this is expected to fail
             assert_true(False)
-        except JSONRPCException,e:
+        except JSONRPCException as e:
             self.mark_logs("==> Node2 tx has not been accepted in mempool! {}".format(e.error['message']))
             # this has been rejected by the check input thread
             assert_true("bad-txns-output-scriptpubkey" in e.error['message'])

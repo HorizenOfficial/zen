@@ -1,11 +1,22 @@
-default_build_CC = gcc
-default_build_CXX = g++
-default_build_AR = ar
-default_build_RANLIB = ranlib
-default_build_STRIP = strip
-default_build_NM = nm
+ifeq ($(CLANG_ARG),true)
+default_build_CC = $(CT_PREFIX)clang
+default_build_CXX = $(CT_PREFIX)clang++
+default_build_AR = $(CT_PREFIX)llvm-ar
+default_build_RANLIB = $(CT_PREFIX)llvm-ranlib
+default_build_STRIP = $(CT_PREFIX)llvm-strip
+default_build_NM = $(CT_PREFIX)llvm-nm
 default_build_OTOOL = otool
 default_build_INSTALL_NAME_TOOL = install_name_tool
+else
+default_build_CC = $(CT_PREFIX)gcc
+default_build_CXX = $(CT_PREFIX)g++
+default_build_AR = $(CT_PREFIX)ar
+default_build_RANLIB = $(CT_PREFIX)ranlib
+default_build_STRIP = $(CT_PREFIX)strip
+default_build_NM = $(CT_PREFIX)nm
+default_build_OTOOL = otool
+default_build_INSTALL_NAME_TOOL = install_name_tool
+endif
 
 define add_build_tool_func
 build_$(build_os)_$1 ?= $$(default_build_$1)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -121,7 +121,7 @@ class TxnMallTest(BitcoinTestFramework):
                 signedRawTx = self.nodes[0].signrawtransaction(rawtx)
                 senttxid = self.nodes[0].sendrawtransaction(signedRawTx['hex'])
                 senttx = self.nodes[0].getrawtransaction(senttxid, 1)
-            except JSONRPCException, e:
+            except JSONRPCException as e:
                 print(e.error['message'])
                 assert(False)
 
@@ -148,7 +148,7 @@ class TxnMallTest(BitcoinTestFramework):
         try:
             senttxid = self.nodes[DOUBLE_SPEND_NODE_INDEX].sendrawtransaction(special_tx['hex'])
             senttx = self.nodes[DOUBLE_SPEND_NODE_INDEX].getrawtransaction(senttxid, 1)
-        except JSONRPCException, e:
+        except JSONRPCException as e:
             print(e.error['message'])
             assert(False)
 

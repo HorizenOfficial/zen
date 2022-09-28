@@ -171,12 +171,12 @@ def create_benchmark_archive(blk_hash):
         print 'Block contains %d JoinSplit-containing transactions' % js_txs
         return
 
-    inputs = [(x['txid'], x['vout']) for tx in txs for x in tx['vin'] if x.has_key('txid')]
+    inputs = [(x['txid'], x['vout']) for tx in txs for x in tx['vin'] if 'txid' in x]
     print 'Total inputs: %d' % len(inputs)
 
     unique_inputs = {}
     for i in sorted(inputs):
-        if unique_inputs.has_key(i[0]):
+        if i[0] in unique_inputs:
             unique_inputs[i[0]].append(i[1])
         else:
             unique_inputs[i[0]] = [i[1]]

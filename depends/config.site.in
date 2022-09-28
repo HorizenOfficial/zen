@@ -36,6 +36,8 @@ LDFLAGS="-L$depends_prefix/lib $LDFLAGS"
 
 CC="@CC@"
 CXX="@CXX@"
+HOST_CC="@CC@"
+CC_FOR_BUILD="@CC@"
 OBJC="${CC}"
 OBJCXX="${CXX}"
 CCACHE=$depends_prefix/native/bin/ccache

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2014-2015 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -12,7 +12,7 @@ import pprint
 import time
 from decimal import Decimal
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, connect_nodes, initialize_chain_clean, start_node
+from test_framework.util import assert_equal, connect_nodes, initialize_chain_clean, start_node, to_satoshis
 from test_framework.mininode import COutPoint, CTransaction, CTxIn, CTxOut
 from test_framework.authproxy import JSONRPCException
 
@@ -38,7 +38,7 @@ class AddressIndexTest(BitcoinTestFramework):
         self.sync_all()
 
     def run_test(self):
-        print "Mining blocks..."
+        print("Mining blocks...")
         self.nodes[0].generate(105)
         self.sync_all()
 
@@ -55,7 +55,7 @@ class AddressIndexTest(BitcoinTestFramework):
         assert_equal(balance0["balance"], 0)
 
         # Check p2pkh and p2sh address indexes
-        print "Testing p2pkh and p2sh address index..."
+        print("Testing p2pkh and p2sh address index...")
 
         txid0 = self.nodes[0].sendtoaddress(addr2, 10)
         self.nodes[0].generate(1)
@@ -90,7 +90,7 @@ class AddressIndexTest(BitcoinTestFramework):
         assert_equal(txidsb[2], txidb2)
 
         # Check that limiting by height works
-        print "Testing querying txids by range of block heights.."
+        print("Testing querying txids by range of block heights..")
         height_txids = self.nodes[1].getaddresstxids({
             "addresses": [addr1],
             "start": 105,
@@ -112,10 +112,10 @@ class AddressIndexTest(BitcoinTestFramework):
 
         # Check that balances are correct
         balance0 = self.nodes[1].getaddressbalance(addr1)
-        assert_equal(balance0["balance"], 45 * 100000000)
+        assert_equal(balance0["balance"], to_satoshis(45))
 
         # Check that outputs with the same address will only return one txid
-        print "Testing for txid uniqueness..."
+        print("Testing for txid uniqueness...")
         op_hash160 = "a9"
         op_push_20_bytes_onto_the_stack = "14"
         addressHash = "6349a418fc4578d10a372b54b45c280cc8c4382f"
@@ -140,12 +140,12 @@ class AddressIndexTest(BitcoinTestFramework):
         assert_equal(txidsmany[3], sent_txid)
 
         # Check that balances are correct
-        print "Testing balances..."
+        print("Testing balances...")
         balance0 = self.nodes[1].getaddressbalance(addr1)
-        assert_equal(balance0["balance"], 45 * 100000000 + 21)
+        assert_equal(balance0["balance"], to_satoshis(45) + 21)
 
         # Check that balances are correct after spending
-        print "Testing balances after spending..."
+        print("Testing balances after spending...")
         privkey2 = "cSdkPxkAjA4HDr5VHgsebAPDEh9Gyub4HK8UJr2DFGGqKKy4K5sG"
         address2 = "ztUB6YWTcj2uUe5Rbucnc7oFevn7wCKyN63"
         op_dup = "76"
@@ -159,7 +159,7 @@ class AddressIndexTest(BitcoinTestFramework):
         unspent.sort(key=lambda x: x["amount"], reverse=True)
         tx = CTransaction()
         tx.vin = [CTxIn(COutPoint(int(unspent[0]["txid"], 16), unspent[0]["vout"]))]
-        amount = unspent[0]["amount"] * 100000000
+        amount = to_satoshis(unspent[0]["amount"])
         tx.vout = [CTxOut(amount, scriptPubKey2)]
         tx.rehash()
         signed_tx = self.nodes[0].signrawtransaction(binascii.hexlify(tx.serialize()).decode("utf-8"))
@@ -171,7 +171,7 @@ class AddressIndexTest(BitcoinTestFramework):
 
         tx = CTransaction()
         tx.vin = [CTxIn(COutPoint(int(spending_txid, 16), 0))]
-        send_amount = 1 * 100000000 + 12840
+        send_amount = to_satoshis(1) + 12840
         change_amount = amount - send_amount - 10000
         tx.vout = [CTxOut(change_amount, scriptPubKey2), CTxOut(send_amount, scriptPubKey)]
         tx.rehash()
@@ -202,13 +202,13 @@ class AddressIndexTest(BitcoinTestFramework):
         assert_equal(len(deltas), 1)
 
         # Check that unspent outputs can be queried
-        print "Testing utxos..."
+        print("Testing utxos...")
         utxos = self.nodes[1].getaddressutxos({"addresses": [address2]})
         assert_equal(len(utxos), 1)
         assert_equal(utxos[0]["satoshis"], change_amount)
 
         # Check that indexes will be updated with a reorg
-        print "Testing reorg..."
+        print("Testing reorg...")
 
         best_hash = self.nodes[0].getbestblockhash()
         self.nodes[0].invalidateblock(best_hash)
@@ -240,7 +240,7 @@ class AddressIndexTest(BitcoinTestFramework):
         assert_equal(utxos3[2]["height"], 265)
 
         # Check mempool indexing
-        print "Testing mempool indexing..."
+        print("Testing mempool indexing...")
 
         privKey3 = "cVfUn53hAbRrDEuMexyfgDpZPhF7KqXpS8UZevsyTDaugB7HZ3CD"
         address3 = "ztihzFwiPbcoMVWzvMAHf37o8jw9VSHdLtC"
@@ -253,7 +253,7 @@ class AddressIndexTest(BitcoinTestFramework):
 
         tx = CTransaction()
         tx.vin = [CTxIn(COutPoint(int(unspent[0]["txid"], 16), unspent[0]["vout"]))]
-        amount = unspent[0]["amount"] * 100000000
+        amount = to_satoshis(unspent[0]["amount"])
         tx.vout = [CTxOut(amount, scriptPubKey3)]
         tx.rehash()
         signed_tx = self.nodes[2].signrawtransaction(binascii.hexlify(tx.serialize()).decode("utf-8"))
@@ -262,12 +262,12 @@ class AddressIndexTest(BitcoinTestFramework):
 
         tx2 = CTransaction()
         tx2.vin = [CTxIn(COutPoint(int(unspent[1]["txid"], 16), unspent[1]["vout"]))]
-        amount = unspent[1]["amount"] * 100000000
+        amount = to_satoshis(unspent[1]["amount"])
         tx2.vout = [
-            CTxOut(amount / 4, scriptPubKey3),
-            CTxOut(amount / 4, scriptPubKey3),
-            CTxOut(amount / 4, scriptPubKey4),
-            CTxOut(amount / 4, scriptPubKey4)
+            CTxOut(amount // 4, scriptPubKey3),
+            CTxOut(amount // 4, scriptPubKey3),
+            CTxOut(amount // 4, scriptPubKey4),
+            CTxOut(amount // 4, scriptPubKey4)
         ]
         tx2.rehash()
         signed_tx2 = self.nodes[2].signrawtransaction(binascii.hexlify(tx2.serialize()).decode("utf-8"))
@@ -294,7 +294,7 @@ class AddressIndexTest(BitcoinTestFramework):
             CTxIn(COutPoint(int(memtxid2, 16), 0)),
             CTxIn(COutPoint(int(memtxid2, 16), 1))
         ]
-        tx.vout = [CTxOut(amount / 2 - 10000, scriptPubKey2)]
+        tx.vout = [CTxOut(amount // 2 - 10000, scriptPubKey2)]
         tx.rehash()
         self.nodes[2].importprivkey(privKey3)
         signed_tx3 = self.nodes[2].signrawtransaction(binascii.hexlify(tx.serialize()).decode("utf-8"))
@@ -337,7 +337,7 @@ class AddressIndexTest(BitcoinTestFramework):
         assert_equal(len(mempool_deltas), 2)
 
         # Include chaininfo in results
-        print "Testing results with chain info..."
+        print("Testing results with chain info...")
 
         deltas_with_info = self.nodes[1].getaddressdeltas({
             "addresses": [address2],
@@ -447,7 +447,7 @@ class AddressIndexTest(BitcoinTestFramework):
         assert_equal(addr3_mempool, [])
 
 
-        print "Passed\n"
+        print("Passed\n")
 
 
 if __name__ == '__main__':
