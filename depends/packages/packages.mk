@@ -101,7 +101,10 @@ rust_crates_z := \
 	crate_radix_trie_z \
 	crate_rustc_version_z \
 	crate_endian-type_z \
-	crate_nibble_vec_z
+	crate_nibble_vec_z \
+	crate_num_bigint_z \
+	crate_num_integer_z \
+	crate_num_traits_z
 	
 #rust_packages := rust $(rust_crates) 
 rust_packages := rust $(rust_crates) librustzcash
