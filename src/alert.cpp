@@ -12,7 +12,6 @@
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/foreach.hpp>
 #include <boost/thread.hpp>
 
 #include "clientversion.h"
@@ -46,11 +45,14 @@ void CUnsignedAlert::SetNull() {
 
 std::string CUnsignedAlert::ToString() const {
     std::string strSetCancel;
-    BOOST_FOREACH (int n, setCancel)
+    for (const int n : setCancel) {
         strSetCancel += strprintf("%d ", n);
+    }
     std::string strSetSubVer;
-    BOOST_FOREACH (const std::string& str, setSubVer)
+    for (const std::string& str : setSubVer) {
         strSetSubVer += "\"" + str + "\" ";
+    }
+
     return strprintf(
         "CAlert(\n"
         "    nVersion     = %d\n"
@@ -168,8 +170,7 @@ bool CAlert::ProcessAlert(const std::vector<unsigned char>& alertKey, bool fThre
         }
 
         // Check if this alert has been cancelled
-        BOOST_FOREACH (PAIRTYPE(const uint256, CAlert) & item, mapAlerts) {
-            const CAlert& alert = item.second;
+        for (const auto& [_, alert] : mapAlerts) {
             if (alert.Cancels(*this)) {
                 LogPrint("alert", "alert already cancelled by %d\n", alert.nID);
                 return false;

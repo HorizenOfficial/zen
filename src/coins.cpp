@@ -82,7 +82,7 @@ void CCoins::Cleanup() {
 }
 
 void CCoins::ClearUnspendable() {
-    BOOST_FOREACH (CTxOut& txout, vout) {
+    for (CTxOut& txout : vout) {
         if (txout.scriptPubKey.IsUnspendable()) txout.SetNull();
     }
     Cleanup();
@@ -2225,7 +2225,7 @@ double CCoinsViewCache::GetPriority(const CTransactionBase& tx, int nHeight) con
     }
 
     double dResult = 0.0;
-    BOOST_FOREACH (const CTxIn& txin, tx.GetVin()) {
+    for (const CTxIn& txin : tx.GetVin()) {
         const CCoins* coins = AccessCoins(txin.prevout.hash);
         assert(coins);
         if (!coins->IsAvailable(txin.prevout.n)) continue;

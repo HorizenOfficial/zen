@@ -4,8 +4,6 @@
 
 #include <univalue.h>
 
-#include <boost/foreach.hpp>
-
 #include "base58.h"
 #include "core_io.h"
 #include "primitives/certificate.h"
@@ -103,8 +101,9 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey, UniValue& out, bool fInclud
     out.pushKV("type", GetTxnOutputType(type));
 
     UniValue a(UniValue::VARR);
-    BOOST_FOREACH (const CTxDestination& addr, addresses)
+    for (const CTxDestination& addr : addresses) {
         a.push_back(CBitcoinAddress(addr).ToString());
+    }
     out.pushKV("addresses", a);
 }
 
@@ -114,7 +113,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
     entry.pushKV("locktime", (int64_t)tx.GetLockTime());
 
     UniValue vin(UniValue::VARR);
-    BOOST_FOREACH (const CTxIn& txin, tx.GetVin()) {
+    for (const CTxIn& txin : tx.GetVin()) {
         UniValue in(UniValue::VOBJ);
         if (tx.IsCoinBase())
             in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));

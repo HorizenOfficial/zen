@@ -350,8 +350,9 @@ void FinalizeNode(NodeId nodeid) {
         AddressCurrentlyConnected(state->address);
     }
 
-    BOOST_FOREACH (const QueuedBlock& entry, state->vBlocksInFlight)
+    for (const QueuedBlock& entry : state->vBlocksInFlight) {
         mapBlocksInFlight.erase(entry.hash);
+    }
     EraseOrphansFor(nodeid);
     nPreferredDownload -= state->fPreferredDownload;
 
@@ -501,7 +502,7 @@ void FindNextBlocksToDownload(NodeId nodeid, unsigned int count, std::vector<CBl
         // are not yet downloaded and not in flight to vBlocks. In the meantime, update
         // pindexLastCommonBlock as long as all ancestors are already downloaded, or if it's
         // already part of our chain (and therefore don't need it even if pruned).
-        BOOST_FOREACH (CBlockIndex* pindex, vToFetch) {
+        for (CBlockIndex* pindex : vToFetch) {
             if (!pindex->IsValid(BLOCK_VALID_TREE)) {
                 // We consider the chain that this peer is on invalid.
                 return;
@@ -541,7 +542,7 @@ bool GetNodeStateStats(NodeId nodeid, CNodeStateStats& stats) {
     stats.nMisbehavior = state->nMisbehavior;
     stats.nSyncHeight = state->pindexBestKnownBlock ? state->pindexBestKnownBlock->nHeight : -1;
     stats.nCommonHeight = state->pindexLastCommonBlock ? state->pindexLastCommonBlock->nHeight : -1;
-    BOOST_FOREACH (const QueuedBlock& queue, state->vBlocksInFlight) {
+    for (const QueuedBlock& queue : state->vBlocksInFlight) {
         if (queue.pindex) stats.vHeightInFlight.push_back(queue.pindex->nHeight);
     }
     return true;
@@ -565,7 +566,7 @@ void UnregisterNodeSignals(CNodeSignals& nodeSignals) {
 
 CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& locator) {
     // Find the first block the caller has in the main chain
-    BOOST_FOREACH (const uint256& hash, locator.vHave) {
+    for (const uint256& hash : locator.vHave) {
         BlockMap::iterator mi = mapBlockIndex.find(hash);
         if (mi != mapBlockIndex.end()) {
             CBlockIndex* pindex = (*mi).second;
@@ -602,8 +603,9 @@ bool AddOrphanTx(const CTransactionBase& txObj, NodeId peer) EXCLUSIVE_LOCKS_REQ
 
     mapOrphanTransactions[hash].tx = txObj.MakeShared();
     mapOrphanTransactions[hash].fromPeer = peer;
-    BOOST_FOREACH (const CTxIn& txin, txObj.GetVin())
+    for (const CTxIn& txin : txObj.GetVin()) {
         mapOrphanTransactionsByPrev[txin.prevout.hash].insert(hash);
+    }
 
     LogPrint("mempool", "stored orphan tx %s (mapsz %u prevsz %u)\n", hash.ToString(), mapOrphanTransactions.size(),
              mapOrphanTransactionsByPrev.size());
@@ -613,7 +615,7 @@ bool AddOrphanTx(const CTransactionBase& txObj, NodeId peer) EXCLUSIVE_LOCKS_REQ
 void static EraseOrphanTx(uint256 hash) EXCLUSIVE_LOCKS_REQUIRED(cs_main) {
     map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.find(hash);
     if (it == mapOrphanTransactions.end()) return;
-    BOOST_FOREACH (const CTxIn& txin, it->second.tx->GetVin()) {
+    for (const CTxIn& txin : it->second.tx->GetVin()) {
         map<uint256, set<uint256>>::iterator itPrev = mapOrphanTransactionsByPrev.find(txin.prevout.hash);
         if (itPrev == mapOrphanTransactionsByPrev.end()) continue;
         itPrev->second.erase(hash);
@@ -654,7 +656,7 @@ bool IsStandardTx(const CTransactionBase& txBase, string& reason, const int nHei
         return false;
     }
 
-    BOOST_FOREACH (const CTxIn& txin, txBase.GetVin()) {
+    for (const CTxIn& txin : txBase.GetVin()) {
         // Biggest 'standard' txin is a 15-of-15 P2SH multisig with compressed
         // keys. (remember the 520 byte limit on redeemScript size) That works
         // out to a (15*(33+1))+3=513 byte redeemScript, 513+1+15*(73+1)+3=1627
@@ -732,7 +734,7 @@ bool IsFinalTx(const CTransactionBase& tx, int nBlockHeight, int64_t nBlockTime)
     if (tx.GetLockTime() == 0) return true;
     if ((int64_t)tx.GetLockTime() < ((int64_t)tx.GetLockTime() < LOCKTIME_THRESHOLD ? (int64_t)nBlockHeight : nBlockTime))
         return true;
-    BOOST_FOREACH (const CTxIn& txin, tx.GetVin())
+    for (const CTxIn& txin : tx.GetVin())
         /* According to BIP 68, setting nSequence value to 0xFFFFFFFF for every input in the transaction disables nLocktime.
        So, whatever may be the value of nLocktime above, it will have no effect on the transaction as far as nSequence
        value is 0xFFFFFFFF.*/
@@ -966,7 +968,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState& state, libzcash:
     }
 
     // Ensure that zk-SNARKs verify
-    BOOST_FOREACH (const JSDescription& joinsplit, tx.GetVjoinsplit()) {
+    for (const JSDescription& joinsplit : tx.GetVjoinsplit()) {
         if (!joinsplit.Verify(*pzcashParams, verifier, tx.joinSplitPubKey)) {
             return state.DoS(100, error("CheckTransaction(): joinsplit does not verify"), CValidationState::Code::INVALID,
                              "bad-txns-joinsplit-verification-failed");
@@ -2690,8 +2692,10 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
 
         // unspend nullifiers
-        BOOST_FOREACH (const JSDescription& joinsplit, tx.GetVjoinsplit()) {
-            BOOST_FOREACH (const uint256& nf, joinsplit.nullifiers) { view.SetNullifier(nf, false); }
+        for (const JSDescription& joinsplit : tx.GetVjoinsplit()) {
+            for (const uint256& nf : joinsplit.nullifiers) {
+                view.SetNullifier(nf, false);
+            }
         }
 
         for (const CTxCeasedSidechainWithdrawalInput& cswIn : tx.GetVcswCcIn()) {
@@ -3160,8 +3164,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
         }
 
-        BOOST_FOREACH (const JSDescription& joinsplit, tx.GetVjoinsplit()) {
-            BOOST_FOREACH (const uint256& note_commitment, joinsplit.commitments) {
+        for (const JSDescription& joinsplit : tx.GetVjoinsplit()) {
+            for (const uint256& note_commitment : joinsplit.commitments) {
                 // Insert the note commitments into our temporary tree.
                 tree.append(note_commitment);
             }
@@ -4109,7 +4113,7 @@ bool ActivateBestChain(CValidationState& state, CBlock* pblock, bool& postponeRe
             // in a stalled download if the block file is pruned before the request.
             if (nLocalServices & NODE_NETWORK) {
                 LOCK(cs_vNodes);
-                BOOST_FOREACH (CNode* pnode, vNodes) {
+                for (CNode* pnode : vNodes) {
                     if (chainActive.Height() >
                         (pnode->nStartingHeight != -1 ? pnode->nStartingHeight - 2000 : nBlockEstimate)) {
                         pnode->PushInventory(CInv(MSG_BLOCK, hashNewTip));
@@ -4251,7 +4255,7 @@ bool updateGlobalForkTips(const CBlockIndex* pindex, bool lookForwardTips) {
             int h = pindex->nHeight;
             bool done = false;
 
-            BOOST_FOREACH (auto mapPair, mGlobalForkTips) {
+            for (const auto& mapPair : mGlobalForkTips) {
                 const CBlockIndex* tipIndex = mapPair.first;
                 if (!tipIndex) continue;
 
@@ -4687,7 +4691,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     const Consensus::Params& consensusParams = Params().GetConsensus();
 
     // Check that all transactions are finalized
-    BOOST_FOREACH (const CTransaction& tx, block.vtx) {
+    for (const CTransaction& tx : block.vtx) {
         // Check transaction contextually against consensus rules at block height
         if (!tx.ContextualCheck(state, nHeight, 100)) {
             return false;  // Failure reason has been set in validation state object
@@ -4949,7 +4953,9 @@ bool TestBlockValidity(CValidationState& state, const CBlock& block, CBlockIndex
 /* Calculate the amount of disk space the block & undo files currently use */
 uint64_t CalculateCurrentUsage() {
     uint64_t retval = 0;
-    BOOST_FOREACH (const CBlockFileInfo& file, vinfoBlockFile) { retval += file.nSize + file.nUndoSize; }
+    for (const CBlockFileInfo& file : vinfoBlockFile) {
+        retval += file.nSize + file.nUndoSize;
+    }
     return retval;
 }
 
@@ -5101,13 +5107,11 @@ bool static LoadBlockIndexDB() {
     // Calculate nChainWork
     vector<pair<int, CBlockIndex*>> vSortedByHeight;
     vSortedByHeight.reserve(mapBlockIndex.size());
-    BOOST_FOREACH (const PAIRTYPE(uint256, CBlockIndex*) & item, mapBlockIndex) {
-        CBlockIndex* pindex = item.second;
+    for (const auto& [_, pindex] : mapBlockIndex) {
         vSortedByHeight.push_back(make_pair(pindex->nHeight, pindex));
     }
     sort(vSortedByHeight.begin(), vSortedByHeight.end());
-    BOOST_FOREACH (const PAIRTYPE(int, CBlockIndex*) & item, vSortedByHeight) {
-        CBlockIndex* pindex = item.second;
+    for (const auto& [_, pindex] : vSortedByHeight) {
         pindex->nChainWork = (pindex->pprev ? pindex->pprev->nChainWork : 0) + GetBlockProof(*pindex);
         pindex->nChainDelay = 0;
         // We can link the chain of blocks for which we've received transactions at some point.
@@ -5163,13 +5167,12 @@ bool static LoadBlockIndexDB() {
     // Check presence of blk files
     LogPrintf("Checking all blk files are present...\n");
     set<int> setBlkDataFiles;
-    BOOST_FOREACH (const PAIRTYPE(uint256, CBlockIndex*) & item, mapBlockIndex) {
-        CBlockIndex* pindex = item.second;
+    for (const auto& [_, pindex] : mapBlockIndex) {
         if (pindex->nStatus & BLOCK_HAVE_DATA) {
             setBlkDataFiles.insert(pindex->nFile);
         }
     }
-    for (std::set<int>::iterator it = setBlkDataFiles.begin(); it != setBlkDataFiles.end(); it++) {
+    for (auto it = setBlkDataFiles.cbegin(), end = setBlkDataFiles.cend(); it != end; it++) {
         CDiskBlockPos pos(*it, 0);
         if (CAutoFile(OpenBlockFile(pos, true), SER_DISK, CLIENT_VERSION).IsNull()) {
             return false;
@@ -5212,8 +5215,7 @@ bool static LoadBlockIndexDB() {
 #endif  // ENABLE_ADDRESS_INDEXING
 
     // Fill in-memory data
-    BOOST_FOREACH (const PAIRTYPE(uint256, CBlockIndex*) & item, mapBlockIndex) {
-        CBlockIndex* pindex = item.second;
+    for (const auto& [_, pindex] : mapBlockIndex) {
         // - This relationship will always be true even if pprev has multiple
         //   children, because hashAnchor is technically a property of pprev,
         //   not its children.
@@ -5368,7 +5370,9 @@ void UnloadBlockIndex() {
     mapNodeState.clear();
     recentRejects.reset(NULL);
 
-    BOOST_FOREACH (BlockMap::value_type& entry, mapBlockIndex) { delete entry.second; }
+    for (BlockMap::value_type& entry : mapBlockIndex) {
+        delete entry.second;
+    }
     mapBlockIndex.clear();
     fHavePruned = false;
 }
@@ -5872,8 +5876,7 @@ std::string GetWarnings(const std::string& strFor) {
     // Alerts
     {
         LOCK(cs_mapAlerts);
-        BOOST_FOREACH (PAIRTYPE(const uint256, CAlert) & item, mapAlerts) {
-            const CAlert& alert = item.second;
+        for (const auto& [_, alert] : mapAlerts) {
             if (alert.AppliesToMe() && alert.nPriority > nPriority) {
                 nPriority = alert.nPriority;
                 strStatusBar = alert.strStatusBar;
@@ -5994,13 +5997,12 @@ void static ProcessGetData(CNode* pfrom) {
                             // for us to provide duplicate txn here, however we MUST always provide at least what the remote
                             // peer needs
                             typedef std::pair<unsigned int, uint256> PairType;
-                            BOOST_FOREACH (PairType& pair, merkleBlock.vMatchedTxn) {
-                                unsigned int pos = pair.first;
+                            for (const auto& [pos, hash] : merkleBlock.vMatchedTxn) {
                                 if (pos < block.vtx.size()) {
-                                    if (!pfrom->setInventoryKnown.count(CInv(MSG_TX, pair.second)))
+                                    if (!pfrom->setInventoryKnown.count(CInv(MSG_TX, hash)))
                                         pfrom->PushMessage("tx", block.vtx[pos]);
                                 } else if (pos < (block.vcert.size() + block.vtx.size())) {
-                                    if (!pfrom->setInventoryKnown.count(CInv(MSG_TX, pair.second))) {
+                                    if (!pfrom->setInventoryKnown.count(CInv(MSG_TX, hash))) {
                                         unsigned int offset = pos - block.vtx.size();
                                         pfrom->PushMessage("tx", block.vcert[offset]);
                                     }

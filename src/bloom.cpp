@@ -7,8 +7,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include <boost/foreach.hpp>
-
 #include "hash.h"
 #include "primitives/transaction.h"
 #include "random.h"
@@ -151,7 +149,7 @@ bool CBloomFilter::IsRelevantAndUpdate(const CTransactionBase& tx) {
 
     if (fFound) return true;
 
-    BOOST_FOREACH (const CTxIn& txin, tx.GetVin()) {
+    for (const CTxIn& txin : tx.GetVin()) {
         // Match if the filter contains an outpoint tx spends
         if (contains(txin.prevout)) return true;
 
